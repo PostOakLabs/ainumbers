@@ -5,6 +5,13 @@ description: "Validate Daml lifecycle coverage for tokenized securities: issuanc
 resource: https://ainumbers.co/tools/512-tokenized-security-lifecycle-validator.html
 tags: ["compliance_mandate", "wave-8", "mcp:validate_tokenized_security_lifecycle", "iso20022:party-identification"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/512-tokenized-security-lifecycle-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/512-tokenized-security-lifecycle-validator.html
+    title: "public tool page"
 ---
 
 # Tokenized Security Lifecycle Validator

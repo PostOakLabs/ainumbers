@@ -5,6 +5,13 @@ description: "Static conformance lint of a permissioned-EVM settlement contract 
 resource: https://ainumbers.co/chaingraph/art-289-lint-besu-settlement-contract.html
 tags: ["compliance_mandate", "wave-53", "mcp:lint_besu_settlement_contract"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-289-lint-besu-settlement-contract.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-289-lint-besu-settlement-contract.html
+    title: "public tool page"
 ---
 
 # Besu Settlement Contract Linter

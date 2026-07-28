@@ -5,6 +5,13 @@ description: "Co-flagship and strongest in-force anchor: classifies autonomy tie
 resource: https://ainumbers.co/chaingraph/art-67-agentic-ai-risk-classifier.html
 tags: ["model_governance", "wave-15", "mcp:classify_agentic_ai_risk"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-67-agentic-ai-risk-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-67-agentic-ai-risk-classifier.html
+    title: "public tool page"
 ---
 
 # Agentic AI Risk & GPAI Governance Classifier

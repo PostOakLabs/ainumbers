@@ -5,6 +5,13 @@ description: "Computes a fund's gross and net expense ratios and Total Expense R
 resource: https://ainumbers.co/chaingraph/art-375-compute-fund-expense-ratios.html
 tags: ["attestation_mandate", "wave-51", "mcp:compute_fund_expense_ratios"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-375-compute-fund-expense-ratios.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-375-compute-fund-expense-ratios.html
+    title: "public tool page"
 ---
 
 # Compute Fund Expense Ratios

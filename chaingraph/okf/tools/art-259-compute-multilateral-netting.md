@@ -5,6 +5,13 @@ description: "Computes N-entity corporate cash netting: gross inter-company posi
 resource: https://ainumbers.co/chaingraph/art-259-compute-multilateral-netting.html
 tags: ["analytics_mandate", "wave-44", "mcp:compute_multilateral_netting"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-259-compute-multilateral-netting.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-259-compute-multilateral-netting.html
+    title: "public tool page"
 ---
 
 # Multilateral Cash Netting

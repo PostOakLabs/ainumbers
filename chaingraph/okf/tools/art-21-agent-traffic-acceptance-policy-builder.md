@@ -5,6 +5,13 @@ description: "Builds a policy mandate governing accepted AI agent types, identit
 resource: https://ainumbers.co/chaingraph/art-21-agent-traffic-acceptance-policy-builder.html
 tags: ["agent_guardrail_mandate", "wave-A", "mcp:build_agent_traffic_policy"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-21-agent-traffic-acceptance-policy-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-21-agent-traffic-acceptance-policy-builder.html
+    title: "public tool page"
 ---
 
 # Agent-Traffic Acceptance Policy Builder

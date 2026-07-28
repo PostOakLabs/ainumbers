@@ -5,6 +5,13 @@ description: "Validate an agent on-behalf-of (OBO) mandate: subject (the user be
 resource: https://ainumbers.co/chaingraph/art-151-agent-obo-mandate-validator.html
 tags: ["compliance_mandate", "wave-27", "mcp:validate_agent_obo_mandate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-151-agent-obo-mandate-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-151-agent-obo-mandate-validator.html
+    title: "public tool page"
 ---
 
 # Agent On-Behalf-Of (OBO) Mandate Validator

@@ -5,6 +5,13 @@ description: "Scores a Swift member's declared architecture type and component i
 resource: https://ainumbers.co/chaingraph/art-486-cscf-control-applicability.html
 tags: ["compliance_mandate", "wave-66", "mcp:check_cscf_control_applicability"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-486-cscf-control-applicability.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-486-cscf-control-applicability.html
+    title: "public tool page"
 ---
 
 # CSCF Control Applicability & Coverage

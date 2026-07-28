@@ -5,6 +5,13 @@ description: "Rolls up embedded emissions across precursors in a steel/aluminium
 resource: https://ainumbers.co/chaingraph/art-72-cbam-precursor-emissions-aggregator.html
 tags: ["compliance_mandate", "wave-16", "mcp:aggregate_cbam_precursor_emissions"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-72-cbam-precursor-emissions-aggregator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-72-cbam-precursor-emissions-aggregator.html
+    title: "public tool page"
 ---
 
 # CBAM Precursor-Emissions Aggregator

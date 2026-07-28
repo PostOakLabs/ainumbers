@@ -5,6 +5,13 @@ description: "Builds an Art 27 Fundamental Rights Impact Assessment (FRIA) + Art
 resource: https://ainumbers.co/chaingraph/art-66-fria-postmarket-monitoring-builder.html
 tags: ["compliance_mandate", "wave-15", "mcp:build_fria_monitoring_plan"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-66-fria-postmarket-monitoring-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-66-fria-postmarket-monitoring-builder.html
+    title: "public tool page"
 ---
 
 # FRIA & Post-Market Monitoring Plan Builder

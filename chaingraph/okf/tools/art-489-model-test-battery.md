@@ -5,6 +5,13 @@ description: "Runs the deterministic-given-data quantitative model validation ba
 resource: https://ainumbers.co/chaingraph/art-489-model-test-battery.html
 tags: ["compliance_control", "wave-77", "mcp:run_model_test_battery"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-489-model-test-battery.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-489-model-test-battery.html
+    title: "public tool page"
 ---
 
 # Model Test Battery

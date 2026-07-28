@@ -5,6 +5,13 @@ description: "BCBS 248 \"Monitoring tools for intraday liquidity management\" (B
 resource: https://ainumbers.co/chaingraph/art-477-intraday-liquidity-monitoring.html
 tags: ["compliance_mandate", "wave-71", "mcp:compute_intraday_liquidity_monitoring"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-477-intraday-liquidity-monitoring.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-477-intraday-liquidity-monitoring.html
+    title: "public tool page"
 ---
 
 # BCBS 248 Intraday Liquidity Monitoring Snapshot

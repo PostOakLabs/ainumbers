@@ -5,6 +5,13 @@ description: "Assembles a Common Paper AI Addendum (Version 1.0, CC BY 4.0) from
 resource: https://ainumbers.co/chaingraph/art-411-ai-addendum-assembler.html
 tags: ["compliance_mandate", "wave-50", "mcp:assemble_ai_addendum"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-411-ai-addendum-assembler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-411-ai-addendum-assembler.html
+    title: "public tool page"
 ---
 
 # AI Addendum Assembler

@@ -5,6 +5,13 @@ description: "Deterministic lint of a supplied agentic-dispute evidence bundle a
 resource: https://ainumbers.co/chaingraph/art-297-agentic-dispute-ce30-linter.html
 tags: ["compliance_mandate", "wave-47", "mcp:lint_compelling_evidence_ce30_agentic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-297-agentic-dispute-ce30-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-297-agentic-dispute-ce30-linter.html
+    title: "public tool page"
 ---
 
 # Agentic Dispute CE3.0 Evidence Linter

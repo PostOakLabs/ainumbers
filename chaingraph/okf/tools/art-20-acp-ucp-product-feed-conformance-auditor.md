@@ -5,6 +5,13 @@ description: "Validates product/checkout/mandate JSON payloads against ACP or UC
 resource: https://ainumbers.co/chaingraph/art-20-acp-ucp-product-feed-conformance-auditor.html
 tags: ["scheme_rule", "wave-A", "mcp:audit_acp_ucp_product_feed"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-20-acp-ucp-product-feed-conformance-auditor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-20-acp-ucp-product-feed-conformance-auditor.html
+    title: "public tool page"
 ---
 
 # ACP/UCP Product-Feed Conformance Auditor

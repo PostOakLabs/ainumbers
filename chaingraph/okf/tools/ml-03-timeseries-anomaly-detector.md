@@ -5,6 +5,13 @@ description: "Rolling-window z-score and STL-style seasonal decomposition anomal
 resource: https://ainumbers.co/chaingraph/ml-03-timeseries-anomaly-detector.html
 tags: ["risk_control", "wave-4", "mcp:detect_timeseries_anomalies"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/ml-03-timeseries-anomaly-detector.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/ml-03-timeseries-anomaly-detector.html
+    title: "public tool page"
 ---
 
 # Time-Series Anomaly Detector

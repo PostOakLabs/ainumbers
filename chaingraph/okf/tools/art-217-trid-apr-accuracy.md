@@ -5,6 +5,13 @@ description: "TRID APR accuracy check per Reg Z §1026.22(a). Verifies disclosed
 resource: https://ainumbers.co/chaingraph/art-217-trid-apr-accuracy.html
 tags: ["compliance_mandate", "wave-37", "mcp:verify_trid_apr_accuracy"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-217-trid-apr-accuracy.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-217-trid-apr-accuracy.html
+    title: "public tool page"
 ---
 
 # TRID APR Accuracy Verifier

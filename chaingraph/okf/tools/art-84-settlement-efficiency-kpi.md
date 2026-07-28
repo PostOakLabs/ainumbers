@@ -5,6 +5,13 @@ description: "Aggregates batch settlement data into CSDR/T+1-relevant KPIs: sett
 resource: https://ainumbers.co/chaingraph/art-84-settlement-efficiency-kpi.html
 tags: ["model_governance", "wave-17", "mcp:compute_settlement_efficiency_kpi"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-84-settlement-efficiency-kpi.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-84-settlement-efficiency-kpi.html
+    title: "public tool page"
 ---
 
 # Settlement Efficiency KPI Engine

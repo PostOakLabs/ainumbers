@@ -5,6 +5,13 @@ description: "Validates an EuGB factsheet (Annex I) + allocation report (Annex I
 resource: https://ainumbers.co/chaingraph/art-75-eugb-factsheet-validator.html
 tags: ["compliance_mandate", "wave-16", "mcp:validate_eugb_factsheet"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-75-eugb-factsheet-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-75-eugb-factsheet-validator.html
+    title: "public tool page"
 ---
 
 # EU Green Bond Factsheet & Allocation Validator

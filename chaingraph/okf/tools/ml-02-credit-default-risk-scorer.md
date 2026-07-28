@@ -5,6 +5,13 @@ description: "Logistic regression PD scorer on synthetic loan portfolio with Bas
 resource: https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.html
 tags: ["credit_assessment", "wave-4", "mcp:score_credit_default_risk"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/ml-02-credit-default-risk-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/ml-02-credit-default-risk-scorer.html
+    title: "public tool page"
 ---
 
 # Credit Default Risk Scorer

@@ -5,6 +5,13 @@ description: "Per-row CNSA 2.0 post-quantum migration deadline for a supplied sy
 resource: https://ainumbers.co/chaingraph/art-387-pqc-deadline-ladder-calculator.html
 tags: ["compliance_mandate", "wave-65", "mcp:compute_pqc_deadline_ladder"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-387-pqc-deadline-ladder-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-387-pqc-deadline-ladder-calculator.html
+    title: "public tool page"
 ---
 
 # CNSA 2.0 Deadline Ladder Calculator

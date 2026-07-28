@@ -5,6 +5,13 @@ description: "Verifies a C2SP tlog-checkpoint + witness-cosignature note (SPEC.m
 resource: https://ainumbers.co/chaingraph/art-424-witness-cosignature-verifier.html
 tags: ["cryptographic_mandate", "wave-50", "mcp:verify_witness_cosignatures"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-424-witness-cosignature-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-424-witness-cosignature-verifier.html
+    title: "public tool page"
 ---
 
 # Witness Cosignature Verifier

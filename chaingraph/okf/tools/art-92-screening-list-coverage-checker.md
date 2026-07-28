@@ -5,6 +5,13 @@ description: "Conformance check: validates a screening config against the requir
 resource: https://ainumbers.co/chaingraph/art-92-screening-list-coverage-checker.html
 tags: ["compliance_mandate", "wave-19", "mcp:check_screening_list_coverage"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-92-screening-list-coverage-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-92-screening-list-coverage-checker.html
+    title: "public tool page"
 ---
 
 # Screening List-Coverage Checker

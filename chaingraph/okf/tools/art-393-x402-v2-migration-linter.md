@@ -5,6 +5,13 @@ description: "Lints a supplied x402 header set / 402 response body against the P
 resource: https://ainumbers.co/chaingraph/art-393-x402-v2-migration-linter.html
 tags: ["compliance_control", "wave-66", "mcp:lint_x402_v2_migration"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-393-x402-v2-migration-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-393-x402-v2-migration-linter.html
+    title: "public tool page"
 ---
 
 # x402 v2 Wire-Format Migration Linter

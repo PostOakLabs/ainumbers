@@ -5,6 +5,13 @@ description: "12-question scored diagnostic: graded A–F across tool definition
 resource: https://ainumbers.co/chaingraph/art-28-mcp-server-deployability-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-A", "mcp:run_mcp_deployability_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-28-mcp-server-deployability-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-28-mcp-server-deployability-diagnostic.html
+    title: "public tool page"
 ---
 
 # MCP Server Deployability Diagnostic

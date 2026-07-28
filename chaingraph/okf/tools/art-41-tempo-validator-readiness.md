@@ -5,6 +5,13 @@ description: "12-question readiness scorer for prospective Tempo Network validat
 resource: https://ainumbers.co/chaingraph/art-41-tempo-validator-readiness.html
 tags: ["infrastructure_mandate", "wave-9", "mcp:score_tempo_validator_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-41-tempo-validator-readiness.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-41-tempo-validator-readiness.html
+    title: "public tool page"
 ---
 
 # Tempo Validator Readiness Scorer

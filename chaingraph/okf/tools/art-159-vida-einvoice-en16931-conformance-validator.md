@@ -5,6 +5,13 @@ description: "Validate a structured e-invoice against EN 16931-1:2026 mandatory 
 resource: https://ainumbers.co/chaingraph/art-159-vida-einvoice-en16931-conformance-validator.html
 tags: ["compliance_mandate", "wave-29", "mcp:validate_vida_einvoice_conformance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-159-vida-einvoice-en16931-conformance-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-159-vida-einvoice-en16931-conformance-validator.html
+    title: "public tool page"
 ---
 
 # ViDA EN 16931 E-Invoice Conformance Validator

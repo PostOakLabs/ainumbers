@@ -5,6 +5,13 @@ description: "Assembles an EU AI Act Annex IV technical documentation pack, vali
 resource: https://ainumbers.co/chaingraph/art-65-ai-conformity-pack-builder.html
 tags: ["model_governance", "wave-15", "mcp:build_ai_conformity_pack"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-65-ai-conformity-pack-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-65-ai-conformity-pack-builder.html
+    title: "public tool page"
 ---
 
 # AI Act Conformity Pack Builder

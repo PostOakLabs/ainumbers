@@ -5,6 +5,13 @@ description: "Scored ViDA readiness diagnostic across four dimensions: einvoice 
 resource: https://ainumbers.co/chaingraph/art-164-vida-compliance-readiness-diagnostic.html
 tags: ["compliance_mandate", "wave-29", "mcp:run_vida_readiness_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-164-vida-compliance-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-164-vida-compliance-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # ViDA Compliance Readiness Diagnostic

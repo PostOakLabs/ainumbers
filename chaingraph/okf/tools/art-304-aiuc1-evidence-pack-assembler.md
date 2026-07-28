@@ -5,6 +5,13 @@ description: "Assembles a signed, AIUC-1 control-keyed evidence pack from execut
 resource: https://ainumbers.co/chaingraph/art-304-aiuc1-evidence-pack-assembler.html
 tags: ["compliance_mandate", "wave-54", "mcp:assemble_aiuc1_evidence_pack"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-304-aiuc1-evidence-pack-assembler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-304-aiuc1-evidence-pack-assembler.html
+    title: "public tool page"
 ---
 
 # AIUC-1 Evidence Pack Assembler

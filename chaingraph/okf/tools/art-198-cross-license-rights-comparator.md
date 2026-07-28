@@ -5,6 +5,13 @@ description: "Compares any two licenses from the CC, CBE, and PIL families on a 
 resource: https://ainumbers.co/chaingraph/art-198-cross-license-rights-comparator.html
 tags: ["compliance_mandate", "wave-35", "mcp:compare_rights_matrix"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-198-cross-license-rights-comparator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-198-cross-license-rights-comparator.html
+    title: "public tool page"
 ---
 
 # Cross-License Rights Comparator

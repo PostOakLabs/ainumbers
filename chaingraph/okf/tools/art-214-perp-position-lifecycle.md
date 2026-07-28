@@ -5,6 +5,13 @@ description: "Models a full perp position from open to close: liquidation price,
 resource: https://ainumbers.co/chaingraph/art-214-perp-position-lifecycle.html
 tags: ["derivatives_margin_health", "wave-36", "mcp:model_perp_position"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-214-perp-position-lifecycle.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-214-perp-position-lifecycle.html
+    title: "public tool page"
 ---
 
 # Perp Position Lifecycle

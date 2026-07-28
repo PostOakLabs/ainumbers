@@ -5,6 +5,13 @@ description: "Transforms any ChainGraph artifact JSON into a structured, regulat
 resource: https://ainumbers.co/chaingraph/ptg-01-ap2-prompt-template-generator.html
 tags: ["prompt_template", "wave-1", "mcp:compose_ap2_prompt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/ptg-01-ap2-prompt-template-generator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/ptg-01-ap2-prompt-template-generator.html
+    title: "public tool page"
 ---
 
 # AP2 Prompt Template Generator

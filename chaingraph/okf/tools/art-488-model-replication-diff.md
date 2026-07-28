@@ -5,6 +5,13 @@ description: "Independently recomputes a model's reported outputs from a declare
 resource: https://ainumbers.co/chaingraph/art-488-model-replication-diff.html
 tags: ["compliance_control", "wave-77", "mcp:replicate_model_outputs"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-488-model-replication-diff.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-488-model-replication-diff.html
+    title: "public tool page"
 ---
 
 # Model Replication Diff

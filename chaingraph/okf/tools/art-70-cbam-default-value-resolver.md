@@ -5,6 +5,13 @@ description: "Resolves the Commission default embedded-emissions value for a (CN
 resource: https://ainumbers.co/chaingraph/art-70-cbam-default-value-resolver.html
 tags: ["compliance_mandate", "wave-16", "mcp:resolve_cbam_default_value"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-70-cbam-default-value-resolver.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-70-cbam-default-value-resolver.html
+    title: "public tool page"
 ---
 
 # CBAM Default-Value Resolver

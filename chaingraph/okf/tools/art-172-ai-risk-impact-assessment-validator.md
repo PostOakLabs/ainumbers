@@ -5,6 +5,13 @@ description: "Validate ISO 42005-style AI impact-assessment completeness across 
 resource: https://ainumbers.co/chaingraph/art-172-ai-risk-impact-assessment-validator.html
 tags: ["compliance_mandate", "wave-31", "mcp:validate_ai_impact_assessment"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-172-ai-risk-impact-assessment-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-172-ai-risk-impact-assessment-validator.html
+    title: "public tool page"
 ---
 
 # AI Risk Impact Assessment Validator

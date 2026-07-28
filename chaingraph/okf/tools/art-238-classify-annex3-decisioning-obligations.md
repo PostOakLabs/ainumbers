@@ -5,6 +5,13 @@ description: "EXTENDS run_ai_act_highrisk_fit (art-64). Resolves financial-servi
 resource: https://ainumbers.co/chaingraph/art-238-classify-annex3-decisioning-obligations.html
 tags: ["compliance_mandate", "wave-40", "mcp:classify_annex3_decisioning_obligations"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-238-classify-annex3-decisioning-obligations.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-238-classify-annex3-decisioning-obligations.html
+    title: "public tool page"
 ---
 
 # EU AI Act Annex III FS Decisioning Obligations Classifier

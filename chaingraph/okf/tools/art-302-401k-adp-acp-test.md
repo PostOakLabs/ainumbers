@@ -5,6 +5,13 @@ description: "Runs the IRC ยง401(k)(3) Actual Deferral Percentage test and the ย
 resource: https://ainumbers.co/chaingraph/art-302-401k-adp-acp-test.html
 tags: ["compliance_mandate", "wave-48", "mcp:run_401k_adp_acp_test"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-302-401k-adp-acp-test.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-302-401k-adp-acp-test.html
+    title: "public tool page"
 ---
 
 # 401(k) ADP/ACP Nondiscrimination Tester

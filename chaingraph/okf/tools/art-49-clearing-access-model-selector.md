@@ -5,6 +5,13 @@ description: "Selects and costs the FICC access model - Direct vs Sponsored (don
 resource: https://ainumbers.co/chaingraph/art-49-clearing-access-model-selector.html
 tags: ["treasury_mandate", "wave-11", "mcp:model_clearing_access_economics"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-49-clearing-access-model-selector.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-49-clearing-access-model-selector.html
+    title: "public tool page"
 ---
 
 # Clearing Access Model Selector

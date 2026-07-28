@@ -5,6 +5,13 @@ description: "12-question A-F diagnostic scoring a firm's readiness for the coor
 resource: https://ainumbers.co/chaingraph/art-77-t1-settlement-readiness-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-17", "mcp:run_t1_readiness_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-77-t1-settlement-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-77-t1-settlement-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # T+1 Settlement Readiness Diagnostic

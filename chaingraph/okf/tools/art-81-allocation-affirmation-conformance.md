@@ -5,6 +5,13 @@ description: "Checks allocation and confirmation/affirmation events against the 
 resource: https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html
 tags: ["compliance_mandate", "wave-17", "mcp:check_allocation_affirmation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-81-allocation-affirmation-conformance.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html
+    title: "public tool page"
 ---
 
 # Allocation/Affirmation Conformance Checker

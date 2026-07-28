@@ -5,6 +5,13 @@ description: "Validates BIS CPMI d218 harmonised data requirements for a pacs.00
 resource: https://ainumbers.co/chaingraph/art-242-pacs008-party-completeness-validator.html
 tags: ["compliance_mandate", "wave-41", "mcp:validate_pacs008_party_completeness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-242-pacs008-party-completeness-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-242-pacs008-party-completeness-validator.html
+    title: "public tool page"
 ---
 
 # pacs.008 Party Completeness Validator

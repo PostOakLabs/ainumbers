@@ -4,6 +4,8 @@ title: "regulatory_reporting"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"regulatory_reporting\"."
 tags: ["regulatory_reporting", "count-10"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # regulatory_reporting

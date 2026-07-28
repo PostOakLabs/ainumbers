@@ -5,6 +5,13 @@ description: "Tracks the returned notification set for a FATCA/CRS certification
 resource: https://ainumbers.co/chaingraph/art-491-ro-remediation-closure.html
 tags: ["attestation_mandate", "wave-77", "mcp:track_fatca_crs_ro_remediation_closure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-491-ro-remediation-closure.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-491-ro-remediation-closure.html
+    title: "public tool page"
 ---
 
 # FATCA/CRS RO Remediation Closure Tracker

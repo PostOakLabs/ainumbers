@@ -5,6 +5,13 @@ description: "Calculate maximum NIS2 Art. 34 penalty exposure given entity class
 resource: https://ainumbers.co/chaingraph/art-143-nis2-penalty-exposure-calculator.html
 tags: ["compliance_mandate", "wave-26", "mcp:calculate_nis2_penalty_exposure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-143-nis2-penalty-exposure-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-143-nis2-penalty-exposure-calculator.html
+    title: "public tool page"
 ---
 
 # NIS2 Penalty Exposure Calculator (Art. 34)

@@ -5,6 +5,13 @@ description: "Compares a defined-benefit pension lump-sum offer against the sing
 resource: https://ainumbers.co/chaingraph/art-283-pension-lump-sum-vs-annuity-decision-engine.html
 tags: ["compliance_mandate", "wave-50", "mcp:compare_pension_lump_sum_annuity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-283-pension-lump-sum-vs-annuity-decision-engine.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-283-pension-lump-sum-vs-annuity-decision-engine.html
+    title: "public tool page"
 ---
 
 # Pension Lump-Sum vs. Annuity Decision Engine

@@ -5,6 +5,13 @@ description: "Classifies an ICT-related incident as major or non-major under DOR
 resource: https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html
 tags: ["attestation_mandate", "wave-74", "mcp:classify_dora_ict_incident_and_clock_deadlines"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-467-dora-incident-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-467-dora-incident-classifier.html
+    title: "public tool page"
 ---
 
 # DORA ICT Incident Classifier & Reporting Clock

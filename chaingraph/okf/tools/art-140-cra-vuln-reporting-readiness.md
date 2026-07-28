@@ -5,6 +5,13 @@ description: "Assesses EU CRA Article 14 vulnerability reporting readiness: acti
 resource: https://ainumbers.co/chaingraph/art-140-cra-vuln-reporting-readiness.html
 tags: ["compliance_mandate", "wave-25", "mcp:assess_cra_vuln_reporting_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-140-cra-vuln-reporting-readiness.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-140-cra-vuln-reporting-readiness.html
+    title: "public tool page"
 ---
 
 # CRA Vulnerability Reporting Readiness (Art. 14)

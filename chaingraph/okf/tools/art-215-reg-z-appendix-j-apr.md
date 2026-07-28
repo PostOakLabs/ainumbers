@@ -5,6 +5,13 @@ description: "Reg Z Appendix J actuarial APR solver. Newton-Raphson iteration ov
 resource: https://ainumbers.co/chaingraph/art-215-reg-z-appendix-j-apr.html
 tags: ["compliance_mandate", "wave-37", "mcp:compute_reg_z_appendix_j_apr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-215-reg-z-appendix-j-apr.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-215-reg-z-appendix-j-apr.html
+    title: "public tool page"
 ---
 
 # Reg Z Appendix J APR Solver

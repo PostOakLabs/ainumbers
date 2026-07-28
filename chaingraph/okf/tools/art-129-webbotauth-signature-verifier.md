@@ -5,6 +5,13 @@ description: "Reconstruct the RFC 9421 signature base and verify the Ed25519 Web
 resource: https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html
 tags: ["compliance_mandate", "wave-24", "mcp:verify_webbotauth_signature"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-129-webbotauth-signature-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html
+    title: "public tool page"
 ---
 
 # Web Bot Auth Signature Verifier (RFC 9421)

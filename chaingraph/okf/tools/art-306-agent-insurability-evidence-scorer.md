@@ -5,6 +5,13 @@ description: "Scores an agent execution evidence bundle for underwriter-facing e
 resource: https://ainumbers.co/chaingraph/art-306-agent-insurability-evidence-scorer.html
 tags: ["compliance_mandate", "wave-54", "mcp:score_agent_insurability_evidence"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-306-agent-insurability-evidence-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-306-agent-insurability-evidence-scorer.html
+    title: "public tool page"
 ---
 
 # Agent Insurability Evidence Scorer

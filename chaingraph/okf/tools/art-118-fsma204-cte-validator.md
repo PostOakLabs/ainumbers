@@ -5,6 +5,13 @@ description: "Validate required Key Data Elements present for each FDA FSMA 204 
 resource: https://ainumbers.co/chaingraph/art-118-fsma204-cte-validator.html
 tags: ["compliance_mandate", "wave-22", "mcp:validate_fsma204_cte"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-118-fsma204-cte-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-118-fsma204-cte-validator.html
+    title: "public tool page"
 ---
 
 # FSMA 204 Critical Tracking Event (CTE) Validator

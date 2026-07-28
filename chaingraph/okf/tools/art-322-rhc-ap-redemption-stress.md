@@ -5,6 +5,13 @@ description: "Stress-tests the one-token-equals-one-share economic-exposure clai
 resource: https://ainumbers.co/chaingraph/art-322-rhc-ap-redemption-stress.html
 tags: ["collateral_mandate", "wave-56", "mcp:stress_test_ap_redemption_path"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-322-rhc-ap-redemption-stress.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-322-rhc-ap-redemption-stress.html
+    title: "public tool page"
 ---
 
 # AP Concentration + Redemption-Path Stress

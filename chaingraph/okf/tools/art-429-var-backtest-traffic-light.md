@@ -5,6 +5,13 @@ description: "Counts Basel VaR backtesting exceptions (actual daily P&L loss exc
 resource: https://ainumbers.co/chaingraph/art-429-var-backtest-traffic-light.html
 tags: ["capital_assessment", "wave-70", "mcp:compute_var_backtest_traffic_light"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-429-var-backtest-traffic-light.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-429-var-backtest-traffic-light.html
+    title: "public tool page"
 ---
 
 # VaR Backtesting Traffic-Light Zone Calculator

@@ -5,6 +5,13 @@ description: "The horizontal agent-to-agent trust complement. Validates an A2A v
 resource: https://ainumbers.co/chaingraph/art-32-a2a-agent-card-trust-chain-validator.html
 tags: ["compliance_mandate", "wave-6", "mcp:validate_a2a_trust_chain"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-32-a2a-agent-card-trust-chain-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-32-a2a-agent-card-trust-chain-validator.html
+    title: "public tool page"
 ---
 
 # A2A Agent-Card Trust-Chain Validator

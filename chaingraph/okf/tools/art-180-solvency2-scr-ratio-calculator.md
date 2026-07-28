@@ -5,6 +5,13 @@ description: "Calculate Solvency II SCR and MCR coverage ratios from eligible ow
 resource: https://ainumbers.co/chaingraph/art-180-solvency2-scr-ratio-calculator.html
 tags: ["compliance_mandate", "wave-32", "mcp:calculate_solvency2_scr_ratio"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-180-solvency2-scr-ratio-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-180-solvency2-scr-ratio-calculator.html
+    title: "public tool page"
 ---
 
 # Solvency II SCR Ratio Calculator

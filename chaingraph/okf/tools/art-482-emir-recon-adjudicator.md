@@ -5,6 +5,13 @@ description: "Under EMIR Refit the trade repository (TR) runs the inter-TR recon
 resource: https://ainumbers.co/chaingraph/art-482-emir-recon-adjudicator.html
 tags: ["attestation_mandate", "wave-71", "mcp:adjudicate_emir_reconciliation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-482-emir-recon-adjudicator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-482-emir-recon-adjudicator.html
+    title: "public tool page"
 ---
 
 # EMIR Trade-Repository Reconciliation Adjudicator

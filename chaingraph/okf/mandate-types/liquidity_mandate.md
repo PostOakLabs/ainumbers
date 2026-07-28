@@ -4,6 +4,8 @@ title: "liquidity_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"liquidity_mandate\"."
 tags: ["liquidity_mandate", "count-2"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # liquidity_mandate

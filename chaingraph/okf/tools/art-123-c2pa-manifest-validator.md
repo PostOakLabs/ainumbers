@@ -5,6 +5,13 @@ description: "Validate a decoded C2PA 2.x manifest: claim well-formedness, hard-
 resource: https://ainumbers.co/chaingraph/art-123-c2pa-manifest-validator.html
 tags: ["compliance_mandate", "wave-23", "mcp:validate_c2pa_manifest"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-123-c2pa-manifest-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-123-c2pa-manifest-validator.html
+    title: "public tool page"
 ---
 
 # C2PA Content Credential Manifest Validator

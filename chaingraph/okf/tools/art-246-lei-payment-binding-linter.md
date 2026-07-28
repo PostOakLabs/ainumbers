@@ -5,6 +5,13 @@ description: "Full ISO 17442 LEI check-digit validation via ISO 7064 Mod 97-10 f
 resource: https://ainumbers.co/chaingraph/art-246-lei-payment-binding-linter.html
 tags: ["compliance_mandate", "wave-41", "mcp:lint_lei_payment_binding"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-246-lei-payment-binding-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-246-lei-payment-binding-linter.html
+    title: "public tool page"
 ---
 
 # Wolfsberg Payment Transparency & LEI Binding Linter

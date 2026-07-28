@@ -5,6 +5,13 @@ description: "OpenAI/Stripe Agentic Commerce Protocol (ACP): CheckoutRequest/Res
 resource: https://ainumbers.co/chaingraph/art-12-acp-checkout-conformance-validator.html
 tags: ["payment_mandate", "wave-2", "mcp:validate_acp_checkout"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-12-acp-checkout-conformance-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-12-acp-checkout-conformance-validator.html
+    title: "public tool page"
 ---
 
 # ACP Checkout Conformance Validator

@@ -5,6 +5,13 @@ description: "Computes perp liquidation price, margin health, buffer, and distan
 resource: https://ainumbers.co/chaingraph/art-213-perp-liquidation-calculator.html
 tags: ["derivatives_margin_health", "wave-36", "mcp:compute_perp_margin"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-213-perp-liquidation-calculator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-213-perp-liquidation-calculator.html
+    title: "public tool page"
 ---
 
 # Perp Margin and Liquidation Calculator

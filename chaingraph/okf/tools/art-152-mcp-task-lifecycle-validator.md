@@ -5,6 +5,13 @@ description: "Validate that a long-running MCP task state transitions are legal 
 resource: https://ainumbers.co/chaingraph/art-152-mcp-task-lifecycle-validator.html
 tags: ["compliance_mandate", "wave-27", "mcp:validate_mcp_task_lifecycle"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-152-mcp-task-lifecycle-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-152-mcp-task-lifecycle-validator.html
+    title: "public tool page"
 ---
 
 # MCP Task Lifecycle State Machine Validator

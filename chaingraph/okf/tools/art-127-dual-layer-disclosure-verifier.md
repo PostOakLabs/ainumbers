@@ -5,6 +5,13 @@ description: "Confirm the EU Commission Code of Practice multi-layer requirement
 resource: https://ainumbers.co/chaingraph/art-127-dual-layer-disclosure-verifier.html
 tags: ["compliance_mandate", "wave-23", "mcp:verify_dual_layer_disclosure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-127-dual-layer-disclosure-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-127-dual-layer-disclosure-verifier.html
+    title: "public tool page"
 ---
 
 # Dual-Layer Disclosure Verifier

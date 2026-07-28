@@ -5,6 +5,13 @@ description: "Computes prediction market PnL, implied probability, break-even, n
 resource: https://ainumbers.co/chaingraph/art-211-prediction-market-analyzer.html
 tags: ["event_market_pnl", "wave-36", "mcp:analyze_prediction_market"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-211-prediction-market-analyzer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-211-prediction-market-analyzer.html
+    title: "public tool page"
 ---
 
 # Prediction Market Analyzer

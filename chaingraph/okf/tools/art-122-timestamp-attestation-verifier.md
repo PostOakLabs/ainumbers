@@ -5,6 +5,13 @@ description: "Recompute the document integrity anchor, confirm the document hash
 resource: https://ainumbers.co/chaingraph/art-122-timestamp-attestation-verifier.html
 tags: ["compliance_mandate", "wave-22", "mcp:verify_timestamp_attestation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-122-timestamp-attestation-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-122-timestamp-attestation-verifier.html
+    title: "public tool page"
 ---
 
 # Timestamp Attestation Verifier

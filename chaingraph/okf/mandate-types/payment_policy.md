@@ -4,6 +4,8 @@ title: "payment_policy"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"payment_policy\"."
 tags: ["payment_policy", "count-2"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # payment_policy

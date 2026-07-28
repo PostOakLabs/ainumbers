@@ -5,6 +5,13 @@ description: "Classify tokenized assets for DTC/Fed eligibility and Basel HQLA t
 resource: https://ainumbers.co/tools/505-tokenized-collateral-eligibility-checker.html
 tags: ["collateral_mandate", "wave-8", "mcp:check_tokenized_collateral_eligibility", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/505-tokenized-collateral-eligibility-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/505-tokenized-collateral-eligibility-checker.html
+    title: "public tool page"
 ---
 
 # Tokenized Collateral Eligibility Checker

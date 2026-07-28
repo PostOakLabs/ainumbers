@@ -5,6 +5,13 @@ description: "Quantify RWA and capital savings from moving to Canton atomic DvP.
 resource: https://ainumbers.co/tools/504-settlement-risk-capital-optimizer.html
 tags: ["capital_assessment", "wave-8", "mcp:optimize_settlement_capital", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/504-settlement-risk-capital-optimizer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/504-settlement-risk-capital-optimizer.html
+    title: "public tool page"
 ---
 
 # Settlement-Risk Capital Efficiency Optimizer

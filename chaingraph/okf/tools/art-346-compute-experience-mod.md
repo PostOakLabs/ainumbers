@@ -5,6 +5,13 @@ description: "Workers'-compensation experience rating modification (NCCI Experie
 resource: https://ainumbers.co/chaingraph/art-346-compute-experience-mod.html
 tags: ["compliance_mandate", "wave-60", "mcp:compute_experience_mod"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-346-compute-experience-mod.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-346-compute-experience-mod.html
+    title: "public tool page"
 ---
 
 # NCCI Experience Modification Calculator

@@ -4,6 +4,8 @@ title: "aml_rule"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"aml_rule\"."
 tags: ["aml_rule", "count-2"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # aml_rule

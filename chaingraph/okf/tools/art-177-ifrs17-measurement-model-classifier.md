@@ -5,6 +5,13 @@ description: "Classify insurance contracts to their IFRS 17 measurement model: P
 resource: https://ainumbers.co/chaingraph/art-177-ifrs17-measurement-model-classifier.html
 tags: ["compliance_mandate", "wave-32", "mcp:classify_ifrs17_measurement_model"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-177-ifrs17-measurement-model-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-177-ifrs17-measurement-model-classifier.html
+    title: "public tool page"
 ---
 
 # IFRS 17 Measurement Model Classifier

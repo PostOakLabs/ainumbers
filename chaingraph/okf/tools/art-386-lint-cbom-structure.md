@@ -5,6 +5,13 @@ description: "Validates a pasted CycloneDX 1.6 Cryptography Bill of Materials ag
 resource: https://ainumbers.co/chaingraph/art-386-lint-cbom-structure.html
 tags: ["compliance_mandate", "wave-65", "mcp:lint_cbom_structure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-386-lint-cbom-structure.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-386-lint-cbom-structure.html
+    title: "public tool page"
 ---
 
 # CBOM Structural Lint & CNSA-2.0 Classifier

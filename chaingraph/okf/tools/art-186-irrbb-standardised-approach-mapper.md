@@ -5,6 +5,13 @@ description: "Map non-maturing deposit (NMD) positions to the EBA standardised /
 resource: https://ainumbers.co/chaingraph/art-186-irrbb-standardised-approach-mapper.html
 tags: ["compliance_mandate", "wave-33", "mcp:map_irrbb_standardised_approach"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-186-irrbb-standardised-approach-mapper.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-186-irrbb-standardised-approach-mapper.html
+    title: "public tool page"
 ---
 
 # IRRBB Standardised Approach Mapper

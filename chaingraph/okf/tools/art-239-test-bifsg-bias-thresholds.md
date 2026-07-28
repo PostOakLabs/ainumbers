@@ -5,6 +5,13 @@ description: "Tests BIFSG proxy bias thresholds under Colorado SB 21-169 / Reg. 
 resource: https://ainumbers.co/chaingraph/art-239-test-bifsg-bias-thresholds.html
 tags: ["compliance_mandate", "wave-40", "mcp:test_bifsg_bias_thresholds"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-239-test-bifsg-bias-thresholds.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-239-test-bifsg-bias-thresholds.html
+    title: "public tool page"
 ---
 
 # BIFSG Insurance Proxy Bias Threshold Test (Colorado SB 21-169)

@@ -5,6 +5,13 @@ description: "Estimates the crypto off-exchange settlement / cross-venue margin 
 resource: https://ainumbers.co/chaingraph/art-406-cross-venue-margin-estimator.html
 tags: ["analytics_mandate", "wave-67", "mcp:estimate_cross_venue_margin_capital"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-406-cross-venue-margin-estimator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-406-cross-venue-margin-estimator.html
+    title: "public tool page"
 ---
 
 # Crypto Cross-Venue Margin & Off-Exchange Settlement Estimator

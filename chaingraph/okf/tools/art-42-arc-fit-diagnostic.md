@@ -5,6 +5,13 @@ description: "12-question A–F diagnostic assessing Arc adoption fit across CPN
 resource: https://ainumbers.co/chaingraph/art-42-arc-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-10", "mcp:run_arc_fit_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-42-arc-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-42-arc-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # Arc Fit Diagnostic

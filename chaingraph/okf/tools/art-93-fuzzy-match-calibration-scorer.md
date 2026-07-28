@@ -5,6 +5,13 @@ description: "Given a config (algorithm, threshold) and a synthetic labelled nam
 resource: https://ainumbers.co/chaingraph/art-93-fuzzy-match-calibration-scorer.html
 tags: ["model_governance", "wave-19", "mcp:score_fuzzy_match_calibration"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-93-fuzzy-match-calibration-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-93-fuzzy-match-calibration-scorer.html
+    title: "public tool page"
 ---
 
 # Fuzzy-Match Calibration Scorer

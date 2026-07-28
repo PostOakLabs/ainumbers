@@ -5,6 +5,13 @@ description: "Evaluate the Net Interest Income (NII) leg of the EBA Supervisory 
 resource: https://ainumbers.co/chaingraph/art-185-irrbb-sot-nii-evaluator.html
 tags: ["compliance_mandate", "wave-33", "mcp:evaluate_irrbb_sot_nii"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-185-irrbb-sot-nii-evaluator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-185-irrbb-sot-nii-evaluator.html
+    title: "public tool page"
 ---
 
 # IRRBB SOT NII Evaluator

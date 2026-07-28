@@ -4,6 +4,8 @@ title: "collateral_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"collateral_mandate\"."
 tags: ["collateral_mandate", "count-9"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # collateral_mandate

@@ -5,6 +5,13 @@ description: "Score country-of-production against the EUDR benchmark risk classi
 resource: https://ainumbers.co/chaingraph/art-168-eudr-country-benchmark-risk-scorer.html
 tags: ["compliance_mandate", "wave-30", "mcp:score_eudr_country_risk"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-168-eudr-country-benchmark-risk-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-168-eudr-country-benchmark-risk-scorer.html
+    title: "public tool page"
 ---
 
 # EUDR Country Benchmark Risk Scorer

@@ -5,6 +5,13 @@ description: "Deterministic Markdown to HTML and plain text over a hand-rolled C
 resource: https://ainumbers.co/chaingraph/art-189-markdown-document-converter.html
 tags: ["compliance_mandate", "wave-34", "mcp:convert_markdown_document"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-189-markdown-document-converter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-189-markdown-document-converter.html
+    title: "public tool page"
 ---
 
 # Markdown Document Converter

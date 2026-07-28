@@ -5,6 +5,13 @@ description: "Computes the SCRA 6% interest rate cap per 50 USC §3937 for pre-s
 resource: https://ainumbers.co/chaingraph/art-232-compute-scra-rate-cap.html
 tags: ["compliance_mandate", "wave-39", "mcp:compute_scra_rate_cap"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-232-compute-scra-rate-cap.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-232-compute-scra-rate-cap.html
+    title: "public tool page"
 ---
 
 # Compute SCRA Rate Cap

@@ -5,6 +5,13 @@ description: "Monte Carlo cascade simulation of ICT incident propagation across 
 resource: https://ainumbers.co/chaingraph/pnr-01-dora-ict-cascade-simulator.html
 tags: ["infrastructure_mandate", "wave-3", "mcp:simulate_ict_cascade"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/pnr-01-dora-ict-cascade-simulator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/pnr-01-dora-ict-cascade-simulator.html
+    title: "public tool page"
 ---
 
 # DORA ICT Cascade Simulator

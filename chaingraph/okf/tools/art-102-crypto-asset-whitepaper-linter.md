@@ -5,6 +5,13 @@ description: "Validates Art 6/8 whitepaper: Annex I section completeness + iXBRL
 resource: https://ainumbers.co/chaingraph/art-102-crypto-asset-whitepaper-linter.html
 tags: ["compliance_mandate", "wave-20", "mcp:lint_crypto_asset_whitepaper"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-102-crypto-asset-whitepaper-linter.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-102-crypto-asset-whitepaper-linter.html
+    title: "public tool page"
 ---
 
 # Crypto-Asset Whitepaper Linter (iXBRL)

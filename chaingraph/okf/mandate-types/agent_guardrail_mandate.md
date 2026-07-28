@@ -4,6 +4,8 @@ title: "agent_guardrail_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"agent_guardrail_mandate\"."
 tags: ["agent_guardrail_mandate", "count-18"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # agent_guardrail_mandate

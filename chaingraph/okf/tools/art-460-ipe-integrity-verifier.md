@@ -5,6 +5,13 @@ description: "Verifies Information-Produced-by-Entity (IPE) completeness and acc
 resource: https://ainumbers.co/chaingraph/art-460-ipe-integrity-verifier.html
 tags: ["compliance_control", "wave-74", "mcp:verify_ipe_integrity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-460-ipe-integrity-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-460-ipe-integrity-verifier.html
+    title: "public tool page"
 ---
 
 # IPE Integrity Verifier

@@ -5,6 +5,13 @@ description: "Reconciles an x402 V2 batch settlement (off-chain payment vouchers
 resource: https://ainumbers.co/chaingraph/art-61-x402-batch-settlement-reconciler.html
 tags: ["settlement_mandate", "wave-14", "mcp:reconcile_x402_batch_settlement"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-61-x402-batch-settlement-reconciler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-61-x402-batch-settlement-reconciler.html
+    title: "public tool page"
 ---
 
 # x402 V2 Batch-Settlement Reconciler

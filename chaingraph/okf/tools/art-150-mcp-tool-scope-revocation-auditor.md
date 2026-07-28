@@ -5,6 +5,13 @@ description: "Audit scoped and revocable MCP tool access per the new MCP specifi
 resource: https://ainumbers.co/chaingraph/art-150-mcp-tool-scope-revocation-auditor.html
 tags: ["compliance_mandate", "wave-27", "mcp:audit_mcp_tool_scope_revocation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-150-mcp-tool-scope-revocation-auditor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-150-mcp-tool-scope-revocation-auditor.html
+    title: "public tool page"
 ---
 
 # MCP Tool Scope & Revocation Auditor

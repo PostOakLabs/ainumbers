@@ -5,6 +5,13 @@ description: "DV01-bucket VaR proxy of the FICC VaR-based margin (VBM), the nett
 resource: https://ainumbers.co/chaingraph/art-50-ficc-margin-netting-estimator.html
 tags: ["risk_parameter", "wave-11", "mcp:estimate_ficc_margin_netting"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-50-ficc-margin-netting-estimator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-50-ficc-margin-netting-estimator.html
+    title: "public tool page"
 ---
 
 # FICC Margin & Netting Estimator

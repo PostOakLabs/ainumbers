@@ -5,6 +5,13 @@ description: "Validate MMF/CNAV/LVNAV/VNAV fund shares as collateral against SEC
 resource: https://ainumbers.co/tools/514-tokenized-fund-collateral-validator.html
 tags: ["collateral_mandate", "wave-8", "mcp:validate_fund_collateral", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/514-tokenized-fund-collateral-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/tools/514-tokenized-fund-collateral-validator.html
+    title: "public tool page"
 ---
 
 # Tokenized Fund Collateral Validator

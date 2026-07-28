@@ -5,6 +5,13 @@ description: "Basel CRE22 comprehensive-approach collateral haircut engine for c
 resource: https://ainumbers.co/chaingraph/art-444-collateral-haircut-engine.html
 tags: ["regulatory_reporting", "wave-71", "mcp:compute_basel_haircut_adjusted_exposure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-444-collateral-haircut-engine.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-444-collateral-haircut-engine.html
+    title: "public tool page"
 ---
 
 # Collateral Haircut Engine (Basel CRE22)

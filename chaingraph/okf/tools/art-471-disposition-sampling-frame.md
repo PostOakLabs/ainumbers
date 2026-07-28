@@ -5,6 +5,13 @@ description: "Builds a deterministic sampling frame over an AML consent-order lo
 resource: https://ainumbers.co/chaingraph/art-471-disposition-sampling-frame.html
 tags: ["compliance_control", "wave-74", "mcp:plan_aml_disposition_sample"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-471-disposition-sampling-frame.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-471-disposition-sampling-frame.html
+    title: "public tool page"
 ---
 
 # AML Disposition Sampling Frame Builder

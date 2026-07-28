@@ -5,6 +5,13 @@ description: "Match a returned unit SGTIN+lot to its original transaction hash (
 resource: https://ainumbers.co/chaingraph/art-113-saleable-returns-verifier.html
 tags: ["compliance_mandate", "wave-22", "mcp:verify_saleable_return"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-113-saleable-returns-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-113-saleable-returns-verifier.html
+    title: "public tool page"
 ---
 
 # DSCSA Saleable Returns Verifier

@@ -5,6 +5,13 @@ description: "Binds N file digests into one canonical, hash-anchored manifest. m
 resource: https://ainumbers.co/chaingraph/art-194-digest-manifest-builder.html
 tags: ["cryptographic_mandate", "wave-34", "mcp:build_digest_manifest"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-194-digest-manifest-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-194-digest-manifest-builder.html
+    title: "public tool page"
 ---
 
 # Digest Manifest Builder

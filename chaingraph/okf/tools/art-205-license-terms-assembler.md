@@ -5,6 +5,13 @@ description: "Renders a deterministic license term sheet by substituting field v
 resource: https://ainumbers.co/chaingraph/art-205-license-terms-assembler.html
 tags: ["compliance_mandate", "wave-35", "mcp:assemble_license_terms"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-205-license-terms-assembler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-205-license-terms-assembler.html
+    title: "public tool page"
 ---
 
 # License Terms Assembler

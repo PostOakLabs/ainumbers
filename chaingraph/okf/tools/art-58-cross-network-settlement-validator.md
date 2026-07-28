@@ -5,6 +5,13 @@ description: "Validates atomic settlement across two or more networks: cash leg 
 resource: https://ainumbers.co/chaingraph/art-58-cross-network-settlement-validator.html
 tags: ["settlement_mandate", "wave-13", "mcp:validate_cross_network_settlement"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-58-cross-network-settlement-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-58-cross-network-settlement-validator.html
+    title: "public tool page"
 ---
 
 # Cross-Network Atomic Settlement Validator

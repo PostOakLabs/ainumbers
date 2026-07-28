@@ -5,6 +5,13 @@ description: "Basel III large exposures framework (BCBS 283) and U.S. single-cou
 resource: https://ainumbers.co/chaingraph/art-425-large-exposures-limit-check.html
 tags: ["compliance_mandate", "wave-70", "mcp:compute_large_exposures_limit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-425-large-exposures-limit-check.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-425-large-exposures-limit-check.html
+    title: "public tool page"
 ---
 
 # Large Exposures Limit Check

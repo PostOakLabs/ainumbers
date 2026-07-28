@@ -5,6 +5,13 @@ description: "Disambiguation router classifying a case as ART/EMT-issuer (delega
 resource: https://ainumbers.co/chaingraph/art-105-mica-token-service-scoper.html
 tags: ["agent_guardrail_mandate", "wave-20", "mcp:scope_mica_token_and_service"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-105-mica-token-service-scoper.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-105-mica-token-service-scoper.html
+    title: "public tool page"
 ---
 
 # MiCA Token & Service Scoper

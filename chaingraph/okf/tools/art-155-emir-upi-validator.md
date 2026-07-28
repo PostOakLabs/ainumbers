@@ -5,6 +5,13 @@ description: "Validate EMIR Refit UPI format (ISO 4914, 12-character alphanumeri
 resource: https://ainumbers.co/chaingraph/art-155-emir-upi-validator.html
 tags: ["compliance_mandate", "wave-28", "mcp:validate_emir_upi"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-155-emir-upi-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-155-emir-upi-validator.html
+    title: "public tool page"
 ---
 
 # EMIR UPI Validator

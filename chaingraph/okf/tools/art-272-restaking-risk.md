@@ -5,6 +5,13 @@ description: "Models restaking delegation rewards, operator fees, AVS yield, and
 resource: https://ainumbers.co/chaingraph/art-272-restaking-risk.html
 tags: ["analytics_mandate", "wave-46", "mcp:assess_restaking_risk"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-272-restaking-risk.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-272-restaking-risk.html
+    title: "public tool page"
 ---
 
 # Restaking Delegation and Slashing Risk Analyzer

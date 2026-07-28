@@ -5,6 +5,13 @@ description: "Build a cradle-to-gate supplier lineage with hash-only claims per 
 resource: https://ainumbers.co/chaingraph/art-116-product-lineage-builder.html
 tags: ["compliance_mandate", "wave-22", "mcp:build_product_lineage"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-116-product-lineage-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-116-product-lineage-builder.html
+    title: "public tool page"
 ---
 
 # Digital Product Passport Cradle-to-Gate Lineage Builder

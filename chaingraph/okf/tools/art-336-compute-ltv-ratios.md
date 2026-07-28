@@ -5,6 +5,13 @@ description: "Loan-to-value, combined LTV, and home-equity combined LTV per Fann
 resource: https://ainumbers.co/chaingraph/art-336-compute-ltv-ratios.html
 tags: ["compliance_mandate", "wave-60", "mcp:compute_ltv_ratios"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-336-compute-ltv-ratios.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-336-compute-ltv-ratios.html
+    title: "public tool page"
 ---
 
 # LTV/CLTV/HCLTV Ratio Calculator

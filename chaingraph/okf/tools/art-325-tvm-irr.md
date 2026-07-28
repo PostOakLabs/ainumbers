@@ -5,6 +5,13 @@ description: "Internal rate of return for an equal-period cash flow series, solv
 resource: https://ainumbers.co/chaingraph/art-325-tvm-irr.html
 tags: ["analytics_mandate", "wave-57", "mcp:compute_irr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-325-tvm-irr.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-325-tvm-irr.html
+    title: "public tool page"
 ---
 
 # Internal Rate of Return (IRR)

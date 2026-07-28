@@ -5,6 +5,13 @@ description: "One-up/one-back trace from a contaminated Traceability Lot Code to
 resource: https://ainumbers.co/chaingraph/art-120-recall-trace-resolver.html
 tags: ["compliance_mandate", "wave-22", "mcp:resolve_recall_trace"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-120-recall-trace-resolver.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-120-recall-trace-resolver.html
+    title: "public tool page"
 ---
 
 # FSMA 204 Recall Trace Resolver (24-Hour FDA List)

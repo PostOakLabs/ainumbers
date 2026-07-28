@@ -5,6 +5,13 @@ description: "12 CFR 1024.17 (Reg X) aggregate escrow accounting method: builds 
 resource: https://ainumbers.co/chaingraph/art-342-compute-escrow-analysis.html
 tags: ["compliance_mandate", "wave-60", "mcp:compute_escrow_analysis"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-342-compute-escrow-analysis.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-342-compute-escrow-analysis.html
+    title: "public tool page"
 ---
 
 # RESPA Aggregate Escrow Analysis

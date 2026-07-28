@@ -5,6 +5,13 @@ description: "Classifies a tokenized-deposit transfer’s finality risk given L2
 resource: https://ainumbers.co/chaingraph/art-290-check-linea-l2-finality-window.html
 tags: ["compliance_mandate", "wave-53", "mcp:check_linea_l2_finality_window"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-290-check-linea-l2-finality-window.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-290-check-linea-l2-finality-window.html
+    title: "public tool page"
 ---
 
 # Linea L2 Finality Window Classifier

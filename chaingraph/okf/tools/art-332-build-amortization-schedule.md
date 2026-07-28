@@ -5,6 +5,13 @@ description: "Deterministic amortization schedule builder covering level-payment
 resource: https://ainumbers.co/chaingraph/art-332-build-amortization-schedule.html
 tags: ["compliance_mandate", "wave-59", "mcp:build_amortization_schedule"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-332-build-amortization-schedule.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-332-build-amortization-schedule.html
+    title: "public tool page"
 ---
 
 # Amortization Schedule Builder

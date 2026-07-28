@@ -5,6 +5,13 @@ description: "Validates SWIFT GPI pacs.002 payment status code transitions again
 resource: https://ainumbers.co/chaingraph/art-244-gpi-tracker-lifecycle-simulator.html
 tags: ["compliance_mandate", "wave-41", "mcp:simulate_gpi_tracker_lifecycle"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-244-gpi-tracker-lifecycle-simulator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-244-gpi-tracker-lifecycle-simulator.html
+    title: "public tool page"
 ---
 
 # SWIFT GPI Tracker Lifecycle Simulator

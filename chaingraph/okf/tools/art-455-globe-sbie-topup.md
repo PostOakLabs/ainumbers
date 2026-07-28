@@ -5,6 +5,13 @@ description: "Computes the OECD Pillar Two substance-based income exclusion (SBI
 resource: https://ainumbers.co/chaingraph/art-455-globe-sbie-topup.html
 tags: ["compliance_control", "wave-76", "mcp:compute_globe_sbie_topup"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-455-globe-sbie-topup.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-455-globe-sbie-topup.html
+    title: "public tool page"
 ---
 
 # GloBE SBIE & Top-up Tax Calculator

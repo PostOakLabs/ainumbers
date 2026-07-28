@@ -5,6 +5,13 @@ description: "QM APR-APOR spread test per Reg Z §1026.43(e)(2)(vi) and §1026.4
 resource: https://ainumbers.co/chaingraph/art-219-qm-apr-apor-spread.html
 tags: ["compliance_mandate", "wave-37", "mcp:classify_qm_apr_apor_spread"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-219-qm-apr-apor-spread.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-219-qm-apr-apor-spread.html
+    title: "public tool page"
 ---
 
 # QM APR-APOR Spread Classifier

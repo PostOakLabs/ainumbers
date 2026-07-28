@@ -5,6 +5,13 @@ description: "Builds an OECD BEPS Action 13 Country-by-Country Report XML schema
 resource: https://ainumbers.co/chaingraph/art-472-cbcr-builder.html
 tags: ["compliance_mandate", "wave-75", "mcp:build_cbcr_report"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-472-cbcr-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-472-cbcr-builder.html
+    title: "public tool page"
 ---
 
 # OECD Country-by-Country Report Builder

@@ -5,6 +5,13 @@ description: "Model CPN corridor economics vs SWIFT/ACH/SEPA/card/RTP for cross-
 resource: https://ainumbers.co/chaingraph/art-43-arc-cpn-model.html
 tags: ["treasury_mandate", "wave-10", "mcp:model_arc_cpn_economics", "iso20022:pacs.008"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-43-arc-cpn-model.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-43-arc-cpn-model.html
+    title: "public tool page"
 ---
 
 # Arc CPN Corridor Economics Model

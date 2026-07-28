@@ -5,6 +5,13 @@ description: "Audit key freshness and rotation posture: key age vs max-age polic
 resource: https://ainumbers.co/chaingraph/art-132-agent-key-rotation-auditor.html
 tags: ["compliance_mandate", "wave-24", "mcp:audit_agent_key_rotation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-132-agent-key-rotation-auditor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-132-agent-key-rotation-auditor.html
+    title: "public tool page"
 ---
 
 # Agent Key Rotation Auditor

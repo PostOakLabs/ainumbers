@@ -5,6 +5,13 @@ description: "Aggregates the five Solvency II standard-formula risk-module capit
 resource: https://ainumbers.co/chaingraph/art-449-solvency2-scr-module-aggregator.html
 tags: ["compliance_mandate", "wave-32", "mcp:aggregate_solvency2_scr_modules"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-449-solvency2-scr-module-aggregator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-449-solvency2-scr-module-aggregator.html
+    title: "public tool page"
 ---
 
 # Solvency II SCR Standard-Formula Module Aggregator

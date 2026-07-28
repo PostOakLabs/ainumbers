@@ -5,6 +5,13 @@ description: "Builds a single model-inventory record for a bank's SR 26-2 model-
 resource: https://ainumbers.co/chaingraph/art-450-model-inventory-entry.html
 tags: ["compliance_control", "wave-73", "mcp:build_model_inventory_entry"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-450-model-inventory-entry.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-450-model-inventory-entry.html
+    title: "public tool page"
 ---
 
 # Model Inventory Entry Builder

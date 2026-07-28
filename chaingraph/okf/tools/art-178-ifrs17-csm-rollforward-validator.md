@@ -5,6 +5,13 @@ description: "Validate IFRS 17 Contractual Service Margin (CSM) roll-forward mec
 resource: https://ainumbers.co/chaingraph/art-178-ifrs17-csm-rollforward-validator.html
 tags: ["compliance_mandate", "wave-32", "mcp:validate_ifrs17_csm_rollforward"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-178-ifrs17-csm-rollforward-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-178-ifrs17-csm-rollforward-validator.html
+    title: "public tool page"
 ---
 
 # IFRS 17 CSM Roll-Forward Validator

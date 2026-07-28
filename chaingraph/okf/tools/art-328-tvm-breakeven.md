@@ -5,6 +5,13 @@ description: "Standard cost-volume-profit breakeven analysis: breakeven units an
 resource: https://ainumbers.co/chaingraph/art-328-tvm-breakeven.html
 tags: ["analytics_mandate", "wave-57", "mcp:compute_breakeven"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-328-tvm-breakeven.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-328-tvm-breakeven.html
+    title: "public tool page"
 ---
 
 # Breakeven / CVP Analysis

@@ -4,6 +4,8 @@ title: "scheme_rule"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"scheme_rule\"."
 tags: ["scheme_rule", "count-2"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # scheme_rule

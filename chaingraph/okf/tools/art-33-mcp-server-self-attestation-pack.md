@@ -5,6 +5,13 @@ description: "Combines the five MCP-dev checks: tool-definition lint (JSON Schem
 resource: https://ainumbers.co/chaingraph/art-33-mcp-server-self-attestation-pack.html
 tags: ["infrastructure_mandate", "wave-6", "mcp:attest_mcp_server"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-33-mcp-server-self-attestation-pack.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-33-mcp-server-self-attestation-pack.html
+    title: "public tool page"
 ---
 
 # MCP Server Self-Attestation Pack

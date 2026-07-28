@@ -5,6 +5,13 @@ description: "Composes a documentation-element workpaper record from an existing
 resource: https://ainumbers.co/chaingraph/art-380-build-ai-workpaper-record.html
 tags: ["compliance_mandate", "wave-65", "mcp:build_ai_workpaper_record"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-380-build-ai-workpaper-record.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-380-build-ai-workpaper-record.html
+    title: "public tool page"
 ---
 
 # AI-Tool-Usage Workpaper Record

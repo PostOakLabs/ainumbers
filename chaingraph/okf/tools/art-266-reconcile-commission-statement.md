@@ -5,6 +5,13 @@ description: "Line-item reconciliation of expected vs. received commission payme
 resource: https://ainumbers.co/chaingraph/art-266-reconcile-commission-statement.html
 tags: ["compliance_mandate", "wave-45", "mcp:reconcile_commission_statement"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-266-reconcile-commission-statement.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-266-reconcile-commission-statement.html
+    title: "public tool page"
 ---
 
 # Commission Statement Reconciler

@@ -5,6 +5,13 @@ description: "Deterministic, versioned single-pair payee name-matching score for
 resource: https://ainumbers.co/chaingraph/art-376-score-payee-name-match.html
 tags: ["compliance_mandate", "wave-2", "mcp:score_payee_name_match"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-376-score-payee-name-match.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-376-score-payee-name-match.html
+    title: "public tool page"
 ---
 
 # Payee Name-Match Score (VoP/CoP)

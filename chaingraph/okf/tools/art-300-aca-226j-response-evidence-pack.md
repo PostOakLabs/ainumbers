@@ -5,6 +5,13 @@ description: "Terminal node of the aca-226j-response-composer chain: assembles a
 resource: https://ainumbers.co/chaingraph/art-300-aca-226j-response-evidence-pack.html
 tags: ["compliance_mandate", "wave-48", "mcp:build_226j_response_evidence_pack"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-300-aca-226j-response-evidence-pack.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-300-aca-226j-response-evidence-pack.html
+    title: "public tool page"
 ---
 
 # 226J Response Evidence Pack Builder

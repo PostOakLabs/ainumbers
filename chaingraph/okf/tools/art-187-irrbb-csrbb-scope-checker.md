@@ -5,6 +5,13 @@ description: "Identify Credit Spread Risk in the Banking Book (CSRBB) scope per 
 resource: https://ainumbers.co/chaingraph/art-187-irrbb-csrbb-scope-checker.html
 tags: ["compliance_mandate", "wave-33", "mcp:check_irrbb_csrbb_scope"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-187-irrbb-csrbb-scope-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-187-irrbb-csrbb-scope-checker.html
+    title: "public tool page"
 ---
 
 # IRRBB CSRBB Scope Checker

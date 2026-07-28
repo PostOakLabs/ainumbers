@@ -5,6 +5,13 @@ description: "Composes a hash-chained ML training-data lineage record: dataset i
 resource: https://ainumbers.co/chaingraph/art-452-build-ai-training-data-lineage-record.html
 tags: ["compliance_mandate", "wave-66", "mcp:build_ai_training_data_lineage_record"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-452-build-ai-training-data-lineage-record.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-452-build-ai-training-data-lineage-record.html
+    title: "public tool page"
 ---
 
 # AI Training-Data Lineage Record

@@ -5,6 +5,13 @@ description: "Compares a requested agent action (amount, currency, merchant cate
 resource: https://ainumbers.co/chaingraph/art-385-agent-token-scope-checker.html
 tags: ["compliance_mandate", "wave-47", "mcp:check_agent_token_scope"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-385-agent-token-scope-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-385-agent-token-scope-checker.html
+    title: "public tool page"
 ---
 
 # Agent Token Scope Checker

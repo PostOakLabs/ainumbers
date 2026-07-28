@@ -5,6 +5,13 @@ description: "12-dimension A-F diagnostic mapping an organisation's cryptographi
 resource: https://ainumbers.co/chaingraph/art-85-pqc-timeline-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-18", "mcp:run_pqc_timeline_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-85-pqc-timeline-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-85-pqc-timeline-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # PQC Timeline & Migration Fit Diagnostic

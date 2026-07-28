@@ -4,6 +4,8 @@ title: "risk_parameter"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"risk_parameter\"."
 tags: ["risk_parameter", "count-6"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # risk_parameter

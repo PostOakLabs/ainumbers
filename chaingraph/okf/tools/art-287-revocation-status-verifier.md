@@ -5,6 +5,13 @@ description: "Checks a receipt's optional W3C BitstringStatusList credentialStat
 resource: https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.html
 tags: ["compliance_mandate", "wave-52", "mcp:verify_revocation_status"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-287-revocation-status-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.html
+    title: "public tool page"
 ---
 
 # Revocation-Status Verifier

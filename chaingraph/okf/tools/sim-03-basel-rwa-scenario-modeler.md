@@ -5,6 +5,13 @@ description: "SA-CR / F-IRB / A-IRB RWA in parallel with output-floor comparison
 resource: https://ainumbers.co/chaingraph/sim-03-basel-rwa-scenario-modeler.html
 tags: ["capital_assessment", "wave-2", "mcp:compute_rwa_scenarios"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/sim-03-basel-rwa-scenario-modeler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/sim-03-basel-rwa-scenario-modeler.html
+    title: "public tool page"
 ---
 
 # Basel RWA Scenario Modeler

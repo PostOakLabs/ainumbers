@@ -4,6 +4,8 @@ title: "readiness_diagnostic"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"readiness_diagnostic\"."
 tags: ["readiness_diagnostic", "count-1"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # readiness_diagnostic

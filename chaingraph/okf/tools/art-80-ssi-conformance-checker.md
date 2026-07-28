@@ -5,6 +5,13 @@ description: "Lints standing settlement instructions for completeness, staleness
 resource: https://ainumbers.co/chaingraph/art-80-ssi-conformance-checker.html
 tags: ["compliance_mandate", "wave-17", "mcp:check_ssi_conformance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-80-ssi-conformance-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-80-ssi-conformance-checker.html
+    title: "public tool page"
 ---
 
 # SSI Conformance Checker

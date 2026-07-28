@@ -5,6 +5,13 @@ description: "Classify an AI system to its governance tier across EU AI Act (pro
 resource: https://ainumbers.co/chaingraph/art-173-ai-system-governance-classifier.html
 tags: ["compliance_mandate", "wave-31", "mcp:classify_ai_system_governance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-173-ai-system-governance-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-173-ai-system-governance-classifier.html
+    title: "public tool page"
 ---
 
 # AI System Governance Classifier

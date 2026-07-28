@@ -5,6 +5,13 @@ description: "Models CSDR Refit last-resort mandatory buy-in exposure: eligible 
 resource: https://ainumbers.co/chaingraph/art-83-buy-in-exposure-modeler.html
 tags: ["compliance_mandate", "wave-17", "mcp:model_buy_in_exposure"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-83-buy-in-exposure-modeler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-83-buy-in-exposure-modeler.html
+    title: "public tool page"
 ---
 
 # Buy-In Exposure Modeler

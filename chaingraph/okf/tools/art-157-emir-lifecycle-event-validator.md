@@ -5,6 +5,13 @@ description: "Validate an EMIR Refit action type against the prior reported stat
 resource: https://ainumbers.co/chaingraph/art-157-emir-lifecycle-event-validator.html
 tags: ["compliance_mandate", "wave-28", "mcp:validate_emir_lifecycle_event"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-157-emir-lifecycle-event-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-157-emir-lifecycle-event-validator.html
+    title: "public tool page"
 ---
 
 # EMIR Lifecycle Event Validator

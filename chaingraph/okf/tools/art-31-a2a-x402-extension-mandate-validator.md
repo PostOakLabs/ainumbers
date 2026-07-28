@@ -5,6 +5,13 @@ description: "Validates the A2A x402 extension (Coinbase/MetaMask/Ethereum Found
 resource: https://ainumbers.co/chaingraph/art-31-a2a-x402-extension-mandate-validator.html
 tags: ["settlement_mandate", "wave-6", "mcp:validate_a2a_x402_mandate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-31-a2a-x402-extension-mandate-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-31-a2a-x402-extension-mandate-validator.html
+    title: "public tool page"
 ---
 
 # A2A x402-Extension Mandate Validator

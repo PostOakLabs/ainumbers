@@ -5,6 +5,13 @@ description: "Scores market-abuse arrangements (Arts 86-92 + Dec-2024 RTS): PPAE
 resource: https://ainumbers.co/chaingraph/art-103-mar-crypto-surveillance-readiness.html
 tags: ["compliance_mandate", "wave-20", "mcp:assess_mar_crypto_surveillance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-103-mar-crypto-surveillance-readiness.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-103-mar-crypto-surveillance-readiness.html
+    title: "public tool page"
 ---
 
 # MAR-Crypto Surveillance-Readiness Assessor

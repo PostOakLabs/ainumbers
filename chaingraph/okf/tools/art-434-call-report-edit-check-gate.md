@@ -5,6 +5,13 @@ description: "Runs a curated battery of FFIEC-style published Call Report edit c
 resource: https://ainumbers.co/chaingraph/art-434-call-report-edit-check-gate.html
 tags: ["regulatory_reporting", "wave-71", "mcp:run_call_report_edit_checks"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-434-call-report-edit-check-gate.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-434-call-report-edit-check-gate.html
+    title: "public tool page"
 ---
 
 # Call Report Published Edit-Check Gate

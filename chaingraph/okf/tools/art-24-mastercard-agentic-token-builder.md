@@ -5,6 +5,13 @@ description: "Builds or lints a Mastercard Agent Pay Agentic Token scope: agent 
 resource: https://ainumbers.co/chaingraph/art-24-mastercard-agentic-token-builder.html
 tags: ["compliance_control", "wave-A", "mcp:build_mastercard_agentic_token"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-24-mastercard-agentic-token-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-24-mastercard-agentic-token-builder.html
+    title: "public tool page"
 ---
 
 # Mastercard Agentic Token Scope Builder

@@ -5,6 +5,13 @@ description: "Gross-to-net payroll calculation: FICA (Social Security 6.2% up to
 resource: https://ainumbers.co/chaingraph/art-339-compute-gross-to-net.html
 tags: ["compliance_mandate", "wave-60", "mcp:compute_gross_to_net"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-339-compute-gross-to-net.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-339-compute-gross-to-net.html
+    title: "public tool page"
 ---
 
 # Gross-to-Net Payroll Calculator (FICA)

@@ -5,6 +5,13 @@ description: "12-question scored diagnostic across four DORA pillars (ICT risk m
 resource: https://ainumbers.co/chaingraph/art-29-dora-readiness-diagnostic.html
 tags: ["infrastructure_mandate", "wave-B", "mcp:run_dora_readiness_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-29-dora-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-29-dora-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # DORA Readiness Diagnostic

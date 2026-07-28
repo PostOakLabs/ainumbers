@@ -5,6 +5,13 @@ description: "Validate EMIR Refit UTI format (ISO 23897, 52 alphanumeric charact
 resource: https://ainumbers.co/chaingraph/art-154-emir-uti-completeness-checker.html
 tags: ["compliance_mandate", "wave-28", "mcp:check_emir_uti_completeness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-154-emir-uti-completeness-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-154-emir-uti-completeness-checker.html
+    title: "public tool page"
 ---
 
 # EMIR UTI Completeness Checker

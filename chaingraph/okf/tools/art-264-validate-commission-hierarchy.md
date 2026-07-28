@@ -5,6 +5,13 @@ description: "BFS structural validation of multi-level sales commission hierarch
 resource: https://ainumbers.co/chaingraph/art-264-validate-commission-hierarchy.html
 tags: ["compliance_mandate", "wave-45", "mcp:validate_commission_hierarchy"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-264-validate-commission-hierarchy.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-264-validate-commission-hierarchy.html
+    title: "public tool page"
 ---
 
 # Commission Hierarchy Validator

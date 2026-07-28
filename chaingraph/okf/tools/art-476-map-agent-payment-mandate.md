@@ -5,6 +5,13 @@ description: "Translates an agentic-payment mandate declared under one protocol 
 resource: https://ainumbers.co/chaingraph/art-476-map-agent-payment-mandate.html
 tags: ["compliance_control", "wave-71", "mcp:map_agent_payment_mandate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-476-map-agent-payment-mandate.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-476-map-agent-payment-mandate.html
+    title: "public tool page"
 ---
 
 # Agent Payment Mandate Cross-Protocol Mapper

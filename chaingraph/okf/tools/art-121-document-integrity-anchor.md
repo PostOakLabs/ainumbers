@@ -5,6 +5,13 @@ description: "Bind a document SHA-256 and claimed timestamp into an OCG executio
 resource: https://ainumbers.co/chaingraph/art-121-document-integrity-anchor.html
 tags: ["compliance_mandate", "wave-22", "mcp:anchor_document_integrity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-121-document-integrity-anchor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-121-document-integrity-anchor.html
+    title: "public tool page"
 ---
 
 # Document Integrity & eIDAS Electronic Timestamp Anchor

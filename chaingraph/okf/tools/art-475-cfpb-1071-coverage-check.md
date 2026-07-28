@@ -5,6 +5,13 @@ description: "CFPB Section 1071 small business lending rule (Regulation B subpar
 resource: https://ainumbers.co/chaingraph/art-475-cfpb-1071-coverage-check.html
 tags: ["compliance_mandate", "wave-70", "mcp:compute_cfpb_1071_coverage"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-475-cfpb-1071-coverage-check.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-475-cfpb-1071-coverage-check.html
+    title: "public tool page"
 ---
 
 # CFPB 1071 Coverage Check & SBLAR Record Validator

@@ -5,6 +5,13 @@ description: "Scores ACP, UCP, x402, and Visa TAP against platform profile (buye
 resource: https://ainumbers.co/chaingraph/art-19-agentic-checkout-protocol-selector.html
 tags: ["routing_policy", "wave-A", "mcp:select_agentic_checkout_protocol"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-19-agentic-checkout-protocol-selector.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-19-agentic-checkout-protocol-selector.html
+    title: "public tool page"
 ---
 
 # Agentic Checkout Protocol Selector

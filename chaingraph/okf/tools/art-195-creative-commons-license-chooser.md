@@ -5,6 +5,13 @@ description: "Deterministic two-question decision tree mapping creator answers (
 resource: https://ainumbers.co/chaingraph/art-195-creative-commons-license-chooser.html
 tags: ["compliance_mandate", "wave-35", "mcp:choose_cc_license"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-195-creative-commons-license-chooser.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-195-creative-commons-license-chooser.html
+    title: "public tool page"
 ---
 
 # Creative Commons License Chooser

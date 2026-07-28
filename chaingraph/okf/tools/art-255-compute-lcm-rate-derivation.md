@@ -5,6 +5,13 @@ description: "Computes the Loss Cost Multiplier (LCM) and indicated insurance ra
 resource: https://ainumbers.co/chaingraph/art-255-compute-lcm-rate-derivation.html
 tags: ["analytics_mandate", "wave-43", "mcp:compute_lcm_rate_derivation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-255-compute-lcm-rate-derivation.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-255-compute-lcm-rate-derivation.html
+    title: "public tool page"
 ---
 
 # LCM Rate Derivation Calculator

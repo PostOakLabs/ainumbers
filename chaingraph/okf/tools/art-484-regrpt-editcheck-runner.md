@@ -5,6 +5,13 @@ description: "Evaluates a caller-supplied report instance against a caller-suppl
 resource: https://ainumbers.co/chaingraph/art-484-regrpt-editcheck-runner.html
 tags: ["regulatory_reporting", "wave-77", "mcp:run_regrpt_edit_checks"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-484-regrpt-editcheck-runner.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-484-regrpt-editcheck-runner.html
+    title: "public tool page"
 ---
 
 # Published Regulatory Report Edit-Check Runner

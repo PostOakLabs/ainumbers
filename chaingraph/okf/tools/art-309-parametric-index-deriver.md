@@ -5,6 +5,13 @@ description: "Deterministically aggregates a named metric (mean, sum, count, max
 resource: https://ainumbers.co/chaingraph/art-309-parametric-index-deriver.html
 tags: ["compliance_mandate", "wave-54", "mcp:derive_parametric_index_from_receipts"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-309-parametric-index-deriver.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-309-parametric-index-deriver.html
+    title: "public tool page"
 ---
 
 # Parametric Index Deriver

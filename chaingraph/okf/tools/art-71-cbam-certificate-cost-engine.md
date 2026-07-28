@@ -5,6 +5,13 @@ description: "Converts embedded emissions into a CBAM certificate liability: app
 resource: https://ainumbers.co/chaingraph/art-71-cbam-certificate-cost-engine.html
 tags: ["compliance_mandate", "wave-16", "mcp:model_cbam_certificate_cost"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-71-cbam-certificate-cost-engine.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-71-cbam-certificate-cost-engine.html
+    title: "public tool page"
 ---
 
 # CBAM Certificate Cost & Free-Allocation Engine

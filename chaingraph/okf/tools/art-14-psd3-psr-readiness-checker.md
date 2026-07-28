@@ -5,6 +5,13 @@ description: "Six-domain PSD3/PSR readiness rubric: Open Finance access rights (
 resource: https://ainumbers.co/chaingraph/art-14-psd3-psr-readiness-checker.html
 tags: ["compliance_mandate", "wave-4", "mcp:assess_psd3_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-14-psd3-psr-readiness-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-14-psd3-psr-readiness-checker.html
+    title: "public tool page"
 ---
 
 # PSD3 / PSR Readiness Checker

@@ -5,6 +5,13 @@ description: "Screens a privately held party/transfer list against a pinned OFAC
 resource: https://ainumbers.co/chaingraph/art-413-screen-sanctions-private.html
 tags: ["analytics_mandate", "wave-51", "mcp:screen_sanctions_private"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-413-screen-sanctions-private.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-413-screen-sanctions-private.html
+    title: "public tool page"
 ---
 
 # Private-Input Sanctions Screen

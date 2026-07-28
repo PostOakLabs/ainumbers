@@ -4,6 +4,8 @@ title: "settlement_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"settlement_mandate\"."
 tags: ["settlement_mandate", "count-9"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # settlement_mandate

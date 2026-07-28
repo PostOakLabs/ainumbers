@@ -5,6 +5,13 @@ description: "Validate OAuth 2.0 Protected Resource Metadata per RFC 9728: resou
 resource: https://ainumbers.co/chaingraph/art-148-mcp-authorization-metadata-validator.html
 tags: ["compliance_mandate", "wave-27", "mcp:validate_mcp_authorization_metadata"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-148-mcp-authorization-metadata-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-148-mcp-authorization-metadata-validator.html
+    title: "public tool page"
 ---
 
 # MCP Authorization Metadata Validator (RFC 9728)

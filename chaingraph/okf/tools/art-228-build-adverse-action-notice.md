@@ -5,6 +5,13 @@ description: "Assembles an adverse action notice skeleton from SHAP-ranked princ
 resource: https://ainumbers.co/chaingraph/art-228-build-adverse-action-notice.html
 tags: ["compliance_mandate", "wave-39", "mcp:build_adverse_action_notice"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-228-build-adverse-action-notice.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-228-build-adverse-action-notice.html
+    title: "public tool page"
 ---
 
 # Build Adverse Action Notice

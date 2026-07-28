@@ -5,6 +5,13 @@ description: "Assess an entity's readiness to migrate from EC Sales List (recapi
 resource: https://ainumbers.co/chaingraph/art-161-vida-recapitulative-statement-migration-assessor.html
 tags: ["compliance_mandate", "wave-29", "mcp:assess_vida_recapitulative_migration"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-161-vida-recapitulative-statement-migration-assessor.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-161-vida-recapitulative-statement-migration-assessor.html
+    title: "public tool page"
 ---
 
 # ViDA Recapitulative Statement Migration Assessor

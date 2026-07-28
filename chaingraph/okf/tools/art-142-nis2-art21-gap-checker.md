@@ -5,6 +5,13 @@ description: "Check presence and maturity of all ten NIS2 Article 21(2)(a)–(j)
 resource: https://ainumbers.co/chaingraph/art-142-nis2-art21-gap-checker.html
 tags: ["compliance_mandate", "wave-26", "mcp:check_nis2_art21_measures"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-142-nis2-art21-gap-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-142-nis2-art21-gap-checker.html
+    title: "public tool page"
 ---
 
 # NIS2 Article 21 Gap Checker (Ten Cybersecurity Risk-Management Measures)

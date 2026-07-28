@@ -5,6 +5,13 @@ description: "Rail-selection and finality recommendation across x402 (HTTP 402),
 resource: https://ainumbers.co/chaingraph/art-03-x402-settlement-modeler.html
 tags: ["settlement_mandate", "wave-2", "mcp:model_x402_settlement", "iso20022:pacs.008-subset"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-03-x402-settlement-modeler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-03-x402-settlement-modeler.html
+    title: "public tool page"
 ---
 
 # x402 Settlement Cost & Finality Modeler

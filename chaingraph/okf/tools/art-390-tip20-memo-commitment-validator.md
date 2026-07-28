@@ -5,6 +5,13 @@ description: "Validates a TIP-20 TransferWithMemo's 32-byte memo as a hash-or-lo
 resource: https://ainumbers.co/chaingraph/art-390-tip20-memo-commitment-validator.html
 tags: ["compliance_mandate", "wave-65", "mcp:validate_tip20_memo_commitment"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-390-tip20-memo-commitment-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-390-tip20-memo-commitment-validator.html
+    title: "public tool page"
 ---
 
 # TIP-20 Memo/Commitment Validator

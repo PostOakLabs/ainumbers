@@ -5,6 +5,13 @@ description: "Conformance-validate a structured e-invoice extract against versio
 resource: https://ainumbers.co/chaingraph/art-293-einvoice-format-validator.html
 tags: ["compliance_mandate", "wave-46", "mcp:validate_einvoice_format"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-293-einvoice-format-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-293-einvoice-format-validator.html
+    title: "public tool page"
 ---
 
 # E-Invoice Format Validator

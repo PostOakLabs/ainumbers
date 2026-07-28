@@ -5,6 +5,13 @@ description: "Diffs a current EMIR reconciliation break set (e.g. from art-482-e
 resource: https://ainumbers.co/chaingraph/art-483-emir-break-ageing.html
 tags: ["attestation_mandate", "wave-71", "mcp:age_emir_reconciliation_breaks"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-483-emir-break-ageing.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-483-emir-break-ageing.html
+    title: "public tool page"
 ---
 
 # EMIR Reconciliation Break Ageing

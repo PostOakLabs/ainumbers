@@ -5,6 +5,13 @@ description: "Composes a quarterly agent testing-evidence pack: test-suite ident
 resource: https://ainumbers.co/chaingraph/art-378-quarterly-test-evidence-composer.html
 tags: ["compliance_mandate", "wave-65", "mcp:build_agent_test_evidence"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-378-quarterly-test-evidence-composer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-378-quarterly-test-evidence-composer.html
+    title: "public tool page"
 ---
 
 # Quarterly Agent Test Evidence Composer

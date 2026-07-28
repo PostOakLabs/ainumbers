@@ -5,6 +5,13 @@ description: "Hash-chains an identity-verification (IDV/KYC) session's declared 
 resource: https://ainumbers.co/chaingraph/art-359-idv-session-receipt-builder.html
 tags: ["compliance_control", "wave-62", "mcp:build_idv_session_receipt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-359-idv-session-receipt-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-359-idv-session-receipt-builder.html
+    title: "public tool page"
 ---
 
 # IDV/KYC Session Evidence Receipt Builder

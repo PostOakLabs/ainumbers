@@ -5,6 +5,13 @@ description: "Monte Carlo simulation of stablecoin reserve portfolios under MiCA
 resource: https://ainumbers.co/chaingraph/rca-02-mica-reserve-stress.html
 tags: ["liquidity_mandate", "wave-3", "mcp:simulate_stablecoin_reserve"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/rca-02-mica-reserve-stress.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/rca-02-mica-reserve-stress.html
+    title: "public tool page"
 ---
 
 # MiCA Stablecoin Reserve Stress Simulator

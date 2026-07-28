@@ -5,6 +5,13 @@ description: "Crosswalk agent identity posture (alg, directory published, card p
 resource: https://ainumbers.co/chaingraph/art-133-agent-payment-rail-trust-crosswalk.html
 tags: ["compliance_mandate", "wave-24", "mcp:crosswalk_agent_payment_rail_trust"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-133-agent-payment-rail-trust-crosswalk.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-133-agent-payment-rail-trust-crosswalk.html
+    title: "public tool page"
 ---
 
 # Agent Payment Rail Trust Crosswalk

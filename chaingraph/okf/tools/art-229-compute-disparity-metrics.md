@@ -5,6 +5,13 @@ description: "Computes three fair lending disparate impact metrics from aggregat
 resource: https://ainumbers.co/chaingraph/art-229-compute-disparity-metrics.html
 tags: ["compliance_mandate", "wave-39", "mcp:compute_disparity_metrics"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-229-compute-disparity-metrics.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-229-compute-disparity-metrics.html
+    title: "public tool page"
 ---
 
 # Compute Disparate Impact Metrics

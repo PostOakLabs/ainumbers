@@ -5,6 +5,13 @@ description: "Check IFRS 17 risk-adjustment (RA) disclosure completeness: valida
 resource: https://ainumbers.co/chaingraph/art-179-ifrs17-risk-adjustment-checker.html
 tags: ["compliance_mandate", "wave-32", "mcp:check_ifrs17_risk_adjustment"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-179-ifrs17-risk-adjustment-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-179-ifrs17-risk-adjustment-checker.html
+    title: "public tool page"
 ---
 
 # IFRS 17 Risk Adjustment Checker

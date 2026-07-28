@@ -4,6 +4,8 @@ title: "payment_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"payment_mandate\"."
 tags: ["payment_mandate", "count-4"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
 ---
 
 # payment_mandate

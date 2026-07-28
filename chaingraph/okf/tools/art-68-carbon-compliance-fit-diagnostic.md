@@ -5,6 +5,13 @@ description: "12-question A-F diagnostic that classifies which carbon/climate ob
 resource: https://ainumbers.co/chaingraph/art-68-carbon-compliance-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-16", "mcp:run_carbon_compliance_fit"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-68-carbon-compliance-fit-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-68-carbon-compliance-fit-diagnostic.html
+    title: "public tool page"
 ---
 
 # Carbon & Climate Compliance Fit Diagnostic

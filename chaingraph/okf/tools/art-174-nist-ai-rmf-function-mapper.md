@@ -5,6 +5,13 @@ description: "Map supplied AI controls and evidence to NIST AI RMF Govern (5 con
 resource: https://ainumbers.co/chaingraph/art-174-nist-ai-rmf-function-mapper.html
 tags: ["compliance_mandate", "wave-31", "mcp:map_nist_ai_rmf_functions"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-174-nist-ai-rmf-function-mapper.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-174-nist-ai-rmf-function-mapper.html
+    title: "public tool page"
 ---
 
 # NIST AI RMF Function Mapper

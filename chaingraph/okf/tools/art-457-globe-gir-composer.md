@@ -5,6 +5,13 @@ description: "Assembles the OECD GloBE Information Return (GIR) data model for o
 resource: https://ainumbers.co/chaingraph/art-457-globe-gir-composer.html
 tags: ["compliance_control", "wave-75", "mcp:compose_globe_gir"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-457-globe-gir-composer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-457-globe-gir-composer.html
+    title: "public tool page"
 ---
 
 # GloBE Information Return (GIR) Composer

@@ -5,6 +5,13 @@ description: "Aggregate CBPR+ pre-validation readiness check for a single pacs.0
 resource: https://ainumbers.co/chaingraph/art-247-prevalidation-readiness-scorer.html
 tags: ["compliance_mandate", "wave-41", "mcp:prevalidation_readiness_scorer"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-247-prevalidation-readiness-scorer.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-247-prevalidation-readiness-scorer.html
+    title: "public tool page"
 ---
 
 # Cross-Border Payment Prevalidation Readiness Scorer

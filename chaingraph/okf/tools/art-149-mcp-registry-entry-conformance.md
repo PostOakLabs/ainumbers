@@ -5,6 +5,13 @@ description: "Validate an MCP Registry server.json entry: $schema present, rever
 resource: https://ainumbers.co/chaingraph/art-149-mcp-registry-entry-conformance.html
 tags: ["compliance_mandate", "wave-27", "mcp:check_mcp_registry_entry"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-149-mcp-registry-entry-conformance.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-149-mcp-registry-entry-conformance.html
+    title: "public tool page"
 ---
 
 # MCP Registry Entry Conformance Checker

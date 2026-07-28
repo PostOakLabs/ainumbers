@@ -5,6 +5,13 @@ description: "Walks a synthetic ownership graph; computes direct + indirect + ag
 resource: https://ainumbers.co/chaingraph/art-91-ownership-50pct-aggregator.html
 tags: ["compliance_mandate", "wave-19", "mcp:aggregate_ownership_50pct"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-91-ownership-50pct-aggregator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-91-ownership-50pct-aggregator.html
+    title: "public tool page"
 ---
 
 # Ownership 50%-Rule Aggregator

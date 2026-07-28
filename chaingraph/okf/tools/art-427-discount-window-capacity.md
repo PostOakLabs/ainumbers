@@ -5,6 +5,13 @@ description: "Federal Reserve Discount Window borrowing-capacity calculator: len
 resource: https://ainumbers.co/chaingraph/art-427-discount-window-capacity.html
 tags: ["compliance_mandate", "wave-63", "mcp:compute_discount_window_capacity"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-427-discount-window-capacity.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-427-discount-window-capacity.html
+    title: "public tool page"
 ---
 
 # Discount Window Borrowing-Capacity Calculator

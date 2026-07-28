@@ -5,6 +5,13 @@ description: "Checks a municipal-bond Official Statement disclosure-element chec
 resource: https://ainumbers.co/chaingraph/art-400-check-official-statement-completeness.html
 tags: ["compliance_mandate", "wave-47", "mcp:check_official_statement_completeness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-400-check-official-statement-completeness.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-400-check-official-statement-completeness.html
+    title: "public tool page"
 ---
 
 # Municipal Official Statement Completeness Checker

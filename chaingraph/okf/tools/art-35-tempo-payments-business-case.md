@@ -5,6 +5,13 @@ description: "CFO-level cost-and-savings model for migrating a payment flow (pay
 resource: https://ainumbers.co/chaingraph/art-35-tempo-payments-business-case.html
 tags: ["treasury_mandate", "wave-9", "mcp:model_tempo_payment_economics"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-35-tempo-payments-business-case.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-35-tempo-payments-business-case.html
+    title: "public tool page"
 ---
 
 # Tempo Payments Business Case

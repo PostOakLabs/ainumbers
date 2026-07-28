@@ -5,6 +5,13 @@ description: "Parses an MPP (Machine Payments Protocol) session, validates spend
 resource: https://ainumbers.co/chaingraph/art-36-tempo-mpp-agent-mandate.html
 tags: ["payment_mandate", "wave-9", "mcp:decode_mpp_session"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-36-tempo-mpp-agent-mandate.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-36-tempo-mpp-agent-mandate.html
+    title: "public tool page"
 ---
 
 # Tempo MPP Agent Mandate

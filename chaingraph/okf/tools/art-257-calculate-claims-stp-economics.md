@@ -5,6 +5,13 @@ description: "Computes the financial business case for insurance claims Straight
 resource: https://ainumbers.co/chaingraph/art-257-calculate-claims-stp-economics.html
 tags: ["analytics_mandate", "wave-43", "mcp:calculate_claims_stp_economics"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-257-calculate-claims-stp-economics.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-257-calculate-claims-stp-economics.html
+    title: "public tool page"
 ---
 
 # Claims STP Economics Calculator

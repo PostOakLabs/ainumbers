@@ -5,6 +5,13 @@ description: "Validates FIDO2/WebAuthn authenticator ML-DSA conformance vs IANA 
 resource: https://ainumbers.co/chaingraph/art-88-fido-pqc-conformance-checker.html
 tags: ["compliance_mandate", "wave-18", "mcp:check_fido_pqc_conformance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-88-fido-pqc-conformance-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-88-fido-pqc-conformance-checker.html
+    title: "public tool page"
 ---
 
 # FIDO2 / WebAuthn PQC Conformance Checker

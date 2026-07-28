@@ -5,6 +5,13 @@ description: "The regulatory receipt. Aggregates N execution_hashes from an agen
 resource: https://ainumbers.co/chaingraph/cry-05-agent-action-audit-trail-aggregator.html
 tags: ["cryptographic_mandate", "wave-6", "mcp:aggregate_execution_receipts"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/cry-05-agent-action-audit-trail-aggregator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/cry-05-agent-action-audit-trail-aggregator.html
+    title: "public tool page"
 ---
 
 # Agent-Action Audit-Trail Aggregator

@@ -5,6 +5,13 @@ description: "Binds a license election (family, id, params) to a named asset and
 resource: https://ainumbers.co/chaingraph/art-199-license-election-certifier.html
 tags: ["cryptographic_mandate", "wave-35", "mcp:certify_license_election"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-199-license-election-certifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-199-license-election-certifier.html
+    title: "public tool page"
 ---
 
 # License Election Certifier

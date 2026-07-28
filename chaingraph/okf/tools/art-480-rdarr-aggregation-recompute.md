@@ -5,6 +5,13 @@ description: "Re-derives a stated risk-report figure from a SUPPLIED source extr
 resource: https://ainumbers.co/chaingraph/art-480-rdarr-aggregation-recompute.html
 tags: ["attestation_mandate", "wave-66", "mcp:rdarr_aggregation_recompute"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-480-rdarr-aggregation-recompute.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-480-rdarr-aggregation-recompute.html
+    title: "public tool page"
 ---
 
 # RDARR Aggregation Recompute

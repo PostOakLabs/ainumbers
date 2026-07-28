@@ -5,6 +5,13 @@ description: "Synthetic ZK compliance proof token for AML/Travel Rule predicates
 resource: https://ainumbers.co/chaingraph/cry-01-zk-compliance-proof-generator.html
 tags: ["compliance_mandate", "wave-2", "mcp:generate_zk_compliance_proof"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/cry-01-zk-compliance-proof-generator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/cry-01-zk-compliance-proof-generator.html
+    title: "public tool page"
 ---
 
 # ZK Compliance Proof Generator

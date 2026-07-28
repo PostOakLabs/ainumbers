@@ -5,6 +5,13 @@ description: "Validates an OpenVEX document: @context includes openvex.dev, ever
 resource: https://ainumbers.co/chaingraph/art-137-openvex-statement-validator.html
 tags: ["compliance_mandate", "wave-25", "mcp:validate_openvex_statement"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-137-openvex-statement-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-137-openvex-statement-validator.html
+    title: "public tool page"
 ---
 
 # OpenVEX Statement Validator

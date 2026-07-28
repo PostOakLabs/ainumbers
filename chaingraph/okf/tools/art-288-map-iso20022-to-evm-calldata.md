@@ -5,6 +5,13 @@ description: "Deterministic bind of an ISO 20022 pacs.008 (customer credit trans
 resource: https://ainumbers.co/chaingraph/art-288-map-iso20022-to-evm-calldata.html
 tags: ["compliance_mandate", "wave-53", "mcp:map_iso20022_to_evm_calldata"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-288-map-iso20022-to-evm-calldata.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-288-map-iso20022-to-evm-calldata.html
+    title: "public tool page"
 ---
 
 # ISO 20022-to-EVM Calldata Mapper

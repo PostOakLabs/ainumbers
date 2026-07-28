@@ -5,6 +5,13 @@ description: "Multi-scenario stress testing across 6 historical crisis scenarios
 resource: https://ainumbers.co/chaingraph/qfa-03-stress-test-engine.html
 tags: ["risk_parameter", "wave-4", "mcp:compute_stress_test_scenarios"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/qfa-03-stress-test-engine.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/qfa-03-stress-test-engine.html
+    title: "public tool page"
 ---
 
 # Stress Test Engine

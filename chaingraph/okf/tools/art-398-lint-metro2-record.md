@@ -5,6 +5,13 @@ description: "Lints a Metro 2 credit-reporting base-segment record from a PUBLIC
 resource: https://ainumbers.co/chaingraph/art-398-lint-metro2-record.html
 tags: ["compliance_mandate", "wave-47", "mcp:lint_metro2_record"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-398-lint-metro2-record.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-398-lint-metro2-record.html
+    title: "public tool page"
 ---
 
 # Metro 2 Credit-Reporting Record Lint

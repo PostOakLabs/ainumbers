@@ -5,6 +5,13 @@ description: "12-question scored diagnostic: graded A–F across policy & mandat
 resource: https://ainumbers.co/chaingraph/art-27-agentic-readiness-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-A", "mcp:run_agentic_readiness_diagnostic"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-27-agentic-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-27-agentic-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # Agentic Payments Readiness Diagnostic

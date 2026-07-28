@@ -5,6 +5,13 @@ description: "The synergy flagship. Validates a single agent purchase end-to-end
 resource: https://ainumbers.co/chaingraph/art-30-agent-commerce-conformance-validator.html
 tags: ["payment_mandate", "wave-6", "mcp:validate_agent_commerce_conformance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-30-agent-commerce-conformance-validator.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-30-agent-commerce-conformance-validator.html
+    title: "public tool page"
 ---
 
 # Agent Commerce Cross-Protocol Conformance Validator

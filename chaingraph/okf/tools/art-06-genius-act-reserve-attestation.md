@@ -5,6 +5,13 @@ description: "1:1 reserve coverage, reserve-composition eligibility against GENI
 resource: https://ainumbers.co/chaingraph/art-06-genius-act-reserve-attestation.html
 tags: ["attestation_mandate", "wave-1", "mcp:precheck_reserve_attestation"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-06-genius-act-reserve-attestation.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-06-genius-act-reserve-attestation.html
+    title: "public tool page"
 ---
 
 # GENIUS Act Reserve Attestation Pre-Check

@@ -5,6 +5,13 @@ description: "Scores treasury cash forecast accuracy per AFP Cash Forecasting Su
 resource: https://ainumbers.co/chaingraph/art-263-score-cash-forecast-accuracy.html
 tags: ["analytics_mandate", "wave-44", "mcp:score_cash_forecast_accuracy"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-263-score-cash-forecast-accuracy.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-263-score-cash-forecast-accuracy.html
+    title: "public tool page"
 ---
 
 # Cash Forecast Accuracy Scoring

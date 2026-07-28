@@ -5,6 +5,13 @@ description: "Macaulay and modified duration for a standard even-period bullet b
 resource: https://ainumbers.co/chaingraph/art-329-tvm-bond-duration.html
 tags: ["analytics_mandate", "wave-57", "mcp:compute_bond_duration"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-329-tvm-bond-duration.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-329-tvm-bond-duration.html
+    title: "public tool page"
 ---
 
 # Bond Macaulay / Modified Duration

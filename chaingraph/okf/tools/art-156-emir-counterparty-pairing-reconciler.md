@@ -5,6 +5,13 @@ description: "Pair two counterparties EMIR Refit reports by UTI and reconcile th
 resource: https://ainumbers.co/chaingraph/art-156-emir-counterparty-pairing-reconciler.html
 tags: ["compliance_mandate", "wave-28", "mcp:reconcile_emir_pairing"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-156-emir-counterparty-pairing-reconciler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-156-emir-counterparty-pairing-reconciler.html
+    title: "public tool page"
 ---
 
 # EMIR Counterparty Pairing Reconciler

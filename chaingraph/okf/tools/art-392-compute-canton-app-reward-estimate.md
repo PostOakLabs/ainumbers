@@ -5,6 +5,13 @@ description: "Estimates a Canton Network app provider's Canton Coin reward for o
 resource: https://ainumbers.co/chaingraph/art-392-compute-canton-app-reward-estimate.html
 tags: ["analytics_mandate", "wave-64", "mcp:compute_canton_app_reward_estimate"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-392-compute-canton-app-reward-estimate.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-392-compute-canton-app-reward-estimate.html
+    title: "public tool page"
 ---
 
 # Canton App-Reward Estimator (CIP-0104)

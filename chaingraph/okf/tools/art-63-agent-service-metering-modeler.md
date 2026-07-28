@@ -5,6 +5,13 @@ description: "Educational unit-economics modeler for agent-service micropayment 
 resource: https://ainumbers.co/chaingraph/art-63-agent-service-metering-modeler.html
 tags: ["payment_policy", "wave-14", "mcp:model_agent_service_metering"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-63-agent-service-metering-modeler.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-63-agent-service-metering-modeler.html
+    title: "public tool page"
 ---
 
 # Agent-Service Metering & Marketplace Economics Modeler

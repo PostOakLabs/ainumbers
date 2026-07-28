@@ -5,6 +5,13 @@ description: "Recompute an e-invoice's line VAT, per-category tax subtotals, tax
 resource: https://ainumbers.co/chaingraph/art-294-einvoice-vat-calc-verifier.html
 tags: ["compliance_mandate", "wave-46", "mcp:verify_einvoice_vat_calc"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-294-einvoice-vat-calc-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-294-einvoice-vat-calc-verifier.html
+    title: "public tool page"
 ---
 
 # E-Invoice VAT Calculation Verifier

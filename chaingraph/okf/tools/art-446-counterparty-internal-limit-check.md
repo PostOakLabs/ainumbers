@@ -5,6 +5,13 @@ description: "Counterparty internal credit-limit check: compares each counterpar
 resource: https://ainumbers.co/chaingraph/art-446-counterparty-internal-limit-check.html
 tags: ["compliance_mandate", "wave-70", "mcp:compute_counterparty_limit_check"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-446-counterparty-internal-limit-check.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-446-counterparty-internal-limit-check.html
+    title: "public tool page"
 ---
 
 # Counterparty Internal Limit Check

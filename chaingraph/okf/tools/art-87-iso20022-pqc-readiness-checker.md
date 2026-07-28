@@ -5,6 +5,13 @@ description: "Scores SWIFT/ISO 20022 PQC readiness with BAH signature-bloat sizi
 resource: https://ainumbers.co/chaingraph/art-87-iso20022-pqc-readiness-checker.html
 tags: ["compliance_mandate", "wave-18", "mcp:check_iso20022_pqc_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-87-iso20022-pqc-readiness-checker.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-87-iso20022-pqc-readiness-checker.html
+    title: "public tool page"
 ---
 
 # SWIFT / ISO 20022 PQC Readiness Checker

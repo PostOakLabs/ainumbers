@@ -5,6 +5,13 @@ description: "Determines whether a group's declared AANA (average aggregate noti
 resource: https://ainumbers.co/chaingraph/art-407-umr-aana-readiness-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-67", "mcp:run_umr_aana_readiness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-407-umr-aana-readiness-diagnostic.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-407-umr-aana-readiness-diagnostic.html
+    title: "public tool page"
 ---
 
 # UMR / AANA Readiness Diagnostic

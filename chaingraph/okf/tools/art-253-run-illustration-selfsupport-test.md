@@ -5,6 +5,13 @@ description: "Runs the NAIC Model Regulation 582 §8C self-support test (year 15
 resource: https://ainumbers.co/chaingraph/art-253-run-illustration-selfsupport-test.html
 tags: ["compliance_mandate", "wave-43", "mcp:run_illustration_selfsupport_test"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-253-run-illustration-selfsupport-test.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-253-run-illustration-selfsupport-test.html
+    title: "public tool page"
 ---
 
 # Life Illustration Self-Support Test (NAIC Model 582)

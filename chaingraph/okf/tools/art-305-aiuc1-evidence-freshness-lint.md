@@ -5,6 +5,13 @@ description: "Freshness lint keyed to the AIUC-1 quarterly re-test cadence: flag
 resource: https://ainumbers.co/chaingraph/art-305-aiuc1-evidence-freshness-lint.html
 tags: ["compliance_mandate", "wave-54", "mcp:lint_insurance_evidence_freshness"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-305-aiuc1-evidence-freshness-lint.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-305-aiuc1-evidence-freshness-lint.html
+    title: "public tool page"
 ---
 
 # AIUC-1 Evidence Freshness Lint

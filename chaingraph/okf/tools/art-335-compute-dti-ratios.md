@@ -5,6 +5,13 @@ description: "Front-end (housing) and back-end (total) debt-to-income ratios per
 resource: https://ainumbers.co/chaingraph/art-335-compute-dti-ratios.html
 tags: ["compliance_mandate", "wave-60", "mcp:compute_dti_ratios"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-335-compute-dti-ratios.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-335-compute-dti-ratios.html
+    title: "public tool page"
 ---
 
 # DTI Ratio Calculator

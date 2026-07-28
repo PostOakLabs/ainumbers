@@ -5,6 +5,13 @@ description: "Given caller-supplied CET1/Tier1/Tier2 capital components and risk
 resource: https://ainumbers.co/chaingraph/art-436-bhc-schedule-hcr-capital.html
 tags: ["regulatory_reporting", "wave-71", "mcp:map_bhc_schedule_hcr"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-436-bhc-schedule-hcr-capital.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-436-bhc-schedule-hcr-capital.html
+    title: "public tool page"
 ---
 
 # FR Y-9C Schedule HC-R (Regulatory Capital) Calculator

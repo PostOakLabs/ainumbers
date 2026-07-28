@@ -5,6 +5,13 @@ description: "Verifies an in-toto SLSA provenance statement: validates _type (in
 resource: https://ainumbers.co/chaingraph/art-136-slsa-provenance-verifier.html
 tags: ["compliance_mandate", "wave-25", "mcp:verify_slsa_provenance"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-136-slsa-provenance-verifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-136-slsa-provenance-verifier.html
+    title: "public tool page"
 ---
 
 # SLSA Provenance Verifier

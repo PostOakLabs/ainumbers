@@ -5,6 +5,13 @@ description: "Itemizes a single cross-border B2B invoice's total cost stack: FX 
 resource: https://ainumbers.co/chaingraph/art-367-compute-cross-border-fees.html
 tags: ["analytics_mandate", "wave-63", "mcp:compute_cross_border_fees"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-367-compute-cross-border-fees.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-367-compute-cross-border-fees.html
+    title: "public tool page"
 ---
 
 # Cross-Border B2B Fee Calculator

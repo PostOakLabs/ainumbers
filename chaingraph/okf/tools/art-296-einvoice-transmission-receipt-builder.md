@@ -5,6 +5,13 @@ description: "Build a hash-anchored receipt proving a specific e-invoice's trans
 resource: https://ainumbers.co/chaingraph/art-296-einvoice-transmission-receipt-builder.html
 tags: ["compliance_mandate", "wave-46", "mcp:build_einvoice_transmission_receipt"]
 timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-296-einvoice-transmission-receipt-builder.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-296-einvoice-transmission-receipt-builder.html
+    title: "public tool page"
 ---
 
 # E-Invoice Transmission Receipt Builder
