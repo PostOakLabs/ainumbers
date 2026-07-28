@@ -267,7 +267,7 @@ Each concept carries OKF YAML frontmatter (type, title, description, resource, t
 
 Maturity note
 
-OKF is a v0.1 specification (published June 2026). It is adopted here as a companion artifact only. Tie nothing in artifact verification to it; treat the bundle as a generated, swappable discovery surface.
+OKF is a v0.2 specification (v0.1 published June 2026; republished as v0.2 in July 2026, backward-compatible — v0.2 consumers still read legacy v0.1 concepts via documented fallbacks). It is adopted here as a companion artifact only. Tie nothing in artifact verification to it; treat the bundle as a generated, swappable discovery surface. v0.2 adds an OPTIONAL trust family to concept frontmatter (`generated:`, `verified:`); a concept's `verified:` entry, and any trust tier derived from it, is a SELF-ASSERTION made by whoever wrote that frontmatter, never an OCG verification, and MUST NOT be read as one.
 ## §11 Profile Conformance
 
 v0.3 introduced ISO 20022 alignment via an inline semantic_profile string token. v0.3.1 makes that conformance a first-class, machine-resolvable assertion using the W3C Profiles Vocabulary (PROF) and Content Negotiation by Profile: a profile is a dct:Standard published at a dereferenceable URI and declared with dct:conformsTo. This is fully additive — the execution_hash preimage is unchanged and semantic_profile tokens stay valid as registered aliases.
@@ -357,10 +357,10 @@ node need not declare `vc`. Mapping (envelope → VC): `issued_by`→`issuer`, `
 
 **§13.11.1 agent-receipts (Obsigna) `credentialSubject` extension — NORMATIVE, extended in v0.8.11.** The
 `vc` export ADDITIONALLY carries `credentialSubject` members named to match the published
-[agent-receipts](https://github.com/agent-receipts/obsigna) `AgentReceipt` credential shape (context
-`https://agentreceipts.ai/context/v1`, added to the credential's `@context` array alongside the OCG term
-context), so a verifier written against that project's schema can read the fields it recognizes without a
-translation layer. **This is a PARTIAL, additive mapping, not a claim of full external-schema conformance**
+[agent-receipts](https://github.com/agent-receipts/obsigna) `AgentReceipt` credential shape, pinned to
+schema tag `spec-v0.5.0` (context `https://agentreceipts.ai/context/v1`, added to the credential's
+`@context` array alongside the OCG term context), so a verifier written against that project's schema can
+read the fields it recognizes without a translation layer. **This is a PARTIAL, additive mapping, not a claim of full external-schema conformance**
 — agent-receipts' `action` and `principal` objects require member fields (`action.id`, `action.risk_level`,
 `action.timestamp`, `principal.type`) this artifact does not carry and that this profile MUST NOT invent;
 only the members below are populated, exactly as §XMAP-1 already documents PARTIAL coverage for the other
@@ -811,8 +811,8 @@ fixtures — a valid k-of-n cosigned checkpoint verifies against pinned witness 
 below-threshold cosignature MUST fail; the anchor is hash-identical with and without the cosignatures.
 
 Attribution: **C2SP** (`https://github.com/C2SP/C2SP`) — tlog-checkpoint + signed-note / witness
-cosignature format (pin the cosignature note format version). Sigsum and Armored Witness are cited as
-conformant independent-witness mechanisms (named, not depended on).
+cosignature format, pinned to `tlog-checkpoint/v1.0.0`, `signed-note/v1.0.0`, `tlog-cosignature/v1.0.1`.
+Sigsum and Armored Witness are cited as conformant independent-witness mechanisms (named, not depended on).
 
 ## §21 Chain Execution (NORMATIVE — new in v0.8)
 Until v0.8 chain execution (`run_chain` / `composite_execution_hash`) was implementation-defined. §21
@@ -1337,6 +1337,7 @@ the zero-dependency posture; it is revisited when a small stable verifier exists
   sane genTime) — **no second RFC 3161 implementation**. `messageImprint` MUST equal the resolved input's
   §4-canonical digest.
 - **`c2pa-manifest` (verifiable now — structural).** `proof` is a [C2PA](https://c2pa.org/) manifest
+  (pinned to C2PA Technical Specification 2.4, `https://spec.c2pa.org/specifications/specifications/2.4/index.html`)
   asserting provenance of the pointed-to input (typically a document or media input). Verification NOW is
   STRUCTURAL: the manifest parses, its claim signature is well-formed, and its hard-binding assertion digest
   MATCHES the resolved input's bytes/digest; full trust-chain evaluation of the signer is a link-out to a
