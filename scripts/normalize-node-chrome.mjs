@@ -153,7 +153,7 @@ function processFile(filename) {
     html = html.replace('</body>', `\n${FOOTER}\n</body>`);
   }
 
-  // ── inject CSS (idempotent) ──
+  // ── inject / refresh CSS ──
   // Use </head> injection (new <style> block) to avoid hitting </style> tags inside
   // document.write() calls within <script> blocks (which lastIndexOf would find last).
   if (!html.includes(CSS_MARKER)) {
@@ -163,6 +163,22 @@ function processFile(filename) {
       return;
     }
     html = html.slice(0, headClose) + `<style>${CHROME_CSS}\n</style>\n` + html.slice(headClose);
+  } else {
+    // Marker already present from a prior run — replace ONLY the span from the
+    // marker itself through the next </style>, leaving everything before the
+    // marker untouched. Some pages carry the chrome CSS in its own <style> tag;
+    // others have it appended inside the same <style> tag as the page's own CSS
+    // (no tag boundary between them). Slicing from the marker (not from the
+    // enclosing <style> open tag) is safe in both layouts — it never risks
+    // deleting page-specific CSS that happens to share the tag.
+    const markerIdx     = html.indexOf(CSS_MARKER);
+    const styleCloseIdx = html.indexOf('</style>', markerIdx);
+    if (styleCloseIdx === -1) {
+      skipped.push({ file: filename, reason: 'CSS_MARKER present but no following </style> found' });
+      return;
+    }
+    const freshBlock = CHROME_CSS.slice(CHROME_CSS.indexOf(CSS_MARKER));
+    html = html.slice(0, markerIdx) + freshBlock + '\n' + html.slice(styleCloseIdx);
   }
 
   // ── post-transform sanity: counts must still be (1,1) ──
