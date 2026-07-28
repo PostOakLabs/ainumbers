@@ -41,6 +41,12 @@ const GATES = [
   ['Quantization parity (§24.6)',  'node chaingraph/kernels/quantization-parity.test.mjs'],
   ['Seed replay (§24.6.2)',        'node chaingraph/kernels/seed-replay.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
+  // WARN-ONLY BY DESIGN (PAGEDET-GATE-1): 28 pre-existing page defects are
+  // baselined, and the flag makes even a NEW one report rather than block. A gate
+  // that reds main on a pre-existing condition gets switched off; this one is here
+  // to be read. Drop --warn-only once the baseline is worked down.
+  ['Page determinism (preimage-reachable, warn-only)', 'node scripts/check-page-determinism.mjs --warn-only'],
+  ['Page determinism gate controls', 'node scripts/check-page-determinism.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
