@@ -276,7 +276,7 @@ function compute(pp){
   if(!path_ok)flags.WELL_KNOWN_PATH_WRONG=true;
   if(!all_keys_ok)flags.KEYS_NOT_ALL_OKP_ED25519=true;
   if(!keyid_resolved)flags.KEYID_NOT_FOUND=true;
-  return{output_payload:{path_ok,all_keys_ok,keyid_resolved,key_count:keys.length,valid},compliance_flags:flags};
+  return{output_payload:{path_ok,algorithm_ok:all_keys_ok,key_found:keyid_resolved,key_count:keys.length,directory_valid:valid},compliance_flags:flags};
 }
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
@@ -293,18 +293,18 @@ async function run(){
   document.getElementById('ap2ExportBtn').disabled=false;
 }
 function renderResults(op,flags,execHash,artifact){
-  const vok=op.valid;
+  const vok=op.directory_valid;
   document.getElementById('heroRow').innerHTML=
     '<div class="hero-stat"><div class="hero-val" style="color:'+(vok?'var(--green)':'var(--red)')+'">'+( vok?'VALID':'INVALID')+'</div><div class="hero-lbl">Directory</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.path_ok?'var(--green)':'var(--red)')+'">'+( op.path_ok?'✓':'✗')+'</div><div class="hero-lbl">Path OK</div></div>'+
-    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.keyid_resolved?'var(--green)':'var(--red)')+'">'+( op.keyid_resolved?'✓':'✗')+'</div><div class="hero-lbl">Keyid Found</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(op.key_found?'var(--green)':'var(--red)')+'">'+( op.key_found?'✓':'✗')+'</div><div class="hero-lbl">Keyid Found</div></div>'+
     '<div class="hero-stat"><div class="hero-val" style="color:var(--text)">'+op.key_count+'</div><div class="hero-lbl">Keys</div></div>';
   const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('verdictDiv').innerHTML='<div class="verdict '+(vok?'pass':'fail')+'">'+( vok?'✓ VALID — Directory well-formed, all keys OKP/Ed25519, keyid resolves.':'✗ INVALID — One or more directory checks failed. See compliance flags.')+'</div><div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('INVALID')||f.includes('WRONG')||f.includes('NOT')?'err':'ok')+'">'+f+'</span>').join('')+'</div>';
   document.getElementById('detailDiv').innerHTML='<table class="tbl" style="margin-top:12px"><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>'+
     '<tr><td>path_ok</td><td><span class="badge '+(op.path_ok?'ok':'err')+'">'+op.path_ok+'</span></td></tr>'+
-    '<tr><td>all_keys_ok (OKP/Ed25519)</td><td><span class="badge '+(op.all_keys_ok?'ok':'err')+'">'+op.all_keys_ok+'</span></td></tr>'+
-    '<tr><td>keyid_resolved</td><td><span class="badge '+(op.keyid_resolved?'ok':'err')+'">'+op.keyid_resolved+'</span></td></tr>'+
+    '<tr><td>all_keys_ok (OKP/Ed25519)</td><td><span class="badge '+(op.algorithm_ok?'ok':'err')+'">'+op.algorithm_ok+'</span></td></tr>'+
+    '<tr><td>keyid_resolved</td><td><span class="badge '+(op.key_found?'ok':'err')+'">'+op.key_found+'</span></td></tr>'+
     '</tbody></table>';
   document.getElementById('execHash').textContent=execHash;
   document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
