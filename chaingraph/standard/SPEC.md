@@ -2208,8 +2208,142 @@ concept only). The statement-about-statement framing follows **IETF SCITT** (a r
 **ZCAP-LD** is cited as the anti-pattern the scope discipline (§27.0) deliberately avoids. No text or code
 is copied from any of them.
 
+## §28 Clause Binding Profile — `ocg-clause-binding@1` (NORMATIVE, OPTIONAL, profile-scoped — new in v0.8.14)
+A citation like `"MiCA"` or `"17 CFR 240.15c3-3"` sitting in a tool's `regulatory_frameworks` /
+`regulatory_citations` prose is **unpinned**: it reads present-tense forever, is never bound to any
+computation, and cannot be checked against the artifact it accompanies. §28 names a profile,
+`ocg-clause-binding@1`, that lets a citation become **pinned** — machine-declared, dated, attributed,
+and bound inside the same cryptographic preimage that already secures the artifact's `execution_hash`
+— without adding any new integrity machinery. Binding force comes entirely from **placement**: a pinned
+citation is pinned because it sits inside `policy_parameters` or `output_payload`, the two members §4
+already hashes. §28 adds a **citation object shape** (§28.1), a **declaration index**
+(`clause_bindings[]`, §28.2) that makes that placement mechanically checkable, and a **conformance
+contract** (§28.6).
+
+**§28.0 Two forms, one classification rule (NORMATIVE).** A member of `regulatory_frameworks` /
+`regulatory_citations` MAY be a bare string (the **legacy, UNPINNED form** — stays valid and fully
+conformant everywhere it already appears) or a **§28.1 citation object**. An object is **pinned** if
+and only if it sits inside the JCS-canonical preimage `execution_hash` covers — a value reachable from
+`policy_parameters` or `output_payload`. A well-formed §28.1 object copied anywhere else — a guide page,
+a manifest, an export sidecar — is not pinned no matter how complete it is; only its **preimage
+location** confers pinned status, never its shape alone.
+
+**§28.1 The pinned citation object (NORMATIVE — `$defs.regulatoryCitation`).** Required members:
+`scheme` (an OPEN enum — suggested values `cfr`, `eli`, `akn`, `bcbs-para`, `sr-letter`, `esma-vr`,
+`uscode`, `other`; closing it would exclude most of this estate, since ELI does not cover US CFR, Basel
+paragraph identifiers, or Fed SR letters), `id` (the instrument identifier), `in_force_from` (ISO date
+the cited text took legal force — a bare four-digit schedule/version year does not satisfy this),
+`mapped_by` (attributed identity of whoever made the clause-to-computation mapping — an unattributed
+mapping is not a pinned mapping), and `mapped_at` (ISO date the mapping was made — a dated observation
+expires honestly and asserts nothing about the future). Optional members: `path` (paragraph/subsection),
+`uri`, `in_force_to`, `jurisdiction`, `governing_law`, `superseded_by` (a `$defs.citationRef`
+`{scheme, id}` pair naming the instrument that replaced this one — recording supersession is additive; a
+superseded citation MUST NOT be silently stripped), and `interpretation_ref`. Where present,
+`interpretation_ref` **MUST** be a `sha256:`-prefixed content hash of the interpretation document behind
+the mapping, never a URL or a mutable registry key — a mutable pointer to an interpretation looks
+authoritative and can change without trace, which defeats the purpose of pinning it.
+
+**§28.2 Declaration index — `clause_bindings[]` (NORMATIVE — `$defs.clauseBinding`).** An artifact MAY
+carry a top-level `clause_bindings` array. Each entry is `{ "pointer": "<RFC 6901 JSON Pointer>" }`
+(an optional `profile` tag, when present, MUST equal `"ocg-clause-binding@1"` — entries in this array
+are that profile by definition whether or not the tag is present). Like §20 `anchor_bindings`, §23
+`input_attestations`, and §25 `private_inputs`, `clause_bindings` is **attached after hashing and
+excluded from `execution_hash` scope**: it is a top-level sibling of `policy_parameters` and
+`output_payload`, the two members `executionHash()` hashes, never a wrapper around either — so adding,
+removing, or re-ordering entries leaves every existing `execution_hash` byte-identical, and an artifact
+with zero entries is byte-identical to one minted before this profile existed and remains fully
+conformant. **The array itself binds nothing.** It is a machine-readable index onto citations that are
+already pinned by their preimage placement (§28.0) — it exists so a verifier can enumerate "which
+citations does this artifact claim are pinned, and where" without a schema-wide scan.
+
+**§28.3 The preimage-rooting rule, made mechanical (NORMATIVE — RED condition).** `pointer` **MUST**
+root at `/policy_parameters` or `/output_payload`. This is §28.0's classification rule turned into a
+structural check: a verifier resolves `pointer` and, if it is well-formed, additionally REQUIRES that
+its first path segment be one of those two members. A `pointer` rooted anywhere else — the artifact
+root, `audit_signature`, a guide field — **MUST be rejected**: *a citation there is unpinned and may
+not be declared in this array as though it were.* This is a **hard error**, not a warning, because the
+array's entire value is that a listed pointer can be trusted to name a preimage-covered location without
+re-deriving that fact by hand.
+
+**§28.4 Why the addition cannot move a hash (NORMATIVE, informative derivation).** `executionHash()`
+hashes exactly `{policy_parameters, output_payload}`; `clause_bindings` sits outside both, so attaching
+it can never change what gets hashed. The mechanism that puts a citation object **inside** the preimage
+is unremarkable and pre-existing: a kernel places the §28.1 object at some location under
+`policy_parameters` or `output_payload` in the same way it places any other value there, **at mint
+time**, before that artifact has ever been hashed. Nothing re-hashes an existing artifact to retrofit a
+citation into it. A helper `attachClauseBindings()` performs the top-level attach as a pure operation —
+it passes both preimage halves through by reference, never reading, rewriting, or reordering them, and
+throws rather than accept a pointer that would misdeclare an unpinned citation as pinned (§28.3) — but
+the helper is a convenience, not the source of the "no hash moves" guarantee; the preimage members
+`executionHash()` reads are the source.
+
+**§28.5 Scope — new-artifacts-only (NORMATIVE).** This profile applies to **newly-minted artifacts
+only**. An artifact minted before this profile existed, and any artifact from a kernel that has not
+adopted it, stays exactly as it was: unmigrated, its `execution_hash` and any §16/§18 proof over that
+hash remain valid forever, and its citations (if any) remain in their pre-existing, unpinned form.
+Converting an existing kernel's bare-string `regulatory_basis` into a pinned §28.1 object moves that
+kernel's `output_payload` and therefore its `execution_hash` — an already-proven artifact would go stale
+— so this profile defines **no migration path** and none is implied. Adoption is per-kernel and
+voluntary; declaring the profile makes a later retrofit **optional**, never unnecessary, and this
+section imposes no MUST-emit on any existing or future kernel.
+
+**§28.6 Relationship to §16/§18 proof coverage (informative).** A pinned citation is covered by the same
+integrity guarantee as every other `policy_parameters`/`output_payload` member — no more, no less.
+Where a §16 proof is present, it secures **the full artifact with `audit_signature.proof` removed**
+(§16.1), so a pinned citation is covered by that signature exactly as the rest of the artifact is. Where
+a §18 compute-integrity proof is present, its `journal`'s committed output **MUST equal the artifact
+`output_payload`** (§18.0) — so a citation pinned inside `output_payload` is bound by the same
+journal-equality obligation as every other output field, with no additional machinery this profile
+supplies. Where neither is present, a pinned citation carries the same tamper-evidence as the rest of
+the artifact: a verifier who recomputes `execution_hash` and finds it matches has confirmed the citation
+object is exactly what the producer minted, and no more. §28 adds no proof requirement of its own; §16
+and §18 remain independently optional exactly as they are everywhere else in this standard.
+
+**§28.7 Frozen-envelope invariance (NORMATIVE).** `clause_bindings` is declared as an OPTIONAL top-level
+artifact property, exactly as §20 `anchor_bindings`, §23 `input_attestations`, and §25 `private_inputs`
+were. `$defs/artifact.required` is UNCHANGED, the §4 preimage members are UNCHANGED, and
+`chaingraph_version` stays `"0.4.0"`. Measured against §0.4-FREEZE's three-condition bar: this addition
+(a) moves no existing artifact's `execution_hash` — no artifact was retrofitted, only new ones adopt it
+at mint time; (b) changes no `required[]` — `clause_bindings` is optional at every level, including
+each §28.1 object's optional members beyond the five required in §28.1; (c) imposes no MUST-emit —
+absence of `clause_bindings`, or absence of any pinned citation at all, is fully conformant and carries
+no meaning. All three conditions clear, so this is an additive change under §0.4-FREEZE, not a breaking
+one. A verifier correct for v0.8.13 computes an identical `execution_hash` for a v0.8.14 artifact and
+MAY ignore `clause_bindings` entirely.
+
+**§28.8 Conformance (profile-scoped).** An implementation MAY declare `ocg-clause-binding@1` for a
+kernel that pins one or more citations under this profile. The declaration asserts §28.0–§28.3 hold for
+that kernel's artifacts. Conformance is machine-checked by `clause-binding.test.mjs` (§15): citation
+shape (required members present, `in_force_from`/`in_force_to`/`mapped_at` are ISO dates,
+`interpretation_ref` is a `sha256:` content hash when present, no unknown members on the closed pinned
+form), the §28.3 preimage-rooting RED condition (a `clause_bindings` pointer outside
+`/policy_parameters` or `/output_payload` MUST fail), pointer resolution (an entry whose `pointer` does
+not resolve into the artifact MUST fail), and the no-hash-move guarantee (an artifact with entries and
+the same artifact with `clause_bindings` stripped produce byte-identical `execution_hash`). Like §18 and
+§25, the profile **defaults OFF**: no node is required to adopt it, and its absence is never itself a
+finding.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.9 (2026-07-18 — SPEC-TEXT PASS; the record `spec_version` in
+See `standard/CHANGELOG.md`. **v0.8.14 (2026-07-28 — SPEC-TEXT PASS documenting §28 Clause Binding
+Profile, `ocg-clause-binding@1`; the record `spec_version` stays at whatever `chaingraph.json` carries
+until the next coordinated K landing bumps it, exactly as the v0.8.9/v0.8.7/v0.8.8 text passes were
+separated from their record bumps):** §28 names the profile that makes a regulatory citation **pinned**
+— machine-declared, dated, attributed, and bound inside the same `{policy_parameters, output_payload}`
+preimage `execution_hash` already covers — as an alternative to the pre-existing legacy bare-string
+form, which stays valid and UNPINNED. Adds `$defs.citationRef` / `$defs.regulatoryCitation` /
+`$defs.clauseBinding` and an OPTIONAL top-level `clause_bindings[]` array (schema, kernel helper
+`_clausebinding.mjs`, and gate `clause-binding.test.mjs` shipped previously and unchanged by this pass —
+this entry documents the standard). `clause_bindings` sits outside the preimage, exactly like §20
+`anchor_bindings`, §23 `input_attestations`, and §25 `private_inputs`, so it binds nothing itself; a
+`pointer` MUST root at `/policy_parameters` or `/output_payload` (§28.3), which is what makes a citation
+actually pinned. New-artifacts-only: the 105 server kernels carrying a bare-string `regulatory_basis`
+today are explicitly OUT OF SCOPE and unmigrated — converting one would move its `execution_hash` and
+stale a live proof. All additive: no envelope/hash/schema-required change, `chaingraph_version` stays
+`0.4.0`, every existing `execution_hash` is byte-identical, and the new normative MUSTs bind to the
+already-wired `clause-binding.test.mjs` (no new gate script, no new §15 row's underlying tooling — only
+a new table row citing it). Attribution: none — this profile composes only pre-existing OCG mechanisms
+(the §4 preimage, the §20/§23/§25 hash-excluded-index shape); no external prior art was drawn on.
+**v0.8.9 (2026-07-18 — SPEC-TEXT PASS; the record `spec_version` in
 `chaingraph.json` stays 0.8.8 until the next coordinated K landing bumps it, exactly as the v0.8.7 and
 v0.8.8 text passes were separated from their record bumps):** §22.11 (§EXQ-1: OPTIONAL `exception_class`
 two-class taxonomy — `business` = no retry, routes to a human queue; `application` = retry-to-N then
@@ -2380,6 +2514,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
 | §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
 | §27 human-accountability records: `$defs/humanAccountabilityRecord` shape (closed `record_type`/`role`/`haGatePolicy` enums, `subject_hash` a valid `sha256ref`); ADDITIVITY — an approval record referencing a subject leaves that subject's `execution_hash` byte-identical and a subject with zero HA records is byte-identical to a plain v0.8.11 artifact (`$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED); THRESHOLD DISTINCTNESS — `dual_control(N)` counts DISTINCT `identity.id`, so a repeated identity satisfies only N=1 and two distinct identities satisfy N=2; OVERRIDE EXPIRY — an expired `emergency_override` reverts the gate policy, never a silent permanent pass; SIGNED-NAMED-HUMAN — an unsigned approval record is rejected (§16 pairing check stays with `proof-binding.test.mjs`); defaults OFF, absence conformant | `validate-ha-records.test.mjs`, `schema-validate.mjs` | validate |
+| §28 clause binding profile `ocg-clause-binding@1`: hash-excluded top-level `clause_bindings[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` MUST root at `/policy_parameters` or `/output_payload` — a pointer rooted elsewhere is RED (§28.3); each resolved §28.1 citation object carries the five REQUIRED members (`scheme`, `id`, `in_force_from`, `mapped_by`, `mapped_at`), ISO-date fields validated, `interpretation_ref` when present is a `sha256:` content hash, no unknown members on the closed pinned form; a legacy bare-string citation is valid but classified UNPINNED and MUST NOT be declared in `clause_bindings`; unresolved pointer / malformed citation / off-preimage pointer MUST fail; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED; defaults OFF, absence conformant, new-artifacts-only (no migration path) | `clause-binding.test.mjs`, `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
