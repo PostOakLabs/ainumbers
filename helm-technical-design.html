@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="helm-techdoc-pinned-sha" content="66e35a8ab1aa216a43be53678d7bbdf30515138b">
+<title>Helm Technical Design | AINumbers.co</title>
+<meta name="description" content="How AINumbers Helm is built: process and serving model, the pairing gate, the hash-chained journal, the run engine, evidence bundles and offline verification, borrowed versus built, and known limitations.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/helm-technical-design.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Helm Technical Design | AINumbers.co">
+<meta property="og:description" content="How AINumbers Helm is built, sourced to the code it describes.">
+<meta property="og:url" content="https://ainumbers.co/helm-technical-design.html">
+<meta property="og:site_name" content="AINumbers.co">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@ainumbers">
+<meta name="twitter:title" content="Helm Technical Design | AINumbers.co">
+<meta name="twitter:description" content="How AINumbers Helm is built, sourced to the code it describes.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35;
+  --border:#1E2F4A; --border-2:#263855;
+  --muted:#3A5270; --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.10);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14.5px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+code,pre{font-family:'JetBrains Mono',monospace}
+code{font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px;word-break:break-word}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:500;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:12px}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.nav-link{font-size:.72rem;color:var(--body);transition:color .15s}
+.nav-link:hover{color:var(--teal-lt)}
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:'';width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.8rem);color:var(--white);margin-bottom:.7rem}
+.hero-desc{font-size:.95rem;color:var(--body);max-width:700px;line-height:1.9;margin-bottom:.9rem}
+.section{padding:2.5rem 0;border-bottom:1px solid var(--border)}
+.section:last-of-type{border-bottom:none}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+.section h2{font-size:clamp(1.2rem,2.2vw,1.65rem);color:var(--white);margin-bottom:.9rem}
+.section p{color:var(--body);font-size:.9rem;max-width:780px;margin-bottom:.9rem}
+.section h3{color:var(--bright);margin:1.6rem 0 .6rem;font-family:'JetBrains Mono',monospace;font-weight:500;font-size:.85rem;letter-spacing:.04em}
+.doc-list{margin:0 0 1rem 1.2rem;max-width:780px}
+.doc-list li{color:var(--body);font-size:.9rem;margin-bottom:.45rem}
+.code-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin:1rem 0;max-width:780px}
+pre{padding:1.1rem 1.2rem;overflow-x:auto;line-height:1.65;font-size:.78rem;color:var(--text)}
+.spec-table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.82rem}
+.spec-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);text-align:left;padding:.5rem .8rem;border-bottom:1px solid var(--border-2)}
+.spec-table td{padding:.5rem .8rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.spec-table tr:last-child td{border-bottom:none}
+.toc{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin:1.8rem 0}
+.toc-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.7rem}
+.toc ul{list-style:none;padding-left:.2rem;display:flex;flex-direction:column;gap:.35rem}
+.toc li{font-size:.82rem;color:var(--body)}
+.toc-sec{font-family:'JetBrains Mono',monospace;font-size:.78em;color:var(--teal-lt);display:inline-block;min-width:2.2em}
+.toc a{color:var(--text)}
+.toc a:hover{color:var(--teal-lt)}
+.provenance{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.85rem 1.1rem;margin:1.4rem 0;max-width:780px}
+.provenance .lab{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem}
+.provenance p{color:var(--body);font-size:.82rem;margin:0}
+.provenance code{font-size:.76em}
+footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.72rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span.sep{color:var(--border-2);margin:0 .4rem}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Helm</span> Technical Design</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="helm.html">&larr; Helm</a>
+      <a class="nav-link" href="helm-walkthrough.html">Walkthrough</a>
+      <a class="nav-link" href="https://github.com/PostOakLabs/ainumbers-helm" rel="noopener">Source &rarr;</a>
+      <span class="nav-tag">Technical Design</span>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">AINumbers.co &middot; Helm &middot; Engineering Reference</div>
+    <h1>Helm Technical Design</h1>
+    <p class="hero-desc">Written for an engineer, security reviewer, or diligence reader deciding whether this is real. It is not a marketing document; the marketing surface is the <a href="helm.html">Helm page</a>. Where something is designed but not built, it says so, and section 9 lists the known limitations rather than leaving a reader to find them.</p>
+    <div class="provenance">
+      <div class="lab">Provenance</div>
+      <p>This page renders a document whose source of truth lives in the <a href="https://github.com/PostOakLabs/ainumbers-helm/blob/main/docs/HELM-TECHNICAL-DESIGN-IMPLEMENTATION.md" rel="noopener">helm repository</a>, beside the code it describes. The copy rendered here is pinned at commit <code>66e35a8ab1aa</code>. In that repository a gate re-checks every source file this document cites and fails when one of them changes, so the claims below cannot quietly stop matching the code.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="contents">
+  <div class="wrap">
+    <div class="toc">
+      <div class="toc-title">Contents</div>
+      <ul>
+        <li><a href="#s1"><span class="toc-sec">1</span>What helmd is</a></li>
+        <li><a href="#s2"><span class="toc-sec">2</span>Process and serving model</a></li>
+        <li><a href="#s3"><span class="toc-sec">3</span>Pairing and the three-part request gate</a></li>
+        <li><a href="#s4"><span class="toc-sec">4</span>The journal and the digest chain</a></li>
+        <li><a href="#s5"><span class="toc-sec">5</span>Runs, connectors, and consent</a></li>
+        <li><a href="#s6"><span class="toc-sec">6</span>Evidence and offline verification</a></li>
+        <li><a href="#s7"><span class="toc-sec">7</span>Borrowed versus built</a></li>
+        <li><a href="#s8"><span class="toc-sec">8</span>Design constraints, and why the product has this shape</a></li>
+        <li><a href="#s9"><span class="toc-sec">9</span>Known limitations</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s1">
+  <div class="wrap">
+    <div class="sec-num">Section 1</div>
+    <h2>What helmd is</h2>
+      <p><code>helmd</code> is a local-first control plane. It is one process (<code>hub/index.mjs</code>) that:</p>
+      <ul class="doc-list">
+        <li>opens an HTTP server bound to <code>127.0.0.1</code> only (<code>hub/server.mjs:1033</code>),</li>
+        <li>serves its own browser UI from that loopback socket (<code>hub/static.mjs</code>, <code>hub/ui-manifest.mjs</code>),</li>
+        <li>runs deterministic OpenChainGraph (OCG) kernels vendored into this repository (<code>hub/kernel-runner.mjs</code>),</li>
+        <li>records everything into an append-only, hash-chained journal on the local disk (<code>hub/journal.mjs</code>),</li>
+        <li>and packages the result into a signed evidence bundle that a third party can verify with no network access at all (<code>hub/bundle.mjs</code>).</li>
+      </ul>
+      <p>State lives in <code>~/.helm</code>, created mode <code>0700</code>, overridable with <code>HELM_HOME</code> (<code>hub/state-dir.mjs:8-16</code>).</p>
+      <p>What it is not:</p>
+      <ul class="doc-list">
+        <li><strong>Not a hosted service.</strong> There is one instance per installation. Nothing is centrally hosted.</li>
+        <li><strong>Not a cloud agent.</strong> The core loop (start, run a workflow, journal it, export evidence) makes no outbound request. Anchoring is the one optional network step, and it is off by default (<code>hub/config.mjs:44</code>, <code>anchorOnCheckpoint: false</code>).</li>
+        <li><strong>Not multi-tenant, and not a server you expose.</strong> The socket is loopback and the Host header is checked against <code>127.0.0.1:&lt;port&gt;</code> before anything else runs (<code>hub/server.mjs:69-71</code>, <code>962-965</code>).</li>
+      </ul>
+      <p>Default port is <code>4173</code> (<code>hub/config.mjs:9</code>). Default allowed browser origin is derived from the port rather than hardcoded, <code>http://127.0.0.1:&lt;port&gt;</code> (<code>hub/config.mjs:22-26</code>).</p>
+  </div>
+</div>
+
+<div class="section" id="s2">
+  <div class="wrap">
+    <div class="sec-num">Section 2</div>
+    <h2>Process and serving model</h2>
+      <h3>Start</h3>
+      <p><code>helmd start</code> runs <code>cmdStart()</code> (<code>hub/index.mjs:83-338</code>) in this order:</p>
+      <ol class="doc-list">
+        <li>Load config, load or create the bearer token, load or create the Ed25519 + ML-DSA-44 identity keys, load or create the HA identity (<code>hub/index.mjs:84-87</code>).</li>
+        <li>Open the journal database and verify its hash chain before serving anything (§4 below, <code>hub/index.mjs:105-148</code>).</li>
+        <li>Build the idle timer (<code>hub/index.mjs:173-183</code>).</li>
+        <li>Create the HTTP server and bind it. A port already in use is a clean refusal, never a silent fallback to another port (<code>hub/server.mjs:1037-1054</code>, called at <code>hub/index.mjs:200-204</code>).</li>
+        <li>Only after the socket is listening, fire the checkpoint build, deliberately not awaited, so readiness never depends on a timestamp authority round trip (<code>hub/index.mjs:206-233</code>).</li>
+        <li>Open the CLI channel, a named pipe on Windows and a unix domain socket elsewhere, carrying <code>pair</code>, <code>stop</code>, and <code>status</code> (<code>hub/index.mjs:235-281</code>, <code>hub/cli-channel.mjs</code>).</li>
+        <li>Print the pairing URL and open a browser tab (<code>hub/index.mjs:291-319</code>).</li>
+      </ol>
+      <p><code>helmd stop</code> and <code>helmd status</code> do not go over HTTP. They connect to that CLI channel, whose trust boundary is the operating system's own ACL on the pipe or socket. The reasoning is recorded in the code: an unauthenticated HTTP route that stops the daemon or hands out the token would be reachable by any local process (<code>hub/index.mjs:237-253</code>).</p>
+      <h3>Idle shutdown</h3>
+      <p><code>helmd</code> stops itself after <code>idleTimeoutMs</code>, default 120000 ms (<code>hub/idle-timer.mjs:8</code>, <code>hub/config.mjs:38</code>). "Idle" is deliberately wider than "no request arrived": an open server-sent-events connection, a run in flight, a live pairing window, or a backup in progress each hold the daemon open (<code>hub/index.mjs:175</code>). The timeout is announced on <code>GET /health</code>, in <code>helmd status</code>, and in the boot banner rather than only enforced (<code>hub/index.mjs:299</code>, <code>hub/server.mjs:147-150</code>).</p>
+      <h3>Serving the shell</h3>
+      <p>The browser UI is served by <code>helmd</code> itself from <code>127.0.0.1</code>. <code>repo/helm.html</code> in the site repository is a marketing page and is a different file in a different repository. Do not read one as evidence about the other.</p>
+      <p>Static serving is a hand-rolled handler over an explicit allowlist (<code>hub/static.mjs:58-73</code>, <code>hub/ui-manifest.mjs:3-9</code>). There is no directory listing, and no filesystem path is ever built from request input, so there is no traversal surface to construct. A path not in the map falls through to the API router and gets an ordinary 404.</p>
+      <p>The shell is served before the Origin and bearer checks, and the code states why: a top-level browser navigation carries no <code>Origin</code> header and cannot attach an <code>Authorization</code> header at all, so gating the shell on either would make the page unloadable. The Host check still applies, and the shell itself is inert static assets holding no secret. Every API route behind it stays fully gated (<code>hub/static.mjs:7-14</code>).</p>
+      <p>The real Content-Security-Policy, sent with every static asset (<code>hub/static.mjs:28-36</code>):</p>
+      <div class="code-block"><pre>default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;
+connect-src 'self' https:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'</pre></div>
+      <p>There is <strong>no <code>unsafe-inline</code></strong> and no <code>unsafe-eval</code>. <code>connect-src</code> was widened from <code>'self'</code> to <code>'self' https:</code> so an embedder-hosted company-profile JSON can be fetched by URL, which is a data-only widening: <code>script-src</code>, <code>style-src</code>, and <code>img-src</code> are untouched, so a hostile config can be read as data and can never load as script, stylesheet, or frame (<code>hub/static.mjs:20-27</code>). Accompanying headers are <code>X-Content-Type-Options: nosniff</code>, <code>Referrer-Policy: no-referrer</code>, <code>Cross-Origin-Opener-Policy: same-origin</code>, <code>Cross-Origin-Resource-Policy: same-origin</code>, and <code>Cache-Control: no-cache</code>.</p>
+  </div>
+</div>
+
+<div class="section" id="s3">
+  <div class="wrap">
+    <div class="sec-num">Section 3</div>
+    <h2>Pairing and the three-part request gate</h2>
+      <h3>Pairing</h3>
+      <p>The bearer token is 32 random bytes hex-encoded, stored in a mode-<code>0600</code> file under the state directory, created once and reused (<code>hub/token.mjs:9-19</code>).</p>
+      <p>The pairing URL is <code>http://127.0.0.1:&lt;port&gt;/#token=&lt;token&gt;&amp;pair=&lt;nonce&gt;&amp;fp=&lt;fingerprint&gt;</code> (<code>hub/token.mjs:35-39</code>). Three separate things ride in that fragment, for three separate reasons:</p>
+      <ul class="doc-list">
+        <li><strong><code>token</code></strong> is the durable credential the browser tab keeps for the session. It stays durable because revoking it per call would break server-sent-events and health polling, which cannot rotate a credential mid-connection (<code>hub/token.mjs:21-26</code>).</li>
+        <li><strong><code>pair</code></strong> is a single-use nonce with a five minute TTL, held in memory only and cleared on restart. Redemption deletes it whether or not it was still valid, so a second redeem of the same value always fails. Its only power is <code>/pair/redeem</code>, which records the pairing event so a replayed old link is detectable. It never gates ordinary API calls (<code>hub/token.mjs:51-68</code>).</li>
+        <li><strong><code>fp</code></strong> is the fingerprint of the daemon's own Ed25519 identity key. This is the one channel a port squatter cannot spoof, because only the process holding the key file can mint it. The browser pins it and afterwards refuses any <code>/pair/challenge</code> response whose public key fingerprint does not match, which closes a self-consistency-only gap in challenge verification (<code>hub/token.mjs:28-34</code>, <code>hub/index.mjs:88-93</code>).</li>
+      </ul>
+      <p>Re-pairing goes over the CLI channel (<code>helmd open</code>), never over HTTP (<code>hub/index.mjs:237-246</code>).</p>
+      <p>For server-sent events specifically, the durable token is not put in the query string. <code>POST /events/ticket</code> mints a 15 second single-use ticket over an already-authenticated call, and <code>/events</code> accepts that ticket instead (<code>hub/token.mjs:88-104</code>, <code>hub/server.mjs:282-289</code>, <code>1008-1016</code>).</p>
+      <h3>The gate</h3>
+      <p>Every request passes three checks, in this order (<code>hub/server.mjs:3-7</code> and the dispatcher at <code>961-1031</code>):</p>
+      <ol class="doc-list">
+        <li><strong>Host</strong> must equal <code>127.0.0.1:&lt;port&gt;</code> exactly (<code>hub/server.mjs:69-71</code>, checked at <code>962</code>).</li>
+        <li><strong>Origin</strong> must equal the configured origin exactly, never a wildcard (<code>hub/server.mjs:87-89</code>, checked at <code>993</code>).</li>
+        <li><strong><code>Authorization: Bearer &lt;token&gt;</code></strong> must match, compared with <code>timingSafeEqual</code> after a length check (<code>hub/server.mjs:1006-1020</code>, <code>hub/token.mjs:41-47</code>).</li>
+      </ol>
+      <p>All three are needed because each defeats a different attacker, and none of them subsumes another:</p>
+      <ul class="doc-list">
+        <li><strong>Origin alone does not stop DNS rebinding.</strong> An attacker who controls a domain can point it at <code>127.0.0.1</code> after the page loads, at which point the browser sends requests to the daemon that are same-origin from the browser's point of view. The Host check kills that, because the rebound request carries the attacker's hostname in <code>Host</code>, not <code>127.0.0.1:&lt;port&gt;</code>.</li>
+        <li><strong>Host alone does not stop cross-site request forgery.</strong> Any website in the user's browser can issue a request to <code>http://127.0.0.1:4173/</code>, and it will carry the correct <code>Host</code>. The exact-match Origin check kills that, because the request carries the attacking site's origin.</li>
+        <li><strong>Host and Origin together do not stop a non-browser local caller.</strong> Any process on the machine can set both headers to whatever it likes with a raw socket. Only the bearer token, which lives in a mode-<code>0600</code> file, distinguishes the paired browser from another local program.</li>
+      </ul>
+      <p>Three deliberate exceptions exist and each is narrower than the general rule:</p>
+      <ul class="doc-list">
+        <li><strong>The static shell</strong> is pre-Origin and pre-auth, for the reason in §2. Host still applies.</li>
+        <li><strong>The detection surface</strong>, exactly <code>GET /version</code> and <code>GET /pair/challenge</code>, accepts either the loopback origin or the fixed hosted origin <code>https://ainumbers.co</code>, and requires no token. It is an exact origin match, never a wildcard, and it never touches vault, journal, or run data (<code>hub/server.mjs:52-56</code>, <code>212-249</code>, <code>973-980</code>).</li>
+        <li><strong><code>POST /connectors/inbound-webhook</code></strong> is pre-Origin and pre-bearer, because the caller is a local orchestrator with neither a browser Origin nor the pairing token. Its authentication is an HMAC over the raw request body, computed before any JSON parsing so the signature covers the exact bytes sent (<code>hub/server.mjs:58-67</code>, <code>982-991</code>, <code>hub/server.mjs:118-129</code>, <code>hub/webhook-guard.mjs</code>). Host still applies.</li>
+      </ul>
+      <p>Requests are logged by pathname only, never by <code>req.url</code>. The reason is written in the code: the bearer used to ride in the <code>/events</code> query string, so logging a rejected request verbatim would write a working credential to stdout, which a macOS LaunchAgent can capture to a file (<code>hub/server.mjs:73-85</code>).</p>
+      <h3>Autostart</h3>
+      <p>Autostart and the Start Menu shortcut are <strong>opt-in and default off on every platform</strong>. Nothing on the daemon's start path writes a persistence entry; <code>hub/index.mjs</code> does not import an installer at all (<code>hub/index.mjs:24-27</code>, and the explanation at <code>321-337</code>).</p>
+      <p>The only way either gets installed is a person ticking the box in the Helm tab, which issues <code>POST /autostart</code>. That route is POST and never GET, because a GET that installs persistence is reachable from an <code>&lt;img src=...&gt;</code> or a prefetch, paths where a page's script never runs and the Origin check is the only obstacle. Both <code>/autostart</code> routes sit in the ordinary route table behind the full Host, Origin, and bearer gate, not in the static allowlist and not in the detection paths (<code>hub/server.mjs:312-394</code>, registered at <code>958-959</code>).</p>
+      <p>The status route reports what is actually on the machine rather than what was requested: on an unsupported platform the installer returns <code>{supported:false}</code> and writes nothing, so the response echoes re-read state (<code>hub/server.mjs:390-393</code>). Status distinguishes <code>ok</code>, <code>not_installed</code>, <code>unsupported</code>, <code>target_missing</code>, <code>unreadable</code>, and <code>command_mismatch</code>, and <code>target_missing</code> surfaces as a <code>BROKEN</code> state in <code>helmd status</code> and in <code>helmd doctor</code> rather than reporting healthy forever (<code>hub/autostart.mjs:207-272</code>, <code>hub/index.mjs:424-429</code>).</p>
+  </div>
+</div>
+
+<div class="section" id="s4">
+  <div class="wrap">
+    <div class="sec-num">Section 4</div>
+    <h2>The journal and the digest chain</h2>
+      <h3>On-disk form</h3>
+      <p>One SQLite database at <code>~/.helm/journal.db</code>, opened through the Node builtin <code>node:sqlite</code> (<code>DatabaseSync</code>), not an npm native module. <code>journal_mode = WAL</code>. Tables: <code>journal</code>, <code>stream_state</code>, <code>checkpoints</code>, <code>journal_meta</code> (<code>hub/journal.mjs:19</code>, <code>51-83</code>).</p>
+      <p>One process, one writer. <code>node:sqlite</code>'s <code>DatabaseSync</code> is synchronous, so there are no concurrent-writer races to guard against, and transactions are wrapped by hand because it has no <code>.transaction()</code> helper (<code>hub/journal.mjs:3-4</code>, <code>39-49</code>).</p>
+      <h3>The chain</h3>
+      <p>Per-stream running hash:</p>
+      <div class="code-block"><pre>rh_0 = SHA-256(stream_id)
+rh_n = SHA-256(rh_{n-1} || stream_id || journal_seq || entry_digest)</pre></div>
+      <p>(<code>hub/journal.mjs:6-11</code>, implemented at <code>99-101</code> and <code>116-147</code>.)</p>
+      <p><code>entry_digest</code> is SHA-256 over the JCS-canonical form of the full entry (<code>hub/journal.mjs:31-34</code>, <code>119</code>). <code>journal_seq</code> is the <strong>global</strong> monotonic row id, not a per-stream counter, so the hash binds each stream's position in the overall append order. Reordering rows across streams, not only within one, breaks the chain (<code>hub/journal.mjs:9-11</code>).</p>
+      <p>Every entry must carry the EU AI Act Article 12(2) and 12(3) field groups, <code>period_start</code>, <code>period_end</code>, <code>reference_db_version</code>, <code>triggering_input_digest</code>, and <code>humans_involved[]</code>, and they must be populated by the caller. The journal module never derives them, and refuses an entry that is missing one (<code>hub/journal.mjs:13-15</code>, <code>23</code>, <code>103-113</code>).</p>
+      <h3><code>rh_0</code> is unsalted by design</h3>
+      <p><code>rh_0 = SHA-256(stream_id)</code> has no salt and no nonce. <strong>This is a design decision, not an open issue.</strong> It was re-examined in a read-only design review on 2026-07-26, which re-derived the construction from this file and concluded it is correct as built. The reasoning is reproduced below so it does not have to be re-found.</p>
+      <p>The reasoning, in short: <code>stream_id</code> is not, and was never intended to be, confidential. It is a plaintext column in the local schema (<code>hub/journal.mjs:57</code>), it sits in plaintext inside the same predicate object as <code>rh</code> in every checkpoint (<code>hub/checkpoint.mjs:24-27</code>), and that predicate travels verbatim inside every exported evidence bundle (<code>hub/bundle.mjs:109-147</code>). An offline verifier is *handed* <code>stream_id</code>; it never has to guess it. So the "attacker must recover a hash preimage" premise does not apply, whatever the entropy of a given stream identifier.</p>
+      <p>The offline-verification consequence is the decisive half. A salt would have to either travel in the checkpoint, making it exactly as public as <code>stream_id</code> and therefore useless, or be withheld, which would make <code>journal_root_digest</code> unrecomputable and fail every legitimate verifier. Neither helps, and the second contradicts the offline verifiability the whole product rests on (§9).</p>
+      <p>Only the bare <code>journal_root_digest</code> scalar ever leaves the machine to a timestamp authority. The authority never sees <code>stream_id</code> or any receipt content (<code>hub/anchor-client.mjs</code>).</p>
+      <h3>Verification at boot</h3>
+      <p>A daemon must never serve a journal it cannot prove is unbroken, but a full genesis-to-head replay on every boot grows without bound and eventually exhausts memory on a long-lived install. The resolution (<code>hub/index.mjs:95-148</code>):</p>
+      <ul class="doc-list">
+        <li>If the latest checkpoint's envelope signature and internal consistency verify, and it is anchored or anchoring is not required, boot replays <strong>from that checkpoint forward</strong> (<code>hub/journal.mjs:195-214</code>). Cost is bounded by rows written since the checkpoint.</li>
+        <li>Otherwise boot does a full replay from genesis and records the timestamp (<code>hub/journal.mjs:165-182</code>, <code>90-97</code>).</li>
+      </ul>
+      <p>The fast path is not a weaker check. Every row's <code>rh</code> is still recomputed and compared; nothing is trusted on presence alone. A stream created after the checkpoint was taken is absent from it and replays from genesis like normal, so nothing added later is exempted (<code>hub/journal.mjs:184-194</code>).</p>
+      <p><code>helmd doctor</code> always runs the unconditional full replay. That is the tool for proving the whole history, and it is deliberately not what every boot does (<code>hub/journal.mjs:158-164</code>).</p>
+      <p>After a clean verification, boot advances the checkpoint frontier so the next boot's delta is bounded by one uptime rather than by the daemon's lifetime (<code>hub/index.mjs:150-164</code>).</p>
+      <h3>Broken journals</h3>
+      <p>A journal that fails verification is no longer a dead end. The whole state directory is renamed aside with a timestamp, never deleted, a crash log recording <code>brokenAt</code> is written into the quarantined copy, <code>config.json</code> is carried forward because port and idle timeout are user preference rather than trust-sensitive state, and boot re-enters against fresh state (<code>hub/recovery.mjs:25-51</code>, driven from <code>hub/index.mjs:140-148</code>). A second failure immediately after quarantine refuses loudly instead of quarantining in a loop (<code>hub/index.mjs:129-139</code>). The recovery is announced in the boot banner, not only in a log line, because a double-click launch closes its console (<code>hub/index.mjs:301-310</code>).</p>
+      <h3>Checkpoints</h3>
+      <p>A checkpoint is a signed summary: <code>{ checkpoint_seq, streams[], journal_root_digest, anchors[] }</code>, where <code>streams[]</code> is every stream's <code>{stream_id, journal_seq, rh}</code> head and <code>journal_root_digest</code> is the SHA-256 of the JCS-canonical <code>streams</code> array (<code>hub/checkpoint.mjs:23-36</code>).</p>
+      <p>Two verification functions exist and the difference matters. <code>verifyCheckpointSignature</code> checks only the envelope signature and that <code>journal_root_digest</code> really digests the <code>streams</code> it claims, which is what the boot fast path needs because boot's whole point is trusting a checkpoint that is behind the live head. <code>verifyCheckpoint</code> additionally requires the recorded heads to match the journal's current heads, which is the "matches right now" check (<code>hub/checkpoint.mjs:87-129</code>).</p>
+  </div>
+</div>
+
+<div class="section" id="s5">
+  <div class="wrap">
+    <div class="sec-num">Section 5</div>
+    <h2>Runs, connectors, and consent</h2>
+      <h3>The run engine</h3>
+      <p><code>executeRun</code> (<code>hub/run.mjs:189-256</code>) is a SQLite step-checkpoint executor over the journal.</p>
+      <p>Steps are planned from the workflow manifest in fixed layer order, <code>connectors</code>, <code>attested_artifacts</code>, <code>nodes</code>, <code>gates</code>, <code>actions</code>, with array order inside a layer as execution order (<code>hub/run.mjs:76-104</code>). Manifest order is the DAG. There is no edges field in the manifest schema yet, so Phase 1 treats a workflow as a linear chain; adding edges later changes <code>planSteps()</code> and nothing around it (<code>hub/run.mjs:3-6</code>).</p>
+      <p>Every step result is memoized by <code>(run_id, step_id, input_digest)</code>, where <code>input_digest</code> binds the run id, the step id, the step's content digest, the prior step's output digest, and the dry-run flag (<code>hub/run.mjs:106-114</code>, <code>132-138</code>). This makes crash-resume and deterministic replay the same code path: resuming a run means the early steps' memo lookups hit instead of miss. Reading a memo recomputes the output digest from the stored payload every time, so a row altered after the fact fails loudly rather than feeding a wrong value forward (<code>hub/run.mjs:119-130</code>).</p>
+      <p>The lifecycle is a state machine with an explicit transition table, and an illegal transition throws (<code>hub/run.mjs:17-32</code>, <code>148-173</code>). Every transition is journaled as an <code>execution_state</code> entry on the <code>run:&lt;run_id&gt;</code> stream, and the engine predicts the journal sequence it is about to be assigned and throws if the prediction drifts, which turns any violation of the single-writer invariant into an immediate failure (<code>hub/run.mjs:154-170</code>).</p>
+      <p>The final <code>execution_hash</code> is SHA-256 over the JCS-canonical <code>{run_id, workflow_manifest_digest, steps[]}</code> (<code>hub/run.mjs:251</code>). <code>replayExecutionHash</code> recomputes it from persisted state alone, with no manifest re-fetch and no step execution, which is the deterministic-replay gate (<code>hub/run.mjs:261-278</code>).</p>
+      <h3>Kernel steps</h3>
+      <p>A <code>nodes</code> step invokes a vendored OCG kernel. Before it runs, the manifest's <code>kernel_digest</code> is checked against the vendored file's own digest from <code>hub/vendored/ocg/MANIFEST.json</code>. A stale or tampered pin fails loudly rather than silently invoking a different kernel version than the manifest recorded (<code>hub/kernel-runner.mjs:3-8</code>, <code>19-47</code>).</p>
+      <p>When a kernel attaches a compute proof, both the binding and, for <code>groth16-bn254</code> receipts, the seal must verify before the step may complete. An unverifiable proof is a hard failure of the step, never a silent downgrade to a weaker trust label (<code>hub/kernel-runner.mjs:56-69</code>).</p>
+      <p>A step that reproduces is labeled <code>kernel_verified</code>. A step that cannot be reproduced throws rather than degrading its label, because collapsing or mislabeling trust claims is forbidden (<code>hub/kernel-runner.mjs:31-35</code>).</p>
+      <h3>Human consent inside a run</h3>
+      <p>Consent is a hold, not a prompt. A step whose pack item declares a gate policy blocks <strong>before</strong> the step runner is ever invoked, and stays blocked until the gate check reports satisfied. The run transitions to <code>awaiting_data</code> and returns (<code>hub/run.mjs:221-235</code>, <code>hub/ha-gate.mjs</code>). Three properties follow directly from that placement:</p>
+      <ul class="doc-list">
+        <li>A gated step never runs speculatively.</li>
+        <li>A held attempt is never memoized, so re-polling costs nothing and re-reads fresh approval state every time.</li>
+        <li>What a human approves is the OCG artifact's own execution hash, which is why the gate check is handed the full prior step output rather than only the internal memo digest (<code>hub/run.mjs:225-228</code>).</li>
+      </ul>
+      <p>Resuming is <code>POST /run/resume</code>, the same idempotent path crash recovery already uses. A run that is not actually held returns 404 or 409, never a silent 200 (<code>hub/server.mjs:512-547</code>).</p>
+      <h3>Connectors and egress</h3>
+      <p>A connector may only reach a <code>(host, method)</code> pair present in its own signed contract's allowlist. No wildcard, no path matching, no fallthrough (<code>hub/connector.mjs:54-56</code>). The contract is schema-validated on load and its digest is the SHA-256 of its own JCS-canonical form (<code>hub/connector.mjs:43-50</code>).</p>
+      <p>Every egress decision, allowed or blocked, is journaled to an append-only per-connector stream <strong>before</strong> the call throws, so a block is provable evidence rather than a swallowed error (<code>hub/connector.mjs:237-256</code>, <code>285-296</code>).</p>
+      <p><code>performEgress</code> is the single choke point, and it is hardened past the hostname allowlist (<code>hub/connector.mjs:275-327</code>):</p>
+      <ul class="doc-list">
+        <li><strong>Redirects are manual.</strong> Node's default follow behavior would egress to a redirect target that was never checked against the contract, so each hop gets its own allowlist check and its own journal entry, capped at five (<code>hub/connector.mjs:266-271</code>, <code>312-319</code>).</li>
+        <li><strong>DNS rebinding is closed at the resolution layer.</strong> The hostname is resolved and every returned address is checked against a hardcoded deny list covering loopback, private ranges, carrier-grade NAT, and link-local including the cloud metadata address, for both IPv4 and IPv6 including IPv4-mapped forms (<code>hub/connector.mjs:72-142</code>). The vetted address is then <strong>pinned</strong> through a one-time patch of <code>node:dns</code>'s <code>lookup</code>, so the connect uses the exact answer the guard vetted rather than a second independent DNS round trip an attacker with a short TTL could answer differently (<code>hub/connector.mjs:151-232</code>). The pin is reference-counted and released in a <code>finally</code>.</li>
+        <li>The deny list applies only to connector egress. The daemon's own loopback API and the OAuth loopback redirect call <code>fetch</code> directly and never pass through here, so their legitimate <code>127.0.0.1</code> use is unaffected by construction rather than by a carve-out (<code>hub/connector.mjs:64-71</code>).</li>
+        <li>A 15 second timeout means a hung endpoint cannot stall the runtime (<code>hub/connector.mjs:259</code>).</li>
+      </ul>
+      <p>Secrets are resolved to a header value at the egress boundary, so connector code handles an opaque credential descriptor and never the raw secret (<code>hub/connector.mjs:272-276</code>, <code>hub/credential-provider.mjs</code>). Secrets at rest go to the platform keychain first, macOS Keychain, Linux Secret Service, or Windows DPAPI, falling back to an AES-256-GCM encrypted mode-<code>0600</code> file whose key is scrypt-derived (<code>hub/vault.mjs:32</code>, <code>98</code>, <code>124</code>, <code>144</code>, <code>204-224</code>).</p>
+      <p>A connector result is labeled <code>connector_asserted</code>: it claims only that an authorized connector retrieved or received the payload, never that the payload is true, and it carries a payload digest rather than the bytes (<code>hub/connector.mjs:329-350</code>).</p>
+      <h3>The read tier ruling</h3>
+      <p>There is a ruling on record that <strong>bulk evidence export does not belong inside a capability tier named "read"</strong>. The wording is that <code>evidence.export</code> sitting inside a capability boundary named READ/RUN is bulk exfiltration behind a gate called read, and that export must be split out of the read tier before any agent-facing surface ships it.</p>
+      <p><strong>Status: the ruling exists, the surface it constrains does not.</strong> There is no MCP endpoint in this repository today. The Agents and MCP navigation slot ships disabled, with no route reachable. The point of recording the ruling here is that the constraint is on the record before the surface is built, not after.</p>
+      <p>The general principle it expresses is already load-bearing elsewhere in the design: a capability name is a promise about blast radius, and "read" implies bounded, targeted access. An operation that hands over the entire evidence corpus in one call is not a read, whatever the verb in its name.</p>
+  </div>
+</div>
+
+<div class="section" id="s6">
+  <div class="wrap">
+    <div class="sec-num">Section 6</div>
+    <h2>Evidence and offline verification</h2>
+      <p>This is the load-bearing claim of the product, so it is sourced precisely.</p>
+      <h3>What gets signed</h3>
+      <p>Every signed Helm object is an in-toto Statement v1 inside a DSSE envelope (<code>hub/envelope.mjs:15-16</code>). The payload is canonicalized with the same JCS canonicalizer the OCG kernels hash with, so a statement's bytes never diverge from the OCG digest convention (<code>hub/envelope.mjs:7-10</code>, <code>55</code>).</p>
+      <p>Signing is dual. Ed25519 is required, ML-DSA-44 is a co-signature (<code>hub/envelope.mjs:54-69</code>). Verification treats Ed25519 as mandatory and ML-DSA-44 as recommended: an absent post-quantum signature does not fail the envelope, but a <strong>present and wrong</strong> one does, so a tampered co-signature is still caught. A <code>strict</code> option flips both to mandatory for the day post-quantum becomes required (<code>hub/envelope.mjs:71-104</code>).</p>
+      <p>The DSSE pre-authentication encoding binds <code>payloadType</code> into the signed bytes, so a signature cannot be replayed across payload types (<code>hub/envelope.mjs:34-43</code>).</p>
+      <h3>Bundles</h3>
+      <p><code>assembleBundle</code> (<code>hub/bundle.mjs:109-147</code>) seals each object, builds a manifest predicate listing every entry's kind, digest, and trust label plus checkpoint and anchor references, schema-validates it, and signs the manifest.</p>
+      <p>Redaction is a structural backstop, not a hope. Objects entering a bundle are expected to already be digest-only summaries, and a set of known-dangerous field names (<code>access_token</code>, <code>refresh_token</code>, <code>id_token</code>, <code>secret</code>, <code>privateKey</code>, <code>password</code>, <code>api_key</code>, <code>raw_payload</code>, <code>payload_bytes</code>, <code>payload_body</code>) is refused outright, recursively, so an upstream mistake cannot leak through silently (<code>hub/bundle.mjs:51-71</code>).</p>
+      <p>Each object carries exactly one trust label, defaulted by kind, and labels are never collapsed (<code>hub/bundle.mjs:31-49</code>).</p>
+      <h3>Verifying offline</h3>
+      <p><code>verifyBundle</code> (<code>hub/bundle.mjs:156-197</code>) takes a bundle and a set of public keys and does zero network work. It checks the manifest envelope and schema, that the signed predicate matches the carried one, and then for every entry: the object exists, its kind matches, its trust label matches, its envelope verifies, its <strong>recomputed</strong> digest matches the manifest entry, and its predicate still passes the redaction check. Checkpoint envelopes are verified and cross-referenced. It returns <code>{valid, reasons[]}</code> and never throws on a bad bundle, which is what a deliberately tampered fixture asserts against.</p>
+      <p><code>exportBundleZip</code> (<code>hub/bundle.mjs:217-256</code>) produces the shareable artifact: <code>bundle.json</code> (the evidence itself), <code>verify.html</code> (a standalone verifier that runs in any browser with no network), <code>auditor.html</code> (a printable human-readable record), and a README. The export runs the same WebCrypto verify chain the embedded <code>verify.html</code> will run, against the real code path rather than a simulation, so a bundle that would not verify is caught before it ships.</p>
+      <p>Verification does not need <code>helmd</code>. It needs the bundle and the public keys, both of which travel inside the zip.</p>
+      <h3>Anchoring</h3>
+      <p>Anchoring submits only the <code>journal_root_digest</code> to an external timestamp authority. Two types can be emitted, <code>rfc3161</code> and <code>opentimestamps</code>; a <code>scitt-receipt</code> type is reserved and never emitted (<code>hub/anchor-client.mjs:3-5</code>).</p>
+      <p>The RFC 3161 path reuses the shipped Anchor Suite relay at <code>anchor.ainumbers.co</code> and its vendored TimeStampReq builder, the same code the browser-side anchor and verify pages run, rather than reimplementing DER encoding (<code>hub/anchor-client.mjs:7-10</code>, <code>22</code>). The OpenTimestamps path posts the raw digest to public calendars and stores the returned pending attestation as-is; upgrading that to a full Merkle-to-block-header proof is <strong>not built</strong> (<code>hub/anchor-client.mjs:12-17</code>).</p>
+      <p>Anchoring is off by default (<code>hub/config.mjs:44</code>) and is logged once per boot when disabled, with the exact config key to change (<code>hub/index.mjs:212-219</code>). A checkpoint that could not be anchored is still a valid, verifiable signed object; a relay failure produces a schema-valid queued or skipped marker rather than an exception (<code>hub/checkpoint.mjs:20-22</code>, <code>50-55</code>).</p>
+  </div>
+</div>
+
+<div class="section" id="s7">
+  <div class="wrap">
+    <div class="sec-num">Section 7</div>
+    <h2>Borrowed versus built</h2>
+      <table class="spec-table">
+        <thead><tr><th>Component</th><th>Where it came from</th><th>License</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>OCG kernels, <code>_hash.mjs</code>, <code>_computeproof.mjs</code>, <code>_proof.mjs</code>, <code>_rfc3161.mjs</code>, SPEC.md, v0.4 schema, <code>chaingraph.json</code></td><td><code>github.com/PostOakLabs/ainumbers</code>, pinned at <code>31e0402</code></td><td>MIT (site repository <code>LICENSE</code>)</td><td>The kernels are the deterministic compute. Reimplementing them here would create a second canonical hash path, which is exactly the failure the pin exists to prevent.</td></tr>
+          <tr><td>Anchor Suite <code>tsq.mjs</code> (RFC 3161 TimeStampReq builder) and its PKI.js bundle</td><td><code>github.com/PostOakLabs/anchor-suite</code>, pinned at <code>1aa6d22</code></td><td>MIT, with third-party BSD-3-Clause and MIT code preserved in-file inside the PKI.js bundle; see NOTICE (<code>hub/vendored/anchor-suite/MANIFEST.json</code>)</td><td>DER encoding for timestamp requests is exacting and already shipped and exercised in the browser. Vendoring the shipped code beats a second implementation.</td></tr>
+          <tr><td>ML-DSA-44 implementation</td><td>Reached through <code>hub/vendored/ocg/kernels/_proof.mjs</code></td><td>Follows the OCG vendored tree above</td><td>Same reason as the kernels. One implementation, one canonical form.</td></tr>
+          <tr><td>Helm itself: <code>hub/</code>, <code>ui/</code>, <code>scripts/</code>, <code>schema/</code></td><td>Written here</td><td>Apache-2.0 (<code>LICENSE</code>, <code>package.json</code>, SPDX header on every source file)</td><td>Phase 4 decision. The repository is public under Apache-2.0.</td></tr>
+        </tbody>
+      </table>
+      <p><strong>The vendoring invariant, stated plainly because a reader will otherwise get it wrong:</strong> vendored code is <strong>never edited in <code>helm/</code></strong>. A defect in a kernel is fixed upstream in the site repository and then re-vendored (<code>npm run vendor</code>, <code>scripts/vendor.mjs</code>). A local edit would break the digest pin that <code>hub/kernel-runner.mjs:19-47</code> enforces, which means the very next run would fail rather than silently diverge. The invariant is enforced by the code, not only by convention.</p>
+      <p><strong>Vendor manifests record the pinned commit.</strong> <code>hub/vendored/ocg/MANIFEST.json</code> carries <code>sourceRepo</code>, <code>pinnedSha</code>, <code>vendoredPaths</code>, a file count, and a SHA-256 per file. The same shape covers the Anchor Suite vendor.</p>
+      <p><strong>No n8n or Windmill code, ever.</strong> This is a licensing constraint and it is absolute. n8n appears in this repository only as the name of an external system Helm interoperates with, in an allowlist host string, in test fixtures, and in comments explaining what the inbound webhook route is for (<code>hub/connectors/inbound-webhook.contract.json:5</code>, <code>hub/server.mjs:552</code>, <code>hub/webhook-guard.mjs:11</code>). No line of n8n or Windmill source is present, and none may be added.</p>
+      <h3>Standards followed rather than invented</h3>
+      <p>Verified against the source files that cite them:</p>
+      <ul class="doc-list">
+        <li><strong>JSON Canonicalization Scheme, RFC 8785.</strong> The canonical form under every digest (<code>hub/envelope.mjs:8</code>).</li>
+        <li><strong>DSSE</strong>, payload type <code>application/vnd.in-toto+json</code>, with the standard pre-authentication encoding (<code>hub/envelope.mjs:16</code>, <code>36-43</code>).</li>
+        <li><strong>in-toto Statement v1</strong>, <code>https://in-toto.io/Statement/v1</code> (<code>hub/envelope.mjs:15</code>).</li>
+        <li><strong>Time-Stamp Protocol, RFC 3161</strong> (<code>hub/anchor-client.mjs:7</code>).</li>
+        <li><strong>OAuth 2.0 for Native Apps, RFC 8252</strong>, the loopback redirect flow, with PKCE (RFC 7636) and OAuth 2.0 itself (RFC 6749). Token revocation is RFC 7009 where a provider offers it; GitHub does not, and the code says so rather than pretending (<code>hub/oauth-pkce.mjs:3</code>, <code>24</code>, <code>98</code>, <code>hub/oauth-providers.mjs:19</code>).</li>
+        <li><strong>SMTP, RFC 5321</strong>, including reply-line continuation and dot-stuffing (<code>hub/connectors/smtp-send.mjs:40</code>, <code>175</code>).</li>
+        <li><strong>ML-DSA-44</strong>, the FIPS 204 parameter set, as the post-quantum co-signature.</li>
+        <li><strong>BPMN 2.0</strong> for workflow export (<code>hub/bpmn-export.mjs</code>) and <strong>DMN</strong> for decision tables (<code>ui/lib/decision-table.mjs</code>).</li>
+        <li><strong>EU AI Act Regulation 2024/1689 Article 12(2) and 12(3)</strong> record-keeping fields, enforced per journal entry (<code>hub/journal.mjs:13-15</code>, <code>103-113</code>).</li>
+      </ul>
+      <p>One citation is carried as the source file states it rather than independently confirmed in this pass: <code>hub/envelope.mjs:6-8</code> attributes the JOSE algorithm identifiers <code>"EdDSA"</code> and <code>"ML-DSA-44"</code> to <strong>RFC 9964</strong>. The identifier strings in the emitted envelopes are <code>EdDSA</code> and <code>ML-DSA-44</code> and that is verifiable from the code (<code>hub/envelope.mjs:65-66</code>); the RFC number is quoted from the comment and has not been checked against the RFC index here.</p>
+      <h3>Zero npm dependencies, deliberately</h3>
+      <p><code>package.json</code> declares <code>"dependencies": {}</code> and the repository has no runtime dependency at all. This is not an accident of a small codebase and it is not a preference. It is asserted by a test so it cannot regress (<code>bin/zero-dep.test.mjs:16-18</code>).</p>
+      <p>Consequences visible throughout the code:</p>
+      <ul class="doc-list">
+        <li>The journal uses the Node builtin <code>node:sqlite</code> rather than <code>better-sqlite3</code>, which is why transactions are hand-wrapped (<code>hub/journal.mjs:16-19</code>, <code>39-49</code>).</li>
+        <li>JSON Schema validation is a hand-rolled validator (<code>scripts/lib/schema-validator.mjs</code>), not Ajv.</li>
+        <li>Opening a browser shells out to each platform's native opener rather than using the <code>open</code> package (<code>hub/index.mjs:34</code>, <code>60-73</code>).</li>
+        <li>The CLI is <code>process.argv.slice(2)</code> and a chain of comparisons, with the zero-dep test spelling out that a CLI framework must never sneak back in (<code>bin/zero-dep.test.mjs:4-6</code>, <code>hub/index.mjs:455-466</code>).</li>
+      </ul>
+  </div>
+</div>
+
+<div class="section" id="s8">
+  <div class="wrap">
+    <div class="sec-num">Section 8</div>
+    <h2>Design constraints, and why the product has this shape</h2>
+      <p>The governing constraint is: <strong>if nobody ever touched this again, does it keep working and keep being true?</strong></p>
+      <p>That single question explains nearly every structural decision above, and it is worth being explicit that these are consequences of it rather than independent preferences:</p>
+      <ul class="doc-list">
+        <li><strong>Zero dependencies</strong> because a dependency is a promise that someone will keep upgrading it. An unmaintained dependency tree is the most common way software stops working without anyone touching it.</li>
+        <li><strong>No build step</strong> because a build step is a second thing that must keep working, on a machine nobody is maintaining, with a toolchain that ages.</li>
+        <li><strong>Client-side and local-first compute</strong> because a service that computes on your behalf stops computing when the service stops. A deterministic program on your own machine does not.</li>
+        <li><strong>An offline verifier shipped inside the evidence bundle</strong> because verification that depends on a server is verification that expires. <code>verify.html</code> in the zip has no network dependency, so a bundle checked in five years is checked the same way it was checked on the day it was made.</li>
+        <li><strong>Deterministic kernels with pinned digests</strong> because "the same inputs produce the same outputs" is what makes a receipt re-checkable by someone who was not there and cannot ask anyone.</li>
+        <li><strong>Anchoring off by default</strong> because the core loop must not depend on a third party being reachable. Anchoring adds a claim about *when*; it is deliberately additive, and its absence degrades nothing.</li>
+        <li><strong>Announcing behavior rather than only enforcing it</strong> (idle shutdown in <code>/health</code>, in <code>helmd status</code>, and in the boot banner) because a surprise that requires a human to explain it is a maintenance duty in disguise.</li>
+        <li><strong>No promises about time anywhere in this repository.</strong> No response windows, no support commitments, no update cadences, no uptime figures. An unmet published promise is worse than no promise, and there is nobody funded to honor one.</li>
+      </ul>
+      <p>The autostart change in §3 is the same constraint applied to consent. A silent persistence install relies on a console announcement being read, and the audience for a downloaded executable double-clicks it and closes the window. A mitigation that depends on a human noticing something is a mitigation that does not survive the absence of that human, so the default became off and the toggle became a surface that persists.</p>
+  </div>
+</div>
+
+<div class="section" id="s9">
+  <div class="wrap">
+    <div class="sec-num">Section 9</div>
+    <h2>Known limitations</h2>
+      <p>Published deliberately. A reader finding these is worse than a reader being told.</p>
+      <ol class="doc-list">
+        <li><strong>Binaries are unsigned.</strong> The single-executable builds are not code-signed. Microsoft Defender and SmartScreen commonly flag an unsigned single-executable binary on first run, and Smart App Control can block one outright, with no mitigation currently built for that case. Clean-file submission to Microsoft is a manual runbook and an unsigned binary hash needs re-submission per build (<code>docs/INSTALL.md:94-97</code>, <code>docs/CATEGORIZATION-SUBMISSIONS-RUNBOOK.md:6-16</code>, <code>68-80</code>). The macOS component package is likewise unsigned (<code>docs/IT-DEPLOYMENT.md:50-62</code>). A blocked launch is hard to distinguish from nothing happening, which is the real cost.</li>
+        <li><strong>Connector, gate, and action steps have no runner in the served run path.</strong> All three production call sites construct the kernel step runner with no <code>otherKindsRunner</code> (<code>hub/server.mjs:485</code>, <code>527</code>, <code>665</code>), and that runner throws for any step kind other than <code>nodes</code> and <code>attested_artifacts</code> (<code>hub/kernel-runner.mjs:83-89</code>). A manifest carrying a connector, gate, or action step would fail the run. No currently compiled pack contains one: all 219 packs in <code>packs/</code> declare only <code>nodes</code>, plus one with an attested artifact. So the connector runtime in §5 is built, tested, and reachable as a library, but is not reachable through <code>POST /run/start</code> today.</li>
+        <li><strong>The Google Drive connector is not wired to anything.</strong> <code>hub/connectors/google-drive-fetch.mjs</code> is imported only by its own test file. It is a complete connector with a signed contract and no production caller, which is a specific case of the previous item.</li>
+        <li><strong>The OpenTimestamps anchor is stored as a pending attestation only.</strong> Upgrading it to a full Merkle-to-block-header proof, the step a complete OTS client performs later, is not built (<code>hub/anchor-client.mjs:12-17</code>).</li>
+        <li><strong>Manifests have no edges.</strong> Workflow order is layer order and then array order. Real branching in a DAG is not implemented (<code>hub/run.mjs:3-6</code>, <code>70-75</code>).</li>
+        <li><strong>Review states are not in this engine.</strong> The run lifecycle here is a Phase 1 subset; review states are named in the spec and not reachable through this executor (<code>hub/run.mjs:15-20</code>).</li>
+        <li><strong>No agent-facing MCP endpoint exists.</strong> The navigation slot ships disabled. The read-tier ruling in §5 constrains a surface that has not been built.</li>
+        <li><strong><code>hub/vendored/ocg/MANIFEST.json</code> records no license field</strong>, unlike the Anchor Suite manifest which does. The license is MIT, from the site repository's own <code>LICENSE</code>, but the vendor manifest does not state it, so the fact lives one repository away from the vendored code.</li>
+      </ol>
+      <h3>Two limitations on record elsewhere that the code no longer supports</h3>
+      <p>Both are recorded here because the accuracy rule requires the disagreement to be written down rather than silently resolved.</p>
+      <ul class="doc-list">
+        <li><strong>"Journal corruption crashes rather than degrades" is no longer true.</strong> It was true when it was written. <code>hub/recovery.mjs</code> and the boot path at <code>hub/index.mjs:126-148</code> now quarantine the broken state directory with a timestamp, never delete it, carry <code>config.json</code> forward, write a crash log into the quarantined copy, and re-enter boot against fresh state, announcing all of it in the banner. The residual risk is different and smaller: an install whose journal breaks starts over from empty, and the old data is preserved only as a quarantined directory a human must go look at.</li>
+        <li><strong>"<code>exportBpmn</code> is unreachable" is no longer true.</strong> It is reachable from the CLI: <code>helmd export-bpmn &lt;workflow_id&gt; [out.bpmn]</code> dispatches to <code>scripts/export-bpmn.mjs</code>, which loads a compiled pack and calls <code>exportBpmn</code> from <code>hub/bpmn-export.mjs</code> (<code>bin/helmd.mjs:31</code>, <code>49</code>, <code>101-103</code>). It is documented in <code>helmd --help</code> and listed among the stable verbs (<code>bin/helmd.mjs:59</code>). What remains true is that there is no HTTP route and no UI button for it, so it is CLI-only.</li>
+      </ul>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      <a href="helm.html">Helm</a><span class="sep">&middot;</span>
+      <a href="helm-walkthrough.html">Walkthrough</a><span class="sep">&middot;</span>
+      <a href="https://github.com/PostOakLabs/ainumbers-helm" rel="noopener">Source</a><span class="sep">&middot;</span>
+      <a href="index.html">Tool suite</a><span class="sep">&middot;</span>
+      <a href="about.html">About</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
