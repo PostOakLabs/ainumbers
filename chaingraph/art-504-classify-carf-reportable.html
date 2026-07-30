@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CARF / DAC8 Reportable User Classifier &middot; ART-504 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Classifies crypto-asset user records and transactions against a caller-declared CARF or DAC8 policy set: reportable residences, reportable transaction classes, due-diligence rules and a deactivation list. Every undetermined verdict names what is undetermined, which input resolves it and who decides.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-504-classify-carf-reportable.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:220px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.pinned{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--bright);background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.5rem .85rem;margin:10px 0}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.und{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-504 · CARF / DAC8 Reportable User Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-504 &middot; CARF / DAC8 &middot; Reporting Crypto-Asset Service Providers</div>
+  <h1>CARF / DAC8 Reportable User Classifier</h1>
+  <p class="sub">Classifies crypto-asset user records and their transactions against a policy set you declare: which residence jurisdictions your reporting jurisdiction treats as reportable, which transaction classes are in scope, your due-diligence rule set, and a deactivation list of rules that have been switched off. Where an answer is not determinable it says so and names what would resolve it, rather than guessing. Emits a hash-anchored OpenChainGraph v0.4 artifact. Feeds <a href="art-505-dispose-carf-status-message.html">ART-505</a>, which dispositions the status message that comes back after a submission.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">OECD CARF XML Schema</span>
+    <span class="flag info">DAC8</span>
+    <span class="flag">Feeds ART-505 status-message disposition</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This handles tax data by nature, so it takes none. Users are identified by an opaque reference you choose. It asks for no name, no tax identification number, no address and no date of birth. Claimed residence is a two-letter jurisdiction code because that is the classification input, not identity. The loaded demo is synthetic.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Not a schema validator competing on coverage. Free CARF and CRS XML validators already exist and they validate and stop. Your reportable residence set, your transaction classes, your due-diligence rules and your schema version are pinned policy inputs you supply below, never hardcoded here, so nothing here states a view on how any jurisdiction has transposed CARF or DAC8. This classifies only: it computes no tax liability, it submits nothing, and it makes no claim that its output is submittable. It is not legal or tax advice.</div>
+
+  <div class="card">
+    <div class="section-head">Reporting context</div>
+    <div class="grid2">
+      <div><label class="fld">Reporting jurisdiction (free text)</label><input type="text" id="jurisdiction" value="IE"></div>
+      <div><label class="fld">Reporting period</label><input type="text" id="period" value="2026"></div>
+    </div>
+    <label class="fld">Schema version (pinned policy input, echoed in the artifact and shown with every result)</label>
+    <input type="text" id="schemaVersion" value="OECD-CARF-XML-SCHEMA-JULY-2025">
+    <label class="fld">Who decides a judgment call (named role, carried into every judgment_required entry)</label>
+    <input type="text" id="judgmentOwner" value="named tax compliance officer of the Reporting Crypto-Asset Service Provider">
+
+    <div class="section-head">Policy set</div>
+    <label class="fld">Reportable residence jurisdictions (comma-separated; leave empty and nothing is classifiable)</label>
+    <input type="text" id="residences" value="DE, FR, IE">
+    <label class="fld">Reportable transaction classes (comma-separated)</label>
+    <input type="text" id="classes" value="crypto_to_fiat_exchange, crypto_to_crypto_exchange, retail_payment_above_threshold, transfer">
+    <label class="fld">Suppressed rule codes (deactivation list; a suppressed rule produces no unsatisfied step at all)</label>
+    <input type="text" id="suppressed" value="">
+    <label class="fld">Due-diligence rules (JSON array: rule_code, step, applies_to "all" or "individual" or "entity", required_field, description)</label>
+    <textarea id="rulesJson" style="min-height:110px">[
+  { "rule_code": "BR-CARF-WALLETADDR-001", "step": "wallet address capture", "applies_to": "all", "required_field": "wallet_address_ref", "description": "A wallet address reference is required on every reportable user record (BR-CARF-WALLETADDR-001)." }
+]</textarea>
+
+    <div class="section-head">Records (synthetic demo loaded)</div>
+    <label class="fld">Records (JSON array: record_ref, entity_type, self_certification_status, claimed_tax_residences, controlling_persons, controlling_persons_required, declared_fields, transactions)</label>
+    <textarea id="recordsJson">[
+  { "record_ref": "USER-OPAQUE-0001", "entity_type": "individual", "self_certification_status": "valid", "claimed_tax_residences": ["DE"], "declared_fields": { "wallet_address_ref": "WALLET-REF-0001" },
+    "transactions": [ { "transaction_ref": "TXN-0001", "transaction_class": "crypto_to_fiat_exchange" }, { "transaction_ref": "TXN-0002", "transaction_class": "staking_reward" } ] },
+  { "record_ref": "USER-OPAQUE-0002", "entity_type": "individual", "self_certification_status": "missing", "claimed_tax_residences": ["FR"], "declared_fields": { "wallet_address_ref": "WALLET-REF-0002" },
+    "transactions": [ { "transaction_ref": "TXN-0003", "transaction_class": "crypto_to_crypto_exchange" } ] },
+  { "record_ref": "ENTITY-OPAQUE-0005", "entity_type": "entity", "self_certification_status": "valid", "claimed_tax_residences": ["SG"], "controlling_persons_required": true,
+    "controlling_persons": [ { "controlling_person_ref": "CP-OPAQUE-0005A", "self_certification_status": "valid", "claimed_tax_residences": ["FR"] } ],
+    "declared_fields": { "wallet_address_ref": "WALLET-REF-0005" },
+    "transactions": [ { "transaction_ref": "TXN-0006", "transaction_class": "retail_payment_above_threshold" } ] }
+]</textarea>
+    <div style="margin-top:16px">
+      <button onclick="runClassify()">&#9654; Classify Records</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="pinned" id="pinnedBox"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Record verdicts</div>
+      <div id="verdictsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Judgment required</div>
+      <div id="judgmentDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Transaction counts by class</div>
+      <div id="classDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Feeds <a href="art-505-dispose-carf-status-message.html">ART-505 CARF Status Message Disposition</a>. The same shape one asset class over from <a href="art-490-fatca-crs-submission-check.html">ART-490</a> and <a href="art-491-ro-remediation-closure.html">ART-491</a>, the FATCA and CRS Responsible-Officer pair.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var ENTITY_TYPES = ['individual','entity'];
+var SELF_CERT_STATUSES = ['valid','missing','unreliable','pending'];
+
+var MANIFEST = {
+  tool_id: 'art-504-classify-carf-reportable',
+  version: '1.0.0',
+  mcp_name: 'classify_carf_reportable',
+  title: 'CARF / DAC8 Reportable User Classifier',
+  description: 'Classifies crypto-asset user records and transactions against a caller-declared CARF or DAC8 policy set, with a deactivation list and named judgment calls.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'classify_carf_reportable',
+    description: 'Classifies CARF and DAC8 reportable users and reportable transactions against a caller-declared policy set.',
+    inputSchema: { type: 'object', properties: {
+      reporting_jurisdiction: {type:'string'}, schema_version: {type:'string'}, reporting_period: {type:'string'},
+      judgment_owner_role: {type:'string'},
+      reportable_residence_jurisdictions: {type:'array', items:{type:'string'}},
+      reportable_transaction_classes: {type:'array', items:{type:'string'}},
+      suppressed_rule_codes: {type:'array', items:{type:'string'}},
+      due_diligence_rules: {type:'array'}, records: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function strArray(v){ return Array.isArray(v) ? v.filter(isNonEmptyString) : []; }
+
+function compute(pp){
+  pp = pp || {};
+  var reporting_jurisdiction = isNonEmptyString(pp.reporting_jurisdiction) ? pp.reporting_jurisdiction : '';
+  var schema_version = isNonEmptyString(pp.schema_version) ? pp.schema_version : '';
+  var reporting_period = isNonEmptyString(pp.reporting_period) ? pp.reporting_period : '';
+  var judgment_owner_role = isNonEmptyString(pp.judgment_owner_role) ? pp.judgment_owner_role : '';
+
+  var reportable_residence_jurisdictions = strArray(pp.reportable_residence_jurisdictions);
+  var reportable_transaction_classes = strArray(pp.reportable_transaction_classes);
+  var suppressed_rule_codes = strArray(pp.suppressed_rule_codes);
+  var due_diligence_rules = Array.isArray(pp.due_diligence_rules) ? pp.due_diligence_rules : [];
+  var records = Array.isArray(pp.records) ? pp.records : [];
+
+  var residencesDeclared = reportable_residence_jurisdictions.length > 0;
+  var classesDeclared = reportable_transaction_classes.length > 0;
+
+  var suppressed_step_count = 0;
+  var judgment_required = [];
+  var record_verdicts = [];
+
+  var decided_by = judgment_owner_role || 'undeclared (supply judgment_owner_role to name the accountable role)';
+
+  function raiseJudgment(record_ref, question, undetermined_because, resolving_input){
+    judgment_required.push({ record_ref: record_ref, question: question, undetermined_because: undetermined_because, resolving_input: resolving_input, decided_by: decided_by });
+  }
+
+  records.forEach(function(raw, idx){
+    var r = raw && typeof raw === 'object' ? raw : {};
+    var record_ref = isNonEmptyString(r.record_ref) ? r.record_ref : ('records[' + idx + ']');
+    var entity_type = ENTITY_TYPES.indexOf(r.entity_type) !== -1 ? r.entity_type : null;
+    var self_certification_status = SELF_CERT_STATUSES.indexOf(r.self_certification_status) !== -1 ? r.self_certification_status : null;
+    var claimed_tax_residences = strArray(r.claimed_tax_residences);
+    var controlling_persons = Array.isArray(r.controlling_persons) ? r.controlling_persons : [];
+    var transactions = Array.isArray(r.transactions) ? r.transactions : [];
+
+    var unsatisfied_due_diligence_steps = [];
+
+    function addStep(rule_code, step, detail){
+      if (suppressed_rule_codes.indexOf(rule_code) !== -1) { suppressed_step_count += 1; return; }
+      unsatisfied_due_diligence_steps.push({ rule_code: rule_code, step: step, detail: detail });
+    }
+
+    if (entity_type === null) {
+      addStep('DD-ENTITYTYPE-001', 'account-holder classification', 'entity_type "' + r.entity_type + '" is not one of individual or entity.');
+    }
+    if (self_certification_status === null) {
+      addStep('DD-SELFCERT-STATUS-001', 'self-certification collection', 'self_certification_status "' + r.self_certification_status + '" is not one of valid, missing, unreliable or pending.');
+    }
+
+    if (self_certification_status === 'missing') {
+      addStep('DD-SELFCERT-MISSING-001', 'self-certification collection', 'No self-certification has been obtained for this user.');
+    } else if (self_certification_status === 'unreliable') {
+      addStep('DD-SELFCERT-UNRELIABLE-001', 'self-certification reasonableness', 'The self-certification on file has been marked unreliable and has not been cured.');
+    } else if (self_certification_status === 'pending') {
+      addStep('DD-SELFCERT-PENDING-001', 'self-certification collection', 'A self-certification has been requested but not yet received.');
+    }
+    if (self_certification_status === 'valid' && claimed_tax_residences.length === 0) {
+      addStep('DD-RESIDENCE-ABSENT-001', 'claimed residence capture', 'The self-certification is marked valid but declares no tax residence.');
+    }
+
+    if (entity_type === 'entity' && controlling_persons.length === 0 && r.controlling_persons_required === true) {
+      addStep('DD-CONTROLPERSON-ABSENT-001', 'controlling-person identification', 'The record is an entity whose controlling persons are declared required, and none are supplied.');
+    }
+    var controllingResidences = [];
+    controlling_persons.forEach(function(cpRaw, cpIdx){
+      var cp = cpRaw && typeof cpRaw === 'object' ? cpRaw : {};
+      var cpStatus = SELF_CERT_STATUSES.indexOf(cp.self_certification_status) !== -1 ? cp.self_certification_status : null;
+      var cpRef = isNonEmptyString(cp.controlling_person_ref) ? cp.controlling_person_ref : (record_ref + '.controlling_persons[' + cpIdx + ']');
+      if (cpStatus !== 'valid') {
+        addStep('DD-CONTROLPERSON-SELFCERT-001', 'controlling-person self-certification', 'Controlling person ' + cpRef + ' has self_certification_status "' + cp.self_certification_status + '".');
+      }
+      strArray(cp.claimed_tax_residences).forEach(function(j){ controllingResidences.push(j); });
+    });
+
+    due_diligence_rules.forEach(function(ruleRaw){
+      var rule = ruleRaw && typeof ruleRaw === 'object' ? ruleRaw : {};
+      var rule_code = rule.rule_code;
+      if (!isNonEmptyString(rule_code)) return;
+      var applies_to = isNonEmptyString(rule.applies_to) ? rule.applies_to : 'all';
+      if (applies_to !== 'all' && applies_to !== entity_type) return;
+      var required_field = isNonEmptyString(rule.required_field) ? rule.required_field : '';
+      var declared = r.declared_fields && typeof r.declared_fields === 'object' ? r.declared_fields : {};
+      var value = required_field ? declared[required_field] : undefined;
+      var present = value !== undefined && value !== null && value !== '';
+      if (!present) {
+        addStep(rule_code, isNonEmptyString(rule.step) ? rule.step : 'caller-declared due-diligence step', isNonEmptyString(rule.description) ? rule.description : ('Required field "' + required_field + '" is absent (rule ' + rule_code + ').'));
+      }
+    });
+
+    var allResidences = claimed_tax_residences.concat(controllingResidences);
+    var matched_reportable_residences = allResidences.filter(function(j){ return reportable_residence_jurisdictions.indexOf(j) !== -1; }).sort();
+    var user_reportability, user_reason;
+    if (!residencesDeclared) {
+      user_reportability = 'undetermined';
+      user_reason = 'No reportable residence jurisdictions were declared, so no claimed residence can be classified.';
+      raiseJudgment(record_ref, 'Is this user a reportable user?', 'The set of residence jurisdictions this reporting jurisdiction treats as reportable has not been declared.', 'reportable_residence_jurisdictions');
+    } else if (unsatisfied_due_diligence_steps.length > 0) {
+      user_reportability = 'undetermined';
+      user_reason = 'One or more due-diligence steps are unsatisfied, so the claimed residence cannot be relied on.';
+      raiseJudgment(record_ref, 'Is this user a reportable user?', 'Due diligence is incomplete: ' + unsatisfied_due_diligence_steps.map(function(s){return s.rule_code;}).join(', ') + '.', 'a cured self-certification or the missing field named in each unsatisfied step');
+    } else if (matched_reportable_residences.length > 0) {
+      user_reportability = 'reportable';
+      user_reason = 'Claimed residence in ' + matched_reportable_residences.join(', ') + ' is within the declared reportable set.';
+    } else {
+      user_reportability = 'not_reportable';
+      user_reason = 'No claimed residence, and no controlling-person residence, falls within the declared reportable set.';
+    }
+
+    var transaction_verdicts = transactions.map(function(tRaw, tIdx){
+      var t = tRaw && typeof tRaw === 'object' ? tRaw : {};
+      var transaction_ref = isNonEmptyString(t.transaction_ref) ? t.transaction_ref : (record_ref + '.transactions[' + tIdx + ']');
+      var transaction_class = isNonEmptyString(t.transaction_class) ? t.transaction_class : '';
+      if (!classesDeclared) {
+        raiseJudgment(transaction_ref, 'Is this transaction a reportable transaction?', 'No reportable transaction classes were declared for this reporting jurisdiction.', 'reportable_transaction_classes');
+        return { transaction_ref: transaction_ref, transaction_class: transaction_class, reportable: 'undetermined', reason: 'No reportable transaction classes were declared.' };
+      }
+      if (!transaction_class) {
+        raiseJudgment(transaction_ref, 'Is this transaction a reportable transaction?', 'The transaction carries no transaction_class.', 'transaction_class on the transaction record');
+        return { transaction_ref: transaction_ref, transaction_class: '', reportable: 'undetermined', reason: 'The transaction carries no transaction_class.' };
+      }
+      if (user_reportability === 'undetermined') {
+        return { transaction_ref: transaction_ref, transaction_class: transaction_class, reportable: 'undetermined', reason: 'The user is not yet classifiable, so the transaction cannot be classified.' };
+      }
+      if (user_reportability === 'not_reportable') {
+        return { transaction_ref: transaction_ref, transaction_class: transaction_class, reportable: 'not_reportable', reason: 'The user is not a reportable user.' };
+      }
+      if (reportable_transaction_classes.indexOf(transaction_class) !== -1) {
+        return { transaction_ref: transaction_ref, transaction_class: transaction_class, reportable: 'reportable', reason: 'The transaction class is within the declared reportable set for a reportable user.' };
+      }
+      return { transaction_ref: transaction_ref, transaction_class: transaction_class, reportable: 'not_reportable', reason: 'The transaction class is outside the declared reportable set.' };
+    });
+
+    record_verdicts.push({
+      record_ref: record_ref,
+      entity_type: entity_type,
+      user_reportability: user_reportability,
+      reason: user_reason,
+      matched_reportable_residences: matched_reportable_residences,
+      unsatisfied_due_diligence_steps: unsatisfied_due_diligence_steps,
+      transaction_verdicts: transaction_verdicts,
+    });
+  });
+
+  var user_counts = { reportable: 0, not_reportable: 0, undetermined: 0 };
+  var transaction_counts_by_class = {};
+  record_verdicts.forEach(function(v){
+    user_counts[v.user_reportability] += 1;
+    v.transaction_verdicts.forEach(function(t){
+      var key = t.transaction_class || '(unclassified)';
+      if (!transaction_counts_by_class[key]) transaction_counts_by_class[key] = { reportable: 0, not_reportable: 0, undetermined: 0 };
+      transaction_counts_by_class[key][t.reportable] += 1;
+    });
+  });
+
+  var unsatisfied_step_count = record_verdicts.reduce(function(n, v){ return n + v.unsatisfied_due_diligence_steps.length; }, 0);
+
+  var compliance_flags = [];
+  compliance_flags.push(user_counts.reportable > 0 ? 'CARF_REPORTABLE_USERS_PRESENT' : 'CARF_NO_REPORTABLE_USERS');
+  if (judgment_required.length > 0) compliance_flags.push('CARF_JUDGMENT_REQUIRED');
+  if (unsatisfied_step_count > 0) compliance_flags.push('CARF_DUE_DILIGENCE_INCOMPLETE');
+  if (suppressed_step_count > 0) compliance_flags.push('CARF_SUPPRESSED_RULES_APPLIED');
+  if (!residencesDeclared) compliance_flags.push('CARF_REPORTABLE_RESIDENCES_UNDECLARED');
+  if (!classesDeclared) compliance_flags.push('CARF_REPORTABLE_CLASSES_UNDECLARED');
+  if (records.length === 0) compliance_flags.push('CARF_RECORD_SET_EMPTY');
+  if (!schema_version) compliance_flags.push('CARF_SCHEMA_VERSION_UNPINNED');
+
+  var output_payload = {
+    reporting_jurisdiction: reporting_jurisdiction,
+    schema_version: schema_version,
+    reporting_period: reporting_period,
+    record_count: records.length,
+    record_verdicts: record_verdicts,
+    judgment_required: judgment_required,
+    judgment_required_count: judgment_required.length,
+    user_counts: user_counts,
+    transaction_counts_by_class: transaction_counts_by_class,
+    unsatisfied_step_count: unsatisfied_step_count,
+    reportable_residence_jurisdictions: reportable_residence_jurisdictions,
+    reportable_transaction_classes: reportable_transaction_classes,
+    suppressed_rule_codes: suppressed_rule_codes,
+    suppressed_step_count: suppressed_step_count,
+    note: 'Deterministic CARF and DAC8 reportability classifier over a caller-declared record set. The reportable residence set, the reportable transaction classes, the due-diligence rule set and the schema version are pinned policy inputs, never kernel source, so this states no view on how any jurisdiction has transposed CARF or DAC8. A suppressed rule_code produces no unsatisfied step at all for any record. Every undetermined verdict carries a judgment_required entry naming what is undetermined, which input resolves it and who decides. This classifies only: it computes no tax liability, it does not submit or transmit anything, it makes no claim that its output is submittable, and it is not legal or tax advice.',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function esc(s){ return String(s === null || s === undefined ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function csv(id){ return document.getElementById(id).value.split(',').map(function(s){return s.trim();}).filter(Boolean); }
+
+function runClassify(){
+  var rules, records;
+  try { rules = JSON.parse(document.getElementById('rulesJson').value); } catch(e){ alert('Invalid JSON in due-diligence rules: '+e.message); return; }
+  try { records = JSON.parse(document.getElementById('recordsJson').value); } catch(e){ alert('Invalid JSON in records: '+e.message); return; }
+
+  var pp = {
+    reporting_jurisdiction: document.getElementById('jurisdiction').value || '',
+    schema_version: document.getElementById('schemaVersion').value || '',
+    reporting_period: document.getElementById('period').value || '',
+    judgment_owner_role: document.getElementById('judgmentOwner').value || '',
+    reportable_residence_jurisdictions: csv('residences'),
+    reportable_transaction_classes: csv('classes'),
+    due_diligence_rules: rules,
+    suppressed_rule_codes: csv('suppressed'),
+    records: records,
+  };
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+
+  var op = res.output_payload;
+  var settled = op.judgment_required_count === 0;
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = settled ? 'var(--green)' : 'var(--warn)';
+  vBox.style.background = settled ? 'rgba(34,197,94,.08)' : 'rgba(245,158,11,.08)';
+  vBox.style.border = '1px solid ' + (settled ? 'var(--green)' : 'var(--warn)');
+  vBox.textContent = settled
+    ? op.user_counts.reportable + ' REPORTABLE / ' + op.user_counts.not_reportable + ' NOT REPORTABLE'
+    : op.judgment_required_count + ' JUDGMENT CALL(S) REQUIRED';
+
+  document.getElementById('pinnedBox').innerHTML =
+    'Schema version: <span style="color:var(--gold)">' + esc(op.schema_version || 'UNPINNED') + '</span>'
+    + ' &middot; Reporting jurisdiction: ' + esc(op.reporting_jurisdiction || 'undeclared')
+    + ' &middot; Period: ' + esc(op.reporting_period || 'undeclared');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">'+op.record_count+'</span><span class="stat-key">Records</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.user_counts.reportable+'</span><span class="stat-key">Reportable</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.user_counts.not_reportable+'</span><span class="stat-key">Not reportable</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.user_counts.undetermined+'</span><span class="stat-key">Undetermined</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.unsatisfied_step_count+'</span><span class="stat-key">Unsatisfied steps</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.suppressed_step_count+'</span><span class="stat-key">Suppressed</span></div>';
+
+  document.getElementById('verdictsDiv').innerHTML = op.record_verdicts.length
+    ? op.record_verdicts.map(function(v){
+        var cls = v.user_reportability === 'reportable' ? 'ok' : (v.user_reportability === 'undetermined' ? 'und' : 'fail');
+        var steps = v.unsatisfied_due_diligence_steps.map(function(s){ return '<div style="margin-top:4px">' + esc(s.rule_code) + ' &middot; ' + esc(s.step) + ': ' + esc(s.detail) + '</div>'; }).join('');
+        var txns = v.transaction_verdicts.map(function(t){ return '<div style="margin-top:4px">' + esc(t.transaction_ref) + ' &middot; ' + esc(t.transaction_class || '(unclassified)') + ': ' + esc(t.reportable) + '</div>'; }).join('');
+        return '<div class="kv"><span class="kv-k">' + esc(v.record_ref) + ' &middot; ' + esc(v.entity_type || 'unclassified') + '</span><span class="kv-v"><span class="badge ' + cls + '">' + esc(v.user_reportability) + '</span> ' + esc(v.reason) + steps + txns + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No records supplied</span></div>';
+
+  document.getElementById('judgmentDiv').innerHTML = op.judgment_required.length
+    ? op.judgment_required.map(function(j){
+        return '<div class="kv"><span class="kv-k">' + esc(j.record_ref) + '</span><span class="kv-v">' + esc(j.question) + '<div style="margin-top:4px">Undetermined because: ' + esc(j.undetermined_because) + '</div><div>Resolved by: ' + esc(j.resolving_input) + '</div><div>Decided by: ' + esc(j.decided_by) + '</div></span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None. Every verdict is determined on the inputs supplied.</span></div>';
+
+  var classKeys = Object.keys(op.transaction_counts_by_class);
+  document.getElementById('classDiv').innerHTML = classKeys.length
+    ? classKeys.map(function(k){
+        var c = op.transaction_counts_by_class[k];
+        return '<div class="kv"><span class="kv-k">' + esc(k) + '</span><span class="kv-v">reportable ' + c.reportable + ' &middot; not reportable ' + c.not_reportable + ' &middot; undetermined ' + c.undetermined + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No transactions supplied</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-504-classify-carf-reportable',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-504-classify-carf-reportable.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+
+document.addEventListener('DOMContentLoaded', function(){ runClassify(); });
+</script>
+</body>
+</html>
