@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Dual Control Certification Evidence &middot; ART-503 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Decides whether N distinct named identities each signed an approval over one sealed subject in one role. Counts distinct identities, never keys, and reports every record it could not count.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-503-build-dual-control-certification.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:120px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.limit-box{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.28);border-left:3px solid var(--warn);border-radius:var(--radius);padding:12px 16px;margin:14px 0}
+.limit-box .lb-h{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--warn);margin-bottom:6px}
+.limit-box p{font-size:.76rem;color:var(--text);margin-bottom:6px}
+.limit-box p:last-child{margin-bottom:0}
+.ruleset-bar{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .85rem;margin:12px 0}
+.ruleset-bar b{color:var(--bright);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:.7rem;font-family:'JetBrains Mono',monospace;margin-top:8px}
+th{text-align:left;color:var(--muted);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border);padding:6px 8px 6px 0;font-weight:600}
+td{color:var(--text);border-bottom:1px solid var(--border);padding:6px 8px 6px 0;vertical-align:top}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-503 · Dual Control Certification Evidence</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-503 &middot; Human Accountability &middot; Dual Control</div>
+  <h1>Dual Control Certification Evidence</h1>
+  <p class="sub">A certification that two named officers signed is worth exactly as much as the claim that they were two people. This page decides one thing: whether the required number of distinct named identities each filed a signed approval over one sealed subject in one role. It counts by identity, never by signature and never by key, and it names every record it could not count.</p>
+  <p class="sub">The surface is deliberately regime agnostic. <code>regime_label</code> is free text that nothing here interprets, so the same node evidences a chief executive plus chief financial officer certification at a threshold of two, a chief executive or chief operating officer certification at a threshold of one, and an audit sign-off. There is no enum of statutes on this page and no arithmetic about whatever was certified.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Distinct identities, never keys</span>
+    <span class="flag info">&sect;27.8 parity enforced in the verdict</span>
+    <span class="flag">No clock anywhere</span>
+  </div>
+
+  <div class="ruleset-bar">
+    Threshold construction pinned in every artifact this page exports: the OpenChainGraph &sect;27.3 in-toto integer threshold, satisfied when at least N distinct identities have each filed a signed approval record naming the required role and the same subject. &middot; No statute is interpreted on this surface and no citation is emitted.
+  </div>
+
+  <div class="limit-box">
+    <div class="lb-h">What this is, and what it is not (&sect;27.7)</div>
+    <p>This evidences that named humans took responsibility for the subject named here. It carries no claim that a regulator has accepted anything, it does not serve as a filing, and it makes no assertion that the certified numbers are correct. A satisfied threshold means the stated number of distinct identities each signed. It means nothing beyond that.</p>
+    <p>This surface counts approvals. It computes nothing about what was certified: no reserve composition, no eligible-asset determination, no outstanding-balance reconciliation and no ratio. Whether the certified figures are right is decided by the people who signed and by whoever examines their work.</p>
+    <p>A threshold over fewer than N distinct approvers is unsatisfied and never auto-passes. An absent subject, an unstated threshold, an unrecognised role, a read-only examiner role and an empty record set each resolve to a stated reason rather than falling through to a default.</p>
+    <p>An unsigned approval record is not conformant &sect;27 evidence. The <code>signed</code> flag is the caller's declaration, not the evidence; where it disagrees with the proof the record actually carries, the record is rejected and the disagreement is reported.</p>
+  </div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &ndash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; No clock is read anywhere on this page. The as-of date is a value you supply, and it is the only instant this page knows. A &sect;27.5 override never satisfies a threshold here: an override changes which policy applies, it does not produce a distinct human approver.</div>
+
+  <div class="card">
+    <div class="section-head">Certification</div>
+    <div class="grid2">
+      <div><label class="fld">regime_label (free text, never interpreted)</label><input type="text" id="regimeLabel" value="Payment stablecoin monthly reserve report certification"></div>
+      <div><label class="fld">certification_ref (opaque)</label><input type="text" id="certRef" value="CERT-SYNTH-0007"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">required_role (&sect;27.1)</label><input type="text" id="requiredRole" value="attestor"></div>
+      <div><label class="fld">threshold_n (integer, 1 or more)</label><input type="number" id="thresholdN" value="2" min="1" step="1"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">as_of_date (yyyy-mm-dd, used only for mandate windows)</label><input type="text" id="asOfDate" value="2027-02-15"></div>
+      <div><label class="fld">subject_class (node_output or attested_artifact)</label><input type="text" id="subjectClass" value="attested_artifact"></div>
+    </div>
+    <div><label class="fld">subject_hash (the sealed artifact being certified)</label><input type="text" id="subjectHash" value="sha256:3333333333333333333333333333333333333333333333333333333333333333"></div>
+
+    <div class="section-head" style="margin-top:14px">Who prepared the subject (optional, &sect;27.8)</div>
+    <textarea id="preparedBy" style="min-height:70px">{ "identity_id": "did:key:zAgentPreparerSynth", "actor_type": "agent" }</textarea>
+
+    <div class="section-head" style="margin-top:14px">Signatory records</div>
+    <textarea id="signatoryRecords" style="min-height:260px">[
+  { "record_type": "approval", "role": "attestor", "identity_id": "did:key:zChiefExecSynth", "record_hash": "sha256:aa01", "signed": true,
+    "actor_type": "human", "subject_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "audit_signature": { "proof": { "type": "DataIntegrityProof", "cryptosuite": "eddsa-jcs-2022", "proofPurpose": "assertionMethod", "verificationMethod": "did:key:zChiefExecSynth#key-1", "proofValue": "zSYNTHETICEXECSIGNATUREONE" } } },
+  { "record_type": "approval", "role": "attestor", "identity_id": "did:key:zChiefExecSynth", "record_hash": "sha256:aa02", "signed": true,
+    "actor_type": "human", "subject_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "audit_signature": { "proof": { "type": "DataIntegrityProof", "cryptosuite": "eddsa-jcs-2022", "proofPurpose": "assertionMethod", "verificationMethod": "did:key:zChiefExecSynth#key-2", "proofValue": "zSYNTHETICEXECSIGNATURETWO" } } },
+  { "record_type": "approval", "role": "attestor", "identity_id": "did:key:zChiefFinanceSynth", "record_hash": "sha256:aa03", "signed": true,
+    "actor_type": "human", "subject_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333" }
+]</textarea>
+    <p class="sub" style="font-size:.72rem;margin-top:6px">The default set is the failure a signature count cannot see. Three signatures, but the first two are one officer who rotated keys, and the third carries no proof at all. Two signatures are one person, and the third is a declaration rather than evidence, so the dual control threshold is not met.</p>
+
+    <div style="margin-top:16px">
+      <button onclick="runCertification()">&#9654; Evaluate Threshold</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Verdict</div>
+      <div id="verdictDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Counted identities</div>
+      <div id="countedDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Duplicate identities collapsed</div>
+      <div id="dupDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Records not counted</div>
+      <div id="rejectedDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Agent parity (&sect;27.8)</div>
+      <div id="agentDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Subject</div>
+      <div id="subjectDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Certifies a subject sealed elsewhere: a node output, or an attested artifact bound by the <a href="art-502-bind-attested-subject.html">attested artifact subject binder</a>. The safeguarding engagement that consumes the same accountability vocabulary is the <a href="art-501-build-safeguarding-audit-evidence.html">CASS 15 safeguarding audit evidence pack</a>. The threshold construction is described at &sect;27.3 of the <a href="openchain-graph-spec.html">OpenChainGraph specification</a>, and the agent parity rule at &sect;27.8.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-503-build-dual-control-certification',
+  version: '1.0.0',
+  mcp_name: 'build_dual_control_certification',
+  title: 'Dual Control Certification Evidence',
+  description: 'Decides whether N distinct named identities each filed a signed section 27 approval record over one sealed subject in one required role. Regime agnostic: the regime label is free text and no statute is interpreted.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'build_dual_control_certification',
+    description: 'Counts distinct named identities who signed an approval over a sealed subject in a required role, against an integer threshold. Counts by identity, never by key. Reports duplicate identities collapsed and unsigned records rejected. Enforces section 27.8 agent parity in the verdict. Evidences that humans took responsibility; not a filing and not a claim the certified numbers are correct.',
+    inputSchema: { type: 'object', properties: {
+      regime_label: {type:'string'}, certification_ref: {type:'string'}, subject_hash: {type:'string'},
+      subject_class: {type:'string'}, required_role: {type:'string'}, threshold_n: {type:'integer'},
+      as_of_date: {type:'string'}, prepared_by: {type:'object'}, signatory_records: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+// ── Constants, byte-identical to art-503-build-dual-control-certification.kernel.mjs ─────────────
+var HA_ROLES = ['preparer', 'reviewer', 'approver', 'attestor', 'submitter', 'model_owner', 'compliance_officer', 'examiner'];
+var READ_ONLY_ROLES = ['examiner'];
+
+var BOUNDARY = 'This evidences that named humans took responsibility for the subject named here. It carries no claim that a regulator has accepted anything, it does not serve as a filing, and it makes no assertion that the certified numbers are correct. A satisfied threshold means the stated number of distinct identities each filed a signed approval record over this subject in this role, and it means nothing beyond that.';
+var NO_ARITHMETIC = 'This surface counts approvals. It computes nothing about what was certified: no reserve composition, no eligible-asset determination, no outstanding-balance reconciliation and no ratio. Whether the certified figures are right is decided by the people who signed and by whoever examines their work, never here.';
+var REGIME_IS_FREE_TEXT = 'regime_label is free text supplied by the caller and is never interpreted. Nothing in this computation branches on it, no statute is matched against it, and no citation is emitted for it. It records which certification the evidence was assembled for so a reader is not left guessing.';
+var OVERRIDE_HANDLING = 'A section 27.5 override changes which gate policy applies. It does not produce a distinct human approver, so it never satisfies a threshold here. Override records are carried and counted separately and are never folded into the distinct-identity count, which is what stops a time-boxed record resolving to a silent permanent pass.';
+var DISTINCTNESS_BASIS = 'Counting is by distinct identity_id (SPEC.md section 27.3), never by record and never by signing key. One human rotating keys counts once, and one human signing twice counts once. Every collapse is reported rather than applied silently.';
+
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function strOrNull(v){ return isNonEmptyString(v) ? v.trim() : null; }
+function arr(v){ return Array.isArray(v) ? v : []; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null; }
+
+// Inline twin of _hagate.mjs isConformantEvidence. Structural only: no signature bytes verified.
+function _isConformantEvidence(record, identityId){
+  var proof = obj(obj(record).audit_signature).proof;
+  if (!proof || typeof proof !== 'object') return false;
+  var vm = typeof proof.verificationMethod === 'string' ? proof.verificationMethod : '';
+  if (!identityId) return false;
+  return proof.cryptosuite === 'eddsa-jcs-2022' && vm.indexOf(identityId) === 0;
+}
+function _verificationMethod(record){
+  var proof = obj(obj(record).audit_signature).proof;
+  return strOrNull(proof && proof.verificationMethod);
+}
+function _distinctIdentities(records){
+  var seen = [];
+  for (var i = 0; i < records.length; i++) {
+    var id = strOrNull(obj(records[i]).identity_id);
+    if (id && seen.indexOf(id) === -1) seen.push(id);
+  }
+  return seen;
+}
+function _isAgent(record){ return str(obj(record).actor_type, 'human') === 'agent'; }
+
+function _mandateVerdict(record, requiredRole, asOfDate){
+  var m = obj(record).delegation_mandate;
+  if (m === undefined || m === null) {
+    return { accepted: false, code: 'HA_AGENT_WITHOUT_HUMAN_ROLE_MANDATE', detail: 'An agent identity filed this approval and carries no section 22 delegation mandate. Under SPEC.md section 27.8 the gate requires a named human, so the record is carried and is not counted.' };
+  }
+  var mo = obj(m);
+  var granted = strOrNull(mo.granted_role);
+  var principal = strOrNull(mo.principal_identity_id);
+  var principalType = str(mo.principal_actor_type, 'unstated');
+  var validFrom = isoDateOrNull(mo.valid_from);
+  var validUntil = isoDateOrNull(mo.valid_until);
+  var mandateHash = strOrNull(mo.mandate_hash);
+
+  if (granted === null) {
+    return { accepted: false, code: 'HA_AGENT_MANDATE_ROLE_UNSTATED', detail: 'The delegation mandate names no granted role, so it cannot delegate the role this threshold requires. The record is not counted.', mandate_hash: mandateHash };
+  }
+  if (granted !== requiredRole) {
+    return { accepted: false, code: 'HA_AGENT_MANDATE_ROLE_MISMATCH', detail: 'The delegation mandate grants the role ' + granted + ', which is not the role ' + requiredRole + ' this threshold requires. Section 27.8 requires that exact role, so the record is not counted.', mandate_hash: mandateHash };
+  }
+  if (principal === null || principalType !== 'human') {
+    return { accepted: false, code: 'HA_AGENT_MANDATE_PRINCIPAL_NOT_HUMAN', detail: 'The delegation mandate does not name a human principal. Section 27.8 requires a human principal to have delegated the role, so the record is not counted.', mandate_hash: mandateHash };
+  }
+  if (!_isConformantEvidence(mo, principal)) {
+    return { accepted: false, code: 'HA_AGENT_MANDATE_UNSIGNED', detail: 'The delegation mandate carries no section 16 proof bound to the principal who granted it. An unsigned mandate is not evidence that a human delegated anything, so the record is not counted.', mandate_hash: mandateHash };
+  }
+  if (validFrom === null || validUntil === null) {
+    return { accepted: false, code: 'HA_AGENT_MANDATE_WINDOW_UNBOUNDED', detail: 'The delegation mandate does not state both bounds of its validity window. Section 27.8 requires the delegation to hold within a validity window, and an unbounded delegation cannot be tested, so the record is not counted.', mandate_hash: mandateHash };
+  }
+  if (asOfDate === null) {
+    return { accepted: false, code: 'HA_AGENT_MANDATE_WINDOW_UNTESTABLE', detail: 'No as-of date was supplied, and this surface reads no clock, so the mandate validity window cannot be evaluated. Absent evidence holds, so the record is not counted.', mandate_hash: mandateHash };
+  }
+  if (asOfDate < validFrom || asOfDate > validUntil) {
+    return { accepted: false, code: 'HA_AGENT_MANDATE_EXPIRED_OR_NOT_YET_VALID', detail: 'The as-of date ' + asOfDate + ' falls outside the mandate validity window ' + validFrom + ' to ' + validUntil + '. A delegation that has lapsed or has not begun cannot carry a role, so the record is not counted.', mandate_hash: mandateHash };
+  }
+  return { accepted: true, code: 'HA_AGENT_COUNTED_UNDER_HUMAN_MANDATE', detail: 'A human principal delegated the role ' + requiredRole + ' to this agent in a signed mandate valid from ' + validFrom + ' to ' + validUntil + ', and the as-of date ' + asOfDate + ' falls inside it, so the record counts toward the threshold.', mandate_hash: mandateHash };
+}
+
+// Mirrors art-503-build-dual-control-certification.kernel.mjs compute() member for member.
+function compute(pp){
+  pp = pp || {};
+
+  var regime_label = str(pp.regime_label, 'UNSTATED');
+  var certification_ref = str(pp.certification_ref, 'UNSTATED');
+  var as_of_date = isoDateOrNull(pp.as_of_date);
+
+  var subject_hash = strOrNull(pp.subject_hash);
+  var subject_class = str(pp.subject_class, 'unstated');
+  var subject_is_attested = subject_class === 'attested_artifact';
+  var subject = {
+    subject_hash: subject_hash,
+    subject_present: subject_hash !== null,
+    subject_class: subject_class,
+    subject_recomputed_here: false,
+    subject_binding_source: subject_is_attested ? 'art-502-bind-attested-subject' : 'the producing node',
+    subject_limit: subject_is_attested
+      ? 'This subject is a section 27.4 attested artifact. It evidences producer pinning, input binding and content integrity, and it carries no section 18 compute proof and no section 16 or 17 re-execution claim. It never evidences that the arithmetic inside the producer output is correct.'
+      : 'The subject identifier is taken as supplied and is not recomputed here. Whether the subject artifact itself verifies is decided where it was sealed, not on this surface.',
+  };
+
+  var required_role = str(pp.required_role, 'UNSTATED');
+  var role_known = HA_ROLES.indexOf(required_role) !== -1;
+  var role_read_only = READ_ONLY_ROLES.indexOf(required_role) !== -1;
+  var role_eligible = role_known && !role_read_only;
+  var role_policy = {
+    required_role: required_role,
+    role_known: role_known,
+    role_read_only: role_read_only,
+    role_eligible: role_eligible,
+    permitted_roles: HA_ROLES,
+    read_only_roles: READ_ONLY_ROLES,
+    reason: role_read_only
+      ? 'A read-only role grants inspection and never approval authority (SPEC.md section 27.1), so it cannot satisfy a threshold. The gate is unsatisfied.'
+      : role_known
+        ? 'The required role is one of the closed section 27.1 roles and can carry approval authority.'
+        : 'The required role is outside the closed section 27.1 role vocabulary. An unrecognised role holds the gate rather than falling through to a pass.',
+  };
+
+  var threshold_raw = pp.threshold_n;
+  var threshold_valid = Number.isSafeInteger(threshold_raw) && threshold_raw >= 1;
+  var threshold_n = threshold_valid ? threshold_raw : null;
+  var threshold_policy = {
+    threshold_n: threshold_n,
+    threshold_valid: threshold_valid,
+    threshold_construction: 'in-toto integer threshold, applied per SPEC.md section 27.3: satisfied when at least N distinct identities have each filed a signed approval record naming this role and this subject.',
+    dual_control: threshold_valid && threshold_n === 2,
+    reason: threshold_valid
+      ? 'A threshold of ' + threshold_n + ' distinct ' + required_role + ' identities is required over this subject.'
+      : 'No usable integer threshold of one or more was supplied. A threshold that cannot be read is unsatisfied; it never falls through to a pass.',
+  };
+
+  var supplied = arr(pp.signatory_records).map(function(r){ return obj(r); });
+  var prepared_by_in = obj(pp.prepared_by);
+  var prepared_by_identity_id = strOrNull(prepared_by_in.identity_id);
+  var prepared_by_actor_type = str(prepared_by_in.actor_type, 'unstated');
+
+  var foreign_subject_records_rejected = [];
+  var off_role_records_ignored = [];
+  var unsigned_records_rejected = [];
+  var rejection_records = [];
+  var override_records = [];
+  var agent_parity_findings = [];
+  var counted_records = [];
+
+  for (var i = 0; i < supplied.length; i++) {
+    var r = supplied[i];
+    var identity_id = strOrNull(r.identity_id);
+    var record_hash = strOrNull(r.record_hash);
+    var record_ref = record_hash === null ? 'RECORD-' + (i + 1) : record_hash;
+    var record_type = str(r.record_type, 'approval');
+    var role = str(r.role, 'unstated');
+    var declared_signed = r.signed === true;
+
+    var stated_subject = strOrNull(r.subject_hash);
+    if (stated_subject !== null && subject_hash !== null && stated_subject !== subject_hash) {
+      foreign_subject_records_rejected.push({
+        record_ref: record_ref, identity_id: identity_id, role: role, record_type: record_type, stated_subject_hash: stated_subject,
+        reason: 'This record names a different subject from the one being certified, so it is rejected rather than counted. A record about another artifact is not evidence about this one.',
+      });
+      continue;
+    }
+
+    if (role !== required_role) {
+      off_role_records_ignored.push({ record_ref: record_ref, identity_id: identity_id, role: role, record_type: record_type, reason: 'This record names the role ' + role + ', not the required role ' + required_role + ', so it is not relevant to this threshold.' });
+      continue;
+    }
+
+    if (record_type === 'rejection') {
+      rejection_records.push({ record_ref: record_ref, identity_id: identity_id, reason: 'A rejection record is present for this role over this subject, which blocks the gate outright (SPEC.md section 27.2).' });
+      continue;
+    }
+    if (record_type === 'override') {
+      override_records.push({ record_ref: record_ref, identity_id: identity_id, reason: OVERRIDE_HANDLING });
+      continue;
+    }
+    if (record_type !== 'approval') {
+      off_role_records_ignored.push({ record_ref: record_ref, identity_id: identity_id, role: role, record_type: record_type, reason: 'Only an approval record can satisfy a threshold. A record of type ' + record_type + ' is carried and is not counted.' });
+      continue;
+    }
+
+    if (identity_id === null) {
+      unsigned_records_rejected.push({
+        record_ref: record_ref, identity_id: null, role: role, declared_signed: declared_signed,
+        reason: 'The record names no identity, so there is nobody for a signature to bind to and nobody to count. An anonymous approval is not conformant section 27 evidence.',
+      });
+      continue;
+    }
+    var conformant = _isConformantEvidence(r, identity_id);
+    if (!conformant) {
+      unsigned_records_rejected.push({
+        record_ref: record_ref, identity_id: identity_id, role: role, declared_signed: declared_signed,
+        reason: declared_signed
+          ? 'The record declares signed true but carries no section 16 eddsa-jcs-2022 proof bound to the named identity. The declaration is not the evidence, so the record is rejected and the disagreement is reported here.'
+          : 'The record carries no section 16 eddsa-jcs-2022 proof bound to the named identity. An unsigned approval record is not conformant section 27 evidence, so it is rejected rather than counted.',
+      });
+      continue;
+    }
+
+    if (_isAgent(r) && prepared_by_identity_id !== null && identity_id === prepared_by_identity_id) {
+      agent_parity_findings.push({
+        code: 'HA_AGENT_PREPARER_CANNOT_APPROVE', record_ref: record_ref, identity_id: identity_id,
+        detail: 'This agent identity prepared the subject and also filed an approval over it. An autonomous agent must never be both preparer and approver of its own output (SPEC.md section 27.8), so the record is carried and is not counted. No mandate can cure this.',
+      });
+      continue;
+    }
+
+    if (_isAgent(r)) {
+      var verdict = _mandateVerdict(r, required_role, as_of_date);
+      agent_parity_findings.push({ code: verdict.code, record_ref: record_ref, identity_id: identity_id, mandate_hash: verdict.mandate_hash === undefined ? null : verdict.mandate_hash, detail: verdict.detail });
+      if (!verdict.accepted) continue;
+    }
+
+    counted_records.push({ record_ref: record_ref, identity_id: identity_id, record_hash: record_hash, actor_type: str(r.actor_type, 'human'), verification_method: _verificationMethod(r) });
+  }
+
+  var counted_identities = _distinctIdentities(counted_records);
+  var duplicate_identities_collapsed = [];
+  for (var k = 0; k < counted_identities.length; k++) {
+    var id = counted_identities[k];
+    var forId = counted_records.filter(function(rec){ return rec.identity_id === id; });
+    if (forId.length < 2) continue;
+    var methods = [];
+    for (var q = 0; q < forId.length; q++) {
+      if (forId[q].verification_method !== null && methods.indexOf(forId[q].verification_method) === -1) methods.push(forId[q].verification_method);
+    }
+    duplicate_identities_collapsed.push({
+      identity_id: id,
+      records_supplied: forId.length,
+      counted_as: 1,
+      record_refs: forId.map(function(rec){ return rec.record_ref; }),
+      distinct_verification_methods: methods,
+      key_rotation_observed: methods.length > 1,
+      finding: methods.length > 1
+        ? 'This identity signed ' + forId.length + ' times using ' + methods.length + ' different verification methods. Different keys are still one person, so the identity counts once toward the threshold.'
+        : 'This identity filed ' + forId.length + ' approval records over this subject. One human signing twice is still one approver, so the identity counts once toward the threshold.',
+    });
+  }
+
+  var distinct_identities_counted = counted_identities.length;
+  var blocked_by_rejection = rejection_records.length > 0;
+  var threshold_satisfied = subject.subject_present
+    && role_eligible
+    && threshold_valid
+    && !blocked_by_rejection
+    && distinct_identities_counted >= threshold_n;
+
+  var shortfall = threshold_valid ? Math.max(0, threshold_n - distinct_identities_counted) : null;
+
+  var verdict_reason;
+  if (!subject.subject_present) {
+    verdict_reason = 'No subject hash was supplied, so there is nothing for an approval record to be about. The gate is unsatisfied.';
+  } else if (!role_eligible) {
+    verdict_reason = role_policy.reason;
+  } else if (!threshold_valid) {
+    verdict_reason = threshold_policy.reason;
+  } else if (blocked_by_rejection) {
+    verdict_reason = 'A rejection record is present for the role ' + required_role + ' over this subject. A rejection blocks the gate outright regardless of how many approvals were filed.';
+  } else if (threshold_satisfied) {
+    verdict_reason = distinct_identities_counted + ' distinct ' + required_role + ' identities each filed a signed approval record over this subject, which meets the required threshold of ' + threshold_n + '.';
+  } else {
+    verdict_reason = 'Only ' + distinct_identities_counted + ' distinct ' + required_role + ' ' + (distinct_identities_counted === 1 ? 'identity' : 'identities') + ' can be counted against a required threshold of ' + threshold_n + '. A threshold over fewer than N distinct approvers is unsatisfied and does not auto-pass.';
+  }
+
+  var records_summary = {
+    supplied_count: supplied.length,
+    counted_record_count: counted_records.length,
+    distinct_identities_counted: distinct_identities_counted,
+    duplicate_identity_count: duplicate_identities_collapsed.length,
+    unsigned_rejected_count: unsigned_records_rejected.length,
+    foreign_subject_rejected_count: foreign_subject_records_rejected.length,
+    off_role_ignored_count: off_role_records_ignored.length,
+    rejection_record_count: rejection_records.length,
+    override_record_count: override_records.length,
+    agent_finding_count: agent_parity_findings.length,
+  };
+
+  var rationale = [];
+  rationale.push('Dual control evidence assembled for certification reference ' + certification_ref + ' under the caller-supplied regime label ' + regime_label + '. The label is free text and nothing in this computation branches on it.');
+  rationale.push(subject.subject_present
+    ? 'The certification is bound to subject ' + subject_hash + ', carried as a ' + (subject_class === 'unstated' ? 'subject of unstated class' : subject_class) + ' and not recomputed here.'
+    : 'No subject was supplied, so no approval record can be tied to a sealed artifact and the gate is held.');
+  rationale.push(verdict_reason);
+  rationale.push(supplied.length + ' record' + (supplied.length === 1 ? '' : 's') + ' supplied: ' + counted_records.length + ' counted, ' + unsigned_records_rejected.length + ' rejected as unsigned, ' + foreign_subject_records_rejected.length + ' rejected for naming another subject, ' + off_role_records_ignored.length + ' not relevant to this role, ' + rejection_records.length + ' rejection, ' + override_records.length + ' override.');
+  if (duplicate_identities_collapsed.length > 0) {
+    var rotated = duplicate_identities_collapsed.filter(function(d){ return d.key_rotation_observed; }).length;
+    rationale.push(duplicate_identities_collapsed.length + ' identit' + (duplicate_identities_collapsed.length === 1 ? 'y' : 'ies') + ' filed more than one approval and ' + (duplicate_identities_collapsed.length === 1 ? 'was' : 'were') + ' collapsed to a single approver each' + (rotated > 0 ? ', including ' + rotated + ' that signed under more than one verification method' : '') + '. Counting is by distinct identity, never by record and never by key.');
+  } else {
+    rationale.push('No identity filed more than one counted approval, so no collapse was required. Counting remains by distinct identity rather than by record.');
+  }
+  if (unsigned_records_rejected.length > 0) {
+    rationale.push('An unsigned approval record is not conformant section 27 evidence. Rejected records are listed with their reason rather than dropped, because a firm needs to know which signature it thought it had.');
+  }
+  if (agent_parity_findings.length > 0) {
+    rationale.push('Section 27.8 parity was applied to every agent-filed record. An agent counts toward a threshold only under a signed human-principal mandate delegating this exact role inside a validity window, and an agent that prepared the subject can never approve it.');
+  }
+  if (override_records.length > 0) {
+    rationale.push(OVERRIDE_HANDLING);
+  }
+  rationale.push(BOUNDARY);
+  rationale.push(NO_ARITHMETIC);
+
+  var compliance_flags = [];
+  compliance_flags.push(threshold_satisfied ? 'HA_THRESHOLD_SATISFIED' : 'HA_THRESHOLD_UNSATISFIED');
+  if (duplicate_identities_collapsed.length > 0) compliance_flags.push('HA_DUPLICATE_IDENTITY_COLLAPSED');
+  if (duplicate_identities_collapsed.some(function(d){ return d.key_rotation_observed; })) compliance_flags.push('HA_KEY_ROTATION_COLLAPSED_TO_ONE_IDENTITY');
+  if (unsigned_records_rejected.length > 0) compliance_flags.push('HA_UNSIGNED_RECORD_REJECTED');
+  if (foreign_subject_records_rejected.length > 0) compliance_flags.push('HA_RECORDS_FOR_OTHER_SUBJECTS_REJECTED');
+  if (rejection_records.length > 0) compliance_flags.push('HA_REJECTION_RECORD_BLOCKS_GATE');
+  if (override_records.length > 0) compliance_flags.push('HA_OVERRIDE_PRESENT_NOT_COUNTED');
+  if (!subject.subject_present) compliance_flags.push('HA_SUBJECT_ABSENT');
+  if (!role_known) compliance_flags.push('HA_ROLE_NOT_RECOGNISED');
+  if (role_read_only) compliance_flags.push('HA_ROLE_IS_READ_ONLY');
+  if (!threshold_valid) compliance_flags.push('HA_THRESHOLD_NOT_STATED');
+  if (threshold_valid && threshold_n === 2) compliance_flags.push('HA_DUAL_CONTROL_APPLIED');
+  if (as_of_date === null) compliance_flags.push('HA_AS_OF_DATE_ABSENT');
+  for (var f = 0; f < agent_parity_findings.length; f++) {
+    if (compliance_flags.indexOf(agent_parity_findings[f].code) === -1) compliance_flags.push(agent_parity_findings[f].code);
+  }
+
+  var output_payload = {
+    regime: {
+      regime_label: regime_label,
+      regime_label_is_free_text: true,
+      certification_ref: certification_ref,
+      basis: REGIME_IS_FREE_TEXT,
+    },
+    as_of_date: as_of_date,
+    subject: subject,
+    role_policy: role_policy,
+    threshold_policy: threshold_policy,
+    threshold_satisfied: threshold_satisfied,
+    distinct_identities_counted: distinct_identities_counted,
+    threshold_shortfall: shortfall,
+    counted_identities: counted_identities,
+    counted_records: counted_records,
+    duplicate_identities_collapsed: duplicate_identities_collapsed,
+    unsigned_records_rejected: unsigned_records_rejected,
+    foreign_subject_records_rejected: foreign_subject_records_rejected,
+    off_role_records_ignored: off_role_records_ignored,
+    rejection_records: rejection_records,
+    override_records: override_records,
+    override_handling: OVERRIDE_HANDLING,
+    distinctness_basis: DISTINCTNESS_BASIS,
+    agent_parity_findings: agent_parity_findings,
+    prepared_by: { identity_id: prepared_by_identity_id, actor_type: prepared_by_actor_type },
+    records_summary: records_summary,
+    verdict_reason: verdict_reason,
+    rationale: rationale,
+    boundary: BOUNDARY,
+    no_arithmetic_claim: NO_ARITHMETIC,
+    note: 'Deterministic dual control certification evidence. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It decides one thing, whether N distinct named identities each filed a signed approval record over a sealed subject in a required role, and it reports every record it could not count and why. It is regime agnostic: the regime label is free text and no statute is interpreted. It computes nothing about what was certified. It is not a filing and not legal advice.',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function esc(s){
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function parseOrNull(id, label, wantArray){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return undefined;
+  try {
+    var v = JSON.parse(raw);
+    if (wantArray && !Array.isArray(v)) { alert(label + ' must be a JSON array.'); throw new Error('shape'); }
+    return v;
+  } catch(e){
+    if (e.message !== 'shape') alert('Invalid JSON in ' + label + ': ' + e.message);
+    throw e;
+  }
+}
+
+function runCertification(){
+  var pp = {
+    regime_label: document.getElementById('regimeLabel').value || '',
+    certification_ref: document.getElementById('certRef').value || '',
+    subject_hash: document.getElementById('subjectHash').value || '',
+    subject_class: document.getElementById('subjectClass').value || '',
+    required_role: document.getElementById('requiredRole').value || '',
+    as_of_date: document.getElementById('asOfDate').value || '',
+  };
+  var nRaw = document.getElementById('thresholdN').value;
+  if (nRaw !== '') pp.threshold_n = Number(nRaw);
+  try {
+    var prep = parseOrNull('preparedBy', 'the preparer', false);
+    var records = parseOrNull('signatoryRecords', 'the signatory records', true);
+  } catch(e){ return; }
+  if (prep !== undefined) pp.prepared_by = prep;
+  if (records !== undefined) pp.signatory_records = records;
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = op.threshold_satisfied ? 'var(--green)' : 'var(--warn)';
+  vBox.style.background = op.threshold_satisfied ? 'rgba(34,197,94,.08)' : 'rgba(245,158,11,.08)';
+  vBox.style.border = '1px solid ' + (op.threshold_satisfied ? 'var(--green)' : 'var(--warn)');
+  vBox.textContent = op.threshold_satisfied ? 'THRESHOLD SATISFIED' : 'THRESHOLD UNSATISFIED';
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.distinct_identities_counted + (op.threshold_policy.threshold_n === null ? '' : '/' + op.threshold_policy.threshold_n) + '</span><span class="stat-key">Distinct approvers</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.records_summary.supplied_count + '</span><span class="stat-key">Records supplied</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.duplicate_identities_collapsed.length + '</span><span class="stat-key">Identities collapsed</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.unsigned_records_rejected.length + '</span><span class="stat-key">Unsigned rejected</span></div>';
+
+  document.getElementById('verdictDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">verdict</span><span class="kv-v">' + esc(op.verdict_reason) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">required_role</span><span class="kv-v">' + esc(op.role_policy.required_role) + ' <span class="badge ' + (op.role_policy.role_eligible ? 'ok' : 'bad') + '">' + (op.role_policy.role_eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE') + '</span><br><span style="color:var(--muted)">' + esc(op.role_policy.reason) + '</span></span></div>' +
+    '<div class="kv"><span class="kv-k">threshold_n</span><span class="kv-v">' + esc(op.threshold_policy.threshold_n === null ? 'not stated' : op.threshold_policy.threshold_n) + (op.threshold_policy.dual_control ? ' <span class="badge ok">DUAL CONTROL</span>' : '') + '<br><span style="color:var(--muted)">' + esc(op.threshold_policy.reason) + '</span></span></div>' +
+    '<div class="kv"><span class="kv-k">shortfall</span><span class="kv-v">' + esc(op.threshold_shortfall === null ? 'not computable' : op.threshold_shortfall) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">regime_label</span><span class="kv-v">' + esc(op.regime.regime_label) + ' <span class="badge warn">FREE TEXT</span><br><span style="color:var(--muted)">' + esc(op.regime.basis) + '</span></span></div>';
+
+  document.getElementById('countedDiv').innerHTML = op.distinct_identities_counted === 0
+    ? '<div class="kv"><span class="kv-k"><span class="badge bad">NONE</span></span><span class="kv-v">No record could be counted toward this threshold. Absent evidence holds; it is never a fall-through pass.</span></div>'
+    : '<table><thead><tr><th>identity_id</th><th>actor_type</th><th>record_ref</th><th>verification method</th></tr></thead><tbody>' +
+      op.counted_records.map(function(r){
+        return '<tr><td>' + esc(r.identity_id) + '</td><td>' + esc(r.actor_type) + '</td><td>' + esc(r.record_ref) + '</td><td>' + esc(r.verification_method === null ? 'not stated' : r.verification_method) + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="kv" style="margin-top:8px"><span class="kv-k">distinctness basis</span><span class="kv-v">' + esc(op.distinctness_basis) + '</span></div>';
+
+  document.getElementById('dupDiv').innerHTML = op.duplicate_identities_collapsed.length === 0
+    ? '<div class="kv"><span class="kv-k"><span class="badge ok">NONE</span></span><span class="kv-v">No identity filed more than one counted approval, so no collapse was required.</span></div>'
+    : op.duplicate_identities_collapsed.map(function(d){
+        return '<div class="kv"><span class="kv-k"><span class="badge warn">' + (d.key_rotation_observed ? 'KEY ROTATION' : 'REPEAT SIGNATURE') + '</span> ' + esc(d.identity_id) + '</span><span class="kv-v">' + esc(d.finding) +
+          '<br><span style="color:var(--muted)">records: ' + esc(d.record_refs.join(', ')) + '</span>' +
+          '<br><span style="color:var(--muted)">verification methods: ' + esc(d.distinct_verification_methods.length === 0 ? 'none stated' : d.distinct_verification_methods.join(', ')) + '</span>' +
+          '<br>supplied ' + d.records_supplied + ', counted as ' + d.counted_as + '</span></div>';
+      }).join('');
+
+  var notCounted = op.unsigned_records_rejected.map(function(r){
+      return '<div class="kv"><span class="kv-k"><span class="badge bad">UNSIGNED</span> ' + esc(r.record_ref) + '</span><span class="kv-v">' + esc(r.identity_id === null ? 'no identity named' : r.identity_id) + ' &ndash; declared signed: ' + (r.declared_signed ? 'true' : 'false') + '<br><span style="color:var(--muted)">' + esc(r.reason) + '</span></span></div>';
+    }).join('') +
+    op.foreign_subject_records_rejected.map(function(r){
+      return '<div class="kv"><span class="kv-k"><span class="badge bad">OTHER SUBJECT</span> ' + esc(r.record_ref) + '</span><span class="kv-v">' + esc(r.stated_subject_hash) + '<br><span style="color:var(--muted)">' + esc(r.reason) + '</span></span></div>';
+    }).join('') +
+    op.rejection_records.map(function(r){
+      return '<div class="kv"><span class="kv-k"><span class="badge bad">REJECTION</span> ' + esc(r.record_ref) + '</span><span class="kv-v">' + esc(r.identity_id) + '<br><span style="color:var(--muted)">' + esc(r.reason) + '</span></span></div>';
+    }).join('') +
+    op.override_records.map(function(r){
+      return '<div class="kv"><span class="kv-k"><span class="badge warn">OVERRIDE</span> ' + esc(r.record_ref) + '</span><span class="kv-v">' + esc(r.identity_id) + '<br><span style="color:var(--muted)">' + esc(r.reason) + '</span></span></div>';
+    }).join('') +
+    op.off_role_records_ignored.map(function(r){
+      return '<div class="kv"><span class="kv-k"><span class="badge warn">OFF ROLE</span> ' + esc(r.record_ref) + '</span><span class="kv-v">' + esc(r.identity_id) + '<br><span style="color:var(--muted)">' + esc(r.reason) + '</span></span></div>';
+    }).join('');
+  document.getElementById('rejectedDiv').innerHTML = notCounted === ''
+    ? '<div class="kv"><span class="kv-k"><span class="badge ok">NONE</span></span><span class="kv-v">Every supplied record was relevant, conformant and counted.</span></div>'
+    : notCounted;
+
+  document.getElementById('agentDiv').innerHTML = op.agent_parity_findings.length === 0
+    ? '<div class="kv"><span class="kv-k"><span class="badge ok">NONE</span></span><span class="kv-v">No agent identity filed a record over this subject, so the section 27.8 parity rule had nothing to act on. The default posture remains that these gates require a named human.</span></div>'
+    : op.agent_parity_findings.map(function(f){
+        var counted = f.code === 'HA_AGENT_COUNTED_UNDER_HUMAN_MANDATE';
+        return '<div class="kv"><span class="kv-k"><span class="badge ' + (counted ? 'ok' : 'bad') + '">' + esc(f.code) + '</span></span><span class="kv-v">' + esc(f.identity_id) + ' &ndash; ' + esc(f.record_ref) + '<br><span style="color:var(--muted)">' + esc(f.detail) + '</span></span></div>';
+      }).join('');
+
+  document.getElementById('subjectDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">subject_hash</span><span class="kv-v">' + esc(op.subject.subject_hash === null ? 'not supplied' : op.subject.subject_hash) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">subject_class</span><span class="kv-v">' + esc(op.subject.subject_class) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">subject_recomputed_here</span><span class="kv-v">false</span></div>' +
+    '<div class="kv"><span class="kv-k">binding source</span><span class="kv-v">' + esc(op.subject.subject_binding_source) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">stated limit</span><span class="kv-v">' + esc(op.subject.subject_limit) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">boundary</span><span class="kv-v">' + esc(op.boundary) + '</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-503-build-dual-control-certification',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-503-build-dual-control-certification.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+</script>
+</body>
+</html>
