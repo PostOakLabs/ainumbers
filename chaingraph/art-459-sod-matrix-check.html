@@ -132,6 +132,16 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only, e.g. opaque user IDs.</div>
 
   <div class="card">
+    <div class="section-head">Load a Preset</div>
+    <p class="sub" style="margin-bottom:10px">Presets fill the ruleset and assignments below &mdash; nothing runs until you click Check SoD Matrix.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="loadAvalanchePreset(false)">Avalanche precompiles &middot; correct 90-rule ruleset</button>
+      <button onclick="loadAvalanchePreset(true)" style="background:var(--red)">Avalanche precompiles &middot; naive Enabled-floor ruleset (false-green demo)</button>
+    </div>
+    <p class="sub" style="margin-top:10px;font-size:.72rem">Avalanche subnet-EVM precompile grants use a role lattice: None &lt; Enabled &lt; Manager &lt; Admin, where Admin and Manager both confer the Enabled capability. Record each grant at the level the genesis actually states (e.g. <code>txallowlist:admin</code>) &mdash; never flatten it to <code>enabled</code>. The correct preset enumerates every level pairing into the ruleset so this lattice is never inferred by the tool. The second preset shows what happens when it isn't: the exact same grants, checked against a ruleset written only at the Enabled floor, come back clean with no conflicts flagged &mdash; a false-green receipt over a genesis riddled with concentration.</p>
+  </div>
+
+  <div class="card">
     <div class="section-head">SoD Matrix Inputs</div>
     <div class="q">
       <span class="q-label">Ruleset version</span>
@@ -298,6 +308,51 @@ async function computeExecHash(pp, op) {
 
 function s(v) { return String(v == null ? '' : v).trim(); }
 function conflictKey(a, b) { return a < b ? a + ' ' + b : b + ' ' + a; }
+
+// Avalanche subnet-EVM precompile SoD preset (AVAX-SOD-1, 2026-07-30). Five allowlist-gated
+// precompiles; None < Enabled < Manager < Admin, where Admin and Manager both confer the
+// Enabled capability. The correct ruleset enumerates every level pairing so the lattice is
+// never inferred -- this kernel only matches opaque strings. The floor variant demonstrates
+// the false-green failure of writing the ruleset only at the Enabled level.
+var AVAX_PRECOMPILES = ['txallowlist', 'deployerallowlist', 'nativeminter', 'feemanager', 'rewardmanager'];
+var AVAX_LEVELS = ['enabled', 'manager', 'admin'];
+var AVAX_ASSIGNMENTS = [
+  { user_id: 'T1/0xA1', roles: ['txallowlist:admin', 'nativeminter:enabled'] },
+  { user_id: 'T1/0xB2', roles: ['deployerallowlist:admin', 'feemanager:admin', 'rewardmanager:admin'] },
+  { user_id: 'T2/0xC3', roles: ['txallowlist:manager', 'feemanager:manager'] },
+  { user_id: 'T2/0xD4', roles: ['nativeminter:enabled'] },
+  { user_id: 'T3/0xE5', roles: ['txallowlist:admin', 'txallowlist:enabled'] }
+];
+function avaxLatticeRuleset() {
+  var rules = [];
+  for (var i = 0; i < AVAX_PRECOMPILES.length; i++) {
+    for (var j = i + 1; j < AVAX_PRECOMPILES.length; j++) {
+      for (var a = 0; a < AVAX_LEVELS.length; a++) {
+        for (var b = 0; b < AVAX_LEVELS.length; b++) {
+          var pa = AVAX_PRECOMPILES[i], pb = AVAX_PRECOMPILES[j], la = AVAX_LEVELS[a], lb = AVAX_LEVELS[b];
+          var sev = (la === 'admin' || lb === 'admin') ? 'HIGH' : (la === 'manager' || lb === 'manager') ? 'MEDIUM' : 'LOW';
+          rules.push({ role_a: pa + ':' + la, role_b: pb + ':' + lb, reason_code: 'AVAX_PRECOMPILE_CONCENTRATION_' + pa.toUpperCase() + '_' + pb.toUpperCase() + '_' + sev });
+        }
+      }
+    }
+  }
+  return rules;
+}
+function avaxEnabledFloorRuleset() {
+  var rules = [];
+  for (var i = 0; i < AVAX_PRECOMPILES.length; i++) {
+    for (var j = i + 1; j < AVAX_PRECOMPILES.length; j++) {
+      var pa = AVAX_PRECOMPILES[i], pb = AVAX_PRECOMPILES[j];
+      rules.push({ role_a: pa + ':enabled', role_b: pb + ':enabled', reason_code: 'AVAX_PRECOMPILE_CONCENTRATION_' + pa.toUpperCase() + '_' + pb.toUpperCase() });
+    }
+  }
+  return rules;
+}
+function loadAvalanchePreset(floorOnly) {
+  document.getElementById('rulesetVersion').value = floorOnly ? 'avax-precompile-sod-enabled-floor-control-2026.07.30' : 'avax-precompile-sod-2026.07.30';
+  document.getElementById('conflictRuleset').value = JSON.stringify(floorOnly ? avaxEnabledFloorRuleset() : avaxLatticeRuleset(), null, 2);
+  document.getElementById('assignments').value = JSON.stringify(AVAX_ASSIGNMENTS, null, 2);
+}
 
 function runSodCheck() {
   var ruleset_version = s(document.getElementById('rulesetVersion').value) || 'unversioned';
