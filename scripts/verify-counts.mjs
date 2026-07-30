@@ -206,6 +206,22 @@ const ATTR_RULES = [
     regex: /(<p class="hero-desc">[^<]*?catalog-search tool covers all )(\d+)( tools with one-click)/,
   },
 
+  // ── about.html (og/twitter descriptions — hardcoded, not comment-sentinel) ─
+  { file: 'about.html', key: 'tools.browser', label: 'og:description',
+    regex: /(content="Deterministic, privacy-first fintech tools: )(\d+)(\+ browser-based calculators, validators and simulators across )/,
+  },
+  { file: 'about.html', key: 'categories', label: 'og:description (categories)',
+    regex: /(content="Deterministic, privacy-first fintech tools: \d+\+ browser-based calculators, validators and simulators across )(\d+)( categories\. Built by Post Oak Labs)/,
+  },
+  { file: 'about.html', key: 'tools.browser', label: 'twitter:description',
+    regex: /(content="Deterministic, privacy-first fintech tools by Post Oak Labs\. )(\d+)(\+ tools, zero PII, all client-side)/,
+  },
+
+  // ── mcp.html (stat table prose — hardcoded, not comment-sentinel) ────────
+  { file: 'mcp.html', key: 'manifests', label: 'list_ainumbers_tools table cell',
+    regex: /(<td>Search the full AINumbers catalog \()(\d+)(\+ client-side fintech tools\)\. Returns deep-links)/,
+  },
+
   // ── JSON machine files ───────────────────────────────────────────────────
   { file: 'mcp/server.json', key: 'tools.browser', label: 'tool_count',
     regex: /(\"tool_count\": )(\d+)/,
