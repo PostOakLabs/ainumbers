@@ -32,8 +32,8 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { executionHash } from './_hash.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { executionHash, cgCanon } from './_hash.mjs';
 import { evaluateHaGate } from './_hagate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -257,6 +257,119 @@ function isConformantEvidence(record) {
   }
   if (errs.length) bad(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1/HA-RETRO-3A sweep: ${errs.join('; ')}`);
   else ok(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1/HA-RETRO-3A sweep: gate_policy present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership review_required; Y-9C HC-R dual_control; GENIUS reserve pre-check ×4, call-report capital, model-passport review_required; mortgage government-loan-fit review_required; insurer RBC action-level escalate)`);
+}
+
+// ── (8) §27.4 ATTESTED-ARTIFACT SUBJECT — HA-ATTESTED-1, art-502 ─────────────────────────────────
+// §27.4 admits a subject that is NOT the output of a §12 kernel node: the sealed output of a pinned
+// non-OCG producer. Its identifier has a preimage fixed EXACTLY and exhaustively as three members —
+// sha256(JCS({tool_ref, inputs_digest, artifact})) — and the value MUST be recomputable offline by a
+// verifier that never executed the producer. These checks prove that property against the shipped
+// art-502 kernel rather than asserting it in prose:
+//
+//   (8a) OFFLINE RECOMPUTATION — the preimage the kernel echoes is re-hashed here through a DIFFERENT
+//        code path (_hash.mjs cgCanon + WebCrypto) than the kernel used (its inlined synchronous
+//        SHA-256 for the §18 guest). Agreement across two implementations is the actual claim.
+//   (8b) CLOSED PREIMAGE — exactly three members, and a caller who adds a run identifier, a host and a
+//        timestamp gets a BYTE-IDENTICAL subject_hash, so no clock or session state can enter it.
+//   (8c) PRODUCER PINNING — a missing manifest_digest is FLAGGED, never assumed.
+//   (8d) NO REPLAY CLAIM — `replay_verified` is ABSENT from every payload, not `false`; and no
+//        clock-derived governance date (`last_reviewed`/`valid_until`) is emitted.
+//   (8e) BINDING — the §27 record rules hold over an attested subject exactly as over a node subject:
+//        absent records ⇒ hold; two DISTINCT identities ⇒ dual_control(2) satisfied; the SAME identity
+//        twice ⇒ still hold; an unsigned record is not conformant evidence; an EXPIRED override reverts.
+{
+  const ART502_FIXTURE = resolve(HERE, 'fixtures', 'art-502-bind-attested-subject.fixtures.json');
+  const KERNEL = resolve(HERE, 'art-502-bind-attested-subject.kernel.mjs');
+  if (!existsSync(ART502_FIXTURE) || !existsSync(KERNEL)) {
+    bad('§27.4 attested subject: art-502 kernel or fixtures missing — the non-node subject class has no implementation');
+  } else {
+    const { compute: computeAttested } = await import(pathToFileURL(KERNEL).href);
+    const a5 = JSON.parse(readFileSync(ART502_FIXTURE, 'utf8'));
+    const at = fx.attested_subject;
+    const vec = (a5.vectors || []).find((v) => v.name === at.fixture_vector);
+    const closedVec = (a5.vectors || []).find((v) => v.name === 'extra-caller-keys-cannot-reach-the-preimage');
+    const declaredVec = (a5.vectors || []).find((v) => v.name === 'pinned-declared-inputs');
+    const unpinnedVec = (a5.vectors || []).find((v) => v.name === 'unpinned-no-manifest-digest');
+
+    if (!vec || !closedVec || !declaredVec || !unpinnedVec) {
+      bad('§27.4 attested subject: art-502 fixtures are missing one of the required vectors');
+    } else {
+      const op = computeAttested(vec.policy_parameters).output_payload;
+
+      // (8a) OFFLINE RECOMPUTATION through the independent WebCrypto path.
+      const preimage = op.subject_preimage;
+      const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(preimage)));
+      const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+      const recomputed = `sha256:${Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+      if (recomputed === op.subject_hash) ok(`§27.4 offline recomputation: an independent verifier re-hashing the echoed three-member preimage through cgCanon + WebCrypto reproduces the kernel's subject_hash (${op.subject_hash.slice(0, 23)}…) — the kernel used its own inlined synchronous SHA-256, so two implementations agree`);
+      else bad(`§27.4 offline recomputation FAILED: kernel says ${op.subject_hash}, independent recomputation says ${recomputed} — the subject is not offline-verifiable`);
+
+      // (8b) CLOSED PREIMAGE — exactly three members, and caller extras cannot reach it.
+      const members = Object.keys(preimage).sort();
+      const wantMembers = ['artifact', 'inputs_digest', 'tool_ref'];
+      const membersOk = members.join(',') === wantMembers.join(',') && op.preimage_member_count === 3;
+      const closedOk = closedVec.output_payload.subject_hash === declaredVec.output_payload.subject_hash;
+      // negative control: a real member change MUST move the subject_hash, or the check is vacuous.
+      const movedVec = computeAttested({ ...declaredVec.policy_parameters, inputs_digest: 'sha256:'.concat('d'.repeat(64)) }).output_payload;
+      const movesOk = movedVec.subject_hash !== declaredVec.output_payload.subject_hash;
+      if (membersOk && closedOk && movesOk) ok(`§27.4 closed preimage: exactly three members (${wantMembers.join(', ')}); a caller adding run_id, host and generated_at gets a BYTE-IDENTICAL subject_hash, while a real inputs_digest change moves it — no clock, run identifier or session state can enter the preimage`);
+      else bad(`§27.4 closed preimage broken — members:[${members.join(',')}] count:${op.preimage_member_count} extras-excluded:${closedOk} non-vacuous:${movesOk}`);
+
+      // (8c) PRODUCER PINNING — absence of manifest_digest is flagged, never assumed.
+      const unp = unpinnedVec.output_payload;
+      const flagged = unp.producer_pinned === false && (unp.findings || []).some((f) => f.code === 'MANIFEST_DIGEST_ABSENT');
+      const pinnedOk = op.producer_pinned === true;
+      if (flagged && pinnedOk) ok(`§27.4 producer pinning: a missing tool_ref.manifest_digest yields producer_pinned:false plus a named MANIFEST_DIGEST_ABSENT finding — the chainless analogue of the §17 kernel_digest is never assumed present`);
+      else bad(`§27.4 producer pinning broken — unpinned flagged:${flagged}, pinned vector pinned:${pinnedOk}`);
+
+      // (8d) NO REPLAY CLAIM and NO clock-derived governance dates, across EVERY vector.
+      const banned = ['replay_verified', 'last_reviewed', 'valid_until'];
+      const hits = [];
+      const walk = (v, path) => {
+        if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`));
+        else if (v && typeof v === 'object') for (const k of Object.keys(v)) { if (banned.includes(k)) hits.push(`${path}.${k}`); walk(v[k], `${path}.${k}`); }
+      };
+      for (const v of a5.vectors) walk(v.output_payload, v.name);
+      const limitStated = typeof op.no_arithmetic_claim === 'string' && /replay_verified/.test(op.no_arithmetic_claim);
+      if (hits.length === 0 && limitStated) ok(`§27.4 stated limit: replay_verified is ABSENT from all ${a5.vectors.length} vectors (omitted, never false — no replay was attempted), no clock-derived last_reviewed/valid_until is emitted, and the no-arithmetic-claim limit travels inside the payload`);
+      else bad(`§27.4 stated limit broken — forbidden members present: [${hits.join(', ')}]; limit stated in payload: ${limitStated}`);
+
+      // (8e) The §27 record rules hold over an attested subject exactly as over a node subject.
+      const subjectHash = op.subject_hash;
+      const sign = (id) => ({ audit_signature: { proof: { cryptosuite: 'eddsa-jcs-2022', verificationMethod: `${id}#key-1` } } });
+      const approval = (id) => ({ record_type: 'approval', role: at.role, subject_hash: subjectHash, identity: { id }, ...sign(id) });
+      const distinctRecords = at.distinct_identities.map(approval);
+      // Same human signing twice under two DIFFERENT keys — distinctness is by identity.id, never by key.
+      const repeatedRecords = [
+        approval(at.repeated_identity),
+        { record_type: 'approval', role: at.role, subject_hash: subjectHash, identity: { id: at.repeated_identity }, audit_signature: { proof: { cryptosuite: 'eddsa-jcs-2022', verificationMethod: `${at.repeated_identity}#key-2` } } },
+      ];
+      const unsignedRecords = at.distinct_identities.map((id) => ({ record_type: 'approval', role: at.role, subject_hash: subjectHash, identity: { id } }));
+      const mkOverride = (expiry) => ({ record_type: 'override', role: at.role, subject_hash: subjectHash, identity: { id: at.override_identity }, override: { expiry, scope: `subject:${subjectHash}`, reason_code: 'ATTESTED_SUBJECT_EMERGENCY_CLOSE' }, ...sign(at.override_identity) });
+
+      const g = (records, policy = 'dual_control', threshold = 2) => evaluateHaGate({ gatePolicy: policy, threshold, role: at.role, subjectHash, records, nowISO: at.override_now });
+
+      const absent = g([]);
+      const distinct2 = g(distinctRecords);
+      const repeated2 = g(repeatedRecords);
+      const unsigned2 = g(unsignedRecords);
+      const overrideOn = g([mkOverride(at.override_active_expiry)]);
+      const overrideOff = g([mkOverride(at.override_expired_expiry)]);
+
+      const wantAbsent = absent.status === 'hold' && !absent.satisfied;
+      const wantDistinct = distinct2.status === 'satisfied' && distinct2.matched_identities.length === 2;
+      const wantRepeated = repeated2.status === 'hold' && !repeated2.satisfied;
+      const wantUnsigned = unsigned2.status === 'hold' && !unsigned2.satisfied;
+      const wantOverrideOn = overrideOn.status === 'override_active' && overrideOn.satisfied;
+      const wantOverrideOff = overrideOff.status === 'hold' && overrideOff.policy_applied === at.reverts_to_policy;
+
+      if (wantAbsent && wantDistinct && wantRepeated && wantUnsigned && wantOverrideOn && wantOverrideOff) {
+        ok(`§27.4 binding over an attested subject: absent records ⇒ hold; two DISTINCT identities ⇒ dual_control(2) satisfied; one identity signing twice under two different keys ⇒ still hold (§27.3 distinctness by identity.id, never by key); unsigned approvals ⇒ not conformant evidence, still hold (§27.2); an active override applies and an EXPIRED one reverts to "${at.reverts_to_policy}" (§27.5 — never a silent permanent auto-pass)`);
+      } else {
+        bad(`§27.4 binding over an attested subject broken — absent:${JSON.stringify(absent)} distinct:${JSON.stringify(distinct2)} repeated:${JSON.stringify(repeated2)} unsigned:${JSON.stringify(unsigned2)} overrideOn:${JSON.stringify(overrideOn)} overrideOff:${JSON.stringify(overrideOff)}`);
+      }
+    }
+  }
 }
 
 if (fail === 0) { console.log(`\n✓ validate-ha-records clean — ${checked} §27 check(s) passed.`); process.exit(0); }
