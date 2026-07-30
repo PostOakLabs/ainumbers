@@ -27,6 +27,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
 const CHECK = process.argv.includes('--check')
 
+// Single source of truth for the negotiated MCP protocol version —
+// see data/mcp-protocol-version.json's `note` for how/when to update it.
+const { negotiated_protocol_version: MCP_PROTOCOL_VERSION } =
+  JSON.parse(readFileSync(resolve(repoRoot, 'data', 'mcp-protocol-version.json'), 'utf8'))
+
 // Derive counts once — used for the OpenAPI description and docs/index.html sentinels.
 const C = deriveCounts()
 
@@ -180,7 +185,7 @@ const openapi = {
   'x-mcp': {
     transport: 'MCP JSON-RPC 2.0 (streamable HTTP)',
     endpoint: 'https://mcp.ainumbers.co/mcp',
-    protocol_version: '2024-11-05',
+    protocol_version: MCP_PROTOCOL_VERSION,
     authentication: 'none',
     registry: 'co.ainumbers/tools (official MCP registry)',
     note: 'Connect any MCP-compatible client (Claude, ChatGPT, custom agent) directly to this endpoint. The REST paths in this file are descriptive only — they do not exist on the live server unless the REST shim is deployed.'
