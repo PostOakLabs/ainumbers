@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T+1 Post-Trade Timing Classifier &middot; ART-506 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Classifies post-trade step timings you supply against a target-cycle and a baseline-cycle cut-off, to identify which step breaches under T+1 that did not breach under T+2.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-506-classify-t1-posttrade-timing.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:180px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.pinned{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--bright);background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.5rem .85rem;margin:10px 0}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.und{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-506 · T+1 Post-Trade Timing Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-506 &middot; Settlement Discipline &middot; Post-Trade Timing</div>
+  <h1>T+1 Post-Trade Timing Classifier</h1>
+  <p class="sub">Takes the post-trade timings you already hold and answers the one question a readiness programme is trying to answer: which step breaches its cut-off under the shorter settlement cycle that did not breach under the longer one. Each step is classified against a target-cycle cut-off and a baseline-cycle cut-off, with the residual margin in seconds and the first failing step named. Emits a hash-anchored OpenChainGraph v0.4 artifact.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">T+1 on 11 October 2027</span>
+    <span class="flag info">UK, EU, Liechtenstein, Switzerland</span>
+    <span class="flag">Cut-offs are your inputs</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This classifies timings you supply. It observes no venue, no central securities depository and no matching platform, it opens no connection, and it is not monitoring. Every timestamp and every cut-off arrives as an input on this page. No clock is read, so nothing here is compared against the present moment and nothing expires on its own.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; No cut-off table is shipped, deliberately. Market and venue cut-offs are your inputs, never data kept current here, because a table of cut-offs is a standing maintenance duty and a duty that silently goes false is worse than no table. There is no named-venue profile set for the same reason.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; No penalty arithmetic. Settlement penalties under the settlement discipline regime are a separate concern handled by <a href="art-78-csdr-penalty-calculator.html">ART-78</a>, and nothing of it is rebuilt here. This node adds the timing question ART-78 does not answer. It also states nothing about funding or foreign exchange implications, and makes no claim about markets outside the cycle change you declare.</div>
+  <div class="pinned" style="border-left-color:var(--teal)">Regime facts, verified 30 July 2026 and stated as prose rather than branched on. The UK, the EU, Liechtenstein and Switzerland move from T+2 to T+1 on 11 October 2027. The UK Accelerated Settlement Taskforce, the EU T+1 Industry Committee and the Swiss Securities Post Trade Council T+1 Task Force published a unified Testing and Readiness Plan in March 2026, following a joint testing and readiness workstream set up in December 2025; it is the first such plan to span the EU, UK and Swiss markets at once. The published phasing is planning and solution finalisation across 2025 and 2026, implementation and readiness in 2026, and industry testing in 2027.</div>
+
+  <div class="card">
+    <div class="section-head">Trade and cycle</div>
+    <div class="grid2">
+      <div><label class="fld">Trade reference (opaque)</label><input type="text" id="tradeRef" value="TRD-OPAQUE-2027-0001"></div>
+      <div><label class="fld">Time zone offset in minutes (applied only to timestamps with no offset of their own)</label><input type="number" id="tzOffset" value="0"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Target cycle</label><input type="text" id="targetCycle" value="T+1"></div>
+      <div><label class="fld">Baseline cycle</label><input type="text" id="baselineCycle" value="T+2"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Trade timestamp (ISO 8601)</label><input type="text" id="tradeTs" value="2027-10-12T15:40:00Z"></div>
+      <div><label class="fld">Venue cut-off (ISO 8601)</label><input type="text" id="venueCutoff" value="2027-10-12T16:30:00Z"></div>
+    </div>
+    <label class="fld">At-risk band in seconds (a step clearing its cut-off by less than this reads at risk; zero means no band)</label>
+    <input type="number" id="atRisk" value="0">
+
+    <div class="section-head">Post-trade steps (synthetic demo loaded)</div>
+    <label class="fld">Steps in your declared chain order (JSON array: step, achieved_at, cutoff_target, cutoff_baseline). Every cut-off is yours to supply.</label>
+    <textarea id="stepsJson" style="min-height:200px">[
+  { "step": "allocation_sent",                "achieved_at": "2027-10-12T21:15:00Z", "cutoff_target": "2027-10-12T20:00:00Z", "cutoff_baseline": "2027-10-13T06:00:00Z" },
+  { "step": "confirmation_affirmation",       "achieved_at": "2027-10-12T22:40:00Z", "cutoff_target": "2027-10-12T21:00:00Z", "cutoff_baseline": "2027-10-13T11:00:00Z" },
+  { "step": "settlement_instruction_release", "achieved_at": "2027-10-13T05:30:00Z", "cutoff_target": "2027-10-13T06:00:00Z", "cutoff_baseline": "2027-10-13T18:00:00Z" },
+  { "step": "csd_matching",                   "achieved_at": "2027-10-13T07:00:00Z", "cutoff_target": "2027-10-13T14:00:00Z", "cutoff_baseline": "2027-10-14T14:00:00Z" }
+]</textarea>
+    <div style="margin-top:16px">
+      <button onclick="runClassify()">&#9654; Classify Post-Trade Timings</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="pinned" id="pinnedBox"></div>
+      <div id="reasonBox" class="kv"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Steps</div>
+      <div id="stepsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <div id="rationaleDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Settlement penalties are computed by <a href="art-78-csdr-penalty-calculator.html">ART-78 CSDR Settlement Penalty Calculator</a>, which this node deliberately does not duplicate. Background on the settlement discipline regime is in the <a href="guide-settlement-discipline.html">settlement discipline guide</a>. Allocation and affirmation conformance is checked by <a href="art-81-allocation-affirmation-conformance.html">ART-81</a>.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var TS_RE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:\d{2})?$/;
+
+var MANIFEST = {
+  tool_id: 'art-506-classify-t1-posttrade-timing',
+  version: '1.0.0',
+  mcp_name: 'classify_t1_posttrade_timing',
+  title: 'T+1 Post-Trade Timing Classifier',
+  description: 'Classifies supplied post-trade step timings against a target-cycle and a baseline-cycle cut-off to identify which step the shorter settlement cycle is what breaks.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'classify_t1_posttrade_timing',
+    description: 'Classifies post-trade step timings supplied by the caller against caller-supplied cut-offs for a target and a baseline settlement cycle.',
+    inputSchema: { type: 'object', properties: {
+      trade_ref: {type:'string'}, target_cycle: {type:'string'}, baseline_cycle: {type:'string'},
+      time_zone_offset_minutes: {type:'number'}, at_risk_margin_seconds: {type:'number'},
+      trade_timestamp: {type:'string'}, venue_cutoff: {type:'string'},
+      steps: {type:'array', items:{type:'object', properties:{
+        step:{type:'string'}, achieved_at:{type:'string'}, cutoff_target:{type:'string'}, cutoff_baseline:{type:'string'},
+      }}},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function finiteOrNull(n){ return typeof n === 'number' && isFinite(n) ? n : null; }
+function finiteOrZero(n){ return typeof n === 'number' && isFinite(n) ? n : 0; }
+
+function parseTimestamp(value, defaultOffsetMinutes, offsetWasDeclared){
+  if (!isNonEmptyString(value)) {
+    return { ok: false, epoch_seconds: null, offset_source: null, reason: 'No timestamp was supplied for this step.' };
+  }
+  var m = TS_RE.exec(value.trim());
+  if (!m) {
+    return { ok: false, epoch_seconds: null, offset_source: null, reason: 'The timestamp is not an ISO 8601 value of the form YYYY-MM-DDTHH:MM:SS with an optional Z or +HH:MM offset.' };
+  }
+  var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]), H = Number(m[4]), Mi = Number(m[5]);
+  var S = m[6] ? Number(m[6]) : 0;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || H > 23 || Mi > 59 || S > 59) {
+    return { ok: false, epoch_seconds: null, offset_source: null, reason: 'The timestamp names a calendar or clock field outside its permitted range.' };
+  }
+  var baseMs = Date.UTC(y, mo - 1, d, H, Mi, S);
+  if (!isFinite(baseMs)) {
+    return { ok: false, epoch_seconds: null, offset_source: null, reason: 'The timestamp does not resolve to a representable instant.' };
+  }
+  var back = new Date(baseMs);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) {
+    return { ok: false, epoch_seconds: null, offset_source: null, reason: 'The timestamp names a calendar date that does not exist in that month.' };
+  }
+
+  var offsetMinutes, offset_source;
+  if (m[7] === 'Z') { offsetMinutes = 0; offset_source = 'explicit_utc'; }
+  else if (m[7]) {
+    var sign = m[7][0] === '-' ? -1 : 1;
+    offsetMinutes = sign * (Number(m[7].slice(1, 3)) * 60 + Number(m[7].slice(4, 6)));
+    offset_source = 'explicit_offset';
+  }
+  else if (offsetWasDeclared) { offsetMinutes = finiteOrZero(defaultOffsetMinutes); offset_source = 'declared_time_zone_offset_minutes'; }
+  else { offsetMinutes = 0; offset_source = 'no_offset_declared_treated_as_utc'; }
+
+  var epoch = finiteOrNull(Math.round(baseMs / 1000) - offsetMinutes * 60);
+  if (epoch === null) {
+    return { ok: false, epoch_seconds: null, offset_source: offset_source, reason: 'The timestamp with its offset applied does not resolve to a finite instant.' };
+  }
+  return { ok: true, epoch_seconds: epoch, offset_source: offset_source, reason: null };
+}
+
+function statusFor(marginSeconds, atRiskBandSeconds){
+  if (marginSeconds === null) return 'undetermined';
+  if (marginSeconds < 0) return 'breached';
+  if (atRiskBandSeconds > 0 && marginSeconds <= atRiskBandSeconds) return 'at_risk';
+  return 'on_time';
+}
+
+function compute(pp){
+  pp = pp || {};
+
+  var trade_ref = isNonEmptyString(pp.trade_ref) ? pp.trade_ref : '';
+  var target_cycle = isNonEmptyString(pp.target_cycle) ? pp.target_cycle.trim() : 'T+1';
+  var baseline_cycle = isNonEmptyString(pp.baseline_cycle) ? pp.baseline_cycle.trim() : 'T+2';
+  var cycle_compared = baseline_cycle + ' to ' + target_cycle;
+
+  var offsetWasDeclared = typeof pp.time_zone_offset_minutes === 'number' && isFinite(pp.time_zone_offset_minutes);
+  var time_zone_offset_minutes = offsetWasDeclared ? pp.time_zone_offset_minutes : null;
+
+  var at_risk_margin_seconds = finiteOrZero(pp.at_risk_margin_seconds) > 0 ? finiteOrZero(pp.at_risk_margin_seconds) : 0;
+
+  var trade_timestamp = isNonEmptyString(pp.trade_timestamp) ? pp.trade_timestamp : '';
+  var venue_cutoff = isNonEmptyString(pp.venue_cutoff) ? pp.venue_cutoff : '';
+
+  var suppliedSteps = Array.isArray(pp.steps) ? pp.steps : [];
+
+  var workSteps = [];
+  if (trade_timestamp && venue_cutoff) {
+    workSteps.push({ step: 'trade_execution', achieved_at: trade_timestamp, cutoff_target: venue_cutoff, cutoff_baseline: venue_cutoff, synthesised_from: 'trade_timestamp and venue_cutoff' });
+  }
+  suppliedSteps.forEach(function(raw, i){
+    var s = raw && typeof raw === 'object' ? raw : {};
+    workSteps.push({
+      step: isNonEmptyString(s.step) ? s.step : ('(unnamed-step-' + i + ')'),
+      achieved_at: isNonEmptyString(s.achieved_at) ? s.achieved_at : '',
+      cutoff_target: isNonEmptyString(s.cutoff_target) ? s.cutoff_target : '',
+      cutoff_baseline: isNonEmptyString(s.cutoff_baseline) ? s.cutoff_baseline : '',
+      synthesised_from: null,
+    });
+  });
+
+  var rationale = [];
+  var steps = [];
+  var offset_undeclared_used = false;
+
+  workSteps.forEach(function(w){
+    var achieved = parseTimestamp(w.achieved_at, time_zone_offset_minutes, offsetWasDeclared);
+    var cutT = parseTimestamp(w.cutoff_target, time_zone_offset_minutes, offsetWasDeclared);
+    var cutB = parseTimestamp(w.cutoff_baseline, time_zone_offset_minutes, offsetWasDeclared);
+
+    [achieved, cutT, cutB].forEach(function(p){
+      if (p.offset_source === 'no_offset_declared_treated_as_utc') offset_undeclared_used = true;
+    });
+
+    var margin_seconds = achieved.ok && cutT.ok ? finiteOrNull(cutT.epoch_seconds - achieved.epoch_seconds) : null;
+    var margin_seconds_baseline = achieved.ok && cutB.ok ? finiteOrNull(cutB.epoch_seconds - achieved.epoch_seconds) : null;
+
+    var status = statusFor(margin_seconds, at_risk_margin_seconds);
+    var status_baseline = statusFor(margin_seconds_baseline, at_risk_margin_seconds);
+
+    var undetermined_reason = margin_seconds === null ? (!achieved.ok ? achieved.reason : cutT.reason) : null;
+
+    var breaches_under_target_only = status === 'breached' && status_baseline === 'on_time';
+    var baseline_not_compared = margin_seconds_baseline === null;
+
+    if (status === 'breached' && baseline_not_compared) {
+      rationale.push('Step ' + w.step + ' breaches its ' + target_cycle + ' cut-off, but no usable ' + baseline_cycle + ' cut-off was supplied, so this run cannot say whether the breach is new.');
+    } else if (breaches_under_target_only) {
+      rationale.push('Step ' + w.step + ' breaches its ' + target_cycle + ' cut-off by ' + Math.abs(finiteOrZero(margin_seconds)) + ' second(s) and met its ' + baseline_cycle + ' cut-off with ' + finiteOrZero(margin_seconds_baseline) + ' second(s) to spare. The shorter cycle is what breaks it.');
+    } else if (status === 'breached') {
+      rationale.push('Step ' + w.step + ' breaches its ' + target_cycle + ' cut-off and also missed its ' + baseline_cycle + ' cut-off, so the shorter cycle is not the cause.');
+    } else if (status === 'at_risk') {
+      rationale.push('Step ' + w.step + ' clears its ' + target_cycle + ' cut-off by ' + finiteOrZero(margin_seconds) + ' second(s), inside the declared at-risk band of ' + at_risk_margin_seconds + ' second(s).');
+    } else if (status === 'undetermined') {
+      rationale.push('Step ' + w.step + ' could not be classified: ' + undetermined_reason);
+    }
+
+    steps.push({
+      step: w.step,
+      synthesised_from: w.synthesised_from,
+      achieved_at: w.achieved_at,
+      achieved_epoch_seconds: achieved.epoch_seconds,
+      achieved_offset_source: achieved.offset_source,
+      cutoff_target: w.cutoff_target,
+      cutoff_target_epoch_seconds: cutT.epoch_seconds,
+      cutoff_baseline: w.cutoff_baseline,
+      cutoff_baseline_epoch_seconds: cutB.epoch_seconds,
+      margin_seconds: margin_seconds,
+      margin_seconds_baseline: margin_seconds_baseline,
+      status: status,
+      status_baseline: status_baseline,
+      breaches_under_target_only: breaches_under_target_only,
+      baseline_not_compared: baseline_not_compared,
+      undetermined_reason: undetermined_reason,
+    });
+  });
+
+  var breached = steps.filter(function(s){ return s.status === 'breached'; });
+  var at_risk = steps.filter(function(s){ return s.status === 'at_risk'; });
+  var on_time = steps.filter(function(s){ return s.status === 'on_time'; });
+  var undetermined = steps.filter(function(s){ return s.status === 'undetermined'; });
+  var newly_breaching = steps.filter(function(s){ return s.breaches_under_target_only; });
+  var baseline_gaps = steps.filter(function(s){ return s.baseline_not_compared; });
+
+  var first_failing_step = breached.length > 0 ? breached[0].step : null;
+  var first_newly_breaching_step = newly_breaching.length > 0 ? newly_breaching[0].step : null;
+
+  var step_count = steps.length;
+  var breached_count = breached.length;
+  var at_risk_count = at_risk.length;
+  var on_time_count = on_time.length;
+  var undetermined_count = undetermined.length;
+  var newly_breaching_count = newly_breaching.length;
+  var baseline_not_compared_count = baseline_gaps.length;
+
+  var verdict, verdict_reason;
+  if (step_count === 0) {
+    verdict = 'no_steps_supplied';
+    verdict_reason = 'No post-trade step was supplied, so there is nothing to classify. Each step needs an achieved timestamp and a cut-off for the target cycle, and a cut-off for the baseline cycle if the run is to say whether a breach is new.';
+  } else if (newly_breaching_count > 0) {
+    verdict = 'breaches_introduced_by_target_cycle';
+    verdict_reason = newly_breaching_count + ' step(s) breach under ' + target_cycle + ' that met their ' + baseline_cycle + ' cut-off. The first is ' + first_newly_breaching_step + '.';
+  } else if (breached_count > 0 && breached.some(function(s){ return s.baseline_not_compared; })) {
+    verdict = 'breached_baseline_not_comparable';
+    verdict_reason = breached_count + ' step(s) breach under ' + target_cycle + '. At least one of them carries no usable ' + baseline_cycle + ' cut-off, so this run cannot say whether the shorter cycle is what breaks it. The first failing step is ' + first_failing_step + '.';
+  } else if (breached_count > 0) {
+    verdict = 'breached_under_both_cycles';
+    verdict_reason = breached_count + ' step(s) breach under ' + target_cycle + ', and none of them met their ' + baseline_cycle + ' cut-off either, so on these timings the shorter cycle is not what breaks them. The first failing step is ' + first_failing_step + '.';
+  } else if (at_risk_count > 0) {
+    verdict = 'at_risk_under_target_cycle';
+    verdict_reason = 'No step breaches under ' + target_cycle + ', and ' + at_risk_count + ' step(s) clear their cut-off inside the declared at-risk band of ' + at_risk_margin_seconds + ' second(s).';
+  } else if (undetermined_count > 0 && on_time_count === 0) {
+    verdict = 'timings_incomplete';
+    verdict_reason = 'No step could be classified against ' + target_cycle + '. Every supplied step is missing a usable achieved timestamp or a usable cut-off.';
+  } else if (undetermined_count > 0) {
+    verdict = 'on_time_with_timings_incomplete';
+    verdict_reason = 'Every one of the ' + on_time_count + ' step(s) this run could classify clears its ' + target_cycle + ' cut-off, but ' + undetermined_count + ' step(s) could not be classified at all. This is not a ready result.';
+  } else {
+    verdict = 'on_time_under_target_cycle';
+    verdict_reason = 'Every step this run could classify clears its ' + target_cycle + ' cut-off on the timings supplied.';
+  }
+
+  if (undetermined_count > 0 && verdict !== 'timings_incomplete') {
+    rationale.push(undetermined_count + ' step(s) could not be classified and are excluded from the on-time count. An unclassified step is not an on-time step.');
+  }
+  if (at_risk_margin_seconds === 0 && step_count > 0) {
+    rationale.push('No at-risk band was declared, so at_risk_margin_seconds is zero and no step can be classified at risk. A step that clears its cut-off by one second reads as on time. Declare at_risk_margin_seconds to open a band.');
+  }
+  if (baseline_not_compared_count > 0) {
+    rationale.push(baseline_not_compared_count + ' step(s) carry no usable ' + baseline_cycle + ' cut-off, so this run cannot say whether their result is new to ' + target_cycle + '.');
+  }
+  if (offset_undeclared_used) {
+    rationale.push('At least one timestamp carried no offset of its own and no time_zone_offset_minutes was declared, so it was read as UTC. Declare the offset if the supplied timestamps are local.');
+  }
+
+  var compliance_flags = [];
+  if (step_count === 0) compliance_flags.push('T1_NO_STEPS_SUPPLIED');
+  if (breached_count > 0) compliance_flags.push('T1_BREACH_PROJECTED');
+  if (breached_count === 0 && at_risk_count > 0) compliance_flags.push('T1_AT_RISK');
+  if (step_count > 0 && breached_count === 0 && at_risk_count === 0 && undetermined_count === 0) compliance_flags.push('T1_READY');
+  if (newly_breaching_count > 0 || breached_count > 0) compliance_flags.push('ESCALATION_RAISED');
+  if (newly_breaching_count > 0) compliance_flags.push('T1_BREACHES_INTRODUCED_BY_SHORTER_CYCLE');
+  if (undetermined_count > 0) compliance_flags.push('T1_TIMINGS_INCOMPLETE');
+  if (baseline_not_compared_count > 0) compliance_flags.push('T1_BASELINE_NOT_COMPARED');
+  if (at_risk_margin_seconds === 0 && step_count > 0) compliance_flags.push('T1_AT_RISK_BAND_UNDECLARED');
+  if (offset_undeclared_used) compliance_flags.push('T1_TIME_ZONE_OFFSET_UNDECLARED');
+
+  var output_payload = {
+    trade_ref: trade_ref,
+    target_cycle: target_cycle,
+    baseline_cycle: baseline_cycle,
+    cycle_compared: cycle_compared,
+    time_zone_offset_minutes: time_zone_offset_minutes,
+    at_risk_margin_seconds: at_risk_margin_seconds,
+    trade_timestamp: trade_timestamp,
+    venue_cutoff: venue_cutoff,
+    verdict: verdict,
+    verdict_reason: verdict_reason,
+    first_failing_step: first_failing_step,
+    first_newly_breaching_step: first_newly_breaching_step,
+    steps: steps,
+    step_count: step_count,
+    breached_count: breached_count,
+    at_risk_count: at_risk_count,
+    on_time_count: on_time_count,
+    undetermined_count: undetermined_count,
+    newly_breaching_count: newly_breaching_count,
+    baseline_not_compared_count: baseline_not_compared_count,
+    rationale: rationale,
+    note: 'Deterministic classification of post-trade step timings the caller supplies, comparing each step against a target-cycle cut-off and a baseline-cycle cut-off to identify which steps the shorter cycle is what breaks. Every cut-off is a caller input: no market or venue cut-off table is shipped, because a table of cut-offs is a maintenance duty that would silently go false. No clock is read and nothing is compared against the present moment. This tool observes no venue, no central securities depository and no matching platform, and it is not monitoring. It computes no settlement penalty, which is a separate concern, and it makes no claim about markets outside the cycle change the caller declares. It is not legal, tax or regulatory advice.',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function esc(s){ return String(s === null || s === undefined ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function runClassify(){
+  var stepsIn;
+  try { stepsIn = JSON.parse(document.getElementById('stepsJson').value); } catch(e){ alert('Invalid JSON in steps: '+e.message); return; }
+
+  var tz = parseFloat(document.getElementById('tzOffset').value);
+  var band = parseFloat(document.getElementById('atRisk').value);
+
+  var pp = {
+    trade_ref: document.getElementById('tradeRef').value || '',
+    target_cycle: document.getElementById('targetCycle').value || '',
+    baseline_cycle: document.getElementById('baselineCycle').value || '',
+    time_zone_offset_minutes: isFinite(tz) ? tz : null,
+    at_risk_margin_seconds: isFinite(band) ? band : 0,
+    trade_timestamp: document.getElementById('tradeTs').value || '',
+    venue_cutoff: document.getElementById('venueCutoff').value || '',
+    steps: stepsIn,
+  };
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+
+  var op = res.output_payload;
+  var good = op.verdict === 'on_time_under_target_cycle';
+  var bad = op.verdict === 'breaches_introduced_by_target_cycle' || op.verdict === 'breached_under_both_cycles' || op.verdict === 'breached_baseline_not_comparable';
+  var color = bad ? 'var(--red)' : (good ? 'var(--green)' : 'var(--warn)');
+  var bg = bad ? 'rgba(239,68,68,.08)' : (good ? 'rgba(34,197,94,.08)' : 'rgba(245,158,11,.08)');
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = op.verdict.toUpperCase().replace(/_/g, ' ');
+
+  document.getElementById('pinnedBox').innerHTML =
+    'Cycles compared: <span style="color:var(--gold)">' + esc(op.cycle_compared) + '</span>'
+    + ' &middot; Trade: ' + esc(op.trade_ref || 'undeclared')
+    + ' &middot; At-risk band: ' + op.at_risk_margin_seconds + 's'
+    + ' &middot; Offset: ' + (op.time_zone_offset_minutes === null ? 'undeclared' : op.time_zone_offset_minutes + ' min')
+    + ' &middot; First failing step: ' + esc(op.first_failing_step || 'none');
+
+  document.getElementById('reasonBox').innerHTML =
+    '<span class="kv-k">Why</span><span class="kv-v">' + esc(op.verdict_reason) + '</span>';
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">'+op.step_count+'</span><span class="stat-key">Steps</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.newly_breaching_count+'</span><span class="stat-key">New breaches</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.breached_count+'</span><span class="stat-key">Breached</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.at_risk_count+'</span><span class="stat-key">At risk</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.on_time_count+'</span><span class="stat-key">On time</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.undetermined_count+'</span><span class="stat-key">Undetermined</span></div>';
+
+  document.getElementById('stepsDiv').innerHTML = op.steps.length
+    ? op.steps.map(function(s){
+        var cls = s.status === 'breached' ? 'fail' : (s.status === 'on_time' ? 'ok' : 'und');
+        var marg = s.margin_seconds === null ? 'not computable' : (s.margin_seconds + 's against ' + esc(s.cutoff_target));
+        var base = s.margin_seconds_baseline === null ? 'baseline not compared' : (s.margin_seconds_baseline + 's against ' + esc(s.cutoff_baseline));
+        var newly = s.breaches_under_target_only ? '<div style="margin-top:4px;color:var(--red)">The shorter cycle is what breaks this step. It met its baseline cut-off.</div>' : '';
+        var und = s.undetermined_reason ? '<div style="margin-top:4px">' + esc(s.undetermined_reason) + '</div>' : '';
+        var syn = s.synthesised_from ? '<div style="margin-top:4px">Built from ' + esc(s.synthesised_from) + '.</div>' : '';
+        return '<div class="kv"><span class="kv-k">' + esc(s.step) + '</span><span class="kv-v"><span class="badge ' + cls + '">' + esc(s.status) + '</span> achieved ' + esc(s.achieved_at || 'not supplied')
+          + '<div style="margin-top:4px">Target margin: ' + marg + '</div><div>Baseline margin: ' + base + '</div>' + newly + und + syn + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No steps</span><span class="kv-v">' + esc(op.verdict_reason) + '</span></div>';
+
+  document.getElementById('rationaleDiv').innerHTML = op.rationale.length
+    ? op.rationale.map(function(r){ return '<div class="kv"><span class="kv-v">' + esc(r) + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-506-classify-t1-posttrade-timing',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-506-classify-t1-posttrade-timing.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+
+document.addEventListener('DOMContentLoaded', function(){ runClassify(); });
+</script>
+</body>
+</html>
