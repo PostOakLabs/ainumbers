@@ -80,6 +80,7 @@ const GATES = [
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Nav reachability (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
+  ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
