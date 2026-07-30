@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CASS 15 Safeguarding Method Classifier &middot; ART-500 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Classifies each funds stream of a UK payment or e-money firm: whether the funds are relevant funds, whether the safeguarding method asserted is coherent with the account and instrument facts supplied, and where judgment is required.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-500-classify-safeguarding-method.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:200px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.coherent{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.incoherent{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.judgment_required{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.relevant{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.not_relevant{background:rgba(58,82,112,.2);color:var(--body);border:1px solid var(--border-2)}
+.ruleset-pin{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.4rem .75rem;display:inline-block;margin:8px 0}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+.jbox{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:4px;padding:.6rem .85rem;margin:8px 0;font-size:.72rem}
+.jbox .jlabel{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--warn);display:block;margin-top:6px}
+.stream-head{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--bright);margin-top:14px}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-500 · CASS 15 Safeguarding Method Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-500 &middot; UK Safeguarding &middot; Payments and E-Money</div>
+  <h1>CASS 15 Safeguarding Method Classifier</h1>
+  <p class="sub">For each funds stream you declare, this answers three questions: are these relevant funds, is the method you assert for them (segregation under CASS 15.3, or an insurance policy or comparable guarantee under CASS 15.5) coherent with the account and instrument facts you supply, and where do the facts you have leave the answer open. Where the answer is judgment required, you get the question, the one input that would resolve it, and who decides, rather than a bare flag. Pairs with the <a href="art-499-check-safeguarding-reconciliation.html">ART-499 Safeguarding Reconciliation Check</a>.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Segregation vs insurance or guarantee</span>
+    <span class="flag info">CASS 15.5.4R five conditions</span>
+    <span class="flag">SUP 3A audit exemption indicator</span>
+  </div>
+  <div class="ruleset-pin" id="rulesetPin">Ruleset: FCA-CASS15-PS25-12 &middot; FCA CASS 15 safeguarding rules, as made by PS25/12 &middot; in force from 2026-05-07 &middot; field set v1.0.0 &middot; sourced from handbook.fca.org.uk on 2026-07-30</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; A coherence verdict is a consistency check on the facts as you declare them. Whether your firm has complied with CASS 15, and whether an insurance policy or guarantee is legally effective, are decided by your firm and its advisers and tested by your safeguarding auditor. This page gives no legal advice and produces no regulatory filing. It computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Funds streams</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo streams below are synthetic and already loaded, so you can press Run without entering anything of your own.</p>
+    <div class="grid2">
+      <div><label class="fld">As-of date (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOfDate" value="2026-07-29"></div>
+      <div><label class="fld">Relevant funds high-water figure (minor units) &middot; SUP 3A</label><input type="text" id="highWater" value="9500000"></div>
+    </div>
+    <label class="fld">Weeks that high-water figure has been observed over &middot; the exemption is expressed over at least 53 weeks</label>
+    <input type="text" id="weeksObserved" value="60">
+    <label class="fld">Streams (JSON array)</label>
+    <textarea id="streamsJson">[
+  {
+    "stream_ref": "STRM-001",
+    "funds_category": "emoney_relevant_funds",
+    "method_asserted": "segregation",
+    "designated_account_status": "designated_relevant_funds_bank_account",
+    "acknowledgement_letter_status": "received_and_countersigned",
+    "receipt_to_segregation_timing": "same_business_day"
+  },
+  {
+    "stream_ref": "STRM-002",
+    "funds_category": "payment_service_relevant_funds",
+    "method_asserted": "segregation",
+    "designated_account_status": "not_designated",
+    "acknowledgement_letter_status": "received_and_countersigned",
+    "receipt_to_segregation_timing": "same_business_day"
+  },
+  {
+    "stream_ref": "STRM-003",
+    "funds_category": "emoney_relevant_funds",
+    "method_asserted": "insurance_or_guarantee",
+    "provider_ref": "PROV-REF-77",
+    "insurance_conditions": {
+      "proceeds_payable_on_insolvency_event": true,
+      "no_conditions_on_prompt_payout": true,
+      "certification_no_more_onerous_than_necessary": "unknown",
+      "proceeds_paid_into_relevant_funds_bank_account": true,
+      "cancellation_restricted_with_3_months_notice": "unknown"
+    }
+  },
+  {
+    "stream_ref": "STRM-004",
+    "funds_category": "mixed_remittance",
+    "method_asserted": "segregation",
+    "designated_account_status": "designated_relevant_funds_bank_account",
+    "acknowledgement_letter_status": "received_and_countersigned",
+    "receipt_to_segregation_timing": "same_business_day"
+  }
+]</textarea>
+    <div style="margin-top:16px">
+      <button onclick="runClassify()">&#9654; Classify Methods</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Per-stream classification</div>
+      <div id="streamsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">SUP 3A safeguarding audit exemption indicator</div>
+      <div id="auditDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Why judgment required is never a bare flag</div>
+    <p class="sub" style="margin-bottom:0">A flag that says only "judgment required" tells a reader that something is unresolved without telling them how to resolve it, which in a supervisory setting is worse than saying nothing. Every judgment this page emits carries three things: what is undetermined, which single input would resolve it, and who decides. The answer to the last one is never this tool. On the receipt-to-segregation deadline in particular, this page reports what you declared and routes the question to judgment rather than asserting a deadline, because that deadline sits in the Electronic Money Regulations and the Payment Services Regulations, which CASS 15.3.1G points to rather than restates.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Pairs with <a href="art-499-check-safeguarding-reconciliation.html">ART-499 CASS 15 Safeguarding Reconciliation Check</a>, which compares your safeguarding requirement against your safeguarding resource for a given as-of date.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-500-classify-safeguarding-method',
+  version: '1.0.0',
+  mcp_name: 'classify_safeguarding_method',
+  title: 'CASS 15 Safeguarding Method Classifier',
+  description: 'Classifies each declared funds stream on relevant-funds status and method coherence, naming what is undetermined, which input resolves it, and who decides.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'classify_safeguarding_method',
+    description: 'Classifies CASS 15 safeguarding method coherence per funds stream and computes a SUP 3A audit exemption indicator.',
+    inputSchema: { type: 'object', properties: {
+      as_of_date: {type:'string'}, streams: {type:'array'},
+      relevant_funds_high_water_minor_units: {type:'integer'}, weeks_observed: {type:'integer'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-500-classify-safeguarding-method.kernel.mjs --- */
+var CITE_MAPPED_BY = 'AINumbers CASS15-K-1';
+var CITE_MAPPED_AT = '2026-07-30';
+var IN_FORCE_FROM = '2026-05-07';
+function cite(id, uri){ return { scheme:'fca-handbook', id:id, in_force_from:IN_FORCE_FROM, mapped_by:CITE_MAPPED_BY, mapped_at:CITE_MAPPED_AT, uri:uri }; }
+var CITATIONS = {
+  segregation_method: cite('CASS 15.3.1G', 'https://handbook.fca.org.uk/handbook/cass15/cass15s3'),
+  mixed_remittances: cite('CASS 15.3.2R', 'https://handbook.fca.org.uk/handbook/cass15/cass15s3'),
+  insurance_or_guarantee_conditions: cite('CASS 15.5.4R', 'https://handbook.fca.org.uk/handbook/cass15/cass15s5'),
+  insurance_or_guarantee_provider: cite('CASS 15.5.8R', 'https://handbook.fca.org.uk/handbook/cass15/cass15s5'),
+  acknowledgement_letters: cite('CASS 15.7', 'https://handbook.fca.org.uk/handbook/cass15/cass15s7'),
+  safeguarding_audit: cite('SUP 3A', 'https://handbook.fca.org.uk/handbook/SUP/3A/'),
+};
+var RULESET = {
+  ruleset_id: 'FCA-CASS15-PS25-12',
+  ruleset_label: 'FCA CASS 15 safeguarding rules, as made by PS25/12',
+  in_force_from: IN_FORCE_FROM,
+  field_set_version: '1.0.0',
+  sourced_from: 'handbook.fca.org.uk',
+  sourced_on: CITE_MAPPED_AT,
+};
+var AUDIT_EXEMPTION_THRESHOLD_MINOR_UNITS = 10000000;
+var AUDIT_EXEMPTION_MIN_WEEKS = 53;
+var MINOR_UNIT_EXPONENT = 2;
+var MINOR_SCALE = 100;
+var INSURANCE_CONDITIONS = [
+  { key:'proceeds_payable_on_insolvency_event', label:'proceeds are payable upon an insolvency event' },
+  { key:'no_conditions_on_prompt_payout', label:'there is no condition or restriction on prompt payout other than certification of the insolvency event' },
+  { key:'certification_no_more_onerous_than_necessary', label:'any certification requirement is no more onerous than is practically necessary' },
+  { key:'proceeds_paid_into_relevant_funds_bank_account', label:'proceeds are to be promptly paid into a relevant funds bank account' },
+  { key:'cancellation_restricted_with_3_months_notice', label:'the provider cannot cancel before expiry except for non-payment of premium and on at least 3 months notice to the firm and the FCA' },
+];
+
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function toSafeInt(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) ? v : null; }
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / MINOR_SCALE); var frac = abs - whole * MINOR_SCALE;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(MINOR_UNIT_EXPONENT, '0');
+}
+function judgment(what_is_undetermined, resolving_input, decided_by, citation_id){
+  return { outcome:'judgment_required', what_is_undetermined:what_is_undetermined, resolving_input:resolving_input, decided_by:decided_by, citation_id: citation_id || null };
+}
+function determinate(outcome, basis, citation_id){ return { outcome:outcome, basis:basis, citation_id: citation_id || null }; }
+
+var RELEVANT_CATEGORIES = ['payment_service_relevant_funds','emoney_relevant_funds'];
+var AUDITOR_AND_FIRM = 'The firm, on the facts in its own books and records. A safeguarding auditor tests that conclusion under SUP 3A. This tool does not decide it.';
+
+function classifyRelevantFunds(funds_category){
+  if (RELEVANT_CATEGORIES.indexOf(funds_category) !== -1) {
+    return determinate('relevant', 'Declared as ' + funds_category + ', which the firm has identified as relevant funds.', null);
+  }
+  if (funds_category === 'own_funds') {
+    return determinate('not_relevant', 'Declared as the firm\'s own funds, so outside the relevant funds the safeguarding requirement is computed over.', null);
+  }
+  if (funds_category === 'mixed_remittance') {
+    return judgment(
+      'Which portion of this mixed remittance is relevant funds and which is not. A mixed remittance carries both, and the split cannot be read off the stream-level facts supplied here.',
+      'The transaction-level breakdown of the remittance showing the amount received in respect of payment services or the issuance of electronic money, separated from any other amount.',
+      AUDITOR_AND_FIRM, CITATIONS.mixed_remittances.id);
+  }
+  return judgment(
+    'Whether these funds are relevant funds at all. The funds category supplied was absent or not one this classifier recognises.',
+    'A declared funds category for the stream: payment_service_relevant_funds, emoney_relevant_funds, mixed_remittance, or own_funds.',
+    AUDITOR_AND_FIRM, null);
+}
+
+function classifySegregation(s){
+  var findings = [];
+  var account = str(s.designated_account_status, 'unknown');
+  var ack = str(s.acknowledgement_letter_status, 'unknown');
+  var timing = str(s.receipt_to_segregation_timing, 'unknown');
+
+  if (account === 'not_designated') {
+    findings.push(determinate('incoherent', 'Segregation is asserted, but the account holding the funds is declared as not being a designated relevant funds bank account. Under the segregation method the funds are held in a relevant funds bank account, so the asserted method and the declared account status do not agree.', CITATIONS.segregation_method.id));
+  } else if (account !== 'designated_relevant_funds_bank_account') {
+    findings.push(judgment(
+      'Whether the account holding these funds is a designated relevant funds bank account. The account status supplied was absent or not recognised, and segregation turns on it.',
+      'The account designation as recorded on the bank mandate or account-opening documentation for the account referenced by this stream.',
+      AUDITOR_AND_FIRM, CITATIONS.segregation_method.id));
+  }
+
+  if (ack === 'not_received') {
+    findings.push(determinate('incoherent', 'Segregation is asserted, but the firm declares that no countersigned acknowledgement letter is held for the account. CASS 15.7 requires the acknowledgement letter for an account used to hold relevant funds.', CITATIONS.acknowledgement_letters.id));
+  } else if (ack !== 'received_and_countersigned') {
+    findings.push(judgment(
+      'Whether a countersigned acknowledgement letter is held for the account used for this stream. The acknowledgement letter status supplied was absent or not recognised.',
+      'The countersigned acknowledgement letter for the account, or the firm\'s register recording its receipt date.',
+      AUDITOR_AND_FIRM, CITATIONS.acknowledgement_letters.id));
+  }
+
+  if (timing !== 'same_business_day') {
+    findings.push(judgment(
+      'Whether the declared receipt-to-segregation timing for this stream (' + timing + ') meets the segregation deadline. That deadline sits in regulation 21 of the Electronic Money Regulations and regulations 23(5) to (11) of the Payment Services Regulations, which CASS 15.3.1G points to rather than restates, and this tool does not assert a deadline it has not verified against those Regulations.',
+      'The applicable deadline in the Electronic Money Regulations or the Payment Services Regulations for the firm\'s permission type, read against the firm\'s own record of when the funds were received and when they were placed in a relevant funds bank account.',
+      AUDITOR_AND_FIRM, CITATIONS.segregation_method.id));
+  }
+  return findings;
+}
+
+function classifyInsuranceOrGuarantee(s){
+  var findings = [];
+  var supplied = s.insurance_conditions && typeof s.insurance_conditions === 'object' ? s.insurance_conditions : {};
+  for (var i = 0; i < INSURANCE_CONDITIONS.length; i++) {
+    var cond = INSURANCE_CONDITIONS[i];
+    var v = supplied[cond.key];
+    if (v === false || v === 'false') {
+      findings.push(determinate('incoherent', 'The insurance or guarantee method is asserted, but the firm declares that this CASS 15.5.4R condition is not met: ' + cond.label + '.', CITATIONS.insurance_or_guarantee_conditions.id));
+    } else if (v !== true && v !== 'true') {
+      findings.push(judgment(
+        'Whether this CASS 15.5.4R condition is met: ' + cond.label + '. It was supplied as absent or unknown, and the method depends on all five conditions holding.',
+        'The executed wording of the insurance policy or guarantee, at the term that governs: ' + cond.label + '.',
+        AUDITOR_AND_FIRM, CITATIONS.insurance_or_guarantee_conditions.id));
+    }
+  }
+  if (!isNonEmptyString(s.provider_ref)) {
+    findings.push(judgment(
+      'Which person provides the insurance policy or guarantee for this stream. No provider reference was supplied.',
+      'An opaque provider reference for the policy or guarantee, together with the executed instrument it refers to.',
+      AUDITOR_AND_FIRM, CITATIONS.insurance_or_guarantee_provider.id));
+  }
+  return findings;
+}
+
+function classifyAuditExemption(pp){
+  var high_water = toSafeInt(pp.relevant_funds_high_water_minor_units);
+  var weeks = toSafeInt(pp.weeks_observed);
+  if (high_water === null || weeks === null) {
+    return judgment(
+      'Whether the firm is indicated as exempt from arranging a safeguarding audit. The highest amount of relevant funds the firm has been required to safeguard, or the length of the observation period, was not supplied as an integer.',
+      'The highest relevant funds figure the firm has been required to safeguard at any time, in minor units, and the number of whole weeks that figure has been observed over.',
+      AUDITOR_AND_FIRM, CITATIONS.safeguarding_audit.id);
+  }
+  if (weeks < AUDIT_EXEMPTION_MIN_WEEKS) {
+    return judgment(
+      'Whether the safeguarding audit exemption is indicated. The exemption is expressed over a period of at least ' + AUDIT_EXEMPTION_MIN_WEEKS + ' weeks, and only ' + weeks + ' weeks of observation were supplied, so the supplied window is too short to indicate it either way.',
+      'A relevant funds high-water figure observed over at least ' + AUDIT_EXEMPTION_MIN_WEEKS + ' weeks.',
+      AUDITOR_AND_FIRM, CITATIONS.safeguarding_audit.id);
+  }
+  if (high_water <= AUDIT_EXEMPTION_THRESHOLD_MINOR_UNITS) {
+    return determinate('audit_exemption_indicated',
+      'Over ' + weeks + ' weeks the firm reports never having been required to safeguard more than ' + display(high_water) + ' in relevant funds, which is at or below the ' + display(AUDIT_EXEMPTION_THRESHOLD_MINOR_UNITS) + ' threshold the exemption is expressed against. This is an indicator computed from the figures supplied. Whether the exemption is available to this firm is for the firm and its auditor.',
+      CITATIONS.safeguarding_audit.id);
+  }
+  return determinate('audit_exemption_not_indicated',
+    'Over ' + weeks + ' weeks the firm reports a relevant funds high-water figure of ' + display(high_water) + ', above the ' + display(AUDIT_EXEMPTION_THRESHOLD_MINOR_UNITS) + ' threshold the exemption is expressed against.',
+    CITATIONS.safeguarding_audit.id);
+}
+
+function compute(pp){
+  pp = pp || {};
+  var as_of_date = isoDateOrNull(pp.as_of_date);
+  var streams = Array.isArray(pp.streams) ? pp.streams : [];
+
+  var determinations = streams.map(function(raw, i){
+    var s = raw && typeof raw === 'object' ? raw : {};
+    var stream_ref = str(s.stream_ref, 'UNLABELLED-' + (i + 1));
+    var funds_category = str(s.funds_category, 'unknown');
+    var method_asserted = str(s.method_asserted, 'unknown');
+    var relevant_funds_determination = classifyRelevantFunds(funds_category);
+
+    var method_findings;
+    if (method_asserted === 'segregation') method_findings = classifySegregation(s);
+    else if (method_asserted === 'insurance_or_guarantee') method_findings = classifyInsuranceOrGuarantee(s);
+    else method_findings = [judgment(
+      'Which safeguarding method applies to this stream. The method asserted was absent or not one of the two the rules provide for.',
+      'A declared method for the stream: segregation, or insurance_or_guarantee.',
+      AUDITOR_AND_FIRM, CITATIONS.segregation_method.id)];
+
+    var incoherent_findings = method_findings.filter(function(f){ return f.outcome === 'incoherent'; });
+    var judgment_findings = method_findings.filter(function(f){ return f.outcome === 'judgment_required'; });
+
+    var method_coherence;
+    if (incoherent_findings.length > 0) method_coherence = 'incoherent';
+    else if (judgment_findings.length > 0) method_coherence = 'judgment_required';
+    else method_coherence = 'coherent';
+
+    return {
+      stream_ref: stream_ref,
+      funds_category: funds_category,
+      method_asserted: method_asserted,
+      relevant_funds_determination: relevant_funds_determination,
+      method_coherence: method_coherence,
+      method_findings: method_findings,
+      incoherence_count: incoherent_findings.length,
+      judgment_required_count: judgment_findings.length + (relevant_funds_determination.outcome === 'judgment_required' ? 1 : 0),
+    };
+  });
+
+  var audit_exemption_indicator = classifyAuditExemption(pp);
+
+  var stream_count = determinations.length;
+  var coherent_count = determinations.filter(function(d){ return d.method_coherence === 'coherent'; }).length;
+  var incoherent_count = determinations.filter(function(d){ return d.method_coherence === 'incoherent'; }).length;
+  var judgment_stream_count = determinations.filter(function(d){ return d.judgment_required_count > 0; }).length;
+  var open_judgments = audit_exemption_indicator.outcome === 'judgment_required' ? 1 : 0;
+  for (var di = 0; di < determinations.length; di++) open_judgments += determinations[di].judgment_required_count;
+
+  var classification_verdict;
+  if (stream_count === 0) classification_verdict = 'NO_STREAMS_SUPPLIED';
+  else if (incoherent_count > 0) classification_verdict = 'INCOHERENCE_PRESENT';
+  else if (open_judgments > 0) classification_verdict = 'JUDGMENT_REQUIRED';
+  else classification_verdict = 'COHERENT_ON_SUPPLIED_FACTS';
+
+  var rationale = [];
+  rationale.push(stream_count + ' funds stream' + (stream_count === 1 ? '' : 's') + ' classified against ' + RULESET.ruleset_label + ', in force from ' + RULESET.in_force_from + '.');
+  if (stream_count === 0) {
+    rationale.push('No streams were supplied, so there is nothing to classify. This is a defined empty result, not a finding about the firm.');
+  }
+  if (incoherent_count > 0) {
+    rationale.push(incoherent_count + ' stream' + (incoherent_count === 1 ? '' : 's') + ' carry facts that do not agree with the method asserted for them. An incoherence here is an inconsistency between the facts as supplied, not a determination that the firm has breached CASS 15.');
+  }
+  if (open_judgments > 0) {
+    rationale.push(open_judgments + ' question' + (open_judgments === 1 ? ' remains' : 's remain') + ' undetermined on the facts supplied. Each one names what is undetermined, which input would resolve it, and who decides. This tool does not decide any of them.');
+  }
+  if (classification_verdict === 'COHERENT_ON_SUPPLIED_FACTS') {
+    rationale.push('Every stream is internally consistent with the method asserted for it, on the facts supplied. That is a consistency check on the declarations, not a validation that the declarations are true or that the firm complies with CASS 15.');
+  }
+
+  var compliance_flags = ['SAFEGUARDING_METHOD_' + classification_verdict];
+  if (incoherent_count > 0) compliance_flags.push('SAFEGUARDING_METHOD_INCOHERENCE_PRESENT');
+  if (open_judgments > 0) compliance_flags.push('SAFEGUARDING_METHOD_JUDGMENT_REQUIRED');
+  if (audit_exemption_indicator.outcome === 'audit_exemption_indicated') compliance_flags.push('SAFEGUARDING_AUDIT_EXEMPTION_INDICATED');
+  if (as_of_date === null) compliance_flags.push('SAFEGUARDING_AS_OF_DATE_MISSING_OR_UNPARSEABLE');
+
+  var output_payload = {
+    ruleset: RULESET,
+    as_of_date: as_of_date,
+    minor_unit_exponent: MINOR_UNIT_EXPONENT,
+    classification_verdict: classification_verdict,
+    stream_count: stream_count,
+    coherent_count: coherent_count,
+    incoherent_count: incoherent_count,
+    judgment_stream_count: judgment_stream_count,
+    open_judgment_count: open_judgments,
+    determinations: determinations,
+    audit_exemption_indicator: audit_exemption_indicator,
+    citations: CITATIONS,
+    rationale: rationale,
+    note: 'Deterministic UK CASS 15 safeguarding method classifier over a caller-declared set of funds streams. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It checks whether the method asserted for each stream is coherent with the account and instrument facts supplied, and names every question those facts leave open together with the input that would resolve it and the person who decides. It is not a determination of compliance or breach, not an opinion on the legal effectiveness of any insurance policy or guarantee, not a regulatory filing, and not legal advice.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function intOrRaw(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  var n = Number(t);
+  return Number.isFinite(n) ? n : t;
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderFinding(f){
+  if (f.outcome === 'judgment_required') {
+    return '<div class="jbox"><span class="badge judgment_required">JUDGMENT REQUIRED</span>' +
+      (f.citation_id ? ' <span class="badge open">' + esc(f.citation_id) + '</span>' : '') +
+      '<span class="jlabel">What is undetermined</span>' + esc(f.what_is_undetermined) +
+      '<span class="jlabel">Which input resolves it</span>' + esc(f.resolving_input) +
+      '<span class="jlabel">Who decides</span>' + esc(f.decided_by) + '</div>';
+  }
+  return '<div class="jbox" style="border-left-color:' + (f.outcome === 'incoherent' ? 'var(--red)' : 'var(--green)') + '">' +
+    '<span class="badge ' + f.outcome + '">' + esc(String(f.outcome).toUpperCase().split('_').join(' ')) + '</span>' +
+    (f.citation_id ? ' <span class="badge open">' + esc(f.citation_id) + '</span>' : '') +
+    '<div style="margin-top:6px">' + esc(f.basis) + '</div></div>';
+}
+
+async function runClassify(){
+  var streams;
+  try { streams = JSON.parse(document.getElementById('streamsJson').value); }
+  catch(e){ alert('Invalid JSON in streams: ' + e.message); return; }
+
+  var pp = {
+    as_of_date: document.getElementById('asOfDate').value || '',
+    relevant_funds_high_water_minor_units: intOrRaw(document.getElementById('highWater').value),
+    weeks_observed: intOrRaw(document.getElementById('weeksObserved').value),
+    streams: streams,
+  };
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var good = op.classification_verdict === 'COHERENT_ON_SUPPLIED_FACTS';
+  var bad = op.classification_verdict === 'INCOHERENCE_PRESENT';
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = good ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)');
+  vBox.style.background = good ? 'rgba(34,197,94,.08)' : (bad ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  vBox.style.border = '1px solid ' + (good ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)'));
+  vBox.textContent = op.classification_verdict.split('_').join(' ') + ' · as of ' + (op.as_of_date || 'date not supplied');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.stream_count + '</span><span class="stat-key">Streams</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.coherent_count + '</span><span class="stat-key">Coherent</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.incoherent_count + '</span><span class="stat-key">Incoherent</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.open_judgment_count + '</span><span class="stat-key">Open judgments</span></div>';
+
+  document.getElementById('streamsDiv').innerHTML = op.determinations.length
+    ? op.determinations.map(function(d){
+        return '<div class="stream-head">' + esc(d.stream_ref) + ' · ' + esc(d.funds_category) + ' · method ' + esc(d.method_asserted) +
+          ' <span class="badge ' + d.method_coherence + '">' + d.method_coherence.split('_').join(' ').toUpperCase() + '</span></div>' +
+          renderFinding(d.relevant_funds_determination) +
+          d.method_findings.map(renderFinding).join('');
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No streams supplied</span><span class="kv-v">nothing to classify</span></div>';
+
+  document.getElementById('auditDiv').innerHTML = renderFinding(op.audit_exemption_indicator);
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + esc(r) + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-500-classify-safeguarding-method',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',clause_bindings:Object.keys(CITATIONS).map(function(k){return {profile:'ocg-clause-binding@1',pointer:'/output_payload/citations/'+k};}),audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-500-classify-safeguarding-method.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
