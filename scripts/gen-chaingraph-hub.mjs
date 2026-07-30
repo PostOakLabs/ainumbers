@@ -68,6 +68,15 @@ function sanitizeCopy(s) {
     .trim();
 }
 
+// Breaks on the last word boundary at or before `limit` so a truncated description
+// never amputates mid-word (was cutting dates like "2 December 2026" to "2 December 2…").
+function truncateOnWord(s, limit) {
+  if (s.length <= limit) return s;
+  const cut = s.slice(0, limit);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '…';
+}
+
 function artNum(id) {
   const m = id.match(/^art-(\d+)-/);
   return m ? parseInt(m[1], 10) : 999999;
@@ -78,7 +87,7 @@ function cardHtml(node) {
   const num = String(artNum(node.tool_id)).padStart(2, '0');
   const title = escHtml(sanitizeCopy(node.display_name || node.tool_id));
   const descClean = sanitizeCopy(node.description || '');
-  const desc = escHtml(descClean.length > 220 ? descClean.slice(0, 220) + '…' : descClean);
+  const desc = escHtml(truncateOnWord(descClean, 220));
   const tags = [`<span class="ctag ctag-teal">${escHtml(node.mcp_name || '')}</span>`];
   if (node.mandate_type) tags.push(`<span class="ctag ctag-body">${escHtml(node.mandate_type)}</span>`);
   if (node.gpu) tags.push('<span class="ctag ctag-purple">GPU</span>');
@@ -90,7 +99,6 @@ function cardHtml(node) {
       </div>
       <div class="card-footer">
         <div class="card-tags">${tags.join('')}</div>
-        <span class="live-dot">Live</span>
       </div>
     </a>`;
 }
