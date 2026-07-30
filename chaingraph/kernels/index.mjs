@@ -433,6 +433,8 @@ import * as art500    from './art-500-classify-safeguarding-method.kernel.mjs';
 import * as art501    from './art-501-build-safeguarding-audit-evidence.kernel.mjs';
 import * as art502    from './art-502-bind-attested-subject.kernel.mjs';
 import * as art503    from './art-503-build-dual-control-certification.kernel.mjs';
+import * as art504    from './art-504-classify-carf-reportable.kernel.mjs';
+import * as art505    from './art-505-dispose-carf-status-message.kernel.mjs';
 import * as art51     from './art-51-cross-margining-benefit-estimator.kernel.mjs';
 import * as art52     from './art-52-digital-trade-fit-diagnostic.kernel.mjs';
 import * as art53     from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
@@ -931,6 +933,8 @@ export const KERNELS = {
   'art-501-build-safeguarding-audit-evidence':                art501,
   'art-502-bind-attested-subject':                            art502,
   'art-503-build-dual-control-certification':                 art503,
+  'art-504-classify-carf-reportable':                         art504,
+  'art-505-dispose-carf-status-message':                      art505,
   'art-51-cross-margining-benefit-estimator':                 art51,
   'art-52-digital-trade-fit-diagnostic':                      art52,
   'art-53-mletr-ebl-conformance-validator':                   art53,
