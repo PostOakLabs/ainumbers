@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Deposit Insurance Coverage Determination &middot; ART-507 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes insured and uninsured deposit amounts by ownership right and capacity under 12 CFR part 370. The insurance amount is a caller input, and every account that cannot be calculated names its missing field.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-507-determine-deposit-insurance-coverage.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:120px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.limit-box{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.28);border-left:3px solid var(--warn);border-radius:var(--radius);padding:12px 16px;margin:14px 0}
+.limit-box .lb-h{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--warn);margin-bottom:6px}
+.limit-box p{font-size:.76rem;color:var(--text);margin-bottom:6px}
+.limit-box p:last-child{margin-bottom:0}
+.ruleset-bar{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .85rem;margin:12px 0}
+.ruleset-bar b{color:var(--bright);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:.7rem;font-family:'JetBrains Mono',monospace;margin-top:8px}
+th{text-align:left;color:var(--muted);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border);padding:6px 8px 6px 0;font-weight:600}
+td{color:var(--text);border-bottom:1px solid var(--border);padding:6px 8px 6px 0;vertical-align:top}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-507 · Deposit Insurance Coverage Determination</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-507 &middot; Deposit Insurance &middot; 12 CFR Part 370</div>
+  <h1>Deposit Insurance Coverage Determination</h1>
+  <p class="sub">Part 370 asks an institution's system to say, for every deposit account, how much is insured and how much is not, grouped by ownership right and capacity. This page does that arithmetic on the records you give it, and it is equally explicit about the accounts it cannot do it for.</p>
+  <p class="sub">The insurance amount is something you supply. No statutory figure is held anywhere in this page or in the kernel behind it, because a maintained number goes quietly wrong the moment it moves. Supply none and nothing is estimated: every account is returned as undeterminable naming <code>smdia</code>, and the totals report zero insured rather than a guess.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Insurance amount is an input, never baked in</span>
+    <span class="flag info">Every undeterminable account names its missing field</span>
+    <span class="flag">Fixed point money, no clock</span>
+  </div>
+
+  <div class="ruleset-bar">
+    Balances combine within an ownership right and capacity for the same holder, and they combine before an allowance is applied, and a group takes the largest allowance count stated for it rather than the sum across its accounts. &middot; Ownership right and capacity codes are opaque strings used for grouping and reporting only: nothing here branches on the text of a code and no part 330 rule table is held.
+  </div>
+
+  <div class="limit-box">
+    <div class="lb-h">What this is, and what it is not</div>
+    <p>This computes insured and uninsured amounts from the records you supply. It carries no claim that the FDIC would accept the result, it does not serve as a filing, it does not produce the submission format &sect;370.10 prescribes, and it offers no deposit insurance advice. Whether coverage is correct for any particular depositor is decided under 12 CFR part 330 by the institution and its counsel, never here.</p>
+    <p>It does not tell you whether part 370 applies to you. Whether an institution has the two million or more deposit accounts that make it a covered institution under &sect;370.2 is a declaration you make; no account census is performed and no covered status is asserted on this surface.</p>
+    <p>The &sect;370.10 certification confirming that the IT system was tested during the preceding twelve months is your own assertion carrying your own date. It is echoed unchanged, it is never computed from a clock, and nothing here verifies that any testing occurred. The signature over that certification is evaluated as a &sect;27 approval record at threshold one by the <a href="art-503-build-dual-control-certification.html">dual control certification surface</a>; no second certification surface exists here.</p>
+    <p>How many separate insurance allowances a group is entitled to is a part 330 determination that arrives as a per-record input. This page never makes that determination for you.</p>
+  </div>
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &ndash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Account and holder references are opaque strings and should stay that way. Use internal identifiers, never names, addresses, account numbers or tax identifiers. All amounts are integer minor units, so 250000.00 is entered as 25000000.</div>
+
+  <div class="card">
+    <div class="section-head">Determination frame</div>
+    <div class="grid2">
+      <div><label class="fld">institution_ref (opaque)</label><input type="text" id="institutionRef" value="IDI-SYNTH-0001"></div>
+      <div><label class="fld">as_of_date (yyyy-mm-dd, no clock is read)</label><input type="text" id="asOfDate" value="2026-06-30"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">smdia (integer minor units, YOUR input)</label><input type="number" id="smdia" value="25000000" step="1"></div>
+      <div><label class="fld">currency</label><input type="text" id="currency" value="USD"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">minor_unit_scale</label><input type="number" id="minorUnitScale" value="100" min="1" step="1"></div>
+      <div><label class="fld">declared_deposit_account_count (your declaration)</label><input type="number" id="declaredCount" value="2400000" step="1"></div>
+    </div>
+
+    <div class="section-head" style="margin-top:14px">Certification assertion (&sect;370.10, yours and never verified here)</div>
+    <textarea id="certAssertion" style="min-height:80px">{ "testing_performed_in_preceding_twelve_months": true, "assertion_date": "2026-03-31", "signer_role": "chief executive officer" }</textarea>
+
+    <div class="section-head" style="margin-top:14px">Account records (opaque refs, zero PII)</div>
+    <textarea id="accountRecords" style="min-height:280px">[
+  { "account_ref": "ACCT-A1", "ownership_right_and_capacity": "SGL", "insurance_aggregation_key": "HOLDER-1", "balance": 12500000 },
+  { "account_ref": "ACCT-A2", "ownership_right_and_capacity": "SGL", "insurance_aggregation_key": "HOLDER-2", "balance": 20000000 },
+  { "account_ref": "ACCT-A3", "ownership_right_and_capacity": "SGL", "insurance_aggregation_key": "HOLDER-2", "balance": 15000000 },
+  { "account_ref": "ACCT-B1", "ownership_right_and_capacity": "JNT", "insurance_aggregation_key": "HOLDER-3", "balance": 9000000 },
+  { "account_ref": "ACCT-PT1", "ownership_right_and_capacity": "EBA", "insurance_aggregation_key": "PLAN-1", "balance": 100000000, "pass_through_eligible": true, "beneficiary_count": 5 },
+  { "account_ref": "ACCT-PT2", "ownership_right_and_capacity": "EBA", "insurance_aggregation_key": "PLAN-3", "balance": 80000000, "pass_through_eligible": true },
+  { "account_ref": "ACCT-ALT1", "ownership_right_and_capacity": "ALT", "insurance_aggregation_key": "AGENT-1", "balance": 500000000, "alternative_recordkeeping": true },
+  { "account_ref": "ACCT-EX1", "ownership_right_and_capacity": "SGL", "insurance_aggregation_key": "HOLDER-6", "balance": 40000000, "exception_flag": true }
+]</textarea>
+    <p class="sub" style="font-size:.72rem;margin-top:6px">The default set carries the four shapes that matter. Two accounts held by one holder aggregate before the allowance applies. A pass-through account with five beneficiaries clears; the same shape without a beneficiary count does not. An account under alternative recordkeeping and an account flagged as an exception are each undeterminable, and each says which field is missing rather than being quietly treated as insured.</p>
+
+    <div style="margin-top:16px">
+      <button onclick="runDetermination()">&#9654; Determine Coverage</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Coverage summary</div>
+      <div id="summaryDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">By ownership right and capacity</div>
+      <div id="byCodeDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Aggregation groups</div>
+      <div id="groupsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Accounts that could not be calculated</div>
+      <div id="undetDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Certification and covered status</div>
+      <div id="certDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">The &sect;370.10 certification signature is evaluated at threshold one by the <a href="art-503-build-dual-control-certification.html">dual control certification surface</a>, which serves this regime and others without a node per statute. Where the certified subject needs sealing first, bind it with the <a href="art-502-bind-attested-subject.html">attested artifact subject binder</a>. The accountability vocabulary is described at &sect;27 of the <a href="openchain-graph-spec.html">OpenChainGraph specification</a>.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-507-determine-deposit-insurance-coverage',
+  version: '1.0.0',
+  mcp_name: 'determine_deposit_insurance_coverage',
+  title: 'Deposit Insurance Coverage Determination',
+  description: 'Computes insured and uninsured deposit amounts by ownership right and capacity from supplied account records against a caller-supplied standard maximum deposit insurance amount, and names the missing field for every account it cannot calculate.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'determine_deposit_insurance_coverage',
+    description: 'Aggregates deposit account balances by ownership right and capacity and by holder, applies a caller-supplied insurance amount times a caller-supplied allowance count, and returns insured and uninsured amounts plus a coverage summary. Every account that cannot be calculated is returned with its missing field named. Holds no part 330 rule table, asserts no covered status, verifies no certification, reads no clock. Not a filing and not deposit insurance advice.',
+    inputSchema: { type: 'object', properties: {
+      as_of_date: {type:'string'}, institution_ref: {type:'string'}, currency: {type:'string'},
+      minor_unit_scale: {type:'integer'}, smdia: {type:'integer'},
+      covered_institution_declared: {type:'boolean'}, declared_deposit_account_count: {type:'integer'},
+      certification_assertion: {type:'object'}, account_records: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+// ── Constants, byte-identical to art-507-determine-deposit-insurance-coverage.kernel.mjs ─────────
+var BOUNDARY = 'This computes insured and uninsured amounts from the account records supplied to it. It carries no claim that the Federal Deposit Insurance Corporation would accept the result, it does not serve as a filing, it does not produce the submission format section 370.10 prescribes, and it offers no deposit insurance advice. Whether coverage is correct for any particular depositor is decided under 12 CFR part 330 by the institution and its counsel, never here.';
+var SMDIA_IS_INPUT = 'The standard maximum deposit insurance amount is supplied by the caller and no statutory amount is held in this kernel. A maintained figure would go stale the moment it moved and would assert a statutory fact this surface is not entitled to assert. With no amount supplied nothing is estimated: every record is reported as undeterminable naming smdia.';
+var NO_RULE_TABLE = 'Ownership right and capacity codes are opaque strings used for grouping and reporting only. Nothing in this computation branches on the text of a code, and no table of part 330 ownership categories or allowance rules is held here. How many separate insurance allowances a group is entitled to arrives as coverage_units, derived from the caller record, because that determination belongs to the institution and its counsel.';
+var COVERED_STATUS_BASIS = 'Whether this institution has the two million or more deposit accounts that make it a covered institution under section 370.2 is a caller declaration. No account census is performed here and no covered status is asserted by this surface.';
+var CERTIFICATION_BASIS = 'The section 370.10 certification confirms that the institution tested its information technology system during the preceding twelve months and is signed by the chief executive officer or the chief operating officer. That confirmation and its date are caller-supplied assertions. They are echoed unchanged, they are never computed from a clock, and nothing here verifies that any testing occurred. The signature itself is evaluated as a section 27 approval record at threshold N=1 by art-503-build-dual-control-certification; no certification surface is built here.';
+var ALTERNATIVE_RECORDKEEPING_BASIS = 'Where an account is maintained under the alternative recordkeeping provisions of section 370.4, the beneficial ownership detail sits with a third party and section 370.3 contemplates the Corporation supplying it after failure. The institution system cannot calculate coverage for those accounts from its own records, so they are reported as undeterminable rather than estimated. That is the correct answer under the rule, not a failure of this computation.';
+
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function strOrNull(v){ return isNonEmptyString(v) ? v.trim() : null; }
+function arr(v){ return Array.isArray(v) ? v : []; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null; }
+function minorUnitsOrNull(v){ return Number.isSafeInteger(v) ? v : null; }
+function positiveIntOrNull(v){ return Number.isSafeInteger(v) && v >= 1 ? v : null; }
+
+// Mirrors art-507-determine-deposit-insurance-coverage.kernel.mjs compute() member for member.
+function compute(pp){
+  pp = pp || {};
+
+  var as_of_date = isoDateOrNull(pp.as_of_date);
+  var institution_ref = str(pp.institution_ref, 'UNSTATED');
+  var currency = str(pp.currency, 'UNSTATED');
+  var minor_unit_scale = positiveIntOrNull(pp.minor_unit_scale);
+
+  var smdia = minorUnitsOrNull(pp.smdia);
+  var smdia_present = smdia !== null && smdia >= 0;
+  var smdia_applied = smdia_present ? smdia : null;
+
+  var covered_declared = pp.covered_institution_declared;
+  var covered_institution = {
+    declared_by_caller: covered_declared === true ? true : covered_declared === false ? false : null,
+    declared_deposit_account_count: minorUnitsOrNull(pp.declared_deposit_account_count),
+    asserted_here: false,
+    basis: COVERED_STATUS_BASIS,
+  };
+
+  var certIn = obj(pp.certification_assertion);
+  var certification_assertion = {
+    testing_performed_in_preceding_twelve_months: certIn.testing_performed_in_preceding_twelve_months === true
+      ? true
+      : certIn.testing_performed_in_preceding_twelve_months === false ? false : null,
+    assertion_date: isoDateOrNull(certIn.assertion_date),
+    signer_role: str(certIn.signer_role, 'UNSTATED'),
+    assertion_present: certIn.testing_performed_in_preceding_twelve_months !== undefined,
+    computed_here: false,
+    verified_here: false,
+    signature_evaluated_by: 'art-503-build-dual-control-certification',
+    signature_threshold_n: 1,
+    basis: CERTIFICATION_BASIS,
+  };
+
+  var supplied = arr(pp.account_records).map(function(r){ return obj(r); });
+  var undeterminable_records = [];
+  var determinable = [];
+
+  for (var i = 0; i < supplied.length; i++) {
+    var r = supplied[i];
+    var account_ref = str(r.account_ref, 'ACCOUNT-' + (i + 1));
+    var orc = strOrNull(r.ownership_right_and_capacity);
+    var balance = minorUnitsOrNull(r.balance);
+    var exception_flag = r.exception_flag === true;
+    var alternative_recordkeeping = r.alternative_recordkeeping === true;
+    var pass_through_eligible = r.pass_through_eligible === true;
+    var per_beneficiary_coverage = r.per_beneficiary_coverage === true || pass_through_eligible;
+    var beneficiary_count = positiveIntOrNull(r.beneficiary_count);
+    var group = strOrNull(r.insurance_aggregation_key);
+
+    var undeterminable = (function(account_ref, orc, balance, exception_flag, alternative_recordkeeping, pass_through_eligible){
+      return function(missing_field, reason){
+        undeterminable_records.push({
+          account_ref: account_ref,
+          ownership_right_and_capacity: orc,
+          missing_field: missing_field,
+          reason: reason,
+          balance_minor_units: balance,
+          exception_flag: exception_flag,
+          alternative_recordkeeping: alternative_recordkeeping,
+          pass_through_eligible: pass_through_eligible,
+        });
+      };
+    })(account_ref, orc, balance, exception_flag, alternative_recordkeeping, pass_through_eligible);
+
+    if (!smdia_present) {
+      undeterminable('smdia', 'No standard maximum deposit insurance amount was supplied. No statutory amount is held in this kernel, so no insured amount can be calculated for any account and none is estimated.');
+      continue;
+    }
+    if (orc === null) {
+      undeterminable('ownership_right_and_capacity', 'The record names no ownership right and capacity code. Section 370.10 reports coverage by that code and insurance allowances attach to it, so coverage cannot be calculated without one.');
+      continue;
+    }
+    if (balance === null) {
+      undeterminable('balance', 'The balance is absent or is not an integer number of minor units. Money is fixed point here and a malformed balance is never coerced or rounded, because a silently repaired figure produces a confident total that is wrong.');
+      continue;
+    }
+    if (balance < 0) {
+      undeterminable('balance', 'The balance is negative. A negative deposit balance is not an insurable amount, so it is reported rather than netted into a total where it would quietly reduce the uninsured figure.');
+      continue;
+    }
+    if (alternative_recordkeeping) {
+      undeterminable('beneficial_ownership_detail_from_alternative_recordkeeping_entity', ALTERNATIVE_RECORDKEEPING_BASIS);
+      continue;
+    }
+    if (exception_flag) {
+      undeterminable('exception_resolution', 'The record is flagged as an exception, so the fields needed to calculate its coverage are not settled. An exception resolves to a stated coverage treatment or it remains undeterminable; it is never assumed to be fully insured.');
+      continue;
+    }
+    if (group === null) {
+      undeterminable('insurance_aggregation_key', 'The record names no aggregation group. Balances held in the same ownership right and capacity by the same holder combine before an allowance is applied, so an account that cannot be placed in a group cannot be given an insured amount.');
+      continue;
+    }
+    if (per_beneficiary_coverage && beneficiary_count === null) {
+      undeterminable('beneficiary_count', pass_through_eligible
+        ? 'The record is flagged pass-through eligible, so its allowance depends on the number of beneficial owners, and no usable beneficiary count of one or more was supplied. Pass-through coverage is never assumed for an unstated number of beneficiaries.'
+        : 'The record is flagged for per-beneficiary coverage and no usable beneficiary count of one or more was supplied, so the number of allowances the group receives cannot be established.');
+      continue;
+    }
+
+    determinable.push({
+      account_ref: account_ref,
+      orc: orc,
+      group: group,
+      balance: balance,
+      per_beneficiary_coverage: per_beneficiary_coverage,
+      pass_through_eligible: pass_through_eligible,
+      coverage_units: per_beneficiary_coverage ? beneficiary_count : 1,
+    });
+  }
+
+  var groupKeys = [];
+  var groupIndex = {};
+  for (var gi = 0; gi < determinable.length; gi++) {
+    var d = determinable[gi];
+    // Length-prefixed so the join is injective: a code or holder ref containing the
+    // separator can never collide two distinct groups into one.
+    var key = d.orc.length + ':' + d.orc + ':' + d.group;
+    if (groupIndex[key] === undefined) {
+      groupIndex[key] = { orc: d.orc, group: d.group, accounts: [], aggregated_balance: 0, coverage_units: 0, pass_through: false };
+      groupKeys.push(key);
+    }
+    var g = groupIndex[key];
+    g.accounts.push(d);
+    g.aggregated_balance += d.balance;
+    if (d.coverage_units > g.coverage_units) g.coverage_units = d.coverage_units;
+    if (d.pass_through_eligible) g.pass_through = true;
+  }
+
+  var groups = [];
+  for (var gk = 0; gk < groupKeys.length; gk++) {
+    var gg = groupIndex[groupKeys[gk]];
+    var allowance = smdia_applied * gg.coverage_units;
+    var insured = gg.aggregated_balance < allowance ? gg.aggregated_balance : allowance;
+    var uninsured = gg.aggregated_balance - insured;
+    groups.push({
+      ownership_right_and_capacity: gg.orc,
+      insurance_aggregation_key: gg.group,
+      account_count: gg.accounts.length,
+      account_refs: gg.accounts.map(function(a){ return a.account_ref; }),
+      aggregated_balance_minor_units: gg.aggregated_balance,
+      coverage_units: gg.coverage_units,
+      allowance_minor_units: allowance,
+      insured_minor_units: insured,
+      uninsured_minor_units: uninsured,
+      fully_insured: uninsured === 0,
+      pass_through_applied: gg.pass_through,
+    });
+  }
+
+  var codeKeys = [];
+  var codeIndex = {};
+  var undeterminableByCode = {};
+  for (var ui = 0; ui < undeterminable_records.length; ui++) {
+    var u = undeterminable_records[ui];
+    var ucode = u.ownership_right_and_capacity === null ? 'UNSTATED' : u.ownership_right_and_capacity;
+    undeterminableByCode[ucode] = (undeterminableByCode[ucode] || 0) + 1;
+  }
+  for (var ci = 0; ci < groups.length; ci++) {
+    var cg = groups[ci];
+    var code = cg.ownership_right_and_capacity;
+    if (codeIndex[code] === undefined) {
+      codeIndex[code] = {
+        ownership_right_and_capacity: code,
+        deposit_account_count: 0,
+        distinct_account_holder_count: 0,
+        aggregated_balance_minor_units: 0,
+        insured_minor_units: 0,
+        uninsured_minor_units: 0,
+        fully_insured_account_count: 0,
+        accounts_with_uninsured_deposits_count: 0,
+      };
+      codeKeys.push(code);
+    }
+    var c = codeIndex[code];
+    c.deposit_account_count += cg.account_count;
+    c.distinct_account_holder_count += 1;
+    c.aggregated_balance_minor_units += cg.aggregated_balance_minor_units;
+    c.insured_minor_units += cg.insured_minor_units;
+    c.uninsured_minor_units += cg.uninsured_minor_units;
+    if (cg.fully_insured) c.fully_insured_account_count += cg.account_count;
+    else c.accounts_with_uninsured_deposits_count += cg.account_count;
+  }
+  var by_ownership_right_and_capacity = codeKeys.map(function(code){
+    var c = codeIndex[code];
+    return {
+      ownership_right_and_capacity: c.ownership_right_and_capacity,
+      deposit_account_count: c.deposit_account_count,
+      distinct_account_holder_count: c.distinct_account_holder_count,
+      aggregated_balance_minor_units: c.aggregated_balance_minor_units,
+      insured_minor_units: c.insured_minor_units,
+      uninsured_minor_units: c.uninsured_minor_units,
+      fully_insured_account_count: c.fully_insured_account_count,
+      accounts_with_uninsured_deposits_count: c.accounts_with_uninsured_deposits_count,
+      undeterminable_account_count: undeterminableByCode[c.ownership_right_and_capacity] || 0,
+    };
+  });
+
+  var total_balance = 0;
+  var total_insured = 0;
+  var total_uninsured = 0;
+  var fully_insured_accounts = 0;
+  var accounts_with_uninsured = 0;
+  var determinable_accounts = 0;
+  for (var ti = 0; ti < by_ownership_right_and_capacity.length; ti++) {
+    var tc = by_ownership_right_and_capacity[ti];
+    total_balance += tc.aggregated_balance_minor_units;
+    total_insured += tc.insured_minor_units;
+    total_uninsured += tc.uninsured_minor_units;
+    fully_insured_accounts += tc.fully_insured_account_count;
+    accounts_with_uninsured += tc.accounts_with_uninsured_deposits_count;
+    determinable_accounts += tc.deposit_account_count;
+  }
+
+  var coverage_summary = {
+    ownership_right_and_capacity_code_count: by_ownership_right_and_capacity.length,
+    distinct_account_holder_count: groups.length,
+    deposit_accounts_supplied: supplied.length,
+    deposit_accounts_determined: determinable_accounts,
+    fully_insured_account_count: fully_insured_accounts,
+    accounts_with_uninsured_deposits_count: accounts_with_uninsured,
+    undeterminable_account_count: undeterminable_records.length,
+    aggregated_balance_minor_units: total_balance,
+    insured_minor_units: total_insured,
+    uninsured_minor_units: total_uninsured,
+    currency: currency,
+    minor_unit_scale: minor_unit_scale,
+  };
+
+  var missingFieldKeys = [];
+  var missingFieldIndex = {};
+  for (var mi = 0; mi < undeterminable_records.length; mi++) {
+    var mf = undeterminable_records[mi].missing_field;
+    if (missingFieldIndex[mf] === undefined) {
+      missingFieldIndex[mf] = 0;
+      missingFieldKeys.push(mf);
+    }
+    missingFieldIndex[mf] += 1;
+  }
+  var undeterminable_by_missing_field = missingFieldKeys.map(function(f){ return { missing_field: f, account_count: missingFieldIndex[f] }; });
+
+  var rationale = [];
+  rationale.push('Deposit insurance coverage computed for institution reference ' + institution_ref + (as_of_date === null ? ' with no as-of date supplied' : ' as of ' + as_of_date) + ', over ' + supplied.length + ' supplied deposit account record' + (supplied.length === 1 ? '' : 's') + '.');
+  if (smdia_present) {
+    rationale.push('The standard maximum deposit insurance amount applied is ' + smdia_applied + ' minor units, supplied by the caller. ' + SMDIA_IS_INPUT);
+  } else {
+    rationale.push('No standard maximum deposit insurance amount was supplied, so no account could be given an insured amount and every supplied record is reported as undeterminable naming smdia. ' + SMDIA_IS_INPUT);
+  }
+  rationale.push(determinable_accounts + ' account' + (determinable_accounts === 1 ? '' : 's') + ' across ' + groups.length + ' aggregation group' + (groups.length === 1 ? '' : 's') + ' and ' + by_ownership_right_and_capacity.length + ' ownership right and capacity code' + (by_ownership_right_and_capacity.length === 1 ? '' : 's') + ' were determined: ' + total_insured + ' minor units insured and ' + total_uninsured + ' uninsured against an aggregated balance of ' + total_balance + '.');
+  rationale.push(fully_insured_accounts + ' account' + (fully_insured_accounts === 1 ? ' is' : 's are') + ' fully insured and ' + accounts_with_uninsured + ' hold' + (accounts_with_uninsured === 1 ? 's' : '') + ' uninsured deposits. Balances combine within an ownership right and capacity for the same holder before an allowance is applied, and a group receives the largest allowance count stated for it rather than the sum across its accounts, so repeating a beneficiary set across accounts never multiplies coverage.');
+  if (undeterminable_records.length > 0) {
+    rationale.push(undeterminable_records.length + ' account' + (undeterminable_records.length === 1 ? '' : 's') + ' could not be calculated and ' + (undeterminable_records.length === 1 ? 'is' : 'are') + ' reported individually with the missing field named: ' + undeterminable_by_missing_field.map(function(m){ return m.missing_field + ' (' + m.account_count + ')'; }).join(', ') + '. Section 370.10 asks for exactly this population, so it is a reported result rather than an error.');
+  } else {
+    rationale.push('Every supplied account carried the fields needed to calculate its coverage, so the undeterminable population is empty.');
+  }
+  rationale.push(NO_RULE_TABLE);
+  rationale.push(CERTIFICATION_BASIS);
+  rationale.push(COVERED_STATUS_BASIS);
+  rationale.push(BOUNDARY);
+
+  var compliance_flags = [];
+  compliance_flags.push(undeterminable_records.length === 0 && determinable_accounts > 0 ? 'FDIC370_COVERAGE_DETERMINED_FOR_ALL_SUPPLIED_ACCOUNTS' : 'FDIC370_COVERAGE_NOT_DETERMINED_FOR_ALL_SUPPLIED_ACCOUNTS');
+  if (!smdia_present) compliance_flags.push('FDIC370_SMDIA_ABSENT_NOTHING_ESTIMATED');
+  if (undeterminable_records.length > 0) compliance_flags.push('FDIC370_UNDETERMINABLE_RECORDS_PRESENT');
+  if (total_uninsured > 0) compliance_flags.push('FDIC370_UNINSURED_DEPOSITS_PRESENT');
+  if (undeterminable_records.some(function(x){ return x.alternative_recordkeeping; })) compliance_flags.push('FDIC370_ALTERNATIVE_RECORDKEEPING_ACCOUNTS_PRESENT');
+  if (undeterminable_records.some(function(x){ return x.exception_flag; })) compliance_flags.push('FDIC370_EXCEPTION_ACCOUNTS_PRESENT');
+  if (groups.some(function(x){ return x.pass_through_applied; })) compliance_flags.push('FDIC370_PASS_THROUGH_COVERAGE_APPLIED');
+  compliance_flags.push(certification_assertion.assertion_present ? 'FDIC370_CERTIFICATION_ASSERTION_CALLER_SUPPLIED_NOT_VERIFIED' : 'FDIC370_CERTIFICATION_ASSERTION_ABSENT');
+  compliance_flags.push('FDIC370_COVERED_STATUS_NOT_ASSERTED');
+  if (as_of_date === null) compliance_flags.push('FDIC370_AS_OF_DATE_ABSENT');
+  if (supplied.length === 0) compliance_flags.push('FDIC370_NO_ACCOUNT_RECORDS_SUPPLIED');
+
+  var output_payload = {
+    as_of_date: as_of_date,
+    institution_ref: institution_ref,
+    smdia_applied: smdia_applied,
+    smdia_is_caller_supplied: true,
+    smdia_basis: SMDIA_IS_INPUT,
+    covered_institution: covered_institution,
+    certification_assertion: certification_assertion,
+    coverage_summary: coverage_summary,
+    by_ownership_right_and_capacity: by_ownership_right_and_capacity,
+    aggregation_groups: groups,
+    undeterminable_records: undeterminable_records,
+    undeterminable_by_missing_field: undeterminable_by_missing_field,
+    ownership_code_handling: NO_RULE_TABLE,
+    alternative_recordkeeping_handling: ALTERNATIVE_RECORDKEEPING_BASIS,
+    money_representation: 'All amounts are integer minor units and all arithmetic is fixed point. No floating point operation is performed on money, and a balance that is not an integer is reported as undeterminable rather than coerced or rounded.',
+    rationale: rationale,
+    boundary: BOUNDARY,
+    note: 'Deterministic deposit insurance coverage determination by ownership right and capacity. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It computes insured and uninsured amounts from supplied records against a caller-supplied standard maximum deposit insurance amount, and it names the missing field for every account it cannot calculate. It holds no part 330 rule table, asserts no covered status, verifies no certification, reads no clock, and is not a filing and not deposit insurance advice.',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function esc(s){
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function parseOrNull(id, label, wantArray){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return undefined;
+  try {
+    var v = JSON.parse(raw);
+    if (wantArray && !Array.isArray(v)) { alert(label + ' must be a JSON array.'); throw new Error('shape'); }
+    return v;
+  } catch(e){
+    if (e.message !== 'shape') alert('Invalid JSON in ' + label + ': ' + e.message);
+    throw e;
+  }
+}
+
+function runDetermination(){
+  var pp = {
+    institution_ref: document.getElementById('institutionRef').value || '',
+    as_of_date: document.getElementById('asOfDate').value || '',
+    currency: document.getElementById('currency').value || '',
+  };
+  var sRaw = document.getElementById('smdia').value;
+  if (sRaw !== '') pp.smdia = Number(sRaw);
+  var mRaw = document.getElementById('minorUnitScale').value;
+  if (mRaw !== '') pp.minor_unit_scale = Number(mRaw);
+  var dRaw = document.getElementById('declaredCount').value;
+  if (dRaw !== '') pp.declared_deposit_account_count = Number(dRaw);
+  try {
+    var cert = parseOrNull('certAssertion', 'the certification assertion', false);
+    var records = parseOrNull('accountRecords', 'the account records', true);
+  } catch(e){ return; }
+  if (cert !== undefined) pp.certification_assertion = cert;
+  if (records !== undefined) pp.account_records = records;
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+  var allDetermined = op.undeterminable_records.length === 0 && op.coverage_summary.deposit_accounts_determined > 0;
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = allDetermined ? 'var(--green)' : 'var(--warn)';
+  vBox.style.background = allDetermined ? 'rgba(34,197,94,.08)' : 'rgba(245,158,11,.08)';
+  vBox.style.border = '1px solid ' + (allDetermined ? 'var(--green)' : 'var(--warn)');
+  vBox.textContent = allDetermined
+    ? 'COVERAGE DETERMINED FOR EVERY SUPPLIED ACCOUNT'
+    : op.undeterminable_records.length + ' OF ' + op.coverage_summary.deposit_accounts_supplied + ' ACCOUNTS COULD NOT BE CALCULATED';
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.coverage_summary.insured_minor_units + '</span><span class="stat-key">Insured (minor units)</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.coverage_summary.uninsured_minor_units + '</span><span class="stat-key">Uninsured (minor units)</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.coverage_summary.fully_insured_account_count + '</span><span class="stat-key">Fully insured accounts</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.coverage_summary.undeterminable_account_count + '</span><span class="stat-key">Undeterminable</span></div>';
+
+  var cs = op.coverage_summary;
+  document.getElementById('summaryDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">smdia_applied</span><span class="kv-v">' + esc(op.smdia_applied === null ? 'not supplied' : op.smdia_applied) + ' <span class="badge warn">CALLER INPUT</span><br><span style="color:var(--muted)">' + esc(op.smdia_basis) + '</span></span></div>' +
+    '<div class="kv"><span class="kv-k">aggregated_balance</span><span class="kv-v">' + esc(cs.aggregated_balance_minor_units) + ' ' + esc(cs.currency) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">insured / uninsured</span><span class="kv-v">' + esc(cs.insured_minor_units) + ' / ' + esc(cs.uninsured_minor_units) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">accounts supplied / determined</span><span class="kv-v">' + esc(cs.deposit_accounts_supplied) + ' / ' + esc(cs.deposit_accounts_determined) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">fully insured / with uninsured</span><span class="kv-v">' + esc(cs.fully_insured_account_count) + ' / ' + esc(cs.accounts_with_uninsured_deposits_count) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">distinct holders / codes</span><span class="kv-v">' + esc(cs.distinct_account_holder_count) + ' / ' + esc(cs.ownership_right_and_capacity_code_count) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">money representation</span><span class="kv-v">' + esc(op.money_representation) + '</span></div>';
+
+  document.getElementById('byCodeDiv').innerHTML = op.by_ownership_right_and_capacity.length === 0
+    ? '<div class="kv"><span class="kv-k"><span class="badge warn">NONE</span></span><span class="kv-v">No account could be placed in an ownership right and capacity code, so there is nothing to report on this axis.</span></div>'
+    : '<table><thead><tr><th>code</th><th>accounts</th><th>holders</th><th>balance</th><th>insured</th><th>uninsured</th><th>fully ins.</th><th>w/ uninsured</th><th>undet.</th></tr></thead><tbody>' +
+      op.by_ownership_right_and_capacity.map(function(c){
+        return '<tr><td>' + esc(c.ownership_right_and_capacity) + '</td><td>' + c.deposit_account_count + '</td><td>' + c.distinct_account_holder_count + '</td><td>' + c.aggregated_balance_minor_units + '</td><td>' + c.insured_minor_units + '</td><td>' + c.uninsured_minor_units + '</td><td>' + c.fully_insured_account_count + '</td><td>' + c.accounts_with_uninsured_deposits_count + '</td><td>' + c.undeterminable_account_count + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="kv" style="margin-top:8px"><span class="kv-k">code handling</span><span class="kv-v">' + esc(op.ownership_code_handling) + '</span></div>';
+
+  document.getElementById('groupsDiv').innerHTML = op.aggregation_groups.length === 0
+    ? '<div class="kv"><span class="kv-k"><span class="badge warn">NONE</span></span><span class="kv-v">No aggregation group could be formed from the supplied records.</span></div>'
+    : '<table><thead><tr><th>code</th><th>holder</th><th>accounts</th><th>balance</th><th>units</th><th>allowance</th><th>insured</th><th>uninsured</th><th></th></tr></thead><tbody>' +
+      op.aggregation_groups.map(function(g){
+        return '<tr><td>' + esc(g.ownership_right_and_capacity) + '</td><td>' + esc(g.insurance_aggregation_key) + '</td><td>' + esc(g.account_refs.join(', ')) + '</td><td>' + g.aggregated_balance_minor_units + '</td><td>' + g.coverage_units + '</td><td>' + g.allowance_minor_units + '</td><td>' + g.insured_minor_units + '</td><td>' + g.uninsured_minor_units + '</td><td>' + (g.fully_insured ? '<span class="badge ok">FULLY INSURED</span>' : '<span class="badge warn">UNINSURED REMAINDER</span>') + (g.pass_through_applied ? '<span class="badge">PASS THROUGH</span>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+
+  document.getElementById('undetDiv').innerHTML = op.undeterminable_records.length === 0
+    ? '<div class="kv"><span class="kv-k"><span class="badge ok">NONE</span></span><span class="kv-v">Every supplied account carried the fields needed to calculate its coverage.</span></div>'
+    : '<div class="kv"><span class="kv-k">by missing field</span><span class="kv-v">' + esc(op.undeterminable_by_missing_field.map(function(m){ return m.missing_field + ' (' + m.account_count + ')'; }).join(', ')) + '</span></div>' +
+      op.undeterminable_records.map(function(u){
+        return '<div class="kv"><span class="kv-k"><span class="badge bad">' + esc(u.missing_field) + '</span> ' + esc(u.account_ref) + '</span><span class="kv-v">' + esc(u.ownership_right_and_capacity === null ? 'no code stated' : u.ownership_right_and_capacity) + ' &ndash; balance ' + esc(u.balance_minor_units === null ? 'unreadable' : u.balance_minor_units) + '<br><span style="color:var(--muted)">' + esc(u.reason) + '</span></span></div>';
+      }).join('');
+
+  document.getElementById('certDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">testing in preceding 12 months</span><span class="kv-v">' + esc(op.certification_assertion.testing_performed_in_preceding_twelve_months === null ? 'not asserted' : op.certification_assertion.testing_performed_in_preceding_twelve_months) + ' <span class="badge warn">CALLER ASSERTION</span></span></div>' +
+    '<div class="kv"><span class="kv-k">assertion_date</span><span class="kv-v">' + esc(op.certification_assertion.assertion_date === null ? 'not supplied' : op.certification_assertion.assertion_date) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">signer_role</span><span class="kv-v">' + esc(op.certification_assertion.signer_role) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">computed_here / verified_here</span><span class="kv-v">false / false</span></div>' +
+    '<div class="kv"><span class="kv-k">signature evaluated by</span><span class="kv-v">' + esc(op.certification_assertion.signature_evaluated_by) + ' at threshold ' + esc(op.certification_assertion.signature_threshold_n) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">certification basis</span><span class="kv-v">' + esc(op.certification_assertion.basis) + '</span></div>' +
+    '<div class="kv"><span class="kv-k">covered status declared</span><span class="kv-v">' + esc(op.covered_institution.declared_by_caller === null ? 'not declared' : op.covered_institution.declared_by_caller) + ' &ndash; asserted here: false<br><span style="color:var(--muted)">' + esc(op.covered_institution.basis) + '</span></span></div>' +
+    '<div class="kv"><span class="kv-k">boundary</span><span class="kv-v">' + esc(op.boundary) + '</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-507-determine-deposit-insurance-coverage',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-507-determine-deposit-insurance-coverage.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+</script>
+</body>
+</html>
