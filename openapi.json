@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**998 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1004 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -61521,6 +61521,246 @@
         "x-source": "chaingraph",
         "x-ap2-export": true,
         "x-mandate-type": "attestation_mandate",
+        "x-ocg-wave": 77
+      }
+    },
+    "/v1/tools/classify_settlement_finality": {
+      "post": {
+        "operationId": "classify_settlement_finality",
+        "summary": "Settlement Finality Classifier",
+        "description": "Vendor-neutral settlement-finality classifier covering three settlement models, each on its own ordered tier ladder: an optimistic challenge window (soft, posted, challengeable, final), a validity proof (soft, committed, proven_unfinalized, final) and single-slot BFT consensus (soft, final). The ladders are deliberately kept separate because a posted batch on an optimistic rollup and a committed batch on a validity rollup are not the same claim, and the ladder actually used is emitted as tier_ladder so the receipt is self-describing. Validity-proof finality is treated as two gates rather than a timer, proof accepted and settlement-layer block finalised, so the in-between position is reported as proven_unfinalized. Adjudicates an asserted finality tier and flags an overstated claim. Chain identity is free text echoed verbatim: there is no chain enum, no named chain profile and no published window table, so the node cannot go stale when a network changes. Evaluation time is caller supplied and the kernel reads no clock. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-492-classify-settlement-finality.html\n**Wave:** 78\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-492-classify-settlement-finality.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "classify_settlement_finality",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-492-classify-settlement-finality.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 78
+      }
+    },
+    "/v1/tools/check_icm_quorum_forgery_risk": {
+      "post": {
+        "operationId": "check_icm_quorum_forgery_risk",
+        "summary": "ICM Quorum Forgery Classifier",
+        "description": "Computes the smallest set of a source Avalanche L1's validators that could jointly sign an Interchain Messaging (ICM / Avalanche Warp Messaging) message the receiving L1 would accept: sorts the caller-transcribed stake weights descending, prefix-sums them, and returns the count at which the receiving chain's accepted stake-weight quorum is first satisfied, alongside that group's cumulative share, an HHI-style stake concentration figure, and a verdict against a caller-declared minimum-colluding floor. Quorum semantics follow avalanchego's Warp signature check (signed weight times 100 greater than or equal to total weight times the quorum percentage), evaluated cross-multiplied so no division rounding moves the boundary. The accepted quorum is a caller input with no baked-in default threshold, because it is the receiving chain's own acceptance policy for that source rather than a statutory number, following the precedent art-445 sets by refusing to bake in a concentration limit. Avalanche finality is sub-second with no reorg window, so the challenge-window arithmetic that applies to optimistic bridges does not transfer; this node picks up where that risk relocates, namely who signed the cross-chain message. Borrows only the art-445 helper pattern (fixed-point 2dp rounding, share-of-total, finite gate, NaN-safe coercion); art-445 computes top-N and per-sector rollups and does not compute a minimum-colluding set. Observes no chain: no RPC call and no P-Chain query, with the validator set transcribed by the caller as opaque identifiers. Zero network, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-494-icm-quorum-forgery-classifier.html\n**Wave:** 78\n**mandate_type:** analytics_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "analytics_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-494-icm-quorum-forgery-classifier.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: analytics_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "check_icm_quorum_forgery_risk",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-494-icm-quorum-forgery-classifier.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "analytics_mandate",
+        "x-ocg-wave": 78
+      }
+    },
+    "/v1/tools/check_safeguarding_reconciliation": {
+      "post": {
+        "operationId": "check_safeguarding_reconciliation",
+        "summary": "CASS 15 Safeguarding Reconciliation Check",
+        "description": "Compares a UK payment or e-money firm's safeguarding requirement (CASS 15.8.29G) against the components of its safeguarding resource (CASS 15.8.26R) for one caller-declared as-of date, and classifies the arithmetic outcome as reconciled, shortfall, or excess against a caller-declared tolerance. Resource components carry the four component types CASS 15.8.26R enumerates: relevant funds bank account, segregated but not yet placed, relevant assets, and insurance or guarantee. Money is handled as integer minor units throughout with 2dp display, an empty or zero figure set resolves to a defined verdict, and any value that is not a usable integer amount is named in rejected_inputs rather than silently dropped. Single-run and stateless: the firm performs its reconciliation no less than once each reconciliation day because CASS 15.8.19R requires it of the firm, and this tool operates nothing, stores nothing, and retains nothing. A shortfall verdict is an arithmetic finding about the figures supplied, never a determination that the firm has breached CASS 15.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-499-check-safeguarding-reconciliation.html\n**Wave:** 78\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-499-check-safeguarding-reconciliation.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "check_safeguarding_reconciliation",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-499-check-safeguarding-reconciliation.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 78
+      }
+    },
+    "/v1/tools/classify_safeguarding_method": {
+      "post": {
+        "operationId": "classify_safeguarding_method",
+        "summary": "CASS 15 Safeguarding Method Classifier",
+        "description": "Classifies each caller-declared funds stream of a UK payment or e-money firm on three questions: whether the funds are relevant funds, whether the safeguarding method asserted for them (segregation under CASS 15.3, or an insurance policy or comparable guarantee under CASS 15.5) is coherent with the designated-account, acknowledgement-letter and instrument facts supplied, and where the supplied facts do not settle the answer. Every judgment_required outcome names what is undetermined, which single input would resolve it, and who decides, so a judgment is never a bare flag. Also computes a SUP 3A safeguarding audit exemption indicator from a relevant funds high-water figure observed over at least 53 weeks. Single-run and stateless. A coherence verdict is a consistency check on the facts as declared, never a determination that the firm has complied with or breached CASS 15, and never an opinion on whether an insurance policy or guarantee is legally effective.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-500-classify-safeguarding-method.html\n**Wave:** 78\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-500-classify-safeguarding-method.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "classify_safeguarding_method",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-500-classify-safeguarding-method.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 78
+      }
+    },
+    "/v1/tools/build_safeguarding_audit_evidence": {
+      "post": {
+        "operationId": "build_safeguarding_audit_evidence",
+        "summary": "CASS 15 Safeguarding Audit Evidence Pack",
+        "description": "Assembles the evidence set a qualified auditor asks a UK payment or e-money firm for at the start of a CASS 15 safeguarding audit: the reconciliation results across the declared audit period, the safeguarding method classification, a schedule of the matters those raise keyed by the individual rule reference with a management response recorded against each item, and the section 27 accountability trail over the firm's own reconciliation export. It is the first consumer of the section 27.4 attested-artifact subject class: the export is a non-OCG producer's sealed output, so its subject identifier is computed by art-502-bind-attested-subject and echoed here verbatim rather than recomputed, because a second implementation of that preimage would be a second canon. The trail counts distinct identities, never records and never signing keys; an unsigned approval record is not conformant evidence and holds the role rather than passing it; an agent identity does not satisfy a human role absent an explicit human-role mandate; and because this surface reads no clock a time-boxed override can never resolve to a silent auto-pass. Stated limit, normative: the attested subject evidences producer pinning, input binding and content integrity, never that the arithmetic inside the firm's export is correct, and the artifact omits replay_verified entirely rather than setting it false because no replay was attempted. This pack expresses neither of the two audit opinions, systems adequacy throughout the period and compliance at the period end, which belong to the safeguarding auditor and are emitted as open slots naming who decides. It records no breach, it is evidence assembled for the engagement rather than a filing, it is not submittable to the FCA, and it does not discharge the audit.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-501-build-safeguarding-audit-evidence.html\n**Wave:** 78\n**mandate_type:** compliance_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-501-build-safeguarding-audit-evidence.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "build_safeguarding_audit_evidence",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-501-build-safeguarding-audit-evidence.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_mandate",
+        "x-ocg-wave": 78
+      }
+    },
+    "/v1/tools/bind_attested_subject": {
+      "post": {
+        "operationId": "bind_attested_subject",
+        "summary": "Attested Artifact Subject Binder",
+        "description": "Computes the SPEC.md section 27.4 attested-artifact subject identifier for the sealed output of a pinned non-OCG producer: a spreadsheet, a reconciliation export, a report builder's PDF, anything with a content-addressed manifest but no kernel, no node and no chain. The identifier is sha256 over the JCS canonicalisation of exactly three members, tool_ref plus inputs_digest plus artifact, on the single canonical hash path; there is no fourth member and no wall clock, run identifier, host or session state enters it, so a verifier that never executed the producer recomputes the same value offline from the echoed preimage. tool_ref.manifest_digest is the chainless analogue of the section 17 kernel_digest and is what makes the producer tamper-evident rather than merely its output; its absence is reported, never assumed. Digest strings are hashed verbatim as declared and are never rewritten, so a malformed digest is named rather than silently normalised. Stated limit, normative: an attested-artifact subject carries no section 18 compute proof and no section 16 or 17 re-execution claim, it never evidences that the producer's arithmetic is correct, and the artifact omits replay_verified entirely rather than setting it false because no replay was attempted. This node identifies a subject so that separately signed section 27 approval records can name it; it signs nothing itself and asserts no regulator acceptance or filing sufficiency.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-502-bind-attested-subject.html\n**Wave:** 77\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-502-bind-attested-subject.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "bind_attested_subject",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-502-bind-attested-subject.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
         "x-ocg-wave": 77
       }
     },
