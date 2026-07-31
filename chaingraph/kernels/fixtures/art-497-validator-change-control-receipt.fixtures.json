@@ -1,0 +1,179 @@
+{
+  "tool_id": "art-497-validator-change-control-receipt",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1 is a clean weight_change with quorum met. Vector 2 is an add with quorum short (SHORT is not itself an exception -- it is a policy outcome, distinct from a structural exception). Vector 3 is a remove with multiple simultaneous exceptions (nonzero posterior weight, no authorizer, unstated quorum policy, missing epoch, zero total stake). Vector 4 is the empty-input finite-gate case: every field resolves to an explicit null/0/false, never NaN or undefined.",
+  "vectors": [
+    {
+      "name": "weight_change_quorum_met",
+      "description": "Validator VAL-07's stake weight moves from 1200 to 1500 of a 50000 total, authorized by 3 named identities against a caller-declared 3-of-3 quorum policy, fully met.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": []
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET"
+      ],
+      "golden_hash": "59219530593d87d14fd62cf73c7381afa5f0384bf674f2a5ab9be1c82ffbfa38"
+    },
+    {
+      "name": "add_event_quorum_short",
+      "description": "New validator VAL-19 added at weight 800 of a 50000 total, but only 1 of a declared 2-required authorizers is named -- quorum SHORT, escalated. SHORT is a policy outcome, not a structural exception, so the exceptions list stays empty.",
+      "policy_parameters": {
+        "validator_ref": "VAL-19",
+        "change_type": "add",
+        "prior_weight": 0,
+        "posterior_weight": 800,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-X"
+        ],
+        "quorum_required": 2,
+        "quorum_achieved": 1,
+        "effective_epoch": "epoch-4822",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-19",
+        "change_type": "add",
+        "change_type_valid": true,
+        "prior_weight": 0,
+        "posterior_weight": 800,
+        "weight_delta": 800,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 1.6,
+        "authorization_chain": [
+          "ID-X"
+        ],
+        "authorized": true,
+        "quorum_required": 2,
+        "quorum_achieved": 1,
+        "quorum_status": "SHORT",
+        "effective_epoch": "epoch-4822",
+        "as_of": "2026-07-30",
+        "exceptions": []
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_SHORT",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "50cfe277770638c38bf399a558be0bd7dffa8fda303ae64bf4aa1b8b53b14ef7"
+    },
+    {
+      "name": "edge_remove_multiple_exceptions",
+      "description": "EDGE CASE: a remove event where the posterior weight was not zeroed (150, not 0), no authorizer was named, the caller's own quorum policy was left unstated (0), the total network stake was not supplied, and the effective epoch was left blank. Every structural problem is reported in exceptions rather than silently dropped or defaulted.",
+      "policy_parameters": {
+        "validator_ref": "VAL-03",
+        "change_type": "remove",
+        "prior_weight": 900,
+        "posterior_weight": 150,
+        "total_stake_weight": 0,
+        "authorizing_identities": [],
+        "quorum_required": 0,
+        "quorum_achieved": 2,
+        "effective_epoch": "",
+        "as_of": "2026-07-31"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-03",
+        "change_type": "remove",
+        "change_type_valid": true,
+        "prior_weight": 900,
+        "posterior_weight": 150,
+        "weight_delta": -750,
+        "total_stake_weight": 0,
+        "share_of_total_pct": null,
+        "authorization_chain": [],
+        "authorized": false,
+        "quorum_required": 0,
+        "quorum_achieved": 2,
+        "quorum_status": "UNQUANTIFIED",
+        "effective_epoch": null,
+        "as_of": "2026-07-31",
+        "exceptions": [
+          "TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT",
+          "REMOVE_WITH_NONZERO_POSTERIOR_WEIGHT",
+          "NO_AUTHORIZING_IDENTITY",
+          "QUORUM_REQUIRED_NOT_STATED",
+          "EFFECTIVE_EPOCH_MISSING"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_UNAUTHORIZED_CHANGE",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "82de001da3bf96567989976bc88120d4f8149a42f4658d661ecf2d6551d55f2d"
+    },
+    {
+      "name": "edge_empty_input",
+      "description": "EDGE CASE: an empty policy_parameters object. Every output field resolves to an explicit null, 0, false, or empty array/string -- never NaN or undefined -- and the record is marked VCC_VALIDATOR_REF_MISSING rather than VCC_RECORDED.",
+      "policy_parameters": {},
+      "output_payload": {
+        "validator_ref": null,
+        "change_type": "unstated",
+        "change_type_valid": false,
+        "prior_weight": 0,
+        "posterior_weight": 0,
+        "weight_delta": 0,
+        "total_stake_weight": 0,
+        "share_of_total_pct": null,
+        "authorization_chain": [],
+        "authorized": false,
+        "quorum_required": null,
+        "quorum_achieved": null,
+        "quorum_status": "UNQUANTIFIED",
+        "effective_epoch": null,
+        "as_of": null,
+        "exceptions": [
+          "UNKNOWN_CHANGE_TYPE",
+          "TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT",
+          "NO_AUTHORIZING_IDENTITY",
+          "QUORUM_REQUIRED_NOT_STATED",
+          "EFFECTIVE_EPOCH_MISSING",
+          "VALIDATOR_REF_MISSING"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_VALIDATOR_REF_MISSING",
+        "VCC_UNAUTHORIZED_CHANGE",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "f26893f666f521c4f1c00389415f7b68e17ee18c00b19a39bd3dfe94c28b733e"
+    }
+  ]
+}

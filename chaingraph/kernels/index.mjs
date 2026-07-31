@@ -431,6 +431,7 @@ import * as art490    from './art-490-fatca-crs-submission-check.kernel.mjs';
 import * as art491    from './art-491-ro-remediation-closure.kernel.mjs';
 import * as art492    from './art-492-classify-settlement-finality.kernel.mjs';
 import * as art494    from './art-494-icm-quorum-forgery-classifier.kernel.mjs';
+import * as art497    from './art-497-validator-change-control-receipt.kernel.mjs';
 import * as art499    from './art-499-check-safeguarding-reconciliation.kernel.mjs';
 import * as art50     from './art-50-ficc-margin-netting-estimator.kernel.mjs';
 import * as art500    from './art-500-classify-safeguarding-method.kernel.mjs';
@@ -937,6 +938,7 @@ export const KERNELS = {
   'art-491-ro-remediation-closure':                           art491,
   'art-492-classify-settlement-finality':                     art492,
   'art-494-icm-quorum-forgery-classifier':                    art494,
+  'art-497-validator-change-control-receipt':                 art497,
   'art-499-check-safeguarding-reconciliation':                art499,
   'art-50-ficc-margin-netting-estimator':                     art50,
   'art-500-classify-safeguarding-method':                     art500,
