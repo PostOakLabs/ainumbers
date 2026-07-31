@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-28"]
+tags: ["compliance_control", "count-30"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-28 tool(s) in this mandate-type group:
+30 tool(s) in this mandate-type group:
 
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -40,3 +40,5 @@ status: stable
 - [Model Replication Diff](../tools/art-488-model-replication-diff.md)
 - [Model Test Battery](../tools/art-489-model-test-battery.md)
 - [Attested Artifact Subject Binder](../tools/art-502-bind-attested-subject.md)
+- [Dual Control Certification Evidence](../tools/art-503-build-dual-control-certification.md)
+- [Deposit Insurance Coverage Determination](../tools/art-507-determine-deposit-insurance-coverage.md)
