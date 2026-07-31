@@ -36,15 +36,26 @@
 // SCOPE AND ITS LIMIT, STATED PLAINLY:
 //   This gate compares the SET OF MEMBERS of `output_payload` on each surface —
 //   top-level always, and nested where both sides resolve a real object (see the
-//   NESTED COMPARISON block). It does NOT compare values. Value parity is not reachable by a
-//   zero-dep static gate: only some page generations expose a pure `compute(pp)`
-//   seam (art-324 does), while others fuse compute and DOM rendering in one
-//   function with no seam at all (art-221 reads `document.getElementById`
-//   inline and never returns a payload). A gate that executed the pages it
-//   could and skipped the rest would pass whole generations silently — the
-//   exact failure mode this gate exists to prevent. Member-set parity applies
-//   uniformly to every generation, and it is the divergence class that actually
-//   exists in the tree today.
+//   NESTED COMPARISON block). Member-set parity does NOT compare VALUES: a field
+//   present on both surfaces with different content passes it silently. Running
+//   every page to get a runtime value is not reachable by a zero-dep static gate
+//   (see the DIRECTION note below on why full execution is out); only some page
+//   generations expose a pure `compute(pp)` seam (art-324 does), while others
+//   fuse compute and DOM rendering with no seam at all (art-221 reads
+//   `document.getElementById` inline and never returns a payload). A gate that
+//   executed the pages it could and skipped the rest would pass whole
+//   generations silently — the exact failure mode this gate exists to prevent.
+//
+// STATIC VALUE COMPARISON (PARITY-VALUE-1, 2026-07-30): a NARROWER, ADDITIVE
+// check that does not need execution. Where a member's value is written as a
+// literal string/number/boolean/null DIRECTLY in both the page's object
+// literal and the kernel's own source text (see the STATIC VALUE COMPARISON
+// block), the two literals are diffed. `art-391`'s `disambiguation` field is
+// exactly this shape: a hardcoded prose string, independently authored on the
+// page and in the kernel, that member-set parity cannot see drift on because
+// both surfaces carry the key. This does not widen member-set parity's blind
+// spot for values baked in by a referenced identifier/constant rather than
+// written inline — that remains open, stated once here rather than hidden.
 //
 // DIRECTION: a kernel member missing from the page is a FAILURE — the kernel is
 // the surface `compute_capability:"server"` names (§12), and the page has no
@@ -163,10 +174,39 @@ function matchBrace(src, open) {
 // observed member set. `opaqueNonSpread` is the opacity that CANNOT be resolved
 // that way (computed key, unrecognized key token, a spread of a non-identifier
 // expression): it keeps `opaque` true no matter how many spreads resolve.
+// Unescape a single- or double-quoted string literal's raw source text
+// (including its quotes) into its runtime value. Handles the escapes that
+// occur in this codebase's prose fields (\', \", \\, \n, \t); anything else
+// passes the character after the backslash through unchanged.
+function parseStringLiteral(raw) {
+  const q = raw[0];
+  const body = raw.slice(1, -1);
+  let out = "";
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === "\\") {
+      const n = body[i + 1];
+      if (n === "n") { out += "\n"; i++; continue; }
+      if (n === "t") { out += "\t"; i++; continue; }
+      if (n === "\\") { out += "\\"; i++; continue; }
+      if (n === q || n === "'" || n === '"' || n === "`") { out += n; i++; continue; }
+      out += n; i++; continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
 function objectLiteralKeys(lit) {
   const keys = [];
   const nested = new Map();
   const valueIdent = new Map();
+  // PART OF PARITY-VALUE-1 (2026-07-30): scalar-literal VALUES, not just member
+  // names — `values.get(key)` is `{kind, text, num}` for a key whose value is a
+  // direct string/number/boolean/null literal. Anything else (identifier, call,
+  // ternary, template with substitution) is deliberately absent, same
+  // discipline as `nested`/`valueIdent` above.
+  const values = new Map();
   const spreads = [];
   let opaqueNonSpread = false;
   let opaque = false;
@@ -238,10 +278,23 @@ function objectLiteralKeys(lit) {
             continue;
           }
         }
-        const im = /^[A-Za-z_$][\w$]*/.exec(lit.slice(j));
-        if (im && lastKey !== null) {
-          const after = lit[skipTrivia(lit, j + im[0].length)];
-          if (after === "," || after === "}") valueIdent.set(lastKey, im[0]);
+        if (lastKey !== null && (lit[j] === "'" || lit[j] === '"')) {
+          const send = skipString(lit, j);
+          values.set(lastKey, { kind: "string", text: parseStringLiteral(lit.slice(j, send)) });
+        } else {
+          const nm = lastKey !== null ? /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b/.exec(lit.slice(j)) : null;
+          const bm = lastKey !== null ? /^(true|false|null)\b/.exec(lit.slice(j)) : null;
+          if (nm) {
+            values.set(lastKey, { kind: "number", text: nm[0], num: Number(nm[0]) });
+          } else if (bm) {
+            values.set(lastKey, { kind: bm[0], text: bm[0] });
+          } else {
+            const im = /^[A-Za-z_$][\w$]*/.exec(lit.slice(j));
+            if (im && lastKey !== null) {
+              const after = lit[skipTrivia(lit, j + im[0].length)];
+              if (after === "," || after === "}") valueIdent.set(lastKey, im[0]);
+            }
+          }
         }
       } else if ((lit[j] === "," || lit[j] === "}") && lastKey !== null) {
         valueIdent.set(lastKey, lastKey); // shorthand `{ pacs008 }`
@@ -255,7 +308,7 @@ function objectLiteralKeys(lit) {
     if (c === "," && d === 1) { expectKey = true; i++; continue; }
     i++;
   }
-  return { keys, opaque, opaqueNonSpread, nested, valueIdent, spreads };
+  return { keys, opaque, opaqueNonSpread, nested, valueIdent, spreads, values };
 }
 
 /* ------------------------------------------------------------------ *
@@ -311,6 +364,7 @@ function resolveSpreads(node, html, seen = new Set()) {
     for (const k of sub.keys) if (!node.keys.includes(k)) node.keys.push(k);
     for (const [k, v] of sub.nested) if (!node.nested.has(k)) node.nested.set(k, v);
     for (const [k, v] of sub.valueIdent) if (!node.valueIdent.has(k)) node.valueIdent.set(k, v);
+    for (const [k, v] of sub.values) if (!node.values.has(k)) node.values.set(k, v);
   }
   node.opaque = node.opaqueNonSpread || unresolved;
   return node;
@@ -322,6 +376,67 @@ function resolveSpreadsDeep(node, html) {
   resolveSpreads(node, html);
   for (const v of node.nested.values()) resolveSpreadsDeep(v, html);
   return node;
+}
+
+/* ------------------------------------------------------------------ *
+ * STATIC VALUE COMPARISON (PARITY-VALUE-1, 2026-07-30) — a field present on
+ * BOTH surfaces with DIFFERENT CONTENT. The set-based checks above are silent
+ * about this: `art-391`'s page and kernel both carry a `disambiguation`
+ * member, member-set parity is satisfied, and the two literal strings can
+ * still drift (they did — page and kernel independently hardcode the same
+ * three wrong node-ID citations, found by ARTREF-FIX-1).
+ *
+ * SCOPE, DELIBERATELY NARROW: this compares a STATIC LITERAL on the page
+ * against a STATIC LITERAL in the kernel SOURCE TEXT — string/number/
+ * boolean/null tokens written directly as a member's value, at the SAME
+ * dotted path on both sides. It does NOT run the kernel and does NOT compare
+ * computed values. Two reasons, not one:
+ *   (1) INDEPENDENT PROVENANCE. The page's literal and the kernel's literal
+ *       are each authored by hand in their own file. Diffing literal text
+ *       against literal text keeps the two sides genuinely independent — the
+ *       failure mode this row was told to watch for is a comparison that
+ *       reads one surface derived from the other. A kernel value obtained by
+ *       RUNNING the kernel is derived FROM the kernel; comparing that to the
+ *       page would still be a real check, but comparing kernel-source-text to
+ *       page-source-text is the narrower, unimpeachable case, and it is
+ *       exactly what the demonstrated defect is (two hardcoded strings).
+ *   (2) NO FIXTURE-VECTOR HEURISTIC NEEDED. A "this computed value is stable
+ *       across fixture vectors, treat it as constant" rule would need >=2
+ *       vectors to be trustworthy (same caveat as `stableObjectPaths` below)
+ *       and most kernels ship 0 or 1 fixture vectors. A literal-vs-literal
+ *       check needs no vectors at all and works uniformly everywhere.
+ * The cost is real and stated once, not hidden: a value baked in by a
+ * COMPUTED constant (e.g. a `const RATE = 60` referenced by identifier, not
+ * written inline in the literal) is invisible to this check on the kernel
+ * side, same as a `nested`-map member is invisible when the value isn't a
+ * literal object. Member-set parity above still catches a member's total
+ * ABSENCE; this catches literal-vs-literal DISAGREEMENT where both authors
+ * bothered to spell the value out by hand — which is the class of drift that
+ * actually happened.
+ * ------------------------------------------------------------------ */
+
+// Walk a { keys, nested, values } node into a Map<dottedPath, literal>.
+function collectLiteralValues(node, prefix, out) {
+  if (!node || !node.keys) return;
+  for (const k of node.keys) {
+    const p = prefix ? `${prefix}.${k}` : k;
+    const v = node.values && node.values.get(k);
+    if (v !== undefined) out.set(p, v);
+    const sub = node.nested && node.nested.get(k);
+    if (sub) collectLiteralValues(sub, p, out);
+  }
+}
+
+function sameLiteral(a, b) {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "string") return a.text === b.text;
+  if (a.kind === "number") return a.num === b.num;
+  return a.text === b.text; // true / false / null
+}
+
+function literalDisplay(v) {
+  const s = v.kind === "string" ? JSON.stringify(v.text) : v.text;
+  return s.length > 120 ? s.slice(0, 117) + "..." : s;
 }
 
 /* ------------------------------------------------------------------ *
@@ -422,6 +537,7 @@ function pagePayloadKeys(html) {
   const keys = new Set();
   const notes = [];
   const nested = new Map();
+  const values = new Map();
   let opaque = false;
   let resolved = false;
   let wallClock = false;
@@ -439,6 +555,7 @@ function pagePayloadKeys(html) {
       nested: new Map(a.nested),
       valueIdent: new Map([...a.valueIdent, ...b.valueIdent]),
       spreads: [...new Set([...(a.spreads || []), ...(b.spreads || [])])],
+      values: new Map([...(a.values || []), ...(b.values || [])]),
     };
     for (const [k, v] of b.nested) out.nested.set(k, mergeNode(out.nested.get(k), v));
     return out;
@@ -482,6 +599,7 @@ function pagePayloadKeys(html) {
     if (node.opaque) opaque = true;
     for (const k of node.keys) keys.add(k);
     for (const [k, v] of node.nested) nested.set(k, mergeNode(nested.get(k), v));
+    for (const [k, v] of node.values) values.set(k, v);
     resolveIdentNested(node);
     // A wall-clock read INSIDE the sealed payload makes `execution_hash`
     // non-reproducible for identical input. Not this gate's failure class
@@ -627,7 +745,7 @@ function pagePayloadKeys(html) {
   // `opaque` is REPORTED, not swallowed (GATE-SPREAD-OPAQUE-1). It used to be
   // computed here, mentioned in a note, and then dropped on the floor — the
   // caller diffed a LOWER BOUND as though it were a complete member set.
-  return { keys, notes, nested, opaque };
+  return { keys, notes, nested, opaque, values };
 }
 
 /* ------------------------------------------------------------------ *
@@ -845,13 +963,41 @@ for (const id of ids) {
     .sort();
   const skippedSubtrees = [...kern.stableObjPaths].filter((p) => !pageObjPaths.has(p)).sort();
 
+  // STATIC VALUE COMPARISON (see the block above) — kernel SOURCE TEXT literal
+  // vs page literal, at any dotted path present as a scalar literal on BOTH
+  // sides. Independent of the runtime membership check above: it reads the
+  // kernel's own file text, never the value kernelPayloadKeys() computed.
+  const kernSrcPath = join(KERNELS, `${id}.kernel.mjs`);
+  const valueMismatches = [];
+  let valueCompareNote = null;
+  if (existsSync(kernSrcPath)) {
+    const kernStatic = pagePayloadKeys(readFileSync(kernSrcPath, "utf8"));
+    if (!kernStatic.keys) {
+      valueCompareNote = `value comparison SKIPPED: kernel output_payload literal not statically resolvable (${kernStatic.notes.join("; ")})`;
+    } else if (kernStatic.opaque) {
+      valueCompareNote = "value comparison SKIPPED: kernel output_payload literal contains an unresolvable spread or computed key";
+    } else {
+      const kernValues = new Map();
+      collectLiteralValues({ keys: [...kernStatic.keys], nested: kernStatic.nested, values: kernStatic.values }, "", kernValues);
+      const pageValues = new Map();
+      collectLiteralValues({ keys: [...page.keys], nested: page.nested, values: page.values }, "", pageValues);
+      for (const [p, kv] of kernValues) {
+        const pv = pageValues.get(p);
+        if (pv !== undefined && !sameLiteral(kv, pv)) {
+          valueMismatches.push({ path: p, kernel: literalDisplay(kv), page: literalDisplay(pv) });
+        }
+      }
+    }
+  }
+
   const notes = [...page.notes];
   if (skippedSubtrees.length) {
     notes.push(`nested comparison SKIPPED under: ${skippedSubtrees.join(", ")} (page side is not a resolvable object literal there)`);
   }
   for (const n of kern.notes) if (n.startsWith("nested comparison SKIPPED")) notes.push(n);
+  if (valueCompareNote) notes.push(valueCompareNote);
 
-  if (missing.length || nestedMissing.length) {
+  if (missing.length || nestedMissing.length || valueMismatches.length) {
     divergent.push({
       id,
       scope,
@@ -859,6 +1005,7 @@ for (const id of ids) {
       kernel: `repo/chaingraph/kernels/${id}.kernel.mjs`,
       missing_from_page: missing,
       ...(nestedMissing.length ? { nested_missing_from_page: nestedMissing } : {}),
+      ...(valueMismatches.length ? { value_mismatches: valueMismatches } : {}),
       ...shardMeta(id),
       ...(notes.length ? { page_notes: notes } : {}),
     });
@@ -909,11 +1056,12 @@ if (AS_JSON) {
     for (const c of pageCollisions) console.log(`  ${c}`);
   }
   if (divergent.length) {
-    console.log(`\nFAIL - page omits an output_payload member its kernel emits:`);
+    console.log(`\nFAIL - page omits an output_payload member its kernel emits, or the two literal values disagree:`);
     for (const d of divergent) {
       console.log(`  ${d.page}  [${d.scope}]`);
       if (d.missing_from_page.length) console.log(`    missing: ${d.missing_from_page.join(", ")}`);
       if (d.nested_missing_from_page) console.log(`    missing (nested): ${d.nested_missing_from_page.join(", ")}`);
+      if (d.value_mismatches) for (const vm of d.value_mismatches) console.log(`    value mismatch at ${vm.path}: kernel=${vm.kernel}  page=${vm.page}`);
       console.log(`    kernel : ${d.kernel}  [gpu=${d.gpu} status=${d.status} cc=${d.compute_capability}]`);
       if (d.page_notes) for (const n of d.page_notes) console.log(`    note   : ${n}`);
     }
