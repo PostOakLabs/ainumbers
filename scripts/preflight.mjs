@@ -163,6 +163,8 @@ const GATES = [
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
+  ['Kernel as-of staleness ratchet (ASOF-GATE-1)', 'node scripts/check-kernel-asof-staleness.mjs'],
+  ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
   // HELMGATE-DECOUPLE-1: scoped — only run when this push touches a helm-relevant
   // path (see helmPathsTouched() above). Undeterminable fails open (gates run).
   ...(HELM_SCOPE_TOUCHED ? [
