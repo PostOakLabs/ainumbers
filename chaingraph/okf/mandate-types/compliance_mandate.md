@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-290"]
+tags: ["compliance_mandate", "count-291"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-290 tool(s) in this mandate-type group:
+291 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -293,6 +293,7 @@ status: stable
 - [Swift CSP Assessor Independence Eligibility](../tools/art-487-assessor-independence-check.md)
 - [FATCA/CRS Submission Conformance Check](../tools/art-490-fatca-crs-submission-check.md)
 - [Settlement Finality Classifier](../tools/art-492-classify-settlement-finality.md)
+- [L1 Continuous-Fee Runway Model](../tools/art-496-l1-continuous-fee-runway.md)
 - [CASS 15 Safeguarding Reconciliation Check](../tools/art-499-check-safeguarding-reconciliation.md)
 - [CASS 15 Safeguarding Method Classifier](../tools/art-500-classify-safeguarding-method.md)
 - [CASS 15 Safeguarding Audit Evidence Pack](../tools/art-501-build-safeguarding-audit-evidence.md)
