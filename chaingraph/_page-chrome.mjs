@@ -92,6 +92,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Guides</div>
+        <a href="${cg}guide-avalanche.html">Avalanche L1 / Evergreen</a>
         <a href="${cg}guide-tempo.html">Tempo Network</a>
         <a href="${cg}guide-prov-dm.html">W3C PROV-DM</a>
         <a href="${cg}guide-buildtype.html">buildType / SLSA</a>
