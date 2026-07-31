@@ -198,7 +198,7 @@ export function compute(pp) {
     resolved_reasons,
     receipt_metadata,
     compliance_flags_raised: compliance_flags.length,
-    regulatory_basis: 'Reg B §1002.9 (12 CFR Part 1002); ECOA 15 USC §1691c; FCRA §615(a) 15 USC §1681m; CFPB Circular 2022-03; CFPB Circular 2023-03',
+    regulatory_basis: 'Reg B §1002.9 (12 CFR Part 1002); ECOA 15 USC §1691(d); FCRA §615(a) 15 USC §1681m(a); CFPB Circular 2022-03; CFPB Circular 2023-03',
     table_version: 'REG-B-NOTICE-BUILDER-2024-CFPB-CIRC-2023-03',
     table_source: 'CFPB Circular 2022-03 (Aug 2022); CFPB Circular 2023-03 (Sep 2023); FICO public reason codes (myFICO.com); VantageScore public reason codes (vantagescore.com)',
     pii_note: 'All inputs are processed locally in your browser. No data is transmitted. Use synthetic placeholders only.',

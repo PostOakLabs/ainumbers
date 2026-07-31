@@ -129,7 +129,7 @@ export function compute(pp) {
     action_taken,
     credit_score_used,
     compliance_score,
-    regulatory_basis: 'Reg B §1002.9(a)(2)(i) (12 CFR Part 1002); ECOA 15 USC §1691c; FCRA §615(a) 15 USC §1681m; CFPB Circular 2022-03; CFPB Circular 2023-03',
+    regulatory_basis: 'Reg B §1002.9(a)(2)(i) (12 CFR Part 1002); ECOA 15 USC §1691(d); FCRA §615(a) 15 USC §1681m(a); CFPB Circular 2022-03; CFPB Circular 2023-03',
     table_version: 'REG-B-ADVERSE-ACTION-2024-CFPB-CIRC-2023-03',
     table_source: 'CFPB Circular 2022-03 (Aug 2022); CFPB Circular 2023-03 (Sep 2023); 12 CFR §1002.9; 15 USC §1681m',
     pii_note: 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data.',
