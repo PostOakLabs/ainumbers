@@ -12,7 +12,7 @@ export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type
 // ZERO PII: entity IDs, balances, rates, and period parameters only.
 
 const TABLE_VERSION = 'OECD-TP-IHB-INTEREST-ALLOC-2022';
-const TABLE_SOURCE  = 'OECD Transfer Pricing Guidelines 2022 Ch.I (arm\'s-length standard) + Ch.VIII (IHB cash pools); SWIFT IHB banking guide; ECB TARGET2 compensation methodology';
+const TABLE_SOURCE  = 'OECD Transfer Pricing Guidelines 2022 Ch.I (arm\'s-length standard) + Ch.X §C (IHB cash pools); SWIFT IHB banking guide; ECB TARGET2 compensation methodology';
 
 // Day-count fraction computation (pure arithmetic, no transcendentals)
 function dayCountFraction(days, convention) {
@@ -120,7 +120,7 @@ export function compute(params) {
     oecd_tp_compliant:          true,
     table_version:              TABLE_VERSION,
     table_source:               TABLE_SOURCE,
-    regulatory_basis:           'Interest allocation per OECD TP Guidelines 2022 Ch.VIII (cash pooling, arm\'s-length principle); pool leader earns spread between lending/borrowing rates; arm_length_rate should reflect comparable uncontrolled transactions. ACT/360 default per SWIFT TARGET2.',
+    regulatory_basis:           'Interest allocation per OECD TP Guidelines 2022 Ch.X §C (cash pooling, arm\'s-length principle); pool leader earns spread between lending/borrowing rates; arm_length_rate should reflect comparable uncontrolled transactions. Day-count per ISDA Definitions 2006 §4.16; ACT/360 default per SWIFT TARGET2. Withholding tax per member jurisdiction. ZERO PII.',
     pii_note:                   'ZERO PII: entity IDs, aggregate balances, rates, and period parameters only. No account holder, ultimate beneficiary, or personal data enters this kernel.',
     not_legal_advice:           'Not tax, legal, or accounting advice. IHB structures require review by qualified transfer-pricing advisors and local tax counsel.',
   };

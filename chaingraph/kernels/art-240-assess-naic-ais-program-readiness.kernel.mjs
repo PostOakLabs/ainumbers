@@ -10,8 +10,11 @@ export const meta = {
 };
 
 // ─── NAIC AI Model Bulletin Readiness Diagnostic ─────────────────────────────
-// Diagnostic scoring tool mapped to the NAIC AI Model Bulletin (adopted Aug 2020,
-// most recently updated 2023) and the NAIC AI Systems (AIS) Evaluation Tool.
+// Diagnostic scoring tool mapped to the NAIC Model Bulletin on the Use of Artificial
+// Intelligence Systems by Insurers (adopted 4 Dec 2023) and the NAIC AI Systems
+// Evaluation Tool (exposure draft v4.0, Sep 2025; still in a 12-state pilot).
+// NOTE: the Aug 2020 NAIC instrument is the Principles on Artificial Intelligence,
+// which is a separate document from the 2023 Model Bulletin.
 // Tracks state adoption: 24+ states have adopted or substantially adopted the
 // bulletin as of mid-2026; 12-state market-conduct exam pilot ran Jan-Sep 2026
 // (NAIC press release Jan 2026).
@@ -28,8 +31,9 @@ export const meta = {
 // 3=Fully implemented. Total 0-18; readiness tier = Green/Yellow/Red.
 //
 // Regulatory basis:
-//   NAIC AI Model Bulletin (Aug 2020, rev. 2023)
-//   NAIC AI Systems (AIS) Evaluation Tool (2024 edition)
+//   NAIC Model Bulletin on the Use of AI Systems by Insurers (adopted 4 Dec 2023)
+//   NAIC Principles on Artificial Intelligence (adopted 14 Aug 2020)
+//   NAIC AI Systems Evaluation Tool (exposure draft v4.0, Sep 2025; not yet adopted)
 //   NAIC Market Regulation Handbook (2024) — exam procedures for AI systems
 //   12-state market-conduct exam pilot 2026 (NAIC; verify state-specific adoption)
 //   table_version: "NAIC-AIS-BULLETIN-2023-R1"
@@ -107,9 +111,9 @@ export function compute(pp) {
     do_now: do_now.length > 0 ? do_now : ['All dimensions at Partially Implemented or above — focus on documentation and exam-evidence preparation.'],
     adopted_states_note,
     exam_pilot_note: '12-state market-conduct exam pilot ran Jan-Sep 2026 per NAIC. Verify current exam schedule with your state regulator.',
-    regulatory_basis: 'NAIC AI Model Bulletin (Aug 2020, rev. 2023); NAIC AI Systems (AIS) Evaluation Tool (2024 edition); NAIC Market Regulation Handbook (2024)',
+    regulatory_basis: 'NAIC Model Bulletin on the Use of Artificial Intelligence Systems by Insurers (adopted 4 Dec 2023); NAIC Principles on Artificial Intelligence (adopted 14 Aug 2020); NAIC AI Systems Evaluation Tool (exposure draft v4.0, Sep 2025; 12-state pilot, not yet adopted); NAIC Market Regulation Handbook (2024)',
     table_version: 'NAIC-AIS-BULLETIN-2023-R1',
-    table_source: 'NAIC AI Model Bulletin (adopted Aug 2020, updated 2023); NAIC AI Systems Evaluation Tool (2024 ed., naic.org)',
+    table_source: 'NAIC Model Bulletin on the Use of Artificial Intelligence Systems by Insurers (adopted 4 Dec 2023, naic.org); NAIC AI Systems Evaluation Tool (exposure draft v4.0, Sep 2025; anticipated adoption 2026 Fall National Meeting, naic.org)',
   };
 
   return { output_payload, compliance_flags };

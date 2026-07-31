@@ -121,7 +121,7 @@ export function compute(pp) {
     applicable_regime,
     recommendation,
     status_asof: '2026-06-20 — verify EU SFD 98/26/EC, UCC Art.12, CPMI-IOSCO PFMI Principle 8 against current regulatory guidance',
-    note: 'Educational classification — not legal or settlement advice. Tier 1 = legally final (CBM/SFD); Tier 2 = conditional (deposit token/PFMI); Tier 3 = contractual (stablecoin); Tier 4 = unclear/none. Gates wts-cross-network-dvp atomicity check.',
+    note: 'Educational classification — not legal or settlement advice. Tier 1 = legally final (CBM/SFD); Tier 2 = conditional (deposit token/PFMI); Tier 3 = contractual (stablecoin); Tier 4 = unclear/none. Gates wholesale-settlement-cross-network-dvp atomicity check.',
   };
 
   const compliance_flags = [];
