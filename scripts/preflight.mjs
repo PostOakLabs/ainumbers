@@ -28,6 +28,39 @@ const changedIdx = process.argv.indexOf('--changed');
 const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
 const BUDGET_MS = 60_000;
 
+// HELMGATE-DECOUPLE-1 (2026-07-31): the 4 helm drift/freshness gates below
+// assert helm.html against helm/version.json + helm/guide-freshness.json —
+// state that goes stale on a schedule set by a SEPARATE repo's release job,
+// not by anything in a given site push. Blocking every unrelated site push
+// on that staleness caused --no-verify once already (board/done/AVAX-PERM-1.md)
+// and blocked PR #766. Scope them to pushes that actually touch helm-relevant
+// paths — the release job's own push to helm/version.json IS such a push, so
+// the gate still fires exactly where drift can originate; a PR touching only
+// tools/guides/kernels never trips it. Undeterminable (e.g. no git history to
+// diff) fails OPEN (gates still run) — this narrows blast radius, it never
+// weakens what the gate itself checks.
+function helmPathsTouched() {
+  const isHelmPath = (f) => f === 'helm.html' || f.startsWith('helm/') ||
+    f === 'scripts/check-helm-version-drift.mjs' || f === 'scripts/gen-helm-guide-freshness.mjs';
+  try {
+    const touched = new Set();
+    execSync('git diff --name-only HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    try {
+      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().split('\n').forEach(f => f && touched.add(f));
+    } catch { /* no upstream configured — local/staged diff above is what we have */ }
+    return [...touched].some(isHelmPath);
+  } catch {
+    return true; // can't determine — fail open, run the gates
+  }
+}
+const HELM_SCOPE_TOUCHED = helmPathsTouched();
+
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
   ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
@@ -130,10 +163,16 @@ const GATES = [
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
-  ['Helm release/version drift (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/check-helm-version-drift.mjs'],
-  ['Helm release/version drift fixture proof', 'node scripts/check-helm-version-drift.test.mjs'],
-  ['Helm guide freshness (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/gen-helm-guide-freshness.mjs --check'],
-  ['Helm guide freshness fixture proof', 'node scripts/gen-helm-guide-freshness.test.mjs'],
+  // HELMGATE-DECOUPLE-1: scoped — only run when this push touches a helm-relevant
+  // path (see helmPathsTouched() above). Undeterminable fails open (gates run).
+  ...(HELM_SCOPE_TOUCHED ? [
+    ['Helm release/version drift (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/check-helm-version-drift.mjs'],
+    ['Helm release/version drift fixture proof', 'node scripts/check-helm-version-drift.test.mjs'],
+    ['Helm guide freshness (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/gen-helm-guide-freshness.mjs --check'],
+    ['Helm guide freshness fixture proof', 'node scripts/gen-helm-guide-freshness.test.mjs'],
+  ] : [
+    ['Helm gates (HELMGATE-DECOUPLE-1: no helm-path changes, skipped)', 'node -e "1"'],
+  ]),
   ['§20 anchor binding (unit)',    'node chaingraph/kernels/anchor-binding.test.mjs'],
   ['§13.12 SD-JWT round-trip',     'node chaingraph/exporters/sd-export-roundtrip.test.mjs'],
   ['Chain runners up-to-date',    'node scripts/gen-chain-runners.mjs --check'],
