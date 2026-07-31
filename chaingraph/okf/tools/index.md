@@ -448,7 +448,9 @@ status: stable
 - [CARF Status Message Disposition](./art-505-dispose-carf-status-message.md) — `dispose_carf_status_message`
 - [T+1 Post-Trade Timing Classifier](./art-506-classify-t1-posttrade-timing.md) — `classify_t1_posttrade_timing`
 - [Deposit Insurance Coverage Determination](./art-507-determine-deposit-insurance-coverage.md) — `determine_deposit_insurance_coverage`
+- [Securitisation Payment Waterfall Recomputation](./art-509-recompute-payment-waterfall.md) — `recompute_payment_waterfall`
 - [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md) — `estimate_cross_margin_benefit`
+- [Article 5 Due Diligence Evidence Record](./art-510-build-art5-diligence-evidence.md) — `build_art5_diligence_evidence`
 - [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md) — `run_digital_trade_fit`
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`

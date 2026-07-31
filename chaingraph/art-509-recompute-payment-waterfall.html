@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Securitisation Payment Waterfall Recomputation &middot; ART-509 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes a securitisation payment waterfall for one stated period from the available funds and the priority ladder you already hold, then compares the result against what the investor report says was paid.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-509-recompute-payment-waterfall.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.open{background:rgba(58,82,112,.2);color:var(--body);border:1px solid var(--border-2)}
+.ruleset-pin{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.4rem .75rem;display:inline-block;margin:8px 0}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-509 · Securitisation Payment Waterfall Recomputation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-509 &middot; Securitisation &middot; Investor Due Diligence</div>
+  <h1>Securitisation Payment Waterfall Recomputation</h1>
+  <p class="sub">Runs the priority ladder from your own transaction documents against the funds available for one period, and tells you what each step should have received. Where you also paste what the investor report says was paid, the two are compared step by step. The left side of that comparison is computed here from the ladder, not copied from the report, so it is an independent recomputation rather than a re-adding of published totals. Pairs with the <a href="art-510-build-art5-diligence-evidence.html">ART-510 Article 5 Due Diligence Evidence Record</a>.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Caller supplied ladder</span>
+    <span class="flag info">Caller supplied thresholds</span>
+    <span class="flag">Fixed-point money math</span>
+    <span class="flag">No disclosure template read</span>
+  </div>
+  <div class="ruleset-pin" id="rulesetPin">Basis: the priority of payments as you declare it from the transaction documents &middot; no deal library, no bundled ladder, no market convention threshold &middot; field set v1.0.0</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Loan level securitisation data is confidential and often personal, and this arithmetic needs none of it: aggregate available funds and a declared ladder are the whole input surface. Fields this page does not map are ignored and never appear in the receipt. A shortfall, or a difference against the investor report, is an arithmetic finding about the ladder and figures you supply. Whether the deal was paid correctly is for the transaction documents, the cash manager and the trustee. This page computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Period and ladder reference</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo deal below is synthetic. It is not a copy of any real transaction, and it is already loaded so you can press Run without entering anything of your own.</p>
+    <div class="grid2">
+      <div><label class="fld">Period label (your input, never a clock read)</label><input type="text" id="periodLabel" value="2025-07 collection period"></div>
+      <div><label class="fld">Deal reference</label><input type="text" id="dealRef" value="SYNTH-2025-A (synthetic)"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Currency</label><input type="text" id="currency" value="EUR"></div>
+      <div><label class="fld">Ladder document reference</label><input type="text" id="ladderDoc" value="SYNTHETIC PROSPECTUS SYNTH-2025-A"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Ladder section reference</label><input type="text" id="ladderSection" value="Priority of Payments, items a to f"></div>
+      <div><label class="fld">Ladder version and date</label><input type="text" id="ladderVersion" value="1.0 | 2025-05-01"></div>
+    </div>
+
+    <div class="section-head">Available funds by ledger</div>
+    <label class="fld">JSON array: ledger, amount_minor_units. Supply one row if you do not split interest and principal.</label>
+    <textarea id="fundsJson" style="min-height:90px">[
+  { "ledger": "interest", "amount_minor_units": 12500000 }
+]</textarea>
+
+    <div class="section-head">Priority ladder</div>
+    <label class="fld">JSON array in payment order: step_id, label, ledger, amount_due_minor_units, optional cap_minor_units, optional amount_source of recomputed or asserted</label>
+    <textarea id="ladderJson">[
+  { "step_id": "a", "label": "Trustee fee", "ledger": "interest", "amount_due_minor_units": 150000, "amount_source": "asserted" },
+  { "step_id": "b", "label": "Senior expenses", "ledger": "interest", "amount_due_minor_units": 350000, "amount_source": "asserted", "cap_minor_units": 400000 },
+  { "step_id": "c", "label": "Class A interest", "ledger": "interest", "amount_due_minor_units": 6200000 },
+  { "step_id": "d", "label": "Cash reserve replenishment", "ledger": "interest", "amount_due_minor_units": 4000000, "cap_minor_units": 4000000 },
+  { "step_id": "e", "label": "Class B interest", "ledger": "interest", "amount_due_minor_units": 2400000 }
+]</textarea>
+
+    <div class="section-head">Tests</div>
+    <label class="fld">JSON array, optional. Each test carries YOUR threshold and, where the documents divert on failure, the step ids that failure suppresses.</label>
+    <textarea id="testsJson" style="min-height:110px">[
+  { "test_id": "credit-enhancement", "label": "Credit enhancement test", "comparator": "gte",
+    "measured_numerator": 1450, "measured_denominator": 10000,
+    "threshold_numerator": 1000, "threshold_denominator": 10000 }
+]</textarea>
+
+    <div class="section-head">What the investor report says was paid</div>
+    <label class="fld">JSON array, optional: step_id, amount_minor_units. Leave empty and the run is reported as recompute only, which is not agreement.</label>
+    <textarea id="assertedJson" style="min-height:110px">[
+  { "step_id": "a", "amount_minor_units": 150000 },
+  { "step_id": "b", "amount_minor_units": 350000 },
+  { "step_id": "c", "amount_minor_units": 6200000 },
+  { "step_id": "d", "amount_minor_units": 4000000 },
+  { "step_id": "e", "amount_minor_units": 1800000 }
+]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runWaterfall()">&#9654; Run Waterfall Recomputation</button>
+      <button class="ghost" onclick="loadRecomputeOnlyDemo()">Load recompute only demo</button>
+      <button class="ghost" onclick="loadTestBreachDemo()">Load test breach demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Allocation down the ladder</div>
+      <div id="stepsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Residual by ledger</div>
+      <div id="residualDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Tests</div>
+      <div id="testsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Against the investor report</div>
+      <div id="diffDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not forecast, project or model a scenario. It recomputes a stated period and nothing else. It performs no credit or rating analysis, it does not verify the completeness of the figures you supply, and it makes no assertion about whether the transaction complies with anything. It reads no Article 7 disclosure template, checks no field set and asserts conformance with no annex: the priority of payments comes from the transaction documents you already hold, which is exactly why the disclosure templates being revised cannot reach this arithmetic. Steps you mark as asserted, such as a trustee fee set by a fee letter that is not public, are allocated exactly as you supply them and are reported as asserted inputs rather than as figures derived here.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Feeds <a href="art-510-build-art5-diligence-evidence.html">ART-510 Article 5 Due Diligence Evidence Record</a>, where a recomputation for the period is the evidence behind the ongoing monitoring duty. See also <a href="art-447-securitization-risk-retention-check.html">ART-447 Securitisation Risk Retention Check</a>.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-509-recompute-payment-waterfall',
+  version: '1.0.0',
+  mcp_name: 'recompute_payment_waterfall',
+  title: 'Securitisation Payment Waterfall Recomputation',
+  description: 'Recomputes a securitisation payment waterfall for one stated period from caller supplied available funds and a caller declared priority ladder, and compares the result against the allocations an investor report asserts.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_payment_waterfall',
+    description: 'Allocates caller supplied available funds down a caller declared priority ladder for one stated period, reporting paid, shortfall, the first unfunded step, test outcomes and a field by field comparison against asserted allocations.',
+    inputSchema: { type: 'object', properties: {
+      period_label: {type:'string'}, deal_ref: {type:'string'}, currency: {type:'string'},
+      ladder_ref: {type:'object'}, available_funds: {type:'array'}, priority_ladder: {type:'array'},
+      tests: {type:'array'}, asserted_allocations: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-509-recompute-payment-waterfall.kernel.mjs --- */
+var CITE_MAPPED_BY = 'AINumbers SECZ-K-1';
+var CITE_MAPPED_AT = '2026-07-31';
+var IN_FORCE_FROM = '2019-01-01';
+var SECR_URI = 'https://eur-lex.europa.eu/eli/reg/2017/2402/oj';
+function cite(id){ return { scheme:'eu-regulation', id:id, in_force_from:IN_FORCE_FROM, mapped_by:CITE_MAPPED_BY, mapped_at:CITE_MAPPED_AT, uri:SECR_URI }; }
+var CITATIONS = {
+  investor_report: cite('Regulation (EU) 2017/2402 Article 7(1)(e)'),
+  investor_diligence: cite('Regulation (EU) 2017/2402 Article 5(4)'),
+};
+var BASIS = {
+  basis_id: 'CALLER-SUPPLIED-LADDER',
+  basis_label: 'Priority of payments as declared by the caller from the transaction documents',
+  ladder_source: 'transaction_documents',
+  template_conformance_checked: false,
+  template_note: 'No Article 7 disclosure template is read, validated or asserted anywhere in this tool. The ladder comes from the deal documents the investor already holds.',
+  field_set_version: '1.0.0',
+};
+var COMPARATORS = ['gte','gt','lte','lt','eq'];
+var MINOR_UNIT_EXPONENT = 2;
+var MINOR_SCALE = 100;
+
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where,
+    reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v),
+    supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / MINOR_SCALE); var frac = abs - whole * MINOR_SCALE;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(MINOR_UNIT_EXPONENT, '0');
+}
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function strOrNull(v){ return isNonEmptyString(v) ? v.trim() : null; }
+function arr(v){ return Array.isArray(v) ? v : []; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+function compareInts(left, right, comparator){
+  if (comparator === 'gte') return left >= right;
+  if (comparator === 'gt') return left > right;
+  if (comparator === 'lte') return left <= right;
+  if (comparator === 'lt') return left < right;
+  return left === right;
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var period_label = str(pp.period_label, 'UNSTATED');
+  var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'EUR';
+  var deal_ref = str(pp.deal_ref, 'UNSTATED');
+
+  var ladderRefIn = obj(pp.ladder_ref);
+  var ladder_ref = {
+    document_ref: str(ladderRefIn.document_ref, 'UNSTATED'),
+    section_ref: str(ladderRefIn.section_ref, 'UNSTATED'),
+    version: str(ladderRefIn.version, 'UNSTATED'),
+    dated: str(ladderRefIn.dated, 'UNSTATED'),
+    supplied: pp.ladder_ref !== undefined && pp.ladder_ref !== null,
+  };
+
+  var suppliedFunds = arr(pp.available_funds);
+  var ledgers = [];
+  var pools = {};
+  var i, j;
+  if (suppliedFunds.length === 0 && isSafeIntAmount(pp.available_funds_minor_units)) {
+    ledgers.push({ ledger: 'combined', opening_minor_units: pp.available_funds_minor_units });
+    pools.combined = pp.available_funds_minor_units;
+  } else {
+    for (i = 0; i < suppliedFunds.length; i++) {
+      var f = obj(suppliedFunds[i]);
+      var ledger = str(f.ledger, 'LEDGER-' + (i + 1));
+      var amount = toMinorUnits(f.amount_minor_units !== undefined ? f.amount_minor_units : f.amount,
+        'available_funds[' + i + '].amount_minor_units', rejected_inputs);
+      if (pools[ledger] === undefined) {
+        pools[ledger] = amount;
+        ledgers.push({ ledger: ledger, opening_minor_units: amount });
+      } else {
+        pools[ledger] += amount;
+        for (j = 0; j < ledgers.length; j++) if (ledgers[j].ledger === ledger) ledgers[j].opening_minor_units = pools[ledger];
+      }
+    }
+  }
+  if (ledgers.length === 0) {
+    ledgers.push({ ledger: 'combined', opening_minor_units: 0 });
+    pools.combined = 0;
+    rejected_inputs.push({ where: 'available_funds', reason: 'absent', supplied: null });
+  }
+  var default_ledger = ledgers[0].ledger;
+  var total_available_minor_units = 0;
+  for (i = 0; i < ledgers.length; i++) total_available_minor_units += ledgers[i].opening_minor_units;
+
+  var suppressed_by = {};
+  var test_results = arr(pp.tests).map(function(raw, i){
+    var t = obj(raw);
+    var test_id = str(t.test_id, 'TEST-' + (i + 1));
+    var comparatorSupplied = str(t.comparator, '');
+    var comparator = COMPARATORS.indexOf(comparatorSupplied) !== -1 ? comparatorSupplied : null;
+    if (comparator === null) {
+      rejected_inputs.push({ where: 'tests[' + i + '].comparator',
+        reason: comparatorSupplied === '' ? 'absent' : 'not one of gte, gt, lte, lt, eq',
+        supplied: comparatorSupplied === '' ? null : comparatorSupplied });
+    }
+    var isRatio = t.measured_numerator !== undefined || t.threshold_numerator !== undefined;
+    var outcome, basis_detail, measured = null, threshold = null;
+    if (comparator === null) {
+      outcome = 'undetermined';
+      basis_detail = 'No usable comparator was supplied, so the test cannot be evaluated. It is reported rather than assumed to pass.';
+    } else if (isRatio) {
+      var mn = toMinorUnits(t.measured_numerator, 'tests[' + i + '].measured_numerator', rejected_inputs);
+      var md = toMinorUnits(t.measured_denominator, 'tests[' + i + '].measured_denominator', rejected_inputs);
+      var tn = toMinorUnits(t.threshold_numerator, 'tests[' + i + '].threshold_numerator', rejected_inputs);
+      var td = toMinorUnits(t.threshold_denominator, 'tests[' + i + '].threshold_denominator', rejected_inputs);
+      measured = { form: 'ratio', numerator: mn, denominator: md };
+      threshold = { form: 'ratio', numerator: tn, denominator: td };
+      if (md === 0 || td === 0) {
+        outcome = 'undetermined';
+        basis_detail = 'A ratio denominator supplied for this test is zero, so the ratio is not defined. The test is reported as undetermined rather than resolved in either direction.';
+      } else {
+        var flip = (md < 0) !== (td < 0);
+        var left = mn * td;
+        var right = tn * md;
+        var pass = compareInts(flip ? right : left, flip ? left : right, comparator);
+        outcome = pass ? 'pass' : 'fail';
+        basis_detail = 'Ratio test evaluated by integer cross-multiplication against the threshold supplied for it. No division is performed on the comparison path.';
+      }
+    } else {
+      var mv = toMinorUnits(t.measured_value_minor_units, 'tests[' + i + '].measured_value_minor_units', rejected_inputs);
+      var tv = toMinorUnits(t.threshold_minor_units, 'tests[' + i + '].threshold_minor_units', rejected_inputs);
+      measured = { form: 'amount', amount_minor_units: mv, amount_display: display(mv) };
+      threshold = { form: 'amount', amount_minor_units: tv, amount_display: display(tv) };
+      outcome = compareInts(mv, tv, comparator) ? 'pass' : 'fail';
+      basis_detail = 'Amount test evaluated as an integer minor-unit comparison against the threshold supplied for it.';
+    }
+    var suppress_step_ids = arr(t.on_fail_suppress_step_ids).map(function(s){ return strOrNull(s); }).filter(function(s){ return s !== null; });
+    var divert_declared = suppress_step_ids.length > 0;
+    var divert_applied = outcome === 'fail' && divert_declared;
+    if (divert_applied) {
+      for (var k = 0; k < suppress_step_ids.length; k++) {
+        if (suppressed_by[suppress_step_ids[k]] === undefined) suppressed_by[suppress_step_ids[k]] = test_id;
+      }
+    }
+    return {
+      test_id: test_id,
+      label: str(t.label, test_id),
+      basis: str(t.basis, 'Declared by the caller from the transaction documents.'),
+      comparator: comparator,
+      measured: measured,
+      threshold: threshold,
+      outcome: outcome,
+      basis_detail: basis_detail,
+      divert_declared: divert_declared,
+      divert_applied: divert_applied,
+      suppress_step_ids: suppress_step_ids,
+      divert_description: str(t.on_fail_description, divert_declared
+        ? 'The caller declared the step ids this test suppresses on failure.'
+        : 'The caller declared no diversion for this test, so a failure suppresses nothing. Divert behaviour is never inferred here.'),
+    };
+  });
+
+  var failed_tests = test_results.filter(function(t){ return t.outcome === 'fail'; });
+  var undetermined_tests = test_results.filter(function(t){ return t.outcome === 'undetermined'; });
+
+  var steps = [];
+  var first_unfunded_step = null;
+  var suppliedLadder = arr(pp.priority_ladder);
+
+  for (i = 0; i < suppliedLadder.length; i++) {
+    var s = obj(suppliedLadder[i]);
+    var step_id = str(s.step_id, 'STEP-' + (i + 1));
+    var sLedger = str(s.ledger, default_ledger);
+    var ledger_known = Object.prototype.hasOwnProperty.call(pools, sLedger);
+    if (!ledger_known) {
+      rejected_inputs.push({ where: 'priority_ladder[' + i + '].ledger',
+        reason: 'names a ledger that was not supplied in available_funds, so its pool is zero', supplied: sLedger });
+    }
+    var claim_minor_units = toMinorUnits(s.amount_due_minor_units !== undefined ? s.amount_due_minor_units : s.amount_minor_units,
+      'priority_ladder[' + i + '].amount_due_minor_units', rejected_inputs);
+    var capSupplied = s.cap_minor_units !== undefined && s.cap_minor_units !== null;
+    var cap_minor_units = capSupplied ? toMinorUnits(s.cap_minor_units, 'priority_ladder[' + i + '].cap_minor_units', rejected_inputs) : null;
+    var cap_applied = capSupplied && cap_minor_units < claim_minor_units;
+    var due_minor_units = cap_applied ? cap_minor_units : claim_minor_units;
+
+    var suppressed_by_test = suppressed_by[step_id] !== undefined ? suppressed_by[step_id] : null;
+    var available = ledger_known ? pools[sLedger] : 0;
+    var payable = due_minor_units > 0 ? due_minor_units : 0;
+    var paid_minor_units = suppressed_by_test !== null ? 0 : (available < payable ? (available > 0 ? available : 0) : payable);
+    var shortfall_minor_units = suppressed_by_test !== null ? 0 : payable - paid_minor_units;
+    if (ledger_known) pools[sLedger] = available - paid_minor_units;
+
+    var amount_source = s.amount_source === 'asserted' ? 'asserted' : 'recomputed';
+    if (first_unfunded_step === null && shortfall_minor_units > 0) first_unfunded_step = step_id;
+
+    steps.push({
+      step_id: step_id,
+      label: str(s.label, step_id),
+      basis: str(s.basis, 'Declared by the caller from the transaction documents.'),
+      ledger: sLedger,
+      ledger_supplied: ledger_known,
+      position: i + 1,
+      amount_source: amount_source,
+      claim_minor_units: claim_minor_units,
+      claim_display: display(claim_minor_units),
+      cap_minor_units: cap_minor_units,
+      cap_display: cap_minor_units === null ? null : display(cap_minor_units),
+      cap_applied: cap_applied,
+      due_minor_units: payable,
+      due_display: display(payable),
+      paid_minor_units: paid_minor_units,
+      paid_display: display(paid_minor_units),
+      shortfall_minor_units: shortfall_minor_units,
+      shortfall_display: display(shortfall_minor_units),
+      fully_paid: suppressed_by_test === null && shortfall_minor_units === 0,
+      suppressed_by_test: suppressed_by_test,
+    });
+  }
+
+  var residual_by_ledger = ledgers.map(function(l){
+    return { ledger: l.ledger, opening_minor_units: l.opening_minor_units, opening_display: display(l.opening_minor_units),
+      residual_minor_units: pools[l.ledger], residual_display: display(pools[l.ledger]) };
+  });
+  var residual_minor_units = 0;
+  for (i = 0; i < residual_by_ledger.length; i++) residual_minor_units += residual_by_ledger[i].residual_minor_units;
+
+  var total_paid_minor_units = 0;
+  var total_shortfall_minor_units = 0;
+  for (i = 0; i < steps.length; i++) { total_paid_minor_units += steps[i].paid_minor_units; total_shortfall_minor_units += steps[i].shortfall_minor_units; }
+
+  var asserted_step_count = steps.filter(function(s){ return s.amount_source === 'asserted'; }).length;
+  var recomputed_step_count = steps.length - asserted_step_count;
+
+  var assertedSupplied = pp.asserted_allocations !== undefined && pp.asserted_allocations !== null;
+  var diff = [];
+  if (assertedSupplied) {
+    var assertedRows = arr(pp.asserted_allocations);
+    var seen = [];
+    for (i = 0; i < assertedRows.length; i++) {
+      var a = obj(assertedRows[i]);
+      var aStep = str(a.step_id, 'ASSERTED-' + (i + 1));
+      seen.push(aStep);
+      var asserted_minor_units = toMinorUnits(a.amount_minor_units !== undefined ? a.amount_minor_units : a.paid_minor_units,
+        'asserted_allocations[' + i + '].amount_minor_units', rejected_inputs);
+      var match = steps.filter(function(st){ return st.step_id === aStep; })[0];
+      if (match === undefined) {
+        diff.push({ step_id: aStep, in_ladder: false, recomputed_minor_units: null, recomputed_display: null,
+          asserted_minor_units: asserted_minor_units, asserted_display: display(asserted_minor_units),
+          difference_minor_units: null, difference_display: null, agrees: false,
+          detail: 'The investor report names an allocation for a step that is not in the ladder supplied. It is carried here rather than dropped, and the ladder may be incomplete.' });
+      } else {
+        var difference_minor_units = match.paid_minor_units - asserted_minor_units;
+        diff.push({ step_id: aStep, in_ladder: true, recomputed_minor_units: match.paid_minor_units, recomputed_display: match.paid_display,
+          asserted_minor_units: asserted_minor_units, asserted_display: display(asserted_minor_units),
+          difference_minor_units: difference_minor_units, difference_display: display(difference_minor_units),
+          agrees: difference_minor_units === 0,
+          detail: difference_minor_units === 0
+            ? 'The independently recomputed allocation equals the allocation the report asserts for this step.'
+            : 'The independently recomputed allocation differs from the allocation the report asserts for this step.' });
+      }
+    }
+    for (i = 0; i < steps.length; i++) {
+      if (seen.indexOf(steps[i].step_id) === -1) {
+        diff.push({ step_id: steps[i].step_id, in_ladder: true, recomputed_minor_units: steps[i].paid_minor_units,
+          recomputed_display: steps[i].paid_display, asserted_minor_units: null, asserted_display: null,
+          difference_minor_units: null, difference_display: null, agrees: false,
+          detail: 'The ladder has this step but the supplied report allocations name no figure for it, so there is nothing to compare against.' });
+      }
+    }
+  }
+
+  var comparable = diff.filter(function(d){ return d.difference_minor_units !== null; });
+  var disagreeing = diff.filter(function(d){ return !d.agrees; });
+  var comparison_state = !assertedSupplied ? 'recompute_only'
+    : (disagreeing.length === 0 && comparable.length > 0) ? 'matches' : 'differs';
+
+  var rationale = [];
+  rationale.push('Waterfall recomputed for period ' + period_label + ' on deal reference ' + deal_ref + ', against the priority ladder pinned as ' + ladder_ref.document_ref + ' ' + ladder_ref.section_ref + ' version ' + ladder_ref.version + ' dated ' + ladder_ref.dated + '.');
+  rationale.push('Total available funds of ' + display(total_available_minor_units) + ' ' + currency + ' across ' + ledgers.length + ' ledger' + (ledgers.length === 1 ? '' : 's') + ' were allocated down ' + steps.length + ' ladder step' + (steps.length === 1 ? '' : 's') + ' in the order supplied, honouring every declared cap.');
+  if (!ladder_ref.supplied) {
+    rationale.push('No ladder reference was supplied, so the artifact cannot say which version of the transaction documents this recomputation followed. A receipt without that pin cannot be dated against a later amendment.');
+  }
+  if (steps.length === 0) {
+    rationale.push('No ladder steps were supplied, so nothing was allocated and the whole pool remains as residual. That is an arithmetic result on an empty ladder, not a finding that the deal paid nothing.');
+  }
+  if (asserted_step_count > 0) {
+    rationale.push(asserted_step_count + ' of ' + steps.length + ' step' + (steps.length === 1 ? '' : 's') + ' carry an amount the caller declared as ASSERTED rather than recomputed, typically a trustee fee or a senior expense set by a fee letter that is not a public document. Those amounts are allocated exactly as supplied and are reported as asserted inputs, never as figures this tool derived.');
+  }
+  rationale.push(first_unfunded_step === null
+    ? 'Every step was met in full from the funds available, so no step ran out of money.'
+    : 'Funds ran out at step ' + first_unfunded_step + ', which is the first step whose claim could not be met in full. Total shortfall across the ladder is ' + display(total_shortfall_minor_units) + ' ' + currency + '.');
+  rationale.push('Residual after the ladder is ' + display(residual_minor_units) + ' ' + currency + '.');
+  if (test_results.length === 0) {
+    rationale.push('No tests were supplied, so no test was evaluated and no diversion was applied.');
+  } else {
+    rationale.push(test_results.length + ' test' + (test_results.length === 1 ? '' : 's') + ' evaluated against caller-supplied thresholds: ' + test_results.filter(function(t){ return t.outcome === 'pass'; }).length + ' pass, ' + failed_tests.length + ' fail, ' + undetermined_tests.length + ' undetermined. No market convention threshold is baked into this tool.');
+    var appliedDiverts = test_results.filter(function(t){ return t.divert_applied; });
+    if (appliedDiverts.length > 0) {
+      rationale.push(appliedDiverts.length + ' failing test' + (appliedDiverts.length === 1 ? '' : 's') + ' suppressed the step ids the caller declared against ' + (appliedDiverts.length === 1 ? 'it' : 'them') + '. Divert behaviour is taken from that declaration alone and is never inferred from a test name or a market convention.');
+    }
+    var failedNoDivert = failed_tests.filter(function(t){ return !t.divert_declared; });
+    if (failedNoDivert.length > 0) {
+      rationale.push(failedNoDivert.length + ' test' + (failedNoDivert.length === 1 ? '' : 's') + ' failed but declared no diversion, so the allocation above is unchanged by ' + (failedNoDivert.length === 1 ? 'it' : 'them') + '. If the transaction documents divert on that failure, supply the suppressed step ids and run again.');
+    }
+  }
+  rationale.push(comparison_state === 'recompute_only'
+    ? 'No asserted allocations were supplied, so this run is RECOMPUTE-ONLY. It states what the ladder produces from the funds supplied. It is not agreement with any investor report, because none was given to compare against.'
+    : comparison_state === 'matches'
+      ? 'The independently recomputed allocation agrees with every one of the ' + comparable.length + ' step' + (comparable.length === 1 ? '' : 's') + ' the supplied report allocations name. The left-hand side of that comparison was computed here from the ladder, not lifted from the report.'
+      : 'The independently recomputed allocation differs from the supplied report allocations on ' + disagreeing.length + ' step' + (disagreeing.length === 1 ? '' : 's') + '. Each difference is listed with both figures. A difference is an arithmetic finding about the ladder and figures supplied here, not a determination that the deal was paid incorrectly.');
+  if (rejected_inputs.length > 0) {
+    rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as zero or as unevaluable. Each one is named in rejected_inputs rather than silently dropped.');
+  }
+  rationale.push('No Article 7 disclosure template was read, validated or asserted. The priority of payments used here is the one declared from the transaction documents, which is why a template amendment cannot reach this arithmetic.');
+
+  var compliance_flags = ['WFALL_RECOMPUTED'];
+  compliance_flags.push(comparison_state === 'recompute_only' ? 'WFALL_RECOMPUTE_ONLY' : comparison_state === 'matches' ? 'WFALL_MATCHES' : 'WFALL_DIFFERS');
+  if (failed_tests.length > 0) compliance_flags.push('WFALL_TEST_BREACH');
+  if (total_shortfall_minor_units > 0) compliance_flags.push('WFALL_SHORTFALL');
+  if (total_shortfall_minor_units > 0 || failed_tests.length > 0 || comparison_state === 'differs') compliance_flags.push('ESCALATION_RAISED');
+  if (undetermined_tests.length > 0) compliance_flags.push('WFALL_TEST_UNDETERMINED');
+  if (asserted_step_count > 0) compliance_flags.push('WFALL_ASSERTED_STEP_PRESENT');
+  if (!ladder_ref.supplied) compliance_flags.push('WFALL_LADDER_REF_ABSENT');
+  if (steps.length === 0) compliance_flags.push('WFALL_LADDER_EMPTY');
+  if (total_available_minor_units === 0) compliance_flags.push('WFALL_NO_AVAILABLE_FUNDS');
+  if (rejected_inputs.length > 0) compliance_flags.push('WFALL_INPUTS_REJECTED');
+
+  var output_payload = {
+    basis: BASIS,
+    period_label: period_label,
+    deal_ref: deal_ref,
+    currency: currency,
+    minor_unit_exponent: MINOR_UNIT_EXPONENT,
+    ladder_ref: ladder_ref,
+    available_funds_by_ledger: ledgers.map(function(l){ return { ledger: l.ledger, opening_minor_units: l.opening_minor_units, opening_display: display(l.opening_minor_units) }; }),
+    total_available_minor_units: total_available_minor_units,
+    total_available_display: display(total_available_minor_units),
+    step_count: steps.length,
+    recomputed_step_count: recomputed_step_count,
+    asserted_step_count: asserted_step_count,
+    steps: steps,
+    first_unfunded_step: first_unfunded_step,
+    total_paid_minor_units: total_paid_minor_units,
+    total_paid_display: display(total_paid_minor_units),
+    total_shortfall_minor_units: total_shortfall_minor_units,
+    total_shortfall_display: display(total_shortfall_minor_units),
+    residual_by_ledger: residual_by_ledger,
+    residual_minor_units: residual_minor_units,
+    residual_display: display(residual_minor_units),
+    test_results: test_results,
+    comparison_state: comparison_state,
+    comparison_basis: 'The recomputed side of every comparison is derived here by running the caller declared ladder against the caller supplied available funds. It is not read from the investor report. A comparison is only meaningful because the two sides have independent provenance.',
+    diff: diff,
+    rejected_inputs: rejected_inputs,
+    citations: CITATIONS,
+    rationale: rationale,
+    recompute_only_note: 'Where comparison_state is recompute_only, no asserted allocations were supplied and this artifact records what the ladder produces, never agreement with an investor report.',
+    no_template_claim: 'This tool reads no Article 7 disclosure template, validates no field set, and asserts conformance with no annex. The priority of payments is taken from the caller transaction documents.',
+    note: 'Deterministic securitisation payment waterfall recomputation for one stated period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. The allocation is derived here from a caller declared priority ladder and caller supplied available funds, so a comparison against an investor report is an independent recomputation rather than a re-footing of published totals. It forecasts nothing, models no scenario, performs no credit or rating analysis, and makes no assertion about the compliance status of the deal. It is not a regulatory filing and not legal advice.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function parseJsonField(id, label){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  try { return JSON.parse(raw); }
+  catch(e){ alert('Invalid JSON in ' + label + ': ' + e.message); throw e; }
+}
+
+function loadRecomputeOnlyDemo(){
+  document.getElementById('assertedJson').value = '';
+  runWaterfall();
+}
+function loadTestBreachDemo(){
+  document.getElementById('assertedJson').value = '';
+  document.getElementById('testsJson').value = '[\n  { "test_id": "arrears-trigger", "label": "Cumulative arrears trigger", "comparator": "lte",\n    "measured_value_minor_units": 900000, "threshold_minor_units": 500000,\n    "on_fail_suppress_step_ids": ["e"],\n    "on_fail_description": "On breach the transaction documents divert funds away from the subordinated interest step." }\n]';
+  runWaterfall();
+}
+
+async function runWaterfall(){
+  var funds, ladder, tests, asserted;
+  try {
+    funds = parseJsonField('fundsJson', 'available funds');
+    ladder = parseJsonField('ladderJson', 'priority ladder');
+    tests = parseJsonField('testsJson', 'tests');
+    asserted = parseJsonField('assertedJson', 'asserted allocations');
+  } catch(e){ return; }
+
+  var lv = document.getElementById('ladderVersion').value.split('|');
+  var pp = {
+    period_label: document.getElementById('periodLabel').value || '',
+    deal_ref: document.getElementById('dealRef').value || '',
+    currency: document.getElementById('currency').value || '',
+    ladder_ref: {
+      document_ref: document.getElementById('ladderDoc').value || '',
+      section_ref: document.getElementById('ladderSection').value || '',
+      version: (lv[0] || '').trim(),
+      dated: (lv[1] || '').trim(),
+    },
+    available_funds: funds === null ? [] : funds,
+    priority_ladder: ladder === null ? [] : ladder,
+  };
+  if (tests !== null) pp.tests = tests;
+  if (asserted !== null) pp.asserted_allocations = asserted;
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var good = op.comparison_state === 'matches';
+  var recomputeOnly = op.comparison_state === 'recompute_only';
+  var vBox = document.getElementById('verdictBox');
+  var colour = good ? 'var(--green)' : (recomputeOnly ? 'var(--teal-lt)' : 'var(--red)');
+  var bg = good ? 'rgba(34,197,94,.08)' : (recomputeOnly ? 'rgba(20,184,166,.08)' : 'rgba(239,68,68,.08)');
+  vBox.style.color = colour;
+  vBox.style.background = bg;
+  vBox.style.border = '1px solid ' + colour;
+  vBox.textContent = (recomputeOnly ? 'RECOMPUTE ONLY' : op.comparison_state.toUpperCase()) + ' · ' + op.period_label;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.total_available_display + '</span><span class="stat-key">Available ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.total_paid_display + '</span><span class="stat-key">Allocated ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.total_shortfall_display + '</span><span class="stat-key">Shortfall ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.residual_display + '</span><span class="stat-key">Residual ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.first_unfunded_step === null ? 'none' : op.first_unfunded_step) + '</span><span class="stat-key">First unfunded step</span></div>';
+
+  document.getElementById('stepsDiv').innerHTML = op.steps.length
+    ? op.steps.map(function(s){
+        var badges = '';
+        if (s.amount_source === 'asserted') badges += ' <span class="badge warn">ASSERTED INPUT</span>';
+        if (s.cap_applied) badges += ' <span class="badge open">CAPPED</span>';
+        if (s.suppressed_by_test) badges += ' <span class="badge bad">SUPPRESSED BY ' + s.suppressed_by_test + '</span>';
+        if (s.shortfall_minor_units > 0) badges += ' <span class="badge bad">SHORTFALL ' + s.shortfall_display + '</span>';
+        if (s.fully_paid) badges += ' <span class="badge ok">PAID IN FULL</span>';
+        if (!s.ledger_supplied) badges += ' <span class="badge bad">LEDGER NOT SUPPLIED</span>';
+        return '<div class="kv"><span class="kv-k">' + s.position + '. ' + s.step_id + ' · ' + s.label + '</span><span class="kv-v">due ' + s.due_display + ' · paid ' + s.paid_display + badges + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No ladder steps supplied</span><span class="kv-v">nothing was allocated</span></div>';
+
+  document.getElementById('residualDiv').innerHTML = op.residual_by_ledger.map(function(r){
+    return '<div class="kv"><span class="kv-k">' + r.ledger + '</span><span class="kv-v">opened ' + r.opening_display + ' · residual ' + r.residual_display + '</span></div>';
+  }).join('');
+
+  document.getElementById('testsDiv').innerHTML = op.test_results.length
+    ? op.test_results.map(function(t){
+        var cls = t.outcome === 'pass' ? 'ok' : (t.outcome === 'fail' ? 'bad' : 'open');
+        var extra = t.divert_applied ? ' · suppressed ' + t.suppress_step_ids.join(', ')
+          : (t.outcome === 'fail' && !t.divert_declared ? ' · no diversion declared, allocation unchanged' : '');
+        return '<div class="kv"><span class="kv-k">' + t.test_id + ' · ' + t.label + '</span><span class="kv-v"><span class="badge ' + cls + '">' + t.outcome.toUpperCase() + '</span>' + extra + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No tests supplied</span><span class="kv-v">none evaluated, no diversion applied</span></div>';
+
+  document.getElementById('diffDiv').innerHTML = op.comparison_state === 'recompute_only'
+    ? '<div class="kv"><span class="kv-k">Recompute only</span><span class="kv-v">no asserted allocations supplied, so nothing was compared. This is not agreement.</span></div>'
+    : op.diff.map(function(d){
+        var cls = d.agrees ? 'ok' : 'bad';
+        var right = d.difference_minor_units === null
+          ? (d.in_ladder ? 'no figure asserted for this step' : 'asserted ' + d.asserted_display + ', not in the ladder')
+          : 'recomputed ' + d.recomputed_display + ' · asserted ' + d.asserted_display + ' · difference ' + d.difference_display;
+        return '<div class="kv"><span class="kv-k">' + d.step_id + '</span><span class="kv-v"><span class="badge ' + cls + '">' + (d.agrees ? 'AGREES' : 'REVIEW') + '</span> ' + right + '</span></div>';
+      }).join('');
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-509-recompute-payment-waterfall',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',clause_bindings:Object.keys(CITATIONS).map(function(k){return {profile:'ocg-clause-binding@1',pointer:'/output_payload/citations/'+k};}),audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-509-recompute-payment-waterfall.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
