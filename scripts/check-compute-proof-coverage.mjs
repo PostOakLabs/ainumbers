@@ -17,6 +17,21 @@
 // must ship a proof or an explicit deferral — no silent backsliding. This mirrors the copy-hallmarks-baseline
 // and dead-link-baseline patterns already in this repo.
 //
+// PROVENANCE DISCRIMINATOR (S18-BASELINE-GUARD-1): a raised ceiling is legal ONLY for a brand-new node — never
+// for a node that used to be proven and quietly became deferred. `--update-baseline` used to rewrite
+// `deferred_nodes` wholesale with no way to tell the two cases apart (measured 2026-07-31: a ceiling raise from
+// a legitimate two-new-node ship looked byte-identical to a proof regression absorbed into the same rewrite).
+// The baseline now also pins `known_gpu_false_nodes` — every live gpu:false node's name as of the last pin,
+// proven or deferred, i.e. "the whole set the gate has ever seen". For a name newly appearing in `deferred_nodes`:
+//   - name NOT in `known_gpu_false_nodes`  → brand-new node, the raise is legal.
+//   - name already in `known_gpu_false_nodes` but NOT previously in `deferred_nodes` → it was proven before and
+//     is deferred now — a regression — the gate FAILS naming it, in both strict mode and inside --update-baseline
+//     itself (a regression blocks the rewrite; it does not get silently absorbed).
+// NOTE: this deliberately does NOT use git history to find "the previous state" — every workflow in this repo
+// checks out with `fetch-depth: 1` (verified 2026-07-31), so `git show HEAD~1:...` has no parent commit to read
+// in CI. The snapshot lives in the baseline file itself instead, so the discriminator needs no git and cannot be
+// starved by shallow-clone CI.
+//
 // This is the §18 analogue of check-kernel-coverage.mjs (§17 registration) and verify-proof-surface.mjs (§16
 // page surface). Zero-dependency. Wired into scripts/preflight.mjs + .github/workflows/deploy-to-dreamhost.yml.
 //
@@ -134,14 +149,41 @@ function fixtureGap(node) {
 }
 const fixtureGaps = gpuFalse.map(fixtureGap).filter(Boolean);
 
+// ── findRegressions ──────────────────────────────────────────────────────────────────────────────
+// Given the CURRENT deferred set and the OLD (on-disk, pre-write) baseline, name every node that newly
+// appears in the deferred set AND already existed (proven or otherwise) at the last pin. That is a proof
+// regression, not a legitimate new-node deferral. See the PROVENANCE DISCRIMINATOR header comment.
+function findRegressions(currentDeferred, oldBaseline) {
+  const deferredBefore = new Set(oldBaseline?.deferred_nodes ?? []);
+  const knownBefore = new Set(oldBaseline?.known_gpu_false_nodes ?? []);
+  const regressions = [];
+  const newNodes = [];
+  for (const r of currentDeferred) {
+    if (deferredBefore.has(r.name)) continue; // already deferred at the last pin — no change to judge
+    if (knownBefore.has(r.name)) regressions.push(r.name); // existed at the last pin, wasn't deferred then — regression
+    else newNodes.push(r.name); // never seen before — brand-new node, legitimate
+  }
+  return { regressions, newNodes };
+}
+
 // ── --update-baseline ───────────────────────────────────────────────────────────────────────────
 if (UPDATE_BASELINE) {
+  const oldBaseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : null;
+  const { regressions, newNodes } = findRegressions(deferred, oldBaseline);
+  if (regressions.length) {
+    console.error(`✗ --update-baseline REFUSED — ${regressions.length} node(s) newly appear in the deferred set but already existed at the last pin:`);
+    for (const n of regressions) console.error(`  • ${n} — was proven (or otherwise known) before, is now deferred — that's a regression, not a new-node deferral`);
+    console.error('  If this is a deliberate re-park of a previously-proven node, that is a Tim call — do not run --update-baseline to absorb it.');
+    process.exit(1);
+  }
   const baseline = {
-    _comment: 'Ratchet ceiling for §18 deferred gpu:false nodes (profile ocg-p18-deterministic). Counts only go DOWN. Regenerate with: node scripts/check-compute-proof-coverage.mjs --update-baseline',
+    _comment: 'Ratchet ceiling for §18 deferred gpu:false nodes (profile ocg-p18-deterministic). Counts only go DOWN. known_gpu_false_nodes is the provenance snapshot the regression discriminator reads (S18-BASELINE-GUARD-1) — every live gpu:false node name as of this pin, proven or deferred. Regenerate with: node scripts/check-compute-proof-coverage.mjs --update-baseline',
     deferred: deferred.length,
     deferred_nodes: deferred.map((r) => r.name).sort(),
+    known_gpu_false_nodes: gpuFalse.map((n) => n.mcp_name || n.tool_id).sort(),
   };
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
+  if (newNodes.length) console.log(`  new node(s) accepted: ${newNodes.join(', ')}`);
   console.log(`✓ baseline written: ${deferred.length} deferred gpu:false node(s) → ${BASELINE_PATH}`);
   process.exit(0);
 }
@@ -178,9 +220,21 @@ if (fixtureGaps.length) {
 }
 
 // (2) ratchet: deferred count must not exceed the pinned baseline.
+// (2b) provenance discriminator: independent of the ceiling — a swap (one regression in, one legit prove out)
+// can hold the count flat and still hide a proof regression, so this always runs, not just when the ceiling
+// is breached. See the PROVENANCE DISCRIMINATOR header comment.
 if (existsSync(BASELINE_PATH)) {
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
   const ceiling = baseline.deferred ?? Infinity;
+
+  const { regressions } = findRegressions(deferred, baseline);
+  if (regressions.length) {
+    failed = true;
+    console.error(`\n✗ §18 deferred-provenance FAILED — ${regressions.length} node(s) newly appear in the deferred set but already existed (proven, or otherwise known) at the last baseline pin:`);
+    for (const n of regressions) console.error(`  • ${n} — was proven before, is now deferred (regression, not a new-node deferral)`);
+    console.error('  If this is a deliberate re-park of a previously-proven node, that is a Tim call — do not run --update-baseline to absorb it silently.');
+  }
+
   if (deferred.length > ceiling) {
     failed = true;
     const known = new Set(baseline.deferred_nodes ?? []);
