@@ -32,7 +32,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** [Agentic Payments Protocol Comparator](./art-22-agentic-payments-protocol-comparator.md), [Visa Trusted Agent Protocol (TAP) Signature Inspector](./art-23-visa-trusted-agent-protocol-inspector.md)
 
-**Feeds:** [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [MCP Developer Readiness Scorecard](./art-18-mcp-developer-readiness-scorecard.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 
