@@ -435,6 +435,11 @@ status: stable
 - [CASS 15 Safeguarding Method Classifier](./art-500-classify-safeguarding-method.md) — `classify_safeguarding_method`
 - [CASS 15 Safeguarding Audit Evidence Pack](./art-501-build-safeguarding-audit-evidence.md) — `build_safeguarding_audit_evidence`
 - [Attested Artifact Subject Binder](./art-502-bind-attested-subject.md) — `bind_attested_subject`
+- [Dual Control Certification Evidence](./art-503-build-dual-control-certification.md) — `build_dual_control_certification`
+- [CARF / DAC8 Reportable User Classifier](./art-504-classify-carf-reportable.md) — `classify_carf_reportable`
+- [CARF Status Message Disposition](./art-505-dispose-carf-status-message.md) — `dispose_carf_status_message`
+- [T+1 Post-Trade Timing Classifier](./art-506-classify-t1-posttrade-timing.md) — `classify_t1_posttrade_timing`
+- [Deposit Insurance Coverage Determination](./art-507-determine-deposit-insurance-coverage.md) — `determine_deposit_insurance_coverage`
 - [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md) — `estimate_cross_margin_benefit`
 - [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md) — `run_digital_trade_fit`
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
