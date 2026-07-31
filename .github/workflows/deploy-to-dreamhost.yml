@@ -32,6 +32,39 @@ jobs:
         with:
           node-version: '20'
 
+      - name: 🪖 Detect helm-relevant changes
+        # The helm drift/guide-freshness gates below assert helm.html against
+        # helm/version.json + helm/guide-freshness.json — state that goes stale
+        # on a schedule set by the SEPARATE ainumbers-helm repo's release job,
+        # not by anything in a given site push. Blocking every push on that
+        # staleness caused a --no-verify bypass once already and blocked #766.
+        # Scope the gates to pushes that actually touch helm-relevant paths —
+        # the release job's own push to helm/version.json IS such a push, so
+        # the gate still fires exactly where drift can originate; a push
+        # touching only tools/guides/kernels never trips it. fetch-depth:1
+        # above means the pre-push parent commit isn't checked out — fetch just
+        # that one commit to diff against. Undeterminable (new branch, dispatch
+        # run, fetch failure) fails OPEN — gates still run — this narrows blast
+        # radius, it never weakens what the gate itself checks.
+        id: helmscope
+        run: |
+          BEFORE="${{ github.event.before }}"
+          ZERO="0000000000000000000000000000000000000000"
+          CHANGED="undeterminable"
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "$ZERO" ]; then
+            git fetch --no-tags --depth=1 origin "$BEFORE" 2>/dev/null || true
+            if git cat-file -e "$BEFORE" 2>/dev/null; then
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- helm.html helm/ scripts/check-helm-version-drift.mjs scripts/gen-helm-guide-freshness.mjs)
+            fi
+          fi
+          if [ -n "$CHANGED" ]; then
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+            echo "Helm-relevant change detected (or undeterminable — failing open): '$CHANGED'"
+          else
+            echo "touched=false" >> "$GITHUB_OUTPUT"
+            echo "No helm-relevant paths changed in this push — helm gates skipped."
+          fi
+
       - name: 🔐 OpenChainGraph hash + JS syntax gates
         # Hard gate (exits 1 on failure). Catches: any inline classic <script>
         # that fails to parse; forbidden hash patterns (array-replacer
@@ -186,11 +219,17 @@ jobs:
         # changed since the last synced release, or the new version must be listed in
         # helm/guide-freshness.json's acknowledged_no_change escape — a changelog entry
         # alone does not satisfy this. Both proven by a committed tamper fixture (.test.mjs).
+        # Path-scoped — see the "Detect helm-relevant changes" step above.
+        if: steps.helmscope.outputs.touched == 'true'
         run: |
           node scripts/check-helm-version-drift.mjs
           node scripts/check-helm-version-drift.test.mjs
           node scripts/gen-helm-guide-freshness.mjs --check
           node scripts/gen-helm-guide-freshness.test.mjs
+
+      - name: 🪖 Helm gates skipped (no helm-relevant paths changed)
+        if: steps.helmscope.outputs.touched != 'true'
+        run: echo "This push touched no helm-relevant path (helm.html, helm/, or the two helm gate scripts) — the helm release/version drift + guide freshness gates are skipped."
 
       - name: 🧩 Catalog-parity gate (§15 — no orphan chain pages)
         # catalog-parity.mjs (SPEC.md §15: "every node url page + chain page exists, no
