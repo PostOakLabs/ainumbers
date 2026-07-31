@@ -74,7 +74,6 @@ const cardsHtml = chains
       </div>
       <div class="card-footer">
         <div class="card-tags"><span class="ctag ctag-body">${domain}</span></div>
-        <span class="live-dot">Live</span>
       </div>
     </a>`;
   })
