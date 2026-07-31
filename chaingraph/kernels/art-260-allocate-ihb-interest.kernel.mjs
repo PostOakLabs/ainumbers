@@ -12,7 +12,7 @@ export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type
 // ZERO PII: entity IDs, balances, rates, and period parameters only.
 
 const TABLE_VERSION = 'OECD-TP-IHB-INTEREST-ALLOC-2022';
-const TABLE_SOURCE  = 'OECD Transfer Pricing Guidelines 2022 Ch.I (arm\'s-length standard) + Ch.X §C (IHB cash pools); SWIFT IHB banking guide; ECB TARGET2 compensation methodology';
+const TABLE_SOURCE  = 'OECD Transfer Pricing Guidelines 2022 Ch.I (arm\'s-length standard) + Ch.X §C (intra-group financial transactions, cash pooling); OECD BEPS Action 4 (interest deductibility); ACT/360, ACT/365 and 30/360 day-count conventions per ISDA Definitions 2006 §4.16';
 
 // Day-count fraction computation (pure arithmetic, no transcendentals)
 function dayCountFraction(days, convention) {

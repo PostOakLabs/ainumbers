@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>CBAM Default-Value Resolver · ART-70 · OpenChainGraph · AINumbers.co</title>
-<meta name="description" content="Resolves the Commission default embedded-emissions value for a CN code × country-of-origin pair, applies year-dependent markup (+10% 2026, +20% 2027, +30% 2028+), and returns the value with provenance. Part of the cbam-liability chain. Decision-support draft.">
+<meta name="description" content="Resolves the Commission default embedded-emissions value for a CN code × country-of-origin pair, applies year-dependent markup (+10% 2026, +20% 2027, +30% 2028+, fertilisers flat +1%), and returns the value with provenance. Part of the cbam-liability chain. Decision-support draft.">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-70-cbam-default-value-resolver.html">
 <meta property="og:type" content="website">
 <meta property="og:title" content="CBAM Default-Value Resolver · ART-70 · OpenChainGraph · AINumbers.co">
-<meta property="og:description" content="Resolves Commission CBAM default embedded-emissions values with year-dependent markup (+10%/+20%/+30%). Provenance-anchored. OpenChainGraph v0.4. Zero PII.">
+<meta property="og:description" content="Resolves Commission CBAM default embedded-emissions values with year-dependent markup (+10%/+20%/+30%, fertilisers flat +1%). Provenance-anchored. OpenChainGraph v0.4. Zero PII.">
 <meta property="og:url" content="https://ainumbers.co/chaingraph/art-70-cbam-default-value-resolver.html">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <script type="application/ld+json">
@@ -152,7 +152,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <h1>CBAM Default-Value Resolver</h1>
   <p class="sub">Resolves the Commission default embedded-emissions value for a (CN code × country-of-origin) pair, applies the year-dependent markup over the actual-data path, and returns the value with provenance. Answers: if you don't have actual installation data, what default applies and what does it cost to use it? Part of the cbam-liability chain.</p>
   <div>
-    <span class="flag warn">Default markup +10% (2026) · +20% (2027) · +30% (2028+)</span>
+    <span class="flag warn">Default markup +10% (2026) · +20% (2027) · +30% (2028+) · fertilisers flat +1%</span>
     <span class="flag warn">Verify Implementing Regulation edition</span>
   </div>
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
@@ -281,12 +281,23 @@ const DEFAULT_VALUES = {
   electricity: { base: 0.000,  name: 'Electricity' },
 };
 const MARKUP = { 2026: 0.10, 2027: 0.20 };
-function getMarkup(yr) { return MARKUP[+yr] !== undefined ? MARKUP[+yr] : 0.30; }
+// Fertilisers carry a flat +1% in every year instead of the +10/20/30 ramp,
+// set low because actual data is hard to obtain across chemical supply chains.
+const FERTILISER_MARKUP = 0.01;
+function getMarkup(yr, good_category) {
+  if (good_category === 'fertiliser') return FERTILISER_MARKUP;
+  return MARKUP[+yr] !== undefined ? MARKUP[+yr] : 0.30;
+}
 
 const MARKUP_SCHEDULE = [
   { year: 2026, pct: 10, label: '+10%' },
   { year: 2027, pct: 20, label: '+20%' },
   { year: '2028+', pct: 30, label: '+30%' },
+];
+const FERTILISER_SCHEDULE = [
+  { year: 2026, pct: 1, label: '+1%' },
+  { year: 2027, pct: 1, label: '+1%' },
+  { year: '2028+', pct: 1, label: '+1%' },
 ];
 
 function getpp() {
@@ -322,7 +333,7 @@ function loadPreset(p) {
 function compute(pp) {
   const cat = DEFAULT_VALUES[pp.good_category] ?? DEFAULT_VALUES.cement;
   const base = cat.base;
-  const markup = getMarkup(pp.reporting_year ?? 2026);
+  const markup = getMarkup(pp.reporting_year ?? 2026, pp.good_category);
   const effective_default = +(base * (1 + markup)).toFixed(4);
   const actual_path_recommended = pp.actual_data_available === 'yes';
 
@@ -339,8 +350,8 @@ function compute(pp) {
     good_name: cat.name,
     country_of_origin: pp.country_of_origin ?? 'unspecified',
     reporting_year: +(pp.reporting_year ?? 2026),
-    reference_version: 'CBAM-IR-v1.0-2024-Q4',
-    provenance: 'CBAM Implementing Regulation (Commission) — default embedded-emissions values; verify current edition. Markup schedule: +10% (2026), +20% (2027), +30% (2028+) per CBAM Reg. (EU) 2023/956.',
+    reference_version: 'CIR-EU-2025-2621-ANNEX-I',
+    provenance: 'Reference instrument: Commission Implementing Regulation (EU) 2025/2621 Annex I (country-specific default values for non-electricity CBAM goods, 31 Dec 2025). The values shipped in this node are indicative placeholders, not the Annex I figures. Markup schedule: +10% (2026), +20% (2027), +30% (2028+) for cement, iron and steel, aluminium and hydrogen; fertilisers carry a flat +1% in every year.',
     note: 'DECISION-SUPPORT DRAFT — default values are indicative placeholders from the versioned reference table. Verify against the current CBAM Implementing Regulation edition before use.',
   };
 
@@ -395,7 +406,8 @@ async function run() {
 
   // Markup schedule cards
   const yr = pp.reporting_year;
-  document.getElementById('markupSchedule').innerHTML = MARKUP_SCHEDULE.map(m => {
+  const schedule = pp.good_category === 'fertiliser' ? FERTILISER_SCHEDULE : MARKUP_SCHEDULE;
+  document.getElementById('markupSchedule').innerHTML = schedule.map(m => {
     const isActive = (m.year === yr) || (m.year === '2028+' && yr >= 2028);
     return `<div class="markup-year${isActive ? ' active' : ''}">
       <div class="my-year">${m.year}</div>
@@ -407,7 +419,7 @@ async function run() {
   if (actual_path_recommended) {
     document.getElementById('actualAdviceBox').innerHTML = `<div class="verdict pass"><b>Actual data available:</b> Switch to the actual-data path (ART-69 CBAM Embedded-Emissions Calculator) to avoid the +${(markup * 100).toFixed(0)}% default markup penalty. Actual-path data must be verified against CBAM Implementing Regulation system boundary definitions.</div>`;
   } else {
-    document.getElementById('actualAdviceBox').innerHTML = `<div class="verdict warn"><b>Using default values:</b> A +${(markup * 100).toFixed(0)}% markup applies for reporting year ${pp.reporting_year}. Obtain actual installation data to reduce this penalty. The markup increases to +20% in 2027 and +30% from 2028 onwards.</div>`;
+    document.getElementById('actualAdviceBox').innerHTML = `<div class="verdict warn"><b>Using default values:</b> A +${(markup * 100).toFixed(0)}% markup applies for reporting year ${pp.reporting_year}. Obtain actual installation data to reduce this penalty. ${pp.good_category === 'fertiliser' ? 'Fertilisers stay at a flat +1% in every year.' : 'The markup increases to +20% in 2027 and +30% from 2028 onwards.'}</div>`;
   }
 
   // Flags
