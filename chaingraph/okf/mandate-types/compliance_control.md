@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-33"]
+tags: ["compliance_control", "count-34"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-33 tool(s) in this mandate-type group:
+34 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -42,6 +42,7 @@ status: stable
 - [Model Test Battery](../tools/art-489-model-test-battery.md)
 - [Evergreen Permissioning-Control Classifier](../tools/art-495-avax-permissioning-control-classifier.md)
 - [Validator Change-Control Receipt](../tools/art-497-validator-change-control-receipt.md)
+- [Consortium Validator Reward-Flow Related-Party Classifier](../tools/art-498-reward-flow-related-party.md)
 - [Attested Artifact Subject Binder](../tools/art-502-bind-attested-subject.md)
 - [Dual Control Certification Evidence](../tools/art-503-build-dual-control-certification.md)
 - [Deposit Insurance Coverage Determination](../tools/art-507-determine-deposit-insurance-coverage.md)

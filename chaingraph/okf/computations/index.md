@@ -439,6 +439,7 @@ status: stable
 - [Evergreen Permissioning-Control Classifier](./art-495-avax-permissioning-control-classifier.md)
 - [L1 Continuous-Fee Runway Model](./art-496-l1-continuous-fee-runway.md)
 - [Validator Change-Control Receipt](./art-497-validator-change-control-receipt.md)
+- [Consortium Validator Reward-Flow Related-Party Classifier](./art-498-reward-flow-related-party.md)
 - [CASS 15 Safeguarding Reconciliation Check](./art-499-check-safeguarding-reconciliation.md)
 - [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md)
 - [CASS 15 Safeguarding Method Classifier](./art-500-classify-safeguarding-method.md)
