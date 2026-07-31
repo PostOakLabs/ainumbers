@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Evergreen Permissioning-Control Classifier &middot; ART-495 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Classify whether each Avalanche Evergreen supervisory control is enforced at protocol level, at application level, or absent, from your genesis precompile configuration and validator-manager mode. Deterministic, with a named gap register.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-495-avax-permissioning-control-classifier.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:680px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+textarea,input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{min-height:120px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.05rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:right}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-495 · Evergreen Permissioning-Control Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-495 &middot; Avalanche Evergreen Permissioning</div>
+  <h1>Evergreen Permissioning-Control Classifier</h1>
+  <p class="sub">Takes your genesis precompile configuration and validator-manager mode and classifies six supervisory controls as protocol-enforced, application-enforced, or absent &mdash; with a named gap register. This answers a different question than the segregation-of-duties matrix checker: not who holds conflicting power, but where the control lives at all, or whether it exists.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Protocol vs Application Control</span>
+    <span class="flag">Gap Register</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only, e.g. opaque control identifiers.</div>
+
+  <div class="card">
+    <div class="section-head">Load a Preset</div>
+    <p class="sub" style="margin-bottom:10px">Presets fill the genesis configuration below &mdash; nothing runs until you click Classify Controls.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="loadPreset('evergreen')">Evergreen default &middot; TX + Contract AllowList active, PoA validator manager</button>
+      <button onclick="loadPreset('gaps')" style="background:var(--red)">Partial genesis &middot; undeclared precompiles (gap register demo)</button>
+    </div>
+    <p class="sub" style="margin-top:10px;font-size:.72rem">Record each precompile's genesis activation state exactly as the genesis declares it. An undeclared precompile is not the same as an inactive one &mdash; leaving a control undeclared surfaces as a named judgment call, never a silent guess.</p>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Genesis Precompile Configuration</div>
+    <div class="grid2">
+      <div class="q">
+        <span class="q-label">TX AllowList activated?</span>
+        <select id="pcTxAllowlist"><option value="unset">Not declared</option><option value="true">Yes</option><option value="false">No</option></select>
+      </div>
+      <div class="q">
+        <span class="q-label">Contract Deployer AllowList activated?</span>
+        <select id="pcDeployerAllowlist"><option value="unset">Not declared</option><option value="true">Yes</option><option value="false">No</option></select>
+      </div>
+      <div class="q">
+        <span class="q-label">Native Minter activated?</span>
+        <select id="pcNativeMinter"><option value="unset">Not declared</option><option value="true">Yes</option><option value="false">No</option></select>
+      </div>
+      <div class="q">
+        <span class="q-label">Fee Manager activated?</span>
+        <select id="pcFeeManager"><option value="unset">Not declared</option><option value="true">Yes</option><option value="false">No</option></select>
+      </div>
+      <div class="q">
+        <span class="q-label">Reward Manager activated?</span>
+        <select id="pcRewardManager"><option value="unset">Not declared</option><option value="true">Yes</option><option value="false">No</option></select>
+      </div>
+      <div class="q">
+        <span class="q-label">Validator-manager mode</span>
+        <select id="vmMode"><option value="unset">Not declared</option><option value="poa">PoA</option><option value="pos">PoS</option><option value="managed">Managed</option><option value="none">None deployed</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Application-Level Controls (for any precompile marked inactive above)</div>
+    <p class="sub" style="margin-bottom:10px;font-size:.72rem">Declare whether an off-chain or smart-contract policy substitutes for a precompile that genesis does not activate. Leave "Not declared" if you have not confirmed either way &mdash; that surfaces as a judgment call rather than a false absent.</p>
+    <div class="grid2">
+      <div class="q"><span class="q-label">Transaction permissioning</span><select id="acTx"><option value="unset">Not declared</option><option value="true">Declared present</option><option value="false">Confirmed absent</option></select></div>
+      <div class="q"><span class="q-label">Contract deployment permissioning</span><select id="acDeployer"><option value="unset">Not declared</option><option value="true">Declared present</option><option value="false">Confirmed absent</option></select></div>
+      <div class="q"><span class="q-label">Native asset issuance control</span><select id="acMinter"><option value="unset">Not declared</option><option value="true">Declared present</option><option value="false">Confirmed absent</option></select></div>
+      <div class="q"><span class="q-label">Fee policy control</span><select id="acFee"><option value="unset">Not declared</option><option value="true">Declared present</option><option value="false">Confirmed absent</option></select></div>
+      <div class="q"><span class="q-label">Reward distribution control</span><select id="acReward"><option value="unset">Not declared</option><option value="true">Declared present</option><option value="false">Confirmed absent</option></select></div>
+      <div class="q"><span class="q-label">Validator set membership control</span><select id="acValidator"><option value="unset">Not declared</option><option value="true">Declared present</option><option value="false">Confirmed absent</option></select></div>
+    </div>
+    <div style="margin-top:14px">
+      <button onclick="runClassifier()">&#9654; Classify Controls</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Control Classification</div>
+      <div id="controlsDiv"></div>
+      <div class="section-head" style="margin-top:14px">Gap Register</div>
+      <div id="gapDiv"></div>
+      <div class="section-head" style="margin-top:14px">Judgment Required</div>
+      <div id="judgmentDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-495-avax-permissioning-control-classifier',
+  version: '1.0.0',
+  mcp_name: 'classify_avax_permissioning_controls',
+  title: 'Evergreen Permissioning-Control Classifier',
+  description: 'Classify Avalanche Evergreen supervisory controls as protocol-enforced, application-enforced, or absent from genesis precompile configuration and validator-manager mode, with a named gap register.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'ITGC / IT general controls -- control-ownership evidence for an Evergreen L1 deployment',
+  mcp_tool_definition: {
+    name: 'classify_avax_permissioning_controls',
+    description: 'Classify Evergreen permissioning controls as protocol-enforced, application-enforced, or absent, given genesis precompile activation state and validator-manager mode.',
+    inputSchema: {
+      type: 'object',
+      required: ['precompiles', 'validator_manager_mode'],
+      properties: {
+        precompiles: { type: 'object' },
+        application_controls: { type: 'object' },
+        validator_manager_mode: { type: 'string' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function s(v) { return String(v == null ? '' : v).trim(); }
+function triVal(id) { var v = document.getElementById(id).value; return v === 'true' ? true : v === 'false' ? false : undefined; }
+
+var PRECOMPILE_CONTROLS = [
+  { control_id: 'transaction_permissioning', precompile_key: 'txallowlist', label: 'Transaction submission (TX AllowList)', pcSel: 'pcTxAllowlist', acSel: 'acTx' },
+  { control_id: 'contract_deployment_permissioning', precompile_key: 'deployerallowlist', label: 'Contract deployment (Contract Deployer AllowList)', pcSel: 'pcDeployerAllowlist', acSel: 'acDeployer' },
+  { control_id: 'native_asset_issuance_control', precompile_key: 'nativeminter', label: 'Native asset issuance (Native Minter)', pcSel: 'pcNativeMinter', acSel: 'acMinter' },
+  { control_id: 'fee_policy_control', precompile_key: 'feemanager', label: 'Fee policy (Fee Manager)', pcSel: 'pcFeeManager', acSel: 'acFee' },
+  { control_id: 'reward_distribution_control', precompile_key: 'rewardmanager', label: 'Reward distribution (Reward Manager)', pcSel: 'pcRewardManager', acSel: 'acReward' }
+];
+var VALIDATOR_MANAGER_MODES = ['poa', 'pos', 'managed'];
+
+function loadPreset(kind) {
+  if (kind === 'evergreen') {
+    document.getElementById('pcTxAllowlist').value = 'true';
+    document.getElementById('pcDeployerAllowlist').value = 'true';
+    document.getElementById('pcNativeMinter').value = 'false';
+    document.getElementById('pcFeeManager').value = 'false';
+    document.getElementById('pcRewardManager').value = 'false';
+    document.getElementById('vmMode').value = 'poa';
+    document.getElementById('acTx').value = 'unset';
+    document.getElementById('acDeployer').value = 'unset';
+    document.getElementById('acMinter').value = 'false';
+    document.getElementById('acFee').value = 'true';
+    document.getElementById('acReward').value = 'false';
+    document.getElementById('acValidator').value = 'unset';
+  } else {
+    document.getElementById('pcTxAllowlist').value = 'true';
+    document.getElementById('pcDeployerAllowlist').value = 'unset';
+    document.getElementById('pcNativeMinter').value = 'false';
+    document.getElementById('pcFeeManager').value = 'unset';
+    document.getElementById('pcRewardManager').value = 'false';
+    document.getElementById('vmMode').value = 'unset';
+    document.getElementById('acTx').value = 'unset';
+    document.getElementById('acDeployer').value = 'unset';
+    document.getElementById('acMinter').value = 'false';
+    document.getElementById('acFee').value = 'unset';
+    document.getElementById('acReward').value = 'false';
+    document.getElementById('acValidator').value = 'unset';
+  }
+}
+
+function classifyPrecompileControl(entry, applicationControls) {
+  var activated = triVal(entry.pcSel);
+  if (activated === undefined) {
+    return {
+      control_id: entry.control_id, label: entry.label, precompile_key: entry.precompile_key,
+      status: 'judgment_required',
+      judgment: {
+        undetermined: "activation state of precompile '" + entry.precompile_key + "' for control '" + entry.control_id + "'",
+        resolving_input: 'precompiles.' + entry.precompile_key + '.activated (boolean, transcribed from genesis)',
+        decided_by: 'the L1 operator supplying the genesis configuration'
+      }
+    };
+  }
+  if (activated === true) {
+    return { control_id: entry.control_id, label: entry.label, precompile_key: entry.precompile_key, status: 'protocol_enforced', basis: 'precompile_active_in_genesis' };
+  }
+  var declared = applicationControls[entry.control_id];
+  if (declared === true) {
+    return { control_id: entry.control_id, label: entry.label, precompile_key: entry.precompile_key, status: 'application_enforced', basis: 'app_level_control_declared' };
+  }
+  if (declared === false) {
+    return { control_id: entry.control_id, label: entry.label, precompile_key: entry.precompile_key, status: 'absent', basis: 'precompile_inactive_no_app_control' };
+  }
+  return {
+    control_id: entry.control_id, label: entry.label, precompile_key: entry.precompile_key,
+    status: 'judgment_required',
+    judgment: {
+      undetermined: "whether an application-level control substitutes for the inactive '" + entry.precompile_key + "' precompile",
+      resolving_input: 'application_controls.' + entry.control_id + ' (boolean)',
+      decided_by: 'the L1 operator or its ITGC reviewer'
+    }
+  };
+}
+
+function classifyValidatorSetControl(mode, applicationControls) {
+  var control_id = 'validator_set_membership_control';
+  var label = 'Validator set membership (validator-manager contract, ACP-77)';
+  if (VALIDATOR_MANAGER_MODES.indexOf(mode) > -1) {
+    return { control_id: control_id, label: label, precompile_key: null, status: 'application_enforced', basis: 'validator_manager_mode_' + mode };
+  }
+  if (mode === 'none') {
+    var declared = applicationControls[control_id];
+    if (declared === true) return { control_id: control_id, label: label, precompile_key: null, status: 'application_enforced', basis: 'app_level_control_declared' };
+    return { control_id: control_id, label: label, precompile_key: null, status: 'absent', basis: 'no_validator_manager_no_app_control' };
+  }
+  return {
+    control_id: control_id, label: label, precompile_key: null,
+    status: 'judgment_required',
+    judgment: {
+      undetermined: 'which validator-manager mode (poa / pos / managed / none) governs this L1',
+      resolving_input: 'validator_manager_mode (string: "poa" | "pos" | "managed" | "none")',
+      decided_by: 'the L1 operator supplying the genesis and validator-manager deployment record'
+    }
+  };
+}
+
+function runClassifier() {
+  var precompiles = {};
+  PRECOMPILE_CONTROLS.forEach(function(e) {
+    var v = triVal(e.pcSel);
+    if (v !== undefined) precompiles[e.precompile_key] = { activated: v };
+  });
+  var applicationControls = {};
+  ['acTx','acDeployer','acMinter','acFee','acReward'].forEach(function(id, i) {
+    var v = triVal(id);
+    if (v !== undefined) applicationControls[PRECOMPILE_CONTROLS[i].control_id] = v;
+  });
+  var acValidator = triVal('acValidator');
+  if (acValidator !== undefined) applicationControls['validator_set_membership_control'] = acValidator;
+  var vmModeSel = document.getElementById('vmMode').value;
+  var validator_manager_mode = vmModeSel === 'unset' ? '' : vmModeSel;
+
+  var controls = PRECOMPILE_CONTROLS.map(function(e) { return classifyPrecompileControl(e, applicationControls); });
+  controls.push(classifyValidatorSetControl(validator_manager_mode || 'unset', applicationControls));
+
+  var gap_register = controls.filter(function(c) { return c.status === 'absent'; }).map(function(c) { return { control_id: c.control_id, label: c.label, reason: c.basis }; });
+  var judgment_required = controls.filter(function(c) { return c.status === 'judgment_required'; }).map(function(c) { return Object.assign({ control_id: c.control_id, label: c.label }, c.judgment); });
+
+  var protocol_enforced_count = controls.filter(function(c) { return c.status === 'protocol_enforced'; }).length;
+  var application_enforced_count = controls.filter(function(c) { return c.status === 'application_enforced'; }).length;
+  var absent_count = gap_register.length;
+  var judgment_required_count = judgment_required.length;
+
+  var flags = ['AVAX_PERMISSIONING_CLASSIFIED'];
+  if (absent_count > 0) flags.push('AVAX_PERMISSIONING_GAPS_FOUND');
+  if (judgment_required_count > 0) flags.push('AVAX_PERMISSIONING_JUDGMENT_REQUIRED');
+  if (protocol_enforced_count === 0) flags.push('AVAX_PERMISSIONING_NO_PROTOCOL_CONTROLS');
+  if (absent_count === 0 && judgment_required_count === 0) flags.push('AVAX_PERMISSIONING_FULLY_RESOLVED');
+
+  var pp = { precompiles: precompiles, application_controls: applicationControls, validator_manager_mode: validator_manager_mode };
+  var op = { controls: controls, gap_register: gap_register, judgment_required: judgment_required, controls_evaluated: controls.length, protocol_enforced_count: protocol_enforced_count, application_enforced_count: application_enforced_count, absent_count: absent_count, judgment_required_count: judgment_required_count };
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var vBox = document.getElementById('verdictBox');
+  var clean = absent_count === 0 && judgment_required_count === 0;
+  vBox.style.color = clean ? 'var(--teal-lt)' : (absent_count > 0 ? 'var(--red)' : 'var(--warn)');
+  vBox.style.background = clean ? 'rgba(20,184,166,.08)' : (absent_count > 0 ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  vBox.style.border = clean ? '1px solid var(--teal)' : (absent_count > 0 ? '1px solid var(--red)' : '1px solid var(--warn)');
+  vBox.textContent = clean ? 'ALL CONTROLS RESOLVED' : (absent_count > 0 ? 'GAPS FOUND' : 'JUDGMENT REQUIRED');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + protocol_enforced_count + '</span><span class="stat-key">Protocol-enforced</span></div>' +
+    '<div class="stat"><span class="stat-val">' + application_enforced_count + '</span><span class="stat-key">Application-enforced</span></div>' +
+    '<div class="stat"><span class="stat-val">' + absent_count + '</span><span class="stat-key">Absent</span></div>' +
+    '<div class="stat"><span class="stat-val">' + judgment_required_count + '</span><span class="stat-key">Judgment required</span></div>';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) {
+    var cls = f.indexOf('GAPS_FOUND') > -1 ? 'fail' : f.indexOf('JUDGMENT_REQUIRED') > -1 ? 'warn' : 'ok';
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+
+  var statusLabel = { protocol_enforced: 'Protocol-enforced', application_enforced: 'Application-enforced', absent: 'Absent', judgment_required: 'Judgment required' };
+  document.getElementById('controlsDiv').innerHTML = controls.map(function(c) {
+    return '<div class="kv"><span class="kv-k">' + c.label + '</span><span class="kv-v">' + statusLabel[c.status] + '</span></div>';
+  }).join('');
+
+  document.getElementById('gapDiv').innerHTML = gap_register.length === 0
+    ? '<div class="kv"><span class="kv-k">No gaps</span><span class="kv-v">&mdash;</span></div>'
+    : gap_register.map(function(g) { return '<div class="kv"><span class="kv-k">' + g.label + '</span><span class="kv-v">' + g.reason + '</span></div>'; }).join('');
+
+  document.getElementById('judgmentDiv').innerHTML = judgment_required.length === 0
+    ? '<div class="kv"><span class="kv-k">None</span><span class="kv-v">&mdash;</span></div>'
+    : judgment_required.map(function(j) { return '<div class="kv"><span class="kv-k">' + j.label + '</span><span class="kv-v">' + j.undetermined + ' &mdash; resolved by ' + j.resolving_input + '</span></div>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: 'art-495-avax-permissioning-control-classifier',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-495-avax-permissioning-control-classifier.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
