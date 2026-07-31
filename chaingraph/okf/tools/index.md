@@ -85,6 +85,7 @@ status: stable
 - [MCP Server Identity Attestation Validator](./art-147-mcp-server-identity-attestation-validator.md) — `validate_mcp_server_identity`
 - [MCP Authorization Metadata Validator (RFC 9728)](./art-148-mcp-authorization-metadata-validator.md) — `validate_mcp_authorization_metadata`
 - [MCP Registry Entry Conformance Checker](./art-149-mcp-registry-entry-conformance.md) — `check_mcp_registry_entry`
+- [Agentic Mandate Sandbox](./art-15-agentic-mandate-sandbox.md) — `simulate_agent_spend_policy`
 - [MCP Tool Scope & Revocation Auditor](./art-150-mcp-tool-scope-revocation-auditor.md) — `audit_mcp_tool_scope_revocation`
 - [Agent On-Behalf-Of (OBO) Mandate Validator](./art-151-agent-obo-mandate-validator.md) — `validate_agent_obo_mandate`
 - [MCP Task Lifecycle State Machine Validator](./art-152-mcp-task-lifecycle-validator.md) — `validate_mcp_task_lifecycle`
@@ -95,6 +96,7 @@ status: stable
 - [EMIR Lifecycle Event Validator](./art-157-emir-lifecycle-event-validator.md) — `validate_emir_lifecycle_event`
 - [EMIR Reporting Readiness Diagnostic](./art-158-emir-reporting-readiness-diagnostic.md) — `run_emir_reporting_fit`
 - [ViDA EN 16931 E-Invoice Conformance Validator](./art-159-vida-einvoice-en16931-conformance-validator.md) — `validate_vida_einvoice_conformance`
+- [Google AP2 Mandate Builder](./art-16-google-ap2-mandate-builder.md) — `draft_ap2_mandate_credential`
 - [ViDA DRR Transaction Reporter](./art-160-vida-drr-transaction-reporter.md) — `assess_vida_drr_reporting_obligation`
 - [ViDA Recapitulative Statement Migration Assessor](./art-161-vida-recapitulative-statement-migration-assessor.md) — `assess_vida_recapitulative_migration`
 - [ViDA Platform Deemed Supplier Classifier](./art-162-vida-platform-deemed-supplier-classifier.md) — `classify_vida_platform_deemed_supplier`
@@ -105,6 +107,7 @@ status: stable
 - [EUDR Commodity Scope Classifier](./art-167-eudr-commodity-scope-classifier.md) — `classify_eudr_commodity_scope`
 - [EUDR Country Benchmark Risk Scorer](./art-168-eudr-country-benchmark-risk-scorer.md) — `score_eudr_country_risk`
 - [EUDR Supply-Chain Traceability Linker](./art-169-eudr-supply-chain-traceability-linker.md) — `link_eudr_supply_chain_traceability`
+- [AP2/MCP Policy Validator](./art-17-ap2-mcp-policy-validator.md) — `validate_ap2_mandate_credential`
 - [EUDR Readiness Diagnostic](./art-170-eudr-readiness-diagnostic.md) — `run_eudr_readiness_fit`
 - [ISO 42001 AIMS Clause Conformance](./art-171-iso42001-aims-clause-conformance.md) — `assess_iso42001_aims_conformance`
 - [AI Risk Impact Assessment Validator](./art-172-ai-risk-impact-assessment-validator.md) — `validate_ai_impact_assessment`
@@ -115,6 +118,7 @@ status: stable
 - [IFRS 17 Measurement Model Classifier](./art-177-ifrs17-measurement-model-classifier.md) — `classify_ifrs17_measurement_model`
 - [IFRS 17 CSM Roll-Forward Validator](./art-178-ifrs17-csm-rollforward-validator.md) — `validate_ifrs17_csm_rollforward`
 - [IFRS 17 Risk Adjustment Checker](./art-179-ifrs17-risk-adjustment-checker.md) — `check_ifrs17_risk_adjustment`
+- [MCP Developer Readiness Scorecard](./art-18-mcp-developer-readiness-scorecard.md) — `score_mcp_server_readiness`
 - [Solvency II SCR Ratio Calculator](./art-180-solvency2-scr-ratio-calculator.md) — `calculate_solvency2_scr_ratio`
 - [SII-IFRS 17 Reconciliation Bridger](./art-181-sii-ifrs17-reconciliation-bridger.md) — `reconcile_sii_ifrs17`
 - [Insurance Reporting Readiness Diagnostic](./art-182-insurance-reporting-readiness-diagnostic.md) — `run_insurance_reporting_fit`

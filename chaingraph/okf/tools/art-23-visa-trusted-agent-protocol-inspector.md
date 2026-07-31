@@ -30,9 +30,9 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [Agentic Payments Protocol Comparator](./art-22-agentic-payments-protocol-comparator.md)
+**Consumes:** [Google AP2 Mandate Builder](./art-16-google-ap2-mandate-builder.md), [Agentic Payments Protocol Comparator](./art-22-agentic-payments-protocol-comparator.md)
 
-**Feeds:** [Mastercard Agentic Token Scope Builder](./art-24-mastercard-agentic-token-builder.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [MCP Developer Readiness Scorecard](./art-18-mcp-developer-readiness-scorecard.md), [Mastercard Agentic Token Scope Builder](./art-24-mastercard-agentic-token-builder.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 

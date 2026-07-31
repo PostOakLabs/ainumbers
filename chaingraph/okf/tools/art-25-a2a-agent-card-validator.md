@@ -32,7 +32,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** [Agentic Payments Protocol Comparator](./art-22-agentic-payments-protocol-comparator.md)
 
-**Feeds:** [x402 Header Decoder, Payload Linter & 402 Flow Simulator](./art-26-x402-payload-decoder-flow-simulator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [MCP Developer Readiness Scorecard](./art-18-mcp-developer-readiness-scorecard.md), [x402 Header Decoder, Payload Linter & 402 Flow Simulator](./art-26-x402-payload-decoder-flow-simulator.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 

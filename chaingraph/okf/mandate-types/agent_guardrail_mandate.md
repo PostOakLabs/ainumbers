@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "agent_guardrail_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"agent_guardrail_mandate\"."
-tags: ["agent_guardrail_mandate", "count-18"]
+tags: ["agent_guardrail_mandate", "count-19"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,8 +10,9 @@ status: stable
 
 # agent_guardrail_mandate
 
-18 tool(s) in this mandate-type group:
+19 tool(s) in this mandate-type group:
 
+- [Agentic Mandate Sandbox](../tools/art-15-agentic-mandate-sandbox.md)
 - [Agent-Traffic Acceptance Policy Builder](../tools/art-21-agent-traffic-acceptance-policy-builder.md)
 - [Agentic Payments Readiness Diagnostic](../tools/art-27-agentic-readiness-diagnostic.md)
 - [MCP Server Deployability Diagnostic](../tools/art-28-mcp-server-deployability-diagnostic.md)
