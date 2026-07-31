@@ -243,8 +243,10 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
         <div class="hash-display"><span class="hash-label">execution_hash:</span><span id="apHash"></span></div>
         <div class="verify-row">
           <button class="ex-btn ex-primary" onclick="apVerify()">&#x2713; Verify</button>
+          <button class="ex-btn ex-secondary" id="apSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this artifact — same-origin message, no file, no network">&#x27A1; Send to Verifier</button>
           <span class="verify-out" id="apVerifyOut"></span>
         </div>
+        <div class="verify-out" id="apHandoffOut" style="display:none"></div>
       </div>
       <div class="rp-section">
         <div class="rp-label">Export</div>
@@ -1318,6 +1320,56 @@ async function apVerify() {
       out.className = 'verify-out v-fail'; out.textContent = '✗ mismatch';
     }
   } catch(e) { out.className = 'verify-out v-fail'; out.textContent = 'error: ' + e.message; }
+}
+
+/* ── handoff sender (START-SURFACE-HANDOFF-BUILD-SPEC §1.1/§1.3/§1.4) ──
+   Same-origin postMessage only. Never '*'. Payload is the artifact JSON and a
+   declared kind, nothing else — no identifiers, no counters, no telemetry.
+   Zero network, zero storage: window.open of a same-origin page is neither. */
+var HANDOFF_MAX_CHARS = 2000000;
+function apHandoffMsg(text, ok) {
+  var el = document.getElementById('apHandoffOut');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'verify-out ' + (ok ? 'v-ok' : 'v-fail');
+  el.style.display = text ? 'block' : 'none';
+}
+function apSendToVerify() {
+  if (!currentArtifact) return;
+  var json;
+  try { json = JSON.stringify(currentArtifact, null, 2); }
+  catch (e) { apHandoffMsg('Could not serialize this artifact: ' + e.message, false); return; }
+  if (json.length > HANDOFF_MAX_CHARS) {
+    apHandoffMsg('Too large to hand off (' + json.length + ' chars, limit ' + HANDOFF_MAX_CHARS + '). Use Export to download the artifact and paste it into the verifier.', false);
+    return;
+  }
+  var target = new URL('../verify.html', window.location.href).href;
+  var win = window.open(target, '_blank');
+  if (!win) {
+    apHandoffMsg('The verifier window was blocked. Allow pop-ups for this site, or download the artifact from Export and paste it in.', false);
+    return;
+  }
+  var sent = false;
+  var timer = null;
+  function onReady(ev) {
+    if (ev.origin !== window.location.origin) return;   /* §1.3 discard silently */
+    if (ev.source !== win) return;
+    var d = ev.data;
+    if (!d || typeof d !== 'object' || d.type !== 'ain-handoff-ready/v1') return;
+    if (sent) return;
+    sent = true;
+    window.removeEventListener('message', onReady);
+    if (timer) clearTimeout(timer);
+    win.postMessage({ type: 'ain-handoff/v1', kind: 'ocg-artifact', artifact: json }, window.location.origin);
+    apHandoffMsg('Sent to the Artifact Verifier in the new tab.', true);
+  }
+  window.addEventListener('message', onReady);
+  apHandoffMsg('Opening the Artifact Verifier…', true);
+  timer = setTimeout(function () {
+    if (sent) return;
+    window.removeEventListener('message', onReady);
+    apHandoffMsg('The verifier did not answer. Download the artifact from Export and paste it in.', false);
+  }, 10000);
 }
 
 function apExportArtifact() {
