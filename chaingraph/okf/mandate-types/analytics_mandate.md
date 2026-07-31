@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-35"]
+tags: ["analytics_mandate", "count-36"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # analytics_mandate
 
-35 tool(s) in this mandate-type group:
+36 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -47,3 +47,4 @@ status: stable
 - [Credit Concentration Top-N / Sector Checker](../tools/art-445-credit-concentration-topn-sector.md)
 - [Forfaiting vs Factoring vs Invoice Discounting Economics](../tools/art-479-compare-receivables-finance-economics.md)
 - [ICM Quorum Forgery Classifier](../tools/art-494-icm-quorum-forgery-classifier.md)
+- [Securitisation Payment Waterfall Recomputation](../tools/art-509-recompute-payment-waterfall.md)
