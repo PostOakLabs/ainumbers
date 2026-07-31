@@ -10,11 +10,16 @@
  *   CBAM Implementing Regulation (Commission) — default embedded-emissions
  *     values per sector × origin. Verify current edition + date.
  *   CBAM Reg. (EU) 2023/956 Art 17 — default value obligations.
- *   Default markup: Art 14 CBAM Implementing Reg. — +10% 2026, +20% 2027,
- *     +30% 2028 and subsequent years.
+ *   Default markup: +10% 2026, +20% 2027, +30% 2028 and subsequent years for
+ *     cement, iron and steel, aluminium and hydrogen. Fertilisers carry a flat
+ *     +1% instead, set low because actual data is hard to obtain across
+ *     chemical supply chains.
  *   EDUCATIONAL: outputs are decision-support drafts, not official declarations.
  *
- * reference_version: "CBAM-IR-v1.0-2024-Q4" — update when Commission revises.
+ * reference_version: "CIR-EU-2025-2621-ANNEX-I" — Commission Implementing
+ *   Regulation (EU) 2025/2621, Annex I (country-specific default values for
+ *   specific embedded emissions of non-electricity CBAM goods, 31 Dec 2025).
+ *   Update when the Commission revises the Annex.
  */
 import { executionHash } from './_hash.mjs';
 
@@ -31,7 +36,7 @@ export const meta = {
 
 // ─── Default-value table (tCO₂e per tonne) ───────────────────────────────────
 // Source: CBAM Implementing Regulation, Annex with default embedded-emission values.
-// reference_version: "CBAM-IR-v1.0-2024-Q4" — verify current edition.
+// reference_version: "CIR-EU-2025-2621-ANNEX-I" — verify current edition.
 // Countries not listed use the world-average default for the sector.
 // Values are illustrative approximations; always verify against the current
 // Commission Implementing Regulation before use in any official filing.
@@ -61,12 +66,17 @@ const DEFAULT_VALUES = {
   },
 };
 
-// Default markup by reporting year (CBAM Implementing Reg. Art 14)
-// +10% 2026, +20% 2027, +30% 2028 and subsequent years
+// Default markup by reporting year: +10% 2026, +20% 2027, +30% 2028 and
+// subsequent years. Fertilisers are the documented exception and carry a flat
+// +1% in every year, because actual data is hard to obtain across chemical
+// supply chains.
 const MARKUP_BY_YEAR = { 2026: 0.10, 2027: 0.20 };
-const getMarkup = (year) => year >= 2028 ? 0.30 : (MARKUP_BY_YEAR[year] ?? 0.10);
+const FERTILISER_MARKUP = 0.01;
+const getMarkup = (year, good_category) => good_category === 'fertiliser'
+  ? FERTILISER_MARKUP
+  : (year >= 2028 ? 0.30 : (MARKUP_BY_YEAR[year] ?? 0.10));
 
-const REFERENCE_VERSION = 'CBAM-IR-v1.0-2024-Q4';
+const REFERENCE_VERSION = 'CIR-EU-2025-2621-ANNEX-I';
 
 export function compute(pp) {
   const {
@@ -79,7 +89,7 @@ export function compute(pp) {
 
   const table  = DEFAULT_VALUES[good_category] ?? DEFAULT_VALUES.iron_steel;
   const base   = table[country_of_origin] ?? table._world;
-  const markup = getMarkup(+reporting_year);
+  const markup = getMarkup(+reporting_year, good_category);
   const effective_default = +(base * (1 + markup)).toFixed(4);
 
   const actual_path_recommended = actual_data_available === true || actual_data_available === 'true';
@@ -93,9 +103,9 @@ export function compute(pp) {
     cn_code,
     country_of_origin,
     reporting_year: +reporting_year,
-    provenance: `Default embedded-emission value for ${good_category} (${country_of_origin || 'world-average'}). Source: CBAM Implementing Regulation, reference_version ${REFERENCE_VERSION}. Markup +${(markup * 100).toFixed(0)}% applied for ${reporting_year} reporting year per Art 14.`,
+    provenance: `Default embedded-emission value for ${good_category} (${country_of_origin || 'world-average'}). Reference instrument: Commission Implementing Regulation (EU) 2025/2621 Annex I (country-specific default values for non-electricity CBAM goods, 31 Dec 2025), reference_version ${REFERENCE_VERSION}. The values shipped in this node are illustrative placeholders, not the Annex I figures. Markup +${(markup * 100).toFixed(0)}% applied for ${reporting_year} reporting year.`,
     reference_version: REFERENCE_VERSION,
-    note: 'DECISION-SUPPORT DRAFT — values are approximate. Verify against the current Commission CBAM Implementing Regulation edition (https://taxation-customs.ec.europa.eu/) before use in any official declaration. Default markup rates: +10% 2026, +20% 2027, +30% 2028+.',
+    note: 'DECISION-SUPPORT DRAFT — values are approximate. Verify against the current Commission CBAM Implementing Regulation edition (https://taxation-customs.ec.europa.eu/) before use in any official declaration. Default markup rates: +10% 2026, +20% 2027, +30% 2028+ for cement, iron and steel, aluminium and hydrogen; fertilisers carry a flat +1% in every year.',
   };
 
   const compliance_flags = [];

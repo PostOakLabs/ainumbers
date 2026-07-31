@@ -22,7 +22,14 @@ export const meta = {
 //   fees (other than bona-fide participation fees up to $100/year), and any other
 //   charges incident to the extension of credit.
 //
-// Bona-fide participation fee exclusion (32 CFR §232.4(c)(1)(iii)(A)):
+// Charges included in the MAPR at 32 CFR §232.4(c)(1)(iii), verbatim structure:
+//   (A) finance charges associated with the consumer credit;
+//   (B) any application fee charged to a covered borrower;
+//   (C) any fee imposed for participation in any plan or arrangement for
+//       consumer credit, subject to 32 CFR §232.4(c)(2)(ii)(B).
+//
+// Bona-fide participation fee exclusion (32 CFR §232.4(c)(1)(iii)(C), with the
+// $100/yr limit at 32 CFR §232.4(c)(2)(ii)(B)):
 //   A participation fee up to $100/year for a credit card account MAY be excluded
 //   if the card provides a specific benefit in addition to the simple extension
 //   of credit. EXCLUDED from MAPR calculation.
@@ -55,7 +62,7 @@ function intPow(base, exp) {
 }
 
 const MLA_CAP_PCT = 36.0;
-const BONA_FIDE_FEE_MAX_ANNUAL = 100.0; // 32 CFR §232.4(c)(1)(iii)(A)
+const BONA_FIDE_FEE_MAX_ANNUAL = 100.0; // 32 CFR §232.4(c)(2)(ii)(B)
 
 export function compute(pp) {
   pp = pp || {};
@@ -88,7 +95,7 @@ export function compute(pp) {
         stated_apr_pct: 0,
         regulatory_basis: '10 USC §987(b); 32 CFR §232.4(c); DoD MLA rule effective Oct 3, 2016',
         table_version: 'MLA-DOD-32CFR232-2016-10-03',
-        table_source: '10 USC §987(b); 32 CFR Part 232 (Federal Register 80 FR 43560, Jul 22, 2015, effective Oct 3, 2016); 32 CFR §232.4(c)(1)(iii)(A) $100 bona-fide fee exclusion',
+        table_source: '10 USC §987(b); 32 CFR Part 232 (Federal Register 80 FR 43560, Jul 22, 2015, effective Oct 3, 2016); 32 CFR §232.4(c)(1)(iii)(C) bona-fide participation fee exclusion, $100/yr limit at 32 CFR §232.4(c)(2)(ii)(B)',
         pii_note: 'All inputs are processed locally in your browser. No data is transmitted.',
       },
       compliance_flags: [],
@@ -104,7 +111,8 @@ export function compute(pp) {
 
   const effective_finance_charge = finance_charge_total > 0 ? finance_charge_total : implicit_finance_charge;
 
-  // Bona-fide participation fee exclusion (32 CFR §232.4(c)(1)(iii)(A))
+  // Bona-fide participation fee exclusion (32 CFR §232.4(c)(1)(iii)(C); the
+  // $100/yr limit is at 32 CFR §232.4(c)(2)(ii)(B))
   const excluded_participation = is_credit_card
     ? Math.min(participation_fee_annual, BONA_FIDE_FEE_MAX_ANNUAL)
     : 0;
@@ -147,7 +155,7 @@ export function compute(pp) {
     is_credit_card,
     regulatory_basis: '10 USC §987(b); 32 CFR §232.4(c); DoD MLA rule effective Oct 3, 2016',
     table_version: 'MLA-DOD-32CFR232-2016-10-03',
-    table_source: '10 USC §987(b); 32 CFR Part 232 (Federal Register 80 FR 43560 Jul 22 2015, effective Oct 3 2016); 32 CFR §232.4(c)(1)(iii)(A) bona-fide participation fee $100/yr annual exclusion; 32 CFR §232.4(c)(1)(iii)(B) bona-fide application fee exclusion',
+    table_source: '10 USC §987(b); 32 CFR Part 232 (Federal Register 80 FR 43560 Jul 22 2015, effective Oct 3 2016); 32 CFR §232.4(c)(1)(iii)(A) finance charges; 32 CFR §232.4(c)(1)(iii)(B) bona-fide application fee exclusion; 32 CFR §232.4(c)(1)(iii)(C) bona-fide participation fee exclusion, $100/yr limit at 32 CFR §232.4(c)(2)(ii)(B)',
     pii_note: 'All inputs are processed locally in your browser. No data is transmitted.',
   };
 
