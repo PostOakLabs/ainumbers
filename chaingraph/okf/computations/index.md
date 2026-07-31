@@ -436,6 +436,7 @@ status: stable
 - [FATCA/CRS RO Remediation Closure Tracker](./art-491-ro-remediation-closure.md)
 - [Settlement Finality Classifier](./art-492-classify-settlement-finality.md)
 - [ICM Quorum Forgery Classifier](./art-494-icm-quorum-forgery-classifier.md)
+- [L1 Continuous-Fee Runway Model](./art-496-l1-continuous-fee-runway.md)
 - [Validator Change-Control Receipt](./art-497-validator-change-control-receipt.md)
 - [CASS 15 Safeguarding Reconciliation Check](./art-499-check-safeguarding-reconciliation.md)
 - [FICC Margin & Netting Estimator](./art-50-ficc-margin-netting-estimator.md)
