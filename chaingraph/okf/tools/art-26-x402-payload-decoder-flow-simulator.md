@@ -32,7 +32,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** [Agentic Payments Protocol Comparator](./art-22-agentic-payments-protocol-comparator.md), [A2A Agent Card Validator & Extension Checker](./art-25-a2a-agent-card-validator.md)
 
-**Feeds:** [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), `art-18-mcp-developer-readiness-scorecard` _(not live)_, [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
+**Feeds:** [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md), [AP2 Prompt Template Generator](./ptg-01-ap2-prompt-template-generator.md)
 
 ## Attested computation
 
