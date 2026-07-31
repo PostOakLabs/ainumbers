@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Consortium Validator Reward-Flow Related-Party Classifier &middot; ART-498 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Classifies reward-manager recipients on a permissioned Avalanche Evergreen L1 against a caller-supplied entity-ownership map: related-party flags, aggregate amount against materiality, a gap list naming each unresolved recipient, and clearly labelled draft ASC 850 / IAS 24 disclosure language. Provable ChainGraph node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-498-reward-flow-related-party.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:.3rem;display:block}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{min-height:96px;resize:vertical;line-height:1.7}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.draft-note{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius);padding:12px 14px;margin-top:8px}
+.draft-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;color:var(--warn);display:block;margin-bottom:6px}
+.draft-disclaimer{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6}
+.draft-line{font-size:.74rem;color:var(--text);margin-bottom:6px}
+.cite{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);padding:4px 0;border-bottom:1px solid var(--border)}
+.cite:last-child{border-bottom:none}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-498 · Reward-Flow Related-Party Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-498 &middot; Avalanche / Evergreen L1</div>
+  <h1>Consortium Validator Reward-Flow Related-Party Classifier</h1>
+  <p class="sub">A consortium runs a permissioned Evergreen L1. Its reward-manager precompile pays block rewards to a configured recipient list. At quarter-end close the controller has to answer a question: are any of those recipients related parties of the reporting entity, and is what they received material? This node takes the transcribed recipient list, your own entity-ownership map, the per-period amounts from your own accounting export and a materiality threshold, and returns a per-recipient classification, the aggregate related-party amount measured against the threshold, a gap list naming every recipient it could not resolve, and draft disclosure language for review. It carries its own versioned ruleset and imports none from any other control family. Related question, different node: see <a href="art-459-sod-matrix-check.html">ART-459</a> for a segregation-of-duties conflict matrix over role assignments.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Own versioned ruleset</span><span class="flag info">ASC 850 and IAS 24 pinned</span><span class="flag info">Transcribed, no chain observation</span><span class="flag info">Gap list, no coverage ratio</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">Reporting Entity and Period</div>
+    <div class="row3">
+      <div class="q"><span class="q-label">Issuer ref</span><input type="text" id="issuerRef" value="ISS-1"></div>
+      <div class="q"><span class="q-label">Issuer ultimate parent ref</span><input type="text" id="issuerParentRef" value="UP-1"></div>
+      <div class="q"><span class="q-label">Period ref</span><input type="text" id="periodRef" value="FY2026-Q2"></div>
+    </div>
+    <div class="row3">
+      <div class="q"><span class="q-label">Ruleset version</span><input type="text" id="rulesetVersion" value="avax-rparty-2026.07"></div>
+      <div class="q"><span class="q-label">Materiality threshold</span><input type="number" id="materialityThreshold" value="25000" step="0.01" min="0"></div>
+      <div class="q"><span class="q-label">Currency</span><input type="text" id="currency" value="USD"></div>
+    </div>
+    <div class="row2">
+      <div class="q"><span class="q-label">As-of date</span><input type="text" id="asOf" value="2026-07-30"></div>
+      <div class="q"><span class="q-label">Co-consortium member refs</span><input type="text" id="consortiumRefs" value="ENT-B">
+        <span class="q-hint">Comma separated entity refs. Opaque references only.</span>
+      </div>
+    </div>
+
+    <div class="section-head">Entity Ownership Map</div>
+    <div class="q"><span class="q-label">One entity per line</span>
+      <textarea id="ownershipMap">ENT-A, UP-1
+ENT-B, UP-2, member
+ENT-C, UP-3
+ENT-D, UP-4</textarea>
+      <span class="q-hint">Format: entity_ref, ultimate_parent_ref, member (the third field is optional and marks a co-consortium member). Use opaque references. Legal names and addresses are not fields here and must not be entered.</span>
+    </div>
+
+    <div class="section-head">Reward-Manager Recipients</div>
+    <div class="q"><span class="q-label">One recipient per line, amounts transcribed from your accounting export</span>
+      <textarea id="recipients">RCP-A, ENT-A, 30000
+RCP-B, ENT-B, 12000
+RCP-C, ENT-C, 8000
+RCP-D, ENT-D, 1500.55</textarea>
+      <span class="q-hint">Format: recipient_ref, entity_ref, reward_amount. Leave entity_ref blank to look the recipient ref up directly in the ownership map.</span>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runCheck()">&#9654; Classify Reward Flows</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="subsection">Per-Recipient Classification</div>
+      <div id="recipientsDiv"></div>
+      <div class="subsection">Gap List</div>
+      <div id="gapsDiv"></div>
+      <div class="subsection">Pinned Citations</div>
+      <div id="citationsDiv"></div>
+      <div class="subsection">Draft Disclosure Note</div>
+      <div id="draftDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a class="euc-register-link" href="register/art-498-reward-flow-related-party.register.json" download style="font-family:JetBrains Mono,monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">EUC register entry (JSON)</a>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-498-reward-flow-related-party',
+  version: '1.0.0',
+  mcp_name: 'classify_reward_flow_related_party',
+  title: 'Consortium Validator Reward-Flow Related-Party Classifier',
+  description: 'Classifies reward-manager recipients on a permissioned Avalanche Evergreen L1 against a caller-supplied entity-ownership map: per-recipient related-party classification, aggregate flagged amount against a materiality threshold, a gap list naming each unresolved recipient, pinned ASC 850 and IAS 24 citations, and clearly labelled draft disclosure language.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'ASC 850-10-50 (in force from 2009-09-15, the date the FASB Accounting Standards Codification became authoritative US GAAP) and IAS 24 as revised November 2009 (in force from 2011-01-01). Both are emitted as pinned citation objects inside the artifact. The materiality threshold and the ownership structure are caller inputs, never derived here.',
+  ruleset_version: 'caller-supplied, echoed into the receipt. This node imports no ruleset from any other control family.',
+  mcp_tool_definition: {
+    name: 'classify_reward_flow_related_party',
+    description: 'Classify consortium validator reward-manager recipients as related parties against a caller-supplied entity-ownership map, measure the aggregate against a materiality threshold, list every unresolved recipient by name, and draft labelled ASC 850 / IAS 24 disclosure language.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ruleset_version: { type: 'string' },
+        issuer_ref: { type: 'string' },
+        issuer_ultimate_parent_ref: { type: 'string' },
+        period_ref: { type: 'string' },
+        as_of: { type: 'string' },
+        currency: { type: 'string' },
+        materiality_threshold: { type: 'number' },
+        consortium_member_refs: { type: 'array', items: { type: 'string' } },
+        ownership_map: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              entity_ref: { type: 'string' },
+              ultimate_parent_ref: { type: 'string' },
+              consortium_member: { type: 'boolean' }
+            }
+          }
+        },
+        recipients: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              recipient_ref: { type: 'string' },
+              entity_ref: { type: 'string' },
+              reward_amount: { type: 'number' }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+var CITE_MAPPED_BY = 'AINumbers AVAX-RPARTY-1';
+var CITE_MAPPED_AT = '2026-07-31';
+var CITATIONS = {
+  us_gaap_related_party: {
+    scheme: 'fasb-asc',
+    id: 'ASC 850-10-50',
+    in_force_from: '2009-09-15',
+    mapped_by: CITE_MAPPED_BY,
+    mapped_at: CITE_MAPPED_AT,
+    uri: 'https://asc.fasb.org/'
+  },
+  ifrs_related_party: {
+    scheme: 'ifrs-ias',
+    id: 'IAS 24',
+    in_force_from: '2011-01-01',
+    mapped_by: CITE_MAPPED_BY,
+    mapped_at: CITE_MAPPED_AT,
+    uri: 'https://www.ifrs.org/issued-standards/list-of-standards/ias-24-related-party-disclosures/'
+  }
+};
+
+var CLASS_SAME_PARENT = 'SAME_ULTIMATE_PARENT';
+var CLASS_CO_CONSORTIUM = 'CO_CONSORTIUM_MEMBER';
+var CLASS_NOT_RELATED = 'NOT_RELATED';
+var CLASS_UNRESOLVED = 'UNRESOLVED';
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function s(v) { return String(v == null ? '' : v).trim(); }
+function minor(v) {
+  if (v === null || v === undefined || v === '') return null;
+  var n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+function major(units) { return Math.round(units) / 100; }
+function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function classifyRewardFlows(pp) {
+  var compliance_flags = ['REWARD_FLOW_RELATED_PARTY_EVALUATED'];
+  var gaps = [];
+  var i;
+
+  var ruleset_version = s(pp.ruleset_version) || 'unversioned';
+  if (ruleset_version === 'unversioned') gaps.push({ subject_ref: null, reason_code: 'RULESET_VERSION_NOT_STATED' });
+
+  var issuer_ref = s(pp.issuer_ref) || null;
+  if (!issuer_ref) gaps.push({ subject_ref: null, reason_code: 'ISSUER_REF_MISSING' });
+
+  var issuer_ultimate_parent_ref = s(pp.issuer_ultimate_parent_ref) || null;
+  if (!issuer_ultimate_parent_ref) gaps.push({ subject_ref: null, reason_code: 'ISSUER_ULTIMATE_PARENT_NOT_STATED' });
+
+  var period_ref = s(pp.period_ref) || null;
+  if (!period_ref) gaps.push({ subject_ref: null, reason_code: 'PERIOD_REF_MISSING' });
+  var as_of = s(pp.as_of) || null;
+  var currency = s(pp.currency) || null;
+
+  var declaredMembers = {};
+  var rawMembers = Array.isArray(pp.consortium_member_refs) ? pp.consortium_member_refs : [];
+  for (i = 0; i < rawMembers.length; i++) {
+    var m = s(rawMembers[i]);
+    if (m) declaredMembers[m] = true;
+  }
+
+  var ownership = {};
+  var ownershipCount = 0;
+  var rawOwnership = Array.isArray(pp.ownership_map) ? pp.ownership_map : [];
+  for (i = 0; i < rawOwnership.length; i++) {
+    var row = rawOwnership[i];
+    var entity_ref = s(row && row.entity_ref);
+    if (!entity_ref) continue;
+    var parent = s(row && row.ultimate_parent_ref);
+    var member = row && row.consortium_member === true;
+    ownership[entity_ref] = { ultimate_parent_ref: parent || null, consortium_member: member };
+    ownershipCount++;
+    if (member) declaredMembers[entity_ref] = true;
+  }
+  if (ownershipCount === 0) gaps.push({ subject_ref: null, reason_code: 'OWNERSHIP_MAP_EMPTY' });
+
+  var threshold_units = minor(pp.materiality_threshold);
+  var threshold_stated = threshold_units !== null && threshold_units >= 0;
+  if (!threshold_stated) gaps.push({ subject_ref: null, reason_code: 'MATERIALITY_THRESHOLD_NOT_STATED' });
+
+  var rawRecipients = Array.isArray(pp.recipients) ? pp.recipients : [];
+  var recipients = [];
+  var seen = {};
+  for (i = 0; i < rawRecipients.length; i++) {
+    var rrow = rawRecipients[i];
+    var recipient_ref = s(rrow && rrow.recipient_ref);
+    if (!recipient_ref) { gaps.push({ subject_ref: null, reason_code: 'RECIPIENT_REF_MISSING' }); continue; }
+    if (seen[recipient_ref]) { gaps.push({ subject_ref: recipient_ref, reason_code: 'DUPLICATE_RECIPIENT_REF' }); continue; }
+    seen[recipient_ref] = true;
+
+    var stated_entity_ref = s(rrow && rrow.entity_ref) || null;
+    var entity_key = stated_entity_ref || recipient_ref;
+    var owned = Object.prototype.hasOwnProperty.call(ownership, entity_key) ? ownership[entity_key] : null;
+
+    var amount_units = minor(rrow && rrow.reward_amount);
+    if (amount_units === null) gaps.push({ subject_ref: recipient_ref, reason_code: 'REWARD_AMOUNT_NOT_STATED' });
+    else if (amount_units < 0) gaps.push({ subject_ref: recipient_ref, reason_code: 'REWARD_AMOUNT_NEGATIVE' });
+
+    var classification;
+    if (!owned && !declaredMembers[entity_key]) {
+      classification = CLASS_UNRESOLVED;
+      gaps.push({ subject_ref: recipient_ref, reason_code: 'ENTITY_NOT_IN_OWNERSHIP_MAP' });
+    } else if (issuer_ultimate_parent_ref && owned && owned.ultimate_parent_ref && owned.ultimate_parent_ref === issuer_ultimate_parent_ref) {
+      classification = CLASS_SAME_PARENT;
+    } else if (declaredMembers[entity_key]) {
+      classification = CLASS_CO_CONSORTIUM;
+    } else if (owned && !owned.ultimate_parent_ref) {
+      classification = CLASS_UNRESOLVED;
+      gaps.push({ subject_ref: recipient_ref, reason_code: 'ULTIMATE_PARENT_NOT_STATED_FOR_ENTITY' });
+    } else if (!issuer_ultimate_parent_ref) {
+      classification = CLASS_UNRESOLVED;
+      gaps.push({ subject_ref: recipient_ref, reason_code: 'ISSUER_PARENT_UNKNOWN_CANNOT_COMPARE' });
+    } else {
+      classification = CLASS_NOT_RELATED;
+    }
+
+    recipients.push({
+      recipient_ref: recipient_ref,
+      entity_ref: stated_entity_ref,
+      ultimate_parent_ref: owned ? owned.ultimate_parent_ref : null,
+      reward_amount: amount_units === null ? null : major(amount_units),
+      classification: classification,
+      related_party: classification === CLASS_SAME_PARENT || classification === CLASS_CO_CONSORTIUM,
+      _units: amount_units
+    });
+  }
+  if (recipients.length === 0) gaps.push({ subject_ref: null, reason_code: 'RECIPIENT_LIST_EMPTY' });
+
+  recipients.sort(function(a, b) { return a.recipient_ref < b.recipient_ref ? -1 : a.recipient_ref > b.recipient_ref ? 1 : 0; });
+
+  var flagged_units = 0;
+  var flagged_recipient_count = 0;
+  var unresolved_recipient_count = 0;
+  var unquantified_related_recipient_count = 0;
+  var flagged_recipient_refs = [];
+  for (i = 0; i < recipients.length; i++) {
+    var r = recipients[i];
+    if (r.classification === CLASS_UNRESOLVED) unresolved_recipient_count++;
+    if (!r.related_party) continue;
+    flagged_recipient_count++;
+    flagged_recipient_refs.push(r.recipient_ref);
+    if (r._units === null || r._units < 0) unquantified_related_recipient_count++;
+    else flagged_units += r._units;
+  }
+  for (i = 0; i < recipients.length; i++) delete recipients[i]._units;
+
+  var flagged_total = major(flagged_units);
+  var materiality_threshold = threshold_stated ? major(threshold_units) : null;
+
+  var materiality_status;
+  if (flagged_recipient_count === 0) materiality_status = 'NOT_APPLICABLE';
+  else if (!threshold_stated) materiality_status = 'UNQUANTIFIED';
+  else materiality_status = flagged_units >= threshold_units ? 'AT_OR_ABOVE_THRESHOLD' : 'BELOW_THRESHOLD';
+
+  if (flagged_recipient_count === 0) compliance_flags.push('NO_RELATED_PARTY_FLAGGED');
+  else if (materiality_status === 'AT_OR_ABOVE_THRESHOLD') compliance_flags.push('RELATED_PARTY_MATERIAL');
+  else if (materiality_status === 'BELOW_THRESHOLD') compliance_flags.push('RELATED_PARTY_IMMATERIAL');
+
+  var escalate = materiality_status === 'AT_OR_ABOVE_THRESHOLD' || materiality_status === 'UNQUANTIFIED' || gaps.length > 0;
+  if (escalate) compliance_flags.push('ESCALATION_RAISED');
+
+  var draft_disclosure_note = {
+    label: 'DECISION-SUPPORT DRAFT',
+    disclaimer: 'Drafted from the transcribed figures above for review by the reporting entity and its auditor. Not legal or accounting advice, and not a filing.',
+    lines: buildDraftLines({
+      issuer_ref: issuer_ref,
+      period_ref: period_ref,
+      currency: currency,
+      flagged_recipient_count: flagged_recipient_count,
+      flagged_total: flagged_total,
+      materiality_status: materiality_status,
+      materiality_threshold: materiality_threshold,
+      unresolved_recipient_count: unresolved_recipient_count,
+      unquantified_related_recipient_count: unquantified_related_recipient_count,
+      recipients: recipients
+    })
+  };
+
+  var op = {
+    ruleset_version: ruleset_version,
+    issuer_ref: issuer_ref,
+    issuer_ultimate_parent_ref: issuer_ultimate_parent_ref,
+    period_ref: period_ref,
+    as_of: as_of,
+    currency: currency,
+    recipient_count: recipients.length,
+    recipients: recipients,
+    flagged_recipient_count: flagged_recipient_count,
+    flagged_recipient_refs: flagged_recipient_refs,
+    flagged_total: flagged_total,
+    materiality_threshold: materiality_threshold,
+    materiality_status: materiality_status,
+    unresolved_recipient_count: unresolved_recipient_count,
+    unquantified_related_recipient_count: unquantified_related_recipient_count,
+    gaps: gaps,
+    citations: CITATIONS,
+    draft_disclosure_note: draft_disclosure_note
+  };
+  return { output_payload: op, compliance_flags: compliance_flags };
+}
+
+function buildDraftLines(v) {
+  var unit = v.currency ? ' ' + v.currency : '';
+  var who = v.issuer_ref || 'the reporting entity';
+  var when = v.period_ref || 'the reported period';
+  var lines = [];
+  var i;
+
+  lines.push('Validator reward flows for ' + when + ' were reviewed against the group ownership structure recorded for ' + who + '.');
+
+  if (v.flagged_recipient_count === 0) {
+    lines.push('No reward-manager recipient in the transcribed list was classified as a related party.');
+  } else {
+    lines.push(v.flagged_recipient_count + ' reward-manager recipient(s) were classified as related parties, receiving ' + v.flagged_total.toFixed(2) + unit + ' in aggregate for the period.');
+    var named = [];
+    for (i = 0; i < v.recipients.length; i++) {
+      if (v.recipients[i].related_party) named.push(v.recipients[i].recipient_ref + ' (' + v.recipients[i].classification + ')');
+    }
+    lines.push('Recipients so classified: ' + named.join(', ') + '.');
+  }
+
+  if (v.materiality_status === 'AT_OR_ABOVE_THRESHOLD') {
+    lines.push('The aggregate related-party amount is at or above the materiality threshold of ' + v.materiality_threshold.toFixed(2) + unit + ' stated for this review.');
+  } else if (v.materiality_status === 'BELOW_THRESHOLD') {
+    lines.push('The aggregate related-party amount is below the materiality threshold of ' + v.materiality_threshold.toFixed(2) + unit + ' stated for this review.');
+  } else if (v.materiality_status === 'UNQUANTIFIED') {
+    lines.push('No materiality threshold was stated for this review, so the aggregate was not measured against one.');
+  }
+
+  if (v.unresolved_recipient_count > 0) {
+    lines.push(v.unresolved_recipient_count + ' recipient(s) could not be resolved against the ownership structure and are listed in the gap list. They are not included in the amounts above.');
+  }
+  if (v.unquantified_related_recipient_count > 0) {
+    lines.push(v.unquantified_related_recipient_count + ' related-party recipient(s) had no usable amount transcribed and are excluded from the aggregate.');
+  }
+
+  lines.push('Prepared with reference to ASC 850-10-50 and IAS 24, as pinned in the citations above.');
+  return lines;
+}
+
+function parseOwnership(text) {
+  var out = [];
+  var lines = String(text || '').split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var raw = lines[i].trim();
+    if (!raw) continue;
+    var parts = raw.split(',');
+    var entity_ref = s(parts[0]);
+    if (!entity_ref) continue;
+    var row = { entity_ref: entity_ref, ultimate_parent_ref: s(parts[1]) };
+    if (s(parts[2]).toLowerCase() === 'member') row.consortium_member = true;
+    out.push(row);
+  }
+  return out;
+}
+
+function parseRecipients(text) {
+  var out = [];
+  var lines = String(text || '').split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var raw = lines[i].trim();
+    if (!raw) continue;
+    var parts = raw.split(',');
+    out.push({
+      recipient_ref: s(parts[0]),
+      entity_ref: s(parts[1]),
+      reward_amount: s(parts[2])
+    });
+  }
+  return out;
+}
+
+function runCheck() {
+  var pp = {
+    ruleset_version: document.getElementById('rulesetVersion').value,
+    issuer_ref: document.getElementById('issuerRef').value,
+    issuer_ultimate_parent_ref: document.getElementById('issuerParentRef').value,
+    period_ref: document.getElementById('periodRef').value,
+    as_of: document.getElementById('asOf').value,
+    currency: document.getElementById('currency').value,
+    materiality_threshold: document.getElementById('materialityThreshold').value,
+    consortium_member_refs: document.getElementById('consortiumRefs').value.split(',').map(function(x){return x.trim();}).filter(function(x){return x;}),
+    ownership_map: parseOwnership(document.getElementById('ownershipMap').value),
+    recipients: parseRecipients(document.getElementById('recipients').value)
+  };
+
+  var result = classifyRewardFlows(pp);
+  var op = result.output_payload, flags = result.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var material = flags.indexOf('RELATED_PARTY_MATERIAL') >= 0;
+  var immaterial = flags.indexOf('RELATED_PARTY_IMMATERIAL') >= 0;
+  var hasEsc = flags.indexOf('ESCALATION_RAISED') >= 0;
+  var vColor = material ? 'var(--red)' : (hasEsc ? 'var(--warn)' : 'var(--green)');
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = vColor; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = material ? 'RELATED PARTY FLOWS AT OR ABOVE MATERIALITY'
+    : immaterial ? 'RELATED PARTY FLOWS BELOW MATERIALITY'
+    : (hasEsc ? 'NO RELATED PARTY FLAGGED, GAPS OPEN' : 'NO RELATED PARTY FLAGGED');
+
+  var cur = op.currency ? ' ' + op.currency : '';
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.recipient_count + '</span><span class="stat-key">Recipients</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.flagged_recipient_count + '</span><span class="stat-key">Related parties</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.flagged_total.toFixed(2) + esc(cur) + '</span><span class="stat-key">Flagged total</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.materiality_threshold === null ? 'n/a' : op.materiality_threshold.toFixed(2)) + '</span><span class="stat-key">Threshold</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.gaps.length + '</span><span class="stat-key">Gaps</span></div>';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) {
+    var cls = f === 'RELATED_PARTY_MATERIAL' ? 'fail' : (f === 'ESCALATION_RAISED' ? 'warn' : 'ok');
+    return '<span class="badge ' + cls + '">' + esc(f) + '</span>';
+  }).join('');
+
+  document.getElementById('recipientsDiv').innerHTML = op.recipients.length ? op.recipients.map(function(r) {
+    var amt = r.reward_amount === null ? 'not stated' : r.reward_amount.toFixed(2) + cur;
+    var parent = r.ultimate_parent_ref ? r.ultimate_parent_ref : 'not stated';
+    return '<div class="kv"><span class="kv-k">' + esc(r.recipient_ref) + ' (parent ' + esc(parent) + ')</span>' +
+           '<span class="kv-v">' + esc(amt) + ' &middot; ' + esc(r.classification) + '</span></div>';
+  }).join('') : '<div class="kv"><span class="kv-k">No recipients supplied</span></div>';
+
+  document.getElementById('gapsDiv').innerHTML = op.gaps.length ? op.gaps.map(function(g) {
+    return '<div class="kv"><span class="kv-k" style="color:var(--warn)">' + esc(g.reason_code) + '</span>' +
+           '<span class="kv-v">' + esc(g.subject_ref || 'input level') + '</span></div>';
+  }).join('') : '<div class="kv"><span class="kv-k">None</span></div>';
+
+  var citeKeys = Object.keys(op.citations).sort();
+  document.getElementById('citationsDiv').innerHTML = citeKeys.map(function(k) {
+    var c = op.citations[k];
+    return '<div class="cite">' + esc(c.id) + ' &middot; ' + esc(c.scheme) + ' &middot; in force from ' + esc(c.in_force_from) +
+           ' &middot; <a href="' + esc(c.uri) + '" target="_blank" rel="noopener">source</a></div>';
+  }).join('');
+
+  var note = op.draft_disclosure_note;
+  document.getElementById('draftDiv').innerHTML =
+    '<div class="draft-note">' +
+    '<span class="draft-label">' + esc(note.label) + '</span>' +
+    '<div class="draft-disclaimer">' + esc(note.disclaimer) + '</div>' +
+    note.lines.map(function(l) { return '<div class="draft-line">' + esc(l) + '</div>'; }).join('') +
+    '</div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'compliance_control',
+    tool_id: 'art-498-reward-flow-related-party', tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-498-reward-flow-related-party.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
