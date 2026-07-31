@@ -57,6 +57,18 @@
 // spot for values baked in by a referenced identifier/constant rather than
 // written inline — that remains open, stated once here rather than hidden.
 //
+// PER-BRANCH VALUE COMPARISON (PARITY-TIER1-FIX-1, 2026-07-31): a surface often
+// builds MORE THAN ONE payload — a zero/empty-input guard that early-returns and
+// a main payload. Both are real, both are hashed. The resolver used to read a
+// surface's guard literal and stop, so the value comparison diffed one surface's
+// guard against the other's main: two payloads no caller ever receives together.
+// That produced false positives AND hid real defects (art-233's main-branch
+// §1026.51(a)(2) citation, art-208's empty-branch disclaimer). Every payload
+// literal is now recorded as a BRANCH, and each kernel branch is compared with
+// its counterpart page branch (see the BRANCH PAIRING block); each reported
+// mismatch names the branch pair it came from. The MEMBER-SET union is
+// deliberately untouched by that change — see the TIER 2/3/4 notes.
+//
 // DIRECTION: a kernel member missing from the page is a FAILURE — the kernel is
 // the surface `compute_capability:"server"` names (§12), and the page has no
 // license to differ. A page member absent from the kernel's fixture-exercised
@@ -434,6 +446,131 @@ function sameLiteral(a, b) {
   return a.text === b.text; // true / false / null
 }
 
+/* ------------------------------------------------------------------ *
+ * BRANCH PAIRING (PARITY-TIER1-FIX-1, 2026-07-31) — compare the payload a
+ * caller ACTUALLY GETS, on every branch.
+ *
+ * A surface may build more than one payload literal: a zero/empty-input guard
+ * that early-returns, and a main payload. BOTH are real, both are hashed, and
+ * they are NOT interchangeable — diffing one surface's guard against the other
+ * surface's main compares two payloads no caller ever receives together, which
+ * is precisely what produced this gate's false positives and false negatives.
+ *
+ * So each kernel branch is compared against its COUNTERPART page branch, chosen
+ * by MEMBER-SET similarity (Jaccard over dotted member paths). Similarity is
+ * computed on member NAMES only — never on the values being compared — so the
+ * pairing cannot be steered by the very disagreement it is meant to surface.
+ *
+ * Pairing is one-to-one where both sides have the same number of branches.
+ * A kernel branch left without a partner (the page has FEWER branches) is still
+ * compared, against its closest page branch: that is the art-237 shape — the
+ * kernel guards empty input and the page has no separate empty-input branch, so
+ * for empty input the two surfaces genuinely emit different payloads. Dropping
+ * that comparison would trade one blind spot for another.
+ * ------------------------------------------------------------------ */
+function branchMemberPaths(b) {
+  const paths = new Set();
+  litPaths({ keys: b.keys, nested: b.nested }, "", paths, new Set(), null);
+  return paths;
+}
+
+function branchLiteralValues(b) {
+  const out = new Map();
+  collectLiteralValues({ keys: b.keys, nested: b.nested, values: b.values }, "", out);
+  return out;
+}
+
+function jaccard(a, b) {
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  const uni = a.size + b.size - inter;
+  return uni === 0 ? 0 : inter / uni;
+}
+
+// Returns [{path, branch, kernel, page}] — one entry per DISTINCT disagreement.
+function compareBranchValues(kern, page) {
+  const kb = kern.branches || [];
+  const pb = page.branches || [];
+  if (!kb.length || !pb.length) return null; // caller falls back to the union diff
+  const kPaths = kb.map(branchMemberPaths);
+  const pPaths = pb.map(branchMemberPaths);
+  const kVals = kb.map(branchLiteralValues);
+  const pVals = pb.map(branchLiteralValues);
+
+  // Agreement is the TIEBREAK ONLY, never the primary key: guard and main
+  // payloads usually carry different member sets, so similarity separates them
+  // on structure alone. It is needed for the case where two branches are
+  // structurally IDENTICAL (same members, different literals) — art-505 declares
+  // its two payloads in the opposite order from its page, and pairing those by
+  // index invents two mismatches out of two surfaces that actually agree.
+  // ⚠ This cannot quiet a real defect: the pairing is a bijection, so a page
+  // branch matched to one kernel branch is not available to another, and a
+  // disagreement suppressed on one pair reappears on the pair it displaces.
+  const agreement = (kv, pv) => {
+    let same = 0;
+    let seen = 0;
+    for (const [p, a] of kv) {
+      const b = pv.get(p);
+      if (b === undefined) continue;
+      seen++;
+      if (sameLiteral(a, b)) same++;
+    }
+    return seen === 0 ? 0 : same / seen;
+  };
+
+  const cand = [];
+  for (let i = 0; i < kb.length; i++) {
+    for (let j = 0; j < pb.length; j++) {
+      cand.push({ i, j, s: jaccard(kPaths[i], pPaths[j]), a: agreement(kVals[i], pVals[j]) });
+    }
+  }
+  cand.sort((a, b) => b.s - a.s || b.a - a.a || a.i - b.i || a.j - b.j);
+  const usedK = new Set();
+  const usedP = new Set();
+  const pairs = [];
+  for (const c of cand) {
+    if (usedK.has(c.i) || usedP.has(c.j)) continue;
+    usedK.add(c.i);
+    usedP.add(c.j);
+    pairs.push(c);
+  }
+  // Kernel branches with no partner left: compare against the closest page
+  // branch anyway (see the art-237 note above).
+  for (let i = 0; i < kb.length; i++) {
+    if (usedK.has(i)) continue;
+    let best = 0;
+    let bs = -1;
+    let ba = -1;
+    for (let j = 0; j < pb.length; j++) {
+      const s = jaccard(kPaths[i], pPaths[j]);
+      const a = agreement(kVals[i], pVals[j]);
+      if (s > bs || (s === bs && a > ba)) { bs = s; ba = a; best = j; }
+    }
+    pairs.push({ i, j: best, s: bs });
+  }
+
+  const out = [];
+  const seen = new Set();
+  for (const { i, j } of pairs) {
+    for (const [p, kv] of kVals[i]) {
+      const pv = pVals[j].get(p);
+      if (pv === undefined || sameLiteral(kv, pv)) continue;
+      const k = literalDisplay(kv);
+      const v = literalDisplay(pv);
+      const dedup = `${p} ${k} ${v}`;
+      if (seen.has(dedup)) continue;
+      seen.add(dedup);
+      out.push({
+        path: p,
+        branch: `kernel ${kb[i].label}#${i + 1} vs page ${pb[j].label}#${j + 1}`,
+        kernel: k,
+        page: v,
+      });
+    }
+  }
+  return out;
+}
+
 function literalDisplay(v) {
   const s = v.kind === "string" ? JSON.stringify(v.text) : v.text;
   return s.length > 120 ? s.slice(0, 117) + "..." : s;
@@ -538,6 +675,8 @@ function pagePayloadKeys(html) {
   const notes = [];
   const nested = new Map();
   const values = new Map();
+  // One entry per resolved payload literal, in source order. See `take()`.
+  const branches = [];
   let opaque = false;
   let resolved = false;
   let wallClock = false;
@@ -583,29 +722,41 @@ function pagePayloadKeys(html) {
       for (const am of html.matchAll(new RegExp(`\\b${esc}\\.([A-Za-z_$][\\w$]*)\\s*=[^=]`, "g"))) {
         if (!sub.keys.includes(am[1])) sub.keys.push(am[1]);
       }
-      nested.set(k, mergeNode(nested.get(k), sub));
+      // Resolve INTO the literal's own node, not into the outer union map:
+      // `take()` merges `node.nested` into the union immediately afterwards, so
+      // the union is unchanged, and the PER-BRANCH view (below) now sees the
+      // same ident-resolved subtrees the union does.
+      node.nested.set(k, mergeNode(node.nested.get(k), sub));
       if (/\bDate\.now\s*\(|\bnew\s+Date\s*\(/.test(html.slice(open, end))) wallClock = true;
     }
   };
 
   // Read one `{...}` literal at `open` into the key set. Rejects the ARTIFACT /
   // result WRAPPER (a literal that carries `output_payload` itself is not it).
-  const take = (open) => {
+  const take = (open, label = "payload", unionize = true) => {
     const end = matchBrace(html, open);
     if (end < 0) return false;
     const lit = html.slice(open, end);
     const node = resolveSpreadsDeep(objectLiteralKeys(lit), html);
     if (node.keys.includes("output_payload") || node.keys.includes("policy_parameters")) return false;
+    resolveIdentNested(node);
+    // EVERY resolved literal is a BRANCH — one payload a caller can actually
+    // receive (PARITY-TIER1-FIX-1). The union below still answers "which members
+    // does this surface ever emit"; the branch list answers "which payload does
+    // THIS path emit", which is the only question a VALUE comparison can ask
+    // without pairing two literals that were never counterparts.
+    branches.push({ label, keys: node.keys, nested: node.nested, values: node.values });
+    // A wall-clock read INSIDE the sealed payload makes `execution_hash`
+    // non-reproducible for identical input. Not this gate's failure class
+    // (it compares members, not values) but it is a distinct defect and
+    // silence about it would be its own false clean. Recorded BEFORE the union
+    // gate: a branch read for comparison only must not go silent about it.
+    if (/\bDate\.now\s*\(|\bnew\s+Date\s*\(/.test(lit)) wallClock = true;
+    if (!unionize) return true;
     if (node.opaque) opaque = true;
     for (const k of node.keys) keys.add(k);
     for (const [k, v] of node.nested) nested.set(k, mergeNode(nested.get(k), v));
     for (const [k, v] of node.values) values.set(k, v);
-    resolveIdentNested(node);
-    // A wall-clock read INSIDE the sealed payload makes `execution_hash`
-    // non-reproducible for identical input. Not this gate's failure class
-    // (it compares members, not values) but it is a distinct defect and
-    // silence about it would be its own false clean.
-    if (/\bDate\.now\s*\(|\bnew\s+Date\s*\(/.test(lit)) wallClock = true;
     return true;
   };
 
@@ -623,7 +774,7 @@ function pagePayloadKeys(html) {
   // (`base` in art-488); anything else makes the member set a LOWER BOUND.
   // `argStart` is the index just past the opening `(`; `scope` is the text the
   // identifier lookup searches (the whole page, or one function body).
-  function takeObjectAssign(argStart, scope, scopeOffset = 0) {
+  function takeObjectAssign(argStart, scope, scopeOffset = 0, unionize = true, label = "payload") {
     let i = argStart, depth = 1, hit = false;
     while (i < html.length && depth > 0) {
       const c = html[i];
@@ -633,7 +784,7 @@ function pagePayloadKeys(html) {
       if (depth === 1 && c === "{") {
         const end = matchBrace(html, i);
         if (end < 0) break;
-        if (take(i)) hit = true;
+        if (take(i, label, unionize)) hit = true;
         i = end;
         continue;
       }
@@ -642,15 +793,15 @@ function pagePayloadKeys(html) {
         const ref = m[0];
         const d = declLiteralOpen(scope, ref);
         if (d >= 0) {
-          if (take(scopeOffset + d)) {
+          if (take(scopeOffset + d, label, unionize)) {
             hit = true;
             // The literal may be empty by construction and filled by later
             // `ref.foo = ...` writes (art-332's `extra`); those members are as
             // real as declared ones and their absence is what made the node
             // read as a lower bound.
-            takeAssignments(ref);
-          } else opaque = true;
-        } else {
+            if (unionize) takeAssignments(ref);
+          } else if (unionize) opaque = true;
+        } else if (unionize) {
           opaque = true;
         }
         i += ref.length;
@@ -664,34 +815,69 @@ function pagePayloadKeys(html) {
   // TIER 1 — inline literal: `output_payload: { ... }`. The dominant shape in the
   // generation that returns `{ output_payload: {...}, compliance_flags }` directly.
   for (const m of html.matchAll(/\boutput_payload\s*:\s*\{/g)) {
-    if (take(m.index + m[0].length - 1)) resolved = true;
+    if (take(m.index + m[0].length - 1, "inline")) resolved = true;
   }
 
   // TIER 2 — the variable is literally named `output_payload`:
   //   `const output_payload = { ... }` (art-324), plus ES6 shorthand carriage.
-  if (!resolved) {
+  //
+  // ⭐ PARITY-TIER1-FIX-1 (2026-07-31) — THE SHADOWING BUG AND ITS EXACT FIX.
+  // This scan used to run ONLY `if (!resolved)`. A surface that early-returns an
+  // inline guard payload (`return { output_payload: {...} }` on empty input) and
+  // then builds its real payload as `const output_payload = {...}` therefore had
+  // its MAIN branch never read at all. The value comparison then diffed a GUARD
+  // literal on one surface against a MAIN literal on the other — two payloads no
+  // caller ever receives together. That produced false positives (14 kernels,
+  // 26 entries) AND false negatives (art-233's main-branch §1026.51(a)(2)
+  // citation and art-208's empty-branch disclaimer were both invisible).
+  //
+  // The scan now runs ALWAYS, so the branch list carries every payload a caller
+  // can actually get. The UNION merge stays gated exactly as before
+  // (`unionize = !resolvedByTier1`), so the member-set findings this gate has
+  // always reported are untouched, member for member.
+  {
+    const tier1Resolved = resolved;
+    let tier2 = false;
     for (const m of html.matchAll(/\b(?:const|let|var)\s+output_payload\s*=\s*\{/g)) {
-      if (take(m.index + m[0].length - 1)) resolved = true;
+      if (take(m.index + m[0].length - 1, "main", !tier1Resolved)) tier2 = true;
     }
-    if (resolved && takeAssignments("output_payload")) { /* additive */ }
+    if (!tier1Resolved && tier2) {
+      resolved = true;
+      if (takeAssignments("output_payload")) { /* additive */ }
+    }
   }
 
   // TIER 3 — an alias holds it: `output_payload: <ident>` (art-221 `op`,
   // art-01 `outputPayload`). Resolve that identifier's own literal.
   const aliases = new Set();
   for (const m of html.matchAll(/\boutput_payload\s*:\s*([A-Za-z_$][\w$]*)/g)) aliases.add(m[1]);
-  if (!resolved) {
+  //
+  // ⭐ PARITY-TIER1-FIX-1: EVERY alias is now scanned for BRANCHES, not just the
+  // first one that resolves. art-238's page is the shape that forced it: its
+  // empty-scope guard is `var opOos = {...}` sealed as `output_payload:opOos`
+  // and its main payload is `var op = {...}` — two aliases, two real payloads.
+  // Reading only the first left the other invisible, the same shadowing as
+  // TIER 2's. The UNION still takes the FIRST alias that resolves and nothing
+  // else, exactly as before ("do NOT union across aliases"): `unionTaken` is
+  // seeded from TIER 1/2 and latches on the first alias that contributes.
+  {
+    let unionTaken = resolved;
     for (const id of aliases) {
       const esc = id.replace(/\$/g, "\\$");
+      let hit = false;
       for (const m of html.matchAll(new RegExp(`(?:(?:const|let|var)\\s+)?\\b${esc}\\s*=\\s*\\{`, "g"))) {
-        if (take(m.index + m[0].length - 1)) resolved = true;
+        if (take(m.index + m[0].length - 1, "alias", !unionTaken)) hit = true;
       }
       // `var op = Object.assign({ ... }, base, { ... })` (art-332, art-488).
       for (const m of html.matchAll(new RegExp(`(?:(?:const|let|var)\\s+)?\\b${esc}\\s*=\\s*Object\\.assign\\s*\\(`, "g"))) {
-        if (takeObjectAssign(m.index + m[0].length, html)) resolved = true;
+        if (takeObjectAssign(m.index + m[0].length, html, 0, !unionTaken, "alias")) hit = true;
       }
-      if (resolved && takeAssignments(id)) { /* additive */ }
-      if (resolved) break; // first alias that resolves wins; do NOT union across aliases
+      if (!hit) continue;
+      if (!unionTaken) {
+        resolved = true;
+        unionTaken = true;
+        if (takeAssignments(id)) { /* additive */ }
+      }
     }
   }
 
@@ -707,8 +893,12 @@ function pagePayloadKeys(html) {
         callees.add(m[1]);
       }
     }
+    // Same latch as TIER 3: the union takes the FIRST callee that resolves and
+    // no other, while every callee's returns are still recorded as branches.
+    let unionTaken = false;
     for (const fn of callees) {
       const esc = fn.replace(/\$/g, "\\$");
+      let hit = false;
       for (const m of html.matchAll(new RegExp(`function\\s+${esc}\\s*\\([^)]*\\)\\s*\\{`, "g"))) {
         const bodyOpen = m.index + m[0].length - 1;
         const bodyEnd = matchBrace(html, bodyOpen);
@@ -716,14 +906,15 @@ function pagePayloadKeys(html) {
         const body = html.slice(bodyOpen, bodyEnd);
         for (const rm of body.matchAll(/\breturn\s*\{/g)) {
           const open = bodyOpen + rm.index + rm[0].length - 1;
-          if (take(open)) resolved = true;
+          if (take(open, "return", !unionTaken)) hit = true;
         }
         // `return Object.assign({}, base, { ... })` (art-488)
         for (const rm of body.matchAll(/\breturn\s+Object\.assign\s*\(/g)) {
-          if (takeObjectAssign(bodyOpen + rm.index + rm[0].length, body, bodyOpen)) resolved = true;
+          if (takeObjectAssign(bodyOpen + rm.index + rm[0].length, body, bodyOpen, !unionTaken, "return")) hit = true;
         }
       }
-      if (resolved) break; // first callee that resolves wins; do NOT union across callees
+      if (!hit) continue;
+      if (!unionTaken) { resolved = true; unionTaken = true; }
     }
   }
 
@@ -745,7 +936,7 @@ function pagePayloadKeys(html) {
   // `opaque` is REPORTED, not swallowed (GATE-SPREAD-OPAQUE-1). It used to be
   // computed here, mentioned in a note, and then dropped on the floor — the
   // caller diffed a LOWER BOUND as though it were a complete member set.
-  return { keys, notes, nested, opaque, values };
+  return { keys, notes, nested, opaque, values, branches };
 }
 
 /* ------------------------------------------------------------------ *
@@ -977,14 +1168,24 @@ for (const id of ids) {
     } else if (kernStatic.opaque) {
       valueCompareNote = "value comparison SKIPPED: kernel output_payload literal contains an unresolvable spread or computed key";
     } else {
-      const kernValues = new Map();
-      collectLiteralValues({ keys: [...kernStatic.keys], nested: kernStatic.nested, values: kernStatic.values }, "", kernValues);
-      const pageValues = new Map();
-      collectLiteralValues({ keys: [...page.keys], nested: page.nested, values: page.values }, "", pageValues);
-      for (const [p, kv] of kernValues) {
-        const pv = pageValues.get(p);
-        if (pv !== undefined && !sameLiteral(kv, pv)) {
-          valueMismatches.push({ path: p, kernel: literalDisplay(kv), page: literalDisplay(pv) });
+      // Per-branch comparison (see the BRANCH PAIRING block). The union diff
+      // below is the fallback for the shape that cannot happen once a payload
+      // resolves — no branch recorded on one side — and is kept so a future
+      // resolver tier that forgets to label its literals degrades to the old
+      // behaviour instead of going silent.
+      const byBranch = compareBranchValues(kernStatic, page);
+      if (byBranch) {
+        valueMismatches.push(...byBranch);
+      } else {
+        const kernValues = new Map();
+        collectLiteralValues({ keys: [...kernStatic.keys], nested: kernStatic.nested, values: kernStatic.values }, "", kernValues);
+        const pageValues = new Map();
+        collectLiteralValues({ keys: [...page.keys], nested: page.nested, values: page.values }, "", pageValues);
+        for (const [p, kv] of kernValues) {
+          const pv = pageValues.get(p);
+          if (pv !== undefined && !sameLiteral(kv, pv)) {
+            valueMismatches.push({ path: p, kernel: literalDisplay(kv), page: literalDisplay(pv) });
+          }
         }
       }
     }
