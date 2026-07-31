@@ -117,8 +117,14 @@ await test('reproduces the confirmed 132/462 stale count against the real commit
   // kernel_digest before writing — so every one of the fifteen enters the FRESH set by
   // construction, and no existing node's digest moved. Denominator and fresh each move by exactly
   // 15; the stale count does not move.
-  assert(total === 489, `expected 489 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 358, `expected 358 fresh (calibration set), got ${fresh.length}`);
+  // 489 -> 493 post-ORPHANPROVE-1 (2026-07-31): proved the last four deferred nodes
+  // (art-15/16/17/18) after authoring their canonical golden vectors, which they had shipped
+  // without. Authoring a fixtures file adds no kernel source, so no sha256-source digest moved:
+  // the splice asserted, per node, that the shard's sha256-source compute_image already equalled
+  // the receipt's journal kernel_digest before writing. All four enter the FRESH set by
+  // construction. Denominator and fresh each move by exactly 4; the stale count does not move.
+  assert(total === 493, `expected 493 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 362, `expected 362 fresh (calibration set), got ${fresh.length}`);
   assert(stale.length === 131, `expected 131 stale (132 minus compute_ltv_ratios/art-336, landed via ASSEMBLE-LAND-ART336-1), got ${stale.length}`);
 });
 
