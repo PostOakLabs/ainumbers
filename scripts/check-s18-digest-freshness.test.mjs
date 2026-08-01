@@ -137,8 +137,14 @@ await test('reproduces the confirmed 132/462 stale count against the real commit
   // row did not re-prove it -- so its journal kernel_digest still equals its recomputed source
   // digest and it enters the FRESH set by construction. Denominator and fresh each move by exactly
   // 1; the stale count does not move.
-  assert(total === 499, `expected 499 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 368, `expected 368 fresh (calibration set), got ${fresh.length}`);
+  // 499 -> 507 post-ZKPROVE-BATCH-3 (2026-08-01): drained the deferred GPU queue again, proving the
+  // eight INBOUND nodes ASSEMBLE-LAND-17 shipped deferred (art-513/514/515/516/518/519/520/521)
+  // with groth16 compute_proof. The splice asserted, per node, that the shard's sha256-source
+  // compute_image already equalled the receipt's journal kernel_digest before writing, so all eight
+  // enter the FRESH set by construction and no existing node's digest moved. Denominator and fresh
+  // each move by exactly 8; the stale count does not move.
+  assert(total === 507, `expected 507 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 376, `expected 376 fresh (calibration set), got ${fresh.length}`);
   assert(stale.length === 131, `expected 131 stale (132 minus compute_ltv_ratios/art-336, landed via ASSEMBLE-LAND-ART336-1), got ${stale.length}`);
 });
 
