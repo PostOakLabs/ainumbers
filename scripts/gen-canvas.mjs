@@ -290,7 +290,7 @@ nav{height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.9
 
 ${WAYFINDER_PH}
 
-<div class="pii-bar">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+<div class="pii-bar">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 
 <div class="cv-grid">
 
