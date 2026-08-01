@@ -26,11 +26,11 @@ export const meta = {
 // This node rates an EVIDENCE SET against a DECLARED policy. It does NOT assert a
 // person is who they claim to be (SPEC §23 honest posture) -- output_payload never
 // carries identity attributes, only evidence type/strength/verification_method and,
-// where the caller supplies one, an opaque art-522 salted-commitment attribute_ref
-// (pointer/commitment/commitment_scheme), passed through unread, never a plaintext
-// value. No approver identity, signature, approval field or role (§27 boundary) --
-// manual review/EDD escalation is a separate signed human_accountability_record,
-// not minted here.
+// where the caller supplies one, an opaque attribute_ref carried through unread --
+// a caller-supplied value with no commitment scheme claimed by this node, never a
+// plaintext value. No approver identity, signature, approval field or role (§27
+// boundary) -- manual review/EDD escalation is a separate signed
+// human_accountability_record, not minted here.
 //
 // Pure ECMA-262 arithmetic only -- no Date.now/new Date(), no Math.random. `as_of`
 // is caller-supplied and carried through unread; the kernel never compares it to a
@@ -181,7 +181,7 @@ export function compute(pp) {
     target_met: targetMet,
     shortfall,
     undecidable,
-    note: 'Rates a DECLARED evidence set against a caller-supplied, versioned assurance-level framework -- never a hardcoded one. Does not assert a person is who they claim to be: this evidences that a declared evidence set was measured against a declared policy, not the truth of the declarations. A criterion the definition cannot express (no required_evidence_type or no min_strength) is reported as IAL_DEFINITION_INSUFFICIENT, distinct from IAL_SHORTFALL (evidence present but not meeting a well-formed criterion) -- the two are never conflated. No identity attributes are ever computed over; evidence items are types, strengths and verification methods, with an optional opaque art-522 salted-commitment attribute reference carried through unread.',
+    note: 'Rates a DECLARED evidence set against a caller-supplied, versioned assurance-level framework -- never a hardcoded one. Does not assert a person is who they claim to be: this evidences that a declared evidence set was measured against a declared policy, not the truth of the declarations. A criterion the definition cannot express (no required_evidence_type or no min_strength) is reported as IAL_DEFINITION_INSUFFICIENT, distinct from IAL_SHORTFALL (evidence present but not meeting a well-formed criterion) -- the two are never conflated. No identity attributes are ever computed over; evidence items are types, strengths and verification methods, with an optional opaque attribute reference (caller-supplied, no commitment scheme claimed by this node) carried through unread.',
   };
 
   return { output_payload, compliance_flags };
