@@ -143,9 +143,22 @@ await test('reproduces the confirmed 132/462 stale count against the real commit
   // compute_image already equalled the receipt's journal kernel_digest before writing, so all eight
   // enter the FRESH set by construction and no existing node's digest moved. Denominator and fresh
   // each move by exactly 8; the stale count does not move.
+  // 131 -> 132 post-ASSEMBLE-LAND-18 (2026-08-01): landed PRIVIN-ART518-FIX-1 (PR #795), which put
+  // art-518-bulk-disbursement-integrity's duplicate_key onto the SPEC.md §25.1 sha256-salted@1
+  // salted-commitment form. That edits kernel SOURCE, so its sha256-source compute_image moved
+  // (d399955e44b9c1d3 -> 8a8f97422f9faf1a) while its groth16 receipt still carries the pre-edit
+  // journal.kernel_digest -- attest_bulk_disbursement_integrity therefore enters the STALE set.
+  // NON-SEMANTIC, and deliberately not reproven here: the new commitment contract is gated behind an
+  // OPTIONAL policy_parameters key (duplicate_key_commitment_scheme). Absent, every code path is the
+  // pre-edit path, and all six pre-existing golden vectors recompute BYTE-IDENTICAL execution_hashes
+  // across the edit (46da9a83.., 3a1e9e50.., 11d55e97.., 76c91ef4.., c6f606e7.., f65ffcfe..), so the
+  // receipt's journal.output still describes exactly the computation it attested. This is the
+  // out-of-proof-scope shape the KNOWN_SEMANTIC_STALE set in the gate exists to distinguish, so
+  // art-518 is NOT added to it. Reproving art-518 is GPU-queue work, tracked separately.
+  // Denominator does not move; fresh -1, stale +1.
   assert(total === 507, `expected 507 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 376, `expected 376 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 131, `expected 131 stale (132 minus compute_ltv_ratios/art-336, landed via ASSEMBLE-LAND-ART336-1), got ${stale.length}`);
+  assert(fresh.length === 375, `expected 375 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 132, `expected 132 stale (131 plus attest_bulk_disbursement_integrity/art-518, non-semantic, landed via ASSEMBLE-LAND-18), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
