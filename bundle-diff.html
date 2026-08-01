@@ -132,6 +132,8 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 
+  <div id="handoffNotice" style="display:none;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem"></div>
+
   <div class="panel">
     <span class="panel-label">Two Bundles To Compare</span>
     <div class="two-col">
@@ -151,6 +153,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
     <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-top:.5rem">
       <button class="run-btn" onclick="runDiffFromPaste()">&#9654; Run Bundle Diff</button>
       <button class="run-btn ghost" onclick="window.print()" id="printBtn" style="display:none">&#128424; Print Report</button>
+      <button class="run-btn ghost" id="sendWpiBtn" onclick="sendLoadedToWorkpaperIndex()" title="Open the Workpaper Index and hand it whichever bundle(s) are loaded above — same-origin message, no file, no network">&#x27A1; Send loaded bundle(s) to Workpaper Index</button>
       <span id="diffStatus" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)"></span>
     </div>
   </div>
@@ -462,6 +465,89 @@ document.addEventListener('DOMContentLoaded',function(){
     reader.readAsText(f);
   });
 });
+
+/* ─────────────────────────────────────────────────────────────────
+   §1.5 HOP B RECEIVER — Verify -> Bundle Diff. Same discipline as the hop A
+   receiver on chaingraph/verify.html: origin checked both ends, discarded
+   silently otherwise; payload is the artifact JSON + a declared kind + a
+   routing "slot" (a|b), nothing else; assigned via .value, never innerHTML;
+   size-capped with a visible reject. Zero network, zero storage.
+   ───────────────────────────────────────────────────────────────── */
+var HANDOFF_MAX_CHARS=2000000;
+function handoffNotice(msg,ok){
+  var el=document.getElementById('handoffNotice');
+  if(!el)return;
+  if(!msg){ el.style.display='none'; return; }
+  el.textContent=msg;                                          // never innerHTML
+  el.style.borderLeftColor= ok ? 'var(--teal)' : 'var(--red)';
+  el.style.display='block';
+}
+window.addEventListener('message',function(ev){
+  if(ev.origin!==window.location.origin)return;                // §1.3 — discard silently
+  var d=ev.data;
+  if(!d||typeof d!=='object')return;
+  if(d.type!=='ain-handoff/v1')return;
+  if(d.kind!=='ocg-artifact')return;
+  var text=d.artifact;
+  if(typeof text!=='string'||!text)return;
+  if(text.length>HANDOFF_MAX_CHARS){                            // §1.4 — visible reject, never hang
+    handoffNotice('Handoff rejected: the artifact is '+text.length+' characters, over the '+HANDOFF_MAX_CHARS+'-character limit. Paste it below instead.',false);
+    return;
+  }
+  var slot = d.slot==='b' ? 'b' : 'a';
+  document.getElementById(slot==='b' ? 'pasteB' : 'pasteA').value=text;   // never innerHTML
+  handoffNotice('Bundle '+slot.toUpperCase()+' received from the sending page. Nothing was uploaded and nothing was stored.',true);
+});
+if(window.opener){
+  try{ window.opener.postMessage({type:'ain-handoff-ready/v1',accepts:['ocg-artifact']},window.location.origin); }
+  catch(e){ /* no opener we may talk to — paste intake still works */ }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   §1.5 HOP C SENDER — Bundle Diff -> Workpaper Index. Whichever of the two
+   loaded bundles is present gets sent as its own handoff message into a
+   NAMED target window, so a second send (e.g. after loading a new pair)
+   reuses the same Workpaper Index tab instead of spawning another —
+   the mechanic that lets N sends accumulate in one index (§1.5 hop C).
+   ───────────────────────────────────────────────────────────────── */
+function sendLoadedToWorkpaperIndex(){
+  var rawA=document.getElementById('pasteA').value.trim();
+  var rawB=document.getElementById('pasteB').value.trim();
+  if(!rawA&&!rawB){ handoffNotice('Load Bundle A and/or B above first.',false); return; }
+  if((rawA&&rawA.length>HANDOFF_MAX_CHARS)||(rawB&&rawB.length>HANDOFF_MAX_CHARS)){
+    handoffNotice('One of the bundles is over the '+HANDOFF_MAX_CHARS+'-character handoff limit. Use the Workpaper Index page directly and drop the file there instead.',false);
+    return;
+  }
+  var target=new URL('workpaper-index.html',window.location.href).href;
+  var win=window.open(target,'ainWorkpaperIndexTab');
+  if(!win){ handoffNotice('The Workpaper Index window was blocked. Allow pop-ups for this site.',false); return; }
+  var toSend=[rawA,rawB].filter(Boolean);
+  var sentCount=0, ready=false, timer=null;
+  function sendNext(){
+    while(sentCount<toSend.length){
+      win.postMessage({type:'ain-handoff/v1',kind:'ocg-artifact',artifact:toSend[sentCount]},window.location.origin);
+      sentCount++;
+    }
+  }
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;               /* §1.3 discard silently */
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    ready=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    sendNext();
+    handoffNotice('Sent '+toSend.length+' bundle(s) to the Workpaper Index.',true);
+  }
+  window.addEventListener('message',onReady);
+  handoffNotice('Opening the Workpaper Index…',true);
+  timer=setTimeout(function(){
+    if(ready)return;
+    window.removeEventListener('message',onReady);
+    handoffNotice('The Workpaper Index did not answer. Open it directly and drop the file(s) in.',false);
+  },10000);
+}
 </script>
 </body>
 </html>

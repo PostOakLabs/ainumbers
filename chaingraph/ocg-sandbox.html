@@ -391,6 +391,14 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <button class="reset-btn" onclick="resetArtifact()">↺ Reset</button>
       </div>
 
+      <!-- HANDOFF BANNER (START-SURFACE-HANDOFF-BUILD-SPEC §1.5 hop D). Shown only
+           after a real run arrives via postMessage from Workbench/Canvas. -->
+      <div id="handoffBanner" style="display:none;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.6rem .85rem;margin-bottom:.85rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text)">
+        <span id="handoffBannerText">Received a run.</span>
+        <button class="reset-btn" onclick="exitHandoffMode()">← Back to demo artifact</button>
+      </div>
+
+      <div id="fixedFieldsWrap">
       <div class="field-group">
         <div class="field-group-label">Identity</div>
         <div class="field-row">
@@ -434,16 +442,37 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
           <input class="field-input" id="f_breaches_250d" type="number" value="4" oninput="onFieldChange()">
         </div>
       </div>
+      </div><!-- /fixedFieldsWrap -->
+
+      <!-- HANDOFF FIELDS: a received artifact can be any of the suite's node
+           schemas, not just the fixed VaR demo above, so it edits as raw JSON
+           against the same real (RFC 8785/JCS) canon the artifact was hashed
+           with, not the sandbox's simplified teaching canon. -->
+      <div id="handoffFieldsWrap" style="display:none">
+        <div class="field-group">
+          <div class="field-group-label">policy_parameters (received inputs, edit as JSON)</div>
+          <textarea class="field-input" id="f_handoff_policy" style="width:100%;min-height:100px;font-family:'JetBrains Mono',monospace;resize:vertical" oninput="onFieldChange()"></textarea>
+        </div>
+        <div class="field-group">
+          <div class="field-group-label">output_payload (received results, edit as JSON)</div>
+          <textarea class="field-input" id="f_handoff_output" style="width:100%;min-height:100px;font-family:'JetBrains Mono',monospace;resize:vertical" oninput="onFieldChange()"></textarea>
+        </div>
+      </div>
 
       <!-- Tamper buttons -->
       <div class="tamper-panel">
         <div class="tamper-label">⚠ Tamper controls — introduce deliberate corruption</div>
-        <div class="tamper-btns">
+        <div class="tamper-btns" id="tamperBtnsNormal">
           <button class="tamper-btn" onclick="tamper('flip_output')">Flip an output digit</button>
           <button class="tamper-btn" onclick="tamper('corrupt_hash')">Edit stored hash directly</button>
           <button class="tamper-btn" onclick="tamper('change_input')">Nudge a parameter +1</button>
           <button class="tamper-btn" onclick="tamper('add_field')">Add a secret field</button>
           <button class="tamper-btn" onclick="tamper('swap_keys')">Swap two output values</button>
+        </div>
+        <div class="tamper-btns" id="tamperBtnsHandoff" style="display:none">
+          <button class="tamper-btn" onclick="tamper('flip_handoff_output')">Flip a digit in output_payload</button>
+          <button class="tamper-btn" onclick="tamper('corrupt_handoff_hash')">Edit stored hash directly</button>
+          <button class="tamper-btn" onclick="tamper('add_handoff_field')">Add a secret field to output_payload</button>
         </div>
         <button class="quiz-trigger-btn" onclick="openQuiz('sandbox')" style="margin-top:.75rem">Test your understanding →</button>
       </div>
@@ -741,6 +770,23 @@ async function computeOcgHash(policyParams, outputPayload) {
   return { hash: await sha256hex(preimage), preimage };
 }
 
+/* ── real canon (RFC 8785/JCS), byte-identical to chaingraph/kernels/_hash.mjs
+   and verify.html/bundle-diff.html/workpaper-index.html. Used ONLY for a
+   received handoff artifact (§1.5 hop D) — its execution_hash was computed
+   with this exact canon, not the teaching-only sortedStringify() above, so
+   an untampered received artifact must verify against THIS function or it
+   would show a false "tamper detected" on arrival. DO NOT hand-edit. */
+function __ocgCanonReal(v){return Array.isArray(v)?v.map(__ocgCanonReal):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanonReal(v[k]),o),{}):v;}
+async function computeOcgHashReal(policyParams, outputPayload) {
+  const preimage = JSON.stringify(__ocgCanonReal({ policy_parameters: policyParams, output_payload: outputPayload }));
+  return { hash: await sha256hex(preimage), preimage };
+}
+function normalizeHash(h) {
+  if (typeof h !== 'string') return h;
+  const s = h.trim().toLowerCase();
+  return s.startsWith('sha256:') ? s : 'sha256:' + s;
+}
+
 // ══════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════
@@ -760,12 +806,23 @@ let storedHash = '';
 let tamperActive = false;
 let computeTimer = null;
 let preimageOpen = false;
+let handoffMode = false;   // §1.5 hop D — true once a real run has arrived via postMessage
+let handoffMeta = null;    // {tool_id, mandate_type}
+let handoffOriginal = null; // {policy_parameters, output_payload, execution_hash} as received
 
 // ══════════════════════════════════════════════════════
 // SANDBOX
 // ══════════════════════════════════════════════════════
 
 function getArtifactFromFields() {
+  if (handoffMode) {
+    let policy_parameters, output_payload;
+    try { policy_parameters = JSON.parse(document.getElementById('f_handoff_policy').value || '{}'); }
+    catch (e) { policy_parameters = {}; }
+    try { output_payload = JSON.parse(document.getElementById('f_handoff_output').value || '{}'); }
+    catch (e) { output_payload = {}; }
+    return { policy_parameters, output_payload };
+  }
   return {
     policy_parameters: {
       confidence_level: parseFloat(document.getElementById('f_confidence_level').value) || 0,
@@ -782,9 +839,9 @@ function getArtifactFromFields() {
 
 async function copyArtifactJson() {
   const { policy_parameters, output_payload } = getArtifactFromFields();
-  const tool_id = document.getElementById('f_tool_id').value || DEFAULTS.tool_id;
-  const mandate_type = document.getElementById('f_mandate_type').value || DEFAULTS.mandate_type;
-  const { hash } = await computeOcgHash(policy_parameters, output_payload);
+  const tool_id = handoffMode ? ((handoffMeta && handoffMeta.tool_id) || 'received-artifact') : (document.getElementById('f_tool_id').value || DEFAULTS.tool_id);
+  const mandate_type = handoffMode ? ((handoffMeta && handoffMeta.mandate_type) || '') : (document.getElementById('f_mandate_type').value || DEFAULTS.mandate_type);
+  const { hash } = await (handoffMode ? computeOcgHashReal : computeOcgHash)(policy_parameters, output_payload);
   const artifact = {
     tool_id,
     mandate_type,
@@ -807,6 +864,14 @@ async function copyArtifactJson() {
 
 async function resetArtifact() {
   tamperActive = false;
+  if (handoffMode) {
+    document.getElementById('f_handoff_policy').value = JSON.stringify(handoffOriginal.policy_parameters, null, 2);
+    document.getElementById('f_handoff_output').value = JSON.stringify(handoffOriginal.output_payload, null, 2);
+    document.querySelectorAll('#handoffFieldsWrap .field-input').forEach(el => el.classList.remove('tampered'));
+    storedHash = normalizeHash(handoffOriginal.execution_hash);
+    await updateVerification();
+    return;
+  }
   document.getElementById('f_tool_id').value = DEFAULTS.tool_id;
   document.getElementById('f_mandate_type').value = DEFAULTS.mandate_type;
   document.getElementById('f_confidence_level').value = DEFAULTS.confidence_level;
@@ -845,7 +910,7 @@ function renderCharDiff(a, b) {
 async function updateVerification() {
   setStatus('computing');
   const { policy_parameters, output_payload } = getArtifactFromFields();
-  const { hash: liveHash, preimage } = await computeOcgHash(policy_parameters, output_payload);
+  const { hash: liveHash, preimage } = await (handoffMode ? computeOcgHashReal : computeOcgHash)(policy_parameters, output_payload);
 
   const isValid = liveHash === storedHash;
 
@@ -923,8 +988,40 @@ function togglePreimage() {
   if (preimageOpen) updateVerification();
 }
 
+// Generic tamper functions for a received handoff artifact (§1.5 hop D) —
+// the fixed field-specific tampers below assume the VaR demo's field ids,
+// which a real received artifact (any of the suite's node schemas) does not have.
+async function tamperHandoff(type) {
+  tamperActive = true;
+  const { policy_parameters, output_payload } = getArtifactFromFields();
+  const { hash: goodHash } = await computeOcgHashReal(policy_parameters, output_payload);
+  storedHash = goodHash;
+
+  if (type === 'flip_handoff_output') {
+    const el = document.getElementById('f_handoff_output');
+    let flipped = false;
+    el.value = el.value.replace(/\d/, d => { flipped = true; return String((parseInt(d, 10) + 1) % 10); });
+    if (!flipped) el.value = el.value + '\n'; // no digit found — still changes the bytes, still breaks the hash
+    el.classList.add('tampered');
+  } else if (type === 'corrupt_handoff_hash') {
+    const chars = storedHash.split('');
+    chars[10] = chars[10] === 'a' ? 'b' : 'a';
+    chars[11] = chars[11] === '1' ? '2' : '1';
+    storedHash = chars.join('');
+  } else if (type === 'add_handoff_field') {
+    let op;
+    try { op = JSON.parse(document.getElementById('f_handoff_output').value); } catch (e) { op = {}; }
+    op.hidden_adjustment = -50000;
+    document.getElementById('f_handoff_output').value = JSON.stringify(op, null, 2);
+    document.getElementById('f_handoff_output').classList.add('tampered');
+  }
+
+  updateVerification();
+}
+
 // Tamper functions — each introduces a specific type of corruption
 async function tamper(type) {
+  if (handoffMode) { return tamperHandoff(type); }
   tamperActive = true;
 
   // First, re-anchor the stored hash to the current (good) values
@@ -1237,6 +1334,92 @@ const MODE_DESCS = {
   debugger: 'Four broken artifacts. Each has a different type of defect: a tampered output, a chain inconsistency, a context version mismatch, or stale provenance. Read the artifact and diagnose what went wrong — the way a real auditor would.',
   playground: 'Type anything and get a live SHA-256 hash. Explore the avalanche effect. Then paste a JSON object to see exactly how OCG builds its canonical preimage before hashing.'
 };
+
+/* ─────────────────────────────────────────────────────────────────
+   §1.5 HOP D — HANDOFF RECEIVER (Workbench, Canvas → sandbox tamper lab).
+   START-SURFACE-HANDOFF-BUILD-SPEC §1.1–§1.4. Same discipline as the hop A
+   receiver on chaingraph/verify.html: origin checked both ends against
+   window.location.origin, discarded silently otherwise; reply target is
+   always window.location.origin, NEVER '*'; payload is the artifact JSON
+   and a declared kind, nothing else; received fields are assigned via
+   .value/.textContent only, NEVER innerHTML; size-capped with a visible
+   reject. Zero network, zero storage. */
+const HANDOFF_MAX_CHARS = 2000000;
+
+function handoffNotice(msg, ok) {
+  const el = document.getElementById('handoffBanner');
+  const txt = document.getElementById('handoffBannerText');
+  if (!el || !txt) return;
+  if (!msg) { el.style.display = 'none'; return; }
+  txt.textContent = msg;                                      // never innerHTML
+  el.style.borderLeftColor = ok ? 'var(--teal)' : 'var(--red, #EF4444)';
+  el.style.display = 'flex';
+}
+
+async function enterHandoffMode(artifact) {
+  handoffMode = true;
+  handoffMeta = {
+    tool_id: typeof artifact.tool_id === 'string' ? artifact.tool_id : '(received artifact)',
+    mandate_type: typeof artifact.mandate_type === 'string' ? artifact.mandate_type : ''
+  };
+  handoffOriginal = {
+    policy_parameters: artifact.policy_parameters,
+    output_payload: artifact.output_payload,
+    execution_hash: artifact.execution_hash
+  };
+  setMode('sandbox');
+  document.getElementById('fixedFieldsWrap').style.display = 'none';
+  document.getElementById('handoffFieldsWrap').style.display = '';
+  document.getElementById('tamperBtnsNormal').style.display = 'none';
+  document.getElementById('tamperBtnsHandoff').style.display = '';
+  await resetArtifact();
+  handoffNotice('Received a real run from the sending page: ' + handoffMeta.tool_id + '. Nothing was uploaded and nothing was stored. Use the tamper controls below to see the hash break on this artifact, or Reset to restore it.', true);
+}
+
+function exitHandoffMode() {
+  handoffMode = false;
+  handoffMeta = null;
+  handoffOriginal = null;
+  document.getElementById('fixedFieldsWrap').style.display = '';
+  document.getElementById('handoffFieldsWrap').style.display = 'none';
+  document.getElementById('tamperBtnsNormal').style.display = '';
+  document.getElementById('tamperBtnsHandoff').style.display = 'none';
+  handoffNotice('', true);
+  resetArtifact();
+}
+
+window.addEventListener('message', function (ev) {
+  if (ev.origin !== window.location.origin) return;            // §1.3 — discard silently
+  const d = ev.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.type !== 'ain-handoff/v1') return;
+  if (d.kind !== 'ocg-artifact') return;
+
+  const text = d.artifact;
+  if (typeof text !== 'string' || !text) return;
+  if (text.length > HANDOFF_MAX_CHARS) {                       // §1.4 — visible reject, never hang
+    handoffNotice('Handoff rejected: the artifact is ' + text.length + ' characters, over the ' + HANDOFF_MAX_CHARS + '-character limit.', false);
+    return;
+  }
+  let artifact;
+  try { artifact = JSON.parse(text); } catch (e) {
+    handoffNotice('Handoff rejected: the sending page did not include valid artifact JSON.', false);
+    return;
+  }
+  if (!artifact || typeof artifact !== 'object' || !artifact.policy_parameters || !artifact.output_payload) {
+    handoffNotice('Handoff rejected: the artifact is missing policy_parameters or output_payload.', false);
+    return;
+  }
+  enterHandoffMode(artifact);
+});
+
+/* Ready signal: tell the opener this page can accept a handoff. Same-origin
+   target only; on a file:// origin postMessage throws, which is harmless. */
+if (window.opener) {
+  try {
+    window.opener.postMessage({ type: 'ain-handoff-ready/v1', accepts: ['ocg-artifact'] }, window.location.origin);
+  } catch (e) { /* no opener we may talk to — the demo artifact still works */ }
+}
 
 function setMode(m) {
   document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
