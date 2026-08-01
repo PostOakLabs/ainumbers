@@ -167,11 +167,14 @@ const GATES = [
   ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
   // HELMGATE-DECOUPLE-1: scoped — only run when this push touches a helm-relevant
   // path (see helmPathsTouched() above). Undeterminable fails open (gates run).
+  // HELMGATE-DECOUPLE-2: guide-freshness (the byte-identical-walkthrough check)
+  // moved OFF this blocking path entirely — it now runs report-only on a schedule
+  // (.github/workflows/helm-guide-freshness-schedule.yml), same shape as the
+  // worker's Vendor Freshness. version-drift stays here unchanged: it's
+  // machine-satisfiable and has never blocked on a human duty.
   ...(HELM_SCOPE_TOUCHED ? [
     ['Helm release/version drift (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/check-helm-version-drift.mjs'],
     ['Helm release/version drift fixture proof', 'node scripts/check-helm-version-drift.test.mjs'],
-    ['Helm guide freshness (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/gen-helm-guide-freshness.mjs --check'],
-    ['Helm guide freshness fixture proof', 'node scripts/gen-helm-guide-freshness.test.mjs'],
   ] : [
     ['Helm gates (HELMGATE-DECOUPLE-1: no helm-path changes, skipped)', 'node -e "1"'],
   ]),

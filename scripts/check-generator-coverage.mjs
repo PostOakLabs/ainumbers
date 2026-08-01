@@ -62,6 +62,18 @@ const SELF_EXCLUDE = new Set([
   'scripts/preflight.mjs',
 ]);
 
+// HELMGATE-DECOUPLE-2 (2026-08-01): a --check generator whose gate is
+// DELIBERATELY wired somewhere other than preflight.mjs — a scheduled,
+// report-only workflow, same shape as the worker's Vendor Freshness — because
+// blocking every unrelated site push on it caused a recurring human duty
+// (board/done/HELMGATE-DECOUPLE-1.md, board/done/HELMGATE-DECOUPLE-2.md).
+// Exempted here, NOT invoked-but-silent: each entry names the workflow that
+// actually calls it, so "not in preflight.mjs" reads as an intentional design
+// choice instead of the exact bug this meta-gate exists to catch.
+const SCHEDULED_ELSEWHERE = new Map([
+  ['scripts/gen-helm-guide-freshness.mjs', '.github/workflows/helm-guide-freshness-schedule.yml'],
+]);
+
 // ── 1. Collect candidate files ───────────────────────────────────────────
 function listMjs(dir) {
   let entries;
@@ -137,7 +149,17 @@ hasCheckFlag.sort();
 gapless.sort();
 
 // ── 3. Hard-fail half: every --check generator must be INVOKED by preflight.mjs ──
-const uncalled = hasCheckFlag.filter((r) => !invokedPaths.has(r));
+// (or, for SCHEDULED_ELSEWHERE entries, verifiably invoked by the named workflow —
+// not just trusted by name; the workflow file must actually contain the call.)
+const uncalled = hasCheckFlag.filter((r) => {
+  if (invokedPaths.has(r)) return false;
+  const workflowRel = SCHEDULED_ELSEWHERE.get(r);
+  if (!workflowRel) return true;
+  const workflowPath = resolve(REPO, workflowRel);
+  if (!existsSync(workflowPath)) return true;
+  const workflowSrc = readFileSync(workflowPath, 'utf8');
+  return !workflowSrc.includes(r);
+});
 
 // ── 4. Warn half: baseline-shielded gapless generators ───────────────────
 let baseline = { gapless: [] };
