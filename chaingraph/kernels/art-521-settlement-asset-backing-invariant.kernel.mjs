@@ -51,6 +51,22 @@
  * DEFINED verdict -- compute() contains no division by an input-derived count, only by the
  * fixed constant 10000 for basis-point rates, so no branch can divide by zero.
  *
+ * §10.1 BACKING_NOT_APPLICABLE (INBOUND-BUFFER-MODEL-1). A buffer topology does not exist
+ * for every settlement asset -- a direct/one-tier CBDC or a two-tier/intermediated CBDC has
+ * NO backing set, because the holder's claim IS central bank money or a claim on the central
+ * bank itself. The caller DECLARES this via `backing_model: "vacuous"` (default is
+ * `"segregated"`, the pre-existing behaviour, unchanged). The kernel never infers the model
+ * from the buffer count: an empty buffer array under the default `"segregated"` model is
+ * still `BACKING_INPUTS_INSUFFICIENT` / evaluated for shortfall, exactly as before. Only an
+ * EXPLICIT `"vacuous"` declaration produces `BACKING_NOT_APPLICABLE`, and it replaces
+ * `BACKING_INTACT`/`BACKING_SHORTFALL`/`BACKING_INPUTS_INSUFFICIENT` entirely -- it is not a
+ * pass, it is "this model has no backing question". `backing_intact_before`/`_after` are
+ * `null` (not `true`) under a vacuous model so no downstream reader can mistake it for an
+ * intact-backing pass. Per-buffer floor/ceiling checks are unaffected -- they are a liquidity
+ * property independent of whether a backing question applies. A reserve PORTFOLIO (e.g.
+ * fiat-reserve-backed stablecoin) is not a single balance; this kernel does not value one --
+ * `art-06`/`art-512`/`art-280` supply reserve facts, unchanged, unedited by this row.
+ *
  * NO CLOCK. `as_of` is a caller-declared input; compute() never reads a clock.
  *
  * PII: opaque buffer_id / movement_id strings only. No account holder or customer identity
@@ -93,11 +109,20 @@ function display(minor) {
   return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
 }
 
+function toBackingModel(v, rejected) {
+  const s = isNonEmptyString(v) ? v.trim() : null;
+  if (s === 'vacuous' || s === 'segregated') return s;
+  if (s !== null) rejected.push({ where: 'backing_model', reason: 'must be "vacuous" or "segregated"; defaulted to segregated', supplied: s });
+  return 'segregated';
+}
+
 export function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
 
   const as_of = isoDateOrNull(pp.as_of);
+  const backing_model = toBackingModel(pp.backing_model, rejected_inputs);
+  const backing_applicable = backing_model !== 'vacuous';
   const value_in_circulation_minor_units = toMinorUnits(pp.value_in_circulation_minor_units, 'value_in_circulation_minor_units', rejected_inputs);
   const backing_ratio_bps = toBpsOrNull(pp.backing_ratio_bps, 'backing_ratio_bps', rejected_inputs) ?? 10000;
   const idle_cost_bps = toBpsOrNull(pp.idle_cost_bps, 'idle_cost_bps', rejected_inputs) ?? 0;
@@ -143,7 +168,7 @@ export function compute(pp) {
   const balancesBefore = {};
   for (const b of buffers) balancesBefore[b.buffer_id] = b.balance_minor_units;
   const aggregate_backing_before_minor_units = aggregateCirculationBacking(balancesBefore);
-  const backing_intact_before = aggregate_backing_before_minor_units >= required_backing_minor_units;
+  const backing_intact_before = backing_applicable ? (aggregate_backing_before_minor_units >= required_backing_minor_units) : null;
   const breaches_before = floorCeilingBreaches(balancesBefore);
 
   // --- Declared movement set, applied in order to a working copy. ---
@@ -176,7 +201,7 @@ export function compute(pp) {
 
     if (applied && movement_breaks_invariant === null) {
       const aggAfterThis = aggregateCirculationBacking(balancesWorking);
-      const backingBreaksNow = aggAfterThis < required_backing_minor_units;
+      const backingBreaksNow = backing_applicable && aggAfterThis < required_backing_minor_units;
       const newFloorBreach = floorCeilingBreaches(balancesWorking).some((x) => !breachedBeforeKeys.has(`${x.buffer_id}:${x.kind}`));
       if (backingBreaksNow || newFloorBreach) {
         movement_breaks_invariant = { movement_id, from, to, amount_minor_units, reason: backingBreaksNow ? 'aggregate circulation backing falls below the required ratio after this movement' : 'this movement puts a buffer below its declared floor or above its declared ceiling' };
@@ -187,7 +212,7 @@ export function compute(pp) {
   });
 
   const aggregate_backing_after_minor_units = aggregateCirculationBacking(balancesWorking);
-  const backing_intact_after = aggregate_backing_after_minor_units >= required_backing_minor_units;
+  const backing_intact_after = backing_applicable ? (aggregate_backing_after_minor_units >= required_backing_minor_units) : null;
   const breaches_after = floorCeilingBreaches(balancesWorking);
 
   // --- Thinnest-safe-buffer figure per buffer, given the declared floor, on the resulting state. ---
@@ -212,24 +237,34 @@ export function compute(pp) {
   const crossing_cost_minor_units = crossing_count * cost_per_crossing_minor_units;
 
   const compliance_flags = [];
-  if (buffers.length === 0 || rejected_inputs.some((r) => r.where === 'buffers')) compliance_flags.push('BACKING_INPUTS_INSUFFICIENT');
-  compliance_flags.push(backing_intact_after ? 'BACKING_INTACT' : 'BACKING_SHORTFALL');
+  if (!backing_applicable) {
+    compliance_flags.push('BACKING_NOT_APPLICABLE');
+  } else {
+    if (buffers.length === 0 || rejected_inputs.some((r) => r.where === 'buffers')) compliance_flags.push('BACKING_INPUTS_INSUFFICIENT');
+    compliance_flags.push(backing_intact_after ? 'BACKING_INTACT' : 'BACKING_SHORTFALL');
+  }
   if (breaches_after.some((x) => x.kind === 'BUFFER_BELOW_FLOOR')) compliance_flags.push('BUFFER_BELOW_FLOOR');
   if (breaches_after.some((x) => x.kind === 'BUFFER_ABOVE_CEILING')) compliance_flags.push('BUFFER_ABOVE_CEILING');
   if (movement_breaks_invariant !== null) compliance_flags.push('MOVEMENT_BREAKS_INVARIANT');
 
   const rationale = [];
-  rationale.push(`${buffers.length} declared buffer${buffers.length === 1 ? '' : 's'}; aggregate circulation-backing ${display(aggregate_backing_before_minor_units)} before movements, required ${display(required_backing_minor_units)} at a ${backing_ratio_bps} bps ratio against ${display(value_in_circulation_minor_units)} in circulation.`);
-  rationale.push(backing_intact_before ? 'Backing was intact before the declared movements.' : 'Backing was already short before the declared movements.');
-  rationale.push(`After ${movements.filter((m) => m.applied).length} applied movement${movements.filter((m) => m.applied).length === 1 ? '' : 's'}, aggregate circulation-backing is ${display(aggregate_backing_after_minor_units)}.`);
-  rationale.push(backing_intact_after
-    ? 'Backing remains intact after the declared movements.'
-    : (backing_intact_before ? 'Backing is short after the declared movements: composition shifted, not merely location.' : 'Backing remains short after the declared movements.'));
+  if (!backing_applicable) {
+    rationale.push('Backing model declared as vacuous: no backing set exists for this settlement-asset topology (e.g. a direct/one-tier CBDC, where the holder\'s claim IS central bank money, or a two-tier/intermediated CBDC, where the claim is still on the central bank). BACKING_NOT_APPLICABLE is a defined answer, not a pass and not a shortfall -- this model has no backing question to evaluate.');
+  } else {
+    rationale.push(`${buffers.length} declared buffer${buffers.length === 1 ? '' : 's'}; aggregate circulation-backing ${display(aggregate_backing_before_minor_units)} before movements, required ${display(required_backing_minor_units)} at a ${backing_ratio_bps} bps ratio against ${display(value_in_circulation_minor_units)} in circulation.`);
+    rationale.push(backing_intact_before ? 'Backing was intact before the declared movements.' : 'Backing was already short before the declared movements.');
+    rationale.push(`After ${movements.filter((m) => m.applied).length} applied movement${movements.filter((m) => m.applied).length === 1 ? '' : 's'}, aggregate circulation-backing is ${display(aggregate_backing_after_minor_units)}.`);
+    rationale.push(backing_intact_after
+      ? 'Backing remains intact after the declared movements.'
+      : (backing_intact_before ? 'Backing is short after the declared movements: composition shifted, not merely location.' : 'Backing remains short after the declared movements.'));
+  }
   if (movement_breaks_invariant) rationale.push(`Movement ${movement_breaks_invariant.movement_id} (${movement_breaks_invariant.from} -> ${movement_breaks_invariant.to}) is the first to break the invariant: ${movement_breaks_invariant.reason}.`);
   rationale.push('This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action.');
 
   const output_payload = {
     as_of,
+    backing_model,
+    backing_applicable,
     value_in_circulation_minor_units,
     value_in_circulation_display: display(value_in_circulation_minor_units),
     backing_ratio_bps,
@@ -257,7 +292,7 @@ export function compute(pp) {
     crossing_cost_display: display(crossing_cost_minor_units),
     rejected_inputs,
     rationale,
-    note: 'Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money.',
+    note: 'Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money. The caller declares backing_model ("segregated", default, or "vacuous" for a direct/two-tier CBDC with no backing set); the kernel never infers this from the buffer count, and BACKING_NOT_APPLICABLE is a defined non-pass answer, not BACKING_INTACT.',
   };
 
   return { output_payload, compliance_flags };
