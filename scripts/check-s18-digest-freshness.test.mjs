@@ -178,9 +178,18 @@ await test('reproduces the confirmed 134/507 stale count against the real commit
   // KNOWN_SEMANTIC_STALE set exists to distinguish, so art-359 is NOT added to it. Reproving
   // art-359 is GPU-queue work, tracked separately.
   // Denominator does not move; fresh -1, stale +1.
-  assert(total === 507, `expected 507 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 373, `expected 373 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 134, `expected 134 stale (133 plus build_idv_session_receipt/art-359, non-semantic, landed via ASSEMBLE-LAND-19), got ${stale.length}`);
+  // 507 -> 508 post-ZKPROVE-BATCH-4 (2026-08-01): drained the deferred GPU queue again, proving the
+  // single node ASSEMBLE-LAND-19 shipped deferred (art-523-identity-proofing-assurance-level,
+  // compute_identity_proofing_assurance_level) with a groth16-bn254 compute_proof under the
+  // universal guest image sha256:a1a0bc89. The splice asserted, before writing, that the shard's
+  // sha256-source compute_image (sha256:f691517dd02006a5) already equalled the receipt's
+  // journal.kernel_digest, so the node enters the FRESH set by construction and no existing node's
+  // digest moved. Denominator and fresh each move by exactly 1; the stale count does NOT move --
+  // this is a DENOMINATOR calibration, not a stale-ceiling raise. Measured both sides, not assumed:
+  // 373/507 fresh + 134 stale on the base commit b321cb4, 374/508 fresh + 134 stale after.
+  assert(total === 508, `expected 508 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 374, `expected 374 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 134, `expected 134 stale (unchanged by ZKPROVE-BATCH-4; art-523 enters fresh by construction), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
