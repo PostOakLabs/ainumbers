@@ -1,0 +1,814 @@
+{
+  "tool_id": "art-521-settlement-asset-backing-invariant",
+  "note": "Vectors computed directly from the shipped kernel. Covers a clean movement that preserves aggregate circulation backing, the composition-break case that is the point of this node (a movement that leaves the buffer set's grand total unchanged but breaks the invariant), the same computation demonstrated for a pooled-account-backed and a reserve-backed settlement asset with zero kernel difference, a per-buffer floor breach, the zero-circulation/zero-buffer finite gate, and a rejected fractional input.",
+  "vectors": [
+    {
+      "name": "clean-central-issuance",
+      "description": "Centrally-issued digital cash: a movement between two buffers that both back circulation leaves aggregate circulation-backing unchanged (102000.00 before and after). BACKING_INTACT, no breach.",
+      "policy_parameters": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 10000000,
+        "backing_ratio_bps": 10000,
+        "idle_cost_bps": 50,
+        "cost_per_crossing_minor_units": 1500,
+        "buffers": [
+          {
+            "buffer_id": "buffer-backing",
+            "role": "backing_account",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_minor_units": 6000000,
+            "min_minor_units": 1000000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "buffer-payout",
+            "role": "payout_buffer",
+            "asset_type": "settlement-asset",
+            "backs": "circulation",
+            "balance_minor_units": 4200000,
+            "min_minor_units": 500000,
+            "max_minor_units": 8000000
+          },
+          {
+            "buffer_id": "buffer-issuance",
+            "role": "settlement_balance",
+            "asset_type": "settlement-asset",
+            "backs": "new_issuance",
+            "balance_minor_units": 900000,
+            "min_minor_units": 200000,
+            "max_minor_units": null
+          }
+        ],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "buffer-backing",
+            "to": "buffer-payout",
+            "amount_minor_units": 200000
+          }
+        ]
+      },
+      "output_payload": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 10000000,
+        "value_in_circulation_display": "100000.00",
+        "backing_ratio_bps": 10000,
+        "required_backing_minor_units": 10000000,
+        "required_backing_display": "100000.00",
+        "buffer_count": 3,
+        "buffers": [
+          {
+            "buffer_id": "buffer-backing",
+            "role": "backing_account",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 6000000,
+            "balance_after_minor_units": 5800000,
+            "min_minor_units": 1000000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "buffer-payout",
+            "role": "payout_buffer",
+            "asset_type": "settlement-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 4200000,
+            "balance_after_minor_units": 4400000,
+            "min_minor_units": 500000,
+            "max_minor_units": 8000000
+          },
+          {
+            "buffer_id": "buffer-issuance",
+            "role": "settlement_balance",
+            "asset_type": "settlement-asset",
+            "backs": "new_issuance",
+            "balance_before_minor_units": 900000,
+            "balance_after_minor_units": 900000,
+            "min_minor_units": 200000,
+            "max_minor_units": null
+          }
+        ],
+        "aggregate_backing_before_minor_units": 10200000,
+        "aggregate_backing_before_display": "102000.00",
+        "backing_intact_before": true,
+        "breaches_before": [],
+        "aggregate_backing_after_minor_units": 10200000,
+        "aggregate_backing_after_display": "102000.00",
+        "backing_intact_after": true,
+        "breaches_after": [],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "buffer-backing",
+            "to": "buffer-payout",
+            "amount_minor_units": 200000,
+            "applied": true,
+            "external_crossing": true
+          }
+        ],
+        "movement_breaks_invariant": null,
+        "buffer_margins": [
+          {
+            "buffer_id": "buffer-backing",
+            "safe_margin_minor_units": 4800000
+          },
+          {
+            "buffer_id": "buffer-payout",
+            "safe_margin_minor_units": 3900000
+          },
+          {
+            "buffer_id": "buffer-issuance",
+            "safe_margin_minor_units": 700000
+          }
+        ],
+        "thinnest_buffer": {
+          "buffer_id": "buffer-issuance",
+          "safe_margin_minor_units": 700000
+        },
+        "idle_amount_minor_units": 9400000,
+        "idle_cost_minor_units": 47000,
+        "idle_cost_display": "470.00",
+        "crossing_count": 1,
+        "crossing_cost_minor_units": 1500,
+        "crossing_cost_display": "15.00",
+        "rejected_inputs": [],
+        "rationale": [
+          "3 declared buffers; aggregate circulation-backing 102000.00 before movements, required 100000.00 at a 10000 bps ratio against 100000.00 in circulation.",
+          "Backing was intact before the declared movements.",
+          "After 1 applied movement, aggregate circulation-backing is 102000.00.",
+          "Backing remains intact after the declared movements.",
+          "This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action."
+        ],
+        "note": "Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money."
+      },
+      "compliance_flags": [
+        "BACKING_INTACT"
+      ],
+      "golden_hash": "8f639a468329399523793fa247c210d4ff970051224a860a202b5bb79d3e3368"
+    },
+    {
+      "name": "composition-break-central-issuance",
+      "description": "THE POINT OF THIS NODE. The buffer set's grand total is identical before and after (10900000 both times), but moving 3500000 out of a circulation-backing buffer into a new-issuance buffer drops aggregate circulation-backing from 100000.00 to 65000.00, well below the required 100000.00. MOVEMENT_BREAKS_INVARIANT identifies MOVE-1 specifically. A per-account or grand-total check would see nothing wrong.",
+      "policy_parameters": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 10000000,
+        "backing_ratio_bps": 10000,
+        "idle_cost_bps": 50,
+        "cost_per_crossing_minor_units": 1500,
+        "buffers": [
+          {
+            "buffer_id": "buffer-backing",
+            "role": "backing_account",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_minor_units": 6000000,
+            "min_minor_units": 1000000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "buffer-payout",
+            "role": "payout_buffer",
+            "asset_type": "settlement-asset",
+            "backs": "circulation",
+            "balance_minor_units": 4000000,
+            "min_minor_units": 500000,
+            "max_minor_units": 8000000
+          },
+          {
+            "buffer_id": "buffer-issuance",
+            "role": "settlement_balance",
+            "asset_type": "settlement-asset",
+            "backs": "new_issuance",
+            "balance_minor_units": 900000,
+            "min_minor_units": 200000,
+            "max_minor_units": null
+          }
+        ],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "buffer-payout",
+            "to": "buffer-issuance",
+            "amount_minor_units": 3500000
+          }
+        ]
+      },
+      "output_payload": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 10000000,
+        "value_in_circulation_display": "100000.00",
+        "backing_ratio_bps": 10000,
+        "required_backing_minor_units": 10000000,
+        "required_backing_display": "100000.00",
+        "buffer_count": 3,
+        "buffers": [
+          {
+            "buffer_id": "buffer-backing",
+            "role": "backing_account",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 6000000,
+            "balance_after_minor_units": 6000000,
+            "min_minor_units": 1000000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "buffer-payout",
+            "role": "payout_buffer",
+            "asset_type": "settlement-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 4000000,
+            "balance_after_minor_units": 500000,
+            "min_minor_units": 500000,
+            "max_minor_units": 8000000
+          },
+          {
+            "buffer_id": "buffer-issuance",
+            "role": "settlement_balance",
+            "asset_type": "settlement-asset",
+            "backs": "new_issuance",
+            "balance_before_minor_units": 900000,
+            "balance_after_minor_units": 4400000,
+            "min_minor_units": 200000,
+            "max_minor_units": null
+          }
+        ],
+        "aggregate_backing_before_minor_units": 10000000,
+        "aggregate_backing_before_display": "100000.00",
+        "backing_intact_before": true,
+        "breaches_before": [],
+        "aggregate_backing_after_minor_units": 6500000,
+        "aggregate_backing_after_display": "65000.00",
+        "backing_intact_after": false,
+        "breaches_after": [],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "buffer-payout",
+            "to": "buffer-issuance",
+            "amount_minor_units": 3500000,
+            "applied": true,
+            "external_crossing": false
+          }
+        ],
+        "movement_breaks_invariant": {
+          "movement_id": "MOVE-1",
+          "from": "buffer-payout",
+          "to": "buffer-issuance",
+          "amount_minor_units": 3500000,
+          "reason": "aggregate circulation backing falls below the required ratio after this movement"
+        },
+        "buffer_margins": [
+          {
+            "buffer_id": "buffer-backing",
+            "safe_margin_minor_units": 5000000
+          },
+          {
+            "buffer_id": "buffer-payout",
+            "safe_margin_minor_units": 0
+          },
+          {
+            "buffer_id": "buffer-issuance",
+            "safe_margin_minor_units": 4200000
+          }
+        ],
+        "thinnest_buffer": {
+          "buffer_id": "buffer-payout",
+          "safe_margin_minor_units": 0
+        },
+        "idle_amount_minor_units": 9200000,
+        "idle_cost_minor_units": 46000,
+        "idle_cost_display": "460.00",
+        "crossing_count": 0,
+        "crossing_cost_minor_units": 0,
+        "crossing_cost_display": "0.00",
+        "rejected_inputs": [],
+        "rationale": [
+          "3 declared buffers; aggregate circulation-backing 100000.00 before movements, required 100000.00 at a 10000 bps ratio against 100000.00 in circulation.",
+          "Backing was intact before the declared movements.",
+          "After 1 applied movement, aggregate circulation-backing is 65000.00.",
+          "Backing is short after the declared movements: composition shifted, not merely location.",
+          "Movement MOVE-1 (buffer-payout -> buffer-issuance) is the first to break the invariant: aggregate circulation backing falls below the required ratio after this movement.",
+          "This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action."
+        ],
+        "note": "Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money."
+      },
+      "compliance_flags": [
+        "BACKING_SHORTFALL",
+        "MOVEMENT_BREAKS_INVARIANT"
+      ],
+      "golden_hash": "19ea60f771dd2652b1c72e74fb242d62c1e2b94f38cf874224c06612f7d5037c"
+    },
+    {
+      "name": "pooled-account-backed",
+      "description": "SETTLEMENT-ASSET AGNOSTICISM CASE (b) of 3: a pooled-account-backed digital cash topology, same kernel, only the declared buffers differ. Both buffers back circulation, so a movement between them is composition-neutral. BACKING_INTACT.",
+      "policy_parameters": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 5000000,
+        "backing_ratio_bps": 10000,
+        "idle_cost_bps": 25,
+        "cost_per_crossing_minor_units": 800,
+        "buffers": [
+          {
+            "buffer_id": "pooled-account-1",
+            "role": "backing_account",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_minor_units": 3000000,
+            "min_minor_units": 500000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "pooled-account-2",
+            "role": "payout_buffer",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_minor_units": 2200000,
+            "min_minor_units": 300000,
+            "max_minor_units": null
+          }
+        ],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "pooled-account-1",
+            "to": "pooled-account-2",
+            "amount_minor_units": 500000
+          }
+        ]
+      },
+      "output_payload": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 5000000,
+        "value_in_circulation_display": "50000.00",
+        "backing_ratio_bps": 10000,
+        "required_backing_minor_units": 5000000,
+        "required_backing_display": "50000.00",
+        "buffer_count": 2,
+        "buffers": [
+          {
+            "buffer_id": "pooled-account-1",
+            "role": "backing_account",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 3000000,
+            "balance_after_minor_units": 2500000,
+            "min_minor_units": 500000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "pooled-account-2",
+            "role": "payout_buffer",
+            "asset_type": "conventional-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 2200000,
+            "balance_after_minor_units": 2700000,
+            "min_minor_units": 300000,
+            "max_minor_units": null
+          }
+        ],
+        "aggregate_backing_before_minor_units": 5200000,
+        "aggregate_backing_before_display": "52000.00",
+        "backing_intact_before": true,
+        "breaches_before": [],
+        "aggregate_backing_after_minor_units": 5200000,
+        "aggregate_backing_after_display": "52000.00",
+        "backing_intact_after": true,
+        "breaches_after": [],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "pooled-account-1",
+            "to": "pooled-account-2",
+            "amount_minor_units": 500000,
+            "applied": true,
+            "external_crossing": false
+          }
+        ],
+        "movement_breaks_invariant": null,
+        "buffer_margins": [
+          {
+            "buffer_id": "pooled-account-1",
+            "safe_margin_minor_units": 2000000
+          },
+          {
+            "buffer_id": "pooled-account-2",
+            "safe_margin_minor_units": 2400000
+          }
+        ],
+        "thinnest_buffer": {
+          "buffer_id": "pooled-account-1",
+          "safe_margin_minor_units": 2000000
+        },
+        "idle_amount_minor_units": 4400000,
+        "idle_cost_minor_units": 11000,
+        "idle_cost_display": "110.00",
+        "crossing_count": 0,
+        "crossing_cost_minor_units": 0,
+        "crossing_cost_display": "0.00",
+        "rejected_inputs": [],
+        "rationale": [
+          "2 declared buffers; aggregate circulation-backing 52000.00 before movements, required 50000.00 at a 10000 bps ratio against 50000.00 in circulation.",
+          "Backing was intact before the declared movements.",
+          "After 1 applied movement, aggregate circulation-backing is 52000.00.",
+          "Backing remains intact after the declared movements.",
+          "This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action."
+        ],
+        "note": "Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money."
+      },
+      "compliance_flags": [
+        "BACKING_INTACT"
+      ],
+      "golden_hash": "84c074056d6345c7fcf5eba431dc919da71cea650ca68f9a4b0efdfff5449220"
+    },
+    {
+      "name": "reserve-backed-stablecoin",
+      "description": "SETTLEMENT-ASSET AGNOSTICISM CASE (c) of 3: a reserve-backed stablecoin topology at a 105% backing ratio, same kernel. Zero declared movements. BACKING_INTACT.",
+      "policy_parameters": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 20000000,
+        "backing_ratio_bps": 10500,
+        "idle_cost_bps": 10,
+        "cost_per_crossing_minor_units": 2500,
+        "buffers": [
+          {
+            "buffer_id": "reserve-account",
+            "role": "backing_account",
+            "asset_type": "reserve-asset",
+            "backs": "circulation",
+            "balance_minor_units": 15000000,
+            "min_minor_units": 2000000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "redemption-buffer",
+            "role": "payout_buffer",
+            "asset_type": "settlement-asset",
+            "backs": "circulation",
+            "balance_minor_units": 6000000,
+            "min_minor_units": 1000000,
+            "max_minor_units": 9000000
+          }
+        ],
+        "movements": []
+      },
+      "output_payload": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 20000000,
+        "value_in_circulation_display": "200000.00",
+        "backing_ratio_bps": 10500,
+        "required_backing_minor_units": 21000000,
+        "required_backing_display": "210000.00",
+        "buffer_count": 2,
+        "buffers": [
+          {
+            "buffer_id": "reserve-account",
+            "role": "backing_account",
+            "asset_type": "reserve-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 15000000,
+            "balance_after_minor_units": 15000000,
+            "min_minor_units": 2000000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "redemption-buffer",
+            "role": "payout_buffer",
+            "asset_type": "settlement-asset",
+            "backs": "circulation",
+            "balance_before_minor_units": 6000000,
+            "balance_after_minor_units": 6000000,
+            "min_minor_units": 1000000,
+            "max_minor_units": 9000000
+          }
+        ],
+        "aggregate_backing_before_minor_units": 21000000,
+        "aggregate_backing_before_display": "210000.00",
+        "backing_intact_before": true,
+        "breaches_before": [],
+        "aggregate_backing_after_minor_units": 21000000,
+        "aggregate_backing_after_display": "210000.00",
+        "backing_intact_after": true,
+        "breaches_after": [],
+        "movements": [],
+        "movement_breaks_invariant": null,
+        "buffer_margins": [
+          {
+            "buffer_id": "reserve-account",
+            "safe_margin_minor_units": 13000000
+          },
+          {
+            "buffer_id": "redemption-buffer",
+            "safe_margin_minor_units": 5000000
+          }
+        ],
+        "thinnest_buffer": {
+          "buffer_id": "redemption-buffer",
+          "safe_margin_minor_units": 5000000
+        },
+        "idle_amount_minor_units": 18000000,
+        "idle_cost_minor_units": 18000,
+        "idle_cost_display": "180.00",
+        "crossing_count": 0,
+        "crossing_cost_minor_units": 0,
+        "crossing_cost_display": "0.00",
+        "rejected_inputs": [],
+        "rationale": [
+          "2 declared buffers; aggregate circulation-backing 210000.00 before movements, required 210000.00 at a 10500 bps ratio against 200000.00 in circulation.",
+          "Backing was intact before the declared movements.",
+          "After 0 applied movements, aggregate circulation-backing is 210000.00.",
+          "Backing remains intact after the declared movements.",
+          "This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action."
+        ],
+        "note": "Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money."
+      },
+      "compliance_flags": [
+        "BACKING_INTACT"
+      ],
+      "golden_hash": "e4559981370eff8e325c0a54ffaa2801f9bd8dd6ab3b451e4da9090544738006"
+    },
+    {
+      "name": "floor-breach-detected",
+      "description": "Aggregate backing stays intact (13000.00 both before and after) but the movement drains buffer A below its declared 5000.00 floor. BUFFER_BELOW_FLOOR fires even though BACKING_INTACT holds -- per-buffer and aggregate checks are independent.",
+      "policy_parameters": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 1000000,
+        "backing_ratio_bps": 10000,
+        "idle_cost_bps": 0,
+        "cost_per_crossing_minor_units": 0,
+        "buffers": [
+          {
+            "buffer_id": "A",
+            "role": "backing_account",
+            "asset_type": "x",
+            "backs": "circulation",
+            "balance_minor_units": 1200000,
+            "min_minor_units": 500000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "B",
+            "role": "payout_buffer",
+            "asset_type": "x",
+            "backs": "circulation",
+            "balance_minor_units": 100000,
+            "min_minor_units": 50000,
+            "max_minor_units": null
+          }
+        ],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "A",
+            "to": "B",
+            "amount_minor_units": 800000
+          }
+        ]
+      },
+      "output_payload": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 1000000,
+        "value_in_circulation_display": "10000.00",
+        "backing_ratio_bps": 10000,
+        "required_backing_minor_units": 1000000,
+        "required_backing_display": "10000.00",
+        "buffer_count": 2,
+        "buffers": [
+          {
+            "buffer_id": "A",
+            "role": "backing_account",
+            "asset_type": "x",
+            "backs": "circulation",
+            "balance_before_minor_units": 1200000,
+            "balance_after_minor_units": 400000,
+            "min_minor_units": 500000,
+            "max_minor_units": null
+          },
+          {
+            "buffer_id": "B",
+            "role": "payout_buffer",
+            "asset_type": "x",
+            "backs": "circulation",
+            "balance_before_minor_units": 100000,
+            "balance_after_minor_units": 900000,
+            "min_minor_units": 50000,
+            "max_minor_units": null
+          }
+        ],
+        "aggregate_backing_before_minor_units": 1300000,
+        "aggregate_backing_before_display": "13000.00",
+        "backing_intact_before": true,
+        "breaches_before": [],
+        "aggregate_backing_after_minor_units": 1300000,
+        "aggregate_backing_after_display": "13000.00",
+        "backing_intact_after": true,
+        "breaches_after": [
+          {
+            "buffer_id": "A",
+            "kind": "BUFFER_BELOW_FLOOR",
+            "balance_minor_units": 400000,
+            "threshold_minor_units": 500000
+          }
+        ],
+        "movements": [
+          {
+            "movement_id": "MOVE-1",
+            "from": "A",
+            "to": "B",
+            "amount_minor_units": 800000,
+            "applied": true,
+            "external_crossing": false
+          }
+        ],
+        "movement_breaks_invariant": {
+          "movement_id": "MOVE-1",
+          "from": "A",
+          "to": "B",
+          "amount_minor_units": 800000,
+          "reason": "this movement puts a buffer below its declared floor or above its declared ceiling"
+        },
+        "buffer_margins": [
+          {
+            "buffer_id": "A",
+            "safe_margin_minor_units": -100000
+          },
+          {
+            "buffer_id": "B",
+            "safe_margin_minor_units": 850000
+          }
+        ],
+        "thinnest_buffer": {
+          "buffer_id": "A",
+          "safe_margin_minor_units": -100000
+        },
+        "idle_amount_minor_units": 850000,
+        "idle_cost_minor_units": 0,
+        "idle_cost_display": "0.00",
+        "crossing_count": 0,
+        "crossing_cost_minor_units": 0,
+        "crossing_cost_display": "0.00",
+        "rejected_inputs": [],
+        "rationale": [
+          "2 declared buffers; aggregate circulation-backing 13000.00 before movements, required 10000.00 at a 10000 bps ratio against 10000.00 in circulation.",
+          "Backing was intact before the declared movements.",
+          "After 1 applied movement, aggregate circulation-backing is 13000.00.",
+          "Backing remains intact after the declared movements.",
+          "Movement MOVE-1 (A -> B) is the first to break the invariant: this movement puts a buffer below its declared floor or above its declared ceiling.",
+          "This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action."
+        ],
+        "note": "Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money."
+      },
+      "compliance_flags": [
+        "BACKING_INTACT",
+        "BUFFER_BELOW_FLOOR",
+        "MOVEMENT_BREAKS_INVARIANT"
+      ],
+      "golden_hash": "70ca9042d87cb8a39a197cd37272d3b79d2e6781cec44cfbac2a48a7448ce337"
+    },
+    {
+      "name": "zero-circulation-zero-buffers-finite",
+      "description": "FINITE GATE: zero declared circulation and zero declared buffers both resolve to a defined, non-dividing verdict. BACKING_INPUTS_INSUFFICIENT alongside BACKING_INTACT (vacuously, 0 >= 0), never NaN or a thrown error.",
+      "policy_parameters": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 0,
+        "backing_ratio_bps": 10000,
+        "idle_cost_bps": 0,
+        "cost_per_crossing_minor_units": 0,
+        "buffers": [],
+        "movements": []
+      },
+      "output_payload": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 0,
+        "value_in_circulation_display": "0.00",
+        "backing_ratio_bps": 10000,
+        "required_backing_minor_units": 0,
+        "required_backing_display": "0.00",
+        "buffer_count": 0,
+        "buffers": [],
+        "aggregate_backing_before_minor_units": 0,
+        "aggregate_backing_before_display": "0.00",
+        "backing_intact_before": true,
+        "breaches_before": [],
+        "aggregate_backing_after_minor_units": 0,
+        "aggregate_backing_after_display": "0.00",
+        "backing_intact_after": true,
+        "breaches_after": [],
+        "movements": [],
+        "movement_breaks_invariant": null,
+        "buffer_margins": [],
+        "thinnest_buffer": null,
+        "idle_amount_minor_units": 0,
+        "idle_cost_minor_units": 0,
+        "idle_cost_display": "0.00",
+        "crossing_count": 0,
+        "crossing_cost_minor_units": 0,
+        "crossing_cost_display": "0.00",
+        "rejected_inputs": [],
+        "rationale": [
+          "0 declared buffers; aggregate circulation-backing 0.00 before movements, required 0.00 at a 10000 bps ratio against 0.00 in circulation.",
+          "Backing was intact before the declared movements.",
+          "After 0 applied movements, aggregate circulation-backing is 0.00.",
+          "Backing remains intact after the declared movements.",
+          "This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action."
+        ],
+        "note": "Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money."
+      },
+      "compliance_flags": [
+        "BACKING_INPUTS_INSUFFICIENT",
+        "BACKING_INTACT"
+      ],
+      "golden_hash": "d8d642029c00e7b4d9a15ac805b7e9ca9404a6cc3b0830c2b96167ae6fba3d99"
+    },
+    {
+      "name": "rejected-inputs-fractional",
+      "description": "A fractional buffer balance (1.5 minor units) is coerced to 0 and named in rejected_inputs, never silently dropped and never NaN. The resulting all-zero backing is correctly reported as already short before any movement.",
+      "policy_parameters": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 1000000,
+        "backing_ratio_bps": 10000,
+        "idle_cost_bps": 0,
+        "cost_per_crossing_minor_units": 0,
+        "buffers": [
+          {
+            "buffer_id": "A",
+            "role": "backing_account",
+            "asset_type": "x",
+            "backs": "circulation",
+            "balance_minor_units": 1.5,
+            "min_minor_units": 0,
+            "max_minor_units": null
+          }
+        ],
+        "movements": []
+      },
+      "output_payload": {
+        "as_of": "2026-08-01",
+        "value_in_circulation_minor_units": 1000000,
+        "value_in_circulation_display": "10000.00",
+        "backing_ratio_bps": 10000,
+        "required_backing_minor_units": 1000000,
+        "required_backing_display": "10000.00",
+        "buffer_count": 1,
+        "buffers": [
+          {
+            "buffer_id": "A",
+            "role": "backing_account",
+            "asset_type": "x",
+            "backs": "circulation",
+            "balance_before_minor_units": 0,
+            "balance_after_minor_units": 0,
+            "min_minor_units": 0,
+            "max_minor_units": null
+          }
+        ],
+        "aggregate_backing_before_minor_units": 0,
+        "aggregate_backing_before_display": "0.00",
+        "backing_intact_before": false,
+        "breaches_before": [],
+        "aggregate_backing_after_minor_units": 0,
+        "aggregate_backing_after_display": "0.00",
+        "backing_intact_after": false,
+        "breaches_after": [],
+        "movements": [],
+        "movement_breaks_invariant": null,
+        "buffer_margins": [
+          {
+            "buffer_id": "A",
+            "safe_margin_minor_units": 0
+          }
+        ],
+        "thinnest_buffer": {
+          "buffer_id": "A",
+          "safe_margin_minor_units": 0
+        },
+        "idle_amount_minor_units": 0,
+        "idle_cost_minor_units": 0,
+        "idle_cost_display": "0.00",
+        "crossing_count": 0,
+        "crossing_cost_minor_units": 0,
+        "crossing_cost_display": "0.00",
+        "rejected_inputs": [
+          {
+            "where": "buffers[0].balance_minor_units",
+            "reason": "not a safe integer number of minor units",
+            "supplied": 1.5
+          }
+        ],
+        "rationale": [
+          "1 declared buffer; aggregate circulation-backing 0.00 before movements, required 10000.00 at a 10000 bps ratio against 10000.00 in circulation.",
+          "Backing was already short before the declared movements.",
+          "After 0 applied movements, aggregate circulation-backing is 0.00.",
+          "Backing remains short after the declared movements.",
+          "This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action."
+        ],
+        "note": "Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money."
+      },
+      "compliance_flags": [
+        "BACKING_SHORTFALL"
+      ],
+      "golden_hash": "de411c0db2dfef8566b41d3094b9c51aee0ec59c584935b75ec5b475d3db1de6"
+    }
+  ]
+}
