@@ -445,6 +445,7 @@ import * as art504    from './art-504-classify-carf-reportable.kernel.mjs';
 import * as art505    from './art-505-dispose-carf-status-message.kernel.mjs';
 import * as art506    from './art-506-classify-t1-posttrade-timing.kernel.mjs';
 import * as art507    from './art-507-determine-deposit-insurance-coverage.kernel.mjs';
+import * as art508    from './art-508-recompute-bordereau.kernel.mjs';
 import * as art509    from './art-509-recompute-payment-waterfall.kernel.mjs';
 import * as art51     from './art-51-cross-margining-benefit-estimator.kernel.mjs';
 import * as art510    from './art-510-build-art5-diligence-evidence.kernel.mjs';
@@ -957,6 +958,7 @@ export const KERNELS = {
   'art-505-dispose-carf-status-message':                      art505,
   'art-506-classify-t1-posttrade-timing':                     art506,
   'art-507-determine-deposit-insurance-coverage':             art507,
+  'art-508-recompute-bordereau':                              art508,
   'art-509-recompute-payment-waterfall':                      art509,
   'art-51-cross-margining-benefit-estimator':                 art51,
   'art-510-build-art5-diligence-evidence':                    art510,
