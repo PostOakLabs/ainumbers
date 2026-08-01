@@ -121,7 +121,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-518 &middot; Government &amp; Public-Money Payment Evidence</div>
   <h1>Bulk Disbursement Integrity</h1>
-  <p class="sub">Attests that a bulk payment run &mdash; salaries, pensions, social transfers, vendor payments &mdash; is internally consistent and matches its authorization. You supply the authorized control total, the per-payee records (an opaque payee ref, an amount, a rail, and a duplicate-candidate key you already hashed or tokenised), any declared exclusions, and the prior run's payee-ref summary. This tool checks whether the run reconciles to the authorization in both count and value, surfaces payee refs that share a duplicate-candidate key, reports payees that joined or left versus the prior run, and flags limit breaches including a split-payment shape &mdash; multiple sub-limit payments to one payee ref summing past a declared limit. Emits a hash-anchored OpenChainGraph v0.4 artifact. Region-portable: every fact below is an input you declare, never a hardcoded country, currency, or scheme.</p>
+  <p class="sub">Attests that a bulk payment run &mdash; salaries, pensions, social transfers, vendor payments &mdash; is internally consistent and matches its authorization. You supply the authorized control total, the per-payee records (an opaque payee ref, an amount, a rail, and a duplicate-candidate key), any declared exclusions, and the prior run's payee-ref summary. This tool checks whether the run reconciles to the authorization in both count and value, surfaces payee refs that share a duplicate-candidate key, reports payees that joined or left versus the prior run, and flags limit breaches including a split-payment shape &mdash; multiple sub-limit payments to one payee ref summing past a declared limit. Emits a hash-anchored OpenChainGraph v0.4 artifact. Region-portable: every fact below is an input you declare, never a hardcoded country, currency, or scheme.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">Control-total reconciliation, count and value</span>
     <span class="flag info">Duplicate-candidate clusters by your own key</span>
@@ -129,7 +129,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <span class="flag">Roster movement, never an accusation</span>
   </div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
-  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Every duplicate, split, and roster-movement flag below is a candidate for a human reviewer, not a finding of fraud, misconduct, or an ineligible beneficiary. Two pensioners can legitimately share a duplicate key; a split can be a corrected underpayment; a roster change is ordinary joining and leaving. This tool never asserts otherwise. A payee here is an opaque reference plus an amount and a rail &mdash; never a name, national-insurance or social-security number, account number, address, or date of birth. The duplicate-candidate key must already be hashed or tokenised by you before it is entered here; this tool never derives one from identifying data. It computes once when you press the button, stores nothing, and retains nothing.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Every duplicate, split, and roster-movement flag below is a candidate for a human reviewer, not a finding of fraud, misconduct, or an ineligible beneficiary. Two pensioners can legitimately share a duplicate key; a split can be a corrected underpayment; a roster change is ordinary joining and leaving. This tool never asserts otherwise. A payee here is an opaque reference plus an amount and a rail &mdash; never a name, national-insurance or social-security number, account number, address, or date of birth. It computes once when you press the button, stores nothing, and retains nothing.</div>
+  <div class="pii-notice" style="border-left-color:var(--teal)">&#128274; DUPLICATE-KEY COMMITMENT (OpenChainGraph Standard &sect;25, <code>ocg-private-input@1</code>): a bare hash of a payee identifier is NOT safe &mdash; identifier spaces are small and structured, so an attacker holding the artifact can precompute the digest of every candidate and recover the plaintext by table lookup. Supply <code>duplicate_key</code> as a <code>sha256-salted@1</code> commitment &mdash; <code>sha256:</code> + the hex SHA-256 of a fresh &ge;256-bit secret salt you generate and keep, concatenated with the canonicalized key &mdash; and declare the scheme below. The salt never leaves your hands and is never entered here. Declared commitments are listed in the artifact's <code>private_inputs[]</code>; leave the scheme field blank only for legacy runs that predate this contract.</div>
 
   <div class="card">
     <div class="section-head">Run</div>
@@ -148,13 +149,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div><label class="fld">Per-run limit (minor units, blank to skip that check)</label><input type="text" id="perRunLimit" value="1000000"></div>
     </div>
 
-    <label class="fld">Per-payee records (JSON array: payee_ref, amount_minor_units, rail, duplicate_key &mdash; the key must already be hashed or tokenised by you)</label>
+    <label class="fld">Per-payee records (JSON array: payee_ref, amount_minor_units, rail, duplicate_key)</label>
     <textarea id="recordsJson">[
   { "payee_ref": "PAYEE-A001", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "h_9f2c1a" },
   { "payee_ref": "PAYEE-A002", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "h_3b7d90" },
   { "payee_ref": "PAYEE-A003", "amount_minor_units": 100000, "rail": "mobile_wallet", "duplicate_key": "h_51ae22" },
   { "payee_ref": "PAYEE-A004", "amount_minor_units": 100000, "rail": "cash_agent", "duplicate_key": "h_e40d18" }
 ]</textarea>
+    <label class="fld">Duplicate-key commitment scheme (optional &mdash; blank for a legacy run; <code>sha256-salted@1</code> requires every duplicate_key above to be a <code>sha256:&lt;64-hex&gt;</code> commitment; any other value is rejected as an unknown scheme)</label>
+    <input type="text" id="dupKeyScheme" value="" placeholder="sha256-salted@1">
     <label class="fld">Declared exclusions (JSON array: payee_ref, reason_code)</label>
     <textarea id="exclusionsJson" style="min-height:70px">[]</textarea>
     <label class="fld">Prior run's payee-ref summary (JSON array, or [] if the prior run had none, or leave blank if unknown &mdash; absence is NOT the same as an empty list)</label>
@@ -164,6 +167,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <button onclick="runCheck()">&#9654; Run Attestation</button>
       <button class="ghost" onclick="loadDuplicateSplitDemo()">Load duplicate/split demo</button>
       <button class="ghost" onclick="loadRosterAbsentDemo()">Load prior-roster-absent demo</button>
+      <button class="ghost" onclick="loadPrivateInputDemo()">Load salted-commitment demo</button>
     </div>
   </div>
 
@@ -184,6 +188,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="section-head" style="margin-top:14px">Rejected inputs</div>
       <div id="rejDiv"></div>
 
+      <div class="section-head" style="margin-top:14px">Private-input commitments declared (&sect;25)</div>
+      <div id="privDiv"></div>
+
       <div class="section-head" style="margin-top:14px">Rationale</div>
       <ul class="rat" id="ratDiv"></ul>
 
@@ -200,7 +207,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="card">
     <div class="eyebrow" style="margin-top:0">What this does not do</div>
-    <p class="sub" style="margin-bottom:0">It does not investigate any payee, does not decide whether a duplicate or split is improper, and does not verify that the figures you supply are complete or accurate &mdash; it is an arithmetic attestation over the run you declared. It never accepts or requires a name, account number, or any identifying field, and it never derives the duplicate-candidate key itself &mdash; you supply it already hashed or tokenised. Where the prior run's payee-ref summary is not supplied at all, roster movement is reported as unverifiable, never as a false clean.</p>
+    <p class="sub" style="margin-bottom:0">It does not investigate any payee, does not decide whether a duplicate or split is improper, and does not verify that the figures you supply are complete or accurate &mdash; it is an arithmetic attestation over the run you declared. It never accepts or requires a name, account number, or any identifying field, and it never derives the duplicate-candidate key itself &mdash; you supply it. Where the prior run's payee-ref summary is not supplied at all, roster movement is reported as unverifiable, never as a false clean. Where a <code>duplicate_key_commitment_scheme</code> is declared, it never sees or asks for the salt or the plaintext behind a commitment &mdash; those stay with you.</p>
   </div>
 
   <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
@@ -304,6 +311,7 @@ var MANIFEST = {
       run_reference: {type:'string'}, as_of: {type:'string'}, currency: {type:'string'},
       authorized_control_total: {type:'object'}, per_payee_limit_minor_units: {type:'number'}, per_run_limit_minor_units: {type:'number'},
       payee_records: {type:'array'}, declared_exclusions: {type:'array'}, prior_run_payee_refs: {type:'array'},
+      duplicate_key_commitment_scheme: {type:'string'},
     } },
   },
 };
@@ -349,6 +357,8 @@ function toLimitOrNull(v, where, rejected){
   rejected.push({ where: where, reason: 'present but not a positive integer number of minor units', supplied: typeof v === 'number' ? v : String(v) });
   return null;
 }
+var SHA256_SALTED_SCHEME = 'sha256-salted@1';
+var SHA256_COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
 
 function compute(pp){
   pp = pp || {};
@@ -367,6 +377,12 @@ function compute(pp){
   var per_payee_limit_minor_units = toLimitOrNull(pp.per_payee_limit_minor_units, 'per_payee_limit_minor_units', rejected_inputs);
   var per_run_limit_minor_units = toLimitOrNull(pp.per_run_limit_minor_units, 'per_run_limit_minor_units', rejected_inputs);
 
+  var declaredScheme = isNonEmptyString(pp.duplicate_key_commitment_scheme) ? pp.duplicate_key_commitment_scheme.trim() : null;
+  var schemeKnown = declaredScheme === null || declaredScheme === SHA256_SALTED_SCHEME;
+  if (declaredScheme !== null && !schemeKnown) {
+    rejected_inputs.push({ where: 'duplicate_key_commitment_scheme', reason: 'unknown commitment scheme -- "' + SHA256_SALTED_SCHEME + '" is the sole scheme accepted (SPEC.md §25.1); every declared duplicate_key in this run is excluded rather than trusted as opaque', supplied: declaredScheme });
+  }
+
   var records = recordsIn.map(function(r, i){
     r = r && typeof r === 'object' ? r : {};
     var payee_ref = isNonEmptyString(r.payee_ref) ? r.payee_ref.trim() : ('UNLABELLED-' + (i + 1));
@@ -374,7 +390,26 @@ function compute(pp){
     var amount_minor_units = toMinorUnits(r.amount_minor_units, 'payee_records[' + i + '].amount_minor_units', rejected_inputs);
     var rail = isNonEmptyString(r.rail) ? r.rail.trim() : 'unspecified';
     var duplicate_key = isNonEmptyString(r.duplicate_key) ? r.duplicate_key.trim() : null;
-    return { payee_ref: payee_ref, amount_minor_units: amount_minor_units, amount_display: display(amount_minor_units), rail: rail, duplicate_key: duplicate_key };
+    var is_private_input_commitment = false;
+    if (duplicate_key && declaredScheme !== null) {
+      if (!schemeKnown) {
+        rejected_inputs.push({ where: 'payee_records[' + i + '].duplicate_key', reason: 'declared duplicate_key_commitment_scheme "' + declaredScheme + '" is not a known commitment scheme', supplied: duplicate_key });
+        duplicate_key = null;
+      } else if (!SHA256_COMMITMENT_RE.test(duplicate_key)) {
+        rejected_inputs.push({ where: 'payee_records[' + i + '].duplicate_key', reason: 'declared commitment_scheme "' + SHA256_SALTED_SCHEME + '" but the value is not a well-formed sha256: commitment (^sha256:[0-9a-f]{64}$)', supplied: duplicate_key });
+        duplicate_key = null;
+      } else {
+        is_private_input_commitment = true;
+      }
+    }
+    return { payee_ref: payee_ref, amount_minor_units: amount_minor_units, amount_display: display(amount_minor_units), rail: rail, duplicate_key: duplicate_key, is_private_input_commitment: is_private_input_commitment };
+  });
+
+  var private_input_candidates = [];
+  records.forEach(function(r, i){
+    if (r.is_private_input_commitment) {
+      private_input_candidates.push({ pointer: '/payee_records/' + i + '/duplicate_key', commitment: r.duplicate_key, commitment_scheme: SHA256_SALTED_SCHEME });
+    }
   });
 
   var reconciled_record_count = records.length;
@@ -483,7 +518,7 @@ function compute(pp){
     rejected_inputs: rejected_inputs, rationale: rationale,
     note: 'Deterministic bulk disbursement integrity attestation over a caller-supplied authorization, per-payee record set, declared exclusions, and prior-run roster. Attests control-total reconciliation in count and value, surfaces duplicate-candidate clusters and split-payment candidates by the caller\'s own opaque keys, and reports roster movement -- all as candidates and observations for a human reviewer, never as findings of fraud, misconduct, or ineligible beneficiaries.',
   };
-  return { output_payload: output_payload, compliance_flags: compliance_flags };
+  return { output_payload: output_payload, compliance_flags: compliance_flags, private_input_candidates: private_input_candidates };
 }
 /* --- end mirror --- */
 
@@ -498,6 +533,20 @@ function loadDuplicateSplitDemo(){
   document.getElementById('recordsJson').value = '[\n  { "payee_ref": "PAYEE-C001", "amount_minor_units": 90000, "rail": "ach", "duplicate_key": "h_shared" },\n  { "payee_ref": "PAYEE-C001", "amount_minor_units": 30000, "rail": "ach", "duplicate_key": "h_shared" },\n  { "payee_ref": "PAYEE-C002", "amount_minor_units": 60000, "rail": "ach", "duplicate_key": "h_shared" }\n]';
   document.getElementById('exclusionsJson').value = '[\n  { "payee_ref": "PAYEE-C099", "reason_code": "withheld_pending_documentation" }\n]';
   document.getElementById('priorJson').value = '["PAYEE-C001", "PAYEE-C003"]';
+  runCheck();
+}
+function loadPrivateInputDemo(){
+  document.getElementById('runRef').value = 'RUN-2026-08-01-VENDOR-PRIVIN';
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('currency').value = 'USD';
+  document.getElementById('authCount').value = '2';
+  document.getElementById('authTotal').value = '200000';
+  document.getElementById('perPayeeLimit').value = '500000';
+  document.getElementById('perRunLimit').value = '1000000';
+  document.getElementById('dupKeyScheme').value = 'sha256-salted@1';
+  document.getElementById('recordsJson').value = '[\n  { "payee_ref": "PAYEE-F001", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "sha256:' + 'a'.repeat(64) + '" },\n  { "payee_ref": "PAYEE-F002", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "sha256:' + 'a'.repeat(64) + '" }\n]';
+  document.getElementById('exclusionsJson').value = '[]';
+  document.getElementById('priorJson').value = '["PAYEE-F001", "PAYEE-F002"]';
   runCheck();
 }
 function loadRosterAbsentDemo(){
@@ -538,9 +587,11 @@ async function runCheck(){
     declared_exclusions: excl,
   };
   if (prior !== undefined) pp.prior_run_payee_refs = prior;
+  var dupScheme = (document.getElementById('dupKeyScheme').value || '').trim();
+  if (dupScheme !== '') pp.duplicate_key_commitment_scheme = dupScheme;
 
   var res = compute(pp);
-  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags, private_inputs: res.private_input_candidates };
   var op = res.output_payload;
 
   var vBox = document.getElementById('verdictBox');
@@ -589,6 +640,12 @@ async function runCheck(){
       }).join('')
     : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
 
+  document.getElementById('privDiv').innerHTML = res.private_input_candidates.length
+    ? res.private_input_candidates.map(function(p){
+        return '<div class="kv"><span class="kv-k">' + p.pointer + '</span><span class="kv-v">' + p.commitment + ' <span class="badge ok">' + p.commitment_scheme + '</span></span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no duplicate_key_commitment_scheme declared, or nothing accepted</span></div>';
+
   document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
 
   document.getElementById('resultsPanel').classList.add('show');
@@ -609,6 +666,7 @@ function exportArtifact(){
   if (!_lastResult) return;
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-518-bulk-disbursement-integrity',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  if (_lastResult.private_inputs && _lastResult.private_inputs.length > 0) artifact.private_inputs = _lastResult.private_inputs;
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';
