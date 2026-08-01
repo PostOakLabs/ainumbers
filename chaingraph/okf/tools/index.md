@@ -242,7 +242,7 @@ status: stable
 - [DORA Readiness Diagnostic](./art-29-dora-readiness-diagnostic.md) — `run_dora_readiness_diagnostic`
 - [Linea L2 Finality Window Classifier](./art-290-check-linea-l2-finality-window.md) — `check_linea_l2_finality_window`
 - [On-Ledger Transfer Batch Screen](./art-291-screen-onledger-transfer-batch.md) — `screen_onledger_transfer_batch`
-- [Settlement Orchestrator Attestation](./art-292-attest-settlement-orchestrator.md) — `attest_settlement_orchestrator`
+- [Settlement Orchestrator Attestation](./art-292-attest-settlement-orchestrator.md) — `lint_settlement_orchestrator_conformance`
 - [E-Invoice Format Validator](./art-293-einvoice-format-validator.md) — `validate_einvoice_format`
 - [E-Invoice VAT Calculation Verifier](./art-294-einvoice-vat-calc-verifier.md) — `verify_einvoice_vat_calc`
 - [E-Invoice Jurisdiction Mandate Router](./art-295-einvoice-jurisdiction-mandate-router.md) — `route_einvoice_jurisdiction_mandate`
@@ -280,7 +280,7 @@ status: stable
 - [Annuity PV / FV / Payment Solver](./art-327-tvm-annuity.md) — `compute_annuity`
 - [Breakeven / CVP Analysis](./art-328-tvm-breakeven.md) — `compute_breakeven`
 - [Bond Macaulay / Modified Duration](./art-329-tvm-bond-duration.md) — `compute_bond_duration`
-- [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `attest_mcp_server`
+- [MCP Server Self-Attestation Pack](./art-33-mcp-server-self-attestation-pack.md) — `lint_mcp_server_conformance`
 - [Bond DV01 (Price Value of a Basis Point)](./art-330-tvm-dv01.md) — `compute_dv01`
 - [Bond Convexity](./art-331-tvm-convexity.md) — `compute_convexity`
 - [Amortization Schedule Builder](./art-332-build-amortization-schedule.md) — `build_amortization_schedule`
