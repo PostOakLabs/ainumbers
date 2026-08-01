@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Identity-Proofing Assurance Level Evaluator &middot; ART-523 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Rates a declared identity-evidence set against a caller-supplied, versioned assurance-level framework -- never a hardcoded framework. Provable ChainGraph node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-523-identity-proofing-assurance-level.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row5{display:grid;grid-template-columns:1fr 1fr 1.4fr 1fr .8fr;gap:8px;align-items:end;margin-bottom:8px}
+.row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;align-items:end;margin-bottom:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.5rem .6rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+table.bucket-tbl{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:6px}
+table.bucket-tbl th{text-align:left;color:var(--muted);font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--border)}
+table.bucket-tbl td{padding:5px 6px;border-bottom:1px solid var(--border);color:var(--bright)}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-523 · Identity-Proofing Assurance Level</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-523 &middot; Identity &amp; KYC Evidence</div>
+  <h1>Identity-Proofing Assurance Level Evaluator</h1>
+  <p class="sub">Rates whether a declared identity-evidence set reaches a declared target level of a caller-supplied, versioned assurance-level framework &mdash; the same policy-input pattern as the Collateral Haircut Engine's supervisory table. Never a hardcoded framework: swap the level definition below for NIST 800-63-3, eIDAS LoA, or any other structurally expressible framework without touching this page's logic. A criterion the definition cannot express (no required evidence type, no minimum strength) is flagged as an insufficient definition, kept separate from a criterion the evidence fails to meet.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Caller-supplied framework (policy input)</span><span class="flag info">Zero identity data</span><span class="flag info">Declared evidence, not verified identity</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. Evidence items are TYPES and STRENGTHS only &mdash; never document numbers, images, biometric templates, or any person-level value.</div>
+
+  <div class="card">
+    <div class="section-head">Framework &amp; Target</div>
+    <div class="row4">
+      <div><span class="q-label">Framework ID</span><input type="text" id="fwId" value="vendor-framework-A-tiers"></div>
+      <div><span class="q-label">Framework version</span><input type="text" id="fwVer" value="2026-01"></div>
+      <div><span class="q-label">Declared target level</span><select id="targetLevel"><option value="tier-1">tier-1</option><option value="tier-2" selected>tier-2</option><option value="tier-3">tier-3</option></select></div>
+      <div><span class="q-label">As of (caller-supplied date)</span><input type="text" id="asOf" value="2026-08-01"></div>
+    </div>
+
+    <div class="subsection">Level Definition (levels ordered lowest &rarr; highest rigor, one criterion per row)</div>
+    <div class="row5"><div class="q-label">Level ID</div><div class="q-label">Criterion ID</div><div class="q-label">Required evidence type</div><div class="q-label">Min strength (0-100)</div><div class="q-label">Description</div></div>
+    <div class="row5"><input type="text" id="l0lvl" value="tier-1"><input type="text" id="l0crit" value="id-doc"><input type="text" id="l0type" value="government_id"><input type="number" id="l0min" value="30"><input type="text" id="l0desc" value="one identity document"></div>
+    <div class="row5"><input type="text" id="l1lvl" value="tier-2"><input type="text" id="l1crit" value="id-doc"><input type="text" id="l1type" value="government_id"><input type="number" id="l1min" value="60"><input type="text" id="l1desc" value="verified identity document"></div>
+    <div class="row5"><input type="text" id="l2lvl" value="tier-2"><input type="text" id="l2crit" value="biometric"><input type="text" id="l2type" value="biometric_match"><input type="number" id="l2min" value="60"><input type="text" id="l2desc" value="biometric match"></div>
+    <div class="row5"><input type="text" id="l3lvl" value="tier-3"><input type="text" id="l3crit" value="id-doc"><input type="text" id="l3type" value="government_id"><input type="number" id="l3min" value="85"><input type="text" id="l3desc" value="verified identity document, high assurance"></div>
+    <div class="row5"><input type="text" id="l4lvl" value="tier-3"><input type="text" id="l4crit" value="biometric"><input type="text" id="l4type" value="biometric_match"><input type="number" id="l4min" value="85"><input type="text" id="l4desc" value="biometric match, high assurance"></div>
+
+    <div class="section-head">Declared Evidence Items</div>
+    <div class="row4"><div class="q-label">Evidence ID</div><div class="q-label">Type</div><div class="q-label">Strength (0-100)</div><div class="q-label">Verification method</div></div>
+    <div class="row4"><input type="text" id="e0id" value="e1"><input type="text" id="e0type" value="government_id"><input type="number" id="e0str" value="70"><input type="text" id="e0vm" value="document_authentication"></div>
+    <div class="row4"><input type="text" id="e1id" value="e2"><input type="text" id="e1type" value="biometric_match"><input type="number" id="e1str" value="65"><input type="text" id="e1vm" value="live_capture"></div>
+    <div class="row4"><input type="text" id="e2id" placeholder="(unused)"><input type="text" id="e2type" placeholder="type"><input type="number" id="e2str" placeholder="strength"><input type="text" id="e2vm" placeholder="verification_method"></div>
+
+    <div style="margin-top:20px">
+      <button onclick="runCombined()">&#9654; Evaluate Assurance Level</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="subsection">Target-level criteria</div>
+      <table class="bucket-tbl" id="critTbl"><thead><tr><th>Level</th><th>Criterion</th><th>Required type</th><th>Min strength</th><th>Result</th></tr></thead><tbody></tbody></table>
+      <div class="subsection">Summary</div>
+      <div id="totDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-523-identity-proofing-assurance-level',
+  version: '1.0.0',
+  mcp_name: 'compute_identity_proofing_assurance_level',
+  title: 'Identity-Proofing Assurance Level Evaluator',
+  description: 'Rates a declared identity-evidence set against a caller-supplied, versioned assurance-level framework (policy input, never hardcoded). Distinguishes a definition that cannot express a criterion from evidence that fails to meet one.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Framework-agnostic identity-proofing assurance evidencing -- expressible as NIST SP 800-63-3 IAL, eIDAS LoA, or any other caller-supplied level scheme. Prompted by Bank of Jamaica RFP #2026-51-01-01 (not a bid).',
+  mcp_tool_definition: {
+    name: 'compute_identity_proofing_assurance_level',
+    description: 'Given a versioned level_definition (levels[] ordered lowest-to-highest rigor, each with criteria naming required_evidence_type/min_strength), a declared evidence_items[] set, and a declared_target_level, return achieved_level, per-criterion shortfall, and an undecidable list where the definition itself cannot decide.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        level_definition: { type: 'object' },
+        evidence_items: { type: 'array' },
+        declared_target_level: { type: 'string' },
+        as_of: { type: 'string' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+function tv(id, d) { var el = document.getElementById(id); return el && el.value ? el.value : d; }
+function nv(id, d) { var el = document.getElementById(id); if (!el || el.value === '') return d; return safe(el.value, d); }
+
+function findLevelIndex(levels, levelId) {
+  for (var i = 0; i < levels.length; i++) { if (levels[i] && levels[i].level_id === levelId) return i; }
+  return -1;
+}
+
+function bestMatch(evidenceItems, criterion) {
+  var best = null;
+  for (var i = 0; i < evidenceItems.length; i++) {
+    var ev = evidenceItems[i];
+    if (!ev || ev.type !== criterion.required_evidence_type) continue;
+    if (criterion.verification_method && ev.verification_method !== criterion.verification_method) continue;
+    var strength = safe(ev.strength, -1);
+    if (strength < 0) continue;
+    if (!best || strength > best.strength) best = { evidence_id: ev.evidence_id || null, strength: strength };
+  }
+  return best;
+}
+
+function evalLevel(level, evidenceItems) {
+  var criteria = (level && Array.isArray(level.criteria)) ? level.criteria : [];
+  var met = [], shortfall = [], undecidable = [];
+  for (var i = 0; i < criteria.length; i++) {
+    var c = criteria[i];
+    var criterionId = (c && c.criterion_id) || null;
+    var requiredType = (c && c.required_evidence_type) || null;
+    var minStrength = (c && c.min_strength !== undefined && c.min_strength !== null) ? safe(c.min_strength, null) : null;
+    if (!requiredType || minStrength === null) {
+      undecidable.push({ level_id: level.level_id, criterion_id: criterionId,
+        reason: !requiredType ? 'criterion has no required_evidence_type -- the definition cannot express what evidence would satisfy it'
+                               : 'criterion has no min_strength -- the definition cannot express how strong the evidence must be' });
+      continue;
+    }
+    var match = bestMatch(evidenceItems, { required_evidence_type: requiredType, verification_method: c.verification_method });
+    if (match && match.strength >= minStrength) {
+      met.push({ level_id: level.level_id, criterion_id: criterionId, matched_evidence_id: match.evidence_id, matched_strength: match.strength });
+    } else {
+      shortfall.push({ level_id: level.level_id, criterion_id: criterionId, description: (c && c.description) || null,
+        required_evidence_type: requiredType, min_strength: minStrength,
+        reason: match ? ('best available evidence of type "' + requiredType + '" has strength ' + match.strength + ', below required ' + minStrength)
+                       : ('no declared evidence item of type "' + requiredType + '"' + (c.verification_method ? (' verified by "' + c.verification_method + '"') : '')) });
+    }
+  }
+  return { criteria_evaluated: criteria.length, met: met, shortfall: shortfall, undecidable: undecidable };
+}
+
+function runCombined() {
+  var levelRows = [0,1,2,3,4].map(function(i) {
+    return { level_id: tv('l'+i+'lvl',''), criterion_id: tv('l'+i+'crit',''), description: tv('l'+i+'desc',null),
+      required_evidence_type: tv('l'+i+'type',null), min_strength: nv('l'+i+'min', null) };
+  }).filter(function(r){ return r.level_id && r.criterion_id; });
+
+  var levelOrder = [];
+  var levelsById = {};
+  levelRows.forEach(function(r) {
+    if (!levelsById[r.level_id]) { levelsById[r.level_id] = { level_id: r.level_id, criteria: [] }; levelOrder.push(r.level_id); }
+    levelsById[r.level_id].criteria.push({ criterion_id: r.criterion_id, description: r.description, required_evidence_type: r.required_evidence_type, min_strength: r.min_strength });
+  });
+  var levels = levelOrder.map(function(id){ return levelsById[id]; });
+
+  var evidenceItems = [0,1,2].map(function(i) {
+    return { evidence_id: tv('e'+i+'id',''), type: tv('e'+i+'type',''), strength: nv('e'+i+'str', null), verification_method: tv('e'+i+'vm', null) };
+  }).filter(function(e){ return e.evidence_id && e.type; });
+
+  var frameworkId = tv('fwId', null);
+  var frameworkVersion = tv('fwVer', null);
+  var declaredTargetLevel = tv('targetLevel', null);
+  var asOf = tv('asOf', null);
+
+  var pp = {
+    level_definition: { framework_id: frameworkId, framework_version: frameworkVersion, levels: levels },
+    evidence_items: evidenceItems,
+    declared_target_level: declaredTargetLevel,
+    as_of: asOf
+  };
+
+  var targetIdx = declaredTargetLevel ? findLevelIndex(levels, declaredTargetLevel) : -1;
+  var definitionUsable = levels.length > 0 && targetIdx >= 0;
+
+  var achievedLevel = null, targetMet = false, shortfall = [], undecidable = [], criteriaEvaluated = 0, criteriaMet = 0;
+
+  if (definitionUsable) {
+    var targetResult = evalLevel(levels[targetIdx], evidenceItems);
+    shortfall = targetResult.shortfall; undecidable = targetResult.undecidable;
+    criteriaEvaluated = targetResult.criteria_evaluated; criteriaMet = targetResult.met.length;
+    var decidableAtTarget = targetResult.criteria_evaluated - targetResult.undecidable.length;
+    targetMet = decidableAtTarget > 0 && targetResult.shortfall.length === 0;
+    if (targetResult.criteria_evaluated === 0) targetMet = true;
+    if (targetMet) { achievedLevel = declaredTargetLevel; }
+    else {
+      for (var i = targetIdx - 1; i >= 0; i--) {
+        var r = evalLevel(levels[i], evidenceItems);
+        var decidable = r.criteria_evaluated - r.undecidable.length;
+        var passes = r.criteria_evaluated === 0 || (decidable > 0 && r.shortfall.length === 0);
+        if (passes) { achievedLevel = levels[i].level_id; break; }
+      }
+    }
+  }
+
+  var flags = [];
+  if (!definitionUsable || undecidable.length > 0) flags.push('IAL_DEFINITION_INSUFFICIENT');
+  if (evidenceItems.length === 0) flags.push('IAL_EVIDENCE_UNDECLARED');
+  if (definitionUsable) { if (targetMet) flags.push('IAL_MET'); else if (shortfall.length > 0) flags.push('IAL_SHORTFALL'); }
+  if (flags.length === 0) flags.push('IAL_DEFINITION_INSUFFICIENT');
+
+  var op = {
+    framework_id: frameworkId, framework_version: frameworkVersion, declared_target_level: declaredTargetLevel, as_of: asOf,
+    levels_defined: levels.length, target_level_found: targetIdx >= 0, evidence_item_count: evidenceItems.length,
+    criteria_evaluated: criteriaEvaluated, criteria_met: criteriaMet, criteria_shortfall_count: shortfall.length, criteria_undecidable_count: undecidable.length,
+    achieved_level: achievedLevel, target_met: targetMet, shortfall: shortfall, undecidable: undecidable,
+    note: 'Rates a DECLARED evidence set against a caller-supplied, versioned assurance-level framework -- never a hardcoded one. Does not assert a person is who they claim to be: this evidences that a declared evidence set was measured against a declared policy, not the truth of the declarations. A criterion the definition cannot express (no required_evidence_type or no min_strength) is reported as IAL_DEFINITION_INSUFFICIENT, distinct from IAL_SHORTFALL (evidence present but not meeting a well-formed criterion) -- the two are never conflated. No identity attributes are ever computed over; evidence items are types, strengths and verification methods, with an optional opaque art-522 salted-commitment attribute reference carried through unread.'
+  };
+
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var vBox = document.getElementById('verdictBox');
+  var vColor = flags.indexOf('IAL_MET') >= 0 ? 'var(--green)' : (flags.indexOf('IAL_DEFINITION_INSUFFICIENT') >= 0 ? 'var(--warn)' : 'var(--red)');
+  vBox.style.color = vColor; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = flags.indexOf('IAL_MET') >= 0 ? 'TARGET LEVEL MET' : (op.achieved_level ? ('SHORTFALL -- ACHIEVED "' + op.achieved_level + '"') : 'TARGET LEVEL NOT MET');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">'+(op.achieved_level||'&mdash;')+'</span><span class="stat-key">Achieved level</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.criteria_met+'/'+op.criteria_evaluated+'</span><span class="stat-key">Criteria met</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.criteria_shortfall_count+'</span><span class="stat-key">Shortfall</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.criteria_undecidable_count+'</span><span class="stat-key">Undecidable</span></div>';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) {
+    var cls = f === 'IAL_MET' ? 'ok' : (f === 'IAL_SHORTFALL' ? 'fail' : 'warn');
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+
+  var rows = [];
+  targetResultRowsFrom(levels, targetIdx, evidenceItems).forEach(function(row){ rows.push(row); });
+  document.querySelector('#critTbl tbody').innerHTML = rows.join('');
+
+  document.getElementById('totDiv').innerHTML = [
+    ['Levels defined', op.levels_defined], ['Target level found', op.target_level_found],
+    ['Evidence items declared', op.evidence_item_count], ['Target met', op.target_met]
+  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function targetResultRowsFrom(levels, targetIdx, evidenceItems) {
+  if (targetIdx < 0) return [];
+  var r = evalLevel(levels[targetIdx], evidenceItems);
+  var out = [];
+  r.met.forEach(function(m){ out.push('<tr><td>'+m.level_id+'</td><td>'+m.criterion_id+'</td><td colspan="2">matched '+ (m.matched_evidence_id||'') +' (strength '+m.matched_strength+')</td><td><span class="badge ok">MET</span></td></tr>'); });
+  r.shortfall.forEach(function(s){ out.push('<tr><td>'+s.level_id+'</td><td>'+s.criterion_id+'</td><td>'+s.required_evidence_type+'</td><td>'+s.min_strength+'</td><td><span class="badge fail">SHORTFALL</span></td></tr>'); });
+  r.undecidable.forEach(function(u){ out.push('<tr><td>'+u.level_id+'</td><td>'+u.criterion_id+'</td><td colspan="2">'+u.reason+'</td><td><span class="badge warn">UNDECIDABLE</span></td></tr>'); });
+  return out;
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'regulatory_reporting',
+    tool_id: 'art-523-identity-proofing-assurance-level', tool_version: '1.0.0',
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-523-identity-proofing-assurance-level.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
