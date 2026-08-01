@@ -27,10 +27,32 @@
  * ⛔⛔ ZERO PII, AND THIS IS THE HIGHEST-RISK SURFACE IN THE SPEC. A payee is an
  * opaque ref plus an amount and a rail -- never a name, national-insurance or
  * social-security number, bank account number, address, date of birth, or any
- * demographic field. The duplicate-candidate key is supplied ALREADY HASHED OR
- * TOKENISED BY THE CALLER -- this kernel never derives a key from identifying data,
- * because doing so would require ingesting it. The key is treated as an opaque
- * string throughout; it is never parsed, decoded, or compared to any other field.
+ * demographic field. This kernel never derives a key from identifying data, because
+ * doing so would require ingesting it. The key is treated as an opaque string
+ * throughout; it is never parsed, decoded, or compared to any other field.
+ *
+ * ⛔⛔ DUPLICATE-KEY COMMITMENT FORM (SPEC.md §25.0-§25.2, ocg-private-input@1). A
+ * bare hash of the key is NOT safe: a payee identifier space is enumerable
+ * (national-insurance/social-security numbers are small and structured; name lists
+ * are obtainable), so an attacker holding the artifact precomputes the digest of
+ * every candidate and recovers the plaintext by table lookup (SPEC.md §25.1). The
+ * caller MUST supply `duplicate_key` as a `sha256-salted@1` commitment --
+ * `"sha256:" + hex(SHA-256(salt || cgCanon(input_value)))` with a fresh >=256-bit
+ * CSPRNG `salt` the caller (the prover) generates and RETAINS; the salt is never
+ * sent to this kernel and never appears in the artifact. Declaring
+ * `duplicate_key_commitment_scheme: "sha256-salted@1"` in `policy_parameters` opts
+ * every `duplicate_key` in the run into this contract: a value that is not a
+ * well-formed `sha256:<64-hex>` commitment is REJECTED (excluded from clustering,
+ * recorded in `rejected_inputs`), and naming any scheme other than
+ * `sha256-salted@1` rejects every declared key the same way -- a verifier MUST
+ * reject an unknown scheme rather than treat it as opaque (SPEC.md §25.0). Accepted
+ * commitments are declared in the artifact's top-level `private_inputs[]` (§25.0):
+ * `pointer` an RFC 6901 pointer into `policy_parameters`, `commitment` the same
+ * string that sits at that pointer (§25.2 plaintext-exclusion -- never the
+ * plaintext), `commitment_scheme: "sha256-salted@1"`. `duplicate_key_commitment_
+ * scheme` is OPTIONAL for backward compatibility with runs that predate this
+ * contract -- when absent, `duplicate_key` is treated as an opaque token exactly as
+ * before and nothing is declared private.
  *
  * REGION-PORTABLE BY CONSTRUCTION (§6.9). No country, currency, scheme, ministry,
  * or statute is named anywhere in this file. `currency`, both limits, and every
@@ -103,6 +125,10 @@ function toLimitOrNull(v, where, rejected) {
   return null;
 }
 
+// SPEC.md §25.1 -- the sole commitment scheme this profile version accepts.
+const SHA256_SALTED_SCHEME = 'sha256-salted@1';
+const SHA256_COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
+
 export function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
@@ -122,14 +148,47 @@ export function compute(pp) {
   const per_payee_limit_minor_units = toLimitOrNull(pp.per_payee_limit_minor_units, 'per_payee_limit_minor_units', rejected_inputs);
   const per_run_limit_minor_units = toLimitOrNull(pp.per_run_limit_minor_units, 'per_run_limit_minor_units', rejected_inputs);
 
+  // OPTIONAL, applies to every payee_records[].duplicate_key in this run (SPEC.md §25.0-§25.2,
+  // see the file banner). Absent -- exactly today's behaviour: duplicate_key is an opaque token,
+  // nothing declared private, byte-identical output for every pre-existing caller. Declared ->
+  // sha256-salted@1 is the sole accepted scheme; any other name, or a duplicate_key that is not a
+  // well-formed sha256:<64-hex> commitment, is REJECTED and excluded rather than trusted as opaque.
+  const declaredScheme = isNonEmptyString(pp.duplicate_key_commitment_scheme) ? pp.duplicate_key_commitment_scheme.trim() : null;
+  const schemeKnown = declaredScheme === null || declaredScheme === SHA256_SALTED_SCHEME;
+  if (declaredScheme !== null && !schemeKnown) {
+    rejected_inputs.push({ where: 'duplicate_key_commitment_scheme', reason: `unknown commitment scheme -- "${SHA256_SALTED_SCHEME}" is the sole scheme accepted (SPEC.md §25.1); every declared duplicate_key in this run is excluded rather than trusted as opaque`, supplied: declaredScheme });
+  }
+
   const records = recordsIn.map((r, i) => {
     r = r && typeof r === 'object' ? r : {};
     const payee_ref = isNonEmptyString(r.payee_ref) ? r.payee_ref.trim() : `UNLABELLED-${i + 1}`;
     if (!isNonEmptyString(r.payee_ref)) rejected_inputs.push({ where: `payee_records[${i}].payee_ref`, reason: 'absent', supplied: null });
     const amount_minor_units = toMinorUnits(r.amount_minor_units, `payee_records[${i}].amount_minor_units`, rejected_inputs);
     const rail = isNonEmptyString(r.rail) ? r.rail.trim() : 'unspecified';
-    const duplicate_key = isNonEmptyString(r.duplicate_key) ? r.duplicate_key.trim() : null;
-    return { payee_ref, amount_minor_units, amount_display: display(amount_minor_units), rail, duplicate_key };
+    let duplicate_key = isNonEmptyString(r.duplicate_key) ? r.duplicate_key.trim() : null;
+    let is_private_input_commitment = false;
+    if (duplicate_key && declaredScheme !== null) {
+      if (!schemeKnown) {
+        rejected_inputs.push({ where: `payee_records[${i}].duplicate_key`, reason: `declared duplicate_key_commitment_scheme "${declaredScheme}" is not a known commitment scheme`, supplied: duplicate_key });
+        duplicate_key = null;
+      } else if (!SHA256_COMMITMENT_RE.test(duplicate_key)) {
+        rejected_inputs.push({ where: `payee_records[${i}].duplicate_key`, reason: `declared commitment_scheme "${SHA256_SALTED_SCHEME}" but the value is not a well-formed sha256: commitment (^sha256:[0-9a-f]{64}$)`, supplied: duplicate_key });
+        duplicate_key = null;
+      } else {
+        is_private_input_commitment = true;
+      }
+    }
+    return { payee_ref, amount_minor_units, amount_display: display(amount_minor_units), rail, duplicate_key, is_private_input_commitment };
+  });
+
+  // §25.0 declaration -- one entry per accepted commitment, pointer indexed to this record's
+  // position in policy_parameters.payee_records. Hash-excluded (attached in buildArtifact, after
+  // executionHash runs); zero entries is the common case and byte-identical to today's artifact.
+  const private_input_candidates = [];
+  records.forEach((r, i) => {
+    if (r.is_private_input_commitment) {
+      private_input_candidates.push({ pointer: `/payee_records/${i}/duplicate_key`, commitment: r.duplicate_key, commitment_scheme: SHA256_SALTED_SCHEME });
+    }
   });
 
   const reconciled_record_count = records.length;
@@ -243,13 +302,13 @@ export function compute(pp) {
     note: 'Deterministic bulk disbursement integrity attestation over a caller-supplied authorization, per-payee record set, declared exclusions, and prior-run roster. Attests control-total reconciliation in count and value, surfaces duplicate-candidate clusters and split-payment candidates by the caller\'s own opaque keys, and reports roster movement -- all as candidates and observations for a human reviewer, never as findings of fraud, misconduct, or ineligible beneficiaries.',
   };
 
-  return { output_payload, compliance_flags };
+  return { output_payload, compliance_flags, private_input_candidates };
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
+  const { output_payload, compliance_flags, private_input_candidates } = compute(pp);
   const hash = await executionHash(pp, output_payload);
-  return {
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0', mandate_type: meta.mandate_type,
     tool_id: TOOL_ID, tool_version: TOOL_VERSION, generated_at: now ?? null, execution_hash: hash,
@@ -258,4 +317,9 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  // §25.0 -- attached AFTER executionHash, hash-excluded by construction (SPEC.md §25.0/§25.6).
+  // Zero candidates (every pre-existing caller) omits the field entirely, not an empty array --
+  // matches the other §20/§23/§25 optional declarations already in this envelope.
+  if (private_input_candidates.length > 0) artifact.private_inputs = private_input_candidates;
+  return artifact;
 }
