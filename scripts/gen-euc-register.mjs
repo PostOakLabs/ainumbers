@@ -32,8 +32,20 @@ function kernelDigest(node) {
   return source?.image_id ?? null;
 }
 
+// One resolution of proof status, read by BOTH the trust label and the exported
+// compute_proof_ready field. A node carrying a real compute_proof but no explicit
+// compute_proof_ready flag is ready: the attached receipt is the fact and the flag only
+// restates it (SPEC.md §18.6 -- a live gpu:false node either carries a verifying
+// compute_proof or declares "deferred" with a reason, there is no third state).
+// Resolving these two through different rules is what put "PROOF READY" beside
+// "zkVM proof not yet generated" on the same register card.
+function proofReady(node) {
+  if (node.compute_proof_ready) return node.compute_proof_ready === "ready";
+  return Boolean(node.compute_proof);
+}
+
 function trustLabel(node) {
-  if (node.compute_proof_ready === "ready") {
+  if (proofReady(node)) {
     const sys = node.compute_proof?.system ?? "risc0";
     const fmt = node.compute_proof?.receiptFormat ?? "groth16-bn254";
     return `independently verified -- zkVM execution proof (${sys}/${fmt})`;
@@ -61,7 +73,7 @@ function buildRegisterEntry(node, generatedAt) {
     data_vintage: latestVintage(node),
     last_validated: latestVintage(node),
     conformance_fixtures_vendored: node.conformance_fixtures === true,
-    compute_proof_ready: node.compute_proof_ready ?? (node.compute_proof ? "ready" : "deferred"),
+    compute_proof_ready: proofReady(node) ? "ready" : "deferred",
     wave: node.wave ?? null,
     source_url: node.url ?? null,
     generated_at: generatedAt,
@@ -86,12 +98,34 @@ function main() {
     const expected = new Set(entries.map((e) => `${e.tool_id}.register.json`));
     const missing = [...expected].filter((f) => !existing.has(f));
     const stale = [...existing].filter((f) => !expected.has(f));
-    if (missing.length || stale.length) {
+    // Filename presence is not freshness. Comparing only the file SET let 250 entries
+    // sit on main carrying a trust_label, data_vintage and purpose that no longer
+    // matched chaingraph.json, with this gate green the whole time. Compare content
+    // too, minus generated_at (a wall-clock stamp that differs on every run by design).
+    const withoutStamp = (entry) => {
+      const { generated_at, ...rest } = entry;
+      return JSON.stringify(rest);
+    };
+    const drifted = [];
+    for (const entry of entries) {
+      const file = `${entry.tool_id}.register.json`;
+      if (!existing.has(file)) continue;
+      let onDisk;
+      try {
+        onDisk = JSON.parse(readFileSync(join(OUT_DIR, file), "utf8"));
+      } catch {
+        drifted.push(file);
+        continue;
+      }
+      if (withoutStamp(onDisk) !== withoutStamp(entry)) drifted.push(file);
+    }
+    if (missing.length || stale.length || drifted.length) {
       if (missing.length) console.error(`gen-euc-register --check: ${missing.length} missing entries, e.g. ${missing.slice(0, 5).join(", ")}`);
       if (stale.length) console.error(`gen-euc-register --check: ${stale.length} stale entries (node no longer live), e.g. ${stale.slice(0, 5).join(", ")}`);
+      if (drifted.length) console.error(`gen-euc-register --check: ${drifted.length} entries drifted from chaingraph.json, e.g. ${drifted.slice(0, 5).join(", ")} -- re-run \`node scripts/gen-euc-register.mjs\``);
       process.exit(1);
     }
-    console.log(`gen-euc-register --check: OK, ${entries.length} entries in sync.`);
+    console.log(`gen-euc-register --check: OK, ${entries.length} entries in sync (set + content).`);
     return;
   }
 
