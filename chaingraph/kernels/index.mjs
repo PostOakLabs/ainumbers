@@ -967,7 +967,7 @@ export const KERNELS = {
   'art-510-build-art5-diligence-evidence':                    art510,
   'art-511-recompute-fund-fees':                              art511,
   'art-512-check-mica-reserve-disclosure':                    art512,
-  'art-514-conditional-relief-collateral-receipt':             art514,
+  'art-514-conditional-relief-collateral-receipt':            art514,
   'art-52-digital-trade-fit-diagnostic':                      art52,
   'art-53-mletr-ebl-conformance-validator':                   art53,
   'art-54-digital-trade-rules-checker':                       art54,
