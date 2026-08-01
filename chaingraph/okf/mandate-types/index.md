@@ -10,7 +10,7 @@ status: stable
 
 - [agent_guardrail_mandate](./agent_guardrail_mandate.md) (19)
 - [aml_rule](./aml_rule.md) (2)
-- [analytics_mandate](./analytics_mandate.md) (37)
+- [analytics_mandate](./analytics_mandate.md) (38)
 - [attestation_mandate](./attestation_mandate.md) (18)
 - [capital_assessment](./capital_assessment.md) (7)
 - [collateral_mandate](./collateral_mandate.md) (9)
