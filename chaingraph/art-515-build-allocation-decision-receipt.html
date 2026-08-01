@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Build Allocation Decision Receipt · ART-515 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Re-derives whether an allocation is explained by the objective and inputs declared for it: eligibility, inventory, haircuts and the objective you supply. Not a competing optimizer.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-515-build-allocation-decision-receipt.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Build Allocation Decision Receipt · ART-515 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Reproducibility verdict, cost and eligibility delta, and the binding constraint for each divergence, against the objective and inputs you declare. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-515-build-allocation-decision-receipt.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.6rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;min-height:120px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:140px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.list-block{margin:8px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+.check-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.check-row label{font-size:.82rem;color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-515 · Build Allocation Decision Receipt</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-515 · Allocation Decision Family</div>
+  <h1>Build Allocation Decision Receipt</h1>
+  <p class="sub">Re-derives whether an allocation produced by an optimizer is explained by the objective and inputs that were true when it was made: the eligibility schedule snapshot, the inventory snapshot offered, the haircut table version, and the objective you declare. Portable to any optimizer, including a liquidity sweep, a treasury cash placement, a payment routing choice, or an order allocation read exactly the same way a collateral pledge does.</p>
+  <div>
+    <span class="flag">Deterministic Re-derivation</span>
+    <span class="flag warn">Your Inputs, Not Ours</span>
+    <span class="flag red">Not A Competing Optimizer</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="key-dates-box">
+    <div class="kd-title">Distinct from two shipped surfaces</div>
+    <a href="art-370-supervisory-scenario-replay.html">art-370-supervisory-scenario-replay</a> replays the Fed's published macro supervisory scenario paths against your loss and PPNR functions: a replay of one caller function over an official, regulator-published SCENARIO. This kernel replays no external scenario at all: it re-derives whether ONE DECISION follows from the inputs that were true when it was made. <a href="art-236-build-ai-decision-log-record.html">art-236-build-ai-decision-log-record</a> builds an EU AI Act Art 12(2) decision-log record: completeness score, retention window, chain position. It records metadata ABOUT a decision. It never re-derives whether the decision follows from a declared objective, computes no optimal allocation, and carries no reproducibility verdict.
+  </div>
+
+  <div class="key-dates-box">
+    <div class="kd-title">Not a competing optimizer</div>
+    This re-derives against a DECLARED objective over a DECLARED input set, using one fixed, published greedy rule per objective: the same rule every time, so the same inputs always re-derive the same candidate allocation. It never claims to find a better allocation than the one you chose, and a divergence from your allocation is not proof your allocation was wrong. It only tells you whether your allocation is explained by the objective and inputs you declared for it.
+  </div>
+
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">ADR_DIVERGENT is not a finding of error</div>
+    A divergence means the chosen allocation is not explained by the declared objective and inputs over this kernel's re-derivation. That is routinely legitimate: a trader override, an undeclared constraint, a stale snapshot. No flag, field, or line of copy on this page characterises intent, negligence, or misconduct; the receipt reports the gap and the binding constraint, nothing more.
+  </div>
+
+  <div class="key-dates-box">
+    <div class="kd-title">Why eligibility, inventory and haircuts are all inputs</div>
+    The eligibility schedule, the inventory snapshot, the haircut applied to each item, and the objective itself are every one of them caller inputs, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed, and no haircut table of its own, and performs no lookups of any kind (zero-egress, no network calls after load). Where those steps have already run, reuse them: <a href="../tools/505-tokenized-collateral-eligibility-checker.html">505-tokenized-collateral-eligibility-checker</a> for eligibility and <a href="art-444-collateral-haircut-engine.html">art-444-collateral-haircut-engine</a> for the haircut applied. This page consumes their outcome as an input and edits neither.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('reproduced')">Reproduced, cheapest to deliver</button>
+    <button class="preset-btn" onclick="loadPreset('divergent')">Divergent, exceeds available inventory</button>
+    <button class="preset-btn" onclick="loadPreset('undeclared')">Caller-named objective, undeclared</button>
+    <button class="preset-btn" onclick="loadPreset('insufficient')">Insufficient eligible inventory</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Obligation &amp; Snapshot References</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Obligation Ref</label>
+        <input type="text" id="obligation_ref" placeholder="e.g. OBL-DEMO-01"></div>
+      <div class="q"><label><span class="dim">Field</span>As Of</label>
+        <input type="text" id="as_of" placeholder="e.g. 2026-06-30"></div>
+      <div class="q"><label><span class="dim">Field</span>Obligation Amount</label>
+        <input type="text" id="obligation_amount" placeholder="e.g. 1000000"></div>
+    </div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Eligibility Schedule Ref</label>
+        <input type="text" id="eligibility_schedule_ref" placeholder="e.g. ELIG-2026-06"></div>
+      <div class="q"><label><span class="dim">Field</span>Inventory Ref</label>
+        <input type="text" id="inventory_ref" placeholder="e.g. INV-2026-06-30"></div>
+      <div class="q"><label><span class="dim">Field</span>Haircut Table Version</label>
+        <input type="text" id="haircut_table_version" placeholder="e.g. HC-2026Q2"></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>Objective</label>
+        <select id="objective">
+          <option value="">not declared</option>
+          <option value="cheapest_to_deliver">cheapest_to_deliver</option>
+          <option value="preserve_hqla">preserve_hqla</option>
+          <option value="minimise_movements">minimise_movements</option>
+          <option value="caller_named">caller-named (type below)</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Field</span>Caller-named objective label (only if selected above)</label>
+        <input type="text" id="objective_custom" placeholder="e.g. counterparty_concentration_limit"></div>
+    </div>
+
+    <div class="section-head">Eligibility Schedule Snapshot</div>
+    <div class="q"><label><span class="dim">Field</span>eligibility_schedule (JSON array: asset_id, eligible)</label>
+      <textarea id="eligibility_schedule" spellcheck="false"></textarea></div>
+
+    <div class="section-head">Inventory Snapshot Offered</div>
+    <div class="q"><label><span class="dim">Field</span>inventory_snapshot (JSON array: asset_id, available_amount, cost_bps, hqla, haircut_pct)</label>
+      <textarea id="inventory_snapshot" spellcheck="false" style="min-height:150px"></textarea></div>
+
+    <div class="section-head">Allocation Actually Chosen</div>
+    <div class="q"><label><span class="dim">Field</span>allocation_chosen (JSON array: asset_id, amount)</label>
+      <textarea id="allocation_chosen" spellcheck="false" style="min-height:70px"></textarea></div>
+
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Decimal Places</label>
+        <input type="number" id="decimal_places" value="2" step="1" min="0"></div>
+      <div class="q"><label><span class="dim">Field</span>Rounding Mode</label>
+        <select id="rounding_mode">
+          <option value="half_up">half_up</option>
+          <option value="half_even">half_even</option>
+          <option value="truncate">truncate</option>
+        </select></div>
+    </div>
+
+    <button class="run-btn" onclick="run()">Build Allocation Decision Receipt →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="verdictVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Reproducibility Verdict</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="costDeltaVal" style="color:var(--body);font-size:1.1rem;padding-top:.4rem">–</div>
+        <div class="hero-lbl">Cost Delta (Chosen − Optimal)</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="constraintsVal" style="color:var(--gold)">–</div>
+        <div class="hero-lbl">Binding Constraints</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="exceptionsVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">Exceptions</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+    <div id="judgmentBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Re-derived optimal allocation vs. chosen allocation</div>
+    <table class="section-table">
+      <thead><tr><th>Asset</th><th>Optimal (re-derived)</th><th>Chosen</th><th>Binding Constraint</th></tr></thead>
+      <tbody id="constraintsTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Exceptions: inputs insufficient to decide</div>
+    <table class="section-table">
+      <thead><tr><th>Field</th><th>Reason</th></tr></thead>
+      <tbody id="exceptionsTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Delta detail</div>
+    <table class="section-table">
+      <tbody id="deltaTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Rationale</div>
+    <ul class="list-block" id="rationaleList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">What was NOT proven</div>
+    <ul class="list-block" id="notProvenList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. A divergence is not a finding of error, and a match is not proof no better allocation exists. Not a competing optimizer.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-515-build-allocation-decision-receipt",
+  tool_version: "1.0.0",
+  mcp_name: "build_allocation_decision_receipt",
+  mandate_type: "attestation_mandate",
+  wave: 80,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.8.8',
+  compute_capability: "server",
+  export_capability: ["pdf","xlsx"],
+  description: "Re-derives whether an allocation is explained by the declared objective and inputs (eligibility schedule, inventory snapshot, haircut table version), and reports the reproducibility verdict, the cost and eligibility delta, and the binding constraint for each difference. Not a competing optimizer.",
+  url: "https://ainumbers.co/chaingraph/art-515-build-allocation-decision-receipt.html"
+};
+
+// --- Fixed-point (BigInt) money math — mirrors
+//     chaingraph/kernels/art-515-build-allocation-decision-receipt.kernel.mjs
+//     byte-for-byte. No floats in the arithmetic path; every value is parsed
+//     from its decimal string. ---
+
+const SCALE_EXP = 8;
+const SCALE = 10n ** BigInt(SCALE_EXP);
+
+function toFixed(value) {
+  let s = String(value == null ? 0 : value).trim();
+  let neg = false;
+  if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+  else if (s.startsWith('+')) { s = s.slice(1); }
+  if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
+  let parts = s.split('.');
+  let intPart = parts[0] || '0';
+  let fracPart = parts[1] || '';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  fracPart = fracPart.padEnd(SCALE_EXP, '0');
+  let mag = BigInt(intPart + fracPart);
+  if (neg) mag = -mag;
+  return mag;
+}
+function mulFixed(a, b) { return (a * b) / SCALE; }
+function divFixed(a, b) { return b === 0n ? 0n : (a * SCALE) / b; }
+
+function roundFixedToString(value, places, mode) {
+  const neg = value < 0n;
+  const abs = neg ? -value : value;
+  const divisor = 10n ** BigInt(SCALE_EXP - places);
+  let q = abs / divisor;
+  const r = abs % divisor;
+  const twiceR = r * 2n;
+  if (mode === 'truncate') {
+    // q already truncated toward zero
+  } else if (mode === 'half_even') {
+    if (twiceR > divisor || (twiceR === divisor && q % 2n === 1n)) q += 1n;
+  } else {
+    if (twiceR >= divisor) q += 1n;
+  }
+  let qs = q.toString();
+  let result;
+  if (places === 0) { result = qs; }
+  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
+  return (neg && q !== 0n) ? ('-' + result) : result;
+}
+function fixedToPlainString(value, places) { return roundFixedToString(value, places, 'truncate'); }
+
+const KNOWN_OBJECTIVES = ['cheapest_to_deliver', 'preserve_hqla', 'minimise_movements'];
+
+const NOT_PROVEN = [
+  { item: 'Eligibility accuracy', detail: 'The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own.' },
+  { item: 'Inventory accuracy', detail: 'The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read.' },
+  { item: 'Optimality of the caller\'s allocation', detail: 'This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller\'s allocation is not proof the caller\'s allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen.' },
+  { item: 'Intent', detail: 'ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag.' },
+];
+
+function buildOptimal(objective, eligibleItems, obligationFixed) {
+  let ordered;
+  if (objective === 'cheapest_to_deliver') {
+    ordered = eligibleItems.slice().sort(function (a, b) { return a.costBpsFixed !== b.costBpsFixed ? Number(a.costBpsFixed - b.costBpsFixed) : (a.asset_id < b.asset_id ? -1 : 1); });
+  } else if (objective === 'preserve_hqla') {
+    ordered = eligibleItems.slice().sort(function (a, b) {
+      if (a.hqla !== b.hqla) return a.hqla ? 1 : -1;
+      if (a.costBpsFixed !== b.costBpsFixed) return Number(a.costBpsFixed - b.costBpsFixed);
+      return a.asset_id < b.asset_id ? -1 : 1;
+    });
+  } else if (objective === 'minimise_movements') {
+    ordered = eligibleItems.slice().sort(function (a, b) {
+      if (a.adjustedValueFixed !== b.adjustedValueFixed) return Number(b.adjustedValueFixed - a.adjustedValueFixed);
+      return a.asset_id < b.asset_id ? -1 : 1;
+    });
+  } else {
+    return null;
+  }
+
+  const allocation = [];
+  let remaining = obligationFixed;
+  for (let i = 0; i < ordered.length; i++) {
+    const item = ordered[i];
+    if (remaining <= 0n) break;
+    if (item.adjustedValueFixed <= 0n) continue;
+    const takeAdjusted = item.adjustedValueFixed < remaining ? item.adjustedValueFixed : remaining;
+    const factor = SCALE - item.haircutFixed;
+    const rawAmount = factor <= 0n ? 0n : divFixed(mulFixed(takeAdjusted, SCALE), factor);
+    allocation.push({ asset_id: item.asset_id, amount_fixed: rawAmount, adjusted_value_fixed: takeAdjusted });
+    remaining -= takeAdjusted;
+  }
+  return { allocation: allocation, remainingFixed: remaining };
+}
+
+function compute(pp) {
+  const rounding = pp.rounding || {};
+  const decimalPlaces = Number.isInteger(rounding.decimal_places) ? rounding.decimal_places : 2;
+  const roundingMode = ['half_up','half_even','truncate'].indexOf(rounding.mode) >= 0 ? rounding.mode : 'half_up';
+
+  const compliance_flags = [];
+  const judgmentFields = [];
+  const exceptions = [];
+
+  const eligibility = Array.isArray(pp.eligibility_schedule) ? pp.eligibility_schedule : [];
+  const inventory = Array.isArray(pp.inventory_snapshot) ? pp.inventory_snapshot : [];
+  const chosenRaw = Array.isArray(pp.allocation_chosen) ? pp.allocation_chosen : [];
+  const objective = (typeof pp.objective === 'string' && pp.objective.trim() !== '') ? pp.objective.trim() : null;
+
+  if (objective === null) {
+    judgmentFields.push({ field: 'objective', reason: 'No objective was declared. Reproducibility cannot be tested against an objective that was never stated.', supplied: pp.objective == null ? null : pp.objective });
+    compliance_flags.push('ADR_OBJECTIVE_UNDECLARED');
+  } else if (KNOWN_OBJECTIVES.indexOf(objective) < 0) {
+    judgmentFields.push({ field: 'objective', reason: '"' + objective + '" is a caller-named objective this kernel has no fixed re-derivation rule for. Only ' + KNOWN_OBJECTIVES.join(', ') + ' are re-derivable; a caller-named objective is recorded but not solved.', supplied: objective });
+    compliance_flags.push('ADR_OBJECTIVE_UNDECLARED');
+  }
+
+  const obligationFixed = toFixed(pp.obligation_amount);
+  const obligationPositive = obligationFixed > 0n;
+  if (!obligationPositive) exceptions.push({ field: 'obligation_amount', reason: 'obligation_amount must be a positive value. A zero or negative obligation has no coverage target to re-derive against.' });
+
+  if (eligibility.length === 0) exceptions.push({ field: 'eligibility_schedule', reason: 'No eligibility schedule entries were supplied. Without a declared eligible set, no candidate can be included in a re-derived allocation.' });
+  if (inventory.length === 0) exceptions.push({ field: 'inventory_snapshot', reason: 'No inventory snapshot entries were supplied. Without declared inventory there is nothing to allocate.' });
+
+  const eligibleIds = {};
+  eligibility.forEach(function (e) { if (e && e.eligible === true) eligibleIds[String(e.asset_id)] = true; });
+
+  const inventoryById = {};
+  const invOrder = [];
+  const duplicate_inventory_ids = [];
+  inventory.forEach(function (raw) {
+    const id = String(raw && raw.asset_id != null ? raw.asset_id : '');
+    if (id === '') return;
+    if (inventoryById[id]) { duplicate_inventory_ids.push(id); return; }
+    const haircutFraction = divFixed(toFixed(raw && raw.haircut_pct != null ? raw.haircut_pct : 0), toFixed(100));
+    const availableFixed = toFixed(raw && raw.available_amount != null ? raw.available_amount : 0);
+    const adjustedValueFixed0 = mulFixed(availableFixed, SCALE - haircutFraction);
+    inventoryById[id] = {
+      asset_id: id, availableFixed: availableFixed,
+      costBpsFixed: toFixed(raw && raw.cost_bps != null ? raw.cost_bps : 0),
+      hqla: !!(raw && raw.hqla === true),
+      haircutFixed: haircutFraction,
+      adjustedValueFixed: adjustedValueFixed0 > 0n ? adjustedValueFixed0 : 0n,
+    };
+    invOrder.push(id);
+  });
+  if (duplicate_inventory_ids.length > 0) exceptions.push({ field: 'inventory_snapshot', reason: 'duplicate asset_id entries were supplied and only the first was kept: ' + duplicate_inventory_ids.join(', ') });
+
+  const eligibleItems = invOrder.filter(function (id) { return eligibleIds[id]; }).map(function (id) { return inventoryById[id]; });
+  let totalEligibleAdjusted = 0n;
+  eligibleItems.forEach(function (x) { totalEligibleAdjusted += x.adjustedValueFixed; });
+
+  const inputsInsufficient = !obligationPositive || eligibility.length === 0 || inventory.length === 0 || (obligationPositive && totalEligibleAdjusted < obligationFixed);
+  if (obligationPositive && eligibility.length > 0 && inventory.length > 0 && totalEligibleAdjusted < obligationFixed) {
+    exceptions.push({ field: 'inventory_snapshot', reason: 'total eligible haircut-adjusted inventory (' + fixedToPlainString(totalEligibleAdjusted, decimalPlaces) + ') is below the obligation amount (' + fixedToPlainString(obligationFixed, decimalPlaces) + '). No allocation, chosen or re-derived, can fully cover this obligation from the declared eligible set.' });
+  }
+  if (inputsInsufficient) compliance_flags.push('ADR_INPUTS_INSUFFICIENT');
+
+  const chosenById = {};
+  const chosenOrder = [];
+  const chosen_unknown_asset_ids = [];
+  chosenRaw.forEach(function (raw) {
+    const id = String(raw && raw.asset_id != null ? raw.asset_id : '');
+    if (id === '') return;
+    const amountFixed = toFixed(raw && raw.amount != null ? raw.amount : 0);
+    if (!(id in chosenById)) { chosenById[id] = 0n; chosenOrder.push(id); }
+    chosenById[id] += amountFixed;
+    if (!inventoryById[id]) chosen_unknown_asset_ids.push(id);
+  });
+  if (chosen_unknown_asset_ids.length > 0) exceptions.push({ field: 'allocation_chosen', reason: 'the chosen allocation references asset_id values absent from the declared inventory snapshot: ' + chosen_unknown_asset_ids.join(', ') });
+
+  const chosen_ineligible = chosenOrder.filter(function (id) { return !eligibleIds[id]; });
+  if (chosen_ineligible.length > 0) compliance_flags.push('ADR_INELIGIBLE_ASSET_CHOSEN');
+
+  let chosenCostFixed = 0n, chosenAdjustedTotalFixed = 0n, chosenIneligibleAmountFixed = 0n;
+  chosenOrder.forEach(function (id) {
+    const amountFixed = chosenById[id];
+    const item = inventoryById[id];
+    if (!item) return;
+    chosenCostFixed += mulFixed(amountFixed, item.costBpsFixed);
+    const adj = mulFixed(amountFixed, item.haircutFixed >= SCALE ? 0n : (SCALE - item.haircutFixed));
+    chosenAdjustedTotalFixed += adj;
+    if (!eligibleIds[id]) chosenIneligibleAmountFixed += amountFixed;
+  });
+
+  let reproducibility_verdict = null;
+  let optimal_allocation = [];
+  let optimalCostFixed = null;
+  let optimalAdjustedTotalFixed = null;
+  const binding_constraints = [];
+
+  const canSolve = KNOWN_OBJECTIVES.indexOf(objective || '') >= 0 && !inputsInsufficient;
+  if (canSolve) {
+    const solved = buildOptimal(objective, eligibleItems, obligationFixed);
+    const optimalById = {};
+    solved.allocation.forEach(function (x) { optimalById[x.asset_id] = x.amount_fixed; });
+    optimal_allocation = solved.allocation.map(function (x) { return { asset_id: x.asset_id, amount: fixedToPlainString(x.amount_fixed, decimalPlaces) }; });
+    optimalCostFixed = solved.allocation.reduce(function (acc, x) { return acc + mulFixed(x.amount_fixed, inventoryById[x.asset_id].costBpsFixed); }, 0n);
+    optimalAdjustedTotalFixed = solved.allocation.reduce(function (acc, x) { return acc + x.adjusted_value_fixed; }, 0n);
+
+    const allIdsSet = {};
+    Object.keys(optimalById).forEach(function (id) { allIdsSet[id] = true; });
+    chosenOrder.forEach(function (id) { allIdsSet[id] = true; });
+    const allIds = Object.keys(allIdsSet).sort();
+    let anyDiff = false;
+    allIds.forEach(function (id) {
+      const optAmt = optimalById[id] != null ? optimalById[id] : 0n;
+      const chAmt = chosenById[id] != null ? chosenById[id] : 0n;
+      if (optAmt === chAmt) return;
+      anyDiff = true;
+      const item = inventoryById[id];
+      let reason;
+      if (!item) reason = 'asset absent from the declared inventory snapshot';
+      else if (!eligibleIds[id]) reason = 'ineligible per the declared eligibility schedule snapshot';
+      else if (chAmt > (item.availableFixed != null ? item.availableFixed : 0n)) reason = 'chosen amount exceeds the available amount in the declared inventory snapshot';
+      else if (chAmt < optAmt) reason = 'objective prefers a larger allocation to this asset than was chosen — a cheaper or more-preferred alternative may have been used instead, or the obligation was covered by other means';
+      else reason = 'not explained by the declared objective and inputs — consistent with an override, an undeclared constraint, or a stale snapshot';
+      binding_constraints.push({ asset_id: id, optimal_amount: fixedToPlainString(optAmt, decimalPlaces), chosen_amount: fixedToPlainString(chAmt, decimalPlaces), reason: reason });
+    });
+    reproducibility_verdict = anyDiff ? 'ADR_DIVERGENT' : 'ADR_REPRODUCED';
+    compliance_flags.push(reproducibility_verdict);
+    if (anyDiff) compliance_flags.push('ADR_CONSTRAINT_BINDING');
+  }
+
+  if (judgmentFields.length > 0) compliance_flags.push('ESCALATION_RAISED');
+  compliance_flags.push('ADR_RECEIPT_BUILT');
+
+  const judgment_required = judgmentFields.length === 0 ? null : { fields: judgmentFields, reason: 'The declared objective was absent or not one this kernel has a fixed re-derivation rule for, so no reproducibility verdict could be computed.' };
+
+  const rationale = [];
+  rationale.push(objective === null
+    ? 'No objective was declared, so no reproducibility verdict could be computed against one.'
+    : (KNOWN_OBJECTIVES.indexOf(objective) >= 0
+        ? 'Objective "' + objective + '" was re-derived against ' + eligibleItems.length + ' eligible inventory item' + (eligibleItems.length === 1 ? '' : 's') + ' using this kernel\'s fixed greedy rule for that objective.'
+        : 'Objective "' + objective + '" is caller-named and has no fixed re-derivation rule in this kernel, so no optimal allocation was computed.'));
+  rationale.push(inputsInsufficient
+    ? 'One or more declared inputs were insufficient to decide reproducibility; see exceptions.'
+    : 'The declared eligibility schedule, inventory snapshot and obligation amount were sufficient to attempt a re-derivation.');
+  if (reproducibility_verdict === 'ADR_REPRODUCED') {
+    rationale.push('The chosen allocation exactly matches this kernel\'s re-derivation of the declared objective over the declared inputs.');
+  } else if (reproducibility_verdict === 'ADR_DIVERGENT') {
+    rationale.push(binding_constraints.length === 1
+      ? '1 asset differs between the chosen allocation and the re-derived optimal allocation, named with its binding constraint. This is not a finding of error.'
+      : binding_constraints.length + ' assets differ between the chosen allocation and the re-derived optimal allocation, each named with its binding constraint. This is not a finding of error.');
+  }
+  rationale.push('This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen.');
+
+  const output_payload = {
+    obligation_ref: pp.obligation_ref == null ? null : pp.obligation_ref,
+    as_of: pp.as_of == null ? null : pp.as_of,
+    eligibility_schedule_ref: pp.eligibility_schedule_ref == null ? null : pp.eligibility_schedule_ref,
+    inventory_ref: pp.inventory_ref == null ? null : pp.inventory_ref,
+    haircut_table_version: pp.haircut_table_version == null ? null : pp.haircut_table_version,
+    objective: objective,
+    rounding: { decimal_places: decimalPlaces, mode: roundingMode },
+    judgment_required: judgment_required,
+    obligation: { amount: fixedToPlainString(obligationFixed, decimalPlaces), positive: obligationPositive },
+    reproducibility: {
+      verdict: reproducibility_verdict,
+      optimal_allocation: optimal_allocation,
+      chosen_allocation: chosenOrder.map(function (id) { return { asset_id: id, amount: fixedToPlainString(chosenById[id], decimalPlaces) }; }),
+      obligation_covered_by_chosen: chosenAdjustedTotalFixed >= obligationFixed,
+      obligation_covered_by_optimal: optimalAdjustedTotalFixed === null ? null : optimalAdjustedTotalFixed >= obligationFixed,
+    },
+    delta: {
+      cost_chosen: fixedToPlainString(chosenCostFixed, decimalPlaces),
+      cost_optimal: optimalCostFixed === null ? null : fixedToPlainString(optimalCostFixed, decimalPlaces),
+      cost_delta: optimalCostFixed === null ? null : fixedToPlainString(chosenCostFixed - optimalCostFixed, decimalPlaces),
+      eligibility: { ineligible_assets_in_chosen: chosen_ineligible, ineligible_amount_total: fixedToPlainString(chosenIneligibleAmountFixed, decimalPlaces) },
+    },
+    binding_constraints: binding_constraints,
+    exceptions: exceptions,
+    rationale: rationale,
+    not_proven: NOT_PROVEN,
+    fence: 'Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation.',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+const PRESETS = {
+  reproduced: {
+    obligation_ref: 'OBL-DEMO-01', as_of: '2026-06-30', obligation_amount: '1000000',
+    eligibility_schedule_ref: 'ELIG-2026-06', inventory_ref: 'INV-2026-06-30', haircut_table_version: 'HC-2026Q2',
+    objective: 'cheapest_to_deliver', objective_custom: '',
+    eligibility_schedule: '[\n  {"asset_id":"A1","eligible":true},\n  {"asset_id":"A2","eligible":true}\n]',
+    inventory_snapshot: '[\n  {"asset_id":"A1","available_amount":"600000","cost_bps":"5","hqla":true,"haircut_pct":"0"},\n  {"asset_id":"A2","available_amount":"600000","cost_bps":"2","hqla":false,"haircut_pct":"0"}\n]',
+    allocation_chosen: '[\n  {"asset_id":"A2","amount":"600000"},\n  {"asset_id":"A1","amount":"400000"}\n]',
+    decimal_places: 2, rounding_mode: 'half_up',
+  },
+  divergent: {
+    obligation_ref: 'OBL-DEMO-02', as_of: '2026-06-30', obligation_amount: '1000000',
+    eligibility_schedule_ref: 'ELIG-2026-06', inventory_ref: 'INV-2026-06-30', haircut_table_version: 'HC-2026Q2',
+    objective: 'cheapest_to_deliver', objective_custom: '',
+    eligibility_schedule: '[\n  {"asset_id":"A1","eligible":true},\n  {"asset_id":"A2","eligible":true},\n  {"asset_id":"A3","eligible":false}\n]',
+    inventory_snapshot: '[\n  {"asset_id":"A1","available_amount":"600000","cost_bps":"5","hqla":true,"haircut_pct":"0"},\n  {"asset_id":"A2","available_amount":"600000","cost_bps":"2","hqla":false,"haircut_pct":"0"},\n  {"asset_id":"A3","available_amount":"900000","cost_bps":"1","hqla":false,"haircut_pct":"0"}\n]',
+    allocation_chosen: '[\n  {"asset_id":"A1","amount":"1000000"}\n]',
+    decimal_places: 2, rounding_mode: 'half_up',
+  },
+  undeclared: {
+    obligation_ref: 'OBL-DEMO-03', as_of: '2026-06-30', obligation_amount: '500000',
+    eligibility_schedule_ref: 'ELIG-2026-06', inventory_ref: 'INV-2026-06-30', haircut_table_version: 'HC-2026Q2',
+    objective: 'caller_named', objective_custom: 'counterparty_concentration_limit',
+    eligibility_schedule: '[\n  {"asset_id":"A1","eligible":true}\n]',
+    inventory_snapshot: '[\n  {"asset_id":"A1","available_amount":"500000","cost_bps":"4","hqla":false,"haircut_pct":"0"}\n]',
+    allocation_chosen: '[\n  {"asset_id":"A1","amount":"500000"}\n]',
+    decimal_places: 2, rounding_mode: 'half_up',
+  },
+  insufficient: {
+    obligation_ref: 'OBL-DEMO-04', as_of: '2026-06-30', obligation_amount: '5000000',
+    eligibility_schedule_ref: 'ELIG-2026-06', inventory_ref: 'INV-2026-06-30', haircut_table_version: 'HC-2026Q2',
+    objective: 'cheapest_to_deliver', objective_custom: '',
+    eligibility_schedule: '[\n  {"asset_id":"A1","eligible":true},\n  {"asset_id":"A2","eligible":true}\n]',
+    inventory_snapshot: '[\n  {"asset_id":"A1","available_amount":"600000","cost_bps":"5","hqla":true,"haircut_pct":"0"},\n  {"asset_id":"A2","available_amount":"600000","cost_bps":"2","hqla":false,"haircut_pct":"0"}\n]',
+    allocation_chosen: '[\n  {"asset_id":"A1","amount":"600000"},\n  {"asset_id":"A2","amount":"600000"}\n]',
+    decimal_places: 2, rounding_mode: 'half_up',
+  },
+};
+
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  const pr = PRESETS[p];
+  if (!pr) return;
+  setVal('obligation_ref', pr.obligation_ref);
+  setVal('as_of', pr.as_of);
+  setVal('obligation_amount', pr.obligation_amount);
+  setVal('eligibility_schedule_ref', pr.eligibility_schedule_ref);
+  setVal('inventory_ref', pr.inventory_ref);
+  setVal('haircut_table_version', pr.haircut_table_version);
+  setVal('objective', pr.objective);
+  setVal('objective_custom', pr.objective_custom);
+  setVal('eligibility_schedule', pr.eligibility_schedule);
+  setVal('inventory_snapshot', pr.inventory_snapshot);
+  setVal('allocation_chosen', pr.allocation_chosen);
+  setVal('decimal_places', pr.decimal_places);
+  setVal('rounding_mode', pr.rounding_mode);
+}
+
+function parseJsonField(id, fallback) {
+  const raw = document.getElementById(id).value.trim();
+  if (raw === '') return fallback;
+  try { return JSON.parse(raw); } catch (e) { return { __parse_error: String(e.message) }; }
+}
+
+function getObjective() {
+  const sel = document.getElementById('objective').value;
+  if (sel === 'caller_named') {
+    const custom = document.getElementById('objective_custom').value.trim();
+    return custom === '' ? null : custom;
+  }
+  return sel === '' ? null : sel;
+}
+
+function getPP() {
+  const eligParsed = parseJsonField('eligibility_schedule', []);
+  const invParsed = parseJsonField('inventory_snapshot', []);
+  const chosenParsed = parseJsonField('allocation_chosen', []);
+  return {
+    obligation_ref: document.getElementById('obligation_ref').value || null,
+    as_of: document.getElementById('as_of').value || null,
+    obligation_amount: document.getElementById('obligation_amount').value || '0',
+    eligibility_schedule_ref: document.getElementById('eligibility_schedule_ref').value || null,
+    inventory_ref: document.getElementById('inventory_ref').value || null,
+    haircut_table_version: document.getElementById('haircut_table_version').value || null,
+    objective: getObjective(),
+    eligibility_schedule: Array.isArray(eligParsed) ? eligParsed : [],
+    inventory_snapshot: Array.isArray(invParsed) ? invParsed : [],
+    allocation_chosen: Array.isArray(chosenParsed) ? chosenParsed : [],
+    rounding: {
+      decimal_places: Number(document.getElementById('decimal_places').value || 2),
+      mode: document.getElementById('rounding_mode').value,
+    },
+  };
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(function (k) { return JSON.stringify(k) + ':' + jcs(v[k]); }).join(',') + '}';
+  }
+  const text = jcs({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastOP = null;
+
+async function run() {
+  const pp = getPP();
+  const result = compute(pp);
+  const output_payload = result.output_payload, compliance_flags = result.compliance_flags;
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: output_payload, compliance_flags: compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  document.getElementById('verdictVal').textContent = output_payload.reproducibility.verdict || 'undecided';
+  document.getElementById('costDeltaVal').textContent = output_payload.delta.cost_delta === null ? 'n/a' : output_payload.delta.cost_delta;
+  document.getElementById('constraintsVal').textContent = String(output_payload.binding_constraints.length);
+  document.getElementById('exceptionsVal').textContent = String(output_payload.exceptions.length);
+
+  if (output_payload.judgment_required) {
+    document.getElementById('judgmentBox').innerHTML = '<div class="verdict warn"><b>judgment_required:</b> ' + esc(output_payload.judgment_required.reason) + '<ul class="list-block">' +
+      output_payload.judgment_required.fields.map(function (f) { return '<li><b>' + esc(f.field) + '</b>: ' + esc(f.reason) + '</li>'; }).join('') + '</ul></div>';
+  } else {
+    document.getElementById('judgmentBox').innerHTML = '';
+  }
+
+  const verdict = output_payload.reproducibility.verdict;
+  const vClass = verdict === 'ADR_REPRODUCED' ? 'pass' : (verdict === 'ADR_DIVERGENT' ? 'warn' : 'warn');
+  const vText = verdict === 'ADR_REPRODUCED'
+    ? 'The chosen allocation exactly matches the re-derivation of the declared objective over the declared inputs.'
+    : (verdict === 'ADR_DIVERGENT'
+        ? 'The chosen allocation is not fully explained by the declared objective and inputs. This is not a finding of error — see the binding constraint named for each difference below.'
+        : 'No reproducibility verdict could be computed — either the objective was undeclared or not re-derivable, or the declared inputs were insufficient. See judgment_required and exceptions.');
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + vClass + '">' + vText + '</div>';
+
+  document.getElementById('constraintsTableBody').innerHTML = output_payload.binding_constraints.map(function (c) {
+    return '<tr><td>' + esc(c.asset_id) + '</td><td>' + esc(c.optimal_amount) + '</td><td>' + esc(c.chosen_amount) + '</td><td>' + esc(c.reason) + '</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="muted">No binding constraints — either the allocation was reproduced exactly or no re-derivation was computed.</td></tr>';
+
+  document.getElementById('exceptionsTableBody').innerHTML = output_payload.exceptions.map(function (x) {
+    return '<tr><td>' + esc(x.field) + '</td><td>' + esc(x.reason) + '</td></tr>';
+  }).join('') || '<tr><td colspan="2" class="muted">No exceptions. The declared inputs were sufficient to attempt a re-derivation.</td></tr>';
+
+  const d = output_payload.delta;
+  document.getElementById('deltaTableBody').innerHTML =
+    '<tr><td>Cost, chosen allocation</td><td>' + esc(d.cost_chosen) + '</td></tr>' +
+    '<tr><td>Cost, re-derived optimal allocation</td><td>' + (d.cost_optimal === null ? '—' : esc(d.cost_optimal)) + '</td></tr>' +
+    '<tr><td>Cost delta (chosen − optimal)</td><td>' + (d.cost_delta === null ? '—' : esc(d.cost_delta)) + '</td></tr>' +
+    '<tr><td>Ineligible assets in chosen allocation</td><td>' + esc(d.eligibility.ineligible_assets_in_chosen.join(', ') || '—') + '</td></tr>' +
+    '<tr><td>Ineligible amount total</td><td>' + esc(d.eligibility.ineligible_amount_total) + '</td></tr>' +
+    '<tr><td>Obligation covered by chosen allocation</td><td>' + String(output_payload.reproducibility.obligation_covered_by_chosen) + '</td></tr>' +
+    '<tr><td>Obligation covered by re-derived optimal allocation</td><td>' + (output_payload.reproducibility.obligation_covered_by_optimal === null ? '—' : String(output_payload.reproducibility.obligation_covered_by_optimal)) + '</td></tr>';
+
+  document.getElementById('rationaleList').innerHTML = output_payload.rationale.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('');
+  document.getElementById('notProvenList').innerHTML = output_payload.not_proven.map(function (n) { return '<li><b>' + esc(n.item) + '</b>: ' + esc(n.detail) + '</li>'; }).join('');
+
+  const flagsHtml = compliance_flags.map(function (f) {
+    const cls = f.indexOf('DIVERGENT') >= 0 || f.indexOf('INSUFFICIENT') >= 0 || f.indexOf('INELIGIBLE') >= 0 || f.indexOf('BINDING') >= 0
+      ? 'warn-b'
+      : (f.indexOf('ESCALATION') >= 0 || f.indexOf('UNDECLARED') >= 0 ? 'err' : (f.indexOf('REPRODUCED') >= 0 ? 'ok' : 'info'));
+    return '<span class="badge ' + cls + '">' + esc(f) + '</span>';
+  }).join('');
+  document.getElementById('flagsRow').innerHTML = flagsHtml;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.style.background = 'var(--teal)';
+  ap2Btn.style.color = '#06121f';
+  ap2Btn.style.border = 'none';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version, mandate_type: MANIFEST.mandate_type,
+    payload: _lastOP, execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>ART-515 Build Allocation Decision Receipt</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;color:#111}h1{font-size:1.3rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;font-size:.85rem}</style></head><body>');
+  w.document.write('<h1>Build Allocation Decision Receipt, ART-515</h1>');
+  w.document.write('<p><b>Reproducibility verdict:</b> ' + (o.reproducibility.verdict || 'undecided') + ' | <b>Cost delta:</b> ' + (o.delta.cost_delta === null ? 'n/a' : o.delta.cost_delta) + ' | <b>Binding constraints:</b> ' + o.binding_constraints.length + ' | <b>Exceptions:</b> ' + o.exceptions.length + '</p>');
+  w.document.write('<h2>What was NOT proven</h2><ul>');
+  o.not_proven.forEach(function (n) { w.document.write('<li>' + n.item + ': ' + n.detail + '</li>'); });
+  w.document.write('</ul>');
+  w.document.write('<p style="font-size:.75rem;color:#666">DECISION-SUPPORT DRAFT. A divergence is not a finding of error. Not a competing optimizer. Generated: ' + new Date().toISOString() + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const rows = [['field','value']];
+  rows.push(['obligation_ref', o.obligation_ref || '']);
+  rows.push(['as_of', o.as_of || '']);
+  rows.push(['objective', o.objective || '']);
+  rows.push(['obligation_amount', o.obligation.amount]);
+  rows.push(['reproducibility_verdict', o.reproducibility.verdict || '']);
+  rows.push(['cost_chosen', o.delta.cost_chosen]);
+  rows.push(['cost_optimal', o.delta.cost_optimal === null ? '' : o.delta.cost_optimal]);
+  rows.push(['cost_delta', o.delta.cost_delta === null ? '' : o.delta.cost_delta]);
+  rows.push(['binding_constraints', String(o.binding_constraints.length)]);
+  rows.push(['exceptions', String(o.exceptions.length)]);
+  rows.push(['obligation_covered_by_chosen', String(o.reproducibility.obligation_covered_by_chosen)]);
+  const csv = rows.map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Related Nodes</div>
+        <a href="art-370-supervisory-scenario-replay.html">Supervisory Scenario Replay</a>
+        <a href="art-236-build-ai-decision-log-record.html">AI Decision Log Record</a>
+        <a href="../tools/505-tokenized-collateral-eligibility-checker.html">Collateral Eligibility Checker</a>
+        <a href="art-444-collateral-haircut-engine.html">Collateral Haircut Engine</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

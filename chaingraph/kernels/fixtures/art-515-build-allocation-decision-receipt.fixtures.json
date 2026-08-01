@@ -1,0 +1,975 @@
+{
+  "tool_id": "art-515-build-allocation-decision-receipt",
+  "note": "output_payload filled from the kernel itself; golden_hash filled by node golden-parity.test.mjs --update. Vectors cover: reproducibility match for cheapest_to_deliver, a divergence where the chosen amount exceeds available inventory, an undeclared objective, a caller-named objective with no fixed re-derivation rule, insufficient eligible inventory to cover the obligation, the zero-obligation finite gate, a preserve_hqla match, and a minimise_movements match with a haircut applied.",
+  "vectors": [
+    {
+      "name": "reproduced-cheapest-to-deliver",
+      "description": "The chosen allocation exactly matches the re-derived cheapest_to_deliver optimum: cheaper A2 used first, then A1 for the remainder.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-01",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "1000000",
+        "objective": "cheapest_to_deliver",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          },
+          {
+            "asset_id": "A2",
+            "eligible": true
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "600000",
+            "cost_bps": "5",
+            "hqla": true,
+            "haircut_pct": "0"
+          },
+          {
+            "asset_id": "A2",
+            "available_amount": "600000",
+            "cost_bps": "2",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [
+          {
+            "asset_id": "A2",
+            "amount": "600000"
+          },
+          {
+            "asset_id": "A1",
+            "amount": "400000"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-01",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": "cheapest_to_deliver",
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": null,
+        "obligation": {
+          "amount": "1000000.00",
+          "positive": true
+        },
+        "reproducibility": {
+          "verdict": "ADR_REPRODUCED",
+          "optimal_allocation": [
+            {
+              "asset_id": "A2",
+              "amount": "600000.00"
+            },
+            {
+              "asset_id": "A1",
+              "amount": "400000.00"
+            }
+          ],
+          "chosen_allocation": [
+            {
+              "asset_id": "A2",
+              "amount": "600000.00"
+            },
+            {
+              "asset_id": "A1",
+              "amount": "400000.00"
+            }
+          ],
+          "obligation_covered_by_chosen": true,
+          "obligation_covered_by_optimal": true
+        },
+        "delta": {
+          "cost_chosen": "3200000.00",
+          "cost_optimal": "3200000.00",
+          "cost_delta": "0.00",
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [],
+        "exceptions": [],
+        "rationale": [
+          "Objective \"cheapest_to_deliver\" was re-derived against 2 eligible inventory items using this kernel's fixed greedy rule for that objective.",
+          "The declared eligibility schedule, inventory snapshot and obligation amount were sufficient to attempt a re-derivation.",
+          "The chosen allocation exactly matches this kernel's re-derivation of the declared objective over the declared inputs.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "86b4b1a220c8e3debb9fd64270d97a588e68bf8f9d8f2c206ee4bca7a641cf93"
+    },
+    {
+      "name": "divergent-exceeds-available-inventory",
+      "description": "Chosen allocation puts the whole obligation on A1, exceeding its available amount; the re-derived optimum spreads across A1 and cheaper A2. Two binding constraints named, neither a finding of error.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-02",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "1000000",
+        "objective": "cheapest_to_deliver",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          },
+          {
+            "asset_id": "A2",
+            "eligible": true
+          },
+          {
+            "asset_id": "A3",
+            "eligible": false
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "600000",
+            "cost_bps": "5",
+            "hqla": true,
+            "haircut_pct": "0"
+          },
+          {
+            "asset_id": "A2",
+            "available_amount": "600000",
+            "cost_bps": "2",
+            "hqla": false,
+            "haircut_pct": "0"
+          },
+          {
+            "asset_id": "A3",
+            "available_amount": "900000",
+            "cost_bps": "1",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [
+          {
+            "asset_id": "A1",
+            "amount": "1000000"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-02",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": "cheapest_to_deliver",
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": null,
+        "obligation": {
+          "amount": "1000000.00",
+          "positive": true
+        },
+        "reproducibility": {
+          "verdict": "ADR_DIVERGENT",
+          "optimal_allocation": [
+            {
+              "asset_id": "A2",
+              "amount": "600000.00"
+            },
+            {
+              "asset_id": "A1",
+              "amount": "400000.00"
+            }
+          ],
+          "chosen_allocation": [
+            {
+              "asset_id": "A1",
+              "amount": "1000000.00"
+            }
+          ],
+          "obligation_covered_by_chosen": true,
+          "obligation_covered_by_optimal": true
+        },
+        "delta": {
+          "cost_chosen": "5000000.00",
+          "cost_optimal": "3200000.00",
+          "cost_delta": "1800000.00",
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [
+          {
+            "asset_id": "A1",
+            "optimal_amount": "400000.00",
+            "chosen_amount": "1000000.00",
+            "reason": "chosen amount exceeds the available amount in the declared inventory snapshot"
+          },
+          {
+            "asset_id": "A2",
+            "optimal_amount": "600000.00",
+            "chosen_amount": "0.00",
+            "reason": "objective prefers a larger allocation to this asset than was chosen — a cheaper or more-preferred alternative may have been used instead, or the obligation was covered by other means"
+          }
+        ],
+        "exceptions": [],
+        "rationale": [
+          "Objective \"cheapest_to_deliver\" was re-derived against 2 eligible inventory items using this kernel's fixed greedy rule for that objective.",
+          "The declared eligibility schedule, inventory snapshot and obligation amount were sufficient to attempt a re-derivation.",
+          "2 assets differ between the chosen allocation and the re-derived optimal allocation, each named with its binding constraint. This is not a finding of error.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "7854403801978d314ff9756df33eaeecc23fb1d0facb264c4ff77cdd4274c257"
+    },
+    {
+      "name": "objective-undeclared",
+      "description": "No objective was declared at all. judgment_required names the field and ADR_OBJECTIVE_UNDECLARED fires; no reproducibility verdict is computed.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-03",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "500000",
+        "objective": "",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "500000",
+            "cost_bps": "4",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [
+          {
+            "asset_id": "A1",
+            "amount": "500000"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-03",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": null,
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": {
+          "fields": [
+            {
+              "field": "objective",
+              "reason": "No objective was declared. Reproducibility cannot be tested against an objective that was never stated.",
+              "supplied": ""
+            }
+          ],
+          "reason": "The declared objective was absent or not one this kernel has a fixed re-derivation rule for, so no reproducibility verdict could be computed."
+        },
+        "obligation": {
+          "amount": "500000.00",
+          "positive": true
+        },
+        "reproducibility": {
+          "verdict": null,
+          "optimal_allocation": [],
+          "chosen_allocation": [
+            {
+              "asset_id": "A1",
+              "amount": "500000.00"
+            }
+          ],
+          "obligation_covered_by_chosen": true,
+          "obligation_covered_by_optimal": null
+        },
+        "delta": {
+          "cost_chosen": "2000000.00",
+          "cost_optimal": null,
+          "cost_delta": null,
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [],
+        "exceptions": [],
+        "rationale": [
+          "No objective was declared, so no reproducibility verdict could be computed against one.",
+          "The declared eligibility schedule, inventory snapshot and obligation amount were sufficient to attempt a re-derivation.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "c1852056b9c18bf1df09ff3d8cc996492a2ea786b4878100da6c8a21d8387b33"
+    },
+    {
+      "name": "objective-caller-named-not-solvable",
+      "description": "A caller-named objective outside the three known ones is recorded but not solved: no fixed re-derivation rule exists for it, so no optimal allocation is computed and judgment_required names the field.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-04",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "500000",
+        "objective": "counterparty_concentration_limit",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "500000",
+            "cost_bps": "4",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [
+          {
+            "asset_id": "A1",
+            "amount": "500000"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-04",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": "counterparty_concentration_limit",
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": {
+          "fields": [
+            {
+              "field": "objective",
+              "reason": "\"counterparty_concentration_limit\" is a caller-named objective this kernel has no fixed re-derivation rule for. Only cheapest_to_deliver, preserve_hqla, minimise_movements are re-derivable; a caller-named objective is recorded but not solved.",
+              "supplied": "counterparty_concentration_limit"
+            }
+          ],
+          "reason": "The declared objective was absent or not one this kernel has a fixed re-derivation rule for, so no reproducibility verdict could be computed."
+        },
+        "obligation": {
+          "amount": "500000.00",
+          "positive": true
+        },
+        "reproducibility": {
+          "verdict": null,
+          "optimal_allocation": [],
+          "chosen_allocation": [
+            {
+              "asset_id": "A1",
+              "amount": "500000.00"
+            }
+          ],
+          "obligation_covered_by_chosen": true,
+          "obligation_covered_by_optimal": null
+        },
+        "delta": {
+          "cost_chosen": "2000000.00",
+          "cost_optimal": null,
+          "cost_delta": null,
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [],
+        "exceptions": [],
+        "rationale": [
+          "Objective \"counterparty_concentration_limit\" is caller-named and has no fixed re-derivation rule in this kernel, so no optimal allocation was computed.",
+          "The declared eligibility schedule, inventory snapshot and obligation amount were sufficient to attempt a re-derivation.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "3fa85972a92b79ec7dfaea8bed235df5db602c174b89c8c653a0205ab4d83d2b"
+    },
+    {
+      "name": "inputs-insufficient-eligible-inventory-below-obligation",
+      "description": "Eligible haircut-adjusted inventory totals less than the obligation amount, so no allocation, chosen or re-derived, can fully cover it. ADR_INPUTS_INSUFFICIENT fires and an exception names the shortfall.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-05",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "5000000",
+        "objective": "cheapest_to_deliver",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          },
+          {
+            "asset_id": "A2",
+            "eligible": true
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "600000",
+            "cost_bps": "5",
+            "hqla": true,
+            "haircut_pct": "0"
+          },
+          {
+            "asset_id": "A2",
+            "available_amount": "600000",
+            "cost_bps": "2",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [
+          {
+            "asset_id": "A1",
+            "amount": "600000"
+          },
+          {
+            "asset_id": "A2",
+            "amount": "600000"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-05",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": "cheapest_to_deliver",
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": null,
+        "obligation": {
+          "amount": "5000000.00",
+          "positive": true
+        },
+        "reproducibility": {
+          "verdict": null,
+          "optimal_allocation": [],
+          "chosen_allocation": [
+            {
+              "asset_id": "A1",
+              "amount": "600000.00"
+            },
+            {
+              "asset_id": "A2",
+              "amount": "600000.00"
+            }
+          ],
+          "obligation_covered_by_chosen": false,
+          "obligation_covered_by_optimal": null
+        },
+        "delta": {
+          "cost_chosen": "4200000.00",
+          "cost_optimal": null,
+          "cost_delta": null,
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [],
+        "exceptions": [
+          {
+            "field": "inventory_snapshot",
+            "reason": "total eligible haircut-adjusted inventory (1200000.00) is below the obligation amount (5000000.00). No allocation, chosen or re-derived, can fully cover this obligation from the declared eligible set."
+          }
+        ],
+        "rationale": [
+          "Objective \"cheapest_to_deliver\" was re-derived against 2 eligible inventory items using this kernel's fixed greedy rule for that objective.",
+          "One or more declared inputs were insufficient to decide reproducibility; see exceptions.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "61f9394e65acb3d1b31ddaeab7f76a6247e17be0b19200f4cb0a29f5f5329a5a"
+    },
+    {
+      "name": "finite-gate-zero-obligation",
+      "description": "Zero obligation_amount. There is no coverage target to re-derive against, so ADR_INPUTS_INSUFFICIENT fires and an exception names it, never a division or a false pass.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-06",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "0",
+        "objective": "cheapest_to_deliver",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "500000",
+            "cost_bps": "4",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-06",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": "cheapest_to_deliver",
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": null,
+        "obligation": {
+          "amount": "0.00",
+          "positive": false
+        },
+        "reproducibility": {
+          "verdict": null,
+          "optimal_allocation": [],
+          "chosen_allocation": [],
+          "obligation_covered_by_chosen": true,
+          "obligation_covered_by_optimal": null
+        },
+        "delta": {
+          "cost_chosen": "0.00",
+          "cost_optimal": null,
+          "cost_delta": null,
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [],
+        "exceptions": [
+          {
+            "field": "obligation_amount",
+            "reason": "obligation_amount must be a positive value. A zero or negative obligation has no coverage target to re-derive against."
+          }
+        ],
+        "rationale": [
+          "Objective \"cheapest_to_deliver\" was re-derived against 1 eligible inventory item using this kernel's fixed greedy rule for that objective.",
+          "One or more declared inputs were insufficient to decide reproducibility; see exceptions.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "4052c66ca459d913a3cfdb9e6fce27c422b394b5498f5ac9b65eebfdf1b52a55"
+    },
+    {
+      "name": "preserve-hqla-reproduced",
+      "description": "preserve_hqla objective: the chosen allocation uses the non-HQLA asset first, matching the re-derivation exactly.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-07",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "400000",
+        "objective": "preserve_hqla",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          },
+          {
+            "asset_id": "A2",
+            "eligible": true
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "600000",
+            "cost_bps": "5",
+            "hqla": true,
+            "haircut_pct": "0"
+          },
+          {
+            "asset_id": "A2",
+            "available_amount": "600000",
+            "cost_bps": "2",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [
+          {
+            "asset_id": "A2",
+            "amount": "400000"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-07",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": "preserve_hqla",
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": null,
+        "obligation": {
+          "amount": "400000.00",
+          "positive": true
+        },
+        "reproducibility": {
+          "verdict": "ADR_REPRODUCED",
+          "optimal_allocation": [
+            {
+              "asset_id": "A2",
+              "amount": "400000.00"
+            }
+          ],
+          "chosen_allocation": [
+            {
+              "asset_id": "A2",
+              "amount": "400000.00"
+            }
+          ],
+          "obligation_covered_by_chosen": true,
+          "obligation_covered_by_optimal": true
+        },
+        "delta": {
+          "cost_chosen": "800000.00",
+          "cost_optimal": "800000.00",
+          "cost_delta": "0.00",
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [],
+        "exceptions": [],
+        "rationale": [
+          "Objective \"preserve_hqla\" was re-derived against 2 eligible inventory items using this kernel's fixed greedy rule for that objective.",
+          "The declared eligibility schedule, inventory snapshot and obligation amount were sufficient to attempt a re-derivation.",
+          "The chosen allocation exactly matches this kernel's re-derivation of the declared objective over the declared inputs.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "17ea53767f19776884ab686c1a39600c1541c10351e019a93b202c1a5584b1f9"
+    },
+    {
+      "name": "minimise-movements-with-haircut",
+      "description": "minimise_movements objective with a haircut applied to one asset: the re-derivation prefers the single largest haircut-adjusted item, and the chosen allocation matches it exactly.",
+      "policy_parameters": {
+        "obligation_ref": "OBL-DEMO-08",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "obligation_amount": "450000",
+        "objective": "minimise_movements",
+        "eligibility_schedule": [
+          {
+            "asset_id": "A1",
+            "eligible": true
+          },
+          {
+            "asset_id": "A2",
+            "eligible": true
+          }
+        ],
+        "inventory_snapshot": [
+          {
+            "asset_id": "A1",
+            "available_amount": "600000",
+            "cost_bps": "5",
+            "hqla": true,
+            "haircut_pct": "10"
+          },
+          {
+            "asset_id": "A2",
+            "available_amount": "400000",
+            "cost_bps": "2",
+            "hqla": false,
+            "haircut_pct": "0"
+          }
+        ],
+        "allocation_chosen": [
+          {
+            "asset_id": "A1",
+            "amount": "500000"
+          }
+        ],
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        }
+      },
+      "output_payload": {
+        "obligation_ref": "OBL-DEMO-08",
+        "as_of": "2026-06-30",
+        "eligibility_schedule_ref": "ELIG-2026-06",
+        "inventory_ref": "INV-2026-06-30",
+        "haircut_table_version": "HC-2026Q2",
+        "objective": "minimise_movements",
+        "rounding": {
+          "decimal_places": 2,
+          "mode": "half_up"
+        },
+        "judgment_required": null,
+        "obligation": {
+          "amount": "450000.00",
+          "positive": true
+        },
+        "reproducibility": {
+          "verdict": "ADR_REPRODUCED",
+          "optimal_allocation": [
+            {
+              "asset_id": "A1",
+              "amount": "500000.00"
+            }
+          ],
+          "chosen_allocation": [
+            {
+              "asset_id": "A1",
+              "amount": "500000.00"
+            }
+          ],
+          "obligation_covered_by_chosen": true,
+          "obligation_covered_by_optimal": true
+        },
+        "delta": {
+          "cost_chosen": "2500000.00",
+          "cost_optimal": "2500000.00",
+          "cost_delta": "0.00",
+          "eligibility": {
+            "ineligible_assets_in_chosen": [],
+            "ineligible_amount_total": "0.00"
+          }
+        },
+        "binding_constraints": [],
+        "exceptions": [],
+        "rationale": [
+          "Objective \"minimise_movements\" was re-derived against 2 eligible inventory items using this kernel's fixed greedy rule for that objective.",
+          "The declared eligibility schedule, inventory snapshot and obligation amount were sufficient to attempt a re-derivation.",
+          "The chosen allocation exactly matches this kernel's re-derivation of the declared objective over the declared inputs.",
+          "This kernel re-derives one candidate allocation using a fixed, published rule. It is not a competing optimizer and does not claim the re-derived allocation is better than the one chosen."
+        ],
+        "not_proven": [
+          {
+            "item": "Eligibility accuracy",
+            "detail": "The eligibility schedule snapshot is a caller input, transcribed from whatever was in force when the allocation was made. This kernel does not verify it against a live eligibility feed and holds no eligibility table of its own."
+          },
+          {
+            "item": "Inventory accuracy",
+            "detail": "The inventory snapshot (available amounts, movement cost, HQLA flag, haircut) is asserted at the values supplied. No independent valuation or market data is read."
+          },
+          {
+            "item": "Optimality of the caller's allocation",
+            "detail": "This kernel re-derives ONE candidate allocation for the declared objective using a fixed, published greedy rule. A divergence from the caller's allocation is not proof the caller's allocation was wrong, and a match is not proof no better allocation exists — only that this re-derivation agrees or disagrees with what was chosen."
+          },
+          {
+            "item": "Intent",
+            "detail": "ADR_DIVERGENT records that the chosen allocation is not explained by the declared objective and inputs. It never characterises why: a trader override, an undeclared constraint and a stale snapshot are all consistent with the same flag."
+          }
+        ],
+        "fence": "Eligibility, inventory, haircuts and the declared objective are every one of them a caller input, transcribed from the snapshot in force when the allocation was made. This kernel ships no eligibility table, no inventory feed and no haircut table of its own, performs no lookups of any kind (zero-egress by contract), and re-derives against the SAME declared objective and inputs the caller supplied — it is not a competing optimizer and does not claim to find a better allocation."
+      },
+      "golden_hash": "31a6c78eb00d0e7aa1930c5266ab7e49a0964d277f748e8286f3ffcb1bf984bb"
+    }
+  ]
+}
