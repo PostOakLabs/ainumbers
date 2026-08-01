@@ -453,6 +453,7 @@ import * as art511    from './art-511-recompute-fund-fees.kernel.mjs';
 import * as art512    from './art-512-check-mica-reserve-disclosure.kernel.mjs';
 import * as art515    from './art-515-build-allocation-decision-receipt.kernel.mjs';
 import * as art516    from './art-516-daily-reconciliation-attestation.kernel.mjs';
+import * as art518    from './art-518-bulk-disbursement-integrity.kernel.mjs';
 import * as art52     from './art-52-digital-trade-fit-diagnostic.kernel.mjs';
 import * as art520    from './art-520-operator-exit-data-portability.kernel.mjs';
 import * as art53     from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
@@ -971,6 +972,7 @@ export const KERNELS = {
   'art-512-check-mica-reserve-disclosure':                    art512,
   'art-515-build-allocation-decision-receipt':                art515,
   'art-516-daily-reconciliation-attestation':                 art516,
+  'art-518-bulk-disbursement-integrity':                      art518,
   'art-52-digital-trade-fit-diagnostic':                      art52,
   'art-520-operator-exit-data-portability':                   art520,
   'art-53-mletr-ebl-conformance-validator':                   art53,
