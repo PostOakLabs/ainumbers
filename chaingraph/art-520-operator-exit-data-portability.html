@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Operator Exit &amp; Data Portability &middot; ART-520 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Evaluates a declared operator-exit and data-portability posture: per-category export/format portability with a stranded-category list, declared operator- vs supplier-control of components with an unsupported-operator-claim check, single-supplier dependencies with no substitute, escrow, and transition terms.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-520-operator-exit-data-portability.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:110px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-520 · Operator Exit &amp; Data Portability</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-520 &middot; Government &amp; Public-Money Payment Evidence</div>
+  <h1>Operator Exit &amp; Data Portability</h1>
+  <p class="sub">You declare your data categories, which components you or your supplier control, your dependencies, escrow arrangements, and your notice / transition terms &mdash; this tool checks whether that declared exit posture hangs together. It reports a stranded-category list (categories with no declared export path), an operator-control ratio as declared, single-supplier dependencies with no declared substitute, and whether a contractual-operator claim is supported by the declared component control. It does not audit your supplier, rate a vendor, or opine on contract enforceability &mdash; it evaluates the declarations you supply. Undeclared is always kept distinct from a declared failure: silence is never scored as "not portable". Emits a hash-anchored OpenChainGraph v0.4 artifact. Region-portable: the same fields serve DORA exit plans, EBA outsourcing guidelines, FFIEC third-party risk, or any comparable regime &mdash; every fact below is an input you declare, never a hardcoded country or scheme.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Stranded-category list, not a coverage ratio</span>
+    <span class="flag info">Unsupported-operator-claim check</span>
+    <span class="flag">Undeclared kept distinct from failure</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This tool evaluates your DECLARED exit posture only &mdash; it does not audit, verify, or characterise any supplier, and no output names one. It does not opine on contract enforceability. It computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Declaration</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own. Load the stranded-category demo to see the flags this tool exists to catch.</p>
+    <div class="grid2">
+      <div><label class="fld">As-of (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOf" value="2026-08-01"></div>
+      <div><label class="fld">Are you (the buyer) the contractual operator? (true / false / leave blank if undeclared)</label><input type="text" id="contractualOperator" value="true"></div>
+    </div>
+
+    <label class="fld">Data categories (JSON array: category, export_exists, format, format_open, export_cadence, last_successful_export &mdash; omit any key you have not declared)</label>
+    <textarea id="categoriesJson">[
+  { "category": "transaction_ledger", "export_exists": true, "format": "csv", "format_open": true, "export_cadence": "daily", "last_successful_export": "2026-07-31" },
+  { "category": "customer_account_master", "export_exists": true, "format": "json", "format_open": true, "export_cadence": "weekly", "last_successful_export": "2026-07-28" }
+]</textarea>
+
+    <label class="fld">Declared components (JSON array: name, controlled_by &mdash; "operator" or "supplier", omit if undeclared)</label>
+    <textarea id="componentsJson">[
+  { "name": "core_ledger_engine", "controlled_by": "operator" },
+  { "name": "reporting_warehouse", "controlled_by": "operator" }
+]</textarea>
+
+    <label class="fld">Dependencies (JSON array: name, single_supplier, substitutable &mdash; each true/false, omit if undeclared)</label>
+    <textarea id="dependenciesJson">[
+  { "name": "clearing_network_access", "single_supplier": false, "substitutable": true }
+]</textarea>
+
+    <div class="grid2">
+      <div><label class="fld">Escrow arrangement exists? (true / false / leave blank if undeclared)</label><input type="text" id="escrowExists" value="true"></div>
+      <div><label class="fld">Escrow description (optional)</label><input type="text" id="escrowDescription" value="source escrow held by a third-party agent"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Notice period (days, leave blank if undeclared)</label><input type="text" id="noticePeriod" value="180"></div>
+      <div><label class="fld">Transition-assistance terms (as declared, leave blank if undeclared)</label><input type="text" id="transitionTerms" value="180 days of vendor-supplied migration support per the exit schedule"></div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Evaluation</button>
+      <button class="ghost" onclick="loadStrandedDemo()">Load stranded-category + unsupported-claim demo</button>
+      <button class="ghost" onclick="loadUndeclaredDemo()">Load all-undeclared demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Data categories</div>
+      <div id="catDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Dependencies</div>
+      <div id="depDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Exit-readiness exceptions</div>
+      <div id="excDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not audit a supplier, rate a vendor, or opine on whether an exit clause is enforceable &mdash; those require legal review and evidence this tool never collects. It does not verify that the figures you supply are complete or accurate, and a clean result is not a determination that the underlying contract has been tested. Where you have not declared a fact &mdash; escrow, format openness, component control &mdash; this tool reports it as undeclared, never as a silent pass or a silent failure.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">No node in the catalogue evaluates a declared exit posture directly. Related but non-overlapping: <a href="../tools/100-dora-resilience-auditor.html">100</a> assesses a broader declared operational-resilience posture, not exit-specific; <a href="../tools/413-eu-data-act-financial-services-scope-mapper.html">413</a> scopes EU Data Act applicability, not portability posture. The subject generalizes past government procurement to DORA exit plans, EBA outsourcing guidelines, and FFIEC third-party risk &mdash; the same declared fields serve any of them. Part of the government-payment-lifecycle chain alongside the programme's other reconciliation and audit-evidence nodes as they ship.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-520-operator-exit-data-portability',
+  version: '1.0.0',
+  mcp_name: 'check_operator_exit_portability',
+  title: 'Operator Exit & Data Portability',
+  description: 'Evaluates a caller-declared operator-exit and data-portability posture: per-category export/format portability with a stranded-category list, declared operator- vs supplier-control of components with an unsupported-operator-claim check, single-supplier dependencies with no declared substitute, escrow, and transition terms.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'check_operator_exit_portability',
+    description: 'Evaluates a declared operator-exit posture: per-category export/format portability with a stranded-category list, an unsupported contractual-operator-claim check against declared component control, single-supplier dependencies with no declared substitute, escrow declaration, and notice/transition terms.',
+    inputSchema: { type: 'object', properties: {
+      as_of: {type:'string'}, contractual_operator: {type:'boolean'},
+      data_categories: {type:'array'}, declared_components: {type:'array'}, dependencies: {type:'array'},
+      escrow_arrangements: {type:'object'}, notice_period_days: {type:'number'}, transition_assistance_terms: {type:'string'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-520-operator-exit-data-portability.kernel.mjs --- */
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function triState(v, where, rejected){
+  if (v === true) return 'true';
+  if (v === false) return 'false';
+  if (v === undefined || v === null) return 'undeclared';
+  rejected.push({ where: where, reason: "expected boolean true/false or absent (undeclared)", supplied: typeof v === 'object' ? JSON.stringify(v) : String(v) });
+  return 'undeclared';
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var exit_readiness_exceptions = [];
+
+  var as_of = isoDateOrNull(pp.as_of);
+  var contractual_operator = triState(pp.contractual_operator, 'contractual_operator', rejected_inputs);
+
+  var categoriesIn = Array.isArray(pp.data_categories) ? pp.data_categories : [];
+  var categories = categoriesIn.map(function(c, i){
+    c = c && typeof c === 'object' ? c : {};
+    var category = isNonEmptyString(c.category) ? c.category.trim() : ('UNLABELLED-' + (i + 1));
+    var export_exists = triState(c.export_exists, 'data_categories[' + i + '].export_exists', rejected_inputs);
+    var format = isNonEmptyString(c.format) ? c.format.trim() : null;
+    var format_open = triState(c.format_open, 'data_categories[' + i + '].format_open', rejected_inputs);
+    var export_cadence = isNonEmptyString(c.export_cadence) ? c.export_cadence.trim() : null;
+    var last_successful_export = isoDateOrNull(c.last_successful_export);
+
+    var verdict;
+    if (export_exists === 'undeclared') verdict = 'UNDECLARED';
+    else if (export_exists === 'false') verdict = 'STRANDED';
+    else if (format_open === 'true') verdict = 'PORTABLE';
+    else if (format_open === 'false') verdict = 'PORTABLE_PROPRIETARY_FORMAT';
+    else verdict = 'PORTABLE_FORMAT_UNDECLARED';
+
+    return { category: category, export_exists: export_exists, format: format, format_open: format_open, export_cadence: export_cadence, last_successful_export: last_successful_export, verdict: verdict };
+  });
+
+  var stranded_categories = categories.filter(function(c){ return c.verdict === 'STRANDED'; });
+  var proprietary_format_categories = categories.filter(function(c){ return c.verdict === 'PORTABLE_PROPRIETARY_FORMAT'; });
+  var undeclared_categories = categories.filter(function(c){ return c.verdict === 'UNDECLARED' || c.verdict === 'PORTABLE_FORMAT_UNDECLARED'; });
+
+  stranded_categories.forEach(function(c){ exit_readiness_exceptions.push({ area: 'data_category', name: c.category, detail: 'declared no export path -- stranded' }); });
+  proprietary_format_categories.forEach(function(c){ exit_readiness_exceptions.push({ area: 'data_category', name: c.category, detail: 'export exists in a declared proprietary format (' + (c.format || 'format unnamed') + ')' }); });
+  undeclared_categories.forEach(function(c){ exit_readiness_exceptions.push({ area: 'data_category', name: c.category, detail: 'export existence or format openness not declared' }); });
+
+  var componentsIn = Array.isArray(pp.declared_components) ? pp.declared_components : [];
+  var components = componentsIn.map(function(c, i){
+    c = c && typeof c === 'object' ? c : {};
+    var name = isNonEmptyString(c.name) ? c.name.trim() : ('UNLABELLED-' + (i + 1));
+    var controlled_by = isNonEmptyString(c.controlled_by) ? c.controlled_by.trim().toLowerCase() : null;
+    if (controlled_by !== 'operator' && controlled_by !== 'supplier') {
+      if (controlled_by !== null) rejected_inputs.push({ where: 'declared_components[' + i + '].controlled_by', reason: "expected 'operator' or 'supplier'", supplied: controlled_by });
+      controlled_by = 'undeclared';
+    }
+    return { name: name, controlled_by: controlled_by };
+  });
+  var operator_controlled_count = components.filter(function(c){ return c.controlled_by === 'operator'; }).length;
+  var supplier_controlled_count = components.filter(function(c){ return c.controlled_by === 'supplier'; }).length;
+  var undeclared_component_count = components.filter(function(c){ return c.controlled_by === 'undeclared'; }).length;
+  var declared_component_count = operator_controlled_count + supplier_controlled_count;
+  var operator_control_ratio_declared = declared_component_count > 0 ? (operator_controlled_count + '/' + declared_component_count) : 'undeclared';
+
+  var operator_claim_unsupported = contractual_operator === 'true' && declared_component_count > 0 && operator_controlled_count === 0;
+  if (operator_claim_unsupported) {
+    exit_readiness_exceptions.push({ area: 'operator_claim', name: 'contractual_operator', detail: 'declared the contractual operator, but all ' + declared_component_count + ' definitively-declared components are supplier-controlled' });
+  } else if (contractual_operator === 'true' && declared_component_count === 0) {
+    exit_readiness_exceptions.push({ area: 'operator_claim', name: 'contractual_operator', detail: 'declared the contractual operator, but no component control was declared to support or refute the claim' });
+  }
+  if (undeclared_component_count > 0) exit_readiness_exceptions.push({ area: 'components', name: 'declared_components', detail: undeclared_component_count + ' declared component' + (undeclared_component_count === 1 ? '' : 's') + ' with control not stated' });
+
+  var dependenciesIn = Array.isArray(pp.dependencies) ? pp.dependencies : [];
+  var dependencies = dependenciesIn.map(function(d, i){
+    d = d && typeof d === 'object' ? d : {};
+    var name = isNonEmptyString(d.name) ? d.name.trim() : ('UNLABELLED-' + (i + 1));
+    var single_supplier = triState(d.single_supplier, 'dependencies[' + i + '].single_supplier', rejected_inputs);
+    var substitutable = triState(d.substitutable, 'dependencies[' + i + '].substitutable', rejected_inputs);
+    return { name: name, single_supplier: single_supplier, substitutable: substitutable };
+  });
+  var single_supplier_no_substitute = dependencies.filter(function(d){ return d.single_supplier === 'true' && d.substitutable === 'false'; });
+  single_supplier_no_substitute.forEach(function(d){ exit_readiness_exceptions.push({ area: 'dependency', name: d.name, detail: 'single-supplier dependency with no declared substitute' }); });
+
+  var escrowIn = pp.escrow_arrangements && typeof pp.escrow_arrangements === 'object' ? pp.escrow_arrangements : {};
+  var escrow_exists = triState(escrowIn.exists, 'escrow_arrangements.exists', rejected_inputs);
+  var escrow_description = isNonEmptyString(escrowIn.description) ? escrowIn.description.trim() : null;
+  if (escrow_exists === 'false') exit_readiness_exceptions.push({ area: 'escrow', name: 'escrow_arrangements', detail: 'declared: no escrow arrangement' });
+  else if (escrow_exists === 'undeclared') exit_readiness_exceptions.push({ area: 'escrow', name: 'escrow_arrangements', detail: 'escrow arrangement not declared' });
+
+  var notice_period_days = null;
+  var notice_period_declared = false;
+  if (typeof pp.notice_period_days === 'number' && Number.isFinite(pp.notice_period_days) && pp.notice_period_days >= 0) {
+    notice_period_days = Math.trunc(pp.notice_period_days);
+    notice_period_declared = true;
+  } else if (pp.notice_period_days !== undefined && pp.notice_period_days !== null) {
+    rejected_inputs.push({ where: 'notice_period_days', reason: 'expected a non-negative number', supplied: pp.notice_period_days });
+  }
+  if (!notice_period_declared) exit_readiness_exceptions.push({ area: 'transition', name: 'notice_period_days', detail: 'notice period not declared' });
+
+  var transition_assistance_terms = isNonEmptyString(pp.transition_assistance_terms) ? pp.transition_assistance_terms.trim() : null;
+  if (!transition_assistance_terms) exit_readiness_exceptions.push({ area: 'transition', name: 'transition_assistance_terms', detail: 'transition-assistance terms not declared' });
+
+  var portable = stranded_categories.length === 0;
+
+  var compliance_flags = [];
+  compliance_flags.push(portable ? 'EXIT_PORTABLE' : 'EXIT_STRANDED_DATA');
+  if (proprietary_format_categories.length > 0) compliance_flags.push('EXIT_PROPRIETARY_FORMAT');
+  if (escrow_exists === 'false') compliance_flags.push('EXIT_NO_ESCROW');
+  if (operator_claim_unsupported) compliance_flags.push('EXIT_OPERATOR_CLAIM_UNSUPPORTED');
+  if (rejected_inputs.length > 0) compliance_flags.push('EXIT_INPUTS_REJECTED');
+
+  var rationale = [];
+  rationale.push(categories.length + ' declared data categor' + (categories.length === 1 ? 'y' : 'ies') + ': ' + stranded_categories.length + ' stranded (no export path), ' + proprietary_format_categories.length + ' portable in a proprietary format, ' + undeclared_categories.length + ' with export status or format openness undeclared.');
+  rationale.push(portable ? 'No stranded categories declared.' : (stranded_categories.length + ' categor' + (stranded_categories.length === 1 ? 'y has' : 'ies have') + ' no declared export path.'));
+  rationale.push('Operator-control ratio as declared: ' + operator_control_ratio_declared + ' of definitively-declared components (' + undeclared_component_count + ' undeclared).');
+  if (operator_claim_unsupported) rationale.push('Contractual-operator claim is UNSUPPORTED by the declared component control -- every definitively-declared component is supplier-controlled.');
+  if (single_supplier_no_substitute.length > 0) rationale.push(single_supplier_no_substitute.length + ' single-supplier dependenc' + (single_supplier_no_substitute.length === 1 ? 'y has' : 'ies have') + ' no declared substitute.');
+  rationale.push(escrow_exists === 'true' ? 'Escrow arrangement declared.' : escrow_exists === 'false' ? 'No escrow arrangement declared.' : 'Escrow arrangement not declared (undeclared, not scored as a failure).');
+  rationale.push('This evaluates the declared exit posture only. It does not audit a supplier, rate a vendor, or opine on contract enforceability.');
+
+  var output_payload = {
+    as_of: as_of, contractual_operator: contractual_operator,
+    categories: categories, category_count: categories.length,
+    stranded_categories: stranded_categories, stranded_category_count: stranded_categories.length,
+    proprietary_format_categories: proprietary_format_categories, undeclared_categories: undeclared_categories,
+    portable: portable,
+    components: components, operator_controlled_count: operator_controlled_count, supplier_controlled_count: supplier_controlled_count,
+    undeclared_component_count: undeclared_component_count, declared_component_count: declared_component_count,
+    operator_control_ratio_declared: operator_control_ratio_declared, operator_claim_unsupported: operator_claim_unsupported,
+    dependencies: dependencies, single_supplier_no_substitute: single_supplier_no_substitute,
+    escrow_exists: escrow_exists, escrow_description: escrow_description,
+    notice_period_days: notice_period_days, notice_period_declared: notice_period_declared,
+    transition_assistance_terms: transition_assistance_terms, transition_assistance_declared: !!transition_assistance_terms,
+    exit_readiness_exceptions: exit_readiness_exceptions, rejected_inputs: rejected_inputs, rationale: rationale,
+    note: 'Deterministic evaluation of a caller-declared operator-exit and data-portability posture: per-category export/format portability with a stranded-category list, declared operator- vs supplier-control of named components (with an unsupported-operator-claim check), single-supplier dependencies with no declared substitute, escrow declaration, and notice/transition terms. Evaluates declarations only -- never a supplier audit, rating, or enforceability opinion.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function boolOrUndeclared(s){
+  var t = String(s == null ? '' : s).trim().toLowerCase();
+  if (t === '') return undefined;
+  if (t === 'true') return true;
+  if (t === 'false') return false;
+  return t;
+}
+
+function loadStrandedDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('contractualOperator').value = 'true';
+  document.getElementById('categoriesJson').value = '[\n  { "category": "audit_log_archive", "export_exists": false },\n  { "category": "transaction_ledger", "export_exists": true, "format": "csv", "format_open": true }\n]';
+  document.getElementById('componentsJson').value = '[\n  { "name": "core_processing_engine", "controlled_by": "supplier" },\n  { "name": "settlement_module", "controlled_by": "supplier" }\n]';
+  document.getElementById('dependenciesJson').value = '[]';
+  document.getElementById('escrowExists').value = 'false';
+  document.getElementById('escrowDescription').value = '';
+  document.getElementById('noticePeriod').value = '30';
+  document.getElementById('transitionTerms').value = '';
+  runCheck();
+}
+function loadUndeclaredDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('contractualOperator').value = '';
+  document.getElementById('categoriesJson').value = '[\n  { "category": "vendor_correspondence" }\n]';
+  document.getElementById('componentsJson').value = '[\n  { "name": "unspecified_module" }\n]';
+  document.getElementById('dependenciesJson').value = '[\n  { "name": "unspecified_dependency" }\n]';
+  document.getElementById('escrowExists').value = '';
+  document.getElementById('escrowDescription').value = '';
+  document.getElementById('noticePeriod').value = '';
+  document.getElementById('transitionTerms').value = '';
+  runCheck();
+}
+
+async function runCheck(){
+  var cats, comps, deps;
+  try { cats = JSON.parse(document.getElementById('categoriesJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in data categories: ' + e.message); return; }
+  try { comps = JSON.parse(document.getElementById('componentsJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in declared components: ' + e.message); return; }
+  try { deps = JSON.parse(document.getElementById('dependenciesJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in dependencies: ' + e.message); return; }
+
+  var pp = {
+    as_of: document.getElementById('asOf').value || '',
+    contractual_operator: boolOrUndeclared(document.getElementById('contractualOperator').value),
+    data_categories: cats,
+    declared_components: comps,
+    dependencies: deps,
+    escrow_arrangements: {
+      exists: boolOrUndeclared(document.getElementById('escrowExists').value),
+      description: document.getElementById('escrowDescription').value || undefined,
+    },
+    notice_period_days: (function(){ var t = document.getElementById('noticePeriod').value.trim(); if (t === '') return undefined; var n = Number(t); return Number.isFinite(n) ? n : t; })(),
+    transition_assistance_terms: document.getElementById('transitionTerms').value || undefined,
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = op.portable ? 'var(--green)' : 'var(--red)';
+  vBox.style.background = op.portable ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  vBox.style.border = '1px solid ' + (op.portable ? 'var(--green)' : 'var(--red)');
+  vBox.textContent = (op.portable ? 'PORTABLE' : 'STRANDED DATA PRESENT') + ' · ' + res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.category_count + '</span><span class="stat-key">Data categories</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.stranded_category_count + '</span><span class="stat-key">Stranded categories</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.operator_control_ratio_declared + '</span><span class="stat-key">Operator-control ratio, as declared</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.single_supplier_no_substitute.length + '</span><span class="stat-key">Single-supplier, no substitute</span></div>';
+
+  document.getElementById('catDiv').innerHTML = op.categories.length
+    ? op.categories.map(function(c){
+        var badgeClass = c.verdict === 'STRANDED' ? 'bad' : c.verdict === 'PORTABLE' ? 'ok' : 'warn';
+        return '<div class="kv"><span class="kv-k">' + c.category + (c.format ? ' &middot; ' + c.format : '') + '</span><span class="kv-v"><span class="badge ' + badgeClass + '">' + c.verdict + '</span></span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No data categories declared</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('depDiv').innerHTML = op.dependencies.length
+    ? op.dependencies.map(function(d){
+        var isRisk = d.single_supplier === 'true' && d.substitutable === 'false';
+        return '<div class="kv"><span class="kv-k">' + d.name + '</span><span class="kv-v">single-supplier: ' + d.single_supplier + ', substitutable: ' + d.substitutable +
+          (isRisk ? ' <span class="badge bad">NO SUBSTITUTE</span>' : '') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No dependencies declared</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('excDiv').innerHTML = op.exit_readiness_exceptions.length
+    ? op.exit_readiness_exceptions.map(function(e){
+        return '<div class="kv"><span class="kv-k">' + e.area + ' &middot; ' + e.name + '</span><span class="kv-v">' + e.detail + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no open exit-readiness exceptions</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-520-operator-exit-data-portability',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-520-operator-exit-data-portability.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
