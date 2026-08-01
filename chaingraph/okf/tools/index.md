@@ -453,6 +453,7 @@ status: stable
 - [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md) — `estimate_cross_margin_benefit`
 - [Article 5 Due Diligence Evidence Record](./art-510-build-art5-diligence-evidence.md) — `build_art5_diligence_evidence`
 - [Recompute Fund Fees](./art-511-recompute-fund-fees.md) — `recompute_fund_fees`
+- [Check MiCA Reserve Disclosure](./art-512-check-mica-reserve-disclosure.md) — `check_mica_reserve_disclosure`
 - [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md) — `run_digital_trade_fit`
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`

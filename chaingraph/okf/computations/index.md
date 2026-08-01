@@ -455,6 +455,7 @@ status: stable
 - [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md)
 - [Article 5 Due Diligence Evidence Record](./art-510-build-art5-diligence-evidence.md)
 - [Recompute Fund Fees](./art-511-recompute-fund-fees.md)
+- [Check MiCA Reserve Disclosure](./art-512-check-mica-reserve-disclosure.md)
 - [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md)
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md)
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md)
