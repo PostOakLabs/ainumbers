@@ -466,6 +466,7 @@ status: stable
 - [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md)
 - [Operator Exit & Data Portability](./art-520-operator-exit-data-portability.md)
 - [Settlement-Asset Backing Invariant](./art-521-settlement-asset-backing-invariant.md)
+- [Identity-Proofing Assurance Level Evaluator](./art-523-identity-proofing-assurance-level.md)
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md)
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md)
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md)

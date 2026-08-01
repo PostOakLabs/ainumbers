@@ -19,7 +19,7 @@
  *                      (same derivation as gen-openapi.mjs — not read from generated file)
  *   zk.provenNodes     live nodes carrying a valid ZK compute_proof (any gpu flag)
  *   zk.provenTotal     live nodes in scope for ZK proof (today == all live nodes)
- *   zk.provenPct       round(100 * zk.provenNodes / zk.provenTotal)
+ *   zk.provenPct       floor(100 * zk.provenNodes / zk.provenTotal) — floored so 100 means 100
  *                      (derived via check-compute-proof-coverage.mjs's classifyNode/zkCoverage —
  *                      one classifier, two callers; see ZK100-MESSAGING-SPEC.md §1)
  *

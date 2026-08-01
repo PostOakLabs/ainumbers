@@ -86,7 +86,7 @@ await test('CRLF/CR line-ending normalization does not produce a false stale (ca
   assert(fresh.length === 1 && stale.length === 0, 'CRLF-vs-LF of identical logical source must NOT read as stale');
 });
 
-await test('reproduces the confirmed 133/507 stale count against the real committed chaingraph.json', async () => {
+await test('reproduces the confirmed 134/507 stale count against the real committed chaingraph.json', async () => {
   const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
   const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
   const liveGpuFalse = (cg.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
@@ -165,9 +165,22 @@ await test('reproduces the confirmed 133/507 stale count against the real commit
   // set. NON-SEMANTIC: golden-parity confirms output_payload (and execution_hash) byte-identical
   // across the edit for the node's fixture vector. Reproving is GPU-queue work, tracked separately.
   // Denominator does not move; fresh -1, stale +1.
+  // 133 -> 134 post-ASSEMBLE-LAND-19 (2026-08-01): landed PRIVIN-ENUM-FIX-1 (PR #799), which put
+  // art-359-idv-session-receipt-builder's document_check.digest onto the SPEC.md §25.1 commitment
+  // enumeration. That edits kernel SOURCE, so its sha256-source compute_image moved
+  // (26c871dce0c174a1 -> 7536fd33a193e4a5) while its groth16 receipt still carries the pre-edit
+  // journal.kernel_digest -- build_idv_session_receipt therefore enters the STALE set.
+  // NON-SEMANTIC: the fixture file's three pre-existing vectors are BYTE-IDENTICAL across the edit
+  // (policy_parameters, output_payload and golden_hash all unchanged, verified by direct comparison
+  // against origin/main); the change is additive and opt-in, exercised only by the two NEW vectors
+  // the same PR adds, so no previously-attested computation moved. The receipt's journal.output
+  // still describes exactly the computation it attested -- the out-of-proof-scope shape the
+  // KNOWN_SEMANTIC_STALE set exists to distinguish, so art-359 is NOT added to it. Reproving
+  // art-359 is GPU-queue work, tracked separately.
+  // Denominator does not move; fresh -1, stale +1.
   assert(total === 507, `expected 507 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 374, `expected 374 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (132 plus lint_settlement_orchestrator_conformance/art-292, non-semantic, landed via NORMTERM-FIX-MCPNAME-2), got ${stale.length}`);
+  assert(fresh.length === 373, `expected 373 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 134, `expected 134 stale (133 plus build_idv_session_receipt/art-359, non-semantic, landed via ASSEMBLE-LAND-19), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

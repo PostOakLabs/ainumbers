@@ -111,7 +111,10 @@ export function zkCoverage(chaingraph) {
   const states = liveNodes.map(classifyNode);
   const provenNodes = states.filter((r) => r.state === 'proven').length;
   const provenTotal = liveNodes.length;
-  const provenPct = provenTotal ? Math.round((100 * provenNodes) / provenTotal) : 0;
+  // FLOOR, never round: with 522 of 523 proven, Math.round yields 100 and the published sentinel
+  // reads "100% ... (522 of 523)" — a self-contradicting overclaim. Flooring reports 99, so the
+  // percentage can only reach 100 when every in-scope node is genuinely proven (ASSEMBLE-LAND-19).
+  const provenPct = provenTotal ? Math.floor((100 * provenNodes) / provenTotal) : 0;
   return { provenNodes, provenTotal, provenPct };
 }
 

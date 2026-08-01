@@ -712,8 +712,11 @@ heavy/nondeterministic-cost nodes cannot be proven at acceptable cost — while 
 proof an unreliable, and therefore unusable, trust signal (a consumer cannot depend on a proof that "might" be
 present). The profile is the middle path: a MUST exactly over the class where it is achievable, leaving the base
 standard unchanged for external implementers and for nondeterministic nodes. Its endgame — zero `deferred` on
-`gpu:false` — is the state "every deterministic live node carries a real compute-integrity proof"; the AINumbers
-reference deployment conforms with zero deferrals.
+`gpu:false` — is the state "every deterministic live node carries a real compute-integrity proof". The AINumbers
+reference deployment conforms; its live deferred count is not asserted here, because a newly landed node is
+deferred until the proving queue clears it. Derive it from the gate rather than from this sentence:
+`node scripts/check-compute-proof-coverage.mjs` prints the proven/deferred split, and
+`scripts/compute-proof-baseline.json` pins the downward-only ceiling.
 
 > Informative: a narrated walkthrough of how the AINumbers reference deployment reached full §18.6 coverage (universal guest, the deferred set, and the cross-engine determinism gate) is at [chaingraph/zkvm-compute-integrity.html](../chaingraph/zkvm-compute-integrity.html).
 
