@@ -454,7 +454,16 @@ status: stable
 - [Article 5 Due Diligence Evidence Record](./art-510-build-art5-diligence-evidence.md) — `build_art5_diligence_evidence`
 - [Recompute Fund Fees](./art-511-recompute-fund-fees.md) — `recompute_fund_fees`
 - [Check MiCA Reserve Disclosure](./art-512-check-mica-reserve-disclosure.md) — `check_mica_reserve_disclosure`
+- [Public-Money Settlement Receipt](./art-513-public-money-settlement-receipt.md) — `build_public_money_settlement_receipt`
+- [Conditional-Relief Collateral Receipt](./art-514-conditional-relief-collateral-receipt.md) — `build_conditional_relief_collateral_receipt`
+- [Build Allocation Decision Receipt](./art-515-build-allocation-decision-receipt.md) — `build_allocation_decision_receipt`
+- [Daily Reconciliation Attestation](./art-516-daily-reconciliation-attestation.md) — `attest_daily_reconciliation`
+- [Audit-Trail Completeness Attestation](./art-517-audit-trail-completeness.md) — `validate_audit_trail_completeness`
+- [Bulk Disbursement Integrity](./art-518-bulk-disbursement-integrity.md) — `attest_bulk_disbursement_integrity`
+- [Payment Data Migration Completeness](./art-519-payment-data-migration-completeness.md) — `verify_migration_completeness`
 - [Digital Trade Corridor Fit Diagnostic](./art-52-digital-trade-fit-diagnostic.md) — `run_digital_trade_fit`
+- [Operator Exit & Data Portability](./art-520-operator-exit-data-portability.md) — `check_operator_exit_portability`
+- [Settlement-Asset Backing Invariant](./art-521-settlement-asset-backing-invariant.md) — `verify_settlement_asset_backing`
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`

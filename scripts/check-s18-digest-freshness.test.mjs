@@ -129,8 +129,16 @@ await test('reproduces the confirmed 132/462 stale count against the real commit
   // already equalled the receipt's journal kernel_digest before writing, so all five enter the
   // FRESH set by construction and no existing node's digest moved. Denominator and fresh each move
   // by exactly 5; the stale count does not move.
-  assert(total === 498, `expected 498 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 367, `expected 367 fresh (calibration set), got ${fresh.length}`);
+  // 498 -> 499 post-ASSEMBLE-LAND-17 (2026-08-01): landed the nine INBOUND nodes (art-513..art-521).
+  // Eight of the nine ship compute_proof_ready:'deferred' with an empty compute_proof, so they are
+  // NOT in scope here; only art-517-audit-trail-completeness arrived carrying a groth16 receipt
+  // (built by INBOUND-AUDIT-1, PR #191). Its compute_proof is byte-identical to the shard on
+  // origin/main (sha256[0:16] 28d8e87eff01b439 both sides) -- assembly spliced it verbatim and this
+  // row did not re-prove it -- so its journal kernel_digest still equals its recomputed source
+  // digest and it enters the FRESH set by construction. Denominator and fresh each move by exactly
+  // 1; the stale count does not move.
+  assert(total === 499, `expected 499 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 368, `expected 368 fresh (calibration set), got ${fresh.length}`);
   assert(stale.length === 131, `expected 131 stale (132 minus compute_ltv_ratios/art-336, landed via ASSEMBLE-LAND-ART336-1), got ${stale.length}`);
 });
 
