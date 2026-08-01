@@ -132,13 +132,16 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <div class="eyebrow">ART-359 · Identity Verification / KYC Session Evidence</div>
   <h1>IDV/KYC Session Evidence Receipt Builder</h1>
   <p class="sub">Hash-chains a verification session's <b>declared results</b> -- injection-detection verdict, liveness verdict, document-check digest, device-signal summary, and capture-chain digest -- into a tamper-evident session receipt, per attempt. Built for the deepfake era: virtual-camera injection attacks and AI identity fraud are both surging, and banks are shifting to session-level detection. Client-side, zero-egress; emits a hash-anchored OpenChainGraph v0.4 artifact.</p>
-  <div class="flag">Attests the session record AS DECLARED by the verifier -- NOT detection quality, NOT that the subject is genuine. Zero PII: consumes digests/booleans/scores only, never images or biometrics -- raw-data-shaped inputs are rejected.</div>
+  <div class="flag">Attests the session record AS DECLARED by the verifier -- NOT detection quality, NOT that the subject is genuine. Zero PII: consumes digests/booleans/scores only, never images or biometrics -- raw-data-shaped inputs are rejected. That rejection is a shape check: it cannot tell a digest of a photograph from a digest of a document number, so it stops raw PII but does not stop a reversible commitment. See the document-check note below.</div>
+  <div class="flag" style="border-left-color:var(--teal)">&#128274; DOCUMENT-CHECK DIGEST COMMITMENT (OpenChainGraph Standard &sect;25, <code>ocg-private-input@1</code>). The capture-chain manifest digest is bound to a capture event and is high-entropy, so it stays a plain digest and is not covered here. The document-check digest is different: this tool never pinned it off enumerable values, so you may be digesting a document number, an expiry date, or another small structured field. A bare hash of one of those is NOT safe &mdash; the value space is small, so an attacker holding the artifact can precompute the digest of every candidate and recover the plaintext by table lookup. If that describes your input, supply the digest as a <code>sha256-salted@1</code> commitment &mdash; <code>sha256:</code> + the hex SHA-256 of a fresh &ge;256-bit secret salt you generate and keep, concatenated with the canonicalized value &mdash; and declare the scheme below. The salt stays with you: it never leaves your hands, is never entered here, and never appears in the artifact. Accepted commitments are listed in the artifact's <code>private_inputs[]</code>; leave the scheme field blank only for sessions that predate this contract.</div>
   <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 
   <div class="preset-row">
     <button class="btn-sm" onclick="loadPreset('a')">Preset A: Clean pass, all asserted verdicts positive</button>
     <button class="btn-sm" onclick="loadPreset('b')">Preset B: Injection detected + liveness failed</button>
     <button class="btn-sm" onclick="loadPreset('c')">Preset C: PII-shaped input (rejected)</button>
+    <button class="btn-sm" onclick="loadPreset('d')">Preset D: Document digest as a salted commitment (&sect;25)</button>
+    <button class="btn-sm" onclick="loadPreset('e')">Preset E: Unknown commitment scheme (rejected)</button>
   </div>
 
   <div class="card">
@@ -155,6 +158,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="q"><span class="dim">Liveness</span><label>Liveness verdict</label><select id="live_verdict"><option value="true">Passed (true)</option><option value="false">Failed (false)</option></select></div>
       <div class="q"><span class="dim">Liveness</span><label>Liveness score (0-1)</label><input type="number" id="live_score" step="0.01" min="0" max="1" value="0.9"></div>
       <div class="q"><span class="dim">Document</span><label>Document-check digest</label><input type="text" id="doc_digest" placeholder="sha256:..."></div>
+      <div class="q"><span class="dim">Document</span><label>Document-check digest commitment scheme (optional -- blank for a legacy session; <code>sha256-salted@1</code> requires the digest above to be a <code>sha256:&lt;64-hex&gt;</code> commitment; any other value is rejected as an unknown scheme)</label><input type="text" id="doc_digest_scheme" placeholder="sha256-salted@1"></div>
       <div class="q"><span class="dim">Document</span><label>Document-check verdict</label><select id="doc_verdict"><option value="true">Passed (true)</option><option value="false">Failed (false)</option></select></div>
       <div class="q"><span class="dim">Device</span><label>Device-signal summary</label><input type="text" id="dev_summary" placeholder="consistent-device-fingerprint"></div>
       <div class="q"><span class="dim">Device</span><label>Device risk score (0-1)</label><input type="number" id="dev_risk" step="0.01" min="0" max="1" value="0.05"></div>
@@ -193,7 +197,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       "capture_chain": {"type": "object", "properties": {"manifest_digest": {"type": ["string","null"]}}},
       "injection_detection": {"type": "object", "properties": {"vendor": {"type": "string"}, "vendor_version": {"type": "string"}, "verdict": {"type": ["boolean","null"]}, "confidence": {"type": ["number","null"]}}},
       "liveness": {"type": "object", "properties": {"method": {"type": "string"}, "verdict": {"type": ["boolean","null"]}, "score": {"type": ["number","null"]}}},
-      "document_check": {"type": "object", "properties": {"digest": {"type": ["string","null"]}, "verdict": {"type": ["boolean","null"]}}},
+      "document_check": {"type": "object", "properties": {"digest": {"type": ["string","null"]}, "verdict": {"type": ["boolean","null"]}, "digest_commitment_scheme": {"type": "string"}}},
       "device_signal": {"type": "object", "properties": {"summary": {"type": "string"}, "risk_score": {"type": ["number","null"]}}}
     }
   }
@@ -203,6 +207,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 // --- compute (MUST mirror kernels/art-359-idv-session-receipt-builder.kernel.mjs) ---
 const PII_RISK_KEYS=['document_image','face_image','selfie','biometric_template','raw_capture'];
+// SPEC.md §25.1 -- the sole commitment scheme this profile version accepts.
+const SHA256_SALTED_SCHEME='sha256-salted@1';
+const SHA256_COMMITMENT_RE=/^sha256:[0-9a-f]{64}$/;
 function safeStr(v){return typeof v==='string'?v.trim():'';}
 function safeBool(v){return typeof v==='boolean'?v:null;}
 function safeNum(v){return typeof v==='number'&&Number.isFinite(v)?v:null;}
@@ -220,18 +227,42 @@ function compute(pp){
   const pii_violations=rejectPiiShaped(pp);
   if(pii_violations.length){
     const output_payload={rejected:true,rejection_reason:'raw-data-shaped input on PII-risk field(s), not a digest/boolean/score',pii_violations,session:null};
-    return{output_payload,compliance_flags:['IDV_SESSION_INPUT_REJECTED_PII_SHAPE']};
+    return{output_payload,compliance_flags:['IDV_SESSION_INPUT_REJECTED_PII_SHAPE'],private_input_candidates:[]};
   }
   const session_id=safeStr(pp.session_id),verifier_id=safeStr(pp.verifier_id),verifier_version=safeStr(pp.verifier_version),timestamp=safeStr(pp.timestamp);
   const capture_chain=pp.capture_chain||{},injection_detection=pp.injection_detection||{},liveness=pp.liveness||{},document_check=pp.document_check||{},device_signal=pp.device_signal||{};
+  // SPEC.md §25.0-§25.2 -- optional, scoped to document_check.digest. Absent = today's
+  // behaviour byte-for-byte. Declared -> sha256-salted@1 is the sole accepted scheme.
+  const declaredScheme=safeStr(document_check.digest_commitment_scheme)||null;
+  const schemeKnown=declaredScheme===null||declaredScheme===SHA256_SALTED_SCHEME;
+  let document_digest=document_check.digest?safeStr(document_check.digest):null;
+  let document_digest_is_commitment=false;
+  const commitment_rejections=[];
+  if(declaredScheme!==null){
+    if(!schemeKnown){
+      commitment_rejections.push({where:'document_check.digest_commitment_scheme',reason:'unknown commitment scheme -- "'+SHA256_SALTED_SCHEME+'" is the sole scheme accepted (SPEC.md §25.1); the declared document_check.digest is excluded rather than trusted as opaque',supplied:declaredScheme});
+      document_digest=null;
+    }else if(document_digest!==null&&!SHA256_COMMITMENT_RE.test(document_digest)){
+      commitment_rejections.push({where:'document_check.digest',reason:'declared commitment_scheme "'+SHA256_SALTED_SCHEME+'" but the value is not a well-formed sha256: commitment (^sha256:[0-9a-f]{64}$)',supplied:document_digest});
+      document_digest=null;
+    }else if(document_digest!==null){document_digest_is_commitment=true;}
+  }
   const session={
     session_id,verifier_id,verifier_version,timestamp,
     capture_chain:{manifest_present:!!capture_chain.manifest_digest,manifest_digest:capture_chain.manifest_digest?safeStr(capture_chain.manifest_digest):null,label:'asserted'},
     injection_detection:{vendor:safeStr(injection_detection.vendor),vendor_version:safeStr(injection_detection.vendor_version),verdict:injection_detection.verdict===true||injection_detection.verdict===false?injection_detection.verdict:null,confidence:safeNum(injection_detection.confidence),label:'asserted'},
     liveness:{method:safeStr(liveness.method),verdict:safeBool(liveness.verdict),score:safeNum(liveness.score),label:'asserted'},
-    document_check:{digest:document_check.digest?safeStr(document_check.digest):null,verdict:safeBool(document_check.verdict),label:'asserted'},
+    document_check:{digest:document_digest,verdict:safeBool(document_check.verdict),label:'asserted'},
     device_signal:{summary:safeStr(device_signal.summary),risk_score:safeNum(device_signal.risk_score),label:'asserted'},
   };
+  // §25.0 declaration + opt-in echo -- added ONLY when the caller declares the scheme,
+  // so a session predating this contract is byte-identical.
+  const private_input_candidates=[];
+  if(declaredScheme!==null){
+    session.document_check.digest_commitment_scheme=declaredScheme;
+    if(commitment_rejections.length)session.document_check.commitment_rejections=commitment_rejections;
+    if(document_digest_is_commitment)private_input_candidates.push({pointer:'/document_check/digest',commitment:document_digest,commitment_scheme:SHA256_SALTED_SCHEME});
+  }
   const flags_missing=[];
   if(!session_id)flags_missing.push('session_id');
   if(!verifier_id)flags_missing.push('verifier_id');
@@ -242,7 +273,9 @@ function compute(pp){
   compliance_flags.push(session_complete?'IDV_SESSION_METADATA_COMPLETE':'IDV_SESSION_METADATA_INCOMPLETE');
   if(session.injection_detection.verdict===true)compliance_flags.push('IDV_INJECTION_DETECTED_ASSERTED');
   if(session.liveness.verdict===false)compliance_flags.push('IDV_LIVENESS_FAILED_ASSERTED');
-  return{output_payload,compliance_flags};
+  if(document_digest_is_commitment)compliance_flags.push('IDV_DOCUMENT_DIGEST_PRIVATE_INPUT');
+  if(commitment_rejections.length)compliance_flags.push('IDV_DOCUMENT_DIGEST_COMMITMENT_REJECTED');
+  return{output_payload,compliance_flags,private_input_candidates};
 }
 
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
@@ -252,6 +285,8 @@ const PRESETS={
   a:{session_id:'sess-2026-0001',verifier_id:'vendor-alpha-idv',verifier_version:'3.2.1',timestamp:'2026-07-18T09:00:00Z',manifest_digest:'sha256:aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa1',inj_vendor:'DetectCo',inj_verdict:'false',inj_confidence:0.97,live_method:'active-challenge',live_verdict:'true',live_score:0.94,doc_digest:'sha256:bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb2',doc_verdict:'true',dev_summary:'consistent-device-fingerprint',dev_risk:0.05,document_image:''},
   b:{session_id:'sess-2026-0002',verifier_id:'vendor-alpha-idv',verifier_version:'3.2.1',timestamp:'2026-07-18T09:05:00Z',manifest_digest:'',inj_vendor:'DetectCo',inj_verdict:'true',inj_confidence:0.88,live_method:'active-challenge',live_verdict:'false',live_score:0.31,doc_digest:'sha256:cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc3',doc_verdict:'false',dev_summary:'emulator-signature-detected',dev_risk:0.91,document_image:''},
   c:{session_id:'sess-2026-0003',verifier_id:'vendor-alpha-idv',verifier_version:'3.2.1',timestamp:'2026-07-18T09:10:00Z',manifest_digest:'sha256:dd44dd44dd44dd44dd44dd44dd44dd44dd44dd44dd44dd44dd44dd44dd44dd4',inj_vendor:'DetectCo',inj_verdict:'false',inj_confidence:0.9,live_method:'active-challenge',live_verdict:'true',live_score:0.9,doc_digest:'sha256:ee55ee55ee55ee55ee55ee55ee55ee55ee55ee55ee55ee55ee55ee55ee55ee5',doc_verdict:'true',dev_summary:'consistent-device-fingerprint',dev_risk:0.05,document_image:'base64-would-go-here-this-is-raw-capture-data-not-a-digest'},
+  d:{session_id:'sess-2026-0004',verifier_id:'vendor-alpha-idv',verifier_version:'3.2.1',timestamp:'2026-07-18T09:15:00Z',manifest_digest:'sha256:aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa1',inj_vendor:'DetectCo',inj_verdict:'false',inj_confidence:0.96,live_method:'active-challenge',live_verdict:'true',live_score:0.93,doc_digest:'sha256:9ef07fa7a9389f992819c4d447d02e00a873090f98458d41b6c6a344e485116f',doc_digest_scheme:'sha256-salted@1',doc_verdict:'true',dev_summary:'consistent-device-fingerprint',dev_risk:0.06,document_image:''},
+  e:{session_id:'sess-2026-0005',verifier_id:'vendor-alpha-idv',verifier_version:'3.2.1',timestamp:'2026-07-18T09:20:00Z',manifest_digest:'sha256:aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa1',inj_vendor:'DetectCo',inj_verdict:'false',inj_confidence:0.96,live_method:'active-challenge',live_verdict:'true',live_score:0.93,doc_digest:'sha256:9ef07fa7a9389f992819c4d447d02e00a873090f98458d41b6c6a344e485116f',doc_digest_scheme:'md5-unsalted@1',doc_verdict:'true',dev_summary:'consistent-device-fingerprint',dev_risk:0.06,document_image:''},
 };
 
 function loadPreset(p){
@@ -268,6 +303,7 @@ function loadPreset(p){
   document.getElementById('live_verdict').value=v.live_verdict;
   document.getElementById('live_score').value=v.live_score;
   document.getElementById('doc_digest').value=v.doc_digest;
+  document.getElementById('doc_digest_scheme').value=v.doc_digest_scheme||'';
   document.getElementById('doc_verdict').value=v.doc_verdict;
   document.getElementById('dev_summary').value=v.dev_summary;
   document.getElementById('dev_risk').value=v.dev_risk;
@@ -286,6 +322,9 @@ function readPp(){
     document_check:{digest:document.getElementById('doc_digest').value||null,verdict:document.getElementById('doc_verdict').value==='true'},
     device_signal:{summary:document.getElementById('dev_summary').value,risk_score:parseFloat(document.getElementById('dev_risk').value)},
   };
+  // Optional (SPEC.md §25.0) -- only added when declared, so a legacy session is byte-identical.
+  const docScheme=(document.getElementById('doc_digest_scheme').value||'').trim();
+  if(docScheme!=='')pp.document_check.digest_commitment_scheme=docScheme;
   const img=document.getElementById('document_image').value;
   if(img)pp.document_image=img;
   return pp;
@@ -293,7 +332,7 @@ function readPp(){
 
 async function run(){
   const pp=readPp();
-  const{output_payload:op,compliance_flags}=compute(pp);
+  const{output_payload:op,compliance_flags,private_input_candidates}=compute(pp);
 
   if(!op.rejected){
     const prior_attempt_hash=op.session.session_id||'';
@@ -303,6 +342,8 @@ async function run(){
 
   const hash=await execHash(pp,op);
   const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-359-idv-session-receipt-builder',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  // §25.0 -- attached AFTER execHash, hash-excluded by construction (SPEC.md §25.0/§25.6).
+  if(private_input_candidates&&private_input_candidates.length>0)artifact.private_inputs=private_input_candidates;
 
   document.getElementById('results').classList.add('show');
   if(op.rejected){
@@ -317,7 +358,7 @@ async function run(){
       <div class="field-row"><span class="lbl">Capture chain</span><span class="asserted-tag">asserted</span><br>manifest present: ${s.capture_chain.manifest_present}${s.capture_chain.manifest_digest?' · '+s.capture_chain.manifest_digest.slice(0,28)+'…':''}</div>
       <div class="field-row"><span class="lbl">Injection detection</span><span class="asserted-tag">asserted</span><br>${s.injection_detection.vendor||'—'} ${s.injection_detection.vendor_version||''}: verdict=${s.injection_detection.verdict} confidence=${s.injection_detection.confidence}</div>
       <div class="field-row"><span class="lbl">Liveness</span><span class="asserted-tag">asserted</span><br>${s.liveness.method||'—'}: verdict=${s.liveness.verdict} score=${s.liveness.score}</div>
-      <div class="field-row"><span class="lbl">Document check</span><span class="asserted-tag">asserted</span><br>verdict=${s.document_check.verdict}${s.document_check.digest?' · '+s.document_check.digest.slice(0,28)+'…':''}</div>
+      <div class="field-row"><span class="lbl">Document check</span><span class="asserted-tag">asserted</span><br>verdict=${s.document_check.verdict}${s.document_check.digest?' · '+s.document_check.digest.slice(0,28)+'…':''}${s.document_check.digest_commitment_scheme?'<br>commitment scheme: '+s.document_check.digest_commitment_scheme+(s.document_check.commitment_rejections?' — REJECTED: '+s.document_check.commitment_rejections.map(r=>r.reason).join('; '):' — accepted, declared in private_inputs[]; the salt stays with you and is not in this artifact'):''}</div>
       <div class="field-row"><span class="lbl">Device signal</span><span class="asserted-tag">asserted</span><br>${s.device_signal.summary||'—'}: risk_score=${s.device_signal.risk_score}</div>`;
     document.getElementById('receiptSection').innerHTML=`<div class="muted" style="margin-top:12px">Hash-chained session receipt:</div><div class="receipt-hash">prior: ${op.session_receipt.prior_attempt_hash}<br>receipt: sha256:${op.session_receipt.receipt_hash}</div><a class="anchor-btn" id="anchorBtn" target="_blank" rel="noopener" href="https://anchor.ainumbers.co/?hash=${encodeURIComponent(op.session_receipt.receipt_hash)}">⚓ Anchor this receipt →</a><p style="font-size:.6rem;color:var(--muted);margin-top:.6rem">Anchoring links out to anchor.ainumbers.co (a separate site, opened by your click) to timestamp the receipt hash. This page never contacts it directly.</p>`;
   }
