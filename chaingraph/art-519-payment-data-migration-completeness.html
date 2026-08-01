@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Payment Data Migration Completeness &middot; ART-519 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Verifies that data moved from a legacy system to a successor is complete, value-preserving, and reconcilable, from caller-declared per-partition counts and control totals. Catches an aggregate that reconciles while individual partitions do not.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-519-payment-data-migration-completeness.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:110px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-519 · Payment Data Migration Completeness</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-519 &middot; Government &amp; Public-Money Payment Evidence</div>
+  <h1>Payment Data Migration Completeness</h1>
+  <p class="sub">Verifies that historical data moved from a legacy system to a successor is complete, value-preserving, and reconcilable &mdash; the evidence a migration actually needs. You declare per-partition source and target record counts and control totals (by period, agency, or rail &mdash; whatever partition scheme fits your migration), known exclusions with reasons, declared transformation rules, and any fields you observed changed. This tool never reads your source or target dataset: it reconciles the figures you already have. It checks every partition individually as well as the aggregate, because an aggregate that nets to zero while individual partitions do not is the failure a rushed sign-off misses. Emits a hash-anchored OpenChainGraph v0.4 artifact. Region-portable: every fact below is an input you declare, never a hardcoded country, currency, agency, or rail.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Per-partition and aggregate completeness</span>
+    <span class="flag info">Transformation coverage</span>
+    <span class="flag">Sampled-verification residual risk</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This tool does not read your source or target dataset &mdash; you supply counts and totals your migration tooling already produced. A clean result is not a determination that any underlying data quality control has been met; it is an arithmetic reconciliation over the figures you declare. It computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Migration</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own. Load the partition-inconsistent demo to see the flag this tool exists to catch.</p>
+    <div class="grid3">
+      <div><label class="fld">Migration ID</label><input type="text" id="migId" value="MIGR-2026-JURA-01"></div>
+      <div><label class="fld">As-of (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOf" value="2026-07-31"></div>
+      <div><label class="fld">Currency</label><input type="text" id="currency" value="USD"></div>
+    </div>
+    <label class="fld">Reconciliation tolerance (minor units, value variance allowed per partition and in aggregate)</label>
+    <input type="text" id="tolerance" value="0">
+
+    <label class="fld">Declared partitions (JSON array: partition_label, source_record_count, source_control_total_minor_units, target_record_count, target_control_total_minor_units, known_exclusions [{reason_code, excluded_record_count, excluded_value_minor_units}], sample_verification {sampled, sample_size, discrepancies_found})</label>
+    <textarea id="partitionsJson" style="min-height:220px">[
+  {
+    "partition_label": "2026-Q1",
+    "source_record_count": 10000,
+    "source_control_total_minor_units": 50000000,
+    "target_record_count": 9990,
+    "target_control_total_minor_units": 49950000,
+    "known_exclusions": [
+      { "reason_code": "closed_account_purged_pre_migration", "excluded_record_count": 10, "excluded_value_minor_units": 50000 }
+    ]
+  },
+  {
+    "partition_label": "2026-Q2",
+    "source_record_count": 12000,
+    "source_control_total_minor_units": 60000000,
+    "target_record_count": 12000,
+    "target_control_total_minor_units": 60000000,
+    "known_exclusions": []
+  }
+]</textarea>
+    <div class="grid2">
+      <div>
+        <label class="fld">Declared transformation rules (JSON array: field, description)</label>
+        <textarea id="rulesJson">[
+  { "field": "account_ref", "description": "legacy 8-digit account number remapped to successor 12-digit account ref" }
+]</textarea>
+      </div>
+      <div>
+        <label class="fld">Observed changed fields (JSON array of field names your own comparison found different pre/post)</label>
+        <textarea id="observedJson">["account_ref"]</textarea>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Verification</button>
+      <button class="ghost" onclick="loadInconsistentDemo()">Load partition-inconsistent demo</button>
+      <button class="ghost" onclick="loadSampledDemo()">Load sampled-only demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Partitions</div>
+      <div id="partDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Transformation coverage</div>
+      <div id="xformDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not read your source or target system, extract records, or compute a migration from raw data &mdash; you run that separately and declare the counts and totals here. It is not a regime-specific migration tool: it does not validate ISO 20022 address fields, VIDA recapitulative statements, x402 protocol versions, or TLS/PKI cutover, and it does not score migration readiness maturity. A clean result is not a determination that any underlying data quality control has been met, and where a partition was verified by sampling only, this tool reports that as a residual-risk statement rather than a completeness verdict.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Prior art it does not duplicate, all regime-specific: <a href="art-161-vida-recapitulative-statement-migration-assessor.html">ART-161</a> (VIDA recapitulative statements), <a href="art-393-x402-v2-migration-linter.html">ART-393</a> (x402 v2 protocol), <a href="art-86-tls-pki-migration-planner.html">ART-86</a> (TLS/PKI), <a href="rca-03-iso20022-address-migration-verifier.html">RCA-03</a> (ISO 20022 PostalAddress24 fields), and <a href="../tools/101-iso20022-migration-scorer.html">101</a> (ISO 20022 migration readiness scoring across 7 maturity dimensions &mdash; a self-assessment, not a completeness verifier). This node is the generic completeness verifier none of those provide. Part of the government-payment-lifecycle chain alongside the programme's other audit-evidence nodes as they ship.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-519-payment-data-migration-completeness',
+  version: '1.0.0',
+  mcp_name: 'verify_migration_completeness',
+  title: 'Payment Data Migration Completeness',
+  description: 'Verifies that data moved from a legacy system to a successor is complete, value-preserving, and reconcilable, from caller-declared per-partition source/target counts and control totals. Checks aggregate-vs-partition consistency, transformation coverage, and sampled-verification residual risk. Never reads a source or target dataset.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'verify_migration_completeness',
+    description: 'Verifies payment data migration completeness: per-partition and aggregate count/value reconciliation (MIGR_PARTITION_INCONSISTENT when the aggregate reconciles but partitions do not), transformation coverage (MIGR_UNDECLARED_TRANSFORM), and sampled-verification residual risk (MIGR_SAMPLED_ONLY, never presented as MIGR_COMPLETE).',
+    inputSchema: { type: 'object', properties: {
+      migration_id: {type:'string'}, as_of: {type:'string'}, currency: {type:'string'}, reconciliation_tolerance_minor_units: {type:'number'},
+      partitions: {type:'array'}, declared_transformation_rules: {type:'array'}, observed_changed_fields: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-519-payment-data-migration-completeness.kernel.mjs --- */
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where,
+    reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v),
+    supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function toCount(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v) && v >= 0) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where, reason: 'expected a non-negative integer count', supplied: typeof v === 'number' ? v : String(v) });
+  return 0;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / 100); var frac = abs - whole * 100;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
+}
+
+function normalizeExclusions(list, partitionLabel, rejected){
+  var arr = Array.isArray(list) ? list : [];
+  return arr.map(function(e, i){
+    e = e && typeof e === 'object' ? e : {};
+    var reason_code = isNonEmptyString(e.reason_code) ? e.reason_code.trim() : null;
+    if (!reason_code) rejected.push({ where: 'partitions[' + partitionLabel + '].known_exclusions[' + i + '].reason_code', reason: 'absent', supplied: null });
+    var excluded_record_count = toCount(e.excluded_record_count, 'partitions[' + partitionLabel + '].known_exclusions[' + i + '].excluded_record_count', rejected);
+    var excluded_value_minor_units = toMinorUnits(e.excluded_value_minor_units, 'partitions[' + partitionLabel + '].known_exclusions[' + i + '].excluded_value_minor_units', rejected);
+    return { reason_code: reason_code || 'unclassified', excluded_record_count: excluded_record_count, excluded_value_minor_units: excluded_value_minor_units, excluded_value_display: display(excluded_value_minor_units) };
+  });
+}
+
+function computePartition(raw, index, rejected){
+  raw = raw && typeof raw === 'object' ? raw : {};
+  var partition_label = isNonEmptyString(raw.partition_label) ? raw.partition_label.trim() : ('PARTITION-' + (index + 1));
+
+  var source_record_count = toCount(raw.source_record_count, 'partitions[' + partition_label + '].source_record_count', rejected);
+  var source_control_total_minor_units = toMinorUnits(raw.source_control_total_minor_units, 'partitions[' + partition_label + '].source_control_total_minor_units', rejected);
+  var target_record_count = toCount(raw.target_record_count, 'partitions[' + partition_label + '].target_record_count', rejected);
+  var target_control_total_minor_units = toMinorUnits(raw.target_control_total_minor_units, 'partitions[' + partition_label + '].target_control_total_minor_units', rejected);
+
+  var known_exclusions = normalizeExclusions(raw.known_exclusions, partition_label, rejected);
+  var excluded_record_count = known_exclusions.reduce(function(a, e){ return a + e.excluded_record_count; }, 0);
+  var excluded_value_minor_units = known_exclusions.reduce(function(a, e){ return a + e.excluded_value_minor_units; }, 0);
+
+  var expected_target_record_count = source_record_count - excluded_record_count;
+  var expected_target_value_minor_units = source_control_total_minor_units - excluded_value_minor_units;
+
+  var count_variance = target_record_count - expected_target_record_count;
+  var value_variance_minor_units = target_control_total_minor_units - expected_target_value_minor_units;
+
+  var sv = raw.sample_verification && typeof raw.sample_verification === 'object' ? raw.sample_verification : {};
+  var sampled = sv.sampled === true;
+  var sample_size = sampled ? toCount(sv.sample_size, 'partitions[' + partition_label + '].sample_verification.sample_size', rejected) : 0;
+  var sample_discrepancies_found = sampled ? toCount(sv.discrepancies_found, 'partitions[' + partition_label + '].sample_verification.discrepancies_found', rejected) : 0;
+
+  var count_complete = count_variance === 0;
+
+  return {
+    partition_label: partition_label,
+    source_record_count: source_record_count, source_control_total_minor_units: source_control_total_minor_units, source_control_total_display: display(source_control_total_minor_units),
+    target_record_count: target_record_count, target_control_total_minor_units: target_control_total_minor_units, target_control_total_display: display(target_control_total_minor_units),
+    known_exclusions: known_exclusions, excluded_record_count: excluded_record_count, excluded_value_minor_units: excluded_value_minor_units, excluded_value_display: display(excluded_value_minor_units),
+    expected_target_record_count: expected_target_record_count, expected_target_value_minor_units: expected_target_value_minor_units, expected_target_value_display: display(expected_target_value_minor_units),
+    count_variance: count_variance, value_variance_minor_units: value_variance_minor_units, value_variance_display: display(value_variance_minor_units),
+    count_complete: count_complete, value_complete: false, partition_complete: false,
+    sampled: sampled, sample_size: sample_size, sample_discrepancies_found: sample_discrepancies_found,
+  };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var migration_id = isNonEmptyString(pp.migration_id) ? pp.migration_id.trim() : null;
+  var as_of = isoDateOrNull(pp.as_of);
+  var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'USD';
+  var reconciliation_tolerance_minor_units = (typeof pp.reconciliation_tolerance_minor_units === 'number' && Number.isFinite(pp.reconciliation_tolerance_minor_units) && pp.reconciliation_tolerance_minor_units >= 0)
+    ? Math.trunc(pp.reconciliation_tolerance_minor_units) : 0;
+
+  var partitionsIn = Array.isArray(pp.partitions) ? pp.partitions : [];
+  var partitions = partitionsIn.map(function(p, i){ return computePartition(p, i, rejected_inputs); });
+
+  partitions.forEach(function(part){
+    part.value_complete = Math.abs(part.value_variance_minor_units) <= reconciliation_tolerance_minor_units;
+    part.partition_complete = part.count_complete && part.value_complete;
+  });
+
+  var partitions_with_variance = partitions.filter(function(p){ return !p.partition_complete; });
+  var count_variance_partitions = partitions.filter(function(p){ return !p.count_complete; });
+  var value_variance_partitions = partitions.filter(function(p){ return !p.value_complete; });
+
+  var aggregate_count_variance = partitions.reduce(function(a, p){ return a + p.count_variance; }, 0);
+  var aggregate_value_variance_minor_units = partitions.reduce(function(a, p){ return a + p.value_variance_minor_units; }, 0);
+  var aggregate_count_complete = aggregate_count_variance === 0;
+  var aggregate_value_complete = Math.abs(aggregate_value_variance_minor_units) <= reconciliation_tolerance_minor_units;
+  var aggregate_complete = aggregate_count_complete && aggregate_value_complete;
+  var all_partitions_complete = partitions.length > 0 && partitions.every(function(p){ return p.partition_complete; });
+  var partition_inconsistent = partitions.length > 1 && aggregate_complete && !all_partitions_complete;
+
+  var declaredRulesIn = Array.isArray(pp.declared_transformation_rules) ? pp.declared_transformation_rules : [];
+  var declared_transformation_rules = declaredRulesIn.map(function(r, i){
+    r = r && typeof r === 'object' ? r : {};
+    var field = isNonEmptyString(r.field) ? r.field.trim() : null;
+    if (!field) rejected_inputs.push({ where: 'declared_transformation_rules[' + i + '].field', reason: 'absent', supplied: null });
+    var description = isNonEmptyString(r.description) ? r.description.trim() : null;
+    return { field: field || ('UNLABELLED-' + (i + 1)), description: description || null };
+  });
+  var declaredFieldSet = {};
+  declared_transformation_rules.forEach(function(r){ declaredFieldSet[r.field] = true; });
+
+  var observedChangedIn = Array.isArray(pp.observed_changed_fields) ? pp.observed_changed_fields : [];
+  var observed_changed_fields = observedChangedIn.filter(function(f){ return isNonEmptyString(f); }).map(function(f){ return f.trim(); });
+  var undeclared_transformed_fields = observed_changed_fields.filter(function(f){ return !declaredFieldSet[f]; });
+
+  var sampled_partitions = partitions.filter(function(p){ return p.sampled; });
+  var any_sampled_only = sampled_partitions.length > 0;
+  var sample_discrepancies_total = sampled_partitions.reduce(function(a, p){ return a + p.sample_discrepancies_found; }, 0);
+
+  var arithmetic_complete = partitions.length > 0 && all_partitions_complete && !partition_inconsistent && undeclared_transformed_fields.length === 0;
+  var migration_complete = arithmetic_complete && !any_sampled_only;
+
+  var compliance_flags = [];
+  if (count_variance_partitions.length > 0) compliance_flags.push('MIGR_COUNT_VARIANCE');
+  if (value_variance_partitions.length > 0) compliance_flags.push('MIGR_VALUE_VARIANCE');
+  if (partition_inconsistent) compliance_flags.push('MIGR_PARTITION_INCONSISTENT');
+  if (undeclared_transformed_fields.length > 0) compliance_flags.push('MIGR_UNDECLARED_TRANSFORM');
+  if (any_sampled_only) compliance_flags.push('MIGR_SAMPLED_ONLY');
+  if (rejected_inputs.length > 0) compliance_flags.push('MIGR_INPUTS_REJECTED');
+  if (migration_complete) compliance_flags.push('MIGR_COMPLETE');
+
+  var rationale = [];
+  rationale.push(partitions.length > 0
+    ? (partitions.length + ' declared partition' + (partitions.length === 1 ? '' : 's') + ' evaluated; ' + (partitions.length - partitions_with_variance.length) + ' of ' + partitions.length + ' reconcile in both count and value within the declared ' + display(reconciliation_tolerance_minor_units) + ' ' + currency + ' tolerance.')
+    : 'No partitions were declared; there is nothing to reconcile.');
+  rationale.push(aggregate_complete
+    ? ('Aggregate (sum of declared partitions) reconciles: count variance ' + aggregate_count_variance + ', value variance ' + display(aggregate_value_variance_minor_units) + ' ' + currency + '.')
+    : ('Aggregate does NOT reconcile: count variance ' + aggregate_count_variance + ', value variance ' + display(aggregate_value_variance_minor_units) + ' ' + currency + '.'));
+  if (partition_inconsistent) rationale.push('The aggregate reconciles while ' + partitions_with_variance.length + ' of ' + partitions.length + ' individual partitions do not -- this is the failure the aggregate alone conceals.');
+  if (undeclared_transformed_fields.length > 0) rationale.push(undeclared_transformed_fields.length + ' observed changed field(s) have no declared transformation rule: ' + undeclared_transformed_fields.join(', ') + '.');
+  if (any_sampled_only) rationale.push(sampled_partitions.length + ' of ' + partitions.length + ' partition(s) were verified by sampling only (' + sample_discrepancies_total + ' discrepancy(ies) found in-sample) -- this is a residual-risk statement, not a completeness verdict, and suppresses MIGR_COMPLETE for the migration as a whole.');
+  rationale.push('This is a deterministic reconciliation over caller-declared source/target counts and control totals. It does not read the source or target dataset and is not a determination that any underlying data quality control has been met.');
+
+  var output_payload = {
+    migration_id: migration_id, as_of: as_of, currency: currency, reconciliation_tolerance_minor_units: reconciliation_tolerance_minor_units,
+    partition_count: partitions.length, partitions: partitions,
+    partitions_with_variance_count: partitions_with_variance.length,
+    aggregate_count_variance: aggregate_count_variance,
+    aggregate_value_variance_minor_units: aggregate_value_variance_minor_units,
+    aggregate_value_variance_display: display(aggregate_value_variance_minor_units),
+    aggregate_complete: aggregate_complete, all_partitions_complete: all_partitions_complete, partition_inconsistent: partition_inconsistent,
+    declared_transformation_rules: declared_transformation_rules,
+    observed_changed_field_count: observed_changed_fields.length,
+    undeclared_transformed_fields: undeclared_transformed_fields,
+    sampled_partition_count: sampled_partitions.length, sample_discrepancies_total: sample_discrepancies_total, any_sampled_only: any_sampled_only,
+    migration_complete: migration_complete,
+    rejected_inputs: rejected_inputs, rationale: rationale,
+    note: 'Deterministic payment data migration completeness verifier over caller-declared per-partition source/target record counts and control totals, known exclusions with reasons, declared transformation rules, and observed changed fields. Checks per-partition and aggregate-vs-partition completeness (a reconciling aggregate over broken partitions is the finding), transformation coverage, and flags any partition verified by sampling only as a residual-risk statement rather than a completeness verdict. Never reads a source or target dataset.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function intOrRaw(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  var n = Number(t);
+  return Number.isFinite(n) ? n : t;
+}
+
+function loadInconsistentDemo(){
+  document.getElementById('migId').value = 'MIGR-2026-NETOUT';
+  document.getElementById('asOf').value = '2026-07-31';
+  document.getElementById('currency').value = 'USD';
+  document.getElementById('tolerance').value = '0';
+  document.getElementById('partitionsJson').value = JSON.stringify([
+    { partition_label: 'AGENCY-A', source_record_count: 5000, source_control_total_minor_units: 20000000, target_record_count: 5005, target_control_total_minor_units: 20005000, known_exclusions: [] },
+    { partition_label: 'AGENCY-B', source_record_count: 5000, source_control_total_minor_units: 20000000, target_record_count: 4995, target_control_total_minor_units: 19995000, known_exclusions: [] },
+  ], null, 2);
+  document.getElementById('rulesJson').value = '[]';
+  document.getElementById('observedJson').value = '[]';
+  runCheck();
+}
+function loadSampledDemo(){
+  document.getElementById('migId').value = 'MIGR-2026-SAMPLE';
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('currency').value = 'EUR';
+  document.getElementById('tolerance').value = '100';
+  document.getElementById('partitionsJson').value = JSON.stringify([
+    { partition_label: 'RAIL-FPS', source_record_count: 2000, source_control_total_minor_units: 9000000, target_record_count: 2000, target_control_total_minor_units: 9000000,
+      known_exclusions: [], sample_verification: { sampled: true, sample_size: 200, discrepancies_found: 0 } },
+  ], null, 2);
+  document.getElementById('rulesJson').value = JSON.stringify([{ field: 'account_ref', description: 'remap' }], null, 2);
+  document.getElementById('observedJson').value = JSON.stringify(['account_ref', 'payee_name_encoding']);
+  runCheck();
+}
+
+async function runCheck(){
+  var partitions, rules, observed;
+  try { partitions = JSON.parse(document.getElementById('partitionsJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in partitions: ' + e.message); return; }
+  try { rules = JSON.parse(document.getElementById('rulesJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in declared transformation rules: ' + e.message); return; }
+  try { observed = JSON.parse(document.getElementById('observedJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in observed changed fields: ' + e.message); return; }
+
+  var pp = {
+    migration_id: document.getElementById('migId').value || '',
+    as_of: document.getElementById('asOf').value || '',
+    currency: document.getElementById('currency').value || '',
+    reconciliation_tolerance_minor_units: intOrRaw(document.getElementById('tolerance').value),
+    partitions: partitions,
+    declared_transformation_rules: rules,
+    observed_changed_fields: observed,
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = op.migration_complete ? 'var(--green)' : 'var(--red)';
+  vBox.style.background = op.migration_complete ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  vBox.style.border = '1px solid ' + (op.migration_complete ? 'var(--green)' : 'var(--red)');
+  vBox.textContent = (op.migration_complete ? 'MIGRATION COMPLETE' : 'NOT COMPLETE') + ' · ' + (res.compliance_flags.join(', ') || 'no flags');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.partition_count + '</span><span class="stat-key">Partitions declared</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.partition_count - op.partitions_with_variance_count) + ' / ' + op.partition_count + '</span><span class="stat-key">Partitions reconciled</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.aggregate_count_variance + '</span><span class="stat-key">Aggregate count variance</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.aggregate_value_variance_display + '</span><span class="stat-key">Aggregate value variance ' + op.currency + '</span></div>';
+
+  document.getElementById('partDiv').innerHTML = op.partitions.length
+    ? op.partitions.map(function(p){
+        return '<div class="kv"><span class="kv-k">' + p.partition_label + ' &middot; src ' + p.source_record_count + '/' + p.source_control_total_display +
+          ' &rarr; tgt ' + p.target_record_count + '/' + p.target_control_total_display + '</span><span class="kv-v">' +
+          'count &Delta; ' + p.count_variance + ', value &Delta; ' + p.value_variance_display +
+          (p.partition_complete ? ' <span class="badge ok">reconciles</span>' : ' <span class="badge bad">BREAK</span>') +
+          (p.sampled ? ' <span class="badge warn">SAMPLED (' + p.sample_size + ')</span>' : '') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No partitions declared</span><span class="kv-v">&mdash;</span></div>';
+
+  var xformHtml = '<div class="kv"><span class="kv-k">Declared rules</span><span class="kv-v">' + op.declared_transformation_rules.length + '</span></div>' +
+    '<div class="kv"><span class="kv-k">Observed changed fields</span><span class="kv-v">' + op.observed_changed_field_count + '</span></div>';
+  xformHtml += op.undeclared_transformed_fields.length
+    ? op.undeclared_transformed_fields.map(function(f){ return '<div class="kv"><span class="kv-k">' + f + '</span><span class="kv-v"><span class="badge bad">NO DECLARED RULE</span></span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">Every observed changed field has a declared rule</span><span class="kv-v"><span class="badge ok">covered</span></span></div>';
+  document.getElementById('xformDiv').innerHTML = xformHtml;
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-519-payment-data-migration-completeness',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-519-payment-data-migration-completeness.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
