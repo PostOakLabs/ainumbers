@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Daily Reconciliation Attestation &middot; ART-516 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Attests that a daily reconciliation duty was discharged over a declared population, with population completeness in count and value, exception ageing against a declared tolerance, and carried-forward exception continuity. Does not perform the reconciliation match itself.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-516-daily-reconciliation-attestation.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:110px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-516 · Daily Reconciliation Attestation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-516 &middot; Government &amp; Public-Money Payment Evidence</div>
+  <h1>Daily Reconciliation Attestation</h1>
+  <p class="sub">Attests that a daily reconciliation duty was discharged over a population you declare &mdash; not a matcher. You supply the declared population, the matched / unmatched / partially-matched counts and totals your reconciliation run already produced, the exception list, and the prior period's carried-forward exceptions. This tool checks whether the population reconciles in both count and value, whether any open exception has aged past your declared tolerance, and whether any prior-period exception disappeared without a documented resolution. Emits a hash-anchored OpenChainGraph v0.4 artifact. Region-portable: every fact below is an input you declare, never a hardcoded country, currency, or scheme.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Population completeness, count and value</span>
+    <span class="flag info">Exception ageing against a declared tolerance</span>
+    <span class="flag">Carried-forward exception continuity</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This tool does not perform the reconciliation match itself &mdash; you run that separately and declare the outcome here. It does not decide whether any underlying control has been met; it is an arithmetic attestation over the figures you supply for one cycle. It computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Cycle</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own. Load the vanished-exception demo to see the flag this tool exists to catch.</p>
+    <div class="grid3">
+      <div><label class="fld">Reconciliation date (ISO yyyy-mm-dd)</label><input type="text" id="reconDate" value="2026-07-31"></div>
+      <div><label class="fld">As-of (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOf" value="2026-07-31"></div>
+      <div><label class="fld">Currency</label><input type="text" id="currency" value="USD"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Declared population &mdash; record count</label><input type="text" id="popCount" value="1000"></div>
+      <div><label class="fld">Declared population &mdash; control total (minor units)</label><input type="text" id="popTotal" value="5000000"></div>
+    </div>
+    <label class="fld">Ageing tolerance (days, for open exceptions)</label>
+    <input type="text" id="ageTol" value="5">
+
+    <div class="section-head" style="margin-top:14px">Matched / unmatched / partially-matched (from your reconciliation run)</div>
+    <div class="grid3">
+      <div><label class="fld">Matched: count / total (minor units)</label><input type="text" id="matchedCount" value="970"><input type="text" id="matchedTotal" value="4850000" style="margin-top:6px"></div>
+      <div><label class="fld">Unmatched: count / total (minor units)</label><input type="text" id="unmatchedCount" value="20"><input type="text" id="unmatchedTotal" value="100000" style="margin-top:6px"></div>
+      <div><label class="fld">Partially matched: count / total (minor units)</label><input type="text" id="partialCount" value="10"><input type="text" id="partialTotal" value="50000" style="margin-top:6px"></div>
+    </div>
+
+    <label class="fld">Open exceptions this cycle (JSON array: exception_id, reason_code, opened_date, amount_minor_units)</label>
+    <textarea id="exceptionsJson">[
+  { "exception_id": "EXC-0001", "reason_code": "timing_difference", "opened_date": "2026-07-29", "amount_minor_units": 60000 },
+  { "exception_id": "EXC-0002", "reason_code": "duplicate_submission", "opened_date": "2026-07-30", "amount_minor_units": 40000 }
+]</textarea>
+    <label class="fld">Prior period's carried-forward exceptions (JSON array, or [] if none, or omit the field entirely if unknown &mdash; absence is NOT the same as an empty list)</label>
+    <textarea id="priorJson">[
+  { "exception_id": "EXC-0000", "reason_code": "timing_difference", "opened_date": "2026-07-25" }
+]</textarea>
+    <label class="fld">Documented resolutions for prior exceptions that closed (JSON array: exception_id, resolution_reason)</label>
+    <textarea id="resolvedJson">[
+  { "exception_id": "EXC-0000", "resolution_reason": "matched in overnight batch, evidenced by settlement confirmation SC-2026-0725-11" }
+]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Attestation</button>
+      <button class="ghost" onclick="loadVanishedDemo()">Load vanished-exception demo</button>
+      <button class="ghost" onclick="loadUnverifiableDemo()">Load prior-period-absent demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Open exceptions</div>
+      <div id="excDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Continuity vs prior period</div>
+      <div id="contDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not match transactions, parse a bank statement, or compute which records reconcile &mdash; <a href="art-258-parse-camt053-reconciliation.html">ART-258</a>, <a href="../tools/565-camt053-reconciliation-workbench.html">565</a>, <a href="../tools/09-a2a-reconciliation-workbench.html">09</a>, and <a href="../tools/55-dvp-reconciliation.html">55</a> already do that. It does not verify that the figures you supply are complete or accurate, and a clean attestation is not a determination that any underlying control has been met &mdash; it is an arithmetic result over the cycle you declared. Where the prior period's exception set is not supplied at all, continuity is reported as unverifiable, never as a false clean.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Prior art it does not duplicate: <a href="art-470-lookback-completeness-reconciler.html">ART-470</a> (single-axis source-vs-extract completeness for one AML lookback cycle, no exception-continuity dimension) and <a href="art-258-parse-camt053-reconciliation.html">ART-258</a> (parses one camt.053 statement's balance equation, no population or exception concept). Part of the government-payment-lifecycle chain alongside the programme's other reconciliation and audit-evidence nodes as they ship.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-516-daily-reconciliation-attestation',
+  version: '1.0.0',
+  mcp_name: 'attest_daily_reconciliation',
+  title: 'Daily Reconciliation Attestation',
+  description: 'Attests that a daily reconciliation duty was discharged over a caller-declared population: population completeness in count and value, exception ageing against a declared tolerance, and carried-forward exception continuity. Does not itself compute the reconciliation match.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'attest_daily_reconciliation',
+    description: 'Attests a daily reconciliation cycle: population completeness (count and value), exception ageing against a declared tolerance, and carried-forward exception continuity (RECON_EXCEPTION_VANISHED for an undocumented disappearance).',
+    inputSchema: { type: 'object', properties: {
+      reconciliation_date: {type:'string'}, as_of: {type:'string'}, currency: {type:'string'}, ageing_tolerance_days: {type:'number'},
+      declared_population: {type:'object'}, matched: {type:'object'}, unmatched: {type:'object'}, partially_matched: {type:'object'},
+      exceptions: {type:'array'}, prior_period_exceptions: {type:'array'}, resolved_exceptions: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-516-daily-reconciliation-attestation.kernel.mjs --- */
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where,
+    reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v),
+    supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function toCount(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v) && v >= 0) return v;
+  rejected.push({ where: where, reason: 'expected a non-negative integer count', supplied: typeof v === 'number' ? v : String(v) });
+  return 0;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / 100); var frac = abs - whole * 100;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
+}
+function isoDayDelta(laterIso, earlierIso){
+  if (!isoDateOrNull(laterIso) || !isoDateOrNull(earlierIso)) return null;
+  var later = Date.parse(laterIso + 'T00:00:00Z');
+  var earlier = Date.parse(earlierIso + 'T00:00:00Z');
+  if (!Number.isFinite(later) || !Number.isFinite(earlier)) return null;
+  return Math.max(0, Math.round((later - earlier) / 86400000));
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var reconciliation_date = isoDateOrNull(pp.reconciliation_date);
+  var as_of = isoDateOrNull(pp.as_of) || reconciliation_date;
+  var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'USD';
+  var ageing_tolerance_days = (typeof pp.ageing_tolerance_days === 'number' && Number.isFinite(pp.ageing_tolerance_days) && pp.ageing_tolerance_days >= 0)
+    ? Math.trunc(pp.ageing_tolerance_days) : null;
+  if (ageing_tolerance_days === null) rejected_inputs.push({ where: 'ageing_tolerance_days', reason: 'absent or not a non-negative number', supplied: pp.ageing_tolerance_days === undefined ? null : pp.ageing_tolerance_days });
+
+  var declaredPop = pp.declared_population && typeof pp.declared_population === 'object' ? pp.declared_population : {};
+  var declared_record_count = toCount(declaredPop.record_count, 'declared_population.record_count', rejected_inputs);
+  var declared_control_total_minor_units = toMinorUnits(declaredPop.control_total_minor_units, 'declared_population.control_total_minor_units', rejected_inputs);
+
+  function bucket(name){
+    var b = pp[name] && typeof pp[name] === 'object' ? pp[name] : {};
+    return {
+      record_count: toCount(b.record_count, name + '.record_count', rejected_inputs),
+      total_minor_units: toMinorUnits(b.total_minor_units, name + '.total_minor_units', rejected_inputs),
+    };
+  }
+  var matched = bucket('matched');
+  var unmatched = bucket('unmatched');
+  var partially_matched = bucket('partially_matched');
+
+  var reconciled_record_count = matched.record_count + unmatched.record_count + partially_matched.record_count;
+  var reconciled_value_minor_units = matched.total_minor_units + unmatched.total_minor_units + partially_matched.total_minor_units;
+
+  var count_break = reconciled_record_count - declared_record_count;
+  var value_break_minor_units = reconciled_value_minor_units - declared_control_total_minor_units;
+  var population_count_complete = count_break === 0;
+  var population_value_complete = value_break_minor_units === 0;
+  var population_complete = population_count_complete && population_value_complete;
+
+  var exceptionsIn = Array.isArray(pp.exceptions) ? pp.exceptions : [];
+  var exceptions = exceptionsIn.map(function(e, i){
+    e = e && typeof e === 'object' ? e : {};
+    var exception_id = isNonEmptyString(e.exception_id) ? e.exception_id.trim() : ('UNLABELLED-' + (i + 1));
+    var reason_code = isNonEmptyString(e.reason_code) ? e.reason_code.trim() : null;
+    if (!reason_code) rejected_inputs.push({ where: 'exceptions[' + i + '].reason_code', reason: 'absent', supplied: null });
+    var opened_date = isoDateOrNull(e.opened_date);
+    var amount_minor_units = toMinorUnits(e.amount_minor_units, 'exceptions[' + i + '].amount_minor_units', rejected_inputs);
+    var age_days = (as_of && opened_date) ? isoDayDelta(as_of, opened_date) : null;
+    var aged = (age_days !== null && ageing_tolerance_days !== null) ? age_days > ageing_tolerance_days : false;
+    return { exception_id: exception_id, reason_code: reason_code || 'unclassified', opened_date: opened_date, amount_minor_units: amount_minor_units, amount_display: display(amount_minor_units), age_days: age_days, aged: aged };
+  });
+  var aged_exceptions = exceptions.filter(function(e){ return e.aged; });
+
+  var priorInputPresent = pp.prior_period_exceptions !== undefined && pp.prior_period_exceptions !== null;
+  var priorPeriodExceptions = priorInputPresent && Array.isArray(pp.prior_period_exceptions) ? pp.prior_period_exceptions : [];
+  if (priorInputPresent && !Array.isArray(pp.prior_period_exceptions)) {
+    rejected_inputs.push({ where: 'prior_period_exceptions', reason: 'present but not an array', supplied: typeof pp.prior_period_exceptions });
+  }
+
+  var currentIds = {};
+  exceptions.forEach(function(e){ currentIds[e.exception_id] = true; });
+  var resolvedIn = Array.isArray(pp.resolved_exceptions) ? pp.resolved_exceptions : [];
+  var resolvedById = {};
+  resolvedIn.forEach(function(r){
+    if (r && isNonEmptyString(r.exception_id)) {
+      resolvedById[r.exception_id.trim()] = isNonEmptyString(r.resolution_reason) ? r.resolution_reason.trim() : null;
+    }
+  });
+
+  var continuity_verifiable = priorInputPresent;
+  var vanished_exceptions = [];
+  var documented_resolutions = [];
+  if (continuity_verifiable) {
+    priorPeriodExceptions.forEach(function(prior){
+      if (!prior || !isNonEmptyString(prior.exception_id)) return;
+      var id = prior.exception_id.trim();
+      if (currentIds[id]) return;
+      var resolution = Object.prototype.hasOwnProperty.call(resolvedById, id) ? resolvedById[id] : undefined;
+      if (resolution) {
+        documented_resolutions.push({ exception_id: id, resolution_reason: resolution });
+      } else {
+        vanished_exceptions.push({ exception_id: id, reason_code: isNonEmptyString(prior.reason_code) ? prior.reason_code.trim() : 'unclassified', opened_date: isoDateOrNull(prior.opened_date) });
+      }
+    });
+  }
+
+  var unexplained_exception_total_minor_units = exceptions.reduce(function(a, e){ return a + e.amount_minor_units; }, 0);
+  var unexplained_difference_minor_units = value_break_minor_units - unexplained_exception_total_minor_units;
+  var has_unexplained_difference = unexplained_difference_minor_units !== 0;
+
+  var attested = population_complete && aged_exceptions.length === 0 && vanished_exceptions.length === 0 && !has_unexplained_difference;
+
+  var compliance_flags = [];
+  if (!population_complete) compliance_flags.push('RECON_POPULATION_INCOMPLETE');
+  if (aged_exceptions.length > 0) compliance_flags.push('RECON_EXCEPTION_AGED');
+  if (continuity_verifiable && vanished_exceptions.length > 0) compliance_flags.push('RECON_EXCEPTION_VANISHED');
+  if (!continuity_verifiable) compliance_flags.push('RECON_CONTINUITY_UNVERIFIABLE');
+  if (has_unexplained_difference) compliance_flags.push('RECON_UNEXPLAINED_DIFFERENCE');
+  if (rejected_inputs.length > 0) compliance_flags.push('RECON_INPUTS_REJECTED');
+  if (attested) compliance_flags.push('RECON_ATTESTED');
+
+  var rationale = [];
+  rationale.push('Declared population: ' + declared_record_count + ' records, control total ' + display(declared_control_total_minor_units) + ' ' + currency + '. Reconciled (matched+unmatched+partial): ' + reconciled_record_count + ' records, ' + display(reconciled_value_minor_units) + ' ' + currency + '.');
+  rationale.push(population_complete
+    ? 'Population reconciles to the declared count and value.'
+    : ('Population does NOT reconcile: count break ' + count_break + ', value break ' + display(value_break_minor_units) + ' ' + currency + '.'));
+  rationale.push(continuity_verifiable
+    ? ('Continuity evaluated against ' + priorPeriodExceptions.length + ' prior-period exception' + (priorPeriodExceptions.length === 1 ? '' : 's') + ': ' + vanished_exceptions.length + ' vanished without a documented resolution, ' + documented_resolutions.length + ' closed with one.')
+    : 'Prior-period exception set was not supplied, so carried-forward continuity cannot be evaluated this cycle. This is reported as unverifiable, never as a clean result.');
+  if (aged_exceptions.length > 0) rationale.push(aged_exceptions.length + ' of ' + exceptions.length + ' open exceptions exceed the declared ' + ageing_tolerance_days + '-day ageing tolerance.');
+  if (has_unexplained_difference) rationale.push(display(unexplained_difference_minor_units) + ' ' + currency + ' of the value break is not accounted for by the declared exception list.');
+  rationale.push('This is an arithmetic attestation over the figures supplied for this cycle. It does not itself perform the reconciliation match and is not a determination that any underlying control has or has not been met.');
+
+  var output_payload = {
+    reconciliation_date: reconciliation_date, as_of: as_of, currency: currency, ageing_tolerance_days: ageing_tolerance_days,
+    declared_record_count: declared_record_count, declared_control_total_minor_units: declared_control_total_minor_units,
+    declared_control_total_display: display(declared_control_total_minor_units),
+    matched: matched, unmatched: unmatched, partially_matched: partially_matched,
+    reconciled_record_count: reconciled_record_count, reconciled_value_minor_units: reconciled_value_minor_units,
+    reconciled_value_display: display(reconciled_value_minor_units),
+    count_break: count_break, value_break_minor_units: value_break_minor_units, value_break_display: display(value_break_minor_units),
+    population_count_complete: population_count_complete, population_value_complete: population_value_complete, population_complete: population_complete,
+    exception_count: exceptions.length, exceptions: exceptions, aged_exception_count: aged_exceptions.length,
+    continuity_verifiable: continuity_verifiable, prior_period_exception_count: priorPeriodExceptions.length,
+    vanished_exception_count: vanished_exceptions.length, vanished_exceptions: vanished_exceptions, documented_resolutions: documented_resolutions,
+    unexplained_exception_total_minor_units: unexplained_exception_total_minor_units,
+    unexplained_difference_minor_units: unexplained_difference_minor_units, unexplained_difference_display: display(unexplained_difference_minor_units),
+    has_unexplained_difference: has_unexplained_difference, attested: attested, rejected_inputs: rejected_inputs, rationale: rationale,
+    note: 'Deterministic daily reconciliation attestation over a caller-supplied population, matched/unmatched/partial breakdown, exception list, and prior-period exception set. It attests that the daily reconciliation duty was discharged -- population completeness in count and value, exception ageing against a declared tolerance, and carried-forward exception continuity -- rather than performing the underlying transaction match itself.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function intOrRaw(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  var n = Number(t);
+  return Number.isFinite(n) ? n : t;
+}
+
+function loadVanishedDemo(){
+  document.getElementById('reconDate').value = '2026-07-31';
+  document.getElementById('asOf').value = '2026-07-31';
+  document.getElementById('popCount').value = '500';
+  document.getElementById('popTotal').value = '2000000';
+  document.getElementById('matchedCount').value = '495'; document.getElementById('matchedTotal').value = '1980000';
+  document.getElementById('unmatchedCount').value = '5'; document.getElementById('unmatchedTotal').value = '20000';
+  document.getElementById('partialCount').value = '0'; document.getElementById('partialTotal').value = '0';
+  document.getElementById('exceptionsJson').value = '[\n  { "exception_id": "EXC-1001", "reason_code": "timing_difference", "opened_date": "2026-07-30", "amount_minor_units": 20000 }\n]';
+  document.getElementById('priorJson').value = '[\n  { "exception_id": "EXC-0999", "reason_code": "duplicate_submission", "opened_date": "2026-07-20" }\n]';
+  document.getElementById('resolvedJson').value = '[]';
+  runCheck();
+}
+function loadUnverifiableDemo(){
+  document.getElementById('reconDate').value = '2026-08-01';
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('popCount').value = '200';
+  document.getElementById('popTotal').value = '900000';
+  document.getElementById('matchedCount').value = '200'; document.getElementById('matchedTotal').value = '900000';
+  document.getElementById('unmatchedCount').value = '0'; document.getElementById('unmatchedTotal').value = '0';
+  document.getElementById('partialCount').value = '0'; document.getElementById('partialTotal').value = '0';
+  document.getElementById('exceptionsJson').value = '[]';
+  document.getElementById('priorJson').value = '';
+  document.getElementById('resolvedJson').value = '[]';
+  runCheck();
+}
+
+async function runCheck(){
+  var exc, prior, resolved;
+  try { exc = JSON.parse(document.getElementById('exceptionsJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in exceptions: ' + e.message); return; }
+  var priorRaw = document.getElementById('priorJson').value;
+  try { prior = priorRaw.trim() === '' ? undefined : JSON.parse(priorRaw); }
+  catch(e){ alert('Invalid JSON in prior-period exceptions: ' + e.message); return; }
+  try { resolved = JSON.parse(document.getElementById('resolvedJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in resolved exceptions: ' + e.message); return; }
+
+  var pp = {
+    reconciliation_date: document.getElementById('reconDate').value || '',
+    as_of: document.getElementById('asOf').value || '',
+    currency: document.getElementById('currency').value || '',
+    ageing_tolerance_days: intOrRaw(document.getElementById('ageTol').value),
+    declared_population: { record_count: intOrRaw(document.getElementById('popCount').value), control_total_minor_units: intOrRaw(document.getElementById('popTotal').value) },
+    matched: { record_count: intOrRaw(document.getElementById('matchedCount').value), total_minor_units: intOrRaw(document.getElementById('matchedTotal').value) },
+    unmatched: { record_count: intOrRaw(document.getElementById('unmatchedCount').value), total_minor_units: intOrRaw(document.getElementById('unmatchedTotal').value) },
+    partially_matched: { record_count: intOrRaw(document.getElementById('partialCount').value), total_minor_units: intOrRaw(document.getElementById('partialTotal').value) },
+    exceptions: exc,
+    resolved_exceptions: resolved,
+  };
+  if (prior !== undefined) pp.prior_period_exceptions = prior;
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = op.attested ? 'var(--green)' : 'var(--red)';
+  vBox.style.background = op.attested ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  vBox.style.border = '1px solid ' + (op.attested ? 'var(--green)' : 'var(--red)');
+  vBox.textContent = (op.attested ? 'ATTESTED' : 'NOT ATTESTED') + ' · ' + res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.declared_record_count + ' / ' + op.reconciled_record_count + '</span><span class="stat-key">Declared / reconciled count</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.declared_control_total_display + ' / ' + op.reconciled_value_display + '</span><span class="stat-key">Declared / reconciled ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.count_break + '</span><span class="stat-key">Count break</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.value_break_display + '</span><span class="stat-key">Value break ' + op.currency + '</span></div>';
+
+  document.getElementById('excDiv').innerHTML = op.exceptions.length
+    ? op.exceptions.map(function(e){
+        return '<div class="kv"><span class="kv-k">' + e.exception_id + ' &middot; ' + e.reason_code + '</span><span class="kv-v">' + e.amount_display +
+          (e.age_days !== null ? ' &middot; ' + e.age_days + 'd' : '') +
+          (e.aged ? ' <span class="badge bad">AGED</span>' : ' <span class="badge ok">within tolerance</span>') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No open exceptions</span><span class="kv-v">&mdash;</span></div>';
+
+  var contHtml = '';
+  if (!op.continuity_verifiable) {
+    contHtml = '<div class="kv"><span class="kv-k">Prior-period exceptions not supplied</span><span class="kv-v"><span class="badge warn">UNVERIFIABLE</span></span></div>';
+  } else {
+    contHtml += '<div class="kv"><span class="kv-k">Prior-period exceptions</span><span class="kv-v">' + op.prior_period_exception_count + '</span></div>';
+    contHtml += op.vanished_exceptions.map(function(v){
+      return '<div class="kv"><span class="kv-k">' + v.exception_id + ' &middot; ' + v.reason_code + '</span><span class="kv-v"><span class="badge bad">VANISHED, NO DOCUMENTED RESOLUTION</span></span></div>';
+    }).join('');
+    contHtml += op.documented_resolutions.map(function(r){
+      return '<div class="kv"><span class="kv-k">' + r.exception_id + '</span><span class="kv-v"><span class="badge ok">closed: ' + r.resolution_reason + '</span></span></div>';
+    }).join('');
+  }
+  document.getElementById('contDiv').innerHTML = contHtml;
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-516-daily-reconciliation-attestation',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-516-daily-reconciliation-attestation.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
