@@ -86,7 +86,7 @@ await test('CRLF/CR line-ending normalization does not produce a false stale (ca
   assert(fresh.length === 1 && stale.length === 0, 'CRLF-vs-LF of identical logical source must NOT read as stale');
 });
 
-await test('reproduces the confirmed 132/462 stale count against the real committed chaingraph.json', async () => {
+await test('reproduces the confirmed 133/507 stale count against the real committed chaingraph.json', async () => {
   const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
   const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
   const liveGpuFalse = (cg.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
@@ -156,9 +156,18 @@ await test('reproduces the confirmed 132/462 stale count against the real commit
   // out-of-proof-scope shape the KNOWN_SEMANTIC_STALE set in the gate exists to distinguish, so
   // art-518 is NOT added to it. Reproving art-518 is GPU-queue work, tracked separately.
   // Denominator does not move; fresh -1, stale +1.
+  // 132 -> 133 post-NORMTERM-FIX-MCPNAME-2 (2026-08-01): renamed attest_settlement_orchestrator
+  // (art-292) to lint_settlement_orchestrator_conformance and corrected its kernel comment, which
+  // no longer claims to "extend the self-attestation doctrine" (the exact misreading this row
+  // exists to fix). That edits kernel SOURCE (a comment), so its sha256-source compute_image moved
+  // (4e7ce5129e316675 -> e62a92dde4068256) while its groth16 receipt still carries the pre-edit
+  // journal.kernel_digest -- lint_settlement_orchestrator_conformance therefore enters the STALE
+  // set. NON-SEMANTIC: golden-parity confirms output_payload (and execution_hash) byte-identical
+  // across the edit for the node's fixture vector. Reproving is GPU-queue work, tracked separately.
+  // Denominator does not move; fresh -1, stale +1.
   assert(total === 507, `expected 507 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 375, `expected 375 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 132, `expected 132 stale (131 plus attest_bulk_disbursement_integrity/art-518, non-semantic, landed via ASSEMBLE-LAND-18), got ${stale.length}`);
+  assert(fresh.length === 374, `expected 374 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (132 plus lint_settlement_orchestrator_conformance/art-292, non-semantic, landed via NORMTERM-FIX-MCPNAME-2), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

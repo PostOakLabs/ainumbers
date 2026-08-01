@@ -6,15 +6,16 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'attest_settlement_orchestrator',
+  mcp_name: 'lint_settlement_orchestrator_conformance',
   mandate_type: 'infrastructure_mandate',
   gpu: false,
 };
 
-// Extends the attest_mcp_server (art-33) self-attestation doctrine to a
-// settlement decision path: the shared ledger is an orchestration layer, and
-// this kernel attests the off-chain orchestrator deciding commit/halt --
-// never the ledger itself, never a live query.
+// Extends the lint_mcp_server_conformance (art-33) self-reported conformance
+// lint to a settlement decision path: the shared ledger is an orchestration
+// layer, and this kernel checks the off-chain orchestrator deciding
+// commit/halt -- never the ledger itself, never a live query. Unsigned lint
+// output, not a signed attestation (NORMTERM-FIX-MCPNAME-2).
 const ALLOWED_TRANSPORTS = ['https', 'mcp-stdio', 'mcp-http'];
 
 function scoreChecks(checks) {
