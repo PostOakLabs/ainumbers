@@ -180,6 +180,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <button class="btn btn-primary" onclick="runVerify()">Verify</button>
       <button class="btn btn-ghost" onclick="pasteExample()">Paste example</button>
       <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+      <button class="btn btn-ghost" id="sendBundleABtn" onclick="apSendToBundleDiff('a')" title="Open Bundle Diff and hand it this artifact as Bundle A — same-origin message, no file, no network">Send to Bundle Diff (A) →</button>
+      <button class="btn btn-ghost" id="sendBundleBBtn" onclick="apSendToBundleDiff('b')" title="Open Bundle Diff and hand it this artifact as Bundle B — same-origin message, no file, no network">Send to Bundle Diff (B) →</button>
+      <button class="btn btn-ghost" id="sendWpiBtn" onclick="apSendToWorkpaperIndex()" title="Open the Workpaper Index and hand it this artifact — same-origin message, no file, no network">Send to Workpaper Index →</button>
     </div>
   </div>
 
@@ -921,6 +924,53 @@ if (window.opener) {
   try {
     window.opener.postMessage({ type: 'ain-handoff-ready/v1', accepts: ['ocg-artifact'] }, window.location.origin);
   } catch (e) { /* no opener we may talk to — paste intake still works */ }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   §1.5 HOPS B/C SENDERS — Verify -> Bundle Diff (slot a|b) and
+   Verify -> Workpaper Index. Same discipline as the receiver above:
+   same-origin only, never '*', payload is the artifact JSON + a
+   declared kind (+ slot for hop B), nothing else. The target window is
+   opened by NAME so a second send (e.g. sending both A and B) reuses
+   the same tab instead of spawning another, which is what lets the
+   receiving page accumulate more than one artifact.
+   ───────────────────────────────────────────────────────────────── */
+function apSendHandoff(targetUrl, windowName, extraFields, label) {
+  const raw = document.getElementById('artifactInput').value.trim();
+  if (!raw) { handoffNotice('Nothing to send — verify an artifact first.', false); return; }
+  if (raw.length > HANDOFF_MAX_CHARS) {
+    handoffNotice('Too large to hand off (' + raw.length + ' chars, limit ' + HANDOFF_MAX_CHARS + ').', false);
+    return;
+  }
+  const target = new URL(targetUrl, window.location.href).href;
+  const win = window.open(target, windowName);
+  if (!win) { handoffNotice('The ' + label + ' window was blocked. Allow pop-ups for this site.', false); return; }
+  let sent = false, timer = null;
+  function onReady(ev) {
+    if (ev.origin !== window.location.origin) return;   // §1.3 discard silently
+    if (ev.source !== win) return;
+    const d = ev.data;
+    if (!d || typeof d !== 'object' || d.type !== 'ain-handoff-ready/v1') return;
+    if (sent) return;
+    sent = true;
+    window.removeEventListener('message', onReady);
+    if (timer) clearTimeout(timer);
+    win.postMessage(Object.assign({ type: 'ain-handoff/v1', kind: 'ocg-artifact', artifact: raw }, extraFields), window.location.origin);
+    handoffNotice('Sent to ' + label + ' in the new tab.', true);
+  }
+  window.addEventListener('message', onReady);
+  handoffNotice('Opening ' + label + '…', true);
+  timer = setTimeout(() => {
+    if (sent) return;
+    window.removeEventListener('message', onReady);
+    handoffNotice(label + ' did not answer. Copy the artifact and paste it in directly.', false);
+  }, 10000);
+}
+function apSendToBundleDiff(slot) {
+  apSendHandoff('../bundle-diff.html', 'ainBundleDiffTab', { slot: slot === 'b' ? 'b' : 'a' }, 'Bundle Diff (slot ' + (slot === 'b' ? 'B' : 'A') + ')');
+}
+function apSendToWorkpaperIndex() {
+  apSendHandoff('../workpaper-index.html', 'ainWorkpaperIndexTab', {}, 'the Workpaper Index');
 }
 
 /* ─────────────────────────────────────────────────────────────────

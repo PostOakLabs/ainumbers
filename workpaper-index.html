@@ -120,6 +120,8 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
   <div class="pii-notice">&#128274; All files are read locally in your browser with the File/FileReader APIs and never transmitted. Do not drop real personal data &mdash; use synthetic or anonymised files only.</div>
 
+  <div id="handoffNotice" style="display:none;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem"></div>
+
   <div class="panel">
     <span class="panel-label">Artifacts, Chain Exports, or Evidence Files</span>
     <div class="drop-zone" id="dropZone">Drag files here, or click to choose &mdash; any number, JSON or otherwise</div>
@@ -348,6 +350,64 @@ dz.addEventListener('drop',function(ev){
   ev.preventDefault();dz.classList.remove('drag');
   handleFiles(ev.dataTransfer.files);
 });
+
+/* ─────────────────────────────────────────────────────────────────
+   §1.5 HOP C RECEIVER — Verify, Bundle Diff -> Workpaper Index. Same
+   discipline as the hop A receiver on chaingraph/verify.html: origin
+   checked both ends, discarded silently otherwise; payload is the
+   artifact JSON + a declared kind, nothing else; assigned via the same
+   sha256/detect pipeline handleFiles() already uses for a dropped File,
+   never innerHTML of a received field. Zero network, zero storage.
+   COUNT-CAPPED (unlike hops A/B/D, N is unbounded by construction here,
+   so an unbounded N is a hang on the filing surface — the worst place
+   for one) — rejected visibly once the cap is reached. ──────────────*/
+var HANDOFF_MAX_CHARS=2000000;
+var HANDOFF_MAX_COUNT=50;
+function handoffNotice(msg,ok){
+  var el=document.getElementById('handoffNotice');
+  if(!el)return;
+  if(!msg){ el.style.display='none'; return; }
+  el.textContent=msg;                                          // never innerHTML
+  el.style.borderLeftColor= ok ? 'var(--teal)' : 'var(--red, #EF4444)';
+  el.style.display='block';
+}
+async function handleReceivedArtifact(text){
+  var bytes=new TextEncoder().encode(text);
+  var sha='sha256:'+await __ocgSha256Hex(bytes);
+  var parsed;
+  try{ parsed=JSON.parse(text); }catch(e){ parsed=undefined; }
+  var type=detectType(parsed);
+  var sections=detectSections(parsed);
+  var roles=detectRoles(parsed);
+  var chain=detectChain(parsed);
+  var filename='handoff-'+(__entries.length+1)+'.artifact.json';
+  __entries.push({filename:filename, size:bytes.length, sha256:sha, type:type, sections:sections, roles:roles, chain:chain});
+  renderTable();
+}
+window.addEventListener('message',function(ev){
+  if(ev.origin!==window.location.origin)return;                // §1.3 — discard silently
+  var d=ev.data;
+  if(!d||typeof d!=='object')return;
+  if(d.type!=='ain-handoff/v1')return;
+  if(d.kind!=='ocg-artifact')return;
+  var text=d.artifact;
+  if(typeof text!=='string'||!text)return;
+  if(text.length>HANDOFF_MAX_CHARS){                            // §1.4 — visible reject, never hang
+    handoffNotice('Handoff rejected: an incoming artifact was '+text.length+' characters, over the '+HANDOFF_MAX_CHARS+'-character limit.',false);
+    return;
+  }
+  if(__entries.length>=HANDOFF_MAX_COUNT){                      // count cap — an unbounded N is a hang
+    handoffNotice('Handoff rejected: the index already holds '+HANDOFF_MAX_COUNT+' entries, the maximum for a single index. Export or clear the index first.',false);
+    return;
+  }
+  handleReceivedArtifact(text).then(function(){
+    handoffNotice(__entries.length+' of '+HANDOFF_MAX_COUNT+' artifact(s) indexed via handoff so far. Nothing was uploaded and nothing was stored.',true);
+  });
+});
+if(window.opener){
+  try{ window.opener.postMessage({type:'ain-handoff-ready/v1',accepts:['ocg-artifact']},window.location.origin); }
+  catch(e){ /* no opener we may talk to — drop intake still works */ }
+}
 </script>
 </body>
 </html>
