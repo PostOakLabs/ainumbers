@@ -211,25 +211,24 @@ jobs:
           node chaingraph/standard/spec-page-parity.mjs
           node chaingraph/standard/spec-page-subsection-parity.mjs
 
-      - name: 🪖 Helm release/version drift + guide freshness gates (HELM-RELEASE-DRIFT-GATES-1)
-        # Gate 1: helm.html's release download/tag links must match helm/version.json's
+      - name: 🪖 Helm release/version drift gate (HELM-RELEASE-DRIFT-GATES-1)
+        # helm.html's release download/tag links must match helm/version.json's
         # latest_version — the pinned feed the helm repo's own release job pushes to this
-        # repo's main on every GA tag (no live GitHub API call needed here).
-        # Gate 2: on a version bump, the walkthrough (scenes s1-s6) must have actually
-        # changed since the last synced release, or the new version must be listed in
-        # helm/guide-freshness.json's acknowledged_no_change escape — a changelog entry
-        # alone does not satisfy this. Both proven by a committed tamper fixture (.test.mjs).
-        # Path-scoped — see the "Detect helm-relevant changes" step above.
+        # repo's main on every GA tag (no live GitHub API call needed here). Proven by a
+        # committed tamper fixture (.test.mjs). Path-scoped — see "Detect helm-relevant
+        # changes" above. Machine-satisfiable, never blocks on a human duty — unlike the
+        # guide-freshness check, which is a human "does the walkthrough visibly
+        # differ" judgment and moved to a non-blocking scheduled report
+        # (.github/workflows/helm-guide-freshness-schedule.yml) so a byte-identical
+        # repair release can never again hold up an unrelated site deploy.
         if: steps.helmscope.outputs.touched == 'true'
         run: |
           node scripts/check-helm-version-drift.mjs
           node scripts/check-helm-version-drift.test.mjs
-          node scripts/gen-helm-guide-freshness.mjs --check
-          node scripts/gen-helm-guide-freshness.test.mjs
 
-      - name: 🪖 Helm gates skipped (no helm-relevant paths changed)
+      - name: 🪖 Helm gate skipped (no helm-relevant paths changed)
         if: steps.helmscope.outputs.touched != 'true'
-        run: echo "This push touched no helm-relevant path (helm.html, helm/, or the two helm gate scripts) — the helm release/version drift + guide freshness gates are skipped."
+        run: echo "This push touched no helm-relevant path (helm.html, helm/, or the helm gate scripts) — the helm release/version drift gate is skipped. (Guide freshness runs separately, on a schedule.)"
 
       - name: 🧩 Catalog-parity gate (§15 — no orphan chain pages)
         # catalog-parity.mjs (SPEC.md §15: "every node url page + chain page exists, no

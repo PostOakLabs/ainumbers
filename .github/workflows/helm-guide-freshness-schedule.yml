@@ -1,0 +1,99 @@
+name: Helm Guide Freshness (scheduled)
+
+# The guide-freshness check (does helm.html's walkthrough, scenes s1-s6,
+# visibly differ since the last synced release, or is the new version
+# acknowledged as having nothing to show) asserts a human judgment call, not a
+# machine-derivable fact. Keeping it on the blocking deploy path meant every
+# site push — including ones touching no helm file at all — reds the moment a
+# helm release ships without a walkthrough edit or an acknowledgment, which
+# happened twice in one day and once took ainumbers.co/helm/version.json down
+# with it (run 30655191112).
+#
+# This is a side project with no on-call human, so no design that ends in a
+# person acknowledging something before a deploy can proceed is acceptable.
+# The check moves here instead: same evaluate()/exit-code logic
+# (gen-helm-guide-freshness.mjs --check, UNCHANGED), same non-blocking shape as
+# the worker's Vendor Freshness (vendor-freshness-schedule.yml) — it can only
+# raise a tracking issue, never block anything, because by the time this runs
+# there is nothing left to block. Deploy to DreamHost's own preflight job stays
+# the real, blocking gate for what it always blocked (JS syntax, hashes,
+# dead links, helm release/version drift, etc.) — this workflow adds zero
+# blocking surface anywhere.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours — matches the worker's Vendor Freshness cadence
+  workflow_dispatch: {}      # manual trigger for seeding/verifying the gate
+
+permissions:
+  contents: read
+
+jobs:
+  check-freshness:
+    name: Guide-freshness check (report only)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🪖 Helm guide freshness (report only)
+        run: |
+          node scripts/gen-helm-guide-freshness.mjs --check
+          node scripts/gen-helm-guide-freshness.test.mjs
+
+  raise-on-stale:
+    name: Raise a tracking issue on a stale walkthrough
+    needs: check-freshness
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 🚨 Open or update the guide-freshness tracking issue
+        # No new third-party action: gh CLI ships preinstalled on ubuntu-latest runners.
+        # Idempotent — reuses one open issue by title match instead of spamming a new
+        # issue every 6h cycle while the staleness persists.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Helm guide freshness: walkthrough byte-identical since last release"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+          BODY="Scheduled helm guide-freshness check found helm.html's \
+          walkthrough (scenes s1-s6) is byte-identical to the last synced release, but \
+          helm/version.json names a newer one.
+
+          This does NOT block any deploy — it is a report-only finding for whoever wants to \
+          look at it next.
+
+          **Fix, either one:**
+          - Add something a user can see to the walkthrough for the new release, then run \
+          \`node scripts/gen-helm-guide-freshness.mjs\` and commit the updated \
+          \`helm/guide-freshness.json\`, or
+          - If there is genuinely nothing visible to show (e.g. a repair-only release), add \
+          the version to \`helm/guide-freshness.json\`'s \`acknowledged_no_change\` array with \
+          a reason, then run the same sync command.
+
+          Failing run: $RUN_URL"
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "Still stale as of this cycle. $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi
