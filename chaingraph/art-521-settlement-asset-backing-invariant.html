@@ -121,7 +121,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-521 &middot; Treasury &amp; Issuance Evidence</div>
   <h1>Settlement-Asset Backing Invariant</h1>
-  <p class="sub">Checks whether value held across an issuance topology stays fully backed IN AGGREGATE, not merely per account, as balances move between the buffers you declare. You name each buffer (its role, its asset type, and what it backs), declare a backing-ratio requirement and per-buffer floor/ceiling, and declare a set of movements. This tool evaluates the aggregate backing verdict before and after those movements, flags any buffer that breaches its floor or ceiling, reports the thinnest safe margin per buffer, weighs the declared idle-balance cost against the declared crossing cost, and identifies the specific movement that first breaks the invariant, if any. Settlement-asset agnostic: the same computation runs unchanged whether the settlement asset is centrally issued, pooled-account-backed, or reserve-backed, because every fact is a caller-declared input.</p>
+  <p class="sub">Checks whether value held across an issuance topology stays fully backed IN AGGREGATE, not merely per account, as balances move between the buffers you declare. You name each buffer (its role, its asset type, and what it backs), declare a backing-ratio requirement and per-buffer floor/ceiling, and declare a set of movements. This tool evaluates the aggregate backing verdict before and after those movements, flags any buffer that breaches its floor or ceiling, reports the thinnest safe margin per buffer, weighs the declared idle-balance cost against the declared crossing cost, and identifies the specific movement that first breaks the invariant, if any. Settlement-asset agnostic: the same computation runs unchanged whether the settlement asset is centrally issued, pooled-account-backed, or reserve-backed, because every fact is a caller-declared input. Not every settlement asset has a buffer set to check: for a direct or two-tier CBDC the holder's claim IS central bank money, so there is no backing question. You declare this with the backing model selector; a declared vacuous model returns BACKING_NOT_APPLICABLE, a defined answer distinct from both an intact pass and a shortfall.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">Aggregate backing, before and after movements</span>
     <span class="flag info">Per-buffer floor / ceiling breaches</span>
@@ -139,6 +139,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div><label class="fld">Value in circulation (minor units)</label><input type="text" id="circulation" value="10000000"></div>
       <div><label class="fld">Backing ratio (basis points, 10000 = 100%)</label><input type="text" id="ratioBps" value="10000"></div>
     </div>
+    <label class="fld">Backing model (you declare this -- never inferred from the buffer count)</label>
+    <select id="backingModel">
+      <option value="segregated" selected>segregated -- a real buffer set backs circulation (pooled-account, reserve-backed)</option>
+      <option value="vacuous">vacuous -- NO backing set exists (direct/one-tier or two-tier/intermediated CBDC)</option>
+    </select>
     <div class="grid2">
       <div><label class="fld">Idle-balance cost (basis points per period, above floor)</label><input type="text" id="idleBps" value="50"></div>
       <div><label class="fld">Cost per external crossing (minor units, flat, differing asset types)</label><input type="text" id="crossCost" value="1500"></div>
@@ -160,6 +165,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <button class="ghost" onclick="loadCompositionBreakDemo()">Load composition-break demo</button>
       <button class="ghost" onclick="loadPooledAccountDemo()">Load pooled-account case</button>
       <button class="ghost" onclick="loadReserveBackedDemo()">Load reserve-backed case</button>
+      <button class="ghost" onclick="loadVacuousCbdcDemo()">Load direct-CBDC (vacuous) case</button>
     </div>
   </div>
 
@@ -305,7 +311,8 @@ var MANIFEST = {
     name: 'verify_settlement_asset_backing',
     description: 'Evaluates the aggregate settlement-asset backing invariant before and after a declared movement set across N caller-named buffers: per-buffer floor/ceiling breaches, the thinnest safe margin per buffer, declared idle-balance cost vs declared crossing cost, and the first movement that breaks the invariant, if any.',
     inputSchema: { type: 'object', properties: {
-      as_of: {type:'string'}, value_in_circulation_minor_units: {type:'number'}, backing_ratio_bps: {type:'number'},
+      as_of: {type:'string'}, backing_model: {type:'string', enum:['segregated','vacuous'], description:'Caller-declared, never inferred from buffer count. "vacuous" = no backing set exists (direct/two-tier CBDC).'},
+      value_in_circulation_minor_units: {type:'number'}, backing_ratio_bps: {type:'number'},
       idle_cost_bps: {type:'number'}, cost_per_crossing_minor_units: {type:'number'},
       buffers: {type:'array'}, movements: {type:'array'},
     } },
@@ -348,11 +355,20 @@ function display(minor){
   return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
 }
 
+function toBackingModel(v, rejected){
+  var s = isNonEmptyString(v) ? v.trim() : null;
+  if (s === 'vacuous' || s === 'segregated') return s;
+  if (s !== null) rejected.push({ where: 'backing_model', reason: 'must be "vacuous" or "segregated"; defaulted to segregated', supplied: s });
+  return 'segregated';
+}
+
 function compute(pp){
   pp = pp || {};
   var rejected_inputs = [];
 
   var as_of = isoDateOrNull(pp.as_of);
+  var backing_model = toBackingModel(pp.backing_model, rejected_inputs);
+  var backing_applicable = backing_model !== 'vacuous';
   var value_in_circulation_minor_units = toMinorUnits(pp.value_in_circulation_minor_units, 'value_in_circulation_minor_units', rejected_inputs);
   var backing_ratio_bps = toBpsOrNull(pp.backing_ratio_bps, 'backing_ratio_bps', rejected_inputs);
   if (backing_ratio_bps === null) backing_ratio_bps = 10000;
@@ -397,7 +413,7 @@ function compute(pp){
   var balancesBefore = {};
   buffers.forEach(function(b){ balancesBefore[b.buffer_id] = b.balance_minor_units; });
   var aggregate_backing_before_minor_units = aggregateCirculationBacking(balancesBefore);
-  var backing_intact_before = aggregate_backing_before_minor_units >= required_backing_minor_units;
+  var backing_intact_before = backing_applicable ? (aggregate_backing_before_minor_units >= required_backing_minor_units) : null;
   var breaches_before = floorCeilingBreaches(balancesBefore);
 
   var movementsIn = Array.isArray(pp.movements) ? pp.movements : [];
@@ -431,7 +447,7 @@ function compute(pp){
 
     if (applied && movement_breaks_invariant === null) {
       var aggAfterThis = aggregateCirculationBacking(balancesWorking);
-      var backingBreaksNow = aggAfterThis < required_backing_minor_units;
+      var backingBreaksNow = backing_applicable && aggAfterThis < required_backing_minor_units;
       var newFloorBreach = floorCeilingBreaches(balancesWorking).some(function(x){ return !breachedBeforeKeys[x.buffer_id + ':' + x.kind]; });
       if (backingBreaksNow || newFloorBreach) {
         movement_breaks_invariant = { movement_id: movement_id, from: from, to: to, amount_minor_units: amount_minor_units, reason: backingBreaksNow ? 'aggregate circulation backing falls below the required ratio after this movement' : 'this movement puts a buffer below its declared floor or above its declared ceiling' };
@@ -442,7 +458,7 @@ function compute(pp){
   });
 
   var aggregate_backing_after_minor_units = aggregateCirculationBacking(balancesWorking);
-  var backing_intact_after = aggregate_backing_after_minor_units >= required_backing_minor_units;
+  var backing_intact_after = backing_applicable ? (aggregate_backing_after_minor_units >= required_backing_minor_units) : null;
   var breaches_after = floorCeilingBreaches(balancesWorking);
 
   var buffer_margins = buffers.filter(function(b){ return b.min_minor_units !== null; }).map(function(b){
@@ -465,25 +481,35 @@ function compute(pp){
   var crossing_cost_minor_units = crossing_count * cost_per_crossing_minor_units;
 
   var compliance_flags = [];
-  if (buffers.length === 0 || rejected_inputs.some(function(r){ return r.where === 'buffers'; })) compliance_flags.push('BACKING_INPUTS_INSUFFICIENT');
-  compliance_flags.push(backing_intact_after ? 'BACKING_INTACT' : 'BACKING_SHORTFALL');
+  if (!backing_applicable) {
+    compliance_flags.push('BACKING_NOT_APPLICABLE');
+  } else {
+    if (buffers.length === 0 || rejected_inputs.some(function(r){ return r.where === 'buffers'; })) compliance_flags.push('BACKING_INPUTS_INSUFFICIENT');
+    compliance_flags.push(backing_intact_after ? 'BACKING_INTACT' : 'BACKING_SHORTFALL');
+  }
   if (breaches_after.some(function(x){ return x.kind === 'BUFFER_BELOW_FLOOR'; })) compliance_flags.push('BUFFER_BELOW_FLOOR');
   if (breaches_after.some(function(x){ return x.kind === 'BUFFER_ABOVE_CEILING'; })) compliance_flags.push('BUFFER_ABOVE_CEILING');
   if (movement_breaks_invariant !== null) compliance_flags.push('MOVEMENT_BREAKS_INVARIANT');
 
   var appliedCount = movements.filter(function(m){ return m.applied; }).length;
   var rationale = [];
-  rationale.push(buffers.length + ' declared buffer' + (buffers.length === 1 ? '' : 's') + '; aggregate circulation-backing ' + display(aggregate_backing_before_minor_units) + ' before movements, required ' + display(required_backing_minor_units) + ' at a ' + backing_ratio_bps + ' bps ratio against ' + display(value_in_circulation_minor_units) + ' in circulation.');
-  rationale.push(backing_intact_before ? 'Backing was intact before the declared movements.' : 'Backing was already short before the declared movements.');
-  rationale.push('After ' + appliedCount + ' applied movement' + (appliedCount === 1 ? '' : 's') + ', aggregate circulation-backing is ' + display(aggregate_backing_after_minor_units) + '.');
-  rationale.push(backing_intact_after
-    ? 'Backing remains intact after the declared movements.'
-    : (backing_intact_before ? 'Backing is short after the declared movements: composition shifted, not merely location.' : 'Backing remains short after the declared movements.'));
+  if (!backing_applicable) {
+    rationale.push('Backing model declared as vacuous: no backing set exists for this settlement-asset topology (e.g. a direct/one-tier CBDC, where the holder\'s claim IS central bank money, or a two-tier/intermediated CBDC, where the claim is still on the central bank). BACKING_NOT_APPLICABLE is a defined answer, not a pass and not a shortfall -- this model has no backing question to evaluate.');
+  } else {
+    rationale.push(buffers.length + ' declared buffer' + (buffers.length === 1 ? '' : 's') + '; aggregate circulation-backing ' + display(aggregate_backing_before_minor_units) + ' before movements, required ' + display(required_backing_minor_units) + ' at a ' + backing_ratio_bps + ' bps ratio against ' + display(value_in_circulation_minor_units) + ' in circulation.');
+    rationale.push(backing_intact_before ? 'Backing was intact before the declared movements.' : 'Backing was already short before the declared movements.');
+    rationale.push('After ' + appliedCount + ' applied movement' + (appliedCount === 1 ? '' : 's') + ', aggregate circulation-backing is ' + display(aggregate_backing_after_minor_units) + '.');
+    rationale.push(backing_intact_after
+      ? 'Backing remains intact after the declared movements.'
+      : (backing_intact_before ? 'Backing is short after the declared movements: composition shifted, not merely location.' : 'Backing remains short after the declared movements.'));
+  }
   if (movement_breaks_invariant) rationale.push('Movement ' + movement_breaks_invariant.movement_id + ' (' + movement_breaks_invariant.from + ' -> ' + movement_breaks_invariant.to + ') is the first to break the invariant: ' + movement_breaks_invariant.reason + '.');
   rationale.push('This is an arithmetic check over declared balances and declared movements. It proves nothing about whether those declarations match any external ledger, and it recommends no action.');
 
   var output_payload = {
     as_of: as_of,
+    backing_model: backing_model,
+    backing_applicable: backing_applicable,
     value_in_circulation_minor_units: value_in_circulation_minor_units,
     value_in_circulation_display: display(value_in_circulation_minor_units),
     backing_ratio_bps: backing_ratio_bps,
@@ -511,7 +537,7 @@ function compute(pp){
     crossing_cost_display: display(crossing_cost_minor_units),
     rejected_inputs: rejected_inputs,
     rationale: rationale,
-    note: 'Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money.',
+    note: 'Deterministic aggregate settlement-asset backing invariant check over caller-declared buffers, backing ratio, value in circulation, and a declared movement set. Verifies the AGGREGATE composition of the buffer set before and after the declared movements, not merely per-account totals or their grand sum. Settlement-asset agnostic: no currency, scheme, country, or issuer is named in this kernel. It performs no sweep, no netting, no reserve attestation, and issues no recommendation to move money. The caller declares backing_model ("segregated", default, or "vacuous" for a direct/two-tier CBDC with no backing set); the kernel never infers this from the buffer count, and BACKING_NOT_APPLICABLE is a defined non-pass answer, not BACKING_INTACT.',
   };
   return { output_payload: output_payload, compliance_flags: compliance_flags };
 }
@@ -531,6 +557,7 @@ function loadCompositionBreakDemo(){
   document.getElementById('ratioBps').value = '10000';
   document.getElementById('idleBps').value = '50';
   document.getElementById('crossCost').value = '1500';
+  document.getElementById('backingModel').value = 'segregated';
   document.getElementById('buffersJson').value = '[\n  { "buffer_id": "buffer-backing", "role": "backing_account", "asset_type": "conventional-asset", "backs": "circulation", "balance_minor_units": 6000000, "min_minor_units": 1000000, "max_minor_units": null },\n  { "buffer_id": "buffer-payout", "role": "payout_buffer", "asset_type": "settlement-asset", "backs": "circulation", "balance_minor_units": 4000000, "min_minor_units": 500000, "max_minor_units": 8000000 },\n  { "buffer_id": "buffer-issuance", "role": "settlement_balance", "asset_type": "settlement-asset", "backs": "new_issuance", "balance_minor_units": 900000, "min_minor_units": 200000, "max_minor_units": null }\n]';
   document.getElementById('movementsJson').value = '[\n  { "movement_id": "MOVE-1", "from": "buffer-payout", "to": "buffer-issuance", "amount_minor_units": 3500000 }\n]';
   runCheck();
@@ -541,8 +568,20 @@ function loadPooledAccountDemo(){
   document.getElementById('ratioBps').value = '10000';
   document.getElementById('idleBps').value = '25';
   document.getElementById('crossCost').value = '800';
+  document.getElementById('backingModel').value = 'segregated';
   document.getElementById('buffersJson').value = '[\n  { "buffer_id": "pooled-account-1", "role": "backing_account", "asset_type": "conventional-asset", "backs": "circulation", "balance_minor_units": 3000000, "min_minor_units": 500000, "max_minor_units": null },\n  { "buffer_id": "pooled-account-2", "role": "payout_buffer", "asset_type": "conventional-asset", "backs": "circulation", "balance_minor_units": 2200000, "min_minor_units": 300000, "max_minor_units": null }\n]';
   document.getElementById('movementsJson').value = '[\n  { "movement_id": "MOVE-1", "from": "pooled-account-1", "to": "pooled-account-2", "amount_minor_units": 500000 }\n]';
+  runCheck();
+}
+function loadVacuousCbdcDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('circulation').value = '50000000';
+  document.getElementById('ratioBps').value = '10000';
+  document.getElementById('idleBps').value = '0';
+  document.getElementById('crossCost').value = '0';
+  document.getElementById('backingModel').value = 'vacuous';
+  document.getElementById('buffersJson').value = '[]';
+  document.getElementById('movementsJson').value = '[]';
   runCheck();
 }
 function loadReserveBackedDemo(){
@@ -551,6 +590,7 @@ function loadReserveBackedDemo(){
   document.getElementById('ratioBps').value = '10500';
   document.getElementById('idleBps').value = '10';
   document.getElementById('crossCost').value = '2500';
+  document.getElementById('backingModel').value = 'segregated';
   document.getElementById('buffersJson').value = '[\n  { "buffer_id": "reserve-account", "role": "backing_account", "asset_type": "reserve-asset", "backs": "circulation", "balance_minor_units": 15000000, "min_minor_units": 2000000, "max_minor_units": null },\n  { "buffer_id": "redemption-buffer", "role": "payout_buffer", "asset_type": "settlement-asset", "backs": "circulation", "balance_minor_units": 6000000, "min_minor_units": 1000000, "max_minor_units": 9000000 }\n]';
   document.getElementById('movementsJson').value = '[]';
   runCheck();
@@ -565,6 +605,7 @@ async function runCheck(){
 
   var pp = {
     as_of: document.getElementById('asOf').value || '',
+    backing_model: document.getElementById('backingModel').value,
     value_in_circulation_minor_units: intOrRaw(document.getElementById('circulation').value),
     backing_ratio_bps: intOrRaw(document.getElementById('ratioBps').value),
     idle_cost_bps: intOrRaw(document.getElementById('idleBps').value),
@@ -578,10 +619,16 @@ async function runCheck(){
   var op = res.output_payload;
 
   var vBox = document.getElementById('verdictBox');
-  vBox.style.color = op.backing_intact_after ? 'var(--green)' : 'var(--red)';
-  vBox.style.background = op.backing_intact_after ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
-  vBox.style.border = '1px solid ' + (op.backing_intact_after ? 'var(--green)' : 'var(--red)');
-  vBox.textContent = (op.backing_intact_after ? 'BACKING_INTACT' : 'BACKING_SHORTFALL') + ' · ' + res.compliance_flags.join(', ');
+  if (!op.backing_applicable) {
+    vBox.style.color = 'var(--teal-lt)';
+    vBox.style.background = 'rgba(20,184,166,.08)';
+    vBox.style.border = '1px solid var(--teal-lt)';
+  } else {
+    vBox.style.color = op.backing_intact_after ? 'var(--green)' : 'var(--red)';
+    vBox.style.background = op.backing_intact_after ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+    vBox.style.border = '1px solid ' + (op.backing_intact_after ? 'var(--green)' : 'var(--red)');
+  }
+  vBox.textContent = res.compliance_flags.join(', ');
 
   document.getElementById('statRow').innerHTML =
     '<div class="stat"><span class="stat-val">' + op.aggregate_backing_before_display + '</span><span class="stat-key">Aggregate backing before</span></div>' +
