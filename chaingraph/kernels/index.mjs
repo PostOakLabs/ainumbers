@@ -452,6 +452,7 @@ import * as art510    from './art-510-build-art5-diligence-evidence.kernel.mjs';
 import * as art511    from './art-511-recompute-fund-fees.kernel.mjs';
 import * as art512    from './art-512-check-mica-reserve-disclosure.kernel.mjs';
 import * as art513    from './art-513-public-money-settlement-receipt.kernel.mjs';
+import * as art514    from './art-514-conditional-relief-collateral-receipt.kernel.mjs';
 import * as art515    from './art-515-build-allocation-decision-receipt.kernel.mjs';
 import * as art516    from './art-516-daily-reconciliation-attestation.kernel.mjs';
 import * as art517    from './art-517-audit-trail-completeness.kernel.mjs';
@@ -975,6 +976,7 @@ export const KERNELS = {
   'art-511-recompute-fund-fees':                              art511,
   'art-512-check-mica-reserve-disclosure':                    art512,
   'art-513-public-money-settlement-receipt':                  art513,
+  'art-514-conditional-relief-collateral-receipt':            art514,
   'art-515-build-allocation-decision-receipt':                art515,
   'art-516-daily-reconciliation-attestation':                 art516,
   'art-517-audit-trail-completeness':                         art517,
