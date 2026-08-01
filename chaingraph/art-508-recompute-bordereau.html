@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Delegated Authority Bordereau Recomputation &middot; ART-508 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Foots a delegated authority bordereau from the file the coverholder sent, compares it against the totals they assert, and measures utilisation against the binding authority limits the carrier holds.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-508-recompute-bordereau.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.open{background:rgba(58,82,112,.2);color:var(--body);border:1px solid var(--border-2)}
+.ruleset-pin{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.4rem .75rem;display:inline-block;margin:8px 0}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-508 · Delegated Authority Bordereau Recomputation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-508 &middot; Delegated Authority &middot; Coverholder Oversight</div>
+  <h1>Delegated Authority Bordereau Recomputation</h1>
+  <p class="sub">Foots the bordereau your coverholder sent, from that same file, and tells you what it actually adds up to. Where you also paste the totals they assert, the two are compared figure by figure. Exact agreement on a footing is a weak result and this page says so, because both sides added the same column. The check that carries weight is the one underneath it: utilisation of the binding authority, measured against the limits you hold as the carrier and which are nowhere on the bordereau.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Caller supplied column mapping</span>
+    <span class="flag info">Carrier held limits</span>
+    <span class="flag">Fixed-point money math</span>
+    <span class="flag">No field list bundled</span>
+  </div>
+  <div class="ruleset-pin" id="rulesetPin">Basis: your own column mapping &middot; standard pinned as you declare it &middot; no field list, schema, rate or commission table is bundled or read &middot; field set v1.0.0</div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This is the highest risk family on this site for personal data. Real bordereaux carry insured names, addresses and claim narratives, and none of them is needed here. Only the columns you name in the mapping are ever read; every other column is dropped before anything is computed or exported, and where a mapped cell is unusable it is reported by column name and type, never by its contents. Supply anonymised or synthetic data. A difference against the asserted totals means the two arithmetics disagree on the rows supplied, which can equally be an incomplete extract or a wrong mapping. It is not a finding that the coverholder misreported, and whether authority was properly exercised is a conclusion for the delegated authority audit. This page computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Submission and the standard you are working to</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo book below is synthetic. It is not a copy of any real coverholder file, any real book of business or any real market data standard, and it is already loaded so you can press Run without entering anything of your own. It deliberately carries an insured name column that the mapping does not name, so you can see that nothing from it reaches the result.</p>
+    <div class="grid2">
+      <div><label class="fld">Period label (your input, never a clock read)</label><input type="text" id="periodLabel" value="2025-07 monthly premium bordereau"></div>
+      <div><label class="fld">Bordereau class</label><input type="text" id="bdxClass" value="premium"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Standard label (free text, pinned into the artifact)</label><input type="text" id="stdLabel" value="Coverholder premium bordereau layout as agreed in the binding authority"></div>
+      <div><label class="fld">Standard version (free text, pinned into the artifact)</label><input type="text" id="stdVersion" value="2025-04 revision"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Amounts are written as</label><select id="amountsIn"><option value="major_units">Decimal amounts, for example 1234.56</option><option value="minor_units">Integer minor units, for example 123456</option></select></div>
+      <div><label class="fld">Currency when no currency column is mapped</label><input type="text" id="defaultCcy" value="GBP"></div>
+    </div>
+
+    <div class="section-head">Column mapping</div>
+    <label class="fld">JSON object. Name which of YOUR columns carries each measure. Nothing is read from a column you do not name here. taxes takes a list.</label>
+    <textarea id="mappingJson" style="min-height:190px">{
+  "policy_ref": "Unique Market Reference",
+  "period": "Reporting Period",
+  "inception_date": "Risk Inception Date",
+  "currency": "Settlement Currency",
+  "gross_premium": "Gross Written Premium",
+  "brokerage": "Brokerage Amount",
+  "coverholder_commission": "Coverholder Commission Amount",
+  "ceded": "Reinsurance Ceded Premium",
+  "net": "Net Premium Due To Carrier",
+  "sum_insured": "Limit Of Liability",
+  "taxes": ["IPT Amount", "Levy Amount"]
+}</textarea>
+
+    <div class="section-head">Bordereau lines</div>
+    <label class="fld">JSON array, one object per line. Paste your own extract here. Columns the mapping does not name are dropped before anything is computed or exported.</label>
+    <textarea id="rowsJson" style="min-height:200px">[
+  { "Unique Market Reference": "B1234SYN0001", "Reporting Period": "2025-07", "Risk Inception Date": "2025-07-04",
+    "Settlement Currency": "GBP", "Gross Written Premium": "10000.00", "Brokerage Amount": "1000.00",
+    "Coverholder Commission Amount": "1500.00", "Reinsurance Ceded Premium": "2000.00",
+    "IPT Amount": "1200.00", "Levy Amount": "35.00", "Net Premium Due To Carrier": "4265.00",
+    "Limit Of Liability": "500000.00", "Insured Name": "SYNTHETIC NAME, NOT MAPPED, NEVER READ" },
+  { "Unique Market Reference": "B1234SYN0002", "Reporting Period": "2025-07", "Risk Inception Date": "2025-07-19",
+    "Settlement Currency": "GBP", "Gross Written Premium": "2500.55", "Brokerage Amount": "250.05",
+    "Coverholder Commission Amount": "375.00", "Reinsurance Ceded Premium": "0.00",
+    "IPT Amount": "300.07", "Levy Amount": "8.75", "Net Premium Due To Carrier": "1566.68",
+    "Limit Of Liability": "250000.00", "Insured Name": "SYNTHETIC NAME, NOT MAPPED, NEVER READ" },
+  { "Unique Market Reference": "B1234SYN0003", "Reporting Period": "2025-07", "Risk Inception Date": "2025-07-22",
+    "Settlement Currency": "EUR", "Gross Written Premium": "4000.00", "Brokerage Amount": "400.00",
+    "Coverholder Commission Amount": "600.00", "Reinsurance Ceded Premium": "0.00",
+    "IPT Amount": "0.00", "Levy Amount": "0.00", "Net Premium Due To Carrier": "3000.00",
+    "Limit Of Liability": "100000.00", "Insured Name": "SYNTHETIC NAME, NOT MAPPED, NEVER READ" }
+]</textarea>
+
+    <div class="section-head">Binding authority, as the carrier holds it</div>
+    <label class="fld">JSON object, optional. These limits are yours and are not on the bordereau, which is exactly why they are declared here and never derived from the file under review.</label>
+    <textarea id="authorityJson" style="min-height:130px">{
+  "aggregate_limit": "12000.00",
+  "aggregate_basis": "gross_premium",
+  "limit_currency": "GBP",
+  "per_risk_limit": "300000.00",
+  "per_risk_basis": "sum_insured",
+  "period_start": "2025-07-01",
+  "period_end": "2025-07-20",
+  "permitted_currencies": ["GBP"]
+}</textarea>
+
+    <div class="section-head">Totals the coverholder asserts</div>
+    <label class="fld">JSON array, optional, one object per currency. Leave this empty and the run is reported as recompute only, which is not a pass.</label>
+    <textarea id="assertedJson" style="min-height:110px">[
+  { "currency": "GBP", "gross_premium": "12500.55", "brokerage": "1250.05",
+    "coverholder_commission": "1875.00", "taxes": "1543.82", "ceded": "2000.00", "net": "5831.68" },
+  { "currency": "EUR", "gross_premium": "4000.00", "net": "3000.00" }
+]</textarea>
+
+    <div class="section-head">Expected periods</div>
+    <label class="fld">JSON array, optional. Periods you expect to see on the file, so an absent one is reported.</label>
+    <textarea id="periodsJson" style="min-height:60px">["2025-06", "2025-07"]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runBordereau()">&#9654; Run Bordereau Recomputation</button>
+      <button class="ghost" onclick="loadRecomputeOnlyDemo()">Load recompute only demo</button>
+      <button class="ghost" onclick="loadDifferenceDemo()">Load difference demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="ruleset-pin" id="pinnedStandard"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Footing by currency</div>
+      <div id="footingDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Authority utilisation</div>
+      <div id="authDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Limit observations</div>
+      <div id="breachDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Lines outside the declared scope</div>
+      <div id="scopeDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Against the asserted totals</div>
+      <div id="diffDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Population</div>
+      <div id="popDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It validates conformance with no data standard, because bundling a field list would be a set of fields somebody has to keep current, and a stale one would be worse than none. It holds no rate table and no commission table, screens no sanctions list, assesses no terms of business, and performs no reserving or pricing adequacy work. It does not judge whether authority was properly exercised: it reports arithmetic and limit facts about the rows you supplied, and the audit reaches the conclusion. It does not verify that the file is complete, so a total that agrees says the rows present add up, not that the right rows are present. It makes no claim that its output is acceptable to any regulator or to Lloyd's.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">See also <a href="art-509-recompute-payment-waterfall.html">ART-509 Securitisation Payment Waterfall Recomputation</a>, which applies the same independent recomputation idea to a priority of payments, and the <a href="chaingraph-hub.html">ChainGraph Hub</a> for the rest of the suite.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-508-recompute-bordereau',
+  version: '1.0.0',
+  mcp_name: 'recompute_bordereau',
+  title: 'Delegated Authority Bordereau Recomputation',
+  description: 'Foots a delegated authority bordereau from caller supplied lines and a caller declared column mapping, compares the footing against the totals the coverholder asserts, and measures utilisation against binding authority limits the carrier declares.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_bordereau',
+    description: 'Foots a bordereau per currency from mapped columns only, diffs the footing field by field against asserted totals, measures aggregate and per risk utilisation against caller declared binding authority limits, and reports out of scope lines, duplicate policy references, missing expected periods and lines with absent mapped fields. Absent asserted totals the run is reported as recompute only, which is never a pass. Supply rows containing only the mapped columns: unmapped columns are never read, but any input passed here is echoed in the artifact policy_parameters.',
+    inputSchema: { type: 'object', properties: {
+      period_label: {type:'string'}, bordereau_class: {type:'string'},
+      standard_label: {type:'string'}, standard_version: {type:'string'},
+      amounts_in: {type:'string'}, default_currency: {type:'string'},
+      field_mapping: {type:'object'}, rows: {type:'array'},
+      asserted_totals: {type:'array'}, binding_authority: {type:'object'}, expected_periods: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-508-recompute-bordereau.kernel.mjs --- */
+var MONEY_MEASURES = ['gross_premium','brokerage','coverholder_commission','ceded','net'];
+var DEDUCTION_MEASURES = ['brokerage','coverholder_commission','ceded'];
+var BASIS = {
+  basis_id: 'CALLER-SUPPLIED-MAPPING',
+  basis_label: 'Column mapping, standard label and standard version as declared by the caller',
+  mapping_source: 'caller_declared',
+  shipped_field_list: false,
+  shipped_rate_table: false,
+  standard_conformance_checked: false,
+  standard_note: 'No market data standard is bundled, read, validated or asserted here. The caller names which of their own columns carries each measure, and the standard label and version they pin are echoed so a later revision dates an old receipt rather than falsifying it.',
+  field_set_version: '1.0.0',
+};
+var MINOR_UNIT_EXPONENT = 2;
+var MINOR_SCALE = 100;
+var DECIMAL_RE = /^-?\d+(\.\d{1,2})?$/;
+var ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+var REDACTED_PREFIX = '[redacted:';
+
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function arr(v){ return Array.isArray(v) ? v : []; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / MINOR_SCALE); var frac = abs - whole * MINOR_SCALE;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(MINOR_UNIT_EXPONENT, '0');
+}
+function parseAmount(v, mode){
+  if (typeof v === 'string' && v.indexOf(REDACTED_PREFIX) === 0) {
+    var t = v.slice(REDACTED_PREFIX.length, v.length - 1);
+    return { ok:false, minor:0, value_type:t,
+      reason: mode === 'minor_units' ? 'expected a safe integer number of minor units'
+        : (t === 'string' || t === 'number') ? 'not a decimal amount with at most two decimal places'
+        : 'expected a decimal amount, got ' + t };
+  }
+  if (v === undefined || v === null || v === '') return { ok:false, minor:0, reason:'absent', value_type: typeof v };
+  if (mode === 'minor_units') {
+    if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v)) return { ok:true, minor:v, reason:null, value_type: typeof v };
+    return { ok:false, minor:0, reason:'expected a safe integer number of minor units', value_type: typeof v };
+  }
+  if (typeof v !== 'number' && typeof v !== 'string') return { ok:false, minor:0, reason:'expected a decimal amount, got ' + typeof v, value_type: typeof v };
+  if (typeof v === 'number' && !Number.isFinite(v)) return { ok:false, minor:0, reason:'not a finite number', value_type:'number' };
+  var s = String(v).trim().replace(/[, ]/g, '');
+  if (s === '') return { ok:false, minor:0, reason:'absent', value_type: typeof v };
+  if (!DECIMAL_RE.test(s)) return { ok:false, minor:0, reason:'not a decimal amount with at most two decimal places', value_type: typeof v };
+  var neg = s.charAt(0) === '-';
+  var body = neg ? s.slice(1) : s;
+  var point = body.indexOf('.');
+  var whole = point === -1 ? body : body.slice(0, point);
+  var fracRaw = point === -1 ? '' : body.slice(point + 1);
+  var frac = fracRaw.length === 0 ? '00' : fracRaw.length === 1 ? fracRaw + '0' : fracRaw;
+  var wholeN = Number(whole);
+  if (!Number.isSafeInteger(wholeN)) return { ok:false, minor:0, reason:'exceeds the safe integer range', value_type: typeof v };
+  var minor = wholeN * MINOR_SCALE + Number(frac);
+  if (!Number.isSafeInteger(minor)) return { ok:false, minor:0, reason:'exceeds the safe integer range in minor units', value_type: typeof v };
+  return { ok:true, minor: neg ? -minor : minor, reason:null, value_type: typeof v };
+}
+function mappedColumnsOf(pp){
+  var mappingIn = obj((pp || {}).field_mapping);
+  var cols = [];
+  var keys = MONEY_MEASURES.concat(['policy_ref','period','inception_date','currency','sum_insured']);
+  for (var i = 0; i < keys.length; i++) if (isNonEmptyString(mappingIn[keys[i]])) cols.push(mappingIn[keys[i]].trim());
+  var taxRaw = mappingIn.taxes;
+  if (isNonEmptyString(taxRaw)) cols.push(taxRaw.trim());
+  else { var t = arr(taxRaw); for (var j = 0; j < t.length; j++) if (isNonEmptyString(t[j])) cols.push(t[j].trim()); }
+  return cols;
+}
+/* Cuts every row down to the mapped columns BEFORE an artifact is built, so unmapped columns cannot
+   reach the exported receipt through the echoed input parameters. Applied on every run below. */
+function projectPolicyParameters(pp){
+  pp = pp || {};
+  var cols = mappedColumnsOf(pp);
+  var mappingIn = obj(pp.field_mapping);
+  var mode = pp.amounts_in === 'minor_units' ? 'minor_units' : 'major_units';
+  var moneyCols = [];
+  var mk = MONEY_MEASURES.concat(['sum_insured']);
+  for (var i = 0; i < mk.length; i++) if (isNonEmptyString(mappingIn[mk[i]])) moneyCols.push(mappingIn[mk[i]].trim());
+  var taxRaw = mappingIn.taxes;
+  if (isNonEmptyString(taxRaw)) moneyCols.push(taxRaw.trim());
+  else { var t = arr(taxRaw); for (var j = 0; j < t.length; j++) if (isNonEmptyString(t[j])) moneyCols.push(t[j].trim()); }
+  var projected = {};
+  for (var k in pp) if (Object.prototype.hasOwnProperty.call(pp, k) && k !== 'rows') projected[k] = pp[k];
+  projected.rows = arr(pp.rows).map(function(raw){
+    var row = obj(raw); var kept = {};
+    for (var c = 0; c < cols.length; c++) {
+      var col = cols[c];
+      if (!Object.prototype.hasOwnProperty.call(row, col)) continue;
+      var v = row[col];
+      if (moneyCols.indexOf(col) === -1) { kept[col] = v; continue; }
+      var parsed = parseAmount(v, mode);
+      kept[col] = (parsed.ok || parsed.reason === 'absent') ? v : REDACTED_PREFIX + (typeof v) + ']';
+    }
+    return kept;
+  });
+  return projected;
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var i, j, m;
+
+  var period_label = str(pp.period_label, 'UNSTATED');
+  var bordereau_class = str(pp.bordereau_class, 'UNSTATED');
+  var amounts_in = pp.amounts_in === 'minor_units' ? 'minor_units' : 'major_units';
+  var default_currency = isNonEmptyString(pp.default_currency) ? pp.default_currency.trim().toUpperCase() : 'UNSTATED';
+
+  var standard_label = str(pp.standard_label, 'UNSTATED');
+  var standard_version = str(pp.standard_version, 'UNSTATED');
+  var standard_pinned = isNonEmptyString(pp.standard_label) && isNonEmptyString(pp.standard_version);
+
+  var mappingIn = obj(pp.field_mapping);
+  var mapping = {};
+  var mkeys = MONEY_MEASURES.concat(['policy_ref','period','inception_date','currency','sum_insured']);
+  for (i = 0; i < mkeys.length; i++) { var col = str(mappingIn[mkeys[i]], null); if (col !== null) mapping[mkeys[i]] = col; }
+  var taxColumns = [];
+  var taxRaw = mappingIn.taxes;
+  if (isNonEmptyString(taxRaw)) taxColumns.push(taxRaw.trim());
+  else { var tarr = arr(taxRaw); for (i = 0; i < tarr.length; i++) if (isNonEmptyString(tarr[i])) taxColumns.push(tarr[i].trim()); }
+  var mapped_columns = Object.keys(mapping).map(function(k){ return mapping[k]; }).concat(taxColumns);
+  var mapping_supplied = Object.keys(mapping).length > 0 || taxColumns.length > 0;
+  if (!mapping_supplied) {
+    rejected_inputs.push({ where:'field_mapping', column:null, reason:'absent, so no column could be read and every measure foots to zero', value_type:'undefined' });
+  }
+
+  function cell(row, key, line){
+    var c = mapping[key];
+    if (c === undefined) return { mapped:false, ok:false, minor:0 };
+    var parsed = parseAmount(row[c], amounts_in);
+    if (!parsed.ok) rejected_inputs.push({ where:'rows[' + line + '].' + key, column:c, reason:parsed.reason, value_type:parsed.value_type });
+    return { mapped:true, ok:parsed.ok, minor:parsed.minor };
+  }
+
+  var suppliedRows = arr(pp.rows);
+  var currencyOrder = [];
+  var byCurrency = {};
+  function bucket(ccy){
+    if (byCurrency[ccy] === undefined) {
+      var b = { currency:ccy, line_count:0, taxes_by_column:{} };
+      for (var q = 0; q < MONEY_MEASURES.length; q++) b[MONEY_MEASURES[q]] = 0;
+      b.taxes = 0;
+      byCurrency[ccy] = b; currencyOrder.push(ccy);
+    }
+    return byCurrency[ccy];
+  }
+
+  var unmapped_column_cells = 0;
+  var duplicateIndex = {};
+  var lines_with_absent_mapped_fields = [];
+  var out_of_scope_lines = [];
+  var observedPeriods = [];
+
+  var authorityIn = obj(pp.binding_authority);
+  var authority_supplied = pp.binding_authority !== undefined && pp.binding_authority !== null && Object.keys(authorityIn).length > 0;
+  var period_start = str(authorityIn.period_start, null);
+  var period_end = str(authorityIn.period_end, null);
+  var permitted_currencies = arr(authorityIn.permitted_currencies).map(function(c){ return isNonEmptyString(c) ? c.trim().toUpperCase() : null; }).filter(function(c){ return c !== null; });
+  var aggregate_basis = str(authorityIn.aggregate_basis, 'gross_premium');
+  var per_risk_basis = str(authorityIn.per_risk_basis, mapping.sum_insured !== undefined ? 'sum_insured' : 'gross_premium');
+  var aggParsed = parseAmount(authorityIn.aggregate_limit, amounts_in);
+  if (authority_supplied && authorityIn.aggregate_limit !== undefined && authorityIn.aggregate_limit !== null && !aggParsed.ok) {
+    rejected_inputs.push({ where:'binding_authority.aggregate_limit', column:null, reason:aggParsed.reason, value_type:aggParsed.value_type });
+  }
+  var perRiskParsed = parseAmount(authorityIn.per_risk_limit, amounts_in);
+  if (authority_supplied && authorityIn.per_risk_limit !== undefined && authorityIn.per_risk_limit !== null && !perRiskParsed.ok) {
+    rejected_inputs.push({ where:'binding_authority.per_risk_limit', column:null, reason:perRiskParsed.reason, value_type:perRiskParsed.value_type });
+  }
+  var aggregate_limit_minor_units = aggParsed.ok ? aggParsed.minor : null;
+  var per_risk_limit_minor_units = perRiskParsed.ok ? perRiskParsed.minor : null;
+  var limit_currency = isNonEmptyString(authorityIn.limit_currency) ? authorityIn.limit_currency.trim().toUpperCase() : null;
+  var limit_breaches = [];
+
+  for (i = 0; i < suppliedRows.length; i++) {
+    var row = obj(suppliedRows[i]);
+    var line = i + 1;
+    var rk = Object.keys(row);
+    for (j = 0; j < rk.length; j++) if (mapped_columns.indexOf(rk[j]) === -1) unmapped_column_cells += 1;
+
+    var ccyCol = mapping.currency;
+    var ccyRaw = ccyCol === undefined ? null : row[ccyCol];
+    var currency = isNonEmptyString(ccyRaw) ? ccyRaw.trim().toUpperCase() : default_currency;
+    var b = bucket(currency);
+    b.line_count += 1;
+
+    var absent = [];
+    var values = {};
+    for (m = 0; m < MONEY_MEASURES.length; m++) {
+      var c1 = cell(row, MONEY_MEASURES[m], line);
+      values[MONEY_MEASURES[m]] = c1.minor;
+      if (c1.mapped) { b[MONEY_MEASURES[m]] += c1.minor; if (!c1.ok) absent.push(MONEY_MEASURES[m]); }
+    }
+    var rowTaxes = 0;
+    for (j = 0; j < taxColumns.length; j++) {
+      var tcol = taxColumns[j];
+      var tparsed = parseAmount(row[tcol], amounts_in);
+      if (!tparsed.ok) {
+        rejected_inputs.push({ where:'rows[' + line + '].taxes', column:tcol, reason:tparsed.reason, value_type:tparsed.value_type });
+        absent.push('taxes:' + tcol);
+      }
+      rowTaxes += tparsed.minor;
+      b.taxes_by_column[tcol] = (b.taxes_by_column[tcol] === undefined ? 0 : b.taxes_by_column[tcol]) + tparsed.minor;
+    }
+    b.taxes += rowTaxes;
+
+    var sumInsuredCell = cell(row, 'sum_insured', line);
+    values.sum_insured = sumInsuredCell.minor;
+    if (sumInsuredCell.mapped && !sumInsuredCell.ok) absent.push('sum_insured');
+
+    var refCol = mapping.policy_ref;
+    var policy_ref = refCol !== undefined && isNonEmptyString(row[refCol]) ? String(row[refCol]).trim() : null;
+    if (refCol !== undefined) {
+      if (policy_ref === null) absent.push('policy_ref');
+      else {
+        if (duplicateIndex[policy_ref] === undefined) duplicateIndex[policy_ref] = [];
+        duplicateIndex[policy_ref].push(line);
+      }
+    }
+
+    var perCol = mapping.period;
+    var periodValue = perCol !== undefined && isNonEmptyString(row[perCol]) ? String(row[perCol]).trim() : null;
+    if (perCol !== undefined) {
+      if (periodValue === null) absent.push('period');
+      else if (observedPeriods.indexOf(periodValue) === -1) observedPeriods.push(periodValue);
+    }
+
+    var incCol = mapping.inception_date;
+    var incRaw = incCol !== undefined && isNonEmptyString(row[incCol]) ? String(row[incCol]).trim() : null;
+    if (incCol !== undefined && incRaw === null) absent.push('inception_date');
+
+    if (absent.length > 0) lines_with_absent_mapped_fields.push({ line:line, policy_ref:policy_ref, absent_measures:absent.slice() });
+
+    if (permitted_currencies.length > 0 && permitted_currencies.indexOf(currency) === -1) {
+      out_of_scope_lines.push({ line:line, policy_ref:policy_ref, reason:'currency_not_permitted', currency:currency, detail:'The currency on this line is not in the list of currencies the caller declared the binding authority permits.' });
+    }
+    if (incCol !== undefined && incRaw !== null) {
+      if (!ISO_DATE_RE.test(incRaw)) {
+        rejected_inputs.push({ where:'rows[' + line + '].inception_date', column:incCol, reason:'not an ISO calendar date of the form YYYY-MM-DD, so it could not be compared against the authority period', value_type: typeof row[incCol] });
+      } else {
+        if (period_start !== null && incRaw < period_start) {
+          out_of_scope_lines.push({ line:line, policy_ref:policy_ref, reason:'before_authority_period', currency:currency, inception_date:incRaw, detail:'The inception date on this line falls before the authority period start the caller declared.' });
+        } else if (period_end !== null && incRaw > period_end) {
+          out_of_scope_lines.push({ line:line, policy_ref:policy_ref, reason:'after_authority_period', currency:currency, inception_date:incRaw, detail:'The inception date on this line falls after the authority period end the caller declared.' });
+        }
+      }
+    }
+
+    var perRiskValue = per_risk_basis === 'sum_insured' ? values.sum_insured : (values[per_risk_basis] !== undefined ? values[per_risk_basis] : 0);
+    if (per_risk_limit_minor_units !== null && perRiskValue > per_risk_limit_minor_units) {
+      limit_breaches.push({ scope:'per_risk', line:line, policy_ref:policy_ref, currency:currency, basis:per_risk_basis,
+        measured_minor_units:perRiskValue, measured_display:display(perRiskValue),
+        limit_minor_units:per_risk_limit_minor_units, limit_display:display(per_risk_limit_minor_units),
+        excess_minor_units:perRiskValue - per_risk_limit_minor_units, excess_display:display(perRiskValue - per_risk_limit_minor_units),
+        detail:'This line exceeds the per risk limit the caller declared from the binding authority. The limit is held by the carrier and is not read from the bordereau, which is what gives the comparison independent provenance.' });
+    }
+  }
+
+  var currencies = currencyOrder.map(function(ccy){
+    var bb = byCurrency[ccy];
+    var deductions = 0;
+    for (var q = 0; q < DEDUCTION_MEASURES.length; q++) deductions += bb[DEDUCTION_MEASURES[q]];
+    deductions += bb.taxes;
+    var net_recomputed = bb.gross_premium - deductions;
+    var net_mapped = mapping.net !== undefined ? bb.net : null;
+    var net_internal_difference = net_mapped === null ? null : net_mapped - net_recomputed;
+    var taxes_by_column = Object.keys(bb.taxes_by_column).sort().map(function(cn){
+      return { column:cn, total_minor_units:bb.taxes_by_column[cn], total_display:display(bb.taxes_by_column[cn]) };
+    });
+    return {
+      currency: ccy, line_count: bb.line_count,
+      gross_premium_minor_units: bb.gross_premium, gross_premium_display: display(bb.gross_premium),
+      brokerage_minor_units: bb.brokerage, brokerage_display: display(bb.brokerage),
+      coverholder_commission_minor_units: bb.coverholder_commission, coverholder_commission_display: display(bb.coverholder_commission),
+      taxes_minor_units: bb.taxes, taxes_display: display(bb.taxes), taxes_by_column: taxes_by_column,
+      ceded_minor_units: bb.ceded, ceded_display: display(bb.ceded),
+      net_recomputed_minor_units: net_recomputed, net_recomputed_display: display(net_recomputed),
+      net_as_mapped_minor_units: net_mapped, net_as_mapped_display: net_mapped === null ? null : display(net_mapped),
+      net_internal_difference_minor_units: net_internal_difference,
+      net_internal_difference_display: net_internal_difference === null ? null : display(net_internal_difference),
+      net_agrees_internally: net_internal_difference === null ? null : net_internal_difference === 0,
+    };
+  });
+
+  var measures_mapped = {};
+  measures_mapped.gross_premium = mapping.gross_premium !== undefined;
+  measures_mapped.brokerage = mapping.brokerage !== undefined;
+  measures_mapped.coverholder_commission = mapping.coverholder_commission !== undefined;
+  measures_mapped.ceded = mapping.ceded !== undefined;
+  measures_mapped.net = mapping.net !== undefined;
+  measures_mapped.taxes = taxColumns.length > 0;
+  measures_mapped.sum_insured = mapping.sum_insured !== undefined;
+  measures_mapped.policy_ref = mapping.policy_ref !== undefined;
+  measures_mapped.period = mapping.period !== undefined;
+  measures_mapped.inception_date = mapping.inception_date !== undefined;
+  measures_mapped.currency = mapping.currency !== undefined;
+  var unmapped_measures = Object.keys(measures_mapped).filter(function(k){ return !measures_mapped[k]; }).sort();
+
+  var aggregate_utilisation = {
+    assessed: false,
+    reason: 'No aggregate limit was supplied, so utilisation of the binding authority could not be assessed. The limit is held by the carrier and is deliberately not derived from the bordereau.',
+    basis: aggregate_basis, limit_currency: limit_currency,
+    limit_minor_units: aggregate_limit_minor_units,
+    limit_display: aggregate_limit_minor_units === null ? null : display(aggregate_limit_minor_units),
+    consumed_minor_units: null, consumed_display: null,
+    utilisation_basis_points: null, utilisation_display: null,
+    headroom_minor_units: null, headroom_display: null, breached: false,
+  };
+  if (aggregate_limit_minor_units !== null) {
+    var ccyForLimit = limit_currency !== null ? limit_currency : (currencyOrder.length === 1 ? currencyOrder[0] : null);
+    if (ccyForLimit === null) {
+      aggregate_utilisation.reason = 'An aggregate limit was supplied but the currency it applies to was not, and the rows carry more than one currency. Utilisation is reported as not assessed rather than summed across currencies, which would not be a meaningful figure.';
+    } else {
+      var bl = byCurrency[ccyForLimit];
+      var consumed = bl === undefined ? 0 : (aggregate_basis === 'taxes' ? bl.taxes : (bl[aggregate_basis] !== undefined ? bl[aggregate_basis] : 0));
+      var product = consumed * 10000;
+      var bp = (aggregate_limit_minor_units > 0 && Number.isSafeInteger(product)) ? Math.trunc(product / aggregate_limit_minor_units) : null;
+      aggregate_utilisation = {
+        assessed: true,
+        reason: bl === undefined
+          ? 'The aggregate limit names a currency that appears on none of the rows supplied, so nothing was consumed against it.'
+          : 'Utilisation is the recomputed total for the declared basis, measured against the aggregate limit the caller declared from the binding authority. The limit is carrier held and is never read from the bordereau.',
+        basis: aggregate_basis, limit_currency: ccyForLimit,
+        limit_minor_units: aggregate_limit_minor_units, limit_display: display(aggregate_limit_minor_units),
+        consumed_minor_units: consumed, consumed_display: display(consumed),
+        utilisation_basis_points: bp, utilisation_display: bp === null ? null : display(bp) + ' percent',
+        headroom_minor_units: aggregate_limit_minor_units - consumed, headroom_display: display(aggregate_limit_minor_units - consumed),
+        breached: consumed > aggregate_limit_minor_units,
+      };
+      if (aggregate_utilisation.breached) {
+        limit_breaches.push({ scope:'aggregate', line:null, policy_ref:null, currency:ccyForLimit, basis:aggregate_basis,
+          measured_minor_units:consumed, measured_display:display(consumed),
+          limit_minor_units:aggregate_limit_minor_units, limit_display:display(aggregate_limit_minor_units),
+          excess_minor_units:consumed - aggregate_limit_minor_units, excess_display:display(consumed - aggregate_limit_minor_units),
+          detail:'The recomputed total for the declared basis exceeds the aggregate limit the caller declared from the binding authority.' });
+      }
+    }
+  }
+
+  var duplicates = Object.keys(duplicateIndex).sort().filter(function(ref){ return duplicateIndex[ref].length > 1; }).map(function(ref){
+    return { policy_ref:ref, occurrences:duplicateIndex[ref].length, lines:duplicateIndex[ref],
+      detail:'This policy reference appears on more than one line. That may be a genuine endorsement or instalment rather than a duplicate, which is why it is reported as a population observation and not as an error.' };
+  });
+  var expected_periods = arr(pp.expected_periods).map(function(p){ return isNonEmptyString(p) ? p.trim() : null; }).filter(function(p){ return p !== null; });
+  var missing_periods = expected_periods.filter(function(p){ return observedPeriods.indexOf(p) === -1; });
+  var unexpected_periods = expected_periods.length > 0 ? observedPeriods.filter(function(p){ return expected_periods.indexOf(p) === -1; }) : [];
+  var population_defect = duplicates.length > 0 || missing_periods.length > 0 || lines_with_absent_mapped_fields.length > 0;
+
+  var assertedSupplied = pp.asserted_totals !== undefined && pp.asserted_totals !== null;
+  var diff = [];
+  if (assertedSupplied) {
+    var rawAsserted = Array.isArray(pp.asserted_totals) ? pp.asserted_totals : [pp.asserted_totals];
+    var seenCcy = [];
+    for (i = 0; i < rawAsserted.length; i++) {
+      var a = obj(rawAsserted[i]);
+      var accy = isNonEmptyString(a.currency) ? a.currency.trim().toUpperCase() : (currencyOrder.length === 1 ? currencyOrder[0] : default_currency);
+      seenCcy.push(accy);
+      var recomputedRow = currencies.filter(function(c){ return c.currency === accy; })[0];
+      var measures = MONEY_MEASURES.concat(['taxes']);
+      for (m = 0; m < measures.length; m++) {
+        var mk2 = measures[m];
+        if (a[mk2] === undefined || a[mk2] === null) continue;
+        var aparsed = parseAmount(a[mk2], amounts_in);
+        if (!aparsed.ok) rejected_inputs.push({ where:'asserted_totals[' + i + '].' + mk2, column:null, reason:aparsed.reason, value_type:aparsed.value_type });
+        var asserted_minor_units = aparsed.minor;
+        var recomputed_minor_units;
+        if (recomputedRow === undefined) recomputed_minor_units = 0;
+        else if (mk2 === 'net') recomputed_minor_units = recomputedRow.net_recomputed_minor_units;
+        else recomputed_minor_units = recomputedRow[mk2 + '_minor_units'];
+        var difference_minor_units = recomputed_minor_units - asserted_minor_units;
+        diff.push({ currency:accy, measure:mk2, in_rows:recomputedRow !== undefined,
+          recomputed_minor_units:recomputed_minor_units, recomputed_display:display(recomputed_minor_units),
+          asserted_minor_units:asserted_minor_units, asserted_display:display(asserted_minor_units),
+          difference_minor_units:difference_minor_units, difference_display:display(difference_minor_units),
+          agrees: difference_minor_units === 0,
+          detail: difference_minor_units === 0
+            ? 'The total footed from the rows supplied equals the total asserted for this measure.'
+            : 'The total footed from the rows supplied differs from the total asserted for this measure. That is a difference between the two arithmetics on these rows, not a finding that the asserted figure was misreported.' });
+      }
+    }
+    for (i = 0; i < currencies.length; i++) {
+      if (seenCcy.indexOf(currencies[i].currency) === -1) {
+        diff.push({ currency:currencies[i].currency, measure:null, in_rows:true,
+          recomputed_minor_units:currencies[i].gross_premium_minor_units, recomputed_display:currencies[i].gross_premium_display,
+          asserted_minor_units:null, asserted_display:null, difference_minor_units:null, difference_display:null, agrees:false,
+          detail:'The rows carry this currency but the asserted totals name no figures for it, so there is nothing to compare against.' });
+      }
+    }
+  }
+
+  var comparableDiff = diff.filter(function(d){ return d.difference_minor_units !== null; });
+  var disagreeing = diff.filter(function(d){ return !d.agrees; });
+  var comparison_state = !assertedSupplied ? 'recompute_only'
+    : (disagreeing.length === 0 && comparableDiff.length > 0) ? 'matches' : 'differs';
+
+  var internalMismatch = currencies.filter(function(c){ return c.net_agrees_internally === false; });
+
+  var rationale = [];
+  rationale.push('Bordereau recomputed for period ' + period_label + ' over ' + suppliedRows.length + ' supplied line' + (suppliedRows.length === 1 ? '' : 's') + ', class ' + bordereau_class + ', against the column mapping the caller declared and the standard pinned as ' + standard_label + ' version ' + standard_version + '.');
+  if (!standard_pinned) rationale.push('No standard label and version were pinned, so the artifact cannot say which revision of a data standard these columns were laid out under. A receipt without that pin cannot be dated against a later revision.');
+  rationale.push('Only the columns named in the mapping were read. Every other column was ignored and appears nowhere in these results, which is what keeps insured names, addresses and claim narratives out of the computed output. Where a mapped cell was unusable it is named by column and type, and the cell contents are never echoed.');
+  if (unmapped_column_cells > 0) rationale.push(unmapped_column_cells + ' supplied cell' + (unmapped_column_cells === 1 ? '' : 's') + ' sat in columns the mapping does not name. Nothing was read from them and none reached these results. They are counted rather than listed, because listing them would be the leak this tool exists to avoid. If these rows were handed straight to the artifact builder without being cut down to the mapped columns first, those cells will still appear in the echoed input parameters, so cut the file down to the mapped columns before building a receipt from it.');
+  if (!mapping_supplied) rationale.push('No field mapping was supplied, so no column could be read and every measure foots to zero. That is a defined result on an empty mapping, not a finding that the bordereau is empty.');
+  if (unmapped_measures.length > 0) rationale.push('These measures were not mapped and therefore contribute nothing: ' + unmapped_measures.join(', ') + '. An unmapped measure foots to zero because nothing was read for it, which is not the same as a measure that was read and found to be zero.');
+  rationale.push(currencies.length === 0
+    ? 'No rows were supplied, so there is nothing to foot. Every total is zero by construction.'
+    : 'Footing produced totals in ' + currencies.length + ' currenc' + (currencies.length === 1 ? 'y' : 'ies') + ': ' + currencies.map(function(c){ return c.currency + ' gross premium ' + c.gross_premium_display + ', net recomputed ' + c.net_recomputed_display; }).join('; ') + '. Net is derived as gross premium less brokerage, coverholder commission, mapped taxes and ceded premium.');
+  if (internalMismatch.length > 0) rationale.push('In ' + internalMismatch.length + ' currenc' + (internalMismatch.length === 1 ? 'y' : 'ies') + ' the net column as mapped does not equal net derived from the components on the same rows. That is an internal inconsistency in the file itself, before any comparison against an asserted total.');
+  rationale.push('Exact agreement on a footing is a weak result and is reported as such: the coverholder footed the same column, so agreement is expected. The check that carries weight is utilisation of the binding authority, because that limit is held by the carrier and is not on the bordereau. It is a declared input here and is never derived from the file under review.');
+  rationale.push(aggregate_utilisation.assessed
+    ? 'Aggregate utilisation on basis ' + aggregate_utilisation.basis + ' is ' + aggregate_utilisation.consumed_display + ' of a declared limit of ' + aggregate_utilisation.limit_display + ' ' + aggregate_utilisation.limit_currency + ', leaving headroom of ' + aggregate_utilisation.headroom_display + '.'
+    : aggregate_utilisation.reason);
+  rationale.push(limit_breaches.length === 0
+    ? 'No line and no aggregate exceeded a limit the caller declared.'
+    : limit_breaches.length + ' limit observation' + (limit_breaches.length === 1 ? '' : 's') + ' were raised against the limits the caller declared. Each names the measured figure, the declared limit and the excess. Whether authority was properly exercised is for the delegated authority audit, not for this tool.');
+  if (out_of_scope_lines.length > 0) rationale.push(out_of_scope_lines.length + ' line' + (out_of_scope_lines.length === 1 ? '' : 's') + ' fall outside the period or the currency list the caller declared. They remain in the footing above and are listed separately, because removing them would change a total the reviewer is trying to reconcile.');
+  rationale.push(population_defect
+    ? 'Population observations: ' + duplicates.length + ' repeated policy reference' + (duplicates.length === 1 ? '' : 's') + ', ' + missing_periods.length + ' expected period' + (missing_periods.length === 1 ? '' : 's') + ' absent, ' + lines_with_absent_mapped_fields.length + ' line' + (lines_with_absent_mapped_fields.length === 1 ? '' : 's') + ' with an absent or unusable mapped field. Each is a fact about the population supplied.'
+    : 'No repeated policy reference, no absent expected period and no line with an unusable mapped field were found in the population supplied.');
+  rationale.push(comparison_state === 'recompute_only'
+    ? 'No asserted totals were supplied, so this run is RECOMPUTE ONLY. It states what the supplied rows foot to. It is not agreement with anything, because nothing was given to compare against.'
+    : comparison_state === 'matches'
+      ? 'The footing agrees with every one of the ' + comparableDiff.length + ' asserted figure' + (comparableDiff.length === 1 ? '' : 's') + ' supplied. Agreement on a footing means both sides added the same column the same way.'
+      : 'The footing differs from the asserted totals on ' + disagreeing.length + ' figure' + (disagreeing.length === 1 ? '' : 's') + '. Each difference is listed with both sides. A difference means the two arithmetics disagree on the rows supplied, which can equally be an incomplete extract or a wrong mapping, and it is not a finding that the coverholder misreported.');
+  if (rejected_inputs.length > 0) rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as zero. Each is named by column and type rather than silently dropped, and no cell contents were echoed.');
+  rationale.push('No data standard field list, schema, rate table or commission table is held in this tool, and nothing here claims which revision of any standard is current. A later revision makes this receipt dated, not wrong.');
+
+  var compliance_flags = ['BDX_RECOMPUTED'];
+  compliance_flags.push(comparison_state === 'recompute_only' ? 'BDX_RECOMPUTE_ONLY' : comparison_state === 'matches' ? 'BDX_TOTALS_MATCH' : 'BDX_TOTALS_DIFFER');
+  if (limit_breaches.length > 0) compliance_flags.push('BDX_AUTHORITY_BREACH');
+  if (population_defect) compliance_flags.push('BDX_POPULATION_DEFECT');
+  if (out_of_scope_lines.length > 0) compliance_flags.push('BDX_OUT_OF_SCOPE_LINES');
+  if (internalMismatch.length > 0) compliance_flags.push('BDX_NET_INTERNAL_MISMATCH');
+  if (!authority_supplied) compliance_flags.push('BDX_AUTHORITY_NOT_SUPPLIED');
+  if (!standard_pinned) compliance_flags.push('BDX_STANDARD_NOT_PINNED');
+  if (!mapping_supplied) compliance_flags.push('BDX_MAPPING_ABSENT');
+  if (suppliedRows.length === 0) compliance_flags.push('BDX_NO_ROWS');
+  if (rejected_inputs.length > 0) compliance_flags.push('BDX_INPUTS_REJECTED');
+  if (unmapped_column_cells > 0) compliance_flags.push('BDX_UNMAPPED_COLUMNS_PRESENT');
+  if (limit_breaches.length > 0 || population_defect || comparison_state === 'differs' || internalMismatch.length > 0) compliance_flags.push('ESCALATION_RAISED');
+
+  var output_payload = {
+    basis: BASIS,
+    period_label: period_label, bordereau_class: bordereau_class,
+    standard_label: standard_label, standard_version: standard_version, standard_pinned: standard_pinned,
+    amounts_in: amounts_in, minor_unit_exponent: MINOR_UNIT_EXPONENT,
+    mapped_columns: mapped_columns.slice().sort(),
+    measures_mapped: measures_mapped, unmapped_measures: unmapped_measures,
+    line_count: suppliedRows.length,
+    unmapped_column_cells_ignored: unmapped_column_cells,
+    currencies: currencies,
+    aggregate_utilisation: aggregate_utilisation,
+    per_risk_limit_minor_units: per_risk_limit_minor_units,
+    per_risk_limit_display: per_risk_limit_minor_units === null ? null : display(per_risk_limit_minor_units),
+    per_risk_basis: per_risk_basis,
+    limit_breaches: limit_breaches,
+    out_of_scope_lines: out_of_scope_lines,
+    duplicates: duplicates,
+    observed_periods: observedPeriods,
+    expected_periods: expected_periods,
+    missing_periods: missing_periods,
+    unexpected_periods: unexpected_periods,
+    lines_with_absent_mapped_fields: lines_with_absent_mapped_fields,
+    population_defect: population_defect,
+    comparison_state: comparison_state,
+    comparison_basis: 'The recomputed side of every comparison is footed here from the rows supplied. The authority limits on the other side are carrier held and are declared by the caller, never derived from the bordereau, which is what gives that comparison independent provenance. Exact agreement on a footing is a weak result because both sides added the same column.',
+    diff: diff,
+    rejected_inputs: rejected_inputs,
+    rationale: rationale,
+    recompute_only_note: 'Where comparison_state is recompute_only, no asserted totals were supplied and this artifact records what the rows foot to, never agreement. A scripted caller must not read it as a pass.',
+    pii_note: 'Only columns named in field_mapping are read. Unmapped columns are ignored and appear nowhere in this artifact, and no rejection record echoes a supplied cell value. Inputs should be anonymised or synthetic.',
+    no_standard_claim: 'This tool bundles no data standard field list, no schema and no rate or commission table, reads none, and asserts conformance with none. The mapping and the standard version are the caller declaration.',
+    note: 'Deterministic delegated authority bordereau recomputation for one stated period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It foots the rows supplied, compares them against asserted totals where given, and measures utilisation against binding authority limits the caller declares. It makes no assertion that authority was properly exercised, performs no data standard conformance validation, no sanctions or terms of business screening, and no reserving or pricing adequacy assessment. It is not a regulatory filing and not legal advice.',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function parseJsonField(id, label){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  try { return JSON.parse(raw); }
+  catch(e){ alert('Invalid JSON in ' + label + ': ' + e.message); throw e; }
+}
+
+function loadRecomputeOnlyDemo(){
+  document.getElementById('assertedJson').value = '';
+  runBordereau();
+}
+function loadDifferenceDemo(){
+  document.getElementById('assertedJson').value = '[\n  { "currency": "GBP", "gross_premium": "12600.55", "brokerage": "1250.05",\n    "coverholder_commission": "1875.00", "taxes": "1543.82", "ceded": "2000.00", "net": "5831.68" },\n  { "currency": "EUR", "gross_premium": "4000.00", "net": "3000.00" }\n]';
+  runBordereau();
+}
+
+async function runBordereau(){
+  var mapping, rows, authority, asserted, periods;
+  try {
+    mapping   = parseJsonField('mappingJson', 'column mapping');
+    rows      = parseJsonField('rowsJson', 'bordereau lines');
+    authority = parseJsonField('authorityJson', 'binding authority');
+    asserted  = parseJsonField('assertedJson', 'asserted totals');
+    periods   = parseJsonField('periodsJson', 'expected periods');
+  } catch(e){ return; }
+
+  var raw = {
+    period_label: document.getElementById('periodLabel').value || '',
+    bordereau_class: document.getElementById('bdxClass').value || '',
+    standard_label: document.getElementById('stdLabel').value || '',
+    standard_version: document.getElementById('stdVersion').value || '',
+    amounts_in: document.getElementById('amountsIn').value,
+    default_currency: document.getElementById('defaultCcy').value || '',
+    field_mapping: mapping === null ? {} : mapping,
+    rows: rows === null ? [] : rows,
+  };
+  if (authority !== null) raw.binding_authority = authority;
+  if (asserted !== null) raw.asserted_totals = asserted;
+  if (periods !== null) raw.expected_periods = periods;
+
+  // Cut the rows down to the mapped columns BEFORE anything is computed, hashed or exported.
+  // Everything downstream, including the exported artifact, sees only the mapped columns.
+  var pp = projectPolicyParameters(raw);
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var good = op.comparison_state === 'matches';
+  var recomputeOnly = op.comparison_state === 'recompute_only';
+  var vBox = document.getElementById('verdictBox');
+  var colour = good ? 'var(--green)' : (recomputeOnly ? 'var(--teal-lt)' : 'var(--red)');
+  var bg = good ? 'rgba(34,197,94,.08)' : (recomputeOnly ? 'rgba(20,184,166,.08)' : 'rgba(239,68,68,.08)');
+  vBox.style.color = colour;
+  vBox.style.background = bg;
+  vBox.style.border = '1px solid ' + colour;
+  vBox.textContent = (recomputeOnly ? 'RECOMPUTE ONLY, NOT A PASS' : (good ? 'TOTALS MATCH' : 'TOTALS DIFFER')) + ' · ' + op.period_label;
+
+  document.getElementById('pinnedStandard').textContent =
+    'Standard pinned in this receipt: ' + op.standard_label + ' · version ' + op.standard_version +
+    (op.standard_pinned ? '' : ' · NOT PINNED, supply a label and version');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.line_count + '</span><span class="stat-key">Lines footed</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.currencies.length + '</span><span class="stat-key">Currencies</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.aggregate_utilisation.assessed ? (op.aggregate_utilisation.utilisation_basis_points === null ? 'n/a' : display(op.aggregate_utilisation.utilisation_basis_points) + '%') : 'n/a') + '</span><span class="stat-key">Authority used</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.limit_breaches.length + '</span><span class="stat-key">Limit observations</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.duplicates.length + op.missing_periods.length + op.lines_with_absent_mapped_fields.length) + '</span><span class="stat-key">Population items</span></div>';
+
+  document.getElementById('footingDiv').innerHTML = op.currencies.length
+    ? op.currencies.map(function(c){
+        var netBadge = c.net_agrees_internally === null ? '' :
+          (c.net_agrees_internally ? ' <span class="badge ok">NET TIES</span>' : ' <span class="badge bad">NET DIFFERS BY ' + c.net_internal_difference_display + '</span>');
+        return '<div class="kv"><span class="kv-k">' + c.currency + ' · ' + c.line_count + ' line' + (c.line_count === 1 ? '' : 's') + '</span><span class="kv-v">gross ' + c.gross_premium_display +
+          ' · brokerage ' + c.brokerage_display + ' · commission ' + c.coverholder_commission_display +
+          ' · taxes ' + c.taxes_display + ' · ceded ' + c.ceded_display +
+          ' · net recomputed ' + c.net_recomputed_display + netBadge + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No rows supplied</span><span class="kv-v">nothing was footed</span></div>';
+
+  var au = op.aggregate_utilisation;
+  document.getElementById('authDiv').innerHTML = au.assessed
+    ? '<div class="kv"><span class="kv-k">Aggregate on ' + au.basis + ' (' + au.limit_currency + ')</span><span class="kv-v">consumed ' + au.consumed_display + ' of ' + au.limit_display +
+      ' · headroom ' + au.headroom_display + (au.breached ? ' <span class="badge bad">OVER THE DECLARED LIMIT</span>' : ' <span class="badge ok">WITHIN THE DECLARED LIMIT</span>') + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Per risk limit on ' + op.per_risk_basis + '</span><span class="kv-v">' + (op.per_risk_limit_display === null ? 'not declared' : op.per_risk_limit_display) + '</span></div>'
+    : '<div class="kv"><span class="kv-k">Not assessed</span><span class="kv-v">' + au.reason + '</span></div>';
+
+  document.getElementById('breachDiv').innerHTML = op.limit_breaches.length
+    ? op.limit_breaches.map(function(b){
+        return '<div class="kv"><span class="kv-k">' + b.scope + (b.line === null ? '' : ' · line ' + b.line + (b.policy_ref ? ' · ' + b.policy_ref : '')) + '</span><span class="kv-v"><span class="badge bad">OVER BY ' + b.excess_display + '</span> measured ' + b.measured_display + ' against a declared limit of ' + b.limit_display + ' on ' + b.basis + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no line and no aggregate exceeded a declared limit</span></div>';
+
+  document.getElementById('scopeDiv').innerHTML = op.out_of_scope_lines.length
+    ? op.out_of_scope_lines.map(function(l){
+        return '<div class="kv"><span class="kv-k">line ' + l.line + (l.policy_ref ? ' · ' + l.policy_ref : '') + '</span><span class="kv-v"><span class="badge warn">' + l.reason.replace(/_/g, ' ').toUpperCase() + '</span> ' + (l.inception_date ? 'inception ' + l.inception_date : l.currency) + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every line falls inside the declared period and currency list</span></div>';
+
+  document.getElementById('diffDiv').innerHTML = op.comparison_state === 'recompute_only'
+    ? '<div class="kv"><span class="kv-k">Recompute only</span><span class="kv-v">no asserted totals were supplied, so nothing was compared. This is not a pass.</span></div>'
+    : op.diff.map(function(d){
+        var cls = d.agrees ? 'ok' : 'bad';
+        var right = d.difference_minor_units === null
+          ? 'no figures asserted for this currency'
+          : 'footed ' + d.recomputed_display + ' · asserted ' + d.asserted_display + ' · difference ' + d.difference_display;
+        return '<div class="kv"><span class="kv-k">' + d.currency + ' · ' + (d.measure === null ? 'whole currency' : d.measure) + '</span><span class="kv-v"><span class="badge ' + cls + '">' + (d.agrees ? 'AGREES' : 'REVIEW') + '</span> ' + right + '</span></div>';
+      }).join('');
+
+  var popRows = [];
+  for (var q = 0; q < op.duplicates.length; q++) {
+    popRows.push('<div class="kv"><span class="kv-k">repeated reference ' + op.duplicates[q].policy_ref + '</span><span class="kv-v"><span class="badge warn">' + op.duplicates[q].occurrences + ' LINES</span> lines ' + op.duplicates[q].lines.join(', ') + ', which may be an endorsement or instalment rather than a duplicate</span></div>');
+  }
+  for (q = 0; q < op.missing_periods.length; q++) {
+    popRows.push('<div class="kv"><span class="kv-k">expected period ' + op.missing_periods[q] + '</span><span class="kv-v"><span class="badge warn">ABSENT</span> no line carries this period</span></div>');
+  }
+  for (q = 0; q < op.lines_with_absent_mapped_fields.length; q++) {
+    var lf = op.lines_with_absent_mapped_fields[q];
+    popRows.push('<div class="kv"><span class="kv-k">line ' + lf.line + (lf.policy_ref ? ' · ' + lf.policy_ref : '') + '</span><span class="kv-v"><span class="badge warn">ABSENT FIELDS</span> ' + lf.absent_measures.join(', ') + '</span></div>');
+  }
+  document.getElementById('popDiv').innerHTML = popRows.length ? popRows.join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no repeated reference, no absent expected period, no line with an unusable mapped field</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.column === null ? '' : ' (column: ' + r.column + ', type: ' + r.value_type + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-508-recompute-bordereau',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',clause_bindings:[],audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-508-recompute-bordereau.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

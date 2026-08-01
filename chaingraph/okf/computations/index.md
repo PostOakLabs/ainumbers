@@ -450,6 +450,7 @@ status: stable
 - [CARF Status Message Disposition](./art-505-dispose-carf-status-message.md)
 - [T+1 Post-Trade Timing Classifier](./art-506-classify-t1-posttrade-timing.md)
 - [Deposit Insurance Coverage Determination](./art-507-determine-deposit-insurance-coverage.md)
+- [Delegated Authority Bordereau Recomputation](./art-508-recompute-bordereau.md)
 - [Securitisation Payment Waterfall Recomputation](./art-509-recompute-payment-waterfall.md)
 - [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md)
 - [Article 5 Due Diligence Evidence Record](./art-510-build-art5-diligence-evidence.md)

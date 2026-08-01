@@ -448,6 +448,7 @@ status: stable
 - [CARF Status Message Disposition](./art-505-dispose-carf-status-message.md) — `dispose_carf_status_message`
 - [T+1 Post-Trade Timing Classifier](./art-506-classify-t1-posttrade-timing.md) — `classify_t1_posttrade_timing`
 - [Deposit Insurance Coverage Determination](./art-507-determine-deposit-insurance-coverage.md) — `determine_deposit_insurance_coverage`
+- [Delegated Authority Bordereau Recomputation](./art-508-recompute-bordereau.md) — `recompute_bordereau`
 - [Securitisation Payment Waterfall Recomputation](./art-509-recompute-payment-waterfall.md) — `recompute_payment_waterfall`
 - [FICC-CME Cross-Margining Estimator](./art-51-cross-margining-benefit-estimator.md) — `estimate_cross_margin_benefit`
 - [Article 5 Due Diligence Evidence Record](./art-510-build-art5-diligence-evidence.md) — `build_art5_diligence_evidence`
