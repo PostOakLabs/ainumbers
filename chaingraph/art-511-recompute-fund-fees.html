@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Recompute Fund Fees · ART-511 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Recomputes a fund's management fee and performance fee: hard vs soft hurdle, high-water mark with loss carry-forward, crystallised vs accrued, from the terms already held, diffed against what was charged.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-511-recompute-fund-fees.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Recompute Fund Fees · ART-511 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Management and performance fee recomputation against a declared hurdle, high-water mark, and crystallisation policy, diffed against what was charged. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-511-recompute-fund-fees.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.6rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;min-height:120px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:140px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.list-block{margin:8px 0}
+.list-block li{margin:4px 0 4px 14px;font-size:.8rem;color:var(--body)}
+.list-block li::marker{color:var(--teal)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+.check-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.check-row label{font-size:.82rem;color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-511 · Recompute Fund Fees</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-511 · Funds/NAV Family</div>
+  <h1>Recompute Fund Fees</h1>
+  <p class="sub">Recomputes a fund's management fee and performance fee (hurdle test, high-water mark, crystallisation) from the terms the investor already holds, the fee statement and the fund agreement, and diffs the result against what was actually charged. The single most common failure mode this exists to catch: a hard hurdle charges only the excess return above the hurdle, while a soft hurdle charges the full return once cleared, and conflating the two silently overcharges or undercharges every period it happens.</p>
+  <div>
+    <span class="flag">Fixed-Point Money Math</span>
+    <span class="flag warn">Hurdle Type Has No Default</span>
+    <span class="flag red">Not an Overcharge Allegation</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="key-dates-box">
+    <div class="kd-title">Distinct from two shipped nodes in this family</div>
+    <a href="art-373-recompute-fund-nav.html">art-373-recompute-fund-nav</a> recomputes NAV per share from holdings, accruals, liabilities and shares outstanding: this node consumes a NAV, it does not recompute one, and does not edit art-373's kernel. <a href="art-375-compute-fund-expense-ratios.html">art-375-compute-fund-expense-ratios</a> computes gross/net expense ratio and TER, and a ratio cannot detect a misapplied high-water-mark reset. This node reuses art-375's fixed-point money math and declared-order pattern without editing either node's kernel.
+  </div>
+
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">What this does NOT prove</div>
+    Fee rate, hurdle rate and type, high-water mark, crystallisation policy, accrual basis and day count are every one of them supplied by you, transcribed from the fund agreement, and merely asserted. This tool performs zero fund-administrator or market-data lookups (zero-egress, no network calls of any kind), and ships no rate table, no fund library, no term database. It recomputes the arithmetic over your declared terms and attests that computation ran correctly. A disagreement with what was charged is a finding that the recomputation disagrees on the supplied terms, not an allegation that the manager overcharged, because the disagreement can equally originate from a term this run had wrong. <code>agreement_ref</code> + <code>terms_version</code> are pinned so a later side letter makes an old receipt dated, not wrong.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('hardHurdle')">Hard hurdle: fee on excess only</button>
+    <button class="preset-btn" onclick="loadPreset('softHurdle')">Soft hurdle: identical return, fee on full gain</button>
+    <button class="preset-btn" onclick="loadPreset('hwmLoss')">High-water mark: loss period, no fee</button>
+    <button class="preset-btn" onclick="loadPreset('missingHurdle')">Missing hurdle_type: judgment_required</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Fund, Agreement &amp; Period</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Fund ID</label>
+        <input type="text" id="fund_id" placeholder="e.g. FUND-FEE-01"></div>
+      <div class="q"><label><span class="dim">Field</span>Agreement Ref</label>
+        <input type="text" id="agreement_ref" placeholder="e.g. LPA-2024-08"></div>
+      <div class="q"><label><span class="dim">Field</span>Terms Version</label>
+        <input type="text" id="terms_version" placeholder="e.g. 1.0"></div>
+    </div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Period Start</label>
+        <input type="text" id="period_start" placeholder="e.g. 2026-01-01"></div>
+      <div class="q"><label><span class="dim">Field</span>Period End</label>
+        <input type="text" id="period_end" placeholder="e.g. 2026-12-31"></div>
+      <div class="q"><label><span class="dim">Field</span>Period Days</label>
+        <input type="number" id="period_days" step="1" placeholder="e.g. 365"></div>
+    </div>
+
+    <div class="section-head">Period NAV</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Opening NAV</label>
+        <input type="number" id="nav_opening" step="any" placeholder="e.g. 100000000"></div>
+      <div class="q"><label><span class="dim">Field</span>Closing NAV</label>
+        <input type="number" id="nav_closing" step="any" placeholder="e.g. 112000000"></div>
+      <div class="q"><label><span class="dim">Field</span>Management Fee Base</label>
+        <input type="number" id="nav_fee_base" step="any" placeholder="e.g. 106000000"></div>
+    </div>
+
+    <div class="section-head">Management Fee</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Annual Rate</label>
+        <input type="number" id="mf_rate" step="any" placeholder="e.g. 0.02"></div>
+      <div class="q"><label><span class="dim">Field</span>Day-Count Convention</label>
+        <select id="mf_day_count">
+          <option value="actual/365">actual/365</option>
+          <option value="actual/360">actual/360</option>
+          <option value="30/360">30/360</option>
+          <option value="actual/actual">actual/actual</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Field</span>Decimal Places</label>
+        <input type="number" id="decimal_places" value="2" step="1" min="0"></div>
+    </div>
+
+    <div class="section-head">Performance Fee: Hurdle &amp; High-Water Mark</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Fee Rate</label>
+        <input type="number" id="pf_rate" step="any" placeholder="e.g. 0.20"></div>
+      <div class="q"><label><span class="dim">Field</span>Hurdle Rate (period)</label>
+        <input type="number" id="pf_hurdle_rate" step="any" placeholder="e.g. 0.05"></div>
+      <div class="q"><label><span class="dim">Field</span>Hurdle Type (NO default)</label>
+        <select id="pf_hurdle_type">
+          <option value="">not declared</option>
+          <option value="hard">hard (excess above hurdle only)</option>
+          <option value="soft">soft (full return once cleared)</option>
+          <option value="none">none (no hurdle test)</option>
+        </select></div>
+    </div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Prior High-Water Mark (blank = first period)</label>
+        <input type="text" id="pf_hwm" placeholder="e.g. 100000000"></div>
+      <div class="q"><label><span class="dim">Field</span>Crystallisation</label>
+        <select id="pf_crystallisation">
+          <option value="period">period (payable now)</option>
+          <option value="realisation">realisation (payable on trigger)</option>
+        </select></div>
+      <div class="q"><label><span class="dim">Field</span>Realisation Triggered</label>
+        <select id="pf_realisation_triggered">
+          <option value="false">no</option>
+          <option value="true">yes</option>
+        </select></div>
+    </div>
+    <div class="check-row">
+      <input type="checkbox" id="pf_loss_carryforward" checked>
+      <label for="pf_loss_carryforward">Loss carry-forward (default: a prior loss is NOT cleared by this period ending; uncheck only if the agreement explicitly resets the mark each period)</label>
+    </div>
+
+    <div class="section-head">Charged Amounts (optional; leave blank for a recompute-only run)</div>
+    <div class="grid3">
+      <div class="q"><label><span class="dim">Field</span>Charged Management Fee</label>
+        <input type="text" id="ch_mgmt" placeholder="optional"></div>
+      <div class="q"><label><span class="dim">Field</span>Charged Perf Fee, Crystallised</label>
+        <input type="text" id="ch_perf_c" placeholder="optional"></div>
+      <div class="q"><label><span class="dim">Field</span>Charged Perf Fee, Accrued</label>
+        <input type="text" id="ch_perf_a" placeholder="optional"></div>
+    </div>
+
+    <button class="run-btn" onclick="run()">Recompute Fund Fees →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="mgmtVal" style="color:var(--body)">–</div>
+        <div class="hero-lbl">Management Fee</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="perfCrystVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Perf Fee, Crystallised</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="perfAccrVal" style="color:var(--gold)">–</div>
+        <div class="hero-lbl">Perf Fee, Accrued</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="hwmVal" style="color:var(--body);font-size:1.1rem;padding-top:.4rem">–</div>
+        <div class="hero-lbl">New High-Water Mark</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+    <div id="judgmentBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Performance fee detail</div>
+    <table class="section-table">
+      <tbody id="perfTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Diff vs charged amounts</div>
+    <table class="section-table">
+      <thead><tr><th>Component</th><th>Computed</th><th>Charged</th><th>Delta</th><th>Matches</th></tr></thead>
+      <tbody id="diffTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Rationale</div>
+    <ul class="list-block" id="rationaleList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">What was NOT proven</div>
+    <ul class="list-block" id="notProvenList"></ul>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. A diff is a finding, not an allegation of overcharge. Fee terms are supplied and asserted only.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-511-recompute-fund-fees",
+  tool_version: "1.0.0",
+  mcp_name: "recompute_fund_fees",
+  mandate_type: "analytics_mandate",
+  wave: 52,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.8.7',
+  compute_capability: "server",
+  export_capability: ["pdf","xlsx"],
+  description: "Recomputes a fund's management fee and performance fee against a declared hurdle (hard/soft), high-water mark with loss carry-forward, and crystallisation policy, diffed against what was charged.",
+  chain: "nav-verification-pack",
+  url: "https://ainumbers.co/chaingraph/art-511-recompute-fund-fees.html"
+};
+
+// --- Fixed-point (BigInt) money math — mirrors chaingraph/kernels/art-511-recompute-fund-fees.kernel.mjs
+//     byte-for-byte. No floats in the arithmetic path; every value is parsed from its decimal string. ---
+
+const SCALE_EXP = 8;
+const SCALE = 10n ** BigInt(SCALE_EXP);
+
+function toFixed(value) {
+  let s = String(value == null ? 0 : value).trim();
+  let neg = false;
+  if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+  else if (s.startsWith('+')) { s = s.slice(1); }
+  if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
+  let parts = s.split('.');
+  let intPart = parts[0] || '0';
+  let fracPart = parts[1] || '';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  fracPart = fracPart.padEnd(SCALE_EXP, '0');
+  let mag = BigInt(intPart + fracPart);
+  if (neg) mag = -mag;
+  return mag;
+}
+function mulFixed(a, b) { return (a * b) / SCALE; }
+function divFixed(a, b) { return b === 0n ? 0n : (a * SCALE) / b; }
+
+function roundFixedToString(value, places, mode) {
+  const neg = value < 0n;
+  const abs = neg ? -value : value;
+  const divisor = 10n ** BigInt(SCALE_EXP - places);
+  let q = abs / divisor;
+  const r = abs % divisor;
+  const twiceR = r * 2n;
+  if (mode === 'truncate') {
+    // q already truncated toward zero
+  } else if (mode === 'half_even') {
+    if (twiceR > divisor || (twiceR === divisor && q % 2n === 1n)) q += 1n;
+  } else {
+    if (twiceR >= divisor) q += 1n;
+  }
+  let qs = q.toString();
+  let result;
+  if (places === 0) { result = qs; }
+  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
+  return (neg && q !== 0n) ? ('-' + result) : result;
+}
+function fixedToPlainString(value, places) { return roundFixedToString(value, places, 'truncate'); }
+function maxFixed(a, b) { return a > b ? a : b; }
+function minFixed(a, b) { return a < b ? a : b; }
+function zeroFloor(a) { return a < 0n ? 0n : a; }
+
+const DAY_COUNT_DENOMINATORS = { '30/360': 360, 'actual/360': 360, 'actual/365': 365, 'actual/actual': 365 };
+
+function computeAccrualAmount(principal, annualRateStr, days, dayCountConvention, yearDaysOverride) {
+  const principalFixed = toFixed(principal);
+  const rateFixed = toFixed(annualRateStr || 0);
+  const yearDays = Number(yearDaysOverride || DAY_COUNT_DENOMINATORS[dayCountConvention] || 365);
+  const daysFixed = toFixed(days);
+  const yearDaysFixed = toFixed(yearDays);
+  const dayFraction = divFixed(daysFixed, yearDaysFixed);
+  return mulFixed(mulFixed(principalFixed, rateFixed), dayFraction);
+}
+
+const HURDLE_TYPES = { hard: true, soft: true, none: true };
+const CRYSTALLISATION_MODES = { period: true, realisation: true };
+
+const NOT_PROVEN = [
+  { item: 'Fee rate and term accuracy', detail: 'The management-fee rate, hurdle rate/type, high-water mark, crystallisation policy, accrual basis, and day count are every one of them caller-supplied and asserted. This tool performs no fund-administrator or market-data lookups (zero-egress) and does not verify these terms against the underlying fund agreement.' },
+  { item: 'NAV accuracy', detail: 'The opening and closing NAV figures are caller-supplied. Recomputing the NAV itself is the scope of art-373-recompute-fund-nav, a separate node this tool consumes rather than reimplements.' },
+  { item: 'Charged-amount provenance', detail: 'Where supplied, charged_amounts is asserted, taken as given from the fee statement being checked. This tool does not verify that the statement itself was correctly transcribed from the manager’s books.' },
+  { item: 'Manager overcharge / wrongdoing', detail: 'A diff is a finding that the recomputation disagrees with the charged figure on the supplied terms — never an allegation that the manager overcharged. Every disagreement can equally originate from a term this run had wrong.' },
+];
+
+function compute(pp) {
+  const rounding = pp.rounding || {};
+  const decimalPlaces = Number.isInteger(rounding.decimal_places) ? rounding.decimal_places : 2;
+  const roundingMode = ['half_up','half_even','truncate'].indexOf(rounding.mode) >= 0 ? rounding.mode : 'half_up';
+
+  const nav = pp.nav || {};
+  const mf = pp.management_fee || {};
+  const pf = pp.performance_fee || {};
+
+  const openingFixed = toFixed(nav.opening);
+  const closingFixed = toFixed(nav.closing);
+  const feeBaseFixed = toFixed(nav.fee_base);
+  const periodDays = Number(pp.period_days === undefined || pp.period_days === null ? NaN : pp.period_days);
+
+  const compliance_flags = [];
+  let judgment_required = null;
+
+  const periodPositive = Number.isFinite(periodDays) && periodDays > 0;
+  if (!periodPositive) compliance_flags.push('FEE_PERIOD_NOT_POSITIVE');
+
+  const feeBasePositive = feeBaseFixed > 0n;
+  if (!feeBasePositive) compliance_flags.push('FEE_BASE_ZERO_OR_NEGATIVE');
+
+  const managementFeeFixed = (periodPositive && feeBasePositive)
+    ? computeAccrualAmount(nav.fee_base, mf.rate, periodDays, mf.day_count, mf.year_days)
+    : 0n;
+
+  const hurdleTypeRaw = pf.hurdle_type;
+  const hurdleTypeValid = !!HURDLE_TYPES[hurdleTypeRaw];
+  if (!hurdleTypeValid) {
+    judgment_required = {
+      field: 'performance_fee.hurdle_type',
+      reason: 'hurdle_type must be one of "hard", "soft", or "none" and carries no default — a hard hurdle charges only the excess above the hurdle, a soft hurdle charges the full return once cleared, and conflating them is the single most common performance-fee error. Supply hurdle_type explicitly from the fund agreement.',
+      supplied: hurdleTypeRaw || null,
+    };
+    compliance_flags.push('ESCALATION_RAISED');
+  }
+
+  const periodReturnPct = openingFixed > 0n ? divFixed(closingFixed - openingFixed, openingFixed) : 0n;
+  const hurdleRateFixed = toFixed(pf.hurdle_rate || 0);
+  const hurdleCleared = hurdleTypeValid && hurdleTypeRaw !== 'none'
+    ? periodReturnPct > hurdleRateFixed
+    : (hurdleTypeValid && hurdleTypeRaw === 'none' ? periodReturnPct > 0n : false);
+  if (hurdleTypeValid && hurdleTypeRaw !== 'none' && !hurdleCleared) compliance_flags.push('FEE_HURDLE_NOT_MET');
+
+  let hurdleExcessReturnPct = 0n;
+  if (hurdleTypeValid) {
+    if (hurdleTypeRaw === 'hard') {
+      hurdleExcessReturnPct = hurdleCleared ? zeroFloor(periodReturnPct - hurdleRateFixed) : 0n;
+    } else if (hurdleTypeRaw === 'soft') {
+      hurdleExcessReturnPct = hurdleCleared ? zeroFloor(periodReturnPct) : 0n;
+    } else {
+      hurdleExcessReturnPct = hurdleCleared ? zeroFloor(periodReturnPct) : 0n;
+    }
+  }
+  const hurdleExcessAmountFixed = mulFixed(hurdleExcessReturnPct, openingFixed);
+
+  const hwmSupplied = pf.high_water_mark !== undefined && pf.high_water_mark !== null && pf.high_water_mark !== '';
+  const firstPeriod = !hwmSupplied;
+  if (firstPeriod) compliance_flags.push('FEE_HWM_FIRST_PERIOD');
+  const priorHwmFixed = hwmSupplied ? toFixed(pf.high_water_mark) : openingFixed;
+
+  const navGainAboveHwmFixed = zeroFloor(closingFixed - priorHwmFixed);
+  const hwmExceeded = navGainAboveHwmFixed > 0n;
+  if (!hwmExceeded) compliance_flags.push('FEE_HWM_NOT_EXCEEDED');
+
+  const lossCarryforward = pf.loss_carryforward !== false;
+  const newHighWaterMarkFixed = lossCarryforward ? maxFixed(closingFixed, priorHwmFixed) : closingFixed;
+
+  const eligibleGainFixed = (hurdleTypeValid && hurdleCleared && hwmExceeded)
+    ? minFixed(navGainAboveHwmFixed, zeroFloor(hurdleExcessAmountFixed))
+    : 0n;
+  const performanceFeeRateFixed = toFixed(pf.rate || 0);
+  const performanceFeeFixed = hurdleTypeValid ? mulFixed(eligibleGainFixed, performanceFeeRateFixed) : 0n;
+
+  const crystallisationMode = CRYSTALLISATION_MODES[pf.crystallisation] ? pf.crystallisation : 'period';
+  if (!CRYSTALLISATION_MODES[pf.crystallisation]) compliance_flags.push('FEE_CRYSTALLISATION_MODE_DEFAULTED_PERIOD');
+  let performanceFeeCrystallisedFixed = 0n;
+  let performanceFeeAccruedFixed = 0n;
+  if (crystallisationMode === 'period') {
+    performanceFeeCrystallisedFixed = performanceFeeFixed;
+  } else {
+    const realisationTriggered = pf.realisation_triggered === true;
+    if (realisationTriggered) performanceFeeCrystallisedFixed = performanceFeeFixed;
+    else performanceFeeAccruedFixed = performanceFeeFixed;
+  }
+
+  const charged = pp.charged_amounts || null;
+  const recomputeOnly = charged == null;
+  const diff = [];
+  if (!recomputeOnly) {
+    const pairs = [
+      ['management_fee', managementFeeFixed, charged.management_fee],
+      ['performance_fee_crystallised', performanceFeeCrystallisedFixed, charged.performance_fee_crystallised],
+      ['performance_fee_accrued', performanceFeeAccruedFixed, charged.performance_fee_accrued],
+    ];
+    for (let i = 0; i < pairs.length; i++) {
+      const label = pairs[i][0], computedFixed = pairs[i][1], chargedRaw = pairs[i][2];
+      if (chargedRaw === undefined || chargedRaw === null || chargedRaw === '') continue;
+      const chargedFixed = toFixed(chargedRaw);
+      const deltaFixed = computedFixed - chargedFixed;
+      diff.push({
+        component: label,
+        computed: fixedToPlainString(computedFixed, decimalPlaces),
+        charged: fixedToPlainString(chargedFixed, decimalPlaces),
+        delta: fixedToPlainString(deltaFixed, decimalPlaces),
+        matches: deltaFixed === 0n,
+      });
+    }
+  }
+  const anyDiffers = diff.some(function (d) { return !d.matches; });
+
+  if (recomputeOnly) compliance_flags.push('FEE_RECOMPUTE_ONLY');
+  else if (anyDiffers) compliance_flags.push('FEE_DIFFERS');
+  else compliance_flags.push('FEE_MATCHES');
+  compliance_flags.push('FEE_RECOMPUTED');
+
+  const rationale = [];
+  rationale.push(periodPositive
+    ? 'Management fee accrued over ' + periodDays + ' declared days on a fee base of ' + fixedToPlainString(feeBaseFixed, decimalPlaces) + '.'
+    : 'Period is zero or negative days — management fee resolves to 0 by the finite gate, not by omission.');
+  if (!hurdleTypeValid) {
+    rationale.push('hurdle_type was absent or unrecognised — no performance fee was computed; judgment_required names the resolving input.');
+  } else {
+    rationale.push(hurdleTypeRaw === 'hard'
+      ? 'Hard hurdle: performance fee, if any, applies only to the return in excess of the hurdle rate.'
+      : hurdleTypeRaw === 'soft'
+        ? 'Soft hurdle: once cleared, performance fee applies to the full period return, not merely the excess.'
+        : 'No hurdle declared: performance fee, if any, applies to the full positive period return.');
+    rationale.push(firstPeriod
+      ? 'No prior high-water mark was supplied — this is treated as the first period and the opening NAV is the baseline nothing has yet exceeded.'
+      : 'High-water mark carried forward from ' + fixedToPlainString(priorHwmFixed, decimalPlaces) + '; ' + (lossCarryforward ? 'a prior loss is NOT cleared by this period ending' : 'the mark resets each period by explicit caller declaration') + '.');
+    rationale.push(hwmExceeded
+      ? 'Closing NAV exceeds the high-water mark by ' + fixedToPlainString(navGainAboveHwmFixed, decimalPlaces) + '.'
+      : 'Closing NAV does not exceed the high-water mark — no performance fee is chargeable regardless of the hurdle test.');
+  }
+  rationale.push(crystallisationMode === 'period'
+    ? 'Crystallisation is period-based — the full computed performance fee is payable now.'
+    : 'Crystallisation is realisation-based — ' + (pf.realisation_triggered === true ? 'a realisation event was declared, so the fee is payable now' : 'no realisation event was declared, so the fee is accrued but not yet payable') + '.');
+  rationale.push(recomputeOnly
+    ? 'No charged_amounts were supplied — this run is recompute-only, not a match/mismatch determination.'
+    : anyDiffers
+      ? 'One or more recomputed components disagree with the charged figures on the terms supplied — a finding, not an allegation of overcharge.'
+      : 'Every recomputed component matches the charged figures on the terms supplied.');
+
+  const output_payload = {
+    fund_id: pp.fund_id || null,
+    agreement_ref: pp.agreement_ref || null,
+    terms_version: pp.terms_version || null,
+    as_of: pp.as_of || null,
+    period_start: pp.period_start || null,
+    period_end: pp.period_end || null,
+    period_days: Number.isFinite(periodDays) ? periodDays : null,
+    rounding: { decimal_places: decimalPlaces, mode: roundingMode },
+    judgment_required: judgment_required,
+    management_fee_computed: fixedToPlainString(managementFeeFixed, decimalPlaces),
+    performance_fee: {
+      hurdle_type: hurdleTypeValid ? hurdleTypeRaw : null,
+      hurdle_rate: hurdleTypeValid ? roundFixedToString(hurdleRateFixed, decimalPlaces + 2, roundingMode) : null,
+      period_return_pct: roundFixedToString(periodReturnPct, decimalPlaces + 2, roundingMode),
+      hurdle_cleared: hurdleTypeValid ? hurdleCleared : null,
+      hurdle_excess_amount: hurdleTypeValid ? fixedToPlainString(zeroFloor(hurdleExcessAmountFixed), decimalPlaces) : null,
+      prior_high_water_mark: fixedToPlainString(priorHwmFixed, decimalPlaces),
+      first_period_no_prior_hwm: firstPeriod,
+      loss_carryforward: lossCarryforward,
+      new_high_water_mark: fixedToPlainString(newHighWaterMarkFixed, decimalPlaces),
+      hwm_exceeded: hwmExceeded,
+      gain_above_hwm: fixedToPlainString(navGainAboveHwmFixed, decimalPlaces),
+      eligible_gain: fixedToPlainString(eligibleGainFixed, decimalPlaces),
+      performance_fee_crystallised: fixedToPlainString(performanceFeeCrystallisedFixed, decimalPlaces),
+      performance_fee_accrued: fixedToPlainString(performanceFeeAccruedFixed, decimalPlaces),
+      crystallisation: crystallisationMode,
+    },
+    recompute_only: recomputeOnly,
+    diff: diff,
+    rationale: rationale,
+    not_proven: NOT_PROVEN,
+    fence: 'Fee rate, hurdle rate/type, high-water mark, crystallisation policy, accrual basis and day count are every one of them a caller input transcribed from the fund agreement — this kernel ships no rate table, no fund library, no term database (zero-egress by contract). agreement_ref + terms_version are pinned so a later side letter makes an old receipt dated, not wrong.',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+const PRESETS = {
+  hardHurdle: {
+    fund_id: 'FUND-FEE-01', agreement_ref: 'LPA-2024-08', terms_version: '1.0',
+    period_start: '2026-01-01', period_end: '2026-12-31', period_days: 365,
+    nav_opening: 100000000, nav_closing: 112000000, nav_fee_base: 106000000,
+    mf_rate: 0.02, mf_day_count: 'actual/365',
+    pf_rate: 0.20, pf_hurdle_rate: 0.05, pf_hurdle_type: 'hard', pf_hwm: 100000000,
+    pf_crystallisation: 'period', pf_realisation_triggered: 'false', pf_loss_carryforward: true,
+    decimal_places: 2, ch_mgmt: '', ch_perf_c: '', ch_perf_a: '',
+  },
+  softHurdle: {
+    fund_id: 'FUND-FEE-01', agreement_ref: 'LPA-2024-08', terms_version: '1.0',
+    period_start: '2026-01-01', period_end: '2026-12-31', period_days: 365,
+    nav_opening: 100000000, nav_closing: 112000000, nav_fee_base: 106000000,
+    mf_rate: 0.02, mf_day_count: 'actual/365',
+    pf_rate: 0.20, pf_hurdle_rate: 0.05, pf_hurdle_type: 'soft', pf_hwm: 100000000,
+    pf_crystallisation: 'period', pf_realisation_triggered: 'false', pf_loss_carryforward: true,
+    decimal_places: 2, ch_mgmt: '', ch_perf_c: '', ch_perf_a: '',
+  },
+  hwmLoss: {
+    fund_id: 'FUND-FEE-01', agreement_ref: 'LPA-2024-08', terms_version: '1.0',
+    period_start: '2026-01-01', period_end: '2026-12-31', period_days: 365,
+    nav_opening: 100000000, nav_closing: 95000000, nav_fee_base: 97000000,
+    mf_rate: 0.02, mf_day_count: 'actual/365',
+    pf_rate: 0.20, pf_hurdle_rate: 0.00, pf_hurdle_type: 'none', pf_hwm: 110000000,
+    pf_crystallisation: 'period', pf_realisation_triggered: 'false', pf_loss_carryforward: true,
+    decimal_places: 2, ch_mgmt: '', ch_perf_c: '', ch_perf_a: '',
+  },
+  missingHurdle: {
+    fund_id: 'FUND-FEE-01', agreement_ref: 'LPA-2024-08', terms_version: '1.0',
+    period_start: '2026-01-01', period_end: '2026-12-31', period_days: 365,
+    nav_opening: 100000000, nav_closing: 112000000, nav_fee_base: 106000000,
+    mf_rate: 0.02, mf_day_count: 'actual/365',
+    pf_rate: 0.20, pf_hurdle_rate: 0.05, pf_hurdle_type: '', pf_hwm: 100000000,
+    pf_crystallisation: 'period', pf_realisation_triggered: 'false', pf_loss_carryforward: true,
+    decimal_places: 2, ch_mgmt: '', ch_perf_c: '', ch_perf_a: '',
+  },
+};
+
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+function loadPreset(p) {
+  const pr = PRESETS[p];
+  if (!pr) return;
+  setVal('fund_id', pr.fund_id);
+  setVal('agreement_ref', pr.agreement_ref);
+  setVal('terms_version', pr.terms_version);
+  setVal('period_start', pr.period_start);
+  setVal('period_end', pr.period_end);
+  setVal('period_days', pr.period_days);
+  setVal('nav_opening', pr.nav_opening);
+  setVal('nav_closing', pr.nav_closing);
+  setVal('nav_fee_base', pr.nav_fee_base);
+  setVal('mf_rate', pr.mf_rate);
+  setVal('mf_day_count', pr.mf_day_count);
+  setVal('pf_rate', pr.pf_rate);
+  setVal('pf_hurdle_rate', pr.pf_hurdle_rate);
+  setVal('pf_hurdle_type', pr.pf_hurdle_type);
+  setVal('pf_hwm', pr.pf_hwm);
+  setVal('pf_crystallisation', pr.pf_crystallisation);
+  setVal('pf_realisation_triggered', pr.pf_realisation_triggered);
+  document.getElementById('pf_loss_carryforward').checked = !!pr.pf_loss_carryforward;
+  setVal('decimal_places', pr.decimal_places);
+  setVal('ch_mgmt', pr.ch_mgmt);
+  setVal('ch_perf_c', pr.ch_perf_c);
+  setVal('ch_perf_a', pr.ch_perf_a);
+}
+
+function getPP() {
+  const chMgmt = document.getElementById('ch_mgmt').value.trim();
+  const chPerfC = document.getElementById('ch_perf_c').value.trim();
+  const chPerfA = document.getElementById('ch_perf_a').value.trim();
+  const anyCharged = chMgmt !== '' || chPerfC !== '' || chPerfA !== '';
+  const pp = {
+    fund_id: document.getElementById('fund_id').value || null,
+    agreement_ref: document.getElementById('agreement_ref').value || null,
+    terms_version: document.getElementById('terms_version').value || null,
+    as_of: document.getElementById('period_end').value || null,
+    period_start: document.getElementById('period_start').value || null,
+    period_end: document.getElementById('period_end').value || null,
+    period_days: document.getElementById('period_days').value === '' ? null : Number(document.getElementById('period_days').value),
+    nav: {
+      opening: document.getElementById('nav_opening').value,
+      closing: document.getElementById('nav_closing').value,
+      fee_base: document.getElementById('nav_fee_base').value,
+    },
+    management_fee: {
+      rate: document.getElementById('mf_rate').value,
+      day_count: document.getElementById('mf_day_count').value,
+    },
+    performance_fee: {
+      rate: document.getElementById('pf_rate').value,
+      hurdle_rate: document.getElementById('pf_hurdle_rate').value,
+      hurdle_type: document.getElementById('pf_hurdle_type').value || undefined,
+      high_water_mark: document.getElementById('pf_hwm').value === '' ? null : document.getElementById('pf_hwm').value,
+      crystallisation: document.getElementById('pf_crystallisation').value,
+      realisation_triggered: document.getElementById('pf_realisation_triggered').value === 'true',
+      loss_carryforward: document.getElementById('pf_loss_carryforward').checked,
+    },
+    rounding: { decimal_places: Number(document.getElementById('decimal_places').value || 2), mode: 'half_up' },
+  };
+  if (anyCharged) {
+    pp.charged_amounts = {};
+    if (chMgmt !== '') pp.charged_amounts.management_fee = chMgmt;
+    if (chPerfC !== '') pp.charged_amounts.performance_fee_crystallised = chPerfC;
+    if (chPerfA !== '') pp.charged_amounts.performance_fee_accrued = chPerfA;
+  }
+  return pp;
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(function (k) { return JSON.stringify(k) + ':' + jcs(v[k]); }).join(',') + '}';
+  }
+  const text = jcs({ policy_parameters: pp, output_payload: op });
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastOP = null;
+
+async function run() {
+  const pp = getPP();
+  const result = compute(pp);
+  const output_payload = result.output_payload, compliance_flags = result.compliance_flags;
+  const hash = await computeHash(pp, output_payload);
+
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: new Date().toISOString(), execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: output_payload, compliance_flags: compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  _lastArtifact = artifact; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  document.getElementById('mgmtVal').textContent = output_payload.management_fee_computed;
+  document.getElementById('perfCrystVal').textContent = output_payload.performance_fee.performance_fee_crystallised;
+  document.getElementById('perfAccrVal').textContent = output_payload.performance_fee.performance_fee_accrued;
+  document.getElementById('hwmVal').textContent = output_payload.performance_fee.new_high_water_mark;
+
+  if (output_payload.judgment_required) {
+    document.getElementById('judgmentBox').innerHTML = '<div class="verdict warn"><b>judgment_required — ' + output_payload.judgment_required.field + ':</b> ' + output_payload.judgment_required.reason + ' Supplied: ' + JSON.stringify(output_payload.judgment_required.supplied) + '</div>';
+  } else {
+    document.getElementById('judgmentBox').innerHTML = '';
+  }
+
+  const vClass = output_payload.recompute_only ? 'warn' : (compliance_flags.indexOf('FEE_DIFFERS') >= 0 ? 'fail' : 'pass');
+  const vText = output_payload.recompute_only ? 'Recompute-only — no charged_amounts supplied, not a match/mismatch determination.' : output_payload.fence;
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + vClass + '">' + vText + '</div>';
+
+  const p = output_payload.performance_fee;
+  document.getElementById('perfTableBody').innerHTML =
+    '<tr><td>Hurdle type</td><td>' + (p.hurdle_type || '— (judgment_required)') + '</td></tr>' +
+    '<tr><td>Period return</td><td>' + p.period_return_pct + '</td></tr>' +
+    '<tr><td>Hurdle cleared</td><td>' + (p.hurdle_cleared === null ? '—' : p.hurdle_cleared) + '</td></tr>' +
+    '<tr><td>Hurdle-eligible excess amount</td><td>' + (p.hurdle_excess_amount === null ? '—' : p.hurdle_excess_amount) + '</td></tr>' +
+    '<tr><td>Prior high-water mark' + (p.first_period_no_prior_hwm ? ' (first period — opening NAV baseline)' : '') + '</td><td>' + p.prior_high_water_mark + '</td></tr>' +
+    '<tr><td>HWM exceeded</td><td>' + p.hwm_exceeded + '</td></tr>' +
+    '<tr><td>Gain above HWM</td><td>' + p.gain_above_hwm + '</td></tr>' +
+    '<tr><td>Eligible gain (min of hurdle &amp; HWM tests)</td><td>' + p.eligible_gain + '</td></tr>' +
+    '<tr><td>Loss carry-forward</td><td>' + p.loss_carryforward + '</td></tr>' +
+    '<tr><td>Crystallisation</td><td>' + p.crystallisation + '</td></tr>';
+
+  document.getElementById('diffTableBody').innerHTML = output_payload.diff.map(function (d) {
+    return '<tr><td>' + d.component + '</td><td>' + d.computed + '</td><td>' + d.charged + '</td><td>' + d.delta + '</td><td>' + (d.matches ? 'yes' : 'NO') + '</td></tr>';
+  }).join('') || '<tr><td colspan="5" class="muted">' + (output_payload.recompute_only ? 'No charged_amounts supplied — recompute-only.' : 'No comparable charged component supplied.') + '</td></tr>';
+
+  document.getElementById('rationaleList').innerHTML = output_payload.rationale.map(function (r) { return '<li>' + r + '</li>'; }).join('');
+  document.getElementById('notProvenList').innerHTML = output_payload.not_proven.map(function (n) { return '<li><b>' + n.item + '</b>: ' + n.detail + '</li>'; }).join('');
+
+  const flagsHtml = compliance_flags.map(function (f) {
+    const cls = f.indexOf('DIFFERS') >= 0 || f.indexOf('NOT_MET') >= 0 || f.indexOf('NOT_EXCEEDED') >= 0 || f.indexOf('NOT_POSITIVE') >= 0 || f.indexOf('ZERO_OR_NEGATIVE') >= 0 ? 'warn-b' : (f.indexOf('ESCALATION') >= 0 ? 'err' : (f.indexOf('RECOMPUTE_ONLY') >= 0 || f.indexOf('FIRST_PERIOD') >= 0 ? 'info' : 'ok'));
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+  document.getElementById('flagsRow').innerHTML = flagsHtml;
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.style.background = 'var(--teal)';
+  ap2Btn.style.color = '#06121f';
+  ap2Btn.style.border = 'none';
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version, mandate_type: MANIFEST.mandate_type,
+    payload: _lastOP, execution_hash: _lastArtifact.execution_hash,
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>ART-511 Recompute Fund Fees</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;color:#111}h1{font-size:1.3rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 10px;font-size:.85rem}</style></head><body>');
+  w.document.write('<h1>Recompute Fund Fees, ART-511</h1>');
+  w.document.write('<p><b>Management fee:</b> ' + o.management_fee_computed + ' | <b>Perf fee crystallised:</b> ' + o.performance_fee.performance_fee_crystallised + ' | <b>Perf fee accrued:</b> ' + o.performance_fee.performance_fee_accrued + '</p>');
+  w.document.write('<h2>What was NOT proven</h2><ul>');
+  o.not_proven.forEach(function (n) { w.document.write('<li>' + n.item + ': ' + n.detail + '</li>'); });
+  w.document.write('</ul>');
+  w.document.write('<p style="font-size:.75rem;color:#666">DECISION-SUPPORT DRAFT, not a compliance determination or an overcharge allegation. Generated: ' + new Date().toISOString() + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const o = _lastOP;
+  const rows = [['field','value']];
+  rows.push(['fund_id', o.fund_id || '']);
+  rows.push(['agreement_ref', o.agreement_ref || '']);
+  rows.push(['terms_version', o.terms_version || '']);
+  rows.push(['period_start', o.period_start || '']);
+  rows.push(['period_end', o.period_end || '']);
+  rows.push(['management_fee_computed', o.management_fee_computed]);
+  rows.push(['performance_fee_crystallised', o.performance_fee.performance_fee_crystallised]);
+  rows.push(['performance_fee_accrued', o.performance_fee.performance_fee_accrued]);
+  rows.push(['new_high_water_mark', o.performance_fee.new_high_water_mark]);
+  rows.push(['hurdle_type', o.performance_fee.hurdle_type || '']);
+  rows.push(['recompute_only', o.recompute_only]);
+  const csv = rows.map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = MANIFEST.tool_id + '.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Related Nodes</div>
+        <a href="art-373-recompute-fund-nav.html">Recompute Fund NAV</a>
+        <a href="art-375-compute-fund-expense-ratios.html">Compute Fund Expense Ratios</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
