@@ -119,7 +119,7 @@ def check_pii_text(changed=None):
         for path in _touched(sorted(d.glob("*.html")), changed):
             scanned += 1
             text = path.read_text(encoding="utf-8", errors="replace")
-            m = re.search(r'<div\s+class="pii-notice">(.*?)</div>', text, re.S)
+            m = re.search(r'<div\s+class="(?:pii-notice|pii-bar)">(.*?)</div>', text, re.S)
             if m:
                 n += 1
                 if CANON_PII_PREFIX not in m.group(1):
