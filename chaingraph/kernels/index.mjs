@@ -462,6 +462,7 @@ import * as art52     from './art-52-digital-trade-fit-diagnostic.kernel.mjs';
 import * as art520    from './art-520-operator-exit-data-portability.kernel.mjs';
 import * as art521    from './art-521-settlement-asset-backing-invariant.kernel.mjs';
 import * as art523    from './art-523-identity-proofing-assurance-level.kernel.mjs';
+import * as art524    from './art-524-source-arrival-freshness-register.kernel.mjs';
 import * as art53     from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
 import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
@@ -987,6 +988,7 @@ export const KERNELS = {
   'art-520-operator-exit-data-portability':                   art520,
   'art-521-settlement-asset-backing-invariant':               art521,
   'art-523-identity-proofing-assurance-level':                art523,
+  'art-524-source-arrival-freshness-register':                art524,
   'art-53-mletr-ebl-conformance-validator':                   art53,
   'art-54-digital-trade-rules-checker':                       art54,
   'art-55-trade-document-provenance-verifier':                art55,
