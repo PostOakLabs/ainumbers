@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Bulk Disbursement Integrity &middot; ART-518 &middot; OpenChainGraph &middot; AINumbers.co</title>
-<meta name="description" content="Attests that a bulk payment run -- salaries, pensions, social transfers, vendor payments -- is internally consistent and matches its authorization. Control-total reconciliation, duplicate-candidate clusters, split-payment candidates, limit breaches, and roster movement -- all candidates for review, never findings of fraud.">
+<meta name="description" content="Attests that a bulk payment run -- salaries, pensions, social transfers, vendor payments -- is internally consistent and matches its authorization. Control-total reconciliation, duplicate-candidate clusters, split-payment candidates, limit breaches, destination-tier cap breaches, and roster movement -- all candidates for review, never findings of fraud.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-518-bulk-disbursement-integrity.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -121,7 +121,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-518 &middot; Government &amp; Public-Money Payment Evidence</div>
   <h1>Bulk Disbursement Integrity</h1>
-  <p class="sub">Attests that a bulk payment run &mdash; salaries, pensions, social transfers, vendor payments &mdash; is internally consistent and matches its authorization. You supply the authorized control total, the per-payee records (an opaque payee ref, an amount, a rail, and a duplicate-candidate key), any declared exclusions, and the prior run's payee-ref summary. This tool checks whether the run reconciles to the authorization in both count and value, surfaces payee refs that share a duplicate-candidate key, reports payees that joined or left versus the prior run, and flags limit breaches including a split-payment shape &mdash; multiple sub-limit payments to one payee ref summing past a declared limit. Emits a hash-anchored OpenChainGraph v0.4 artifact. Region-portable: every fact below is an input you declare, never a hardcoded country, currency, or scheme.</p>
+  <p class="sub">Attests that a bulk payment run &mdash; salaries, pensions, social transfers, vendor payments &mdash; is internally consistent and matches its authorization. You supply the authorized control total, the per-payee records (an opaque payee ref, an amount, a rail, a duplicate-candidate key, and optionally a destination-tier balance cap), any declared exclusions, and the prior run's payee-ref summary. This tool checks whether the run reconciles to the authorization in both count and value, surfaces payee refs that share a duplicate-candidate key, reports payees that joined or left versus the prior run, flags limit breaches including a split-payment shape &mdash; multiple sub-limit payments to one payee ref summing past a declared limit &mdash; and, where a destination-tier cap is declared (&sect;10.2: several retail CBDCs cap a wallet's balance by KYC tier), flags a payment that is authorized and funded but still cannot land because the receiving wallet is at its cap. Emits a hash-anchored OpenChainGraph v0.4 artifact. Region-portable: every fact below is an input you declare, never a hardcoded country, currency, or scheme.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">Control-total reconciliation, count and value</span>
     <span class="flag info">Duplicate-candidate clusters by your own key</span>
@@ -149,7 +149,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div><label class="fld">Per-run limit (minor units, blank to skip that check)</label><input type="text" id="perRunLimit" value="1000000"></div>
     </div>
 
-    <label class="fld">Per-payee records (JSON array: payee_ref, amount_minor_units, rail, duplicate_key)</label>
+    <label class="fld">Per-payee records (JSON array: payee_ref, amount_minor_units, rail, duplicate_key, optional destination_tier_limit_minor_units &mdash; a receiving-wallet KYC-tier balance cap, &sect;10.2)</label>
     <textarea id="recordsJson">[
   { "payee_ref": "PAYEE-A001", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "h_9f2c1a" },
   { "payee_ref": "PAYEE-A002", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "h_3b7d90" },
@@ -166,6 +166,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
       <button onclick="runCheck()">&#9654; Run Attestation</button>
       <button class="ghost" onclick="loadDuplicateSplitDemo()">Load duplicate/split demo</button>
+      <button class="ghost" onclick="loadDestinationCapDemo()">Load destination-tier cap demo</button>
       <button class="ghost" onclick="loadRosterAbsentDemo()">Load prior-roster-absent demo</button>
       <button class="ghost" onclick="loadPrivateInputDemo()">Load salted-commitment demo</button>
     </div>
@@ -179,7 +180,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="section-head" style="margin-top:14px">Duplicate-candidate clusters</div>
       <div id="dupDiv"></div>
 
-      <div class="section-head" style="margin-top:14px">Split-payment candidates &amp; limit breaches</div>
+      <div class="section-head" style="margin-top:14px">Split-payment candidates, limit breaches &amp; destination-tier cap breaches</div>
       <div id="limitDiv"></div>
 
       <div class="section-head" style="margin-top:14px">Roster movement vs prior run</div>
@@ -301,16 +302,16 @@ var MANIFEST = {
   version: '1.0.0',
   mcp_name: 'attest_bulk_disbursement_integrity',
   title: 'Bulk Disbursement Integrity',
-  description: 'Attests that a bulk payment run is internally consistent and matches its authorization: control-total reconciliation in count and value, duplicate-candidate clusters by a caller-supplied opaque key, split-payment candidates, limit breaches, and roster movement versus the prior run. All flags are candidates for review, never findings of fraud.',
+  description: 'Attests that a bulk payment run is internally consistent and matches its authorization: control-total reconciliation in count and value, duplicate-candidate clusters by a caller-supplied opaque key, split-payment candidates, limit breaches, destination-tier cap breaches (a payment authorized and funded but unable to land at a capped destination wallet), and roster movement versus the prior run. All flags are candidates for review, never findings of fraud.',
   spec_version: '0.8.8',
   chaingraph_version: '0.4.0',
   mcp_tool_definition: {
     name: 'attest_bulk_disbursement_integrity',
-    description: 'Attests a bulk disbursement run: control-total reconciliation (count and value), duplicate-candidate clusters by an opaque caller key, split-payment candidates, limit breaches, and roster movement versus a prior run (DISB_ROSTER_MOVEMENT is movement to be explained, never an accusation).',
+    description: 'Attests a bulk disbursement run: control-total reconciliation (count and value), duplicate-candidate clusters by an opaque caller key, split-payment candidates, limit breaches, destination-tier cap breaches, and roster movement versus a prior run (DISB_ROSTER_MOVEMENT is movement to be explained, never an accusation).',
     inputSchema: { type: 'object', properties: {
       run_reference: {type:'string'}, as_of: {type:'string'}, currency: {type:'string'},
       authorized_control_total: {type:'object'}, per_payee_limit_minor_units: {type:'number'}, per_run_limit_minor_units: {type:'number'},
-      payee_records: {type:'array'}, declared_exclusions: {type:'array'}, prior_run_payee_refs: {type:'array'},
+      payee_records: {type:'array', description: 'each record may optionally declare destination_tier_limit_minor_units (§10.2 item 1)'}, declared_exclusions: {type:'array'}, prior_run_payee_refs: {type:'array'},
       duplicate_key_commitment_scheme: {type:'string'},
     } },
   },
@@ -402,7 +403,8 @@ function compute(pp){
         is_private_input_commitment = true;
       }
     }
-    return { payee_ref: payee_ref, amount_minor_units: amount_minor_units, amount_display: display(amount_minor_units), rail: rail, duplicate_key: duplicate_key, is_private_input_commitment: is_private_input_commitment };
+    var destination_tier_limit_minor_units = toLimitOrNull(r.destination_tier_limit_minor_units, 'payee_records[' + i + '].destination_tier_limit_minor_units', rejected_inputs);
+    return { payee_ref: payee_ref, amount_minor_units: amount_minor_units, amount_display: display(amount_minor_units), rail: rail, duplicate_key: duplicate_key, is_private_input_commitment: is_private_input_commitment, destination_tier_limit_minor_units: destination_tier_limit_minor_units };
   });
 
   var private_input_candidates = [];
@@ -464,6 +466,19 @@ function compute(pp){
   }
   var has_limit_breach = limit_breaches.length > 0 || per_run_limit_breach !== null;
 
+  var destination_cap_breaches = [];
+  Object.keys(byPayee).forEach(function(payee_ref){
+    var group = byPayee[payee_ref];
+    var declaredCaps = group.map(function(r){ return r.destination_tier_limit_minor_units; }).filter(function(v){ return v !== null; });
+    if (declaredCaps.length === 0) return;
+    var destination_tier_limit_minor_units = Math.min.apply(null, declaredCaps);
+    var total = group.reduce(function(a, r){ return a + r.amount_minor_units; }, 0);
+    if (total > destination_tier_limit_minor_units) {
+      destination_cap_breaches.push({ payee_ref: payee_ref, kind: 'destination_cap_breach', amount_minor_units: total, amount_display: display(total), destination_tier_limit_minor_units: destination_tier_limit_minor_units });
+    }
+  });
+  var has_destination_cap_breach = destination_cap_breaches.length > 0;
+
   var priorInputPresent = pp.prior_run_payee_refs !== undefined && pp.prior_run_payee_refs !== null;
   var priorRoster = priorInputPresent && Array.isArray(pp.prior_run_payee_refs) ? pp.prior_run_payee_refs.filter(isNonEmptyString).map(function(s){ return s.trim(); }) : [];
   if (priorInputPresent && !Array.isArray(pp.prior_run_payee_refs)) {
@@ -480,6 +495,7 @@ function compute(pp){
   compliance_flags.push(control_total_reconciled ? 'DISB_RECONCILED' : 'DISB_CONTROL_TOTAL_BREAK');
   if (duplicate_candidate_clusters.length > 0) compliance_flags.push('DISB_DUPLICATE_CANDIDATE');
   if (has_limit_breach) compliance_flags.push('DISB_LIMIT_BREACH');
+  if (has_destination_cap_breach) compliance_flags.push('DISB_DESTINATION_CAP_BREACH');
   if (split_payment_candidates.length > 0) compliance_flags.push('DISB_SPLIT_CANDIDATE');
   if (has_roster_movement) compliance_flags.push('DISB_ROSTER_MOVEMENT');
   if (rejected_inputs.length > 0) compliance_flags.push('DISB_INPUTS_REJECTED');
@@ -495,6 +511,9 @@ function compute(pp){
   rationale.push(split_payment_candidates.length > 0
     ? (split_payment_candidates.length + ' payee(s) received multiple sub-limit payments summing past the declared per-payee limit. This is a candidate for review, not a finding -- a split can be a corrected underpayment.')
     : 'No payee received multiple sub-limit payments summing past the declared per-payee limit.');
+  rationale.push(has_destination_cap_breach
+    ? (destination_cap_breaches.length + ' payee(s) exceed a declared destination-tier balance cap -- the payment is authorized and funded but cannot land at the receiving wallet\'s current tier.')
+    : 'No payee exceeds a declared destination-tier balance cap.');
   rationale.push(roster_movement_verifiable
     ? ('Roster compared against ' + priorRoster.length + ' prior-run payee ref(s): ' + new_this_run.length + ' new this run, ' + absent_this_run.length + ' absent this run. This is movement to be explained, not an accusation.')
     : 'Prior-run payee roster was not supplied, so roster movement cannot be evaluated this cycle. This is reported as unverifiable, never as a clean result.');
@@ -510,6 +529,7 @@ function compute(pp){
     duplicate_candidate_cluster_count: duplicate_candidate_clusters.length, duplicate_candidate_clusters: duplicate_candidate_clusters,
     per_payee_limit_minor_units: per_payee_limit_minor_units, per_run_limit_minor_units: per_run_limit_minor_units,
     limit_breaches: limit_breaches, per_run_limit_breach: per_run_limit_breach, has_limit_breach: has_limit_breach,
+    destination_cap_breaches: destination_cap_breaches, has_destination_cap_breach: has_destination_cap_breach,
     split_payment_candidates: split_payment_candidates,
     roster_movement_verifiable: roster_movement_verifiable,
     prior_run_payee_count: priorRoster.length,
@@ -547,6 +567,19 @@ function loadPrivateInputDemo(){
   document.getElementById('recordsJson').value = '[\n  { "payee_ref": "PAYEE-F001", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "sha256:' + 'a'.repeat(64) + '" },\n  { "payee_ref": "PAYEE-F002", "amount_minor_units": 100000, "rail": "ach", "duplicate_key": "sha256:' + 'a'.repeat(64) + '" }\n]';
   document.getElementById('exclusionsJson').value = '[]';
   document.getElementById('priorJson').value = '["PAYEE-F001", "PAYEE-F002"]';
+  runCheck();
+}
+function loadDestinationCapDemo(){
+  document.getElementById('runRef').value = 'RUN-2026-08-01-VENDOR-TIERCAP';
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('currency').value = 'USD';
+  document.getElementById('authCount').value = '1';
+  document.getElementById('authTotal').value = '150000';
+  document.getElementById('perPayeeLimit').value = '500000';
+  document.getElementById('perRunLimit').value = '1000000';
+  document.getElementById('recordsJson').value = '[\n  { "payee_ref": "PAYEE-H001", "amount_minor_units": 150000, "rail": "mobile_wallet", "duplicate_key": null, "destination_tier_limit_minor_units": 100000 }\n]';
+  document.getElementById('exclusionsJson').value = '[]';
+  document.getElementById('priorJson').value = '["PAYEE-H001"]';
   runCheck();
 }
 function loadRosterAbsentDemo(){
@@ -622,7 +655,10 @@ async function runCheck(){
   if (op.per_run_limit_breach) {
     limitHtml += '<div class="kv"><span class="kv-k">Run total</span><span class="kv-v">' + op.per_run_limit_breach.total_display + ' vs limit ' + display(op.per_run_limit_breach.limit_minor_units) + ' <span class="badge bad">RUN LIMIT BREACH</span></span></div>';
   }
-  document.getElementById('limitDiv').innerHTML = limitHtml || '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no split candidates or limit breaches</span></div>';
+  limitHtml += op.destination_cap_breaches.map(function(d){
+    return '<div class="kv"><span class="kv-k">' + d.payee_ref + '</span><span class="kv-v">' + d.amount_display + ' vs destination-tier cap ' + display(d.destination_tier_limit_minor_units) + ' <span class="badge bad">DESTINATION CAP BREACH</span> &mdash; authorized and funded, cannot land</span></div>';
+  }).join('');
+  document.getElementById('limitDiv').innerHTML = limitHtml || '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no split candidates, limit breaches, or destination-tier cap breaches</span></div>';
 
   var rosterHtml = '';
   if (!op.roster_movement_verifiable) {

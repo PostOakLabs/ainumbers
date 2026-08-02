@@ -61,6 +61,22 @@
  * a Family-Islands-style pension/salary run and a separate vendor-payment run with a
  * different currency, limit structure, and rail set).
  *
+ * DESTINATION-TIER CAP (INBOUND-EVIDENCE-BUILD-SPEC.md §10.2 item 1, INBOUND-DISB-
+ * TIERWALLET-FIX-1). A retail-CBDC destination account can be capped by KYC tier --
+ * a payment that is authorized, funded, and reconciles cleanly can still FAIL TO
+ * LAND because the destination wallet is at its balance cap. That is a distinct
+ * failure mode from both existing sender-side checks (single_payment_over_limit,
+ * run_total_over_limit): those bound what the SENDER may pay out; this bounds what
+ * the RECEIVING wallet may hold. An optional per-record `destination_tier_limit_
+ * minor_units` declares that payee's tier cap; where a payee's total disbursed
+ * amount this run would exceed it, it is flagged `destination_cap_breach` in its
+ * own `destination_cap_breaches[]` -- never folded into `limit_breaches`, never a
+ * control-total break, never a duplicate-candidate. Absence of the field for a
+ * payee stays fully conformant -- no cap check runs for that payee. Where a
+ * payee's records disagree on the declared cap, the LOWEST declared value is used
+ * (the binding constraint is the tightest tier any record names for that
+ * destination).
+ *
  * FIXED-POINT MONEY MATH (CONTRACT money convention, art-516 pattern). Every amount
  * crosses the boundary as an integer number of minor units. No floating-point
  * arithmetic anywhere in compute(): sums, differences, and limit comparisons are
@@ -178,7 +194,10 @@ export function compute(pp) {
         is_private_input_commitment = true;
       }
     }
-    return { payee_ref, amount_minor_units, amount_display: display(amount_minor_units), rail, duplicate_key, is_private_input_commitment };
+    // §10.2 item 1 -- optional per-record destination-tier cap. Absence disables the
+    // check for this record rather than faking a value (same convention as toLimitOrNull).
+    const destination_tier_limit_minor_units = toLimitOrNull(r.destination_tier_limit_minor_units, `payee_records[${i}].destination_tier_limit_minor_units`, rejected_inputs);
+    return { payee_ref, amount_minor_units, amount_display: display(amount_minor_units), rail, duplicate_key, is_private_input_commitment, destination_tier_limit_minor_units };
   });
 
   // §25.0 declaration -- one entry per accepted commitment, pointer indexed to this record's
@@ -245,6 +264,21 @@ export function compute(pp) {
   }
   const has_limit_breach = limit_breaches.length > 0 || per_run_limit_breach !== null;
 
+  // --- Destination-tier cap breaches (§10.2 item 1) -- a RECEIVING-side cap, distinct
+  //     from the sender-side limit_breaches above. Where a payee's records disagree on
+  //     the declared cap, the lowest declared value is the binding constraint. ---
+  const destination_cap_breaches = [];
+  for (const [payee_ref, group] of byPayee.entries()) {
+    const declaredCaps = group.map((r) => r.destination_tier_limit_minor_units).filter((v) => v !== null);
+    if (declaredCaps.length === 0) continue;
+    const destination_tier_limit_minor_units = Math.min(...declaredCaps);
+    const total = group.reduce((a, r) => a + r.amount_minor_units, 0);
+    if (total > destination_tier_limit_minor_units) {
+      destination_cap_breaches.push({ payee_ref, kind: 'destination_cap_breach', amount_minor_units: total, amount_display: display(total), destination_tier_limit_minor_units });
+    }
+  }
+  const has_destination_cap_breach = destination_cap_breaches.length > 0;
+
   // --- Roster movement vs the prior run's payee-ref summary. ABSENCE-INSTRUMENT rule. ---
   const priorInputPresent = pp.prior_run_payee_refs !== undefined && pp.prior_run_payee_refs !== null;
   const priorRoster = priorInputPresent && Array.isArray(pp.prior_run_payee_refs) ? pp.prior_run_payee_refs.filter(isNonEmptyString).map((s) => s.trim()) : [];
@@ -262,6 +296,7 @@ export function compute(pp) {
   compliance_flags.push(control_total_reconciled ? 'DISB_RECONCILED' : 'DISB_CONTROL_TOTAL_BREAK');
   if (duplicate_candidate_clusters.length > 0) compliance_flags.push('DISB_DUPLICATE_CANDIDATE');
   if (has_limit_breach) compliance_flags.push('DISB_LIMIT_BREACH');
+  if (has_destination_cap_breach) compliance_flags.push('DISB_DESTINATION_CAP_BREACH');
   if (split_payment_candidates.length > 0) compliance_flags.push('DISB_SPLIT_CANDIDATE');
   if (has_roster_movement) compliance_flags.push('DISB_ROSTER_MOVEMENT');
   if (rejected_inputs.length > 0) compliance_flags.push('DISB_INPUTS_REJECTED');
@@ -277,6 +312,9 @@ export function compute(pp) {
   rationale.push(split_payment_candidates.length > 0
     ? `${split_payment_candidates.length} payee(s) received multiple sub-limit payments summing past the declared per-payee limit. This is a candidate for review, not a finding -- a split can be a corrected underpayment.`
     : 'No payee received multiple sub-limit payments summing past the declared per-payee limit.');
+  rationale.push(has_destination_cap_breach
+    ? `${destination_cap_breaches.length} payee(s) exceed a declared destination-tier balance cap -- the payment is authorized and funded but cannot land at the receiving wallet's current tier.`
+    : 'No payee exceeds a declared destination-tier balance cap.');
   rationale.push(roster_movement_verifiable
     ? `Roster compared against ${priorRoster.length} prior-run payee ref(s): ${new_this_run.length} new this run, ${absent_this_run.length} absent this run. This is movement to be explained, not an accusation.`
     : 'Prior-run payee roster was not supplied, so roster movement cannot be evaluated this cycle. This is reported as unverifiable, never as a clean result.');
@@ -293,6 +331,7 @@ export function compute(pp) {
     duplicate_candidate_clusters,
     per_payee_limit_minor_units, per_run_limit_minor_units,
     limit_breaches, per_run_limit_breach, has_limit_breach,
+    destination_cap_breaches, has_destination_cap_breach,
     split_payment_candidates,
     roster_movement_verifiable,
     prior_run_payee_count: priorRoster.length,
