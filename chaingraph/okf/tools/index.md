@@ -465,6 +465,9 @@ status: stable
 - [Operator Exit & Data Portability](./art-520-operator-exit-data-portability.md) — `check_operator_exit_portability`
 - [Settlement-Asset Backing Invariant](./art-521-settlement-asset-backing-invariant.md) — `verify_settlement_asset_backing`
 - [Identity-Proofing Assurance Level Evaluator](./art-523-identity-proofing-assurance-level.md) — `compute_identity_proofing_assurance_level`
+- [Source Arrival & Freshness Register](./art-524-source-arrival-freshness-register.md) — `register_source_arrival_freshness`
+- [N-Way Balance Closure Check](./art-525-nway-balance-closure-check.md) — `check_nway_balance_closure`
+- [Report-to-General-Ledger Reconciliation](./art-526-report-gl-reconciliation.md) — `reconcile_report_to_general_ledger`
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`

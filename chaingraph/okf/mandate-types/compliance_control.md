@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-36"]
+tags: ["compliance_control", "count-38"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-36 tool(s) in this mandate-type group:
+38 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -48,3 +48,5 @@ status: stable
 - [Deposit Insurance Coverage Determination](../tools/art-507-determine-deposit-insurance-coverage.md)
 - [Public-Money Settlement Receipt](../tools/art-513-public-money-settlement-receipt.md)
 - [Conditional-Relief Collateral Receipt](../tools/art-514-conditional-relief-collateral-receipt.md)
+- [Source Arrival & Freshness Register](../tools/art-524-source-arrival-freshness-register.md)
+- [N-Way Balance Closure Check](../tools/art-525-nway-balance-closure-check.md)
