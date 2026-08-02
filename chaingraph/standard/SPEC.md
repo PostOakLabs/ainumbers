@@ -29,6 +29,32 @@ mirrors_to: PostOakLabs/chaingraph (GitHub Pages, generated)
 (a) emits artifacts that validate against `openchain-graph-v0.4.schema.json`, and (b) passes every
 gate in §15. Conformance is defined by the schema + the gates, not by prose alone.
 
+### §0.1 Terms and definitions
+Definitions only. Nothing in this sub-section imposes a requirement: per RFC 8174 the RFC 2119
+keywords carry their special meaning only in ALL CAPITALS, and none appears below. Where a term is
+already fixed by a behavioural section, the entry points at that section instead of restating it.
+
+- **node tool** — the unit of computation that emits a §1 artifact envelope, identified by its
+  `tool_id`. §1 already uses this term for the emitting unit; §7 registers it as an `ocg:DecisionTool`
+  entry in the Graph Index.
+- **node** — a node tool viewed as one vertex of the artifact citation graph this standard is named
+  after. Its edges are the `chain.parent_hashes` citations recorded in §1, so a node exists once it is
+  registered in the Graph Index, whether or not any §21 chain lists it. Placement in a chain's
+  `steps[]` array is one way a node acquires edges, not what makes it a node.
+  - *Not the distributed-ledger sense of the word.* An OpenChainGraph node is not a participant in a
+    network: it holds no ledger state, has no peers, and takes part in no consensus. Vendor surfaces
+    that model permissioned-network topology use "node" for a network participant; the two senses
+    share the word and nothing else.
+- **chain** — defined in §21: a `chaingraph.json` `chains[]` entry. The hash trail a chain leaves
+  behind is what running one produces (§21.2), not what a chain is.
+- **tool** — deliberately left undefined by this standard. Across published surfaces the bare word
+  denotes two different things, a standalone browser page and an MCP-callable computation, and no
+  normative statement here turns on the distinction. This standard therefore writes **node tool**
+  when it means the emitting unit, and leaves the bare word to the vendor describing its own catalog.
+  Note that the identifier is spelled `tool_id` for historical reasons and names a node tool; a
+  `steps[]` entry whose `tool_id` resolves to no registered node tool is not malformed, and §21.1
+  assigns it a status.
+
 ## Versioning model (informative — disambiguation)
 OpenChainGraph carries **layered version identifiers**, each answering a different question. They are
 intentionally decoupled, following the in-toto/SLSA pattern in which **additive changes do not move the
