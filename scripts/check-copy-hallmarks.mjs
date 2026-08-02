@@ -175,9 +175,25 @@ function htmlFiles(dir, out = []) {
 // CONTRACT §1.3 mandates this banner verbatim (em-dash included) — exempt it.
 const PII_BANNER = '🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
+// CONTRACT §1.4 (Tim 2026-08-02): entity-encoded em-dashes/hyphens count as the
+// literal character — decode before counting. Small explicit map, not a
+// dependency (site repo is ZERO-DEP). Order vs. the PII_BANNER split below does
+// NOT matter: the mandated banner string is the raw — character in every file
+// checked (verified 2026-08-02, grep for an entity-encoded banner found zero
+// hits) — never entity-encoded — so decoding before or after the split is
+// equivalent for the banner's own exemption.
+function decodeDashEntities(html) {
+  return html
+    .replace(/&mdash;/gi, '—')
+    .replace(/&#0*8212;/g, '—')
+    .replace(/&#x0*2014;/gi, '—')
+    .replace(/&#0*45;/g, '-')
+    .replace(/&#x0*2d;/gi, '-');
+}
+
 /** Strip script/style/pre/code bodies + HTML comments, keep other tags intact. */
 function proseHtml(html) {
-  return html
+  return decodeDashEntities(html)
     .split(PII_BANNER).join(' ')
     .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
@@ -277,8 +293,8 @@ for (const file of htmlFiles(REPO)) {
 // (jargon there is check-shipped-prose.mjs territory).
 const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
 let cgEmdash = 0;
-for (const n of cg.nodes || []) cgEmdash += ((n.description || '').match(EMDASH) || []).length;
-for (const c of cg.chains || []) cgEmdash += ((c.description || '').match(EMDASH) || []).length;
+for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
+for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
 if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, emojiProse: 0, hallmarks: [], bold: 0, overuse: {} };
 
 if (UPDATE) {
