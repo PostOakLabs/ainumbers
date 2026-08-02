@@ -8,13 +8,20 @@
 // `compute_proof.journal.output`. Tier3 nodes (no proof yet) get every
 // machine-derivable field except output_schema.
 //
-// category, tags, ap2_export, execution.function_name have no source on
-// most pages (measured: category ~12%, tags ~1%, ap2_export ~11%,
-// function_name ~2.4% of art-*.html pages carry them in the inline
-// MANIFEST) — used when present, never guessed otherwise. Absent ones get
-// an explicit greppable TODO marker (TODO_CATEGORY_REVIEW / TODO_TAGS_REVIEW
-// / TODO_FUNCTION_NAME_REVIEW / a TODO_AP2_EXPORT_REVIEW tag, since
-// ap2_export is a strict boolean and can't itself carry a string marker).
+// tags, ap2_export, execution.function_name have no source on most pages
+// (measured: tags ~1%, ap2_export ~11%, function_name ~2.4% of art-*.html
+// pages carry them in the inline MANIFEST) — used when present, never
+// guessed otherwise. Absent ones get an explicit greppable TODO marker
+// (TODO_TAGS_REVIEW / TODO_FUNCTION_NAME_REVIEW / a TODO_AP2_EXPORT_REVIEW
+// tag, since ap2_export is a strict boolean and can't itself carry a
+// string marker).
+//
+// category (NODECAT-WIRE-1): inline MANIFEST value wins when present
+// (~12% of pages); otherwise derived from the node's chaingraph/hub-categories.json
+// cluster assignment, slugified — that file already assigns 494/526 nodes to
+// one of 94 named clusters (built for the hub page, per NODECAT-SCOPE-1).
+// A node in neither source gets the explicit TODO_CATEGORY_REVIEW marker,
+// never a fabricated value.
 // output_schema is best-effort single-sample JSON-Schema-from-example,
 // never hand-composed — see deriveSchema().
 //
@@ -38,6 +45,31 @@ const CHAINGRAPH_JSON = resolve(REPO, 'chaingraph', 'chaingraph.json');
 const VECTORS_DIR = resolve(REPO, 'chaingraph', 'conformance', 'vectors');
 const MANIFESTS_DIR = resolve(REPO, 'manifests');
 const SCHEMA_PATH = resolve(REPO, 'chaingraph', 'schemas', 'manifest.schema.json');
+const HUB_CATEGORIES_JSON = resolve(REPO, 'chaingraph', 'hub-categories.json');
+
+// ---- category derivation from hub-categories.json cluster assignment
+// (NODECAT-SCOPE-1: 494/526 nodes already carry a cluster there, built for
+// the hub page, never wired into manifest `category`). A node's cluster
+// title is slugified and used only when the inline MANIFEST carries no
+// explicit category. A node absent from hub-categories.json falls through
+// to the existing TODO marker — never fabricated. ----
+function slugify(title) {
+  return title
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+function loadToolIdToCategorySlug() {
+  const clusters = JSON.parse(readFileSync(HUB_CATEGORIES_JSON, 'utf8'));
+  const map = new Map();
+  for (const [title, { art_ids }] of Object.entries(clusters)) {
+    const slug = slugify(title);
+    for (const toolId of art_ids) map.set(toolId, slug);
+  }
+  return map;
+}
+const TOOL_ID_TO_CATEGORY_SLUG = loadToolIdToCategorySlug();
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -177,9 +209,13 @@ function draftManifest(node) {
   else if (tier === 2) outputSample = node.compute_proof.journal.output;
 
   const todo = [];
+  const hubCategorySlug = TOOL_ID_TO_CATEGORY_SLUG.get(toolId);
+  let categorySource;
   const category = typeof inline?.category === 'string' && inline.category
-    ? inline.category
-    : (todo.push('category'), 'TODO_CATEGORY_REVIEW');
+    ? ((categorySource = 'inline MANIFEST'), inline.category)
+    : hubCategorySlug
+      ? ((categorySource = 'hub-categories.json cluster'), hubCategorySlug)
+      : ((categorySource = null), todo.push('category'), 'TODO_CATEGORY_REVIEW');
   const tags = Array.isArray(inline?.tags) && inline.tags.length
     ? [...inline.tags]
     : (todo.push('tags'), ['TODO_TAGS_REVIEW']);
@@ -224,9 +260,11 @@ function draftManifest(node) {
     manifest.output_schema = deriveSchema(outputSample);
   }
 
+  const remainingTodo = todo.filter((t) => t !== 'category');
+  const fieldNote = `${remainingTodo.length ? remainingTodo.join(', ') + ' are TODO markers, no source found; ' : ''}category sourced from ${categorySource || 'no source (TODO_CATEGORY_REVIEW)'}`;
   manifest.source = outputSample !== null
-    ? `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1, derivation tier ${tier}); ${todo.length ? todo.join(', ') + ' are TODO markers, no source found' : 'category/tags/ap2_export/execution.function_name all sourced from the page inline MANIFEST'}; output_schema is best-effort single-sample typing — review before treating as authoritative`
-    : `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1, derivation tier 3); output_schema OMITTED — no compute_proof yet (async proving pending); ${todo.length ? todo.join(', ') + ' are TODO markers, no source found' : 'category/tags/ap2_export/execution.function_name all sourced from the page inline MANIFEST'}`;
+    ? `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier ${tier}); ${fieldNote}; output_schema is best-effort single-sample typing — review before treating as authoritative`
+    : `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier 3); output_schema OMITTED — no compute_proof yet (async proving pending); ${fieldNote}`;
 
   return { manifest, tier, todo };
 }
