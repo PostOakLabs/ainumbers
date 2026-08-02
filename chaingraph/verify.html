@@ -233,6 +233,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <div class="card-label" style="margin-top:0;">0. Declared gate (from loaded bundle)</div>
         <div class="hash-row"><div class="hash-lbl">gate_policy</div><div class="hash-val" id="haDeclaredGatePolicy"></div></div>
         <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="haDeclaredGateStatus"></div></div>
+        <div class="hash-row"><div class="hash-lbl">Evidence</div><div class="hash-val" id="haDeclaredGateEvidence"></div></div>
         <div class="hash-row"><div class="hash-lbl">Reason</div><div class="hash-val" id="haDeclaredGateReason" style="color:var(--text);"></div></div>
         <p class="hero-sub" style="margin:8px 0 0;font-size:.68rem;">Non-blocking: this reflects the declared gate's evidentiary state at load time. It never disables signing, verification, or export below. Add approval records in step 1 (or paste more into the records box in step 2) and click "Load &amp; review bundle" again to re-evaluate.</p>
       </div>
@@ -291,7 +292,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </div>
       <div id="haGateResult" style="display:none;margin-top:10px;" class="hash-block">
         <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="haGateStatus"></div></div>
+        <div class="hash-row"><div class="hash-lbl">Evidence</div><div class="hash-val" id="haGateEvidence"></div></div>
         <div class="hash-row"><div class="hash-lbl">Reason</div><div class="hash-val" id="haGateReason" style="color:var(--text);"></div></div>
+        <p class="hero-sub" id="haGateEvidenceNote" style="margin:8px 0 0;font-size:.68rem;"></p>
       </div>
 
       <div class="card-label" style="margin-top:20px;">3. Evidence-bundle export (§27.6, Tier 1 JSON)</div>
@@ -580,7 +583,7 @@ function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v===
   var CS='eddsa-jcs-2022';
   function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
   function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
-  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature&&'proof'in c.audit_signature)delete c.audit_signature.proof;return c;}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
   function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
   function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
   var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -599,6 +602,11 @@ function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v===
    spirit to chaingraph/kernels/_hagate.mjs (ported inline: this page has no
    module loader). Sits beside the OCG-PROOF v1 signer above; does NOT touch
    execution_hash or chaingraph_version (§27.0 additivity).
+
+   SCOPE: §27.3/§27.4/§27.5 threshold, hold and override semantics ONLY. The
+   §27.11 evidence-verification layer is NOT in here — it wraps these functions
+   further down, so this block stays byte-identical to the copies in
+   bundle-diff.html and verification-desk.html.
    ───────────────────────────────────────────────────────────────── */
 let __haKeypair = null; // { privateKey, publicKey, did }
 
@@ -643,6 +651,106 @@ function __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowIS
     status: satisfied ? 'satisfied' : 'hold', policy_applied: gatePolicy, satisfied,
     reason: satisfied ? `${distinct.size} distinct "${role}" approval(s) ≥ N=${n}` : `only ${distinct.size} distinct "${role}" approval(s) — need N=${n}; absent records ⇒ HOLD, never a fall-through default`,
   };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   §27.11 EVIDENCE VERIFICATION — layered ON TOP of the twin above, never inside it.
+
+   The block above answers §27.3/§27.4: "did N distinct identities file a structurally conformant
+   record?" It cannot answer "are those records real", because `__haIsConformant` checks the SHAPE of a
+   §16 proof — a cryptosuite string and a verificationMethod prefix — and verifies no bytes. Two
+   hand-typed records carrying a plausible but unsigned proof block therefore satisfied dual_control(2)
+   exactly as two genuine sign-offs did. This page HAS the real verifier (`__ocgVerify`, OCG-PROOF v1
+   above) and a did:key resolver, so here it actually runs them.
+
+   WHY IT SITS OUTSIDE THE TWIN: bundle-diff.html and verification-desk.html carry the same ported
+   block and declare it byte-identical to this one. Editing it here would silently falsify that on two
+   pages outside this change's scope. The twin stays the §27.4–27.5 threshold evaluator, unchanged and
+   still byte-identical everywhere; §27.11 is a wrapper. The SSOT `kernels/_hagate.mjs` folds the same
+   semantics in directly via its `verdictOf` parameter — same rules, one layer down.
+
+   §27.11.3 governs the posture: this RECORDS, it does not BLOCK. A record whose signature was never
+   checked (no resolvable key) still counts, and the pair is reported as `structural_only`. Only a proof
+   that was CHECKED and FAILED is excluded (§27.11.4), because §27.2 already requires a conformant record
+   to carry a proof bound to the named human, and a proof that verifies false does not.
+   ───────────────────────────────────────────────────────────────── */
+const HA_EVIDENCE_VERIFICATION = ['verified', 'structural_only', 'invalid', 'not_applicable'];
+
+const HA_EVIDENCE_NOTE = {
+  verified: 'Every record counted above had its §16 Ed25519 signature verified against the key resolved from its own identity.id.',
+  structural_only: 'Signature bytes were NOT verified. The records carry a well-shaped §16 proof block, but no key could be resolved from identity.id, so only the §27.2 structural check ran. A met threshold here is not evidence that anyone actually signed.',
+  invalid: 'At least one record carried a §16 proof that was checked and FAILED. Under §27.2 it is not conformant evidence, so it was excluded from the count and the outcome above was computed without it.',
+  not_applicable: 'This outcome counted no records, so it makes no claim about any evidence.',
+};
+
+/**
+ * Verify each record's §16 proof against the key resolved from its OWN identity.id.
+ * Returns a Map record -> true | false | undefined (undefined = never checked, NOT a failure).
+ */
+async function __haVerdicts(records) {
+  const out = new Map();
+  for (const r of (records || [])) {
+    const did = r && r.identity && r.identity.id;
+    let verdict;                                   // stays undefined unless a check actually ran
+    if (typeof did === 'string' && did.indexOf('did:key:z') === 0) {
+      try {
+        verdict = await window.__ocgVerify(r, await window.__ocgPubFromDidKey(did));
+      } catch (e) {
+        verdict = undefined;                       // unresolvable key ⇒ unchecked, never "failed"
+      }
+    }
+    out.set(r, verdict);
+  }
+  return out;
+}
+
+/**
+ * The records the twin's control flow actually rested on, in the twin's own order of precedence:
+ * rejection record, then active override, then policy short-circuits, then approvals.
+ */
+function __haCountedFor(records, result, role, subjectHash, nowISO) {
+  const rejections = (records || []).filter((r) => r.record_type === 'rejection' && r.role === role && r.subject_hash === subjectHash && __haIsConformant(r));
+  if (rejections.length) return rejections;
+  const override = __haFindActiveOverride(records, subjectHash, nowISO);
+  if (override) return [override];
+  if (['auto_pass', 'reject', 'escalate'].indexOf(result.policy_applied) >= 0) return [];
+  return (records || []).filter((r) => r.record_type === 'approval' && r.role === role && r.subject_hash === subjectHash && __haIsConformant(r));
+}
+
+/** §27.11.2, closed vocabulary. ⛔ Absence of a verdict is NEVER read as `verified` (§27.11.5). */
+function __haClassifyEvidence(counted, invalid, verdicts) {
+  if (invalid.length) return 'invalid';
+  if (!counted.length) return 'not_applicable';
+  return counted.every((r) => verdicts.get(r) === true) ? 'verified' : 'structural_only';
+}
+
+/**
+ * Evaluate a §27.4 gate AND its §27.11 evidence state together — the pair a surface must report.
+ * Records whose proof was checked and failed are removed BEFORE the threshold is computed (§27.11.4).
+ */
+async function __haEvaluateWithEvidence({ gatePolicy, threshold, role, subjectHash, records, nowISO }) {
+  const all = records || [];
+  const verdicts = await __haVerdicts(all);
+  const invalid = all.filter((r) => verdicts.get(r) === false);
+  const kept = all.filter((r) => verdicts.get(r) !== false);
+  const result = __haEvaluate({ gatePolicy, threshold, role, subjectHash, records: kept, nowISO });
+  const counted = __haCountedFor(kept, result, role, subjectHash, nowISO);
+  result.evidence_verification = __haClassifyEvidence(counted, invalid, verdicts);
+  return result;
+}
+
+/** Paint the §27.11.1 sibling beside a threshold outcome. `noteId` is optional. */
+function __haRenderEvidence(result, valueId, noteId) {
+  const el = document.getElementById(valueId);
+  if (el) {
+    const ev = result.evidence_verification;
+    el.textContent = ev.toUpperCase().replace(/_/g, ' ');
+    // Only `verified` is a positive claim about cryptography actually performed; `invalid` is a
+    // failure. `structural_only` is neither, and is deliberately not styled as a pass.
+    el.className = 'hash-val' + (ev === 'invalid' ? ' mismatch' : '');
+  }
+  const note = noteId && document.getElementById(noteId);
+  if (note) note.textContent = HA_EVIDENCE_NOTE[result.evidence_verification] || '';
 }
 
 function __haCurrentArtifact() {
@@ -774,12 +882,14 @@ function haLoadBundle() {
 
     executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
       const subjectHash = 'sha256:' + hex;
-      const result = __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
+      return __haEvaluateWithEvidence({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
+    }).then((result) => {
       __haDeclaredVerdict = result;
       declaredCard.style.display = 'block';
       policyEl.textContent = gatePolicy + (threshold ? '(' + threshold + ')' : '');
       statusEl.textContent = result.status.toUpperCase();
       statusEl.className = 'hash-val' + (result.satisfied ? '' : (result.status === 'rejected' ? ' mismatch' : ''));
+      __haRenderEvidence(result, 'haDeclaredGateEvidence', null);
       reasonEl.textContent = result.reason;
       hideError();
     }).catch((e) => { showError('Declared-gate evaluation failed: ' + e.message); });
@@ -798,14 +908,16 @@ function haEvaluateGate() {
     const records = recordsRaw ? (JSON.parse(recordsRaw) || []).map(__haReHome) : [];
     executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
       const subjectHash = 'sha256:' + hex;
-      const result = __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
+      return __haEvaluateWithEvidence({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
+    }).then((result) => {
       document.getElementById('haGateResult').style.display = 'block';
       const statusEl = document.getElementById('haGateStatus');
       statusEl.textContent = result.status.toUpperCase();
       statusEl.className = 'hash-val' + (result.satisfied ? '' : (result.status === 'rejected' ? ' mismatch' : ''));
+      __haRenderEvidence(result, 'haGateEvidence', 'haGateEvidenceNote');
       document.getElementById('haGateReason').textContent = result.reason;
       hideError();
-    });
+    }).catch((e) => { showError('Gate evaluation failed: ' + e.message); });
   } catch (e) { showError('Gate evaluation failed: ' + e.message); }
 }
 
@@ -834,8 +946,13 @@ function __haBuildBundle() {
     // not_evaluated when no bundle.gate was ever declared/loaded — so a
     // downstream reviewer or the offline verifier never has to guess whether
     // the gate was checked at all.
+    // §27.11.1: the threshold outcome is NEVER exported as a standalone verdict — the
+    // `evidence_verification` sibling travels with it, so a downstream reader can tell
+    // "two humans signed" apart from "two records were shaped like signatures".
     const gv = __haDeclaredVerdict;
-    const verdictLine = gv ? `ha_gate_verdict:${gv.status}:${gv.policy_applied}` : 'ha_gate_verdict:not_evaluated';
+    const verdictLine = gv
+      ? `ha_gate_verdict:${gv.status}:${gv.policy_applied}:${gv.evidence_verification || 'structural_only'}`
+      : 'ha_gate_verdict:not_evaluated';
     bundle.annotations = (bundle.annotations || []).concat([verdictLine]);
     return bundle;
   });
