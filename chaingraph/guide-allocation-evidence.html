@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allocation Evidence Guide: Re-deriving Why This Allocation, To This Obligation | AINumbers OpenChainGraph</title>
+<meta name="description" content="Guide for operations and internal-audit leads: how art-515, the allocation decision receipt, re-derives whether an optimizer's allocation is explained by the eligibility, inventory, haircut and objective inputs declared for it. A reproducibility check, not a suspicion check.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/guide-allocation-evidence.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Allocation Evidence Guide: Re-deriving Why This Allocation, To This Obligation | AINumbers OpenChainGraph">
+<meta property="og:description" content="How art-515 re-derives an optimizer's allocation against its declared inputs: eligibility schedule, inventory snapshot, haircut table, objective. Reproducibility framing, not suspicion framing.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/guide-allocation-evidence.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Allocation Evidence Guide","url":"https://ainumbers.co/chaingraph/guide-allocation-evidence.html","description":"OpenChainGraph guide for operations and internal-audit leads on art-515, the allocation decision receipt: re-deriving whether an optimizer's allocation is explained by the eligibility, inventory, haircut and objective inputs declared for it at the time. Zero PII by construction.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal-lt);background:var(--teal-dim);padding:.1em .35em;border-radius:3px}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:1000px;margin:0 auto;width:100%;display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav b{color:var(--teal)}
+.hero{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border2);border-radius:var(--radius-lg);padding:24px 26px;margin:18px 0}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+h1{font-size:1.7rem;color:var(--white);margin-bottom:10px;font-weight:600;font-family:'DM Serif Display',serif}
+.hero p{max-width:820px;color:var(--body)}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.25rem .6rem;border-radius:20px;background:rgba(20,184,166,.1);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.tag.gold{background:rgba(212,168,71,.08);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.tag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.3)}
+.tag.green{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.3)}
+h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);margin:30px 0 6px;font-weight:400}
+.sub{color:var(--body);margin-bottom:14px;font-size:.86rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.card{background:var(--bg2);border:1px solid var(--border);border-top:2px solid rgba(20,184,166,.4);border-radius:var(--radius-lg);padding:14px 16px;transition:border-color .15s,transform .15s;display:block}
+.card:hover{border-top-color:var(--teal);transform:translateY(-2px)}
+.card .num{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card .name{font-size:.92rem;color:var(--bright);font-weight:600;margin:4px 0 5px}
+.card .d{font-size:.76rem;color:var(--body);line-height:1.5}
+.card .mcp{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--teal-lt);background:var(--teal-dim);padding:.1rem .4rem;border-radius:3px;display:inline-block;margin-top:8px}
+.distinct-box{background:rgba(20,184,166,.05);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:10px 14px;font-size:.78rem;color:var(--body);margin-top:12px}
+.distinct-box b{color:var(--teal-lt)}
+.caveat-box{background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:12px 16px;margin:20px 0;font-size:.78rem;color:var(--body)}
+.caveat-box b{color:var(--red)}
+.caveat-box h3{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.good-box{background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius);padding:12px 16px;margin:14px 0;font-size:.78rem;color:var(--body)}
+.good-box b{color:var(--green)}
+.good-box h3{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.topology{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);line-height:1.8;margin:14px 0}
+.topology .h{color:var(--teal-lt)}
+.tbl-wrap{overflow-x:auto;margin:14px 0 24px}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead tr{background:var(--bg3);border-bottom:1px solid var(--border2)}
+thead th{text-align:left;padding:9px 12px;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.05em;font-weight:500;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:hover{background:rgba(20,184,166,.03)}
+td{padding:8px 12px;vertical-align:top;line-height:1.5}
+td:first-child{color:var(--bright);font-size:.78rem;white-space:nowrap}
+td:nth-child(2){color:var(--body);font-size:.75rem}
+.foot{margin-top:36px;border-top:1px solid var(--border);padding-top:16px;font-size:.78rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.ref-row{margin-bottom:8px}
+.ref-row b{color:var(--bright)}
+.pii-notice{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:8px 12px;font-size:.72rem;color:var(--body);margin-top:12px}
+</style>
+</head>
+<body>
+<nav><div class="in"><span><span style="color:var(--teal)">AI</span>Numbers · OpenChainGraph</span><a href="chaingraph-hub.html">← Suite</a></div></nav>
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Allocation Evidence Guide · OpenChainGraph v0.4</div>
+    <h1>An Optimizer Chose This Allocation. Can You Show Why, Six Months Later?</h1>
+    <p>For operations and internal-audit leads who inherit an allocation decision after the fact: a settlement pledge, a treasury cash placement, a payment routing choice, a liquidity sweep, an order fill. The question that matters is not whether this allocation was the best one; it is whether the allocation that was actually chosen follows from the inputs that were true when it was chosen. This is a reproducibility question, and <a href="art-515-build-allocation-decision-receipt.html">art-515</a>, the allocation decision receipt, answers it directly by re-deriving the allocation from the declared inputs and reporting whether the two agree.</p>
+    <div class="tags">
+      <span class="tag">Reproducibility check, not a suspicion check</span>
+      <span class="tag gold">Any optimizer, not one asset class</span>
+      <span class="tag red">Not a competing optimizer</span>
+      <span class="tag green">Zero PII &middot; client-side only</span>
+    </div>
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <h2>Why "reproducibility," not "suspicion"</h2>
+  <div class="sub">An allocation record that only states the outcome (this asset, to this obligation, at this haircut) gives an auditor nothing to check it against. An allocation record built to be re-derived gives the auditor a re-run.</div>
+  <p style="font-size:.86rem;line-height:1.7">Six months after an allocation runs, the person reviewing it was not in the room. They were not the trader, the optimizer, or the desk that ran it. What they have is a record. The reproducibility question asks: given the eligibility schedule, the inventory that was on offer, the haircut table version in force, and the objective that was declared at the time, does re-running the declared objective over those declared inputs land on the allocation that was actually chosen? If yes, the allocation is explained. If no, the record should say so plainly, name the input or constraint that explains the gap, and stop there; it should never speculate about why a human or system diverged from the optimum.</p>
+
+  <h2>The four generic inputs, and why they are not collateral-specific</h2>
+  <div class="sub">art-515 takes the same four inputs regardless of what is being allocated. None of the four is written against a collateral data model.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Input</th><th>What it is</th><th>Collateral instance</th><th>Non-collateral instance</th></tr></thead>
+      <tbody>
+        <tr><td>Eligibility schedule</td><td>The set of candidates permitted to satisfy the obligation, as of the snapshot in force</td><td>Which assets are eligible to be pledged against this obligation, per the schedule in force that day</td><td>Which accounts are permitted to fund a payment corridor, per the routing policy in force that day</td></tr>
+        <tr><td>Inventory snapshot</td><td>What was actually on offer at the time, with its per-candidate cost or weight</td><td>The pool of pledgeable assets, each with a cost and an HQLA/haircut weight</td><td>The pool of liquidity positions available for a treasury sweep, each with a cost of funds</td></tr>
+        <tr><td>Objective declared</td><td>The stated goal the allocation was optimizing for</td><td><code>cheapest_to_deliver</code>, <code>preserve_hqla</code>, <code>minimise_movements</code></td><td>A caller-named objective such as fastest settlement corridor or minimum counterparty concentration</td></tr>
+        <tr><td>Allocation chosen</td><td>What was actually decided, to be checked against the other three</td><td>Which specific assets, in which amounts, were pledged</td><td>Which specific account funded which specific leg of the payment</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="distinct-box">If the input shape only worked for collateral, the receipt would be a point solution for one desk. Because eligibility, inventory, objective and chosen allocation are generic, the same kernel re-derives a treasury liquidity sweep or a payment routing decision exactly the way it re-derives a collateral pledge: same fields, same verdict logic, no per-asset-class branch.</div>
+
+  <h2>art-515: what it answers</h2>
+  <div class="grid">
+    <a class="card" href="art-515-build-allocation-decision-receipt.html">
+      <div class="num">art-515 &middot; Allocation Decision Family</div>
+      <div class="name">Build Allocation Decision Receipt</div>
+      <div class="d">Question it answers: does the allocation actually chosen follow from the declared objective, over the eligibility schedule and inventory snapshot in force, at the haircut table version declared? Outputs a reproducibility verdict, the cost delta between the chosen and the re-derived allocation, and the binding constraint behind any gap.</div>
+      <span class="mcp">build_allocation_decision_receipt</span>
+    </a>
+  </div>
+  <p style="font-size:.86rem;line-height:1.7;margin-top:12px">The re-derivation runs one fixed, published rule per declared objective: the same rule every time, so identical inputs always re-derive an identical candidate allocation. It does not search for a better allocation than the one it is checking, and it does not claim the chosen allocation was wrong when the two diverge. It reports whether the declared objective and declared inputs explain the choice, and if they do not, which constraint is binding.</p>
+
+  <h2>The worked example: a collateral pledge, end to end</h2>
+  <div class="sub">art-515 works for any optimizer. This chain instantiates one case, a collateral pledge, to show the three steps composed: eligibility, then haircut, then the allocation re-derivation.</div>
+  <div class="topology">
+<span class="h">Step 1 &middot; eligibility</span>   505-tokenized-collateral-eligibility-checker: which candidates are eligible against the obligation, per the schedule snapshot
+<span class="h">Step 2 &middot; haircut</span>       art-444-collateral-haircut-engine: the haircut applied to each eligible candidate, per the haircut table version
+<span class="h">Step 3 &middot; re-derivation</span>  art-515-build-allocation-decision-receipt: re-derives the chosen allocation against the declared objective, over the outputs of steps 1-2. Reproducibility verdict, delta, and binding constraint are the chain's terminal output.
+  </div>
+  <p style="font-size:.86rem;line-height:1.7">art-515 ships no eligibility table and no haircut table of its own, and performs no lookups of any kind after the page loads. It consumes the eligibility and haircut steps' outcomes as inputs and edits neither. See the <a href="chains/allocation-decision-receipt.html">allocation-decision-receipt chain page</a> for the full composed run.</p>
+
+  <h2>What a divergence does, and does not, mean</h2>
+  <div class="caveat-box">
+    <h3>What divergence does not mean</h3>
+    ADR_DIVERGENT is not a finding of error, negligence, or misconduct. A divergence means the chosen allocation is not explained by the declared objective and inputs, as re-derived by this kernel, and nothing more. Routinely legitimate causes include a trader override for a reason outside the declared objective, an undeclared constraint the record did not capture, or a stale snapshot that no longer matched the market at execution. No flag name, no field, and no line of copy on the art-515 page characterises intent.
+  </div>
+  <div class="good-box">
+    <h3>What divergence does mean</h3>
+    The record reports the gap and the binding constraint. The reviewer gets three things: a reproducibility verdict (<code>ADR_REPRODUCED</code> or <code>ADR_DIVERGENT</code>), the cost delta between the chosen allocation and the re-derived one, and the specific input or constraint that explains the difference. That is the entire claim. What the reviewer does with a divergence, whether that is asking the desk, checking for an override memo, or escalating, is a downstream judgment the receipt does not make for them.</div>
+  <div class="distinct-box">Two related flags carry distinct meanings. <code>ADR_INPUTS_INSUFFICIENT</code> fires when the declared inputs cannot decide the question at all (for example, no eligible inventory covers the obligation), which is different from <code>ADR_DIVERGENT</code>, which fires when the inputs are sufficient but the chosen allocation still does not match the re-derivation. <code>ADR_OBJECTIVE_UNDECLARED</code> fires when no objective was named for the run; a caller-named objective outside the three built-in labels is accepted and used as declared. <code>ADR_CONSTRAINT_BINDING</code> names the specific constraint that explains a divergence.</div>
+
+  <h2>Not a competing optimizer</h2>
+  <p style="font-size:.86rem;line-height:1.7">art-515 re-derives against a declared objective over a declared input set. It does not search the solution space for the cheapest possible allocation across every objective, it does not claim to find a better allocation than the one the caller chose, and a divergence is not proof the caller's allocation was wrong. Its only claim is whether the chosen allocation is explained by the objective and inputs declared for it.</p>
+
+  <div class="foot">
+    <div class="ref-row">art-515: <a href="art-515-build-allocation-decision-receipt.html">art-515-build-allocation-decision-receipt.html</a>, the allocation decision receipt kernel and page.</div>
+    <div class="ref-row">Worked chain: <a href="chains/allocation-decision-receipt.html">chains/allocation-decision-receipt.html</a>, eligibility &rarr; haircut &rarr; allocation re-derivation, composed.</div>
+    <div class="ref-row">OCG spec: <a href="openchain-graph-spec.html">openchain-graph-spec.html</a>.</div>
+    <div style="margin-top:14px;font-size:.7rem">OpenChainGraph v0.4 &middot; <a href="chaingraph-hub.html">Suite</a> &middot; <a href="education-hub.html">Education hub</a> &middot; <a href="openchain-graph-spec.html">Spec v0.4</a> &middot; Zero PII &middot; CC BY 4.0</div>
+  </div>
+</div>
+</body></html>
