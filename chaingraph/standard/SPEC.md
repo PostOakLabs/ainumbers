@@ -2103,9 +2103,10 @@ a row locked inside one vendor's queue. **`reason_code` is an OPEN vocabulary (N
 `$defs/humanAccountabilityRecord.reason_code` is an unconstrained `string` with no `enum`, and §27
 deliberately leaves it open: rationale tokens are deployment- and regime-specific, so an implementation MAY
 mint a machine-stable token (for example `ARTIFACT_BINDING_VERIFIED`) WITHOUT a spec or schema change, and a
-verifier MUST NOT reject a record for carrying an unrecognised one. The ONLY closed §27 enums are
-`record_type` (this section), `role` (§27.1), and `$defs/haGatePolicy` (§27.4) — those three are what §27.9
-machine-checks for closure, and adding a value to any of them IS a spec change.
+verifier MUST NOT reject a record for carrying an unrecognised one. The closed §27 enums are
+`record_type` (this section), `role` (§27.1), `$defs/haGatePolicy` (§27.4), and `$defs/haRunState` (§27.10) —
+adding a value to any of them IS a spec change. The first three are what §27.9 machine-checks for closure;
+`haRunState` is closed by its schema `enum` under `schema-validate` (§27.10).
 
 **§27.3 Dual control and thresholds (NORMATIVE — in-toto integer threshold).** A gate MAY require **N
 distinct role-bound identities** to have signed approval records over the SAME `subject_hash` before it is
@@ -2214,6 +2215,66 @@ override reverts the gate policy, never a silent permanent pass); and the **sign
 and §25, the layer **defaults OFF**: a node MUST NOT synthesize accountability records, and absence of §27
 records is fully conformant and carries no meaning. Backward compatible and purely additive: no existing
 artifact, hash, gate, or golden vector moves.
+
+**§27.10 Subject run-state — the `subject_run_state` sibling (NORMATIVE, OPTIONAL — new in v0.8.15).** A §27
+record can say who acted and what they decided, but it cannot say **whether the thing they acted on actually
+ran**. "No approval record exists", "the control did not execute at all", and "the control executed against
+inputs that were already stale" are three different facts that collapse into the same silence, and an
+examiner asks for exactly that distinction. §27.10 settles where those facts live, once, so no surface has to
+mint its own name for them.
+
+**The carrier is ONE optional sibling field, `subject_run_state`, on `$defs/humanAccountabilityRecord` —
+a sibling of `record_type`, NOT a new `record_type` member.** `record_type` is closed by construction: it is
+an `enum` in `openchain-graph-v0.4.schema.json` and `validate-ha-records.test.mjs` (§15) asserts that closure,
+so adding a member would fork verifier behaviour — an artifact carrying the new value would be REJECTED by
+every already-deployed verifier until it updated. A sibling field has no such effect: a verifier that has
+never heard of `subject_run_state` validates every record exactly as before. Run-state is also a different
+kind of fact from `record_type`: `record_type` names the **human act**, `subject_run_state` reports the
+**machine state of the subject** at the moment of that act. Conflating them would make "nothing ran" look
+like a species of approval.
+
+`subject_run_state` takes a closed vocabulary, `$defs/haRunState`:
+
+- `ran` — the subject was produced by an execution that completed, on inputs the acting party accepted as
+  current. A positive claim, not a default.
+- `did_not_run` — the computation, check, or control the subject stands for **did not execute**. The record
+  evidences the absence itself, which is why it needs a home: an absent artifact cannot carry a field.
+- `ran_stale` — the subject was produced, but from inputs already past their freshness bound (§23's
+  `freshness_status: "stale"` is the machine-side observation this mirrors on the accountability side).
+
+**Absence means NO CLAIM, and MUST NOT be read as `ran`.** A record without `subject_run_state` is fully
+conformant and byte-identical to one that predates this clause — the same posture §25.0 gives `private_inputs`
+and §27.0 gives §27 as a whole. Correspondingly a verifier MUST NOT synthesize a value, and a surface MUST
+NOT report a subject whose record says `did_not_run` as verified, replayed, or auto-passed.
+
+**Additivity (the constraint this clause is written to satisfy).** `subject_run_state` is OPTIONAL, appears in
+no `required[]` anywhere in the schema, and enters **no `execution_hash` preimage of any subject**: like every
+§27 construct it lives in a record ABOUT a sealed artifact and never in it, so minting, revising, or
+discarding one leaves the subject's `execution_hash` byte-identical, `$defs/artifact.required` untouched, and
+`chaingraph_version` at `"0.4.0"`. The only hash it can ever move is that of a NEW §27 record an author
+chooses to populate it in — the record's own §4 hash over its own `{policy_parameters, output_payload}`,
+computed the one canonical way (§4). No existing record, artifact, or golden vector moves.
+
+**Reporting-only, exactly as §23 staleness is.** `subject_run_state` never invalidates a `structural`, a
+`verifiable`, or an `execution_hash` verdict, and it is not itself a gate predicate: a §21.4 decision gate MAY
+target a copied-forward value (so a mandate can require `ran` before proceeding), and the §21.4 `_gateval.mjs`
+routing math is unchanged. §27.4's hard rule is untouched — an unmet human precondition still holds the step
+and still does not fall through to `default`.
+
+**Naming duty (why this clause exists at all).** Any surface reporting run-state MUST use this field name and
+this vocabulary rather than a local synonym, and MUST cite §27.10 rather than deriving a sibling name from a
+neighbouring node. ⚠ Copying the value **forward into a node's own `output_payload`** is permitted for NEW
+artifacts only: `output_payload` IS inside the §4 preimage, so adding it to an already-published node moves
+that node's `execution_hash` and stales any §16/§18 proof bound to it — a hash-moving edit that MUST re-prove
+in the same change, never a silent field addition.
+
+**§27.10 closure note (NORMATIVE clarification to §27.2).** §27.2 states that the only closed §27 enums are
+`record_type`, `role`, and `$defs/haGatePolicy`. `$defs/haRunState` is now a fourth: it is closed, and adding
+a value to it IS a spec change, for the same decision-affecting reason — a verifier must not silently accept
+an unknown run-state and thereby treat it as "ran". It differs from `reason_code`, which stays an OPEN
+vocabulary because a rationale token is deployment-specific and carries no verdict. Closure of `haRunState` is
+enforced by its schema `enum` under `schema-validate` (§15); `validate-ha-records.test.mjs` continues to
+assert closure of the original three.
 
 **Attribution.** The identity-split shape follows **C2PA / CAWG** (assertions about content, separated from
 content; design pattern only). The integer `threshold` follows **in-toto** (the ITE-5 threshold construction;
@@ -2337,7 +2398,21 @@ the same artifact with `clause_bindings` stripped produce byte-identical `execut
 finding.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.14 (2026-07-28 — SPEC-TEXT PASS documenting §28 Clause Binding
+See `standard/CHANGELOG.md`. **v0.8.15 (2026-08-01 — SPEC-TEXT PASS settling where run-state lives; the
+record `spec_version` stays at whatever `chaingraph.json` carries until the next coordinated K landing bumps
+it, exactly as the v0.8.14/v0.8.9/v0.8.7 text passes were separated from their record bumps):** §27.10 defines
+ONE optional sibling field, `subject_run_state`, on `$defs/humanAccountabilityRecord`, carrying the closed
+`$defs/haRunState` vocabulary `{ran, did_not_run, ran_stale}`. It is a SIBLING, deliberately **not** a
+`record_type` member: `record_type` is closed by schema `enum` and asserted closed by
+`validate-ha-records.test.mjs`, so extending it would fork every deployed verifier, whereas an unknown sibling
+is simply ignored. Absence means NO CLAIM and MUST NOT be read as `ran`. Purely additive: OPTIONAL, in no
+`required[]`, in no subject's `execution_hash` preimage, `$defs/artifact.required` untouched,
+`chaingraph_version` still `"0.4.0"`, every existing `execution_hash` byte-identical (golden parity clean
+across all pinned vectors before and after). Reporting-only in the §23 `freshness_status` sense: it never
+invalidates a verdict and never changes §21.4 routing math, though a gate MAY target a copied-forward value.
+Copy-forward into a node's own `output_payload` is NEW-ARTIFACTS-ONLY, since `output_payload` is inside the §4
+preimage. §27.2's closed-enum sentence is updated to name `haRunState` as a fourth closed enum. No new gate,
+no new script, no node retrofitted. **v0.8.14 (2026-07-28 — SPEC-TEXT PASS documenting §28 Clause Binding
 Profile, `ocg-clause-binding@1`; the record `spec_version` stays at whatever `chaingraph.json` carries
 until the next coordinated K landing bumps it, exactly as the v0.8.9/v0.8.7/v0.8.8 text passes were
 separated from their record bumps):** §28 names the profile that makes a regulatory citation **pinned**
