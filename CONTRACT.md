@@ -71,6 +71,36 @@ Public HTML pages and the `chaingraph.json` descriptions served to agents are re
 
 **Measured debt at the time the two 2026-08-02 rules were written** (prose-visible only, using the gate's own strip logic — `<script>`/`<style>`/`<pre>`/`<code>`/comments/badges removed): ` -- ` in **453 hits across 204 files**; entity-encoded em-dashes in **2 211 hits across 686 files**. Both are legacy debt and both get a baseline bucket on introduction, on the same ratchet as the em-dash count (a baselined file may carry at most its recorded count; any file absent from the baseline must be clean). The entity figure is the more serious finding: those em-dashes were never counted by any gate, so they are debt the suite did not know it had, not debt it chose to defer.
 
+### 1.5 Node-Page Result Provenance (August 2026)
+
+**Scope: node pages, `chaingraph/art-*.html`.** This section governs how a node page *presents* values it already holds. It adds nothing to the OpenChainGraph envelope, which is normative in SPEC.md (§A5.1/§A5.5). A page **MUST NOT** satisfy any rule here by changing what a kernel emits, by adding or removing an artifact field, or by altering the `execution_hash` preimage `{policy_parameters, output_payload}`. If a rule here appears to require a kernel or envelope-shape change, the rule is not what needs the change: stop and raise it.
+
+**The failure this section exists to prevent** is a page that computes a value, exports it in the artifact, and never shows it to the person reading the screen. The reader then cannot answer questions the artifact can already answer. The measured basis for each rule is stated inline below, so the rule and its evidence stay together.
+
+**Gate: `scripts/check-node-page-chrome.mjs`** (already blocking, already in `scripts/preflight.mjs`, already scoped to `chaingraph/art-*.html`). Assertions for this section belong there. **No new gate, script, baseline, or dependency is to be created for §1.5.**
+
+#### 1.5.1 `generated_at` MUST be visible (RFC 2119: MUST)
+
+- A node page that constructs `generated_at` into its exported artifact **MUST** also render that timestamp in its results panel. A page that renders no results panel is out of scope; a page that exports an artifact is not.
+- The rendered timestamp and the exported `generated_at` **MUST** be the **same value**, captured **once**, at the moment the run completes. A page **MUST NOT** call the clock a second time when building the export.
+  - *Why this clause is here rather than assumed.* Every node page today mints `generated_at` inside `exportArtifact()`, so the field records when the reader clicked export, not when the numbers were computed. `art-525-nway-balance-closure-check.html` is the one page that renders the value, and it calls `new Date()` twice independently (`:629` for display, `:688` for export), so its two timestamps are from two different moments. Rendering without this clause would propagate that divergence across the estate.
+  - *Scope of the change this implies.* Moving the capture point changes the artifact's `generated_at` **value** for a run exported later than it was computed. It changes no field, no type, no schema outcome, and no hash: `execution_hash` is taken over `{policy_parameters, output_payload}` only (`chaingraph/kernels/_hash.mjs`), and `scripts/check-page-determinism.mjs` explicitly holds that a clock value reaching the envelope or the DOM is outside the preimage and is not a determinism defect.
+  - *Fallback, so no build row stalls on this.* Where a page cannot move its capture point without touching a signing or export path outside the row's fence, it **MUST** still render the exact value it exports, and **MUST** record the deviation on its row rather than shipping two timestamps.
+- **Format: ISO 8601 UTC**, the value of `Date.prototype.toISOString()`, rendered verbatim. The v0.4 schema types the field `string` and describes it as ISO 8601; a page **MUST NOT** substitute a locale-formatted or relative rendering ("2 minutes ago") for the machine value. A locale rendering **MAY** accompany it.
+- **Placement:** inside the results panel, after the verdict block and before the statistics row, labelled so a reader knows what the timestamp refers to. Reuse the established affordance: the class shape of `.verify-banner` in `deadline-wall.html`, and the markup shape of `art-525-nway-balance-closure-check.html:181` (`<div class="generated-at" id="generatedAt"></div>`). **Do not invent new chrome for this.**
+- A page that carries no `generated_at` at all is a separate defect and is **not** repaired by this section.
+
+#### 1.5.2 A rendered decision MUST show every state it can reach (RFC 2119: MUST)
+
+Where a node page renders a decision, status, verdict, or classification value at all:
+
+- It **MUST** render the value the computation actually produced, read from the field. It **MUST NOT** map that value through a fixed two-outcome affordance when the computation can produce three or more states. Collapsing `did_not_run` into "fail", or a review state into "pass", tells the reader something untrue.
+- It **MUST NOT** hardcode a state vocabulary. A page **MUST** render the states its own computation can reach, and **MUST NOT** advertise a state that computation never emits. A two-state computation renders correctly under this rule with two affordances; nothing here obliges a third.
+- **All existing decision-pointer shapes are accommodated as they stand.** Several distinct shapes are live across the estate, and the pointer's shape is hash-bearing: it sits inside `output_payload`, so re-shaping it moves `execution_hash` and stales the node's proof. This section therefore takes each page's shape as given. **Normalising decision pointers is NOT a precondition of §1.5, and a page MUST NOT be normalised in order to satisfy it.**
+- Distinguishability is the requirement, not colour. Two states **MUST NOT** be rendered identically. Colour alone **MUST NOT** be the sole carrier of the distinction (§1 accessibility): the state's own value, or a label derived from it, is rendered as text.
+
+**§1.5.2 is a standing rule, not a sweep.** The survey behind this section examined 526 kernels and found 50 fields carrying three or more states; every page flagged as omitting one was read by hand, and **none was a presentation discard**. The two cases that looked closest (`art-44` / `art-46`, and `art-174`'s `coverage_band` against the page's `overall_coverage`) are page-versus-kernel divergence, which belongs to the divergence programme. A page **MUST NOT** be given a badge for a state it does not compute in order to close a divergence finding; that hides the divergence instead of reporting it.
+
 ---
 
 ## 🤖 2. Machine-Readable Registry & MCP Contract
