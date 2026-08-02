@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Report-to-General-Ledger Reconciliation &middot; ART-526 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Ties a caller-declared reported figure to a caller-declared general-ledger figure, by account, against the general ledger as an independent book of record. A designed plug is a first-class declared input, never counted as a break. Refuses a reconciliation as unsound where the requested cadence outruns the underlying GL schedule, and keeps GL-not-yet-closed distinct from a genuine break.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-526-report-gl-reconciliation.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:110px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-526 · Report-to-GL Reconciliation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-526 &middot; Bank Regulatory Reporting</div>
+  <h1>Report-to-General-Ledger Reconciliation</h1>
+  <p class="sub">Ties a reported figure you declare to a general-ledger figure you declare, by account &mdash; the only node in this reconciliation programme checked against an independent book of record rather than a second declared value. A designed plug (for example FR 2052a field S.B.6 Carrying Value Adjustment) is a first-class input you declare, netted before the residual and never counted as a break. Appendix and supplemental-schedule semantics are versioned policy inputs you supply, never hardcoded. The tool refuses to run where your requested reporting cadence is finer than the underlying GL schedule's own cadence, and treats a general ledger not yet declared closed as a distinct outcome from a genuine tie-out break &mdash; the failure that otherwise surfaces only at quarter-end. Emits a hash-anchored OpenChainGraph v0.4 artifact carrying a §27.4 gate-policy decision at a predictable pointer.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Independent witness: the general ledger, not a second declaration</span>
+    <span class="flag info">Designed plug netted, never a break</span>
+    <span class="flag">GL-not-closed &ne; genuine break</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This tool does not pull the general-ledger balance itself &mdash; you declare both sides and it computes once when you press the button, stores nothing, runs on no schedule, and retains nothing. Clause: BCBS 239 §36(c) &middot; ECB RDARR Guide §3.5(1), §3.5(2).</div>
+
+  <div class="card">
+    <div class="section-head">Cycle</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own. Load the quarter-end demo to see the GL-not-yet-closed outcome this tool exists to keep distinct from a break.</p>
+    <div class="grid3">
+      <div><label class="fld">As-of (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOf" value="2026-07-31"></div>
+      <div><label class="fld">Currency</label><input type="text" id="currency" value="USD"></div>
+      <div><label class="fld">Default tolerance (minor units, per account unless overridden)</label><input type="text" id="tolDefault" value="100"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Appendix / supplemental-schedule version (versioned policy input, never hardcoded)</label><input type="text" id="apxVersion" value="FR2052a-AppVIII-2026Q2"></div>
+      <div><label class="fld">Version source citation</label><input type="text" id="apxSource" value="FR 2052a Appendix VIII, rev 2026-Q2 (firm-by-firm alignment)"></div>
+    </div>
+    <div class="grid3">
+      <div><label class="fld">Reporting cadence you are requesting</label>
+        <select id="reportCadence"><option value="daily">daily</option><option value="weekly">weekly</option><option value="monthly" selected>monthly</option><option value="quarterly">quarterly</option></select>
+      </div>
+      <div><label class="fld">Underlying GL schedule's own cadence</label>
+        <select id="scheduleCadence"><option value="daily">daily</option><option value="weekly">weekly</option><option value="monthly" selected>monthly</option><option value="quarterly">quarterly</option></select>
+      </div>
+      <div><label class="fld">GL closed for this as-of period?</label>
+        <select id="glClosed"><option value="true" selected>true (closed)</option><option value="false">false (not yet closed)</option></select>
+      </div>
+    </div>
+    <label class="fld">GL as-of (ISO yyyy-mm-dd, leave blank if unknown)</label>
+    <input type="text" id="glAsOf" value="2026-07-31">
+
+    <label class="fld" style="margin-top:14px">Accounts (JSON array: account_id, reported_figure_minor_units, gl_figure_minor_units, designed_plug_minor_units, designed_plug_reason_code, tolerance_minor_units)</label>
+    <textarea id="accountsJson">[
+  { "account_id": "GL-1001", "reported_figure_minor_units": 500000000, "gl_figure_minor_units": 495000000, "designed_plug_minor_units": 5000000, "designed_plug_reason_code": "SB6_carrying_value_adjustment" },
+  { "account_id": "GL-1002", "reported_figure_minor_units": 120000000, "gl_figure_minor_units": 120000000, "designed_plug_minor_units": 0 }
+]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Reconciliation</button>
+      <button class="ghost" onclick="loadQuarterEndDemo()">Load quarter-end GL-not-closed demo</button>
+      <button class="ghost" onclick="loadCadenceRefusedDemo()">Load cadence-refused demo</button>
+      <button class="ghost" onclick="loadBreakDemo()">Load genuine-break demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Accounts</div>
+      <div id="acctDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not pull a general-ledger balance, post a journal entry, or match individual transactions. It is not a filing tool and produces no regulator-submittable output &mdash; an evidence artifact only. A clean tie-out is not a determination that any underlying control has been met; it is an arithmetic result over the account figures you declared for one cycle.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0"><a href="art-516-daily-reconciliation-attestation.html">ART-516</a> attests that a daily reconciliation duty was discharged over a declared population &mdash; population completeness, exception ageing, and carried-forward continuity, all declared-vs-declared. This node is the independent-witness step in the same programme: it is the only one that checks a declared figure against the general ledger itself, rather than against another declared figure.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-526-report-gl-reconciliation',
+  version: '1.0.0',
+  mcp_name: 'reconcile_report_to_general_ledger',
+  title: 'Report-to-General-Ledger Reconciliation',
+  description: 'Ties a caller-declared reported figure to a caller-declared general-ledger figure, by account, against the general ledger as an independent book of record. A designed plug is a first-class declared input, never counted as a break. Refuses to run where the requested reporting cadence outruns the underlying GL schedule cadence, and keeps GL-not-yet-closed distinct from a genuine break.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'reconcile_report_to_general_ledger',
+    description: 'Ties a declared reported figure to a declared general-ledger figure, by account, with a designed-plug term netted before the residual and a cadence refusal where the underlying GL schedule is coarser than the requested cadence. Emits a §27.4 gate-policy decision at output_payload.decision.',
+    inputSchema: { type: 'object', properties: {
+      as_of: {type:'string'}, currency: {type:'string'},
+      appendix_schedule_version: {type:'string'}, appendix_schedule_source: {type:'string'},
+      reporting_cadence: {type:'string'}, schedule_cadence: {type:'string'},
+      gl_closed: {type:'boolean'}, gl_as_of: {type:'string'}, tolerance_minor_units: {type:'number'},
+      accounts: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-526-report-gl-reconciliation.kernel.mjs --- */
+var CADENCE_RANK = { daily: 0, weekly: 1, monthly: 2, quarterly: 3 };
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function cadenceOrNull(v){ return isNonEmptyString(v) && Object.prototype.hasOwnProperty.call(CADENCE_RANK, v.trim()) ? v.trim() : null; }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where,
+    reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v),
+    supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / 100); var frac = abs - whole * 100;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var as_of = isoDateOrNull(pp.as_of);
+  var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'USD';
+
+  var appendix_schedule_version = isNonEmptyString(pp.appendix_schedule_version) ? pp.appendix_schedule_version.trim() : null;
+  if (!appendix_schedule_version) rejected_inputs.push({ where: 'appendix_schedule_version', reason: 'absent -- a versioned policy input citation is required', supplied: null });
+  var appendix_schedule_source = isNonEmptyString(pp.appendix_schedule_source) ? pp.appendix_schedule_source.trim() : null;
+  if (!appendix_schedule_source) rejected_inputs.push({ where: 'appendix_schedule_source', reason: 'absent -- a source citation is required', supplied: null });
+
+  var reporting_cadence = cadenceOrNull(pp.reporting_cadence);
+  if (!reporting_cadence) rejected_inputs.push({ where: 'reporting_cadence', reason: 'absent or not one of daily/weekly/monthly/quarterly', supplied: pp.reporting_cadence == null ? null : pp.reporting_cadence });
+  var schedule_cadence = cadenceOrNull(pp.schedule_cadence);
+  if (!schedule_cadence) rejected_inputs.push({ where: 'schedule_cadence', reason: 'absent or not one of daily/weekly/monthly/quarterly', supplied: pp.schedule_cadence == null ? null : pp.schedule_cadence });
+
+  var cadence_refused = !!(reporting_cadence && schedule_cadence && CADENCE_RANK[reporting_cadence] < CADENCE_RANK[schedule_cadence]);
+
+  var gl_closed = pp.gl_closed === true;
+  var gl_closed_declared = pp.gl_closed === true || pp.gl_closed === false;
+  if (!gl_closed_declared) rejected_inputs.push({ where: 'gl_closed', reason: 'absent -- must be explicitly declared true or false, never assumed', supplied: pp.gl_closed === undefined ? null : pp.gl_closed });
+  var gl_as_of = isoDateOrNull(pp.gl_as_of);
+
+  var defaultToleranceMinorUnits = (typeof pp.tolerance_minor_units === 'number' && Number.isFinite(pp.tolerance_minor_units) && pp.tolerance_minor_units >= 0)
+    ? Math.trunc(pp.tolerance_minor_units) : 0;
+
+  var accountsIn = Array.isArray(pp.accounts) ? pp.accounts : [];
+  var accounts = accountsIn.map(function(a, i){
+    a = a && typeof a === 'object' ? a : {};
+    var account_id = isNonEmptyString(a.account_id) ? a.account_id.trim() : ('UNLABELLED-' + (i + 1));
+    var reported_figure_minor_units = toMinorUnits(a.reported_figure_minor_units, 'accounts[' + i + '].reported_figure_minor_units', rejected_inputs);
+    var gl_figure_minor_units = toMinorUnits(a.gl_figure_minor_units, 'accounts[' + i + '].gl_figure_minor_units', rejected_inputs);
+    var designed_plug_minor_units = (a.designed_plug_minor_units === undefined || a.designed_plug_minor_units === null)
+      ? 0 : toMinorUnits(a.designed_plug_minor_units, 'accounts[' + i + '].designed_plug_minor_units', rejected_inputs);
+    if (designed_plug_minor_units !== 0 && !isNonEmptyString(a.designed_plug_reason_code)) {
+      rejected_inputs.push({ where: 'accounts[' + i + '].designed_plug_reason_code', reason: 'a non-zero designed plug requires a reason_code', supplied: null });
+    }
+    var designed_plug_reason_code = isNonEmptyString(a.designed_plug_reason_code) ? a.designed_plug_reason_code.trim() : null;
+    var tolerance_minor_units = (typeof a.tolerance_minor_units === 'number' && Number.isFinite(a.tolerance_minor_units) && a.tolerance_minor_units >= 0)
+      ? Math.trunc(a.tolerance_minor_units) : defaultToleranceMinorUnits;
+
+    var residual_minor_units = reported_figure_minor_units - (gl_figure_minor_units + designed_plug_minor_units);
+    var within_tolerance = Math.abs(residual_minor_units) <= tolerance_minor_units;
+
+    return { account_id: account_id, reported_figure_minor_units: reported_figure_minor_units, gl_figure_minor_units: gl_figure_minor_units,
+      designed_plug_minor_units: designed_plug_minor_units, designed_plug_display: display(designed_plug_minor_units), designed_plug_reason_code: designed_plug_reason_code,
+      tolerance_minor_units: tolerance_minor_units, residual_minor_units: residual_minor_units, residual_display: display(residual_minor_units), within_tolerance: within_tolerance };
+  });
+
+  var breaking_accounts = accounts.filter(function(a){ return !a.within_tolerance; });
+  var plugged_accounts = accounts.filter(function(a){ return a.designed_plug_minor_units !== 0; });
+  var gl_stale = !!(accounts.some(function(a){ return a.gl_figure_minor_units !== 0; }) && !gl_as_of && gl_closed_declared && gl_closed);
+
+  var compliance_flags = [];
+  var gate_policy = null;
+  var execution_state = 'ran';
+  var reason = null;
+
+  if (cadence_refused) {
+    execution_state = 'did_not_run';
+    reason = 'cadence_refused: reconciliation requested at ' + reporting_cadence + ' cadence but the underlying GL supplemental schedule is only produced ' + schedule_cadence;
+    compliance_flags.push('RECON_CADENCE_REFUSED');
+  } else if (gl_closed_declared && !gl_closed) {
+    execution_state = 'did_not_run';
+    reason = 'gl_not_yet_closed: the general ledger for this as-of period has not been declared closed';
+    compliance_flags.push('RECON_GL_NOT_YET_CLOSED');
+  } else if (gl_stale) {
+    execution_state = 'ran_stale';
+    reason = 'gl_figure_supplied_without_as_of: one or more accounts carry a non-zero GL figure but no gl_as_of was declared';
+    compliance_flags.push('RECON_GL_STALE');
+  } else {
+    execution_state = 'ran';
+    if (accounts.length === 0) {
+      gate_policy = 'auto_pass';
+      compliance_flags.push('RECON_NO_ACCOUNTS_DECLARED');
+    } else if (breaking_accounts.length > 0) {
+      gate_policy = 'review_required';
+      compliance_flags.push('RECON_BREAK');
+    } else {
+      gate_policy = 'auto_pass';
+      compliance_flags.push('RECON_TIE_OUT_CLEAN');
+    }
+  }
+  if (plugged_accounts.length > 0) compliance_flags.push('RECON_DESIGNED_PLUG_APPLIED');
+  if (rejected_inputs.length > 0) compliance_flags.push('RECON_INPUTS_REJECTED');
+
+  var rationale = [];
+  rationale.push('Versioned policy inputs: appendix/schedule version ' + (appendix_schedule_version || 'MISSING') + ', source ' + (appendix_schedule_source || 'MISSING') + '.');
+  rationale.push('Reporting cadence ' + (reporting_cadence || 'MISSING') + ' against underlying schedule cadence ' + (schedule_cadence || 'MISSING') + '.');
+  if (cadence_refused) { rationale.push(reason); }
+  else if (gl_closed_declared && !gl_closed) { rationale.push(reason); }
+  else if (gl_stale) { rationale.push(reason); }
+  else if (accounts.length === 0) { rationale.push('No accounts declared; vacuously auto_pass under the finite gate.'); }
+  else {
+    rationale.push(accounts.length + ' account(s) evaluated, ' + breaking_accounts.length + ' outside tolerance after the declared plug, ' + plugged_accounts.length + ' carrying a non-zero designed plug.');
+    rationale.push(breaking_accounts.length === 0
+      ? 'Every account ties out within its declared tolerance after netting the designed plug.'
+      : ('Break account(s): ' + breaking_accounts.map(function(a){ return a.account_id + ' (' + a.residual_display + ' ' + currency + ')'; }).join(', ') + '.'));
+  }
+  rationale.push('This is an arithmetic tie-out over the figures supplied for this cycle against a caller-declared general-ledger figure, the only independent witness in this reconciliation program. It does not itself pull the GL balance and is not a determination that any underlying control has been met.');
+
+  var output_payload = {
+    as_of: as_of, currency: currency,
+    appendix_schedule_version: appendix_schedule_version, appendix_schedule_source: appendix_schedule_source,
+    reporting_cadence: reporting_cadence, schedule_cadence: schedule_cadence, cadence_refused: cadence_refused,
+    gl_closed_declared: gl_closed_declared, gl_closed: gl_closed, gl_as_of: gl_as_of,
+    account_count: accounts.length, accounts: accounts,
+    breaking_account_count: breaking_accounts.length,
+    plugged_account_count: plugged_accounts.length,
+    decision: { gate_policy: gate_policy, execution_state: execution_state, reason: reason },
+    rejected_inputs: rejected_inputs, rationale: rationale,
+    note: 'Deterministic tie-out of a caller-declared reported figure to a caller-declared general-ledger figure, by account, against the general ledger as an independent book of record -- unlike sibling nodes in this programme that compare only declared-vs-declared. A designed plug is a first-class declared input, netted before the residual and never counted as a break. A daily-cadence request against a less-frequent underlying schedule, or a GL not yet declared closed, refuses to run rather than emit a misleading pass or a false break; the two are reported as distinct did_not_run reasons.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function intOrRaw(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  var n = Number(t);
+  return Number.isFinite(n) ? n : t;
+}
+
+function loadQuarterEndDemo(){
+  document.getElementById('asOf').value = '2026-09-30';
+  document.getElementById('apxVersion').value = 'FR2052a-AppVIII-2026Q3';
+  document.getElementById('apxSource').value = 'FR 2052a Appendix VIII, rev 2026-Q3';
+  document.getElementById('reportCadence').value = 'quarterly';
+  document.getElementById('scheduleCadence').value = 'quarterly';
+  document.getElementById('glClosed').value = 'false';
+  document.getElementById('glAsOf').value = '';
+  document.getElementById('accountsJson').value = '[\n  { "account_id": "GL-3001", "reported_figure_minor_units": 900000000, "gl_figure_minor_units": 899500000, "designed_plug_minor_units": 0 }\n]';
+  runCheck();
+}
+function loadCadenceRefusedDemo(){
+  document.getElementById('asOf').value = '2026-07-15';
+  document.getElementById('apxVersion').value = 'FR2052a-AppVIII-2026Q2';
+  document.getElementById('apxSource').value = 'FR 2052a Appendix VIII, rev 2026-Q2';
+  document.getElementById('reportCadence').value = 'daily';
+  document.getElementById('scheduleCadence').value = 'monthly';
+  document.getElementById('glClosed').value = 'true';
+  document.getElementById('glAsOf').value = '2026-06-30';
+  document.getElementById('accountsJson').value = '[\n  { "account_id": "GL-4001", "reported_figure_minor_units": 100, "gl_figure_minor_units": 100, "designed_plug_minor_units": 0 }\n]';
+  runCheck();
+}
+function loadBreakDemo(){
+  document.getElementById('asOf').value = '2026-07-24';
+  document.getElementById('currency').value = 'EUR';
+  document.getElementById('apxVersion').value = 'HouseRecon-v3';
+  document.getElementById('apxSource').value = 'internal reconciliation policy v3, 2026-06-01';
+  document.getElementById('reportCadence').value = 'weekly';
+  document.getElementById('scheduleCadence').value = 'weekly';
+  document.getElementById('glClosed').value = 'true';
+  document.getElementById('glAsOf').value = '2026-07-24';
+  document.getElementById('tolDefault').value = '1000';
+  document.getElementById('accountsJson').value = '[\n  { "account_id": "GL-2001", "reported_figure_minor_units": 75000000, "gl_figure_minor_units": 74850000, "designed_plug_minor_units": 0, "tolerance_minor_units": 1000 }\n]';
+  runCheck();
+}
+
+async function runCheck(){
+  var accts;
+  try { accts = JSON.parse(document.getElementById('accountsJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in accounts: ' + e.message); return; }
+
+  var pp = {
+    as_of: document.getElementById('asOf').value || '',
+    currency: document.getElementById('currency').value || '',
+    appendix_schedule_version: document.getElementById('apxVersion').value || '',
+    appendix_schedule_source: document.getElementById('apxSource').value || '',
+    reporting_cadence: document.getElementById('reportCadence').value,
+    schedule_cadence: document.getElementById('scheduleCadence').value,
+    gl_closed: document.getElementById('glClosed').value === 'true',
+    gl_as_of: document.getElementById('glAsOf').value || undefined,
+    tolerance_minor_units: intOrRaw(document.getElementById('tolDefault').value),
+    accounts: accts,
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+  var d = op.decision;
+
+  var vBox = document.getElementById('verdictBox');
+  var ok = d.execution_state === 'ran' && d.gate_policy === 'auto_pass';
+  var color = d.execution_state !== 'ran' ? 'var(--warn)' : (ok ? 'var(--green)' : 'var(--red)');
+  var bg = d.execution_state !== 'ran' ? 'rgba(245,158,11,.08)' : (ok ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)');
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = d.execution_state.toUpperCase() + (d.gate_policy ? ' · ' + d.gate_policy.toUpperCase() : '') + ' · ' + res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.account_count + '</span><span class="stat-key">Accounts evaluated</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.breaking_account_count + '</span><span class="stat-key">Breaking accounts</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.plugged_account_count + '</span><span class="stat-key">With designed plug</span></div>' +
+    '<div class="stat"><span class="stat-val">' + d.execution_state + '</span><span class="stat-key">Execution state</span></div>';
+
+  document.getElementById('acctDiv').innerHTML = op.accounts.length
+    ? op.accounts.map(function(a){
+        return '<div class="kv"><span class="kv-k">' + a.account_id + (a.designed_plug_minor_units ? ' &middot; plug ' + a.designed_plug_display : '') + '</span><span class="kv-v">residual ' + a.residual_display + ' ' + op.currency +
+          (a.within_tolerance ? ' <span class="badge ok">within tolerance</span>' : ' <span class="badge bad">BREAK</span>') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No accounts declared</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-526-report-gl-reconciliation',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-526-report-gl-reconciliation.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
