@@ -154,6 +154,7 @@ const GATES = [
   ['§PPH-1 policy_parameters_hash', 'node chaingraph/kernels/policy-params-hash.test.mjs'],
   ['ocg-clause-binding@1 profile',  'node chaingraph/kernels/clause-binding.test.mjs'],
   ['§27 human-accountability records', 'node chaingraph/kernels/validate-ha-records.test.mjs'],
+  ['§27.11 evidence verification',  'node chaingraph/kernels/hagate-evidence-verification.test.mjs'],
   ['Checklist/SOP runner (CHECKRUN-1)', 'node chaingraph/kernels/checklist-selftest.test.mjs'],
   ['§17 kernel identity (unit)',   'node chaingraph/kernels/kernel-identity.test.mjs'],
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
