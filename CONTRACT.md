@@ -78,6 +78,7 @@ Public HTML pages and the `chaingraph.json` descriptions served to agents are re
 |---|---|---|
 | `suite-registry.json` | Suite-level MCP registry (consumed by external agents) | Root `/` |
 | `manifest.json` | Per-tool discovery & validation manifest | `tools/XX-slug/` |
+| `<tool_id>.manifest.json` | Per-tool / **per-node** manifest, machine-read by the worker build | `manifests/` (flat) — see §2.7 |
 
 ### 2.2 Per-Tool `manifest.json` Schema
 ```json
@@ -149,6 +150,23 @@ The MCP server (`mcp-apps-poc/worker.mjs`) exposes the `build_workflow_links` to
 node scripts/validate-chains.mjs   # or: npm run validate:chains
 ```
 Missing tool/composer files are **errors** (non-zero exit → block deploy); chain↔composer sequence divergence prints as a **warning**. Paths default to the sibling `repo/` layout; override with `WORKER_PATH`, `TOOLS_DIR`, `GUIDES_DIR`. This check exists because Wave-2 chains once referenced invented slugs (e.g. `53-stablecoin-compliance-checker` vs the real `53-cbdc-architecture-comparator`), silently 404ing on the live server.
+
+### 2.7 §2.2 reaches ChainGraph nodes — a live node owes a manifest with a declared `output_schema`
+
+**Ruling (RFC 2119: MUST) — YES.** A **live `chaingraph.json` node with an `mcp_name`** is a registered MCP tool (§A4.1 registers exactly that set as tool names), and is therefore **in scope for §2.2**. It MUST have a manifest at **`repo/manifests/<tool_id>.manifest.json`** — keyed by `tool_id`, not by an `art-` filename prefix — and that manifest MUST declare an **`output_schema`** (§2.2). This settles a scope question §2.2 left open by titling itself "Per-**Tool**"; it introduces no new field and no new artifact class (8 node-only `art-*` manifests already exist).
+
+**The file is the normative location.** `mcp-apps-poc/generate.mjs` resolves `repo/manifests/<tool_id>.manifest.json` and projects the declared `output_schema` into `data/mcp/output-schemas.json`, keyed by `mcp_name`, **omitting it entirely when no manifest exists — never fabricating one**. The inline `var MANIFEST` object on a node's ChainGraph page (referenced by the node JSON's `input_schema_ref`) remains the reader-facing disclosure required by §1.2 and is NOT a substitute: no generator parses it, so a declaration made only there reaches no agent.
+
+**Scope boundaries — what this rule does NOT do:**
+- It does **NOT** require normalising the decision/gate pointer shape. Each node declares **the shape it already emits**; the four shapes in use today (flat `decision` + `execution_state`; nested `decision.{gate_policy,execution_state}`; flat `gate_status`; `roles.partner.gate_status`) are each declarable as they stand, and **no shape is canonical**. Whether to normalise is a separate open question.
+- It is **NOT** a hash-moving change and triggers **no re-proof**. Adding a manifest creates a new file and edits no kernel and no `output_payload`, so `execution_hash` is untouched (§A4.3). Any rule requiring a payload *reshape* would be a different, escalated change (§0).
+- It adds **no new CI gate**. §A5.4's "no rule without a gate" governs SPEC.md MUSTs via `spec-gate-coverage`; this is a CONTRACT.md build duty. A gate is the right eventual mechanism, but only once the backfill below is closed — a gate that is red on the day it lands enforces nothing.
+
+**Truth maintenance (MUST).** A declared `output_schema` MUST be consistent with what the node's kernel actually emits, evidenced against the node's golden conformance fixture `output_payload`. **A schema that has drifted from the emission is worse than none** — it is a false claim an agent will act on. Backfill SHOULD therefore derive schemas from the golden fixtures rather than compose them by hand.
+
+**Obligation, staged — stated with its real size:**
+- **New nodes (in force now):** every new live node ships `repo/manifests/<tool_id>.manifest.json` with an `output_schema` **in the same PR** as the node. Add it to the §6.1 pre-flight for any PR that adds a node.
+- **Existing nodes (open debt, owned elsewhere):** measured 2026-08-02 across 526 live nodes with an `mcp_name`, **21 have a manifest file and 6 declare an `output_schema`** — so **505 nodes have no manifest and 520 declare no output shape.** That is a large, explicitly acknowledged conformance debt, tracked and closed separately: it does **not** block any push today, and it does not make those nodes retroactively invalid. **Do not restate those figures as current** — re-derive them by `tool_id` against `chaingraph.json` before quoting.
 
 ---
 
