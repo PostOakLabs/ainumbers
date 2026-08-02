@@ -85,6 +85,7 @@ const GATES = [
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
   ['Canon block ordering (CANON-ORDER-1)', 'node scripts/check-canon-order.mjs'],
+  ['Inline SSOT sync (INLINESYNC-1)', 'node scripts/check-inline-ssot-sync.mjs --check'],
   ['DAG helper resolvability (ESCDAG-FIX-1)', 'node scripts/check-dag-idents.mjs'],
   ['Index sync (tools↔homepage)',  'python scripts/check_index_sync.py --strict --no-color'],
   // SSOTPREFLIGHT-WIRE-1 (2026-07-27): registry of the 6 SSOT-writing producers
