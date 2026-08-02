@@ -205,6 +205,8 @@ Prevents client-side bloat & enforces deterministic guarantees.
 | **Tier 2 (Conditional)** | `CSV` | Tools with tabular/batch/reconciliation outputs |
 | **Tier 3 (Opt-in)** | `SVG` / `PDF` / `Nygard ADR` | Only when explicitly requested in tool brief or requires visualization/memo output |
 
+**Scope (clarification, 2026-08-01):** the Export Tier table binds **`tools/` pages only** — a `chaingraph/` node carries **no Tier 2 CSV obligation** by virtue of having tabular, batch, or reconciliation output, and `art-NNN` node ids are a separate namespace from `tools/NNN` even where the numbers overlap.
+
 *Implementation:* All exports MUST use `URL.createObjectURL(new Blob([content], {type:'...'}))` + `<a download>`. No external libraries (jsPDF, etc.) unless explicitly approved & bundled inline.
 
 **Wave-5 tools (Amendment A2.2):** T465–T468 (CARF/DAC8/1099-DA crypto-tax) and T472, T475–T476 (Basel LCR/NSFR/Pillar 3, Pillar Two GloBE safe harbour) carry Tier 1 export obligation — their outputs are policy and compliance assessments covered by `compliance_control`, `risk_parameter`, and `disclosure_template` mandate types (§3.1).
