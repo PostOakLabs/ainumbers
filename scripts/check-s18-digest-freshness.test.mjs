@@ -86,7 +86,7 @@ await test('CRLF/CR line-ending normalization does not produce a false stale (ca
   assert(fresh.length === 1 && stale.length === 0, 'CRLF-vs-LF of identical logical source must NOT read as stale');
 });
 
-await test('reproduces the confirmed 134/507 stale count against the real committed chaingraph.json', async () => {
+await test('reproduces the confirmed 133/508 stale count against the real committed chaingraph.json', async () => {
   const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
   const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
   const liveGpuFalse = (cg.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
@@ -187,9 +187,25 @@ await test('reproduces the confirmed 134/507 stale count against the real commit
   // digest moved. Denominator and fresh each move by exactly 1; the stale count does NOT move --
   // this is a DENOMINATOR calibration, not a stale-ceiling raise. Measured both sides, not assumed:
   // 373/507 fresh + 134 stale on the base commit b321cb4, 374/508 fresh + 134 stale after.
+  // 134 -> 133 post-ASSEMBLE-LAND-21 (2026-08-01): landed the two held member-kernel fixes on draft
+  // PRs #802 (art-521-settlement-asset-backing-invariant, BACKING_NOT_APPLICABLE for a declared
+  // vacuous backing model) and #807 (art-518-bulk-disbursement-integrity, the §10.2 destination-tier
+  // cap-breach failure kind). BOTH edits are hash-moving, and BOTH were RE-PROVEN in that same row
+  // with fresh groth16-bn254 receipts under the universal guest image sha256:a1a0bc89 -- so this is a
+  // ceiling coming DOWN off a real reprove, NOT a raise and NOT a calibration shim.
+  //   art-518 (attest_bulk_disbursement_integrity) was ON the stale list before this row and is now
+  //   fresh, so it is removed from baseline stale_nodes: stale -1, fresh +1.
+  //   art-521 (verify_settlement_asset_backing) was already fresh on the base commit and its new
+  //   receipt keeps it fresh, so it moves neither count.
+  // Denominator does NOT move: both nodes already carried a counted compute_proof on the base commit.
+  // (The deferred state both shards carried in flight existed only on the draft branches -- the two
+  // parked receipts sat under compute_proof_stale / a stale compute_proof and were never on main.)
+  // Measured both sides, not assumed: 374/508 fresh + 134 stale on the base commit aed9b8f,
+  // 375/508 fresh + 133 stale after. Neither node is added to KNOWN_SEMANTIC_STALE -- both are freshly
+  // proven, which is the opposite of a semantic-stale carve-out.
   assert(total === 508, `expected 508 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 374, `expected 374 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 134, `expected 134 stale (unchanged by ZKPROVE-BATCH-4; art-523 enters fresh by construction), got ${stale.length}`);
+  assert(fresh.length === 375, `expected 375 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (art-518 reproven fresh by ASSEMBLE-LAND-21), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
