@@ -1,0 +1,50 @@
+{
+      "name": "conditional-relief-collateral",
+      "domain": "Digital-Asset Rails",
+      "title": "Conditional-Relief Collateral Evidence",
+      "description": "Six-step composed evidence chain for accepting a payment stablecoin as collateral under a conditional regulatory relief. Step 1 confirms GENIUS Act reserve-attestation readiness for the permitted payment stablecoin. Step 2 checks the MiCA reserve disclosure and records, via a gate on token_type, whether the issuer is also a regulated e-money-token issuer; either branch continues to the reserve-proof stage, since the GENIUS Act attestation from step 1 stands on its own regardless of MiCA classification. Step 3 independently verifies the reserve proof and Chainlink PoR/NAVLink depeg staleness. Step 4 classifies the tokenized leg's DTC/Fed eligibility and Basel HQLA tier. Step 5 applies the Basel CRE22 comprehensive-approach collateral haircut. Step 6 builds the conditional-relief collateral receipt: a per-condition PASS/FAIL/UNDECIDABLE verdict against the caller's own condition set, a version-staleness check, the applicable capital charge, and the revocation-exposure figure if the relief were withdrawn.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/conditional-relief-collateral.html",
+      "regulatory_refs": [
+        "GENIUS Act S.394 (permitted payment stablecoin reserves)",
+        "MiCA Title IV / RTS on reserve of assets (e-money token reserve disclosure)",
+        "BCBS d349/SCO60 (HQLA tier)",
+        "Basel CRE22 comprehensive-approach collateral haircuts"
+      ],
+      "steps": [
+        {
+          "tool_id": "art-06-genius-act-reserve-attestation",
+          "handoff": "attestation_readiness_determination and coverage_ratio_pct establish the payment stablecoin's GENIUS Act reserve-attestation readiness before the MiCA leg is checked."
+        },
+        {
+          "tool_id": "art-512-check-mica-reserve-disclosure",
+          "handoff": "token_type, coverage, and judgment_required record whether the issuer is also a MiCA e-money-token issuer and whether that leg resolved cleanly.",
+          "gate": {
+            "input": "/token_type",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "EMT",
+                "next": "art-280-reserve-proof-verifier"
+              }
+            ],
+            "default": "art-280-reserve-proof-verifier"
+          }
+        },
+        {
+          "tool_id": "art-280-reserve-proof-verifier",
+          "handoff": "reserve_proof_determination and root_hash_match feed the tokenized-collateral eligibility check with an independently verified reserve and depeg-staleness record."
+        },
+        {
+          "tool_id": "505-tokenized-collateral-eligibility-checker",
+          "handoff": "dtc_status and hqla_tier feed the Basel haircut engine as the tokenized leg's eligibility tier."
+        },
+        {
+          "tool_id": "art-444-collateral-haircut-engine",
+          "handoff": "collateral_adjusted_total and net_exposure feed the conditional-relief receipt as the haircut-adjusted collateral value."
+        },
+        {
+          "tool_id": "art-514-conditional-relief-collateral-receipt",
+          "handoff": "all_conditions_met, applicable_capital_charge, and revocation_capital_delta are the chain output."
+        }
+      ]
+    }
