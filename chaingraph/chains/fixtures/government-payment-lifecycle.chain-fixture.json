@@ -1,0 +1,77 @@
+{
+  "chain_id": "government-payment-lifecycle",
+  "fixture_type": "gated_branch_coverage",
+  "spec_version": "0.8.7",
+  "description": "Two golden scenarios driving every §21.4 branch of both conditional stages (settlement-asset backing at Stage 1, netting-period existence at Stage 3). Reuses each member node's own shipped fixture vectors for step inputs; this file fixtures the CHAIN composition and gate routing, not the kernels. Verify with government-payment-lifecycle.gate-check.mjs.",
+  "gates": [
+    { "step_id": "art-521-settlement-asset-backing-invariant", "input": "/backing_model", "branches": ["rule0 (eq vacuous)", "default (segregated)"] },
+    { "step_id": "art-259-compute-multilateral-netting", "input": "/gross_count", "branches": ["rule0 (eq 0)", "default (>0)"] }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "reserve-backed-stablecoin-with-netting-period",
+      "description": "Settlement asset is a reserve-backed stablecoin (backing_model defaults to segregated -- both gates take their DEFAULT branch): the chain runs its reserve facts (art-06/art-512/art-280) and a netting period exists so the residual crosses (art-368).",
+      "input_bundle_by_step": {
+        "art-521-settlement-asset-backing-invariant": { "fixture_source": "art-521-settlement-asset-backing-invariant.fixtures.json", "vector": "reserve-backed-stablecoin" },
+        "art-06-genius-act-reserve-attestation": { "fixture_source": "art-06-genius-act-reserve-attestation.fixtures.json", "vector": "default-inputs" },
+        "art-512-check-mica-reserve-disclosure": { "fixture_source": "art-512-check-mica-reserve-disclosure.fixtures.json", "vector": "emt-covered-segregation-met" },
+        "art-280-reserve-proof-verifier": { "fixture_source": "art-280-reserve-proof-verifier.fixtures.json", "vector": "pass-single-leaf-root-clean-por" },
+        "art-513-public-money-settlement-receipt": { "fixture_source": "art-513-public-money-settlement-receipt.fixtures.json", "vector": "reconciled-single-rail-at-par" },
+        "art-259-compute-multilateral-netting": { "fixture_source": "art-259-compute-multilateral-netting.fixtures.json", "vector": "three_entity_netting_67pct_savings" },
+        "art-368-compute-fx-netting-positions": { "fixture_source": "art-368-compute-fx-netting-positions.fixtures.json", "vector": "default_seed_eur_gbp_jpy" },
+        "art-518-bulk-disbursement-integrity": { "fixture_source": "art-518-bulk-disbursement-integrity.fixtures.json", "vector": "clean-pension-salary-run-jurisdiction-a" },
+        "art-516-daily-reconciliation-attestation": { "fixture_source": "art-516-daily-reconciliation-attestation.fixtures.json", "vector": "clean-attestation-jurisdiction-a" },
+        "art-517-audit-trail-completeness": { "fixture_source": "art-517-audit-trail-completeness.fixtures.json", "vector": "sequence-continuous-jurisdiction-a" },
+        "art-459-sod-matrix-check": { "fixture_source": "art-459-sod-matrix-check.fixtures.json", "vector": "clean_no_conflicts" }
+      },
+      "expected_path_taken": [
+        "art-521-settlement-asset-backing-invariant", "art-06-genius-act-reserve-attestation", "art-512-check-mica-reserve-disclosure",
+        "art-280-reserve-proof-verifier", "art-513-public-money-settlement-receipt", "art-259-compute-multilateral-netting",
+        "art-368-compute-fx-netting-positions", "art-518-bulk-disbursement-integrity", "art-516-daily-reconciliation-attestation",
+        "art-517-audit-trail-completeness", "art-459-sod-matrix-check"
+      ],
+      "expected_skipped": [],
+      "expected_decisions": [
+        { "step_id": "art-521-settlement-asset-backing-invariant", "input_pointer": "/backing_model", "observed_value": "segregated", "matched_rule_index": null, "op": null, "value": null, "next": "art-06-genius-act-reserve-attestation" },
+        { "step_id": "art-259-compute-multilateral-netting", "input_pointer": "/gross_count", "observed_value": 3, "matched_rule_index": null, "op": null, "value": null, "next": "art-368-compute-fx-netting-positions" }
+      ],
+      "expected_composite_execution_hash": "6b49626d9581a50833361aaff10a8397731f66ec192c2cc7aaac97ee51515b14"
+    },
+    {
+      "scenario_id": "vacuous-direct-cbdc-no-netting-period",
+      "description": "Settlement asset is a direct/two-tier CBDC (backing_model=vacuous, no backing set to evaluate -- both gates take their RULE-MATCH branch): the chain skips the reserve facts entirely (correctly absent, per SS6.7) and skips the FX-cross step because no netting period exists (gross_count=0), going straight from netting to disbursement.",
+      "input_bundle_by_step": {
+        "art-521-settlement-asset-backing-invariant": { "fixture_source": "art-521-settlement-asset-backing-invariant.fixtures.json", "vector": "vacuous-direct-cbdc" },
+        "art-513-public-money-settlement-receipt": { "fixture_source": "art-513-public-money-settlement-receipt.fixtures.json", "vector": "reconciled-single-rail-at-par" },
+        "art-259-compute-multilateral-netting": { "fixture_source": "art-259-compute-multilateral-netting.fixtures.json", "vector": "empty_no_positions" },
+        "art-518-bulk-disbursement-integrity": { "fixture_source": "art-518-bulk-disbursement-integrity.fixtures.json", "vector": "clean-vendor-payment-run-jurisdiction-b-region-portability" },
+        "art-516-daily-reconciliation-attestation": { "fixture_source": "art-516-daily-reconciliation-attestation.fixtures.json", "vector": "clean-attestation-jurisdiction-b-region-portability" },
+        "art-517-audit-trail-completeness": { "fixture_source": "art-517-audit-trail-completeness.fixtures.json", "vector": "region-portability-second-jurisdiction-dora" },
+        "art-459-sod-matrix-check": { "fixture_source": "art-459-sod-matrix-check.fixtures.json", "vector": "clean_no_conflicts" }
+      },
+      "expected_path_taken": [
+        "art-521-settlement-asset-backing-invariant", "art-513-public-money-settlement-receipt", "art-259-compute-multilateral-netting",
+        "art-518-bulk-disbursement-integrity", "art-516-daily-reconciliation-attestation", "art-517-audit-trail-completeness", "art-459-sod-matrix-check"
+      ],
+      "expected_skipped": [
+        "art-06-genius-act-reserve-attestation", "art-512-check-mica-reserve-disclosure", "art-280-reserve-proof-verifier", "art-368-compute-fx-netting-positions"
+      ],
+      "expected_decisions": [
+        { "step_id": "art-521-settlement-asset-backing-invariant", "input_pointer": "/backing_model", "observed_value": "vacuous", "matched_rule_index": 0, "op": "eq", "value": "vacuous", "next": "art-513-public-money-settlement-receipt" },
+        { "step_id": "art-259-compute-multilateral-netting", "input_pointer": "/gross_count", "observed_value": 0, "matched_rule_index": 0, "op": "eq", "value": 0, "next": "art-518-bulk-disbursement-integrity" }
+      ],
+      "expected_composite_execution_hash": "a16947544cda4e9638ca9b216e8064671c18d252b25419bad8c658ed7b48f6c3"
+    }
+  ],
+  "branch_coverage": {
+    "all_branches": [
+      "art-521-settlement-asset-backing-invariant#rule0",
+      "art-521-settlement-asset-backing-invariant#default",
+      "art-259-compute-multilateral-netting#rule0",
+      "art-259-compute-multilateral-netting#default"
+    ],
+    "covered_by": "reserve-backed-stablecoin-with-netting-period (both #default) + vacuous-direct-cbdc-no-netting-period (both #rule0)",
+    "uncovered": []
+  },
+  "note": "expected_composite_execution_hash values were computed by government-payment-lifecycle.gate-check.mjs, which replays this chain's exact linear+gate algorithm (embed/runChain.mjs's logic, reimplemented against this repo's own kernels/_hash.mjs and kernels/_gateval.mjs -- the same modules the Worker and embed runner vendor byte-identically) over each scenario's step inputs above, entirely inside repo/. NOT run through the Worker's run_chain or the embedded runChain themselves -- this row is shard-only and cannot touch mcp-apps-poc/ or vendor (RIDER-KERNEL, ORCH re-fence 2026-08-01). validate-chains.mjs, gate-semantics.test.mjs, and gate-parity.test.mjs (Worker run_chain === embedded runChain) fire in worker CI only and were NOT run from here -- gate-check.mjs's inline static validator re-derives the same §21.4 rules against the shared _gateval.mjs so this duty is discharged, not claimed."
+}

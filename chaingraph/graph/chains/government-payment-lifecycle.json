@@ -1,0 +1,69 @@
+{
+  "name": "government-payment-lifecycle",
+  "domain": "Public Finance",
+  "title": "Government Payment Lifecycle",
+  "description": "One settlement-asset-agnostic shape for a government payment programme, from backing through disbursement to audit. Backs and issues the settlement asset, confirming the aggregate backing invariant and, only where the asset is issuer-reserve-backed, pulling its reserve facts. Collects a public-money payment once across declared rails at par. Nets the period and crosses only the residual, reported as a crossing count -- skipped entirely when no netting period exists. Disburses in bulk with duplicate and split-payment integrity checks. Reconciles and attests daily. Evidences the controls with audit-trail completeness and RBAC segregation-of-duties. A central bank digital currency and a reserve-backed stablecoin run the identical chain: the settlement asset is a declared parameter, not a different shape.",
+  "composer_url": "https://ainumbers.co/chaingraph/art-521-settlement-asset-backing-invariant.html",
+  "steps": [
+    {
+      "tool_id": "art-521-settlement-asset-backing-invariant",
+      "handoff": "the declared backing_model routes the chain: a reserve-backed asset falls through to its reserve facts (Stage 1b), a centrally-issued asset (backing_model=vacuous, no backing set) skips straight to Stage 2 collection",
+      "gate": {
+        "input": "/backing_model",
+        "rules": [
+          { "op": "eq", "value": "vacuous", "next": "art-513-public-money-settlement-receipt" }
+        ],
+        "default": "art-06-genius-act-reserve-attestation",
+        "gate_policy": "escalate"
+      }
+    },
+    {
+      "tool_id": "art-06-genius-act-reserve-attestation",
+      "handoff": "reserve-attestation precheck feeds the MiCA-style reserve disclosure check (reserve-backed path only)"
+    },
+    {
+      "tool_id": "art-512-check-mica-reserve-disclosure",
+      "handoff": "reserve disclosure verdict feeds the reserve proof-of-reserves check"
+    },
+    {
+      "tool_id": "art-280-reserve-proof-verifier",
+      "handoff": "proof-of-reserves verdict closes out the backing stage; both settlement-asset paths rejoin at Stage 2 collection"
+    },
+    {
+      "tool_id": "art-513-public-money-settlement-receipt",
+      "handoff": "single-settlement, at-par collection receipt feeds the netting stage"
+    },
+    {
+      "tool_id": "art-259-compute-multilateral-netting",
+      "handoff": "net position per entity feeds the cross-currency residual step when a netting period exists (gross_count > 0); with no netting period the chain skips straight to disbursement",
+      "gate": {
+        "input": "/gross_count",
+        "rules": [
+          { "op": "eq", "value": 0, "next": "art-518-bulk-disbursement-integrity" }
+        ],
+        "default": "art-368-compute-fx-netting-positions",
+        "gate_policy": "escalate"
+      }
+    },
+    {
+      "tool_id": "art-368-compute-fx-netting-positions",
+      "handoff": "cross-currency residual position feeds bulk disbursement; crossing count is the cost driver reported, not a new netting node"
+    },
+    {
+      "tool_id": "art-518-bulk-disbursement-integrity",
+      "handoff": "control-total-reconciled, duplicate/split-checked disbursement run feeds the daily reconciliation attestation"
+    },
+    {
+      "tool_id": "art-516-daily-reconciliation-attestation",
+      "handoff": "reconciliation attestation, including any vanished exception, feeds the audit-trail completeness check"
+    },
+    {
+      "tool_id": "art-517-audit-trail-completeness",
+      "handoff": "audit-trail gap enumeration feeds the RBAC segregation-of-duties check -- the last of the two controls-evidence steps"
+    },
+    {
+      "tool_id": "art-459-sod-matrix-check",
+      "handoff": "segregation-of-duties verdict is the terminal control evidence for this run"
+    }
+  ]
+}
