@@ -211,6 +211,23 @@ jobs:
           node chaingraph/standard/spec-page-parity.mjs
           node chaingraph/standard/spec-page-subsection-parity.mjs
 
+      - name: 🪖 Helm technical design page parity
+        # helm-technical-design.html renders a document whose source of truth lives in the
+        # helm repository. A pinned copy is vendored under helm/technical-design/ so this
+        # check is local and deterministic: site CI cannot see helm's HEAD, and a page that
+        # fetched the markdown at load time would stop working the moment that host did.
+        # Checks structure (sections, TOC, subheadings) plus the vendored pin, and warns
+        # without failing when the pin is behind upstream. The .test.mjs proves it goes red.
+        #
+        # Deliberately NOT gated on steps.helmscope.outputs.touched. That scoping exists
+        # for the version-drift gate below, which asserts against state the separate helm
+        # repo's release job sets. This gate compares only files in this repo against each
+        # other, and the helmscope path filter does not match helm-technical-design.html,
+        # so scoping it here would silently ungate the page it exists to protect.
+        run: |
+          node scripts/check-helm-techdoc-parity.mjs
+          node scripts/check-helm-techdoc-parity.test.mjs
+
       - name: 🪖 Helm release/version drift gate (HELM-RELEASE-DRIFT-GATES-1)
         # helm.html's release download/tag links must match helm/version.json's
         # latest_version — the pinned feed the helm repo's own release job pushes to this

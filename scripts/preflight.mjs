@@ -168,6 +168,15 @@ const GATES = [
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['Kernel as-of staleness ratchet (ASOF-GATE-1)', 'node scripts/check-kernel-asof-staleness.mjs'],
   ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
+  // Deliberately NOT inside the HELM_SCOPE_TOUCHED block below. That scoping exists
+  // because the version-drift gate asserts against state the SEPARATE helm repo's
+  // release job sets, so it goes stale on a cadence no site push controls. This gate
+  // has no such dependency: it compares the vendored markdown against its own pinned
+  // digest and the page against that markdown, both in this repo, both deterministic.
+  // Scoping it would also silently ungate it, since isHelmPath() above does not match
+  // helm-technical-design.html.
+  ['Helm technical design page parity', 'node scripts/check-helm-techdoc-parity.mjs'],
+  ['Helm technical design parity fixture proof', 'node scripts/check-helm-techdoc-parity.test.mjs'],
   // HELMGATE-DECOUPLE-1: scoped — only run when this push touches a helm-relevant
   // path (see helmPathsTouched() above). Undeterminable fails open (gates run).
   // HELMGATE-DECOUPLE-2: guide-freshness (the byte-identical-walkthrough check)
