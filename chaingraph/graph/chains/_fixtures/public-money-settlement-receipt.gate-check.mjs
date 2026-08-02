@@ -14,11 +14,11 @@
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { getKernel } from '../../kernels/index.mjs';
-import { evaluateGate, isPointerSyntaxValid, stepId, isTerminalTarget } from '../../kernels/_gateval.mjs';
+import { getKernel } from '../../../kernels/index.mjs';
+import { evaluateGate, isPointerSyntaxValid, stepId, isTerminalTarget } from '../../../kernels/_gateval.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
-const chain = JSON.parse(readFileSync(here + 'public-money-settlement-receipt.json', 'utf8'));
+const chain = JSON.parse(readFileSync(here + '../public-money-settlement-receipt.json', 'utf8'));
 const fixtures = JSON.parse(readFileSync(here + 'public-money-settlement-receipt.fixtures.json', 'utf8'));
 
 let fail = 0;
