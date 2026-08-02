@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>N-Way Balance Closure Check &middot; ART-525 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Enforce the arithmetic closure identity across three or more caller-declared balances for one measure, at one as-of moment, across named internal systems. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-525-nway-balance-closure-check.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],input[type="number"],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{min-height:150px;resize:vertical}
+input:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.neutral{background:rgba(58,82,112,.18);color:var(--body);border:1px solid var(--border-2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.verdict-sub{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);text-align:center;margin-bottom:8px}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table{width:100%;border-collapse:collapse;font-size:.68rem;margin-top:8px}
+th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.4rem .55rem;border-bottom:1px solid var(--border);text-align:left}
+td{padding:.4rem .55rem;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+tr:hover td{background:var(--bg-3)}
+.num{font-family:'JetBrains Mono',monospace;text-align:right;white-space:nowrap}
+.demo-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--border-2);color:var(--body);padding:.4rem .8rem;border-radius:var(--radius);cursor:pointer;margin-right:.5rem}
+.demo-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-525 · N-Way Balance Closure Check</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-525 &middot; BCBS 239 &middot; Reconciliation Control</div>
+  <h1>N-Way Balance Closure Check</h1>
+  <p class="sub">Three or more internal systems state the same measure at the same moment. Each pair of them differs by some amount, and the third difference is fully determined by the other two &ndash; so a screen showing three pairwise tables enforces nothing, and leaves the arithmetic to whoever is reading it. This node runs that arithmetic: it evaluates the closure identity <code>(A &minus; B) + (B &minus; C) = (A &minus; C)</code> against a tolerance you declare, for every triple, and names the pair that carries the break.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">BCBS 239 Principle 2 fn.16</span>
+    <span class="flag info">BCBS 239 &sect;36(d)</span>
+    <span class="flag">Closure Identity Enforced</span>
+    <span class="flag warn">Internal Hops &ndash; Evidence Only</span>
+  </div>
+  <div class="pii-notice">&#128274; All computation runs locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="q">
+      <label class="q-label" for="measureInput">Measure</label>
+      <div class="q-help">What every system below is stating. One measure, one as-of moment.</div>
+      <input type="text" id="measureInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="authInput">Authoritative system id</label>
+      <div class="q-help">BCBS 239 &sect;36(d) reconciles to a designated authoritative source, never consumer to consumer. Name it, and it must appear in the systems list.</div>
+      <input type="text" id="authInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="tolInput">Closure tolerance (integer minor units)</label>
+      <div class="q-help">Declared, never defaulted. Leave it empty and the node reports that it did not run, rather than treating every rounding difference as a break.</div>
+      <input type="text" id="tolInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label">Systems (JSON array)</label>
+      <div class="q-help">Three or more entries of <code>{"system_id","balance_minor","as_of"}</code>. Balances are integer minor units, so the arithmetic here is exact.</div>
+      <textarea id="systemsInput"></textarea>
+    </div>
+    <div class="q">
+      <label class="q-label">Declared hop differences (JSON array, optional)</label>
+      <div class="q-help">If your firm already reconciles hop by hop, declare each hop's own result as <code>{"from_system_id","to_system_id","difference_minor"}</code>. The node then checks that those independently produced hops close against each other, and that each agrees with the declared balances. This is the mode with teeth.</div>
+      <textarea id="diffsInput" style="min-height:110px"></textarea>
+    </div>
+    <div style="margin-top:20px">
+      <button class="demo-btn" onclick="loadPassDemo()">Load closing demo</button>
+      <button class="demo-btn" onclick="loadBreakDemo()">Load closure-break demo</button>
+      <button class="demo-btn" onclick="loadStaleDemo()">Load differing as-of demo</button>
+      <button onclick="runClosure()">&#9654; Run Closure Check</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="verdict-sub" id="verdictSub"></div>
+      <div class="generated-at" id="generatedAt"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Closure residuals (the test)</div>
+      <table>
+        <thead><tr><th>Triple</th><th class="num">A &minus; B</th><th class="num">B &minus; C</th><th class="num">A &minus; C</th><th class="num">Residual</th><th>Basis</th><th>Verdict</th></tr></thead>
+        <tbody id="triplesBody"></tbody>
+      </table>
+      <div class="q-help" id="triplesNote" style="margin-top:6px"></div>
+
+      <div class="section-head" style="margin-top:14px">Pairwise differences</div>
+      <table>
+        <thead><tr><th>Pair</th><th>Against authoritative</th><th class="num">From balances</th><th class="num">Declared</th><th>Basis</th><th>Verdict</th></tr></thead>
+        <tbody id="pairsBody"></tbody>
+      </table>
+
+      <div class="section-head" style="margin-top:14px">Break attribution</div>
+      <div id="attribBox" style="font-family:'JetBrains Mono',monospace;font-size:.68rem"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-525-nway-balance-closure-check',
+  version: '1.0.0',
+  mcp_name: 'check_nway_balance_closure',
+  title: 'N-Way Balance Closure Check',
+  description: 'Enforces the arithmetic closure identity (A-B) + (B-C) = (A-C) across three or more caller-declared balances for one measure, at one as-of moment, across named internal systems, within a caller-declared tolerance. Emits a §27.4 gate-policy value at output_payload.decision.gate_policy with a sibling execution_state.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'BCBS 239 Principle 2 fn.16; BCBS 239 §36(d)',
+  mcp_tool_definition: {
+    name: 'check_nway_balance_closure',
+    description: 'Evaluates the closure identity across three or more caller-declared balances for the same measure and returns each pairwise difference, the residual per triple, the breaking pair, and a §27.4 gate-policy decision.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        measure_label: { type: 'string' },
+        authoritative_system_id: { type: 'string' },
+        closure_tolerance_minor: { type: 'integer' },
+        systems: { type: 'array', items: { type: 'object', properties: { system_id: { type: 'string' }, balance_minor: { type: 'integer' }, as_of: { type: 'string' } }, required: ['system_id', 'balance_minor'] } },
+        declared_differences: { type: 'array', items: { type: 'object', properties: { from_system_id: { type: 'string' }, to_system_id: { type: 'string' }, difference_minor: { type: 'integer' } }, required: ['from_system_id', 'to_system_id', 'difference_minor'] } },
+      },
+      required: ['authoritative_system_id', 'closure_tolerance_minor', 'systems'],
+    },
+  },
+};
+
+var MAX_SYSTEMS = 12;
+var SCOPE_NOTE = 'Scoped to internal system-boundary hops inside one firm, ahead of any filing. Balances are caller-declared from the firm\'s own systems.';
+var BOUNDARY_NOTE = 'This kernel performs only the closure arithmetic over caller-declared integer minor-unit balances and caller-declared hop differences. It does not source, derive, estimate, or audit any balance, and it does not decide which system is authoritative -- that designation is a caller input per BCBS 239 SS36(d).';
+
+var _lastResult = null;
+
+function s(v){ return String(v == null ? '' : v).trim(); }
+function minorInt(v){
+  if (typeof v === 'number' && Number.isSafeInteger(v)) return v;
+  if (typeof v === 'string' && v.trim() !== ''){ var n = Number(v); if (Number.isSafeInteger(n)) return n; }
+  return null;
+}
+function abs(n){ return n < 0 ? -n : n; }
+function pairKey(a,b){ return a + '|' + b; }
+
+function emptyResult(reason, extra, flags){
+  return {
+    output_payload: {
+      decision: { gate_policy: 'review_required', execution_state: 'did_not_run', reason: reason },
+      measure_label: (extra && extra.measure_label) || '',
+      authoritative_system_id: (extra && extra.authoritative_system_id) || '',
+      closure_tolerance_minor: (extra && typeof extra.closure_tolerance_minor === 'number') ? extra.closure_tolerance_minor : null,
+      system_count: (extra && typeof extra.system_count === 'number') ? extra.system_count : 0,
+      as_of_consistent: false,
+      as_of_values: [],
+      systems: [],
+      pairwise: [],
+      triples: [],
+      triple_count: 0,
+      closure_holds: false,
+      max_abs_residual_minor: null,
+      break_pairs: [],
+      suspect_systems: [],
+      rejected_inputs: (extra && extra.rejected_inputs) || [],
+      scope_note: SCOPE_NOTE,
+      boundary_note: BOUNDARY_NOTE,
+    },
+    compliance_flags: flags,
+  };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var measure_label = s(pp.measure_label);
+  var authoritative_system_id = s(pp.authoritative_system_id);
+  var rejected_inputs = [];
+
+  var toleranceDeclared = pp.closure_tolerance_minor !== undefined && pp.closure_tolerance_minor !== null && pp.closure_tolerance_minor !== '';
+  var closure_tolerance_minor = toleranceDeclared ? minorInt(pp.closure_tolerance_minor) : null;
+  if (!toleranceDeclared){
+    rejected_inputs.push({ where: 'closure_tolerance_minor', reason: 'absent -- a tolerance must be declared, never defaulted', supplied: null });
+    return emptyResult('closure_tolerance_not_declared', { measure_label: measure_label, authoritative_system_id: authoritative_system_id, rejected_inputs: rejected_inputs }, ['NWAY_CLOSURE_TOLERANCE_NOT_DECLARED']);
+  }
+  if (closure_tolerance_minor === null || closure_tolerance_minor < 0){
+    rejected_inputs.push({ where: 'closure_tolerance_minor', reason: 'not a non-negative safe integer number of minor units', supplied: typeof pp.closure_tolerance_minor === 'number' ? pp.closure_tolerance_minor : s(pp.closure_tolerance_minor) });
+    return emptyResult('closure_tolerance_not_declared', { measure_label: measure_label, authoritative_system_id: authoritative_system_id, rejected_inputs: rejected_inputs }, ['NWAY_CLOSURE_TOLERANCE_NOT_DECLARED']);
+  }
+
+  var systemsIn = Array.isArray(pp.systems) ? pp.systems : [];
+  var systems = [];
+  var seen = new Map();
+  var duplicate = false;
+  for (var i = 0; i < systemsIn.length; i++){
+    var row = systemsIn[i] || {};
+    var system_id = s(row.system_id);
+    var balance_minor = minorInt(row.balance_minor);
+    var as_of = s(row.as_of);
+    if (!system_id){ rejected_inputs.push({ where: 'systems[' + i + '].system_id', reason: 'absent', supplied: null }); continue; }
+    if (balance_minor === null){ rejected_inputs.push({ where: 'systems[' + i + '].balance_minor', reason: 'expected an integer number of minor units', supplied: system_id }); continue; }
+    if (seen.has(system_id)){ duplicate = true; rejected_inputs.push({ where: 'systems[' + i + '].system_id', reason: 'duplicate system_id', supplied: system_id }); continue; }
+    seen.set(system_id, true);
+    systems.push({ system_id: system_id, balance_minor: balance_minor, as_of: as_of, is_authoritative: system_id === authoritative_system_id });
+  }
+
+  var base = { measure_label: measure_label, authoritative_system_id: authoritative_system_id, closure_tolerance_minor: closure_tolerance_minor, system_count: systems.length, rejected_inputs: rejected_inputs };
+
+  if (duplicate) return emptyResult('duplicate_system_ids_supplied', base, ['NWAY_DUPLICATE_SYSTEM_IDS']);
+  if (systems.length < 3) return emptyResult('fewer_than_three_systems_supplied', base, ['NWAY_FEWER_THAN_THREE_SYSTEMS']);
+  if (systems.length > MAX_SYSTEMS){
+    rejected_inputs.push({ where: 'systems', reason: 'more than ' + MAX_SYSTEMS + ' systems supplied -- triple enumeration is bounded', supplied: systems.length });
+    return emptyResult('too_many_systems_supplied', base, ['NWAY_TOO_MANY_SYSTEMS']);
+  }
+  if (!authoritative_system_id || !seen.has(authoritative_system_id)){
+    rejected_inputs.push({ where: 'authoritative_system_id', reason: 'absent from, or not present in, the supplied systems -- BCBS 239 SS36(d) requires a designated authoritative source, never a consumer-to-consumer reconciliation', supplied: authoritative_system_id || null });
+    return emptyResult('authoritative_system_not_designated', base, ['NWAY_AUTHORITATIVE_SOURCE_NOT_DESIGNATED']);
+  }
+
+  var declaredByPair = new Map();
+  var declaredIn = Array.isArray(pp.declared_differences) ? pp.declared_differences : [];
+  for (var d = 0; d < declaredIn.length; d++){
+    var drow = declaredIn[d] || {};
+    var from_system_id = s(drow.from_system_id);
+    var to_system_id = s(drow.to_system_id);
+    var difference_minor = minorInt(drow.difference_minor);
+    if (!seen.has(from_system_id) || !seen.has(to_system_id) || from_system_id === to_system_id){
+      rejected_inputs.push({ where: 'declared_differences[' + d + ']', reason: 'from/to system_id must name two distinct supplied systems', supplied: from_system_id + '->' + to_system_id });
+      continue;
+    }
+    if (difference_minor === null){
+      rejected_inputs.push({ where: 'declared_differences[' + d + '].difference_minor', reason: 'expected an integer number of minor units', supplied: from_system_id + '->' + to_system_id });
+      continue;
+    }
+    declaredByPair.set(pairKey(from_system_id, to_system_id), difference_minor);
+    declaredByPair.set(pairKey(to_system_id, from_system_id), -difference_minor);
+  }
+
+  var as_of_values = [];
+  for (var v = 0; v < systems.length; v++) if (as_of_values.indexOf(systems[v].as_of) === -1) as_of_values.push(systems[v].as_of);
+  var anyAsOfMissing = systems.some(function(sys){ return sys.as_of === ''; });
+  var as_of_consistent = !anyAsOfMissing && as_of_values.length === 1;
+
+  var byId = new Map();
+  for (var b = 0; b < systems.length; b++) byId.set(systems[b].system_id, systems[b]);
+
+  function diffFor(aId, bId){
+    var balance_difference_minor = byId.get(aId).balance_minor - byId.get(bId).balance_minor;
+    var key = pairKey(aId, bId);
+    var hasDeclared = declaredByPair.has(key);
+    var declared_difference_minor = hasDeclared ? declaredByPair.get(key) : null;
+    return {
+      balance_difference_minor: balance_difference_minor,
+      declared_difference_minor: declared_difference_minor,
+      difference_minor: hasDeclared ? declared_difference_minor : balance_difference_minor,
+      difference_basis: hasDeclared ? 'declared' : 'balances',
+    };
+  }
+
+  var pairwise = [];
+  for (var p1 = 0; p1 < systems.length; p1++){
+    for (var p2 = p1 + 1; p2 < systems.length; p2++){
+      var pa = systems[p1].system_id, pb = systems[p2].system_id;
+      var pd = diffFor(pa, pb);
+      var declared_vs_balance_delta_minor = pd.declared_difference_minor === null ? null : pd.declared_difference_minor - pd.balance_difference_minor;
+      pairwise.push({
+        pair: pa + ' -> ' + pb,
+        system_a: pa,
+        system_b: pb,
+        against_authoritative: pa === authoritative_system_id || pb === authoritative_system_id,
+        balance_difference_minor: pd.balance_difference_minor,
+        declared_difference_minor: pd.declared_difference_minor,
+        difference_minor: pd.difference_minor,
+        difference_basis: pd.difference_basis,
+        declared_vs_balance_delta_minor: declared_vs_balance_delta_minor,
+        declared_agrees_with_balances: declared_vs_balance_delta_minor === null ? null : abs(declared_vs_balance_delta_minor) <= closure_tolerance_minor,
+        within_tolerance: abs(pd.difference_minor) <= closure_tolerance_minor,
+      });
+    }
+  }
+
+  var triples = [];
+  var max_abs_residual_minor = 0;
+  for (var i1 = 0; i1 < systems.length; i1++){
+    for (var i2 = i1 + 1; i2 < systems.length; i2++){
+      for (var i3 = i2 + 1; i3 < systems.length; i3++){
+        var ta = systems[i1].system_id, tb = systems[i2].system_id, tc = systems[i3].system_id;
+        var ab = diffFor(ta, tb), bc = diffFor(tb, tc), ac = diffFor(ta, tc);
+        var residual_minor = (ab.difference_minor + bc.difference_minor) - ac.difference_minor;
+        var allDeclared = ab.difference_basis === 'declared' && bc.difference_basis === 'declared' && ac.difference_basis === 'declared';
+        var allBalances = ab.difference_basis === 'balances' && bc.difference_basis === 'balances' && ac.difference_basis === 'balances';
+        var residual_basis = allDeclared ? 'declared' : (allBalances ? 'balances' : 'mixed');
+        if (abs(residual_minor) > max_abs_residual_minor) max_abs_residual_minor = abs(residual_minor);
+        triples.push({
+          triple: ta + ', ' + tb + ', ' + tc,
+          systems: [ta, tb, tc],
+          leg_ab_minor: ab.difference_minor,
+          leg_bc_minor: bc.difference_minor,
+          leg_ac_minor: ac.difference_minor,
+          residual_minor: residual_minor,
+          residual_basis: residual_basis,
+          within_tolerance: abs(residual_minor) <= closure_tolerance_minor,
+        });
+      }
+    }
+  }
+
+  var closure_holds = triples.every(function(t){ return t.within_tolerance; });
+  var break_pairs = pairwise.filter(function(p){ return !p.within_tolerance; }).map(function(p){ return p.pair; });
+  var declared_disagreements = pairwise.filter(function(p){ return p.declared_agrees_with_balances === false; }).map(function(p){ return p.pair; });
+  var breaking = pairwise.filter(function(p){ return !p.within_tolerance; });
+  var suspect_systems = breaking.length === 0 ? [] : systems.filter(function(sys){
+    return breaking.every(function(p){ return p.system_a === sys.system_id || p.system_b === sys.system_id; });
+  }).map(function(sys){ return sys.system_id; });
+
+  var compliance_flags = ['NWAY_BALANCE_CLOSURE_EVALUATED'];
+  if (!closure_holds) compliance_flags.push('NWAY_CLOSURE_RESIDUAL_OUTSIDE_TOLERANCE');
+  if (break_pairs.length > 0) compliance_flags.push('NWAY_PAIRWISE_BREAK_DETECTED');
+  if (declared_disagreements.length > 0) compliance_flags.push('NWAY_DECLARED_HOP_DISAGREES_WITH_BALANCES');
+
+  var execution_state = 'ran';
+  var reason = null;
+  if (!as_of_consistent){
+    execution_state = 'ran_stale';
+    reason = anyAsOfMissing ? 'as_of_not_declared_for_every_system' : 'balances_supplied_at_differing_as_of_moments';
+    compliance_flags.push('NWAY_AS_OF_INCONSISTENT');
+  }
+
+  var gate_policy = (execution_state === 'ran' && closure_holds && break_pairs.length === 0 && declared_disagreements.length === 0) ? 'auto_pass' : 'review_required';
+
+  return {
+    output_payload: {
+      decision: { gate_policy: gate_policy, execution_state: execution_state, reason: reason },
+      measure_label: measure_label,
+      authoritative_system_id: authoritative_system_id,
+      closure_tolerance_minor: closure_tolerance_minor,
+      system_count: systems.length,
+      as_of_consistent: as_of_consistent,
+      as_of_values: as_of_values,
+      systems: systems,
+      pairwise: pairwise,
+      triples: triples,
+      triple_count: triples.length,
+      closure_holds: closure_holds,
+      max_abs_residual_minor: max_abs_residual_minor,
+      break_pairs: break_pairs,
+      declared_disagreements: declared_disagreements,
+      suspect_systems: suspect_systems,
+      rejected_inputs: rejected_inputs,
+      scope_note: SCOPE_NOTE,
+      boundary_note: BOUNDARY_NOTE,
+    },
+    compliance_flags: compliance_flags,
+  };
+}
+
+var DEMO_SYSTEMS = [
+  { system_id: 'CORE-DDA', balance_minor: 212800400000, as_of: '2026-06-30T23:59:59Z' },
+  { system_id: 'GL-ORACLE', balance_minor: 212800400000, as_of: '2026-06-30T23:59:59Z' },
+  { system_id: 'REG-MART', balance_minor: 212800400000, as_of: '2026-06-30T23:59:59Z' }
+];
+
+function setDemo(systems, diffs){
+  document.getElementById('measureInput').value = 'Total customer deposits, USD';
+  document.getElementById('authInput').value = 'CORE-DDA';
+  document.getElementById('tolInput').value = '100';
+  document.getElementById('systemsInput').value = JSON.stringify(systems, null, 2);
+  document.getElementById('diffsInput').value = diffs === null ? '' : JSON.stringify(diffs, null, 2);
+}
+function loadPassDemo(){
+  setDemo(DEMO_SYSTEMS, [
+    { from_system_id: 'CORE-DDA', to_system_id: 'GL-ORACLE', difference_minor: 0 },
+    { from_system_id: 'GL-ORACLE', to_system_id: 'REG-MART', difference_minor: 0 },
+    { from_system_id: 'CORE-DDA', to_system_id: 'REG-MART', difference_minor: 0 }
+  ]);
+}
+function loadBreakDemo(){
+  setDemo(DEMO_SYSTEMS, [
+    { from_system_id: 'CORE-DDA', to_system_id: 'GL-ORACLE', difference_minor: 0 },
+    { from_system_id: 'GL-ORACLE', to_system_id: 'REG-MART', difference_minor: 0 },
+    { from_system_id: 'CORE-DDA', to_system_id: 'REG-MART', difference_minor: 4500000 }
+  ]);
+}
+function loadStaleDemo(){
+  setDemo([
+    { system_id: 'CORE-DDA', balance_minor: 212800400000, as_of: '2026-06-30T23:59:59Z' },
+    { system_id: 'GL-ORACLE', balance_minor: 212800400000, as_of: '2026-06-29T23:59:59Z' },
+    { system_id: 'REG-MART', balance_minor: 212800400000, as_of: '2026-06-30T23:59:59Z' }
+  ], null);
+}
+
+function parseJsonArray(text){
+  if (s(text) === '') return [];
+  try { var v = JSON.parse(text); return Array.isArray(v) ? v : null; } catch(e){ return null; }
+}
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+function esc(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function runClosure(){
+  var systems = parseJsonArray(document.getElementById('systemsInput').value);
+  var diffs = parseJsonArray(document.getElementById('diffsInput').value);
+  if (systems === null || diffs === null){ alert('Systems and declared hop differences must each be a valid JSON array.'); return; }
+
+  var tolRaw = s(document.getElementById('tolInput').value);
+  var pp = {
+    measure_label: s(document.getElementById('measureInput').value),
+    authoritative_system_id: s(document.getElementById('authInput').value),
+    systems: systems,
+  };
+  if (tolRaw !== '') pp.closure_tolerance_minor = minorInt(tolRaw) === null ? tolRaw : minorInt(tolRaw);
+  if (diffs.length > 0) pp.declared_differences = diffs;
+
+  var res = compute(pp);
+  var op = res.output_payload;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: res.compliance_flags };
+
+  var state = op.decision.execution_state;
+  var policy = op.decision.gate_policy;
+  var pass = policy === 'auto_pass' && state === 'ran';
+  var color = pass ? 'var(--green)' : (state === 'ran' ? 'var(--red)' : 'var(--warn)');
+  var bg = pass ? 'rgba(34,197,94,.08)' : (state === 'ran' ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = policy.toUpperCase() + ' · ' + state.toUpperCase();
+  document.getElementById('verdictSub').textContent = op.decision.reason
+    ? ('reason: ' + op.decision.reason)
+    : (state === 'did_not_run' ? 'The control did not run.' : (op.closure_holds ? 'Closure identity holds for every triple.' : 'Closure identity fails.'));
+  document.getElementById('generatedAt').textContent = 'generated_at ' + new Date().toISOString();
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.system_count + '</span><span class="stat-key">Systems</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.triple_count + '</span><span class="stat-key">Triples Tested</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:' + (op.closure_holds ? 'var(--green)' : 'var(--red)') + '">' + (op.max_abs_residual_minor === null ? 'n/a' : op.max_abs_residual_minor) + '</span><span class="stat-key">Max Residual</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:var(--red)">' + op.break_pairs.length + '</span><span class="stat-key">Break Pairs</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.closure_tolerance_minor === null ? 'none' : op.closure_tolerance_minor) + '</span><span class="stat-key">Tolerance</span></div>';
+
+  document.getElementById('triplesBody').innerHTML = op.triples.length === 0
+    ? '<tr><td colspan="7">No triples evaluated.</td></tr>'
+    : op.triples.map(function(t){
+        return '<tr><td>' + esc(t.triple) + '</td><td class="num">' + t.leg_ab_minor + '</td><td class="num">' + t.leg_bc_minor + '</td><td class="num">' + t.leg_ac_minor + '</td><td class="num">' + t.residual_minor + '</td><td>' + t.residual_basis + '</td><td><span class="badge ' + (t.within_tolerance ? 'ok' : 'fail') + '">' + (t.within_tolerance ? 'CLOSES' : 'BREAKS') + '</span></td></tr>';
+      }).join('');
+  document.getElementById('triplesNote').textContent = op.triples.length === 0 ? ''
+    : 'A residual on the balances basis is arithmetically bound to zero, so the enforced content in that mode is the pairwise tolerance test. Declare each hop difference to test independently produced reconciliations against each other.';
+
+  document.getElementById('pairsBody').innerHTML = op.pairwise.length === 0
+    ? '<tr><td colspan="6">No pairs evaluated.</td></tr>'
+    : op.pairwise.map(function(p){
+        var agree = p.declared_agrees_with_balances;
+        var declaredCell = p.declared_difference_minor === null ? '&ndash;'
+          : (p.declared_difference_minor + ' <span class="badge ' + (agree ? 'ok' : 'fail') + '">' + (agree ? 'AGREES' : 'DISAGREES') + '</span>');
+        return '<tr><td>' + esc(p.pair) + '</td><td><span class="badge ' + (p.against_authoritative ? 'ok' : 'neutral') + '">' + (p.against_authoritative ? 'YES' : 'NO') + '</span></td><td class="num">' + p.balance_difference_minor + '</td><td class="num">' + declaredCell + '</td><td>' + p.difference_basis + '</td><td><span class="badge ' + (p.within_tolerance ? 'ok' : 'fail') + '">' + (p.within_tolerance ? 'WITHIN' : 'BREAK') + '</span></td></tr>';
+      }).join('');
+
+  var attrib = '';
+  if (op.decision.execution_state === 'did_not_run'){
+    attrib = '<span class="badge warn">DID NOT RUN</span> ' + esc(op.decision.reason || '');
+  } else if (op.break_pairs.length === 0 && op.declared_disagreements.length === 0){
+    attrib = '<span class="badge ok">NO BREAK</span> Every pair is within tolerance and every triple closes.';
+  } else {
+    attrib = '<div>Breaking pairs: ' + (op.break_pairs.length ? esc(op.break_pairs.join(', ')) : 'none') + '</div>' +
+             '<div>Declared hops disagreeing with the balances: ' + (op.declared_disagreements.length ? esc(op.declared_disagreements.join(', ')) : 'none') + '</div>' +
+             '<div>Systems present in every breaking pair: ' + (op.suspect_systems.length ? esc(op.suspect_systems.join(', ')) : 'none') + '</div>';
+  }
+  if (op.rejected_inputs.length > 0){
+    attrib += '<div style="margin-top:6px;color:var(--warn)">Rejected inputs: ' + esc(op.rejected_inputs.map(function(r){ return r.where + ' (' + r.reason + ')'; }).join('; ')) + '</div>';
+  }
+  attrib += '<div style="margin-top:8px;color:var(--muted)">review_required routes to an exception step. It never blocks the chain.</div>';
+  document.getElementById('attribBox').innerHTML = attrib;
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-525-nway-balance-closure-check',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-525-nway-balance-closure-check.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+
+loadBreakDemo();
+</script>
+</body>
+</html>
