@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settlement Asset Lifecycle, an OpenChainGraph Explainer</title>
+<meta name="description" content="A central bank digital currency and a reserve-backed stablecoin differ in exactly one stage of a payment lifecycle and are identical in the other seven. An animated, panel-by-panel walk from backing through collection, netting, disbursement, reconciliation and control evidence, mapped to shipped OpenChainGraph nodes. Client-side, zero-egress.">
+<meta name="author" content="Post Oak Labs">
+<meta name="ocg-spec-version" content="0.8.8">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/settlement-asset-lifecycle-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Settlement Asset Lifecycle, an OpenChainGraph Explainer",
+  "description": "A CBDC and a reserve-backed stablecoin differ in exactly one lifecycle stage and are identical in the other seven, walked panel by panel and mapped to shipped OpenChainGraph nodes.",
+  "author": { "@type": "Organization", "name": "Post Oak Labs" },
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
+  "about": { "@type": "Thing", "name": "OpenChainGraph settlement asset backing model" }
+}
+</script>
+<style>
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--teal-lt);outline-offset:2px}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-spec{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px}
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero p{font-size:1rem;color:var(--body);max-width:740px;line-height:1.9}
+.thesis{margin-top:1.6rem;padding:1rem 1.3rem;background:var(--teal-dim);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;font-size:.95rem;color:var(--bright)}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:.9rem;margin:1.4rem 0;font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.03em}
+.legend span{display:flex;align-items:center;gap:.4rem;color:var(--body)}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none}
+.legend i.pass{background:var(--teal)}
+.legend i.obl{background:var(--gold)}
+.legend i.gap{background:var(--red)}
+.legend i.hold{background:var(--muted)}
+
+/* panels */
+.panel{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.panel-head{display:flex;align-items:baseline;gap:.9rem;margin-bottom:.4rem;flex-wrap:wrap}
+.stage-n{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--teal-lt);border:1px solid rgba(20,184,166,.35);border-radius:50%;width:2.1rem;height:2.1rem;display:flex;align-items:center;justify-content:center;flex:none}
+.panel h2{font-size:clamp(1.25rem,2.4vw,1.7rem);color:var(--white)}
+.panel .kicker{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.panel p{color:var(--body);max-width:720px;margin:.9rem 0}
+.panel .pull{font-size:.92rem;color:var(--text);border-left:2px solid var(--border-2);padding-left:.9rem;margin:1rem 0;max-width:680px}
+.scene-scroll{max-width:100%;overflow-x:auto;margin:1.2rem 0;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.scene-scroll svg{display:block;width:100%;height:auto;min-width:520px}
+
+/* node cite */
+.cite{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.05em;padding:.15rem .5rem;border-radius:12px;background:var(--bg-3);color:var(--teal-lt);border:1px solid var(--border-2)}
+
+/* draw / fade utilities (CSS keyframes only, paused until in-view) */
+.scene [class*="an-"]{animation-play-state:paused}
+.scene.in-view [class*="an-"]{animation-play-state:running}
+.an-draw{stroke-dasharray:var(--len,100);stroke-dashoffset:var(--len,100);animation:draw .9s ease-out forwards var(--d,0s)}
+@keyframes draw{to{stroke-dashoffset:0}}
+.an-fade{opacity:0;animation:fadein .6s ease-out forwards var(--d,0s)}
+@keyframes fadein{to{opacity:1}}
+.an-pop{opacity:0;transform-origin:center;animation:pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
+@keyframes pop{0%{opacity:0;transform:scale(.4)}100%{opacity:1;transform:scale(1)}}
+.an-pulse{animation:pulse 2s ease-in-out infinite var(--d,0s)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.32}}
+.an-pulse-warn{animation:pulsewarn 1.6s ease-in-out infinite var(--d,0s)}
+@keyframes pulsewarn{0%,100%{opacity:.5;r:5}50%{opacity:1;r:6.5}}
+
+/* worked examples */
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.4rem 0}
+.pcard{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.pcard h3{font-size:1.02rem;color:var(--bright);margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem}
+.pcard ul{list-style:none;margin:.5rem 0 0;padding:0}
+.pcard li{font-size:.85rem;color:var(--body);padding:.35rem 0;border-top:1px solid var(--border)}
+.pcard li:first-child{border-top:none}
+.pcard li span{color:var(--text);font-weight:400}
+.asof{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.04em}
+.taxo{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.84rem}
+.taxo th,.taxo td{padding:.6rem .8rem;border:1px solid var(--border);text-align:left;vertical-align:top}
+.taxo th{background:var(--bg-3);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase}
+.taxo td{color:var(--body)}
+.taxo td.vac{color:var(--gold)}
+.taxo-wrap{max-width:100%;overflow-x:auto}
+
+.note{background:var(--green-dim);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.warn-note{background:var(--gold-dim);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--muted);margin:2rem 0;font-family:'JetBrains Mono',monospace}
+footer{padding:2.4rem 0;color:var(--muted);font-size:.8rem}
+footer a{color:var(--body)}
+@media(max-width:680px){.pair{grid-template-columns:1fr}.wrap{padding:0 1.2rem}}
+@media (prefers-reduced-motion:reduce){
+  .scene [class*="an-"]{animation:none!important;animation-play-state:running!important}
+  .an-draw{stroke-dashoffset:0!important}
+  .an-fade,.an-pop{opacity:1!important;transform:none!important}
+}
+</style>
+</head>
+<body>
+<nav><div class="nav-in"><span class="brand"><span class="oc">OCG</span> Settlement Asset Lifecycle</span><a class="nav-spec" href="openchain-graph-spec.html">OCG Standard</a></div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; Settlement asset lifecycle</div>
+  <h1>Eight stages. Only one of them is the argument.</h1>
+  <p>Follow a unit of public money from issuance to attested reconciliation. Every stage below is common to a central bank digital currency and a reserve-backed stablecoin, with one exception: what actually backs the holder's claim. This deck is illustration-first &ndash; each panel's picture carries the idea, and the animation shows value moving, never decoration.</p>
+  <div class="thesis">The thesis: a CBDC and a reserve-backed stablecoin differ in exactly one stage of this lifecycle &ndash; backing &ndash; and are identical in the other seven. For a direct or two-tier CBDC the backing question is vacuous: the instrument is central bank money, so there is nothing to check. For a reserve-backed stablecoin, backing is a live question about a portfolio&rsquo;s composition, maturity and custody.</p>
+  <div class="legend" role="img" aria-label="Legend: teal means checked and passing, gold means an obligation or open item, red means a gap or shortfall, grey means a holder of value.">
+    <span><i class="pass"></i>checked / passing</span>
+    <span><i class="obl"></i>obligation / open item</span>
+    <span><i class="gap"></i>gap / break / stall</span>
+    <span><i class="hold"></i>a holder</span>
+  </div>
+</div></header>
+
+<!-- PANEL 1 -->
+<section class="panel" id="stage-1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">1</span><div><div class="kicker">Stage 1 &middot; The asset and its backing model</div><h2>Five ways to back a claim, and one of them is no backing at all</h2></div></div>
+  <p>Before any of the stages below run, the arrangement declares which kind of settlement asset it is moving. That declaration decides whether stage 1 checks anything at all.</p>
+  <div class="taxo-wrap"><table class="taxo" aria-label="Backing model taxonomy">
+    <thead><tr><th>Model</th><th>Whose liability</th><th>What backs the claim</th><th>Backing invariant</th></tr></thead>
+    <tbody>
+      <tr><td>Direct / one-tier CBDC</td><td>Central bank</td><td>Nothing &ndash; it is the money</td><td class="vac">Vacuous, no set to check</td></tr>
+      <tr><td>Two-tier / intermediated CBDC</td><td>Central bank</td><td>Still the central bank</td><td class="vac">Vacuous; the real controls are distribution and wallet tiering</td></tr>
+      <tr><td>Synthetic / pooled-account</td><td>The operator</td><td>Central bank money in an omnibus account, 1:1</td><td>Real, a single reconcilable number</td></tr>
+      <tr><td>Fiat-reserve-backed stablecoin</td><td>The issuer</td><td>A reserve portfolio (cash, short government paper)</td><td>Real, but not one number &ndash; maturity, credit and custody all bear on it</td></tr>
+      <tr><td>Tokenized deposit</td><td>A commercial bank</td><td>The bank&rsquo;s balance sheet</td><td>Not a segregated pool &ndash; the question is capital adequacy</td></tr>
+    </tbody>
+  </table></div>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 210" role="img" aria-label="Two backing models side by side: a CBDC box labeled vacuous with a dashed empty outline and no contents to check, next to a stablecoin box holding three distinct circles representing a cash-and-treasuries reserve portfolio that a receipt badge stamps as checked.">
+    <defs>
+      <symbol id="badge" viewBox="0 0 28 22"><path d="M2 3 h20 l4 4 v12 a2 2 0 0 1 -2 2 h-22 a2 2 0 0 1 -2 -2 v-14 a2 2 0 0 1 2 -2 z" fill="none" stroke="var(--teal)" stroke-width="1.6"/><path d="M8 12 l3.2 3.6 L20 8" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+    <text x="150" y="24" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="10">CBDC &ndash; direct / two-tier</text>
+    <rect x="40" y="36" width="220" height="120" rx="10" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <text x="150" y="100" text-anchor="middle" fill="var(--muted)" font-size="12">nothing to back</text>
+    <circle class="an-pulse" cx="150" cy="120" r="5" fill="var(--muted)" style="--d:.3s"/>
+    <text x="150" y="184" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">BACKING_NOT_APPLICABLE</text>
+
+    <text x="480" y="24" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="10">Fiat-reserve-backed stablecoin</text>
+    <rect x="370" y="36" width="220" height="120" rx="10" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/>
+    <circle class="an-pop" cx="425" cy="80" r="16" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:.6s"/>
+    <circle class="an-pop" cx="480" cy="105" r="16" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:.9s"/>
+    <circle class="an-pop" cx="535" cy="80" r="16" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:1.2s"/>
+    <text x="480" y="140" text-anchor="middle" fill="var(--body)" font-size="9">cash &middot; short paper &middot; custody</text>
+    <g class="an-fade" style="--d:1.6s"><use href="#badge" x="562" y="42" width="28" height="22"/></g>
+  </svg></div>
+  <p class="pull">The two models look the same from outside &ndash; both move a fungible unit of value between wallets. Only one of them has a portfolio behind it that can gain, lose, or be mispriced.</p>
+</div></section>
+
+<!-- PANEL 2 -->
+<section class="panel" id="stage-2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">2</span><div><div class="kicker">Stage 2 &middot; Backing invariant</div><h2>Backing is a property of the whole buffer set, never any one account</h2></div></div>
+  <p>Where a backing set exists, the arrangement holds it across some number of buffers &ndash; a reserve account, a partner rail, a treasury sleeve. That number is a property of the arrangement, not a fixed count of three: the invariant only holds across all of them added together.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 190" role="img" aria-label="Four buffers of different sizes, each drawing in with its own held value, enclosed by one dashed boundary around the entire set; a receipt badge stamps the boundary once the aggregate total is checked, not any single buffer.">
+    <rect class="an-draw" x="40" y="50" width="120" height="60" rx="8" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.4" style="--len:360;--d:.2s"/>
+    <rect class="an-draw" x="180" y="40" width="120" height="80" rx="8" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.4" style="--len:400;--d:.5s"/>
+    <rect class="an-draw" x="320" y="60" width="120" height="50" rx="8" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.4" style="--len:340;--d:.8s"/>
+    <rect class="an-draw" x="460" y="45" width="120" height="72" rx="8" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.4" style="--len:384;--d:1.1s"/>
+    <text x="100" y="85" text-anchor="middle" fill="var(--body)" font-size="10">buffer A</text>
+    <text x="240" y="85" text-anchor="middle" fill="var(--body)" font-size="10">buffer B</text>
+    <text x="380" y="90" text-anchor="middle" fill="var(--body)" font-size="10">buffer C</text>
+    <text x="520" y="86" text-anchor="middle" fill="var(--body)" font-size="10">buffer N</text>
+    <rect class="an-draw" x="24" y="24" width="592" height="112" rx="14" fill="none" stroke="var(--teal)" stroke-width="1.6" stroke-dasharray="6 5" style="--len:1420;--d:1.6s"/>
+    <g class="an-fade" style="--d:2.3s"><use href="#badge" x="596" y="10" width="28" height="22"/></g>
+    <text x="320" y="168" text-anchor="middle" fill="var(--teal-lt)" font-family="JetBrains Mono, monospace" font-size="9">sum(A..N) checked once, per movement</text>
+  </svg></div>
+  <p class="pull">A movement can leave the buffer set&rsquo;s grand total unchanged while its composition breaks &ndash; that is exactly the failure a per-account check cannot see and an aggregate check can.</p>
+  <span class="cite">art-521 &middot; backing invariant, N buffers</span>
+</div></section>
+
+<!-- PANEL 3 -->
+<section class="panel" id="stage-3"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">3</span><div><div class="kicker">Stage 3 &middot; Operating tension</div><h2>Thin, but never empty</h2></div></div>
+  <p>A buffer set is a cost as long as it sits idle, and a stall risk the moment it runs short. The computed floor is the line between the two &ndash; above it, capital is parked and earning nothing; below it, an incoming payment has nowhere to settle.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="A single buffer's fill level drawn against a computed floor line, with an idle-cost zone above the floor and a stall-risk zone below it; the fill level sits close to the floor and pulses amber as a warning.">
+    <rect x="60" y="20" width="90" height="120" rx="6" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/>
+    <rect class="an-draw" x="60" y="80" width="90" height="60" fill="var(--teal-dim)" style="--len:0"/>
+    <line x1="46" y1="98" x2="440" y2="98" stroke="var(--gold)" stroke-width="1.4" stroke-dasharray="5 4" class="an-draw" style="--len:400;--d:.4s"/>
+    <text x="460" y="102" fill="var(--gold)" font-size="10">computed floor</text>
+    <text x="105" y="45" text-anchor="middle" fill="var(--body)" font-size="9">idle cost</text>
+    <text x="105" y="125" text-anchor="middle" fill="var(--red)" font-size="9">stall risk</text>
+    <circle class="an-pulse-warn" cx="105" cy="86" r="5" fill="var(--warn)" style="--d:1s"/>
+  </svg></div>
+  <p class="pull">Neither zone is a recommendation. The panel states an invariant and a computed number; nothing here schedules a sweep or a top-up.</p>
+</div></section>
+
+<!-- PANEL 4 -->
+<section class="panel" id="stage-4"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">4</span><div><div class="kicker">Stage 4 &middot; Collect</div><h2>Collect, settling once across whichever rails exist</h2></div></div>
+  <p>Payers reach the operator over whatever rails an arrangement actually has &ndash; a real-time rail, a batch file, an offline tap. Each leg settles exactly once; the settle-once verdict is what the receipt records, not which rail carried it.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 180" role="img" aria-label="Three payer boxes on the left connected by drawing-in lines to one central holder box on the right, each line completing with a receipt badge marking a single settlement.">
+    <rect x="30" y="24" width="110" height="40" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="85" y="48" text-anchor="middle" fill="var(--body)" font-size="9">payer A</text>
+    <rect x="30" y="72" width="110" height="40" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="85" y="96" text-anchor="middle" fill="var(--body)" font-size="9">payer B (offline leg)</text>
+    <rect x="30" y="120" width="110" height="40" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="85" y="144" text-anchor="middle" fill="var(--body)" font-size="9">payer C</text>
+    <rect x="470" y="60" width="140" height="60" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><text x="540" y="94" text-anchor="middle" fill="var(--bright)" font-size="10">operator</text>
+    <path class="an-draw" d="M140 44 C 300 44, 380 80, 470 84" fill="none" stroke="var(--teal-lt)" stroke-width="1.6" style="--len:420;--d:.3s"/>
+    <path class="an-draw" d="M140 92 C 300 92, 380 92, 470 92" fill="none" stroke="var(--gold)" stroke-width="1.6" stroke-dasharray="6 4" style="--len:340;--d:.7s"/>
+    <path class="an-draw" d="M140 140 C 300 140, 380 100, 470 96" fill="none" stroke="var(--teal-lt)" stroke-width="1.6" style="--len:420;--d:1.1s"/>
+    <g class="an-fade" style="--d:1.7s"><use href="#badge" x="620" y="30" width="28" height="22"/></g>
+    <text x="330" y="150" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">offline leg: provisional until reconciled, never final on the spot</text>
+  </svg></div>
+</div></section>
+
+<!-- PANEL 5 -->
+<section class="panel" id="stage-5"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">5</span><div><div class="kicker">Stage 5 &middot; Net then cross</div><h2>Net first, then cross once</h2></div></div>
+  <p>Where a netting period exists, the many small flows collected in stage 4 are netted over that period first, and only the residual crosses a rail boundary. Where no netting period exists &ndash; some arrangements settle each payment individually by design &ndash; this stage is skipped, not forced.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="Six small arrows on the left collapsing and fading into one single larger arrow that crosses a dashed rail boundary once, carrying only the net residual.">
+    <g stroke="var(--muted)" stroke-width="1.4" fill="none">
+      <path class="an-fade" d="M40 30 h90" style="--d:.1s"/>
+      <path class="an-fade" d="M40 55 h90" style="--d:.25s"/>
+      <path class="an-fade" d="M40 80 h90" style="--d:.4s"/>
+      <path class="an-fade" d="M40 105 h90" style="--d:.55s"/>
+      <path class="an-fade" d="M40 130 h90" style="--d:.7s"/>
+    </g>
+    <line x1="290" y1="20" x2="290" y2="150" stroke="var(--border-2)" stroke-width="1.4" stroke-dasharray="6 5"/>
+    <text x="290" y="14" text-anchor="middle" fill="var(--body)" font-size="9">rail boundary</text>
+    <path class="an-draw" d="M170 90 h400" fill="none" stroke="var(--teal-lt)" stroke-width="2.4" marker-end="url(#arrow)" style="--len:430;--d:1.1s"/>
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--teal-lt)"/></marker></defs>
+    <text x="330" y="115" text-anchor="middle" fill="var(--teal-lt)" font-size="9">net residual, one crossing</text>
+    <text x="440" y="70" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">crossing count is the cost driver, not a schedule</text>
+  </svg></div>
+  <span class="cite">art-259 &middot; art-368 &middot; net the period, cross the residual</span>
+</div></section>
+
+<!-- PANEL 6 -->
+<section class="panel" id="stage-6"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">6</span><div><div class="kicker">Stage 6 &middot; Disburse</div><h2>Disburse in bulk and match the authorisation</h2></div></div>
+  <p>Salaries, pensions, social transfers and vendor payments go out as one bulk run. The run is internally consistent, and its total matches what was authorised, item by item and in aggregate.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 190" role="img" aria-label="One authorisation document on the left fanning out into five recipient boxes, four receiving a receipt badge and a fifth flagged in red because it cannot land inside its wallet's holding limit; a compare check confirms the disbursed total against the authorised total.">
+    <rect x="20" y="70" width="90" height="50" rx="6" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.4"/><text x="65" y="99" text-anchor="middle" fill="var(--gold)" font-size="9">authorised</text>
+    <g stroke="var(--muted)" stroke-width="1.4" fill="none">
+      <path class="an-draw" d="M110 90 C 200 30, 260 30, 330 30" style="--len:280;--d:.2s"/>
+      <path class="an-draw" d="M110 90 C 200 60, 260 60, 330 60" style="--len:250;--d:.4s"/>
+      <path class="an-draw" d="M110 90 C 200 90, 260 90, 330 90" style="--len:230;--d:.6s"/>
+      <path class="an-draw" d="M110 90 C 200 120, 260 120, 330 120" style="--len:250;--d:.8s"/>
+      <path class="an-draw" d="M110 90 C 200 150, 260 150, 330 150" style="--len:280;--d:1s"/>
+    </g>
+    <rect x="330" y="16" width="110" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.3s"><use href="#badge" x="446" y="20" width="20" height="16"/></g>
+    <rect x="330" y="46" width="110" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.4s"><use href="#badge" x="446" y="50" width="20" height="16"/></g>
+    <rect x="330" y="76" width="110" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.5s"><use href="#badge" x="446" y="80" width="20" height="16"/></g>
+    <rect x="330" y="106" width="110" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.6s"><use href="#badge" x="446" y="110" width="20" height="16"/></g>
+    <rect x="330" y="136" width="110" height="28" rx="6" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4"/><text x="385" y="154" text-anchor="middle" fill="var(--red)" font-size="8">wallet cap &ndash; cannot land</text>
+    <path class="an-fade" d="M500 90 h60" stroke="var(--body)" stroke-width="1.2" style="--d:1.9s"/>
+    <text x="580" y="86" fill="var(--teal-lt)" font-family="JetBrains Mono, monospace" font-size="9">total = authorised</text>
+  </svg></div>
+  <p class="pull">A tiered-wallet arrangement adds a failure mode this stage must recognise: a payment can be authorised, funded, and still unable to land because the receiving wallet is capped.</p>
+  <span class="cite">art-518 &middot; bulk disbursement integrity</span>
+</div></section>
+
+<!-- PANEL 7 -->
+<section class="panel" id="stage-7"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">7</span><div><div class="kicker">Stage 7 &middot; Reconcile</div><h2>Reconcile and attest</h2></div></div>
+  <p>The stated population is compared against what actually happened, over a stated window. Exceptions are named, not hidden inside a passing total, and the run itself &ndash; that it happened, over which population, with which exceptions &ndash; is attested.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="Two populations, declared and actual, compared by converging dashed lines; most items match in teal, one exception is called out in red, and a receipt badge stamps the attestation once the comparison completes.">
+    <rect x="40" y="24" width="160" height="120" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="120" y="16" text-anchor="middle" fill="var(--body)" font-size="9">declared population</text>
+    <rect x="440" y="24" width="160" height="120" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="520" y="16" text-anchor="middle" fill="var(--body)" font-size="9">actual, over the window</text>
+    <g class="an-draw" stroke="var(--teal-lt)" stroke-width="1.4" stroke-dasharray="4 4" fill="none">
+      <path d="M200 45 h240" style="--len:240;--d:.2s"/>
+      <path d="M200 75 h240" style="--len:240;--d:.4s"/>
+      <path d="M200 135 h240" style="--len:240;--d:.8s"/>
+    </g>
+    <path class="an-draw" d="M200 105 h240" stroke="var(--red)" stroke-width="1.6" stroke-dasharray="3 3" fill="none" style="--len:240;--d:.6s"/>
+    <text x="320" y="100" text-anchor="middle" fill="var(--red)" font-size="8">exception, named</text>
+    <g class="an-fade" style="--d:1.4s"><use href="#badge" x="606" y="10" width="28" height="22"/></g>
+  </svg></div>
+  <span class="cite">art-516 &middot; daily reconciliation attestation</span>
+</div></section>
+
+<!-- PANEL 8 -->
+<section class="panel" id="stage-8"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">8</span><div><div class="kicker">Stage 8 &middot; Controls</div><h2>An unbroken trail, duties kept separate</h2></div></div>
+  <p>The last stage evidences the controls around every stage above: a log covering transactions and administrator activity that has no gap, and a check that duties which must stay separate actually are &ndash; the person who can post a disbursement is not the same identity who can approve it.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 160" role="img" aria-label="A chain of five linked receipt badges with no gap between them, representing an unbroken audit trail, alongside two role boxes divided by a dashed separation boundary showing duties kept apart.">
+    <g class="an-fade" style="--d:.2s"><use href="#badge" x="30" y="20" width="26" height="20"/></g>
+    <g class="an-fade" style="--d:.5s"><use href="#badge" x="80" y="20" width="26" height="20"/></g>
+    <g class="an-fade" style="--d:.8s"><use href="#badge" x="130" y="20" width="26" height="20"/></g>
+    <g class="an-fade" style="--d:1.1s"><use href="#badge" x="180" y="20" width="26" height="20"/></g>
+    <g class="an-fade" style="--d:1.4s"><use href="#badge" x="230" y="20" width="26" height="20"/></g>
+    <path class="an-draw" d="M56 30 h174" stroke="var(--border-2)" stroke-width="1.2" fill="none" style="--len:174;--d:1.7s"/>
+    <text x="150" y="70" text-anchor="middle" fill="var(--teal-lt)" font-size="9">no gap, transactions and admin activity both covered</text>
+    <rect x="360" y="20" width="110" height="90" rx="8" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="415" y="70" text-anchor="middle" fill="var(--body)" font-size="10">poster</text>
+    <line x1="480" y1="10" x2="480" y2="120" stroke="var(--gold)" stroke-width="1.4" stroke-dasharray="5 4" class="an-draw" style="--len:110;--d:1.9s"/>
+    <rect x="490" y="20" width="110" height="90" rx="8" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="545" y="70" text-anchor="middle" fill="var(--body)" font-size="10">approver</text>
+    <text x="480" y="140" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">duties separated, checked by identity</text>
+  </svg></div>
+  <span class="cite">art-517 &middot; audit-trail completeness &middot; art-459-sod-matrix-check &middot; segregation of duties</span>
+</div></section>
+
+<section class="panel"><div class="wrap">
+  <div class="kicker">Chain</div>
+  <h2>The whole spine, one composed chain</h2>
+  <p>All eight stages above are wired as a single composed OpenChainGraph chain, <code>government-payment-lifecycle</code>: <code>art-521</code> (backing, with <code>art-06</code>/<code>art-512</code>/<code>art-280</code> supplying reserve facts only where the settlement asset is issuer-reserve-backed) &rarr; <code>art-513</code> (collect) &rarr; <code>art-259</code>/<code>art-368</code> (net then cross) &rarr; <code>art-518</code> (disburse) &rarr; <code>art-516</code> (reconcile) &rarr; <code>art-517</code> + <code>art-459-sod-matrix-check</code> (controls). The settlement asset is a declared parameter on the same chain, not a second chain &ndash; the same wiring runs a centrally-issued asset and a reserve-backed one, and only the backing branch differs.</p>
+</div></section>
+
+<!-- WORKED EXAMPLES -->
+<section class="panel"><div class="wrap">
+  <div class="kicker">Worked examples &middot; illustration only, never endorsement</div>
+  <h2>Two named schemes, on opposite ends of the taxonomy</h2>
+  <p>Naming a real scheme here is illustration of how a model actually works, not a claim about any procurement, bidder, or issuer. Every fact below is dated; check the source before relying on it, since limits, tiers and reserve rules change.</p>
+  <div class="pair">
+    <div class="pcard">
+      <h3>Bahamas Sand Dollar <span class="cite">two-tier CBDC</span></h3>
+      <ul>
+        <li><span>Backing:</span> a direct liability of the Central Bank of The Bahamas &ndash; vacuous by the taxonomy above, nothing to reconcile against a reserve.</li>
+        <li><span>Wallet tiers:</span> a three-tier structure with rising holding and transaction limits by KYC depth, from a basic no-KYC tier up to unlimited business wallets.</li>
+        <li><span>Offline capability:</span> designed to keep working across inter-island communication gaps, with a pre-set value ceiling on payments made while offline.</li>
+        <li><span>Redemption:</span> a direct central bank liability circulating alongside cash, not redeemed through a reserve-portfolio unwind.</li>
+      </ul>
+      <p class="asof">As of 2026-08-02, per the Central Bank of The Bahamas and <a href="https://www.sanddollar.bs/individual" target="_blank" rel="noopener">sanddollar.bs</a>.</p>
+    </div>
+    <div class="pcard">
+      <h3>USDC <span class="cite">fiat-reserve-backed stablecoin</span></h3>
+      <ul>
+        <li><span>Backing:</span> a reserve portfolio held in cash at regulated US banks and short-dated US Treasuries inside a registered government money market fund &ndash; real backing, and a portfolio question, not a single number.</li>
+        <li><span>Composition:</span> weighted toward short-dated Treasuries with the remainder in cash, plus overnight Treasury repo capacity.</li>
+        <li><span>Offline capability:</span> none by design &ndash; every transfer is an on-chain, ledger-visible event.</li>
+        <li><span>Redemption:</span> same-day or next-day, through the issuer's approved institutional channels, not a direct central-bank queue.</li>
+      </ul>
+      <p class="asof">As of 2026-08-02, per <a href="https://www.circle.com/transparency" target="_blank" rel="noopener">circle.com/transparency</a>.</p>
+    </div>
+  </div>
+  <p>Set side by side, the pair shows the whole span the taxonomy covers: one model where the backing invariant does not exist because the instrument is already central bank money, and one where it is a live, portfolio-level question that changes with market conditions.</p>
+</div></section>
+
+<section class="panel"><div class="wrap">
+  <div class="kicker">Honest posture</div>
+  <h2>What this evidences, and what it does not</h2>
+  <p>Every stage above computes over inputs the caller declares. The receipt chain evidences that the computation ran correctly over those declared inputs &ndash; it says nothing about whether the declarations were true. The backing panel is the sharpest case: it evidences that a declared set of balances satisfies a declared invariant, not that the money is actually sitting in the accounts named.</p>
+  <div class="warn-note">A holding-limit or tiered-wallet arrangement, an offline capability, and a redemption path each change stages beyond backing &ndash; a capped wallet can turn a valid disbursement into one that cannot land, and an offline leg is provisional until reconciled, never final the instant it happens.</div>
+</div></section>
+
+<div class="wrap">
+  <p class="pii">All content on this page is static and processed locally in your browser. No data is transmitted. Do not enter real personal data into any OpenChainGraph tool. Use synthetic or anonymised inputs only.</p>
+  <footer>
+    OpenChainGraph is an open standard by <a href="https://ainumbers.co">Post Oak Labs</a>, CC BY 4.0.
+    Read more at the <a href="education-hub.html">education hub</a>.
+  </footer>
+</div>
+
+<script>
+(function(){
+  var scenes = document.querySelectorAll('.scene');
+  if (!('IntersectionObserver' in window)) { scenes.forEach(function(s){ s.classList.add('in-view'); }); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.2 });
+  scenes.forEach(function(s){ io.observe(s); });
+})();
+</script>
+</body>
+</html>
