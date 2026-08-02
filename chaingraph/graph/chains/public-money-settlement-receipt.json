@@ -1,0 +1,60 @@
+{
+      "name": "public-money-settlement-receipt",
+      "domain": "Government & Public-Sector Payments",
+      "title": "Public-Money Settlement Receipt",
+      "description": "A payment of public money reconciles from payer to the correct government revenue line (art-513), with its finality (art-492) and settlement-asset legal-finality class (art-59) classified. Where the receipt actually declares a settlement currency, a multi-currency PvP atomicity check runs (511); where that PvP leg is not itself a Canton/DLT-native leg, an ISO 20022 address-migration check runs on the messaging leg (rca-03). GATED (OCG Standard v0.8 §21.4): gate 1 on art-513's own /currency (a receipt with no declared currency has nothing further to classify or PvP-check, so the automated path ends); gate 2 on 511's own /has_canton_leg (a Canton-native PvP leg does not carry an ISO 20022 message, so rca-03 does not apply). Portable to any government payment platform, any treasury-single-account regime, any supreme audit institution -- not specific to any one jurisdiction, ministry or vendor.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/public-money-settlement-receipt.html",
+      "regulatory_refs": [
+        "CPMI-IOSCO PFMI Principle 12 (PvP settlement)",
+        "EU Settlement Finality Directive 98/26/EC",
+        "UCC Article 12 (controllable electronic records, 2022 amendments)",
+        "ISO 20022 pacs.008.001.10"
+      ],
+      "regulatory_basis_status": "not_assessed",
+      "regulatory_basis_decided_by": "INBOUND-PMR-CHAIN-1",
+      "regulatory_basis_decided_at": "2026-08-01",
+      "steps": [
+        {
+          "tool_id": "art-513-public-money-settlement-receipt",
+          "handoff": "Single-settlement, attribution and at-par verdicts. Gate: a declared /currency continues to finality classification; no declared currency means there is nothing further to classify, and the automated path ends.",
+          "gate": {
+            "input": "/currency",
+            "rules": [
+              {
+                "op": "neq",
+                "value": null,
+                "next": "art-492-classify-settlement-finality"
+              }
+            ],
+            "default": "end"
+          }
+        },
+        {
+          "tool_id": "art-492-classify-settlement-finality",
+          "handoff": "Rail-agnostic settlement-finality tier feeds the settlement-asset legal-finality classification."
+        },
+        {
+          "tool_id": "art-59-settlement-asset-finality-classifier",
+          "handoff": "Settlement-asset legal-finality tier and singleness verdict feed the multi-currency PvP check."
+        },
+        {
+          "tool_id": "511-multi-currency-pvp-validator",
+          "handoff": "PFMI Principle 12 atomicity and Herstatt-risk verdict for the currency leg. Gate: a Canton/DLT-native leg carries no ISO 20022 message and ends here; any other leg continues to the address-migration check.",
+          "gate": {
+            "input": "/has_canton_leg",
+            "rules": [
+              {
+                "op": "eq",
+                "value": true,
+                "next": "end"
+              }
+            ],
+            "default": "rca-03-iso20022-address-migration-verifier"
+          }
+        },
+        {
+          "tool_id": "rca-03-iso20022-address-migration-verifier",
+          "handoff": "ISO 20022 pacs.008 Nov-2026 address-field readiness verdict for the messaging leg -- final stage."
+        }
+      ]
+    }
