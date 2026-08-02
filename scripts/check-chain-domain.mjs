@@ -51,6 +51,12 @@ const DOMAIN_ENUM = new Set([
   'Insurance & Reinsurance',
   'Open Banking / Open Finance',
   'Post-Quantum Cryptography',
+  // ASSEMBLE-LAND-20 (2026-08-02, Tim-authorized fence widening): the INBOUND wave landed two
+  // public-sector chains (public-money-settlement-receipt, government-payment-lifecycle) whose
+  // subject is a government's own disbursement/settlement duty. No existing value covers it —
+  // the nearest ('Cross-Border & Instant Payments') would mis-tag them in the hub permanently —
+  // so a genuinely new category is added here first, per this file's own convention above.
+  'Public Finance & Government Payments',
   'SME & Commercial Finance',
   'Sanctions',
   'Securities Settlement',
