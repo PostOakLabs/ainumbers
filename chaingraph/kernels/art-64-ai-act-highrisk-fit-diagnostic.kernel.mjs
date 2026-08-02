@@ -57,7 +57,9 @@ const S = {
   fria_status:                  { complete: 4, partial: 2, 'not-started': 0 },
   post_market_monitoring:       { defined: 4, partial: 2, none: 0 },
   // Governance maturity
-  model_risk_framework:         { 'SR-11-7-aligned': 4, partial: 2, none: 0 },
+  // SR 26-2 superseded SR 11-7 on 2026-04-17. Both keys score identically:
+  // 'SR-11-7-aligned' is retained so pre-supersession inputs stay valid.
+  model_risk_framework:         { 'SR-26-2-aligned': 4, 'SR-11-7-aligned': 4, partial: 2, none: 0 },
 };
 
 const pick   = (t, v, d = 0) => (v in t ? t[v] : d);
