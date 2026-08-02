@@ -19,8 +19,10 @@ export const meta = {
 //
 // Regulatory hook: EU AI Act (Reg. 2024/1689) Art 10 (data and data
 // governance) + Annex IV 2(d) (technical documentation: data provenance,
-// collection, labelling, cleaning); SR 11-7 model risk management data
+// collection, labelling, cleaning); SR 26-2 model risk management data
 // lineage / model inventory practice (US domestic analog, no EU-only claim).
+// SR 26-2 superseded SR 11-7 on 2026-04-17; SR 11-7 is named throughout as
+// the historical predecessor that governed this practice before that date.
 // This kernel documents dataset lineage; it does NOT validate dataset
 // quality, bias, or representativeness -- those remain firm judgment calls
 // outside a deterministic kernel's boundary.
@@ -123,7 +125,7 @@ export function compute(pp) {
     checks,
     zero_pii_notice: 'dataset_id and source_dataset_ids are STRUCTURAL catalog identifiers only. This kernel never ingests, stores, or echoes dataset contents -- zero PII by construction.',
     scope_note: 'Documents dataset lineage and governance metadata for a training run. Does NOT validate dataset quality, bias, or representativeness -- those remain a firm judgment call outside this kernel\'s deterministic boundary.',
-    regulatory_basis: 'EU AI Act (Reg. 2024/1689) Art 10 (data and data governance), Annex IV 2(d) (technical documentation: data provenance, collection, labelling, cleaning); SR 11-7 model risk management data-lineage practice (US domestic analog)',
+    regulatory_basis: 'EU AI Act (Reg. 2024/1689) Art 10 (data and data governance), Annex IV 2(d) (technical documentation: data provenance, collection, labelling, cleaning); SR 26-2 model risk management data-lineage practice (US domestic analog; supersedes SR 11-7 from 2026-04-17)',
     table_version: 'EU-AIA-ART10-2024-1689-R1',
   };
 
