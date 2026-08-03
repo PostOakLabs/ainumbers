@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Case-File Binder Verifier · AINumbers.co</title>
+<meta name="description" content="Verify a case-file binder manifest's eddsa-jcs-2022 signature, recompute its Merkle root, and per-entry-check what the binder committed to — without ever claiming to re-verify a Helm bundle's internals. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/575-casefile-binder-verifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Case-File Binder Verifier","url":"https://ainumbers.co/tools/575-casefile-binder-verifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "casefile-binder-verifier",
+  "version": "1.0.0",
+  "title": "Case-File Binder Verifier",
+  "description": "Verifies a case-file binder manifest's eddsa-jcs-2022 signature, recomputes its Merkle root over entries, and offers per-entry digest checks against a pasted referenced receipt (disclosure manifest, OCG artifact, chain composite). Never claims to re-verify a Helm bundle or anchor proof's internals — surfaces the entry's verify_hint instead.",
+  "category": "cat-31",
+  "tags": ["case file","binder","evidence index","verifier","merkle inclusion","examiner","disclosure manifest"],
+  "audience": ["engagement partner","examiner","compliance","deal counsel","engineer"],
+  "input_schema": {"type":"object","properties":{"binder":{"type":"object"}},"required":["binder"]},
+  "output_schema": {"type":"object","properties":{"signature_valid":{"type":"boolean"},"merkle_root_valid":{"type":"boolean"},"entry_checks":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"verify_casefile_binder","description":"Verifies a case-file binder manifest's signature and recomputes its Merkle root over the caller-supplied entries list.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"The case-file binder manifest to verify"}},"required":["binder"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/575-casefile-binder-verifier.html","function_name":"loadBinder","timeout_ms":5000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:block}
+.panel-row{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel-row textarea,.panel-row input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .6rem;border-radius:4px;outline:none;width:100%}
+.panel-row textarea:focus,.panel-row input:focus{border-color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.ghost-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.ghost-btn:hover{border-color:var(--purple);color:var(--purple)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.verdict.neutral{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.hashbox{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.6rem .75rem;margin-top:.5rem}
+.stat-row{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat{display:flex;flex-direction:column;gap:.2rem}
+.stat-v{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.stat-l{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.entry-check{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:.75rem}
+.entry-check-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.4rem}
+.kind-tag{font-size:.56rem;padding:.12rem .5rem;border-radius:3px;border:1px solid var(--border-2);color:var(--purple-lt)}
+.hint-note{font-size:.62rem;color:var(--muted)}
+.paste-row{display:flex;gap:.5rem;align-items:flex-start;margin-top:.5rem}
+.paste-row textarea{flex:1;font-size:.6rem}
+.exclusion-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-3);border-left:3px solid var(--warn);border-radius:4px}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>Case-File Binder Verifier</span></div>
+    <div class="nav-right"><a href="574-casefile-binder-composer.html" class="nav-cta">Composer &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-31 · Data Room Diligence</div>
+  <h1 class="tool-title">Case-File Binder Verifier</h1>
+  <p class="hero-desc">Paste a case-file binder manifest to verify its signature and recompute its Merkle root over entries. For each entry, paste the referenced receipt alongside it to check its digest against what the binder committed to. The verifier never claims to independently re-verify a Helm bundle's or anchor proof's internals.</p>
+  <div class="disclaimer">&#9888; A binder is only as trustworthy as the entries it lists. This tool confirms the binder's own signature and Merkle root are internally consistent, and that any pasted referenced receipt's digest matches the committed entry. It does NOT independently prove the referenced receipt itself is correct beyond what its own dedicated verifier (547, a chain composite recompute, Helm's embedded verifier, or the anchor service) already checks.</div>
+  <div class="hero-badges">
+    <span class="badge badge-purple">Signature Check</span>
+    <span class="badge badge-gold">Merkle Root</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <span class="panel-label">Binder</span>
+    <div class="panel-row"><label for="binderInput">Paste the case-file binder manifest JSON</label><textarea id="binderInput" rows="6" placeholder="Paste a binder produced by the Case-File Binder Composer"></textarea></div>
+    <div style="display:flex;gap:.75rem;align-items:center">
+      <button class="run-btn" onclick="loadBinder()">&#9654; Load Binder</button>
+      <span id="binderStatus" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="574-casefile-binder-composer.html">Binder Composer</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+async function __ocgSha256Hex(bytesOrStr){var b=typeof bytesOrStr==='string'?new TextEncoder().encode(bytesOrStr):bytesOrStr;var d=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 verify path (OCG §16). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_proof.mjs. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgVerify=verify;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+var MANIFEST = {"tool_id":"casefile-binder-verifier","version":"1.0.0","title":"Case-File Binder Verifier","description":"Verifies a case-file binder manifest's eddsa-jcs-2022 signature, recomputes its Merkle root over entries, and offers per-entry digest checks against a pasted referenced receipt (disclosure manifest, OCG artifact, chain composite). Never claims to re-verify a Helm bundle or anchor proof's internals — surfaces the entry's verify_hint instead.","category":"cat-31","tags":["case file","binder","evidence index","verifier","merkle inclusion","examiner","disclosure manifest"],"audience":["engagement partner","examiner","compliance","deal counsel","engineer"],"input_schema":{"type":"object","properties":{"binder":{"type":"object"}},"required":["binder"]},"output_schema":{"type":"object","properties":{"signature_valid":{"type":"boolean"},"merkle_root_valid":{"type":"boolean"},"entry_checks":{"type":"array"}}},"mcp_tool_definition":{"name":"verify_casefile_binder","description":"Verifies a case-file binder manifest's signature and recomputes its Merkle root over the caller-supplied entries list.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"The case-file binder manifest to verify"}},"required":["binder"]}},"execution":{"type":"browser-javascript","entry":"tools/575-casefile-binder-verifier.html","function_name":"loadBinder","timeout_ms":5000},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+var _binder = null;
+
+function loadBinder(){
+  var raw = document.getElementById('binderInput').value.trim();
+  var statusEl = document.getElementById('binderStatus');
+  if(!raw){ statusEl.textContent='No binder pasted.'; statusEl.style.color='var(--red)'; return; }
+  try{
+    var b = JSON.parse(raw);
+    if(b.schema !== 'ainumbers-casefile-binder-v1'){ throw new Error('schema is not ainumbers-casefile-binder-v1'); }
+    // entries ABSENT (malformed) vs entries:[] (a valid zero-entry binder) are distinct states — do not collapse them.
+    if(!('entries' in b)){ throw new Error('missing entries key (an empty binder must still carry entries:[])'); }
+    if(!Array.isArray(b.entries)){ throw new Error('entries is present but not an array'); }
+    if(!b.merkle_root){ throw new Error('missing merkle_root'); }
+    _binder = b;
+    statusEl.textContent = 'Loaded: '+(b.engagement_label||'untitled')+' v'+(b.version||'?')+' — '+b.entries.length+' entry(ies)';
+    statusEl.style.color='var(--green)';
+    renderBinder(b);
+  }catch(e){
+    _binder = null;
+    statusEl.textContent = 'Invalid binder: '+e.message;
+    statusEl.style.color='var(--red)';
+    document.getElementById('outputSection').innerHTML='';
+  }
+}
+
+/* identical Merkle scheme to the Composer: sha256(kind|digest|ref_label), duplicate-last on odd level */
+async function merkleRoot(entries){
+  if(entries.length===0) return await __ocgSha256Hex('EMPTY');
+  var level=[];
+  for(var i=0;i<entries.length;i++){
+    level.push(await __ocgSha256Hex(entries[i].kind+'|'+entries[i].digest+'|'+entries[i].ref_label));
+  }
+  while(level.length>1){
+    var next=[];
+    for(var j=0;j<level.length;j+=2){ var l=level[j], r=(j+1<level.length)?level[j+1]:level[j]; next.push(await __ocgSha256Hex(l+r)); }
+    level=next;
+  }
+  return level[0];
+}
+
+async function renderBinder(b){
+  var out = document.getElementById('outputSection');
+
+  // signature
+  var sigHtml;
+  var proof = b.audit_signature && b.audit_signature.proof;
+  if(!proof){
+    sigHtml = '<div class="verdict fail">No §16 signature present on this binder.</div>';
+  } else {
+    try{
+      var pub = await __ocgPubFromDidKey(proof.verificationMethod);
+      var ok = await __ocgVerify(b, pub);
+      sigHtml = '<div class="verdict '+(ok?'pass':'fail')+'">'+(ok?'✓ eddsa-jcs-2022 signature valid':'✗ signature invalid / tampered')+'</div><div class="hashbox">'+proof.verificationMethod+'</div>';
+    }catch(e){
+      sigHtml = '<div class="verdict fail">✗ could not verify signature: '+e.message+'</div>';
+    }
+  }
+
+  // merkle root
+  var computedRoot = 'sha256:' + await merkleRoot(b.entries);
+  var rootOk = computedRoot === b.merkle_root;
+  var rootHtml = '<div class="verdict '+(rootOk?'pass':'fail')+'">'+(rootOk?'✓ Merkle root matches recomputed entries':'✗ Merkle root MISMATCH — binder entries do not hash to the stated root')+'</div>'
+    + '<div class="hashbox">recomputed: '+computedRoot+'</div>'
+    + '<div class="hashbox">stated: '+b.merkle_root+'</div>';
+
+  out.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Binder Signature</span></div><div class="out-body">'+sigHtml+'</div></div>'
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Merkle Root</span></div><div class="out-body">'
+    + '<div class="stat-row"><div class="stat"><div class="stat-v">'+b.entry_count+'</div><div class="stat-l">Entry Count</div></div><div class="stat"><div class="stat-v">v'+(b.version||'?')+'</div><div class="stat-l">Version</div></div></div>'
+    + rootHtml + '</div></div>'
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Per-Entry Checks</span></div><div class="out-body" id="entryChecks"></div></div>';
+
+  renderEntryChecks(b.entries);
+}
+
+function renderEntryChecks(entries){
+  var el = document.getElementById('entryChecks');
+  if(entries.length===0){
+    el.innerHTML = '<div class="exclusion-note">This binder carries zero entries (a valid, empty case file) — nothing to check yet.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(function(e,i){
+    return '<div class="entry-check">'
+      + '<div class="entry-check-top"><span class="kind-tag">'+escHtml(e.kind)+'</span><strong>'+escHtml(e.ref_label)+'</strong></div>'
+      + '<div class="hashbox">'+escHtml(e.digest)+'</div>'
+      + '<div class="hint-note">Verify hint: '+escHtml(e.verify_hint||'(none stated)')+'</div>'
+      + (e.kind==='helm_bundle' ? '<div class="exclusion-note">Helm bundle entries are recorded by digest only. This verifier does NOT and cannot re-verify a Helm bundle\'s internals — open it in Helm\'s own embedded verifier.</div>' : '')
+      + (e.kind==='anchor_proof' ? '<div class="exclusion-note">Anchor proofs are structural signposts here. Confirm inclusion against the anchor service\'s own trust root at anchor.ainumbers.co.</div>' : '')
+      + '<div class="paste-row">'
+        + '<textarea id="refPaste'+i+'" rows="2" placeholder="Optionally paste the referenced receipt JSON here to check its digest against this entry"></textarea>'
+        + '<button class="ghost-btn" onclick="checkEntry('+i+')">Check</button>'
+      + '</div>'
+      + '<div id="refResult'+i+'"></div>'
+      + '</div>';
+  }).join('');
+}
+
+/* Confirms the pasted receipt's own digest matches what the binder committed to for this entry.
+   This is a digest-match check, not an independent recompute of the receipt's own hash machinery —
+   §13 "view, not fact" posture, applied at entry level. For disclosure_manifest entries it additionally
+   re-runs 547's own signature check in-page (reused, not reimplemented) since that logic is already loaded here. */
+async function checkEntry(i){
+  var entry = _binder.entries[i];
+  var raw = document.getElementById('refPaste'+i).value.trim();
+  var resEl = document.getElementById('refResult'+i);
+  if(!raw){ resEl.innerHTML = '<div class="verdict neutral">No receipt pasted — nothing to check.</div>'; return; }
+  var parsed;
+  try{ parsed = JSON.parse(raw); }catch(e){ resEl.innerHTML = '<div class="verdict fail">✗ Not valid JSON.</div>'; return; }
+
+  var candidateDigest = null;
+  if(entry.kind==='disclosure_manifest') candidateDigest = parsed.merkle_root;
+  else if(entry.kind==='helm_bundle') candidateDigest = parsed.journal_root_digest;
+  else if(entry.kind==='anchor_proof') candidateDigest = parsed.anchored_hash;
+  else candidateDigest = parsed.execution_hash; // ocg_artifact / chain_composite
+
+  var digestMatch = candidateDigest === entry.digest;
+  var html = '<div class="verdict '+(digestMatch?'pass':'fail')+'">'+(digestMatch?'✓ Pasted receipt\'s digest matches this binder entry.':'✗ Digest does NOT match — either the wrong receipt was pasted, or the binder entry is stale.')+'</div>';
+
+  if(entry.kind==='disclosure_manifest' && parsed.audit_signature && parsed.audit_signature.proof){
+    try{
+      var pub = await __ocgPubFromDidKey(parsed.audit_signature.proof.verificationMethod);
+      var ok = await __ocgVerify(parsed, pub);
+      html += '<div class="verdict '+(ok?'pass':'fail')+'" style="margin-top:.5rem">'+(ok?'✓ Referenced manifest\'s own eddsa-jcs-2022 signature is valid.':'✗ Referenced manifest\'s signature is invalid.')+'</div>';
+    }catch(e){ html += '<div class="verdict fail" style="margin-top:.5rem">✗ Could not verify referenced manifest signature: '+e.message+'</div>'; }
+  }
+
+  resEl.innerHTML = html;
+}
+</script>
+</body>
+</html>
