@@ -28,7 +28,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** `art-198-rights-matrix-comparator` _(not live)_
+**Consumes:** [Cross-License Rights Comparator](./art-198-cross-license-rights-comparator.md)
 
 **Feeds:** [License Compatibility Checker](./art-204-license-compatibility-checker.md)
 
