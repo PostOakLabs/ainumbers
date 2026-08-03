@@ -45,6 +45,7 @@ button:hover{opacity:.9}
 .stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
 .stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
 .results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
 .verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
 .verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
@@ -160,6 +161,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <div class="results-panel" id="resultsPanel">
     <div class="card">
       <div id="verdictBox" class="verdict-box"></div>
+      <div class="generated-at" id="generatedAt"></div>
       <div class="stat-row" id="statRow"></div>
 
       <div class="section-head" style="margin-top:14px">Check results</div>
@@ -371,7 +373,8 @@ async function runGate(){
 
   var pp = { rc_output_payload: rc, rcr_output_payload: rcr, rounding_tolerance_usd: safeNum(document.getElementById('tolInput').value, 1) };
   var op = compute(pp);
-  _lastResult = { pp: pp, output_payload: op };
+  var generatedAt = new Date().toISOString();
+  _lastResult = { pp: pp, output_payload: op, generatedAt: generatedAt };
 
   var pass = op.gate_status === 'auto_pass';
   var color = pass ? 'var(--green)' : 'var(--red)';
@@ -379,6 +382,7 @@ async function runGate(){
   var vBox = document.getElementById('verdictBox');
   vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
   vBox.textContent = op.gate_status.toUpperCase();
+  document.getElementById('generatedAt').textContent = 'generated_at ' + generatedAt;
 
   document.getElementById('statRow').innerHTML =
     '<div class="stat"><span class="stat-val">' + op.check_count + '</span><span class="stat-key">Checks Run</span></div>' +
@@ -407,7 +411,7 @@ function verifyHash(){
 function exportArtifact(){
   if (!_lastResult) return;
   var hash = document.getElementById('execHashBox').textContent || 'pending';
-  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'regulatory_reporting',tool_id:'art-434-call-report-edit-check-gate',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:[],compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'regulatory_reporting',tool_id:'art-434-call-report-edit-check-gate',tool_version:'1.0.0',generated_at:_lastResult.generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:[],compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';
