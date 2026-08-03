@@ -524,7 +524,37 @@ addDisRow(); addDisRow();
 </script>
 
 <script>
-(function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'||el.type==='date'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
+(function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'||el.type==='date'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}function apSendToVerify(){
+  function _n(msg){try{if(typeof notice==='function'){notice(msg);return;}}catch(e){}try{console.log('[AIN Bridge] '+msg);}catch(e2){}}
+  var m=null;try{if(window.AIN_BUILD_MANDATE)m=window.AIN_BUILD_MANDATE();}catch(e){}
+  if(!m)m=window._currentMandate||null;
+  if(!m){_n('No Policy Mandate to send \u2014 run the tool first.');return;}
+  var json;try{json=JSON.stringify(m);}catch(e){_n('Could not serialize the mandate: '+e.message);return;}
+  if(json.length>2000000){_n('Too large to hand off ('+json.length+' chars).');return;}
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){_n('The verifier window was blocked. Allow pop-ups for this site.');return;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    _n('Sent to the Artifact Verifier in the new tab.');
+  }
+  window.addEventListener('message',onReady);
+  _n('Opening the Artifact Verifier\u2026');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    _n('The verifier did not answer. Export the mandate and paste it in.');
+  },10000);
+}
+window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG,sendToVerify:apSendToVerify};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
 </script>
 <script>
 var MANIFEST = {

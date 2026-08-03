@@ -389,7 +389,7 @@ var MANIFEST = JSON.parse('{"tool_id":"528-nft-metadata-validator","version":"1.
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 </script>
 
-<!-- AIN Bridge v1.0 -->
+<!-- AIN Bridge v1.1 -->
 <script>window.AIN_BRIDGE_CFG={runFn:'runValidate',intake:false,intakeTarget:null,intakeAnchor:null};</script>
 <script>
 (function(){
@@ -399,7 +399,37 @@ function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+=
 function applyFields(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;el.value=String(fields[id]);try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}
 function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
 function initPrefill(){var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;var n=applyFields(fields);if(n>0&&/[#&]run=1/.test(h))runTool();}
-window.AINBridge={version:'1.0',apply:applyFields,run:runTool};
+var HANDOFF_MAX_CHARS=2000000;
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('\u26a0 No Policy Mandate to send \u2014 run the tool first.','warn');return;}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('\u26a0 Could not serialize the mandate: '+e.message,'warn');return;}
+  if(json.length>HANDOFF_MAX_CHARS){notice('\u26a0 Too large to hand off ('+json.length+' chars).','warn');return;}
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('\u26a0 The verifier window was blocked. Allow pop-ups for this site.','warn');return;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('\u27a1 Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier\u2026','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('\u26a0 The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+}
+window.AINBridge={
+  version:'1.1',apply:applyFields,run:runTool};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initPrefill);else initPrefill();
 })();
 </script>
