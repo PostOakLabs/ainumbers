@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Public-Money Evidence, an OpenChainGraph Explainer</title>
+<meta name="description" content="When the full record of a public payment lives inside the operator's own system, what can an outside audit authority actually verify? An animated, panel-by-panel walk through seven independent questions -- settlement, attribution, reconciliation, the audit trail, bulk-run authorisation, migration completeness, and operator exit -- mapped to shipped OpenChainGraph nodes. Client-side, zero-egress.">
+<meta name="author" content="Post Oak Labs">
+<meta name="ocg-spec-version" content="0.8.8">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/public-money-evidence-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Public-Money Evidence, an OpenChainGraph Explainer",
+  "description": "When the full record of a public payment lives inside the operator's own system, what can an outside audit authority actually verify -- walked across seven independent questions and mapped to shipped OpenChainGraph nodes.",
+  "author": { "@type": "Organization", "name": "Post Oak Labs" },
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
+  "about": { "@type": "Thing", "name": "OpenChainGraph public-money settlement evidence" }
+}
+</script>
+<style>
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--teal-lt);outline-offset:2px}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-spec{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.2rem .6rem;border-radius:20px}
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero p{font-size:1rem;color:var(--body);max-width:740px;line-height:1.9}
+.thesis{margin-top:1.6rem;padding:1rem 1.3rem;background:var(--teal-dim);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;font-size:.95rem;color:var(--bright)}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:.9rem;margin:1.4rem 0;font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.03em}
+.legend span{display:flex;align-items:center;gap:.4rem;color:var(--body)}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none}
+.legend i.pass{background:var(--teal)}
+.legend i.obl{background:var(--gold)}
+.legend i.gap{background:var(--red)}
+.legend i.hold{background:var(--muted)}
+
+/* panels */
+.panel{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.panel-head{display:flex;align-items:baseline;gap:.9rem;margin-bottom:.4rem;flex-wrap:wrap}
+.q-type{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-lt);border:1px solid rgba(20,184,166,.35);border-radius:20px;padding:.32rem .8rem;flex:none}
+.panel h2{font-size:clamp(1.25rem,2.4vw,1.7rem);color:var(--white)}
+.panel .kicker{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.panel p{color:var(--body);max-width:720px;margin:.9rem 0}
+.panel .pull{font-size:.92rem;color:var(--text);border-left:2px solid var(--border-2);padding-left:.9rem;margin:1rem 0;max-width:680px}
+.scene-scroll{max-width:100%;overflow-x:auto;margin:1.2rem 0;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.scene-scroll svg{display:block;width:100%;height:auto;min-width:520px}
+
+/* node cite */
+.cite{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.05em;padding:.15rem .5rem;border-radius:12px;background:var(--bg-3);color:var(--teal-lt);border:1px solid var(--border-2)}
+
+/* draw / fade utilities (CSS keyframes only, paused until in-view) */
+.scene [class*="an-"]{animation-play-state:paused}
+.scene.in-view [class*="an-"]{animation-play-state:running}
+.an-draw{stroke-dasharray:var(--len,100);stroke-dashoffset:var(--len,100);animation:draw .9s ease-out forwards var(--d,0s)}
+@keyframes draw{to{stroke-dashoffset:0}}
+.an-fade{opacity:0;animation:fadein .6s ease-out forwards var(--d,0s)}
+@keyframes fadein{to{opacity:1}}
+.an-pop{opacity:0;transform-origin:center;animation:pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
+@keyframes pop{0%{opacity:0;transform:scale(.4)}100%{opacity:1;transform:scale(1)}}
+.an-pulse{animation:pulse 2s ease-in-out infinite var(--d,0s)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.32}}
+.an-pulse-warn{animation:pulsewarn 1.6s ease-in-out infinite var(--d,0s)}
+@keyframes pulsewarn{0%,100%{opacity:.5;r:5}50%{opacity:1;r:6.5}}
+.an-vanish{animation:vanish 1.2s ease-in forwards var(--d,0s)}
+@keyframes vanish{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--muted);margin:2rem 0;font-family:'JetBrains Mono',monospace}
+.note{background:var(--green-dim);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.warn-note{background:var(--gold-dim);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+footer{padding:2.4rem 0;color:var(--muted);font-size:.8rem}
+footer a{color:var(--body)}
+@media(max-width:680px){.wrap{padding:0 1.2rem}}
+@media (prefers-reduced-motion:reduce){
+  .scene [class*="an-"]{animation:none!important;animation-play-state:running!important}
+  .an-draw{stroke-dashoffset:0!important}
+  .an-fade,.an-pop{opacity:1!important;transform:none!important}
+  .an-vanish{opacity:.35!important}
+}
+</style>
+</head>
+<body>
+<nav><div class="nav-in"><span class="brand"><span class="oc">OCG</span> Public-Money Evidence</span><a class="nav-spec" href="openchain-graph-spec.html">OCG Standard</a></div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; Public-money evidence</div>
+  <h1>The ledger says it happened. What can an outsider check?</h1>
+  <p>A public program moves money over several rails at once &ndash; a card network, a bank transfer, a digital wallet, an offline voucher. Whichever rail carried a given payment, the full record of what happened lives inside the operator's own database. An outside audit authority, inspector general, or supreme audit institution has no window into that system.</p>
+  <div class="thesis">The question this deck answers: when the full record lives inside the operator's system, what can anyone else actually verify? Not architecture, not a data feed &ndash; seven independent questions, each answered by one shipped receipt an outside party can check without ever touching the operator's database.</div>
+  <div class="legend" role="img" aria-label="Legend: teal means checked and passing, gold means an obligation or open item, red means a gap or shortfall, grey means a holder of value.">
+    <span><i class="pass"></i>checked / passing</span>
+    <span><i class="obl"></i>obligation / open item</span>
+    <span><i class="gap"></i>gap / break / stall</span>
+    <span><i class="hold"></i>a holder</span>
+  </div>
+</div></header>
+
+<!-- PANEL: SETTLEMENT -->
+<section class="panel"><div class="wrap">
+  <div class="panel-head"><span class="q-type">Settlement</span><h2>One obligation, discharged exactly once, however many rails carried it</h2></div>
+  <p>A single payment of public money can cross more than one rail before it lands &ndash; a batch file settling to a bank account, an instant-payment leg completing the same obligation. The settlement receipt confirms the obligation was discharged exactly once across every declared rail leg, with a finality class echoed from the caller's own declared basis per rail.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 180" role="img" aria-label="Three rail legs on the left, each a different payment rail, converging into one settlement box on the right that is stamped with a single receipt badge, showing the obligation was discharged exactly once regardless of how many rails carried it.">
+    <defs>
+      <symbol id="badge" viewBox="0 0 28 22"><path d="M2 3 h20 l4 4 v12 a2 2 0 0 1 -2 2 h-22 a2 2 0 0 1 -2 -2 v-14 a2 2 0 0 1 2 -2 z" fill="none" stroke="var(--teal)" stroke-width="1.6"/><path d="M8 12 l3.2 3.6 L20 8" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+    <rect x="30" y="24" width="120" height="40" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="90" y="48" text-anchor="middle" fill="var(--body)" font-size="9">card rail leg</text>
+    <rect x="30" y="72" width="120" height="40" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="90" y="96" text-anchor="middle" fill="var(--body)" font-size="9">bank transfer leg</text>
+    <rect x="30" y="120" width="120" height="40" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="90" y="144" text-anchor="middle" fill="var(--body)" font-size="9">offline voucher leg</text>
+    <rect x="470" y="60" width="140" height="60" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><text x="540" y="94" text-anchor="middle" fill="var(--bright)" font-size="10">one obligation</text>
+    <path class="an-draw" d="M150 44 C 300 44, 380 80, 470 84" fill="none" stroke="var(--teal-lt)" stroke-width="1.6" style="--len:420;--d:.3s"/>
+    <path class="an-draw" d="M150 92 C 300 92, 380 92, 470 92" fill="none" stroke="var(--teal-lt)" stroke-width="1.6" style="--len:340;--d:.7s"/>
+    <path class="an-draw" d="M150 140 C 300 140, 380 100, 470 96" fill="none" stroke="var(--teal-lt)" stroke-width="1.6" style="--len:420;--d:1.1s"/>
+    <g class="an-fade" style="--d:1.7s"><use href="#badge" x="620" y="30" width="28" height="22"/></g>
+    <text x="330" y="150" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">verdict: discharged once, not once per rail</text>
+  </svg></div>
+  <span class="cite">art-513 &middot; public-money settlement receipt</span>
+</div></section>
+
+<!-- PANEL: ATTRIBUTION -->
+<section class="panel"><div class="wrap">
+  <div class="panel-head"><span class="q-type">Attribution</span><h2>Every payment lands on a budget line, with every fee named &ndash; never netted away</h2></div>
+  <p>A payment of public money is meant to attribute to a specific ministry, agency, or revenue code. That attribution is checked against the caller's own revenue-code table, and the amount credited is compared to the amount collected with every fee itemised individually. A fee silently netted out of the comparison is exactly the failure this question is built to catch.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="An amount collected box on the left splitting into three separately labelled fee items and one amount credited box on the right, each itemised piece drawn in individually and a receipt badge stamping the comparison as it completes, showing no fee was netted out silently.">
+    <rect x="30" y="60" width="120" height="50" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="90" y="89" text-anchor="middle" fill="var(--body)" font-size="9">collected</text>
+    <rect class="an-draw" x="230" y="18" width="130" height="30" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2" style="--len:320;--d:.2s"/><text x="295" y="37" text-anchor="middle" fill="var(--gold)" font-size="9">processing fee</text>
+    <rect class="an-draw" x="230" y="70" width="130" height="30" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2" style="--len:320;--d:.5s"/><text x="295" y="89" text-anchor="middle" fill="var(--gold)" font-size="9">rail fee</text>
+    <rect class="an-draw" x="230" y="122" width="130" height="30" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.2" style="--len:320;--d:.8s"/><text x="295" y="141" text-anchor="middle" fill="var(--gold)" font-size="9">FX conversion fee</text>
+    <rect x="470" y="60" width="140" height="50" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><text x="540" y="89" text-anchor="middle" fill="var(--bright)" font-size="10">credited, at par</text>
+    <g class="an-fade" style="--d:1.4s"><use href="#badge" x="596" y="30" width="28" height="22"/></g>
+  </svg></div>
+  <p class="pull">The verdict compares amount credited to amount collected with every fee named on its own line &ndash; a fee that only shows up inside the difference, never itemised, is the specific gap this check exists to close.</p>
+  <span class="cite">art-515 &middot; allocation decision receipt</span>
+</div></section>
+
+<!-- PANEL: RECONCILIATION -->
+<section class="panel"><div class="wrap">
+  <div class="panel-head"><span class="q-type">Reconciliation</span><h2>The daily duty catches an exception today. Does it survive to the next period?</h2></div>
+  <p>A daily reconciliation attestation names its exceptions for the window it covers. Nothing in that duty forces a link between one day's named exception and the next day's population &ndash; an item can be present and flagged today, and simply absent tomorrow, with no attestation anywhere connecting the two events.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 180" role="img" aria-label="Two period boxes side by side, day one and day two. Day one shows an exception item highlighted in red alongside a receipt badge for the attestation. An arrow crosses to day two, where the same exception item is absent, drawn only as a faint outline that fades away entirely, illustrating that nothing forces continuity between one day's named exception and the next.">
+    <rect x="30" y="24" width="220" height="130" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="140" y="16" text-anchor="middle" fill="var(--body)" font-size="9">day N &middot; attested</text>
+    <rect x="55" y="45" width="170" height="22" rx="4" fill="var(--bg-4)" stroke="var(--border-2)" stroke-width="1"/>
+    <rect x="55" y="72" width="170" height="22" rx="4" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4"/><text x="140" y="87" text-anchor="middle" fill="var(--red)" font-size="8">exception, named</text>
+    <rect x="55" y="99" width="170" height="22" rx="4" fill="var(--bg-4)" stroke="var(--border-2)" stroke-width="1"/>
+    <g class="an-fade" style="--d:.3s"><use href="#badge" x="220" y="14" width="26" height="20"/></g>
+    <path class="an-draw" d="M255 90 h100" fill="none" stroke="var(--muted)" stroke-width="1.6" style="--len:100;--d:.8s"/>
+    <rect x="390" y="24" width="220" height="130" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.2"/><text x="500" y="16" text-anchor="middle" fill="var(--body)" font-size="9">day N+1 &middot; attested</text>
+    <rect x="415" y="45" width="170" height="22" rx="4" fill="var(--bg-4)" stroke="var(--border-2)" stroke-width="1"/>
+    <rect class="an-vanish" x="415" y="72" width="170" height="22" rx="4" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4" style="--d:1.5s"/><text class="an-vanish" x="500" y="87" text-anchor="middle" fill="var(--red)" font-size="8" style="--d:1.5s">same exception</text>
+    <rect x="415" y="99" width="170" height="22" rx="4" fill="var(--bg-4)" stroke="var(--border-2)" stroke-width="1"/>
+    <g class="an-fade" style="--d:1.9s"><use href="#badge" x="580" y="14" width="26" height="20"/></g>
+    <text x="500" y="178" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">no attestation links day N's exception to day N+1's population</text>
+  </svg></div>
+  <p class="pull">Both days pass their own attestation. The gap this question exposes sits between them, in a place no single day's duty is built to look.</p>
+  <span class="cite">art-516 &middot; daily reconciliation attestation</span>
+</div></section>
+
+<!-- PANEL: AUDIT TRAIL -->
+<section class="panel"><div class="wrap">
+  <div class="panel-head"><span class="q-type">Audit trail</span><h2>A trail that also covers what the administrator did to the record</h2></div>
+  <p>A transaction log alone is not a complete trail. An administrator who edits a record, reverses an entry, or changes a permission acts on the same system a payer's transaction passes through &ndash; and if that action falls outside the logged chain, the trail has a gap an outside reviewer cannot see from the transaction log alone.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="A chain of receipt badges representing logged transaction events, with a visible gap where an administrator record-edit action sits unlogged between two badges. The completeness check draws a red bracket around the gap and flags it, rather than the chain silently passing as unbroken.">
+    <g class="an-fade" style="--d:.2s"><use href="#badge" x="30" y="30" width="26" height="20"/></g>
+    <g class="an-fade" style="--d:.5s"><use href="#badge" x="80" y="30" width="26" height="20"/></g>
+    <path class="an-draw" d="M56 40 h24" stroke="var(--border-2)" stroke-width="1.2" fill="none" style="--len:24;--d:.7s"/>
+    <rect class="an-fade" x="130" y="20" width="90" height="40" rx="6" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.6" stroke-dasharray="4 3" style="--d:.9s"/>
+    <text class="an-fade" x="175" y="44" text-anchor="middle" fill="var(--red)" font-size="8" style="--d:.9s">admin edit, unlogged</text>
+    <path class="an-draw" d="M220 40 h30" stroke="var(--border-2)" stroke-width="1.2" fill="none" style="--len:30;--d:1.1s"/>
+    <g class="an-fade" style="--d:1.4s"><use href="#badge" x="250" y="30" width="26" height="20"/></g>
+    <path class="an-draw" d="M276 40 h24" stroke="var(--border-2)" stroke-width="1.2" fill="none" style="--len:24;--d:1.6s"/>
+    <g class="an-fade" style="--d:1.8s"><use href="#badge" x="300" y="30" width="26" height="20"/></g>
+    <path class="an-draw" d="M120 90 v-45 h55 v40" fill="none" stroke="var(--red)" stroke-width="1.6" style="--len:150;--d:2.1s"/>
+    <text class="an-fade" x="330" y="100" fill="var(--red)" font-family="JetBrains Mono, monospace" font-size="9" style="--d:2.4s">completeness check flags the gap, does not pass it silently</text>
+  </svg></div>
+  <p class="pull">The idea this question tests is not whether payer transactions are logged &ndash; they always are. It is whether the same unbroken chain also covers what an administrator did to the record.</p>
+  <span class="cite">art-517 &middot; audit-trail completeness attestation</span>
+</div></section>
+
+<!-- PANEL: AUTHORISATION -->
+<section class="panel"><div class="wrap">
+  <div class="panel-head"><span class="q-type">Authorisation</span><h2>A bulk run's total must match what was authorised &ndash; the check names candidates, not accusations</h2></div>
+  <p>Salaries, benefits, or vendor payments often go out as one bulk disbursement run. This question compares the run's itemised and aggregate totals against the authorisation record. Where a mismatch appears, the receipt records it as a candidate discrepancy for a human reviewer to resolve, never as a finding of wrongdoing.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 180" role="img" aria-label="An authorisation record on the left fanning out into five disbursement items. Four match the authorisation and are stamped with a receipt badge; a fifth is highlighted in gold as a candidate discrepancy awaiting human review, not flagged as an accusation.">
+    <rect x="20" y="70" width="90" height="50" rx="6" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.4"/><text x="65" y="99" text-anchor="middle" fill="var(--gold)" font-size="9">authorised</text>
+    <g stroke="var(--muted)" stroke-width="1.4" fill="none">
+      <path class="an-draw" d="M110 90 C 200 30, 260 30, 330 30" style="--len:280;--d:.2s"/>
+      <path class="an-draw" d="M110 90 C 200 60, 260 60, 330 60" style="--len:250;--d:.4s"/>
+      <path class="an-draw" d="M110 90 C 200 90, 260 90, 330 90" style="--len:230;--d:.6s"/>
+      <path class="an-draw" d="M110 90 C 200 120, 260 120, 330 120" style="--len:250;--d:.8s"/>
+      <path class="an-draw" d="M110 90 C 200 150, 260 150, 330 150" style="--len:280;--d:1s"/>
+    </g>
+    <rect x="330" y="16" width="140" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.3s"><use href="#badge" x="476" y="20" width="20" height="16"/></g>
+    <rect x="330" y="46" width="140" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.4s"><use href="#badge" x="476" y="50" width="20" height="16"/></g>
+    <rect x="330" y="76" width="140" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.5s"><use href="#badge" x="476" y="80" width="20" height="16"/></g>
+    <rect x="330" y="106" width="140" height="28" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><g class="an-fade" style="--d:1.6s"><use href="#badge" x="476" y="110" width="20" height="16"/></g>
+    <rect x="330" y="136" width="140" height="28" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.4"/><text x="400" y="154" text-anchor="middle" fill="var(--gold)" font-size="8">candidate discrepancy</text>
+  </svg></div>
+  <span class="cite">art-518 &middot; bulk disbursement integrity</span>
+</div></section>
+
+<!-- PANEL: MIGRATION -->
+<section class="panel"><div class="wrap">
+  <div class="panel-head"><span class="q-type">Migration</span><h2>Migration completeness is checked by partition, because the grand total is where the error hides</h2></div>
+  <p>When a payment platform migrates to a new system, a matching grand total before and after proves nothing on its own &ndash; one partition can lose records while another gains an equal number of duplicates, and the aggregate check never notices. This question compares record counts partition by partition: by program, by period, by agency.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 190" role="img" aria-label="Four partitions, each showing an old-system count next to a new-system count. Three partitions match in teal. One partition shows a mismatch highlighted in red. Below, a grand-total row shows the old and new totals matching exactly despite the mismatched partition, illustrating why the grand total alone cannot be trusted.">
+    <rect x="30" y="24" width="130" height="70" rx="8" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><text x="95" y="16" text-anchor="middle" fill="var(--body)" font-size="9">program A</text><text x="95" y="55" text-anchor="middle" fill="var(--teal-lt)" font-size="9">1,204 &rarr; 1,204</text>
+    <rect x="175" y="24" width="130" height="70" rx="8" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><text x="240" y="16" text-anchor="middle" fill="var(--body)" font-size="9">program B</text><text x="240" y="55" text-anchor="middle" fill="var(--teal-lt)" font-size="9">886 &rarr; 886</text>
+    <rect class="an-fade" x="320" y="24" width="130" height="70" rx="8" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.6" style="--d:.6s"/><text x="385" y="16" text-anchor="middle" fill="var(--body)" font-size="9">program C</text><text class="an-fade" x="385" y="55" text-anchor="middle" fill="var(--red)" font-size="9" style="--d:.9s">2,011 &rarr; 1,988</text>
+    <rect x="465" y="24" width="130" height="70" rx="8" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.2"/><text x="530" y="16" text-anchor="middle" fill="var(--body)" font-size="9">program D</text><text x="530" y="55" text-anchor="middle" fill="var(--teal-lt)" font-size="9">640 &rarr; 663</text>
+    <line x1="20" y1="118" x2="610" y2="118" class="an-draw" stroke="var(--border-2)" stroke-width="1.2" style="--len:590;--d:1.3s"/>
+    <text x="315" y="145" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="10">grand total: 4,741 &rarr; 4,741 &ndash; looks whole</text>
+    <text x="315" y="170" text-anchor="middle" fill="var(--red)" font-family="JetBrains Mono, monospace" font-size="9">per-partition check: program C lost 23, program D gained 23</text>
+  </svg></div>
+  <span class="cite">art-519 &middot; payment data migration completeness</span>
+</div></section>
+
+<!-- PANEL: EXIT -->
+<section class="panel"><div class="wrap">
+  <div class="panel-head"><span class="q-type">Exit</span><h2>Operator exit: what leaves, what is retained, and what is stranded</h2></div>
+  <p>When an operator's contract ends or a platform is replaced, this question evidences a declared exit posture: which data categories are portable to the successor, which the outgoing operator retains under its own obligations, and which become stranded &ndash; inaccessible to anyone once the transition completes. The receipt evaluates that declared posture; it is not a live observation of what actually happens at exit.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="One operator box on the left splitting into three declared categories on the right: portable data stamped with a receipt badge, retained data shown in a neutral holder box, and stranded data highlighted in red as inaccessible after transition.">
+    <rect x="30" y="65" width="120" height="50" rx="8" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.4"/><text x="90" y="94" text-anchor="middle" fill="var(--body)" font-size="9">operator</text>
+    <rect class="an-draw" x="330" y="14" width="150" height="40" rx="6" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4" style="--len:380;--d:.3s"/><text x="405" y="38" text-anchor="middle" fill="var(--bright)" font-size="9">portable to successor</text>
+    <g class="an-fade" style="--d:.9s"><use href="#badge" x="490" y="16" width="24" height="18"/></g>
+    <rect class="an-draw" x="330" y="66" width="150" height="40" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.4" style="--len:380;--d:.6s"/><text x="405" y="90" text-anchor="middle" fill="var(--body)" font-size="9">retained by operator</text>
+    <rect class="an-draw" x="330" y="118" width="150" height="40" rx="6" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4" style="--len:380;--d:.9s"/><text x="405" y="142" text-anchor="middle" fill="var(--red)" font-size="9">stranded, inaccessible</text>
+    <path class="an-draw" d="M150 90 C 220 90, 260 34, 330 34" fill="none" stroke="var(--teal-lt)" stroke-width="1.4" style="--len:200;--d:1.2s"/>
+    <path class="an-draw" d="M150 90 C 220 90, 260 86, 330 86" fill="none" stroke="var(--muted)" stroke-width="1.4" style="--len:190;--d:1.4s"/>
+    <path class="an-draw" d="M150 90 C 220 90, 260 138, 330 138" fill="none" stroke="var(--red)" stroke-width="1.4" style="--len:200;--d:1.6s"/>
+  </svg></div>
+  <span class="cite">art-520 &middot; operator exit and data portability</span>
+</div></section>
+
+<section class="panel"><div class="wrap">
+  <div class="kicker">Honest posture</div>
+  <h2>What this evidences, and what it does not</h2>
+  <p>Every node above computes over inputs the caller declares. Each receipt evidences that the computation ran correctly over those declared inputs &ndash; it says nothing about whether the declarations were true. The exit panel is the sharpest case: it evidences that a declared exit posture satisfies its own stated categories, not what the operator actually does with the data once the transition completes.</p>
+  <div class="warn-note">A candidate discrepancy in the authorisation match is exactly that &ndash; a candidate. It names an item for a human reviewer, and is never itself a finding that anything improper occurred.</div>
+</div></section>
+
+<div class="wrap">
+  <p class="pii">All content on this page is static and processed locally in your browser. No data is transmitted. Do not enter real personal data into any OpenChainGraph tool. Use synthetic or anonymised inputs only.</p>
+  <footer>
+    OpenChainGraph is an open standard by <a href="https://ainumbers.co">Post Oak Labs</a>, CC BY 4.0.
+    Read more at the <a href="education-hub.html">education hub</a>.
+  </footer>
+</div>
+
+<script>
+(function(){
+  var scenes = document.querySelectorAll('.scene');
+  if (!('IntersectionObserver' in window)) { scenes.forEach(function(s){ s.classList.add('in-view'); }); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.2 });
+  scenes.forEach(function(s){ io.observe(s); });
+})();
+</script>
+</body>
+</html>
