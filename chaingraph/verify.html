@@ -452,9 +452,15 @@ async function runVerify() {
 
   const { policy_parameters, output_payload, execution_hash: storedHash } = artifact;
 
-  if (!policy_parameters) { showError('Artifact is missing required field: policy_parameters'); return; }
-  if (!output_payload)    { showError('Artifact is missing required field: output_payload'); return; }
-  if (!storedHash)        { showError('Artifact is missing required field: execution_hash'); return; }
+  if (!policy_parameters || !output_payload || !storedHash) {
+    if (artifact && typeof artifact === 'object' && (artifact.journal_root_digest || artifact.checkpoint)) {
+      showError('This looks like an AINumbers Helm bundle, not an OpenChainGraph artifact — verify it with Helm\'s own bundle verifier (see the Helm verification guide in the Helm app).');
+      return;
+    }
+    if (!policy_parameters) { showError('Artifact is missing required field: policy_parameters'); return; }
+    if (!output_payload)    { showError('Artifact is missing required field: output_payload'); return; }
+    if (!storedHash)        { showError('Artifact is missing required field: execution_hash'); return; }
+  }
 
   let computedHex;
   try {
