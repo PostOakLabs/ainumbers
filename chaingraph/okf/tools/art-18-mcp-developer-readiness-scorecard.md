@@ -3,7 +3,7 @@ type: DecisionTool
 title: "MCP Developer Readiness Scorecard"
 description: "Rolls up caller-supplied yes/partial/no answers across six MCP ship-readiness sections (tool definitions, server.json/registry, OAuth 2.1, transport security, tool-poisoning hygiene, spec-revision compliance) into an overall 0-100 score and a prioritized gap list. Stage 4 (terminal) of the Agentic Policy Chain. Self-reported rollup; validate each weak section with its own deep-dive tool. Deterministic, zero PII."
 resource: https://ainumbers.co/chaingraph/art-18-mcp-developer-readiness-scorecard.html
-tags: ["compliance_control", "wave-ORPHANNODE-ONBOARD-2", "mcp:score_mcp_server_readiness"]
+tags: ["compliance_control", "wave-A", "mcp:score_mcp_server_readiness"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
