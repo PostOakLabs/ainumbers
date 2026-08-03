@@ -54,6 +54,7 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
 .out-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.4rem .55rem;border-bottom:1px solid var(--border);text-align:left}
 .out-table td{padding:.4rem .55rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
 .pass{color:var(--green)}.fail{color:var(--red)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
 </style>
 <style>
 /* OCG-CHROME-CSS:v1 */
@@ -176,6 +177,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 
   <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
     <div class="card">
       <div class="section-head">Eligibility</div>
       <div class="stat-row" id="statRow"></div>
@@ -388,6 +390,7 @@ function computeAssessorIndependence(pp) {
 }
 
 function runKernel() {
+  var generatedAt = new Date().toISOString();
   var pp;
   try {
     pp = {
@@ -407,7 +410,7 @@ function runKernel() {
   var r;
   try { r = computeAssessorIndependence(pp); } catch (e) { alert(e.message); return; }
   var op = r.output_payload;
-  _lastResult = { pp: pp, output_payload: op, compliance_flags: r.compliance_flags };
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: r.compliance_flags, generatedAt: generatedAt };
 
   document.getElementById('statRow').innerHTML =
     '<div class="stat"><span class="stat-val ' + (op.eligible ? 'pass' : 'fail') + '">' + (op.eligible ? 'ELIGIBLE' : 'INELIGIBLE') + '</span><span class="stat-key">Result</span></div>' +
@@ -424,6 +427,7 @@ function runKernel() {
   }).join('');
 
   document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('generatedAt').textContent = 'generated_at ' + generatedAt;
   document.getElementById('execHashBox').textContent = 'computing...';
   document.getElementById('verifyResult').textContent = '';
   document.getElementById('anchorBtn').style.display = 'none';
@@ -452,7 +456,7 @@ function exportArtifact() {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0', mandate_type: 'compliance_mandate',
     tool_id: 'art-487-assessor-independence-check', tool_version: '1.0.0',
-    generated_at: new Date().toISOString(), execution_hash: hash,
+    generated_at: _lastResult.generatedAt, execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
     policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
     compute_mode: 'browser',
@@ -472,7 +476,7 @@ function exportAP2() {
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   var ap2 = {
     schema: 'ainumbers-policy-mandate-v1.0', tool_id: 'art-487-assessor-independence-check', version: '1.0.0',
-    mandate_type: 'compliance_mandate', generated_at: new Date().toISOString(), execution_hash: hash,
+    mandate_type: 'compliance_mandate', generated_at: _lastResult.generatedAt, execution_hash: hash,
     policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags
   };
   var json = JSON.stringify(ap2, null, 2);
