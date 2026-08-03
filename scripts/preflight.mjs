@@ -220,6 +220,7 @@ const GATES = [
   ['CSV-injection sanitization (WB-5)', 'node scripts/check-csv-injection.mjs'],
   ['Workbook unit fixtures (WB-1)',     'node chaingraph/workbook/workbook.test.mjs'],
   ['Workbook determinism fixture (WB-5)', 'node chaingraph/workbook/check-determinism-fixture.mjs'],
+  ['Round-trip comparator unit fixtures (XLR-2)', 'node chaingraph/workbook/roundtrip-verify.test.mjs'],
   ['Proposals schema/slug/copy (AGENTPR-1)', 'node scripts/verify-proposals.mjs'],
   // Node leg of cross-engine parity: catches a kernel edit that makes the Node
   // parity-manifest generation itself crash/error. The cross-engine byte diff
