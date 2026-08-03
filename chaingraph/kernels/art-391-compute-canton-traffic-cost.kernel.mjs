@@ -64,7 +64,7 @@ export function compute(pp) {
     cc_burned: r6(ccBurned),
     rate_source: 'CIP-0084 (Tokenomics Committee authority): $60/MB, calibrated so a typical Canton Coin transfer costs approximately $1. Supersedes the earlier post-CIP-0042 ~$25/MB rate -- the rate moves under committee authority and is caller-supplied here, never hard-coded.',
     free_period_source: 'CIP-0119 (live since June 2026): transfer preapprovals get a free 90-day base duration before standard traffic cost applies.',
-    disambiguation: 'Computes synchronizer traffic economics for a single message/envelope. For settlement/counterparty structure validation on Canton, see diagnose_canton_readiness (art-503), validate_canton_dvp_atomicity (art-507), and validate_canton_party_allowlist (art-509) -- those validate structure, this computes traffic cost.',
+    disambiguation: 'Computes synchronizer traffic economics for a single message/envelope. For settlement/counterparty structure validation on Canton, see diagnose_canton_readiness, validate_canton_dvp_atomicity, and validate_canton_party_allowlist -- those validate structure, this computes traffic cost.',
   };
 
   return { output_payload, compliance_flags };

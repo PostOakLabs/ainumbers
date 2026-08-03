@@ -28,7 +28,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [Embedded License Selector](./art-203-embedded-license-selector.md), `art-198-rights-matrix-comparator` _(not live)_
+**Consumes:** [Embedded License Selector](./art-203-embedded-license-selector.md), [Cross-License Rights Comparator](./art-198-cross-license-rights-comparator.md)
 
 **Feeds:** [License Terms Assembler](./art-205-license-terms-assembler.md)
 
