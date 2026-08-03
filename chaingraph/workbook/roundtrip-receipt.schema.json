@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/chaingraph/workbook/roundtrip-receipt.schema.json",
+  "title": "AINumbers Workbook Round-Trip Verify-Back Receipt",
+  "description": "Two-sided match/mismatch receipt for the Excel round-trip flow (WORKBOOK-ROUNDTRIP-BUILD-SPEC.md XLR-1). expected is the WB-2 manifest side (input-manifest.schema.json); observed is the pasted-back Excel side. Both range digests are the same JCS+SHA-256 digest WB-1/WB-2 already use (chaingraph/kernels/_hash.mjs). No new match/exception vocabulary -- result is a closed two-value field, same naming already used in-repo by tools/55-dvp-reconciliation.html.",
+  "type": "object",
+  "required": ["receipt_type", "manifest_ref", "expected", "observed", "result", "produced_by", "produced_at"],
+  "properties": {
+    "receipt_type": { "type": "string", "const": "workbook-roundtrip-receipt" },
+    "manifest_ref": {
+      "$ref": "input-manifest.schema.json#/properties/source/properties/csv_digest",
+      "description": "csv_digest of the WB-2 Spreadsheet Input Manifest this receipt verifies against."
+    },
+    "expected": {
+      "type": "object",
+      "required": ["source", "ranges"],
+      "properties": {
+        "source": { "type": "string", "enum": ["pq-export", "manifest"] },
+        "ranges": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["ref", "values_digest"],
+            "properties": {
+              "ref": { "$ref": "input-manifest.schema.json#/properties/ranges/items/properties/ref" },
+              "values_digest": { "$ref": "input-manifest.schema.json#/properties/ranges/items/properties/values_digest" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "observed": {
+      "type": "object",
+      "required": ["source", "ranges"],
+      "properties": {
+        "source": { "type": "string", "const": "excel-paste" },
+        "ranges": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["ref", "values_digest"],
+            "properties": {
+              "ref": { "$ref": "input-manifest.schema.json#/properties/ranges/items/properties/ref" },
+              "values_digest": { "$ref": "input-manifest.schema.json#/properties/ranges/items/properties/values_digest" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "result": { "type": "string", "enum": ["match", "mismatch"] },
+    "mismatches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ref", "expected_value", "observed_value"],
+        "properties": {
+          "ref": { "$ref": "input-manifest.schema.json#/properties/ranges/items/properties/ref" },
+          "expected_value": {},
+          "observed_value": {}
+        },
+        "additionalProperties": false
+      }
+    },
+    "produced_by": { "type": "string", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
