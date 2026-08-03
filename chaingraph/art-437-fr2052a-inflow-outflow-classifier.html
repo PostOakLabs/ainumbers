@@ -52,6 +52,7 @@ table.bucket-tbl{width:100%;border-collapse:collapse;font-family:'JetBrains Mono
 table.bucket-tbl th{text-align:left;color:var(--muted);font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--border)}
 table.bucket-tbl td{padding:5px 6px;border-bottom:1px solid var(--border);color:var(--bright)}
 .verdict-box{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
 .results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
 .anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
 .verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
@@ -162,6 +163,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <div class="results-panel" id="resultsPanel">
     <div class="card">
       <div id="verdictBox" class="verdict-box"></div>
+      <div class="generated-at" id="generatedAt"></div>
       <div class="stat-row" id="statRow"></div>
       <div id="flagRow" style="margin:8px 0"></div>
       <div class="subsection">Form-Shaped FR 2052a Export (by bucket)</div>
@@ -385,13 +387,15 @@ function runCombined() {
   else flags.push('FR2052A_CLASSIFICATION_OK');
   if (eliminationTotal > 0) flags.push('FR2052A_INTERCOMPANY_ELIMINATED');
 
-  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+  var generatedAt = new Date().toISOString();
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags, generatedAt: generatedAt };
 
   var ok = overrideMissingReason === 0;
   var vColor = ok ? 'var(--green)' : 'var(--red)';
   var vBox = document.getElementById('verdictBox');
   vBox.style.color = vColor; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid ' + vColor;
   vBox.textContent = (ok ? 'CLASSIFICATION OK' : 'OVERRIDE MISSING REASON CODE');
+  document.getElementById('generatedAt').textContent = 'generated_at ' + generatedAt;
 
   document.getElementById('statRow').innerHTML =
     '<div class="stat"><span class="stat-val">$'+op.total_inflow_musd+'M</span><span class="stat-key">Total Inflow</span></div>'+
@@ -439,7 +443,7 @@ function exportArtifact() {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0', mandate_type: 'regulatory_reporting',
     tool_id: 'art-437-fr2052a-inflow-outflow-classifier', tool_version: '1.0.0',
-    generated_at: new Date().toISOString(), execution_hash: hash,
+    generated_at: _lastResult.generatedAt, execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
     policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
     compute_mode: 'browser',
