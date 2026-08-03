@@ -151,6 +151,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
         <button class="run-btn ghost" onclick="window.print()" id="printBtn" style="display:none">&#128424; Print Report</button>
         <span id="reportStatus" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)"></span>
       </div>
+      <div id="handoffNotice" style="display:none;font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:.5rem"></div>
     </div>
 
     <div class="panel" id="haGatePanel" style="display:none">
@@ -882,6 +883,118 @@ document.addEventListener('DOMContentLoaded',function(){
     reader.readAsText(f);
   });
 });
+</script>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   §3/§4 SPINE-DESK-RECEIVER-1 — ain-handoff/v1 receiver, ported
+   verbatim from chaingraph/verify.html's reference copy (lines
+   ~1005-1044 there). Same discipline: origin checked against
+   window.location.origin on both ends, a message from anywhere else
+   is discarded silently, the reply target is always
+   window.location.origin, NEVER '*'. Payload is treated as untrusted
+   input: size-capped, assigned via .value only (never innerHTML),
+   then parsed by the same runReport()/mandate-render path a pasted
+   artifact or mandate would use. Zero network, zero storage.
+
+   Branches on d.kind: 'ocg-artifact' -> existing OCG report path
+   (unchanged); 'policy-mandate' -> structural-validity summary only
+   (§4 below) — a Policy Mandate never carries execution_hash, and
+   this desk MUST NOT imply cryptographic verification of one.
+   ───────────────────────────────────────────────────────────────── */
+const HANDOFF_MAX_CHARS = 2000000;
+
+function handoffNotice(msg, ok) {
+  var el = document.getElementById('handoffNotice');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok ? 'var(--teal)' : 'var(--red)';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// §4 — Policy Mandate structural validation only, no execution_hash claim.
+// Same three checks every tool's inlined AP2Schema.validate performs
+// (RE_UUID4 copied verbatim from tools/*.html's AP2Schema.validate).
+var RE_MANDATE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function validatePolicyMandateStructure(m) {
+  var errs = [];
+  if (!m || typeof m !== 'object' || Array.isArray(m)) { errs.push('mandate must be a plain object'); return errs; }
+  if (typeof m.mandate_id !== 'string' || !RE_MANDATE_UUID4.test(m.mandate_id)) errs.push('"mandate_id" must be a UUIDv4 string');
+  if (typeof m.tool_id !== 'string' || !m.tool_id) errs.push('"tool_id" must be a non-empty string');
+  if (typeof m.payload !== 'object' || m.payload === null || Array.isArray(m.payload)) errs.push('"payload" must be an object');
+  return errs;
+}
+function renderPolicyMandateReport(m) {
+  var out = document.getElementById('outputSection');
+  var errs = validatePolicyMandateStructure(m);
+  if (errs.length) {
+    out.innerHTML = card('Policy Mandate — Structural Validation', 'fail',
+      '<div class="detail-line">This does not pass structural validation as a Policy Mandate:</div>'
+      + '<div class="detail-line"><strong>' + errs.map(escHtml).join('; ') + '</strong></div>');
+    document.getElementById('printBtn').style.display = 'none';
+    return;
+  }
+  var payloadKeys = Object.keys(m.payload).length;
+  var body = '<div class="detail-line">Structurally valid AINumbers Policy Mandate. This is a structural-validity check only — a Policy Mandate carries no <code>execution_hash</code>, and this report makes no cryptographic verification claim.</div>'
+    + '<div class="detail-line">Tool ID: <strong>' + escHtml(m.tool_id) + '</strong></div>'
+    + '<div class="hashbox">mandate_id: ' + escHtml(m.mandate_id) + '</div>'
+    + '<div class="detail-line">Payload: ' + payloadKeys + ' key(s)' + (m['@generated'] ? (', generated ' + escHtml(m['@generated'])) : '') + '</div>';
+  out.innerHTML = card('Policy Mandate — Structural Validation', 'partial', body);
+  document.getElementById('printBtn').style.display = 'inline-block';
+}
+
+window.addEventListener('message', function (ev) {
+  if (ev.origin !== window.location.origin) return;          // discard silently
+  var d = ev.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.type !== 'ain-handoff/v1') return;
+
+  if (d.kind === 'ocg-artifact') {
+    var text = d.artifact;
+    if (typeof text !== 'string' || !text) {
+      handoffNotice('Handoff rejected: the sending page did not include artifact JSON. Paste the artifact below instead.', false);
+      return;
+    }
+    if (text.length > HANDOFF_MAX_CHARS) {
+      handoffNotice('Handoff rejected: the artifact is ' + text.length + ' characters, over the ' + HANDOFF_MAX_CHARS + '-character limit. Save it to a file and paste it below instead.', false);
+      return;
+    }
+    document.getElementById('reportPaste').value = text;      // never innerHTML
+    handoffNotice('Artifact received from the sending page and verified below. Nothing was uploaded and nothing was stored.', true);
+    try { runReport(JSON.parse(text)); } catch (e) { runReportFromPaste(); }
+    return;
+  }
+
+  if (d.kind === 'policy-mandate') {
+    var mtext = d.mandate;
+    if (typeof mtext !== 'string' || !mtext) {
+      handoffNotice('Handoff rejected: the sending page did not include mandate JSON. Paste the artifact below instead.', false);
+      return;
+    }
+    if (mtext.length > HANDOFF_MAX_CHARS) {
+      handoffNotice('Handoff rejected: the mandate is ' + mtext.length + ' characters, over the ' + HANDOFF_MAX_CHARS + '-character limit.', false);
+      return;
+    }
+    var parsedMandate;
+    try { parsedMandate = JSON.parse(mtext); }
+    catch (e) { handoffNotice('Handoff rejected: the mandate JSON did not parse: ' + e.message, false); return; }
+    document.getElementById('reportPaste').value = mtext;      // never innerHTML
+    handoffNotice('Policy Mandate received from the sending page and structurally checked below. Nothing was uploaded and nothing was stored.', true);
+    renderPolicyMandateReport(parsedMandate);
+    return;
+  }
+
+  // unknown kind — discard, matches verify.html's existing behavior
+});
+
+/* Ready signal: tell the opener this page can accept a handoff. Same-origin
+   target only; on a file:// origin postMessage throws, which is harmless —
+   the sender simply times out and tells the user to paste. */
+if (window.opener) {
+  try {
+    window.opener.postMessage({ type: 'ain-handoff-ready/v1', accepts: ['ocg-artifact', 'policy-mandate'] }, window.location.origin);
+  } catch (e) { /* no opener we may talk to — paste intake still works */ }
+}
 </script>
 </body>
 </html>
