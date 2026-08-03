@@ -76,6 +76,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
         <a href="${cg}chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="${cg}rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="${cg}openchain-graph-spec.html">Spec v0.8.8</a>
         <a href="${cg}openchain-graph-explainer.html">OCG Explainer</a>
         <a href="${cg}ain-bridge-explainer.html">AIN Bridge Explainer</a>
