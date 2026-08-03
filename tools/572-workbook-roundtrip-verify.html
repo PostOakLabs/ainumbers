@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Workbook Round-Trip Verify · AINumbers.co</title>
+<meta name="description" content="Verify an Excel round-trip against a Spreadsheet Input Manifest: load the manifest, paste back each recomputed range, and get a match/mismatch receipt naming every diverging cell. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/572-workbook-roundtrip-verify.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Workbook Round-Trip Verify","url":"https://ainumbers.co/tools/572-workbook-roundtrip-verify.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "workbook-roundtrip-verify",
+  "version": "1.0.0",
+  "title": "Workbook Round-Trip Verify",
+  "description": "Loads a Spreadsheet Input Manifest for a run, surfaces the ranges to recompute in Excel, accepts a pasted range or CSV back per range, and produces a match/mismatch round-trip receipt naming every diverging cell.",
+  "category": "cat-2",
+  "tags": ["workbook","round-trip","csv","excel","reconciliation"],
+  "audience": ["engineer","compliance","operations"],
+  "input_schema": {"type":"object","properties":{"manifest":{"type":"object"},"observedByRef":{"type":"object"}}},
+  "output_schema": {"type":"object","properties":{"receipt":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"verify_workbook_roundtrip","description":"Compares a WB-2 Spreadsheet Input Manifest against pasted-back Excel ranges and returns a match/mismatch receipt.","inputSchema":{"type":"object","properties":{"manifest":{"type":"object"},"observedByRef":{"type":"object"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/572-workbook-roundtrip-verify.html","function_name":"runVerify","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:#9aa7b8}
+.step-head{display:flex;align-items:center;gap:.5rem;margin:1.75rem 0 .6rem}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bg);background:var(--teal);width:1.4rem;height:1.4rem;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-title{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--bright)}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.1rem;margin-bottom:1rem}
+.field-label{display:block;font-size:.6rem;color:var(--muted);margin-bottom:.3rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
+textarea,input.text-field{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.5rem .6rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.68rem;outline:none;resize:vertical}
+textarea:focus,input.text-field:focus{border-color:var(--teal)}
+textarea.paste-box{min-height:80px}
+.tb-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--text);padding:.4rem .8rem;border-radius:var(--radius);transition:all .2s}
+.tb-btn:hover{border-color:var(--teal);color:var(--teal)}
+.tb-btn:disabled{opacity:.4;cursor:not-allowed}
+.toolbar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem}
+.manifest-summary{display:none;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border);line-height:1.7}
+.manifest-summary .k{color:var(--muted)}
+.range-card{border:1px solid var(--border);border-radius:var(--radius);padding:.85rem;margin-bottom:.75rem;background:var(--bg-3)}
+.range-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap;gap:.4rem}
+.range-ref{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal-lt);font-weight:600}
+.range-semantics{font-size:.64rem;color:var(--muted)}
+.range-digest{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);word-break:break-all}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem;display:none}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.result-badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .7rem;border-radius:3px;border:1px solid}
+.result-match{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.result-mismatch{color:var(--red);border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.1)}
+.out-body{padding:1rem 1.25rem}
+.mm-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem;margin-bottom:1rem}
+.mm-table th,.mm-table td{border:1px solid var(--border);padding:.4rem .55rem;text-align:left}
+.mm-table th{background:var(--bg-3);color:var(--muted);font-weight:400}
+.mm-table td.mm-ref{color:var(--teal-lt)}
+.receipt-json{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);white-space:pre-wrap;word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.75rem;max-height:260px;overflow:auto}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T572</span></div>
+    <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-2 &middot; T572 &middot; Core Infrastructure</div>
+  <h1 class="tool-title">Workbook Round-Trip Verify</h1>
+  <p class="hero-desc">Load a Spreadsheet Input Manifest for a run, see the ranges to recompute in Excel, paste each one back, and get a receipt naming every cell that matches or diverges. Reuses the workbook engine's own CSV parser and range digest, so a match here means the exact same canonicalization and hash the manifest was built from.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">Round-Trip</span>
+    <span class="badge badge-gold">CSV / Paste</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="scope-note"><span style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600">The incumbent this replaces:</span> recompute in Excel, paste back. No macro, no shared drive round-trip. This tool intakes CSV or a plain pasted range only, the same strict RFC 4180 parser the workbook editor uses. It never opens or parses an xlsx file.</div>
+
+  <div class="card">
+    <div class="step-head"><span class="step-num">1</span><span class="step-title">Load the run's manifest</span></div>
+    <p style="font-size:.7rem;color:var(--body);margin-bottom:.6rem;line-height:1.7">Paste the Spreadsheet Input Manifest exported for the run you're verifying (the source csv digest plus one <code>values_digest</code> per range). This names what to open and recompute in Excel: the source data behind each listed range.</p>
+    <label class="field-label" for="manifestInput">manifest JSON</label>
+    <textarea id="manifestInput" class="paste-box" style="min-height:110px" placeholder='{"manifest_type":"spreadsheet-input-manifest","source":{...},"ranges":[...],"produced_by":"...","produced_at":"..."}'></textarea>
+    <div class="toolbar" style="margin-top:.6rem;margin-bottom:0">
+      <button class="tb-btn" onclick="loadManifest()">Load Manifest</button>
+      <button class="tb-btn" onclick="loadSampleManifest()">Load Sample Manifest</button>
+    </div>
+    <div class="manifest-summary" id="manifestSummary"></div>
+  </div>
+
+  <div id="rangesSection" style="display:none">
+    <div class="step-head"><span class="step-num">2</span><span class="step-title">Paste back from Excel</span></div>
+    <p style="font-size:.7rem;color:var(--body);margin-bottom:.75rem;line-height:1.7">Recompute each range below in Excel using the source data named by the manifest, then paste the result back exactly as it appears in the sheet (comma or tab separated, no headers). The optional expected column lets you also paste in a Power Query export of the same range, which turns a mismatch into a per-cell diff instead of a whole-range one.</p>
+    <div id="rangeCards"></div>
+  </div>
+
+  <div class="card" id="verifySection" style="display:none">
+    <div class="step-head" style="margin-top:0"><span class="step-num">3</span><span class="step-title">Verify</span></div>
+    <div class="grid-2" style="margin-bottom:.75rem">
+      <div>
+        <label class="field-label" for="producedByInput">produced_by</label>
+        <input id="producedByInput" class="text-field" placeholder="e.g. analyst name or tool identifier">
+      </div>
+    </div>
+    <button class="tb-btn" onclick="runVerify()">Verify Round-Trip</button>
+  </div>
+
+  <div class="out-section" id="receiptSection">
+    <div class="out-header">
+      <span class="out-title">Round-Trip Receipt</span>
+      <div style="display:flex;align-items:center;gap:.6rem">
+        <span class="result-badge" id="resultBadge"></span>
+        <button class="tb-btn" onclick="downloadReceipt()">Download Receipt JSON</button>
+      </div>
+    </div>
+    <div class="out-body">
+      <div id="mismatchWrap"></div>
+      <div class="receipt-json" id="receiptJson"></div>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Verify a round-trip above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<!-- === Headless workbook core (WORKBOOK-1-BUILD-SPEC.md WB-1) + XLR-2 comparator
+     (WORKBOOK-ROUNDTRIP-BUILD-SPEC.md XLR-2) -- verbatim from
+     chaingraph/workbook/workbook.mjs, chaingraph/workbook/roundtrip-verify.mjs,
+     chaingraph/kernels/_hash.mjs and chaingraph/kernels/_csv_injection.mjs,
+     import/export stripped for inline same-origin execution (CONTRACT §0: zero
+     network calls). Do NOT hand-edit the logic below; port fixes back to the
+     source modules. === -->
+<script>
+// ---- chaingraph/kernels/_hash.mjs (verbatim, export stripped) ----
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+const cgCanon = (v) =>
+  Array.isArray(v) ? v.map(cgCanon)
+  : (v && typeof v === 'object')
+    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
+    : v;
+function canonicalPreimage(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  return JSON.stringify(cgCanon(obj));
+}
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ---- chaingraph/kernels/_csv_injection.mjs (verbatim, export stripped) ----
+const CSV_INJECTION_RE = /^[=+\-@\t\r]/;
+function isCsvInjectionRisk(raw) {
+  const s = raw === null || raw === undefined ? '' : String(raw);
+  return CSV_INJECTION_RE.test(s);
+}
+function sanitizeCsvField(raw) {
+  let s = raw === null || raw === undefined ? '' : String(raw);
+  if (CSV_INJECTION_RE.test(s)) s = `'${s}`;
+  return s;
+}
+
+// ---- chaingraph/workbook/workbook.mjs (verbatim, import/export + formula
+// engine trimmed to what csvToWorkbook()/recalc()/rangeDigest() need; the
+// finite-gate and CSV parser are byte-identical to WB-1's) ----
+class WorkbookError extends Error {
+  constructor(code, detail) {
+    super(detail ? `${code}: ${detail}` : code);
+    this.code = code;
+  }
+}
+const ERROR_CODES = new Set(['#REF!', '#DIV/0!', '#VALUE!', '#NUM!', '#NAME?', '#CYCLE!', '#PARSE!', '#ERROR!']);
+const isErrorValue = (v) => typeof v === 'string' && ERROR_CODES.has(v);
+const CELL_RE = /^([A-Za-z]+)([1-9][0-9]*)$/;
+function colLettersToIndex(letters) {
+  let n = 0;
+  for (const ch of letters.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n;
+}
+function indexToColLetters(n) {
+  let s = '';
+  while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+function parseCellRef(ref) {
+  const m = CELL_RE.exec(ref);
+  if (!m) throw new WorkbookError('#REF!', `invalid cell reference "${ref}"`);
+  return { col: colLettersToIndex(m[1]), row: Number(m[2]) };
+}
+function cellKey(col, row) { return `${indexToColLetters(col)}${row}`; }
+function expandRange(rangeRef) {
+  const parts = rangeRef.split(':');
+  if (parts.length !== 2) throw new WorkbookError('#REF!', `invalid range "${rangeRef}"`);
+  const a = parseCellRef(parts[0]), b = parseCellRef(parts[1]);
+  const c1 = Math.min(a.col, b.col), c2 = Math.max(a.col, b.col);
+  const r1 = Math.min(a.row, b.row), r2 = Math.max(a.row, b.row);
+  const matrix = [];
+  for (let r = r1; r <= r2; r++) {
+    const row = [];
+    for (let c = c1; c <= c2; c++) row.push(cellKey(c, r));
+    matrix.push(row);
+  }
+  return matrix;
+}
+function fullRangeRef(wb) {
+  if (!wb.rows || !wb.cols) return null;
+  return `A1:${indexToColLetters(wb.cols)}${wb.rows}`;
+}
+function tokenize(src) {
+  const toks = [];
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const ch = src[i];
+    if (ch === ' ' || ch === '\t') { i++; continue; }
+    if (ch === '"') {
+      let j = i + 1, s = '';
+      let closed = false;
+      while (j < n) {
+        if (src[j] === '"') {
+          if (src[j + 1] === '"') { s += '"'; j += 2; continue; }
+          j++; closed = true; break;
+        }
+        s += src[j]; j++;
+      }
+      if (!closed) throw new WorkbookError('#PARSE!', 'unterminated string literal');
+      toks.push({ t: 'STRING', v: s }); i = j; continue;
+    }
+    if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(src[i + 1] || ''))) {
+      let j = i;
+      while (j < n && /[0-9.]/.test(src[j])) j++;
+      const numStr = src.slice(i, j);
+      if (!/^[0-9]*\.?[0-9]+$/.test(numStr) && !/^[0-9]+\.?[0-9]*$/.test(numStr)) {
+        throw new WorkbookError('#PARSE!', `bad number literal "${numStr}"`);
+      }
+      toks.push({ t: 'NUMBER', v: Number(numStr) }); i = j; continue;
+    }
+    if (/[A-Za-z]/.test(ch)) {
+      let j = i;
+      while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
+      const word = src.slice(i, j).toUpperCase();
+      if (/^[A-Z]+[0-9]+$/.test(word)) {
+        if (src[j] === ':') {
+          let k = j + 1;
+          while (k < n && /[A-Za-z0-9]/.test(src[k])) k++;
+          const word2 = src.slice(j + 1, k).toUpperCase();
+          if (/^[A-Z]+[0-9]+$/.test(word2)) { toks.push({ t: 'RANGE', v: `${word}:${word2}` }); i = k; continue; }
+        }
+        toks.push({ t: 'REF', v: word }); i = j; continue;
+      }
+      toks.push({ t: 'IDENT', v: word }); i = j; continue;
+    }
+    if (ch === '<' && src[i + 1] === '=') { toks.push({ t: 'OP', v: '<=' }); i += 2; continue; }
+    if (ch === '>' && src[i + 1] === '=') { toks.push({ t: 'OP', v: '>=' }); i += 2; continue; }
+    if (ch === '<' && src[i + 1] === '>') { toks.push({ t: 'OP', v: '<>' }); i += 2; continue; }
+    if (ch === '(') { toks.push({ t: 'LPAREN', v: ch }); i++; continue; }
+    if (ch === ')') { toks.push({ t: 'RPAREN', v: ch }); i++; continue; }
+    if (ch === ',') { toks.push({ t: 'COMMA', v: ch }); i++; continue; }
+    if ('=<>+-*/^&'.includes(ch)) { toks.push({ t: 'OP', v: ch }); i++; continue; }
+    throw new WorkbookError('#PARSE!', `unexpected character "${ch}"`);
+  }
+  toks.push({ t: 'EOF', v: null });
+  return toks;
+}
+class Parser {
+  constructor(toks) { this.toks = toks; this.i = 0; }
+  peek() { return this.toks[this.i]; }
+  next() { return this.toks[this.i++]; }
+  expect(t) { const tok = this.next(); if (tok.t !== t) throw new WorkbookError('#PARSE!', `expected ${t}, got ${tok.t}`); return tok; }
+  parseExpr() { return this.parseComparison(); }
+  parseComparison() {
+    let left = this.parseConcat();
+    while (this.peek().t === 'OP' && ['=', '<>', '<', '>', '<=', '>='].includes(this.peek().v)) {
+      const op = this.next().v; left = { type: 'binop', op, left, right: this.parseConcat() };
+    }
+    return left;
+  }
+  parseConcat() {
+    let left = this.parseAdd();
+    while (this.peek().t === 'OP' && this.peek().v === '&') { this.next(); left = { type: 'binop', op: '&', left, right: this.parseAdd() }; }
+    return left;
+  }
+  parseAdd() {
+    let left = this.parseMul();
+    while (this.peek().t === 'OP' && (this.peek().v === '+' || this.peek().v === '-')) {
+      const op = this.next().v; left = { type: 'binop', op, left, right: this.parseMul() };
+    }
+    return left;
+  }
+  parseMul() {
+    let left = this.parseUnary();
+    while (this.peek().t === 'OP' && (this.peek().v === '*' || this.peek().v === '/')) {
+      const op = this.next().v; left = { type: 'binop', op, left, right: this.parseUnary() };
+    }
+    return left;
+  }
+  parseUnary() {
+    if (this.peek().t === 'OP' && this.peek().v === '-') { this.next(); return { type: 'neg', expr: this.parseUnary() }; }
+    if (this.peek().t === 'OP' && this.peek().v === '+') { this.next(); return this.parseUnary(); }
+    return this.parsePow();
+  }
+  parsePow() {
+    const left = this.parsePrimary();
+    if (this.peek().t === 'OP' && this.peek().v === '^') { this.next(); return { type: 'binop', op: '^', left, right: this.parseUnary() }; }
+    return left;
+  }
+  parsePrimary() {
+    const tok = this.peek();
+    if (tok.t === 'NUMBER') { this.next(); return { type: 'num', value: tok.v }; }
+    if (tok.t === 'STRING') { this.next(); return { type: 'str', value: tok.v }; }
+    if (tok.t === 'REF') { this.next(); return { type: 'ref', ref: tok.v }; }
+    if (tok.t === 'RANGE') { this.next(); return { type: 'range', ref: tok.v }; }
+    if (tok.t === 'LPAREN') { this.next(); const e = this.parseExpr(); this.expect('RPAREN'); return e; }
+    if (tok.t === 'IDENT') {
+      this.next();
+      const name = tok.v;
+      if (name === 'TRUE') return { type: 'bool', value: true };
+      if (name === 'FALSE') return { type: 'bool', value: false };
+      this.expect('LPAREN');
+      const args = [];
+      if (this.peek().t !== 'RPAREN') {
+        args.push(this.parseExpr());
+        while (this.peek().t === 'COMMA') { this.next(); args.push(this.parseExpr()); }
+      }
+      this.expect('RPAREN');
+      return { type: 'call', name, args };
+    }
+    throw new WorkbookError('#PARSE!', `unexpected token ${tok.t}`);
+  }
+}
+function parseFormula(src) {
+  const p = new Parser(tokenize(src));
+  const ast = p.parseExpr();
+  p.expect('EOF');
+  return ast;
+}
+function propagateIfError(v) { if (isErrorValue(v)) throw new WorkbookError(v); }
+function finiteNum(n) { if (!Number.isFinite(n)) throw new WorkbookError('#NUM!'); return n; }
+function toNum(v) {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'string') { const n = Number(v); if (Number.isNaN(n)) throw new WorkbookError('#VALUE!'); return n; }
+  throw new WorkbookError('#VALUE!');
+}
+function toStr(v) { if (v === null || v === undefined) return ''; if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'; return String(v); }
+function toBool(v) {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v !== 0;
+  if (typeof v === 'string') { const u = v.toUpperCase(); if (u === 'TRUE') return true; if (u === 'FALSE') return false; }
+  throw new WorkbookError('#VALUE!');
+}
+function looseEq(l, r) {
+  if (typeof l === 'number' || typeof r === 'number') { try { return toNum(l) === toNum(r); } catch { return false; } }
+  return toStr(l).toUpperCase() === toStr(r).toUpperCase();
+}
+function evalBinop(op, l, r) {
+  propagateIfError(l); propagateIfError(r);
+  switch (op) {
+    case '+': return finiteNum(toNum(l) + toNum(r));
+    case '-': return finiteNum(toNum(l) - toNum(r));
+    case '*': return finiteNum(toNum(l) * toNum(r));
+    case '/': { const rn = toNum(r); if (rn === 0) throw new WorkbookError('#DIV/0!'); return finiteNum(toNum(l) / rn); }
+    case '^': return finiteNum(Math.pow(toNum(l), toNum(r)));
+    case '&': return toStr(l) + toStr(r);
+    case '=': return looseEq(l, r);
+    case '<>': return !looseEq(l, r);
+    case '<': return toNum(l) < toNum(r);
+    case '>': return toNum(l) > toNum(r);
+    case '<=': return toNum(l) <= toNum(r);
+    case '>=': return toNum(l) >= toNum(r);
+    default: throw new WorkbookError('#PARSE!', `unknown operator "${op}"`);
+  }
+}
+function matchCriteria(value, crit) {
+  if (typeof crit === 'string') {
+    const m = /^(<=|>=|<>|=|<|>)(.*)$/.exec(crit);
+    if (m) {
+      const [, op, rhsRaw] = m;
+      const rhsNum = Number(rhsRaw);
+      const rhs = Number.isNaN(rhsNum) ? rhsRaw : rhsNum;
+      try { return evalBinop(op, value, rhs); } catch { return false; }
+    }
+  }
+  return looseEq(value, crit);
+}
+function evalAst(ast, ctx) {
+  switch (ast.type) {
+    case 'num': return ast.value;
+    case 'str': return ast.value;
+    case 'bool': return ast.value;
+    case 'neg': { const v = evalAst(ast.expr, ctx); propagateIfError(v); return finiteNum(-toNum(v)); }
+    case 'binop': return evalBinop(ast.op, evalAst(ast.left, ctx), evalAst(ast.right, ctx));
+    case 'ref': return ctx.getCell(ast.ref);
+    case 'range': throw new WorkbookError('#VALUE!', 'range used outside a function');
+    case 'call': return evalCall(ast.name, ast.args, ctx);
+    default: throw new WorkbookError('#PARSE!', `unknown AST node "${ast.type}"`);
+  }
+}
+function collectNumbers(args, ctx) {
+  const out = [];
+  for (const a of args) {
+    if (a.type === 'range') {
+      for (const row of expandRange(a.ref)) for (const key of row) {
+        const v = ctx.getCell(key);
+        propagateIfError(v);
+        if (typeof v === 'number') out.push(v);
+      }
+    } else {
+      const v = evalAst(a, ctx);
+      propagateIfError(v);
+      if (typeof v === 'number') out.push(v);
+      else if (typeof v === 'boolean') out.push(v ? 1 : 0);
+      else throw new WorkbookError('#VALUE!', 'expected a number');
+    }
+  }
+  return out;
+}
+function requireArgs(name, args, min, max = min) {
+  if (args.length < min || args.length > max) throw new WorkbookError('#VALUE!', `${name} expects ${min === max ? min : `${min}-${max}`} arg(s), got ${args.length}`);
+}
+function collectRaw(argNode, ctx) {
+  if (argNode.type === 'range') {
+    const out = [];
+    for (const row of expandRange(argNode.ref)) for (const key of row) out.push(ctx.getCell(key));
+    return out;
+  }
+  return [evalAst(argNode, ctx)];
+}
+function evalCall(name, args, ctx) {
+  switch (name) {
+    case 'SUM': return finiteNum(collectNumbers(args, ctx).reduce((a, b) => a + b, 0));
+    case 'AVG': { const ns = collectNumbers(args, ctx); if (!ns.length) throw new WorkbookError('#DIV/0!'); return finiteNum(ns.reduce((a, b) => a + b, 0) / ns.length); }
+    case 'MIN': { const ns = collectNumbers(args, ctx); return ns.length ? finiteNum(Math.min(...ns)) : 0; }
+    case 'MAX': { const ns = collectNumbers(args, ctx); return ns.length ? finiteNum(Math.max(...ns)) : 0; }
+    case 'COUNT': return collectNumbers(args, ctx).length;
+    case 'COUNTIF': { requireArgs(name, args, 2); const vals = collectRaw(args[0], ctx); const crit = evalAst(args[1], ctx); propagateIfError(crit); return vals.filter((v) => !isErrorValue(v) && matchCriteria(v, crit)).length; }
+    case 'IF': { requireArgs(name, args, 2, 3); const c = evalAst(args[0], ctx); propagateIfError(c); return toBool(c) ? evalAst(args[1], ctx) : (args[2] !== undefined ? evalAst(args[2], ctx) : false); }
+    case 'AND': return args.every((a) => { const v = evalAst(a, ctx); propagateIfError(v); return toBool(v); });
+    case 'OR': return args.some((a) => { const v = evalAst(a, ctx); propagateIfError(v); return toBool(v); });
+    case 'NOT': { requireArgs(name, args, 1); const v = evalAst(args[0], ctx); propagateIfError(v); return !toBool(v); }
+    case 'ROUND': { requireArgs(name, args, 2); const v = evalAst(args[0], ctx), d = evalAst(args[1], ctx); propagateIfError(v); propagateIfError(d); const f = Math.pow(10, toNum(d)); return finiteNum(Math.round(toNum(v) * f) / f); }
+    case 'ABS': { requireArgs(name, args, 1); const v = evalAst(args[0], ctx); propagateIfError(v); return finiteNum(Math.abs(toNum(v))); }
+    case 'CONCAT': return args.map((a) => { const v = evalAst(a, ctx); propagateIfError(v); return toStr(v); }).join('');
+    case 'LEN': { requireArgs(name, args, 1); const v = evalAst(args[0], ctx); propagateIfError(v); return toStr(v).length; }
+    case 'LEFT': { requireArgs(name, args, 1, 2); const v = evalAst(args[0], ctx); propagateIfError(v); const nRaw = args[1] !== undefined ? evalAst(args[1], ctx) : 1; propagateIfError(nRaw); return toStr(v).slice(0, Math.max(0, toNum(nRaw))); }
+    case 'RIGHT': { requireArgs(name, args, 1, 2); const v = evalAst(args[0], ctx); propagateIfError(v); const nRaw = args[1] !== undefined ? evalAst(args[1], ctx) : 1; propagateIfError(nRaw); const n = Math.max(0, toNum(nRaw)); const s = toStr(v); return n === 0 ? '' : s.slice(-n); }
+    case 'TRIM': { requireArgs(name, args, 1); const v = evalAst(args[0], ctx); propagateIfError(v); return toStr(v).trim().replace(/\s+/g, ' '); }
+    case 'UPPER': { requireArgs(name, args, 1); const v = evalAst(args[0], ctx); propagateIfError(v); return toStr(v).toUpperCase(); }
+    case 'LOWER': { requireArgs(name, args, 1); const v = evalAst(args[0], ctx); propagateIfError(v); return toStr(v).toLowerCase(); }
+    case 'SUMIF': {
+      requireArgs(name, args, 2, 3);
+      const rangeNode = args[0];
+      if (rangeNode.type !== 'range') throw new WorkbookError('#VALUE!', 'SUMIF requires a range as its first argument');
+      const critVal = evalAst(args[1], ctx); propagateIfError(critVal);
+      const sumNode = args[2] !== undefined ? args[2] : rangeNode;
+      if (sumNode.type !== 'range') throw new WorkbookError('#VALUE!', 'SUMIF sum_range must be a range');
+      const matrix = expandRange(rangeNode.ref), sumMatrix = expandRange(sumNode.ref);
+      if (matrix.length !== sumMatrix.length || matrix[0].length !== sumMatrix[0].length) throw new WorkbookError('#VALUE!', 'SUMIF range/sum_range size mismatch');
+      let total = 0;
+      for (let r = 0; r < matrix.length; r++) for (let c = 0; c < matrix[r].length; c++) {
+        const cv = ctx.getCell(matrix[r][c]);
+        if (isErrorValue(cv)) throw new WorkbookError(cv);
+        if (matchCriteria(cv, critVal)) {
+          const sv = ctx.getCell(sumMatrix[r][c]);
+          if (isErrorValue(sv)) throw new WorkbookError(sv);
+          if (typeof sv === 'number') total += sv;
+        }
+      }
+      return finiteNum(total);
+    }
+    default: throw new WorkbookError('#NAME?', `unknown function "${name}"`);
+  }
+}
+function createWorkbook() { return { cells: {}, rows: 0, cols: 0 }; }
+function setCell(wb, ref, raw) {
+  const { col, row } = parseCellRef(ref);
+  if (raw === '' || raw === null || raw === undefined) { delete wb.cells[ref]; }
+  else { wb.cells[ref] = { raw }; }
+  wb.rows = Math.max(wb.rows || 0, row);
+  wb.cols = Math.max(wb.cols || 0, col);
+  return wb;
+}
+function coerceLiteral(raw) {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : '#NUM!';
+  if (typeof raw === 'boolean') return raw;
+  const s = String(raw);
+  if (/^-?[0-9]+(\.[0-9]+)?$/.test(s)) {
+    const n = Number(s);
+    return Number.isFinite(n) ? n : '#NUM!';
+  }
+  const u = s.toUpperCase();
+  if (u === 'TRUE') return true;
+  if (u === 'FALSE') return false;
+  return s;
+}
+function recalc(wb) {
+  const results = {};
+  const state = new Map();
+  function getCell(ref) {
+    if (Object.prototype.hasOwnProperty.call(results, ref)) return results[ref];
+    const cell = wb.cells[ref];
+    if (!cell) return null;
+    return evaluateCell(ref, cell);
+  }
+  function evaluateCell(ref, cell) {
+    if (state.get(ref) === 'visiting') return '#CYCLE!';
+    state.set(ref, 'visiting');
+    let value;
+    if (typeof cell.raw !== 'string' || !cell.raw.startsWith('=')) {
+      value = coerceLiteral(cell.raw);
+    } else {
+      try {
+        const ast = parseFormula(cell.raw.slice(1));
+        value = evalAst(ast, { getCell });
+      } catch (e) {
+        value = e instanceof WorkbookError ? e.code : '#ERROR!';
+      }
+    }
+    state.set(ref, 'done');
+    results[ref] = value;
+    return value;
+  }
+  for (const ref of Object.keys(wb.cells)) getCell(ref);
+  for (const ref of Object.keys(wb.cells)) wb.cells[ref].value = results[ref];
+  return wb;
+}
+function parseCSV(text) {
+  if (typeof text !== 'string') throw new WorkbookError('#VALUE!', 'CSV input must be a string');
+  const rows = [];
+  let row = [], field = '', i = 0;
+  const n = text.length;
+  let state = 'FIELD_START';
+  const endField = () => { row.push(field); field = ''; state = 'FIELD_START'; };
+  const endRow = () => { endField(); rows.push(row); row = []; };
+  while (i < n) {
+    const ch = text[i];
+    if (state === 'FIELD_START') {
+      if (ch === '"') { state = 'QUOTED'; i++; continue; }
+      if (ch === ',') { endField(); i++; continue; }
+      if (ch === '\r') { if (text[i + 1] === '\n') i++; endRow(); i++; continue; }
+      if (ch === '\n') { endRow(); i++; continue; }
+      field += ch; state = 'UNQUOTED'; i++; continue;
+    }
+    if (state === 'UNQUOTED') {
+      if (ch === '"') throw new WorkbookError('#PARSE!', `malformed CSV: unexpected quote inside unquoted field at position ${i}`);
+      if (ch === ',') { endField(); i++; continue; }
+      if (ch === '\r') { if (text[i + 1] === '\n') i++; endRow(); i++; continue; }
+      if (ch === '\n') { endRow(); i++; continue; }
+      field += ch; i++; continue;
+    }
+    if (state === 'QUOTED') {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        state = 'AFTER_QUOTE'; i++; continue;
+      }
+      field += ch; i++; continue;
+    }
+    if (state === 'AFTER_QUOTE') {
+      if (ch === ',') { endField(); i++; continue; }
+      if (ch === '\r') { if (text[i + 1] === '\n') i++; endRow(); i++; continue; }
+      if (ch === '\n') { endRow(); i++; continue; }
+      throw new WorkbookError('#PARSE!', `malformed CSV: unexpected character after closing quote at position ${i}`);
+    }
+  }
+  if (state === 'QUOTED') throw new WorkbookError('#PARSE!', 'malformed CSV: unterminated quoted field');
+  if (state !== 'FIELD_START' || field !== '' || row.length) endRow();
+  return rows;
+}
+function csvToWorkbook(text) {
+  const rows = parseCSV(text);
+  const wb = createWorkbook();
+  let maxCol = 0;
+  rows.forEach((r, ri) => {
+    maxCol = Math.max(maxCol, r.length);
+    r.forEach((val, ci) => { if (val !== '') setCell(wb, cellKey(ci + 1, ri + 1), val); });
+  });
+  wb.rows = Math.max(wb.rows, rows.length);
+  wb.cols = Math.max(wb.cols, maxCol);
+  recalc(wb);
+  return wb;
+}
+function rangeValuesMatrix(wb, rangeRef) {
+  return expandRange(rangeRef).map((row) => row.map((ref) => {
+    const cell = wb.cells[ref];
+    if (!cell) return null;
+    return cell.value !== undefined ? cell.value : coerceLiteral(cell.raw);
+  }));
+}
+async function rangeDigest(wb, rangeRef) {
+  const values = rangeValuesMatrix(wb, rangeRef);
+  return executionHash(values, {});
+}
+
+// ---- chaingraph/workbook/roundtrip-verify.mjs (verbatim, import stripped —
+// XLR-2, WORKBOOK-ROUNDTRIP-BUILD-SPEC.md §XLR-2). Zero new engine code: this
+// calls only the workbook.mjs pieces above, plus the shared CSV-injection
+// sanitizer. ----
+function sanitizeReceiptValue(v) {
+  return typeof v === 'string' && isCsvInjectionRisk(v) ? sanitizeCsvField(v) : v;
+}
+function requireString(name, v) {
+  if (typeof v !== 'string' || v.length === 0) throw new WorkbookError('#VALUE!', `${name} must be a non-empty string`);
+}
+function requireManifest(manifest) {
+  if (!manifest || typeof manifest !== 'object') throw new WorkbookError('#VALUE!', 'manifest must be an object');
+  if (!manifest.source || typeof manifest.source.csv_digest !== 'string') throw new WorkbookError('#VALUE!', 'manifest.source.csv_digest is required');
+  if (!Array.isArray(manifest.ranges) || manifest.ranges.length === 0) throw new WorkbookError('#VALUE!', 'manifest.ranges must be a non-empty array');
+  for (const r of manifest.ranges) {
+    if (!r || typeof r.ref !== 'string' || typeof r.values_digest !== 'string') {
+      throw new WorkbookError('#VALUE!', 'each manifest range needs {ref, values_digest}');
+    }
+  }
+}
+async function digestPastedRange(text, dimsRef, label) {
+  requireString(label, text);
+  const wb = csvToWorkbook(text);
+  const localRange = fullRangeRef(wb);
+  if (!localRange) throw new WorkbookError('#VALUE!', `${label} parsed to an empty range`);
+  const matrix = rangeValuesMatrix(wb, localRange);
+  const expectedShape = expandRange(dimsRef);
+  if (matrix.length !== expectedShape.length || (matrix[0] || []).length !== (expectedShape[0] || []).length) {
+    throw new WorkbookError('#VALUE!', `${label} shape ${matrix.length}x${(matrix[0] || []).length} does not match manifest range ${dimsRef} shape ${expectedShape.length}x${(expectedShape[0] || []).length}`);
+  }
+  const digest = await rangeDigest(wb, localRange);
+  return { matrix, digest };
+}
+function diffCells(rangeRef, expectedMatrix, observedMatrix) {
+  const abs = expandRange(rangeRef);
+  const out = [];
+  for (let r = 0; r < abs.length; r++) {
+    for (let c = 0; c < abs[r].length; c++) {
+      const e = expectedMatrix[r][c];
+      const o = observedMatrix[r][c];
+      const same = e === o || (e === null && (o === null || o === undefined)) || (o === null && e === undefined);
+      if (!same) {
+        out.push({
+          ref: abs[r][c],
+          expected_value: sanitizeReceiptValue(e),
+          observed_value: sanitizeReceiptValue(o),
+        });
+      }
+    }
+  }
+  return out;
+}
+async function verifyRoundtrip(manifest, observedByRef, opts = {}) {
+  requireManifest(manifest);
+  if (!observedByRef || typeof observedByRef !== 'object') throw new WorkbookError('#VALUE!', 'observedByRef must be an object');
+  const { expectedByRef = {}, producedBy, producedAt } = opts;
+  requireString('producedBy', producedBy);
+  requireString('producedAt', producedAt);
+
+  const expectedRangesOut = [];
+  const observedRangesOut = [];
+  const mismatches = [];
+  let usedPqExport = false;
+
+  for (const r of manifest.ranges) {
+    const observedText = observedByRef[r.ref];
+    if (typeof observedText !== 'string') throw new WorkbookError('#VALUE!', `observedByRef is missing pasted text for range ${r.ref}`);
+
+    const { matrix: observedMatrix, digest: observedDigest } = await digestPastedRange(observedText, r.ref, `observed[${r.ref}]`);
+
+    expectedRangesOut.push({ ref: r.ref, values_digest: r.values_digest });
+    observedRangesOut.push({ ref: r.ref, values_digest: observedDigest });
+
+    if (observedDigest === r.values_digest) continue;
+
+    const expectedText = expectedByRef[r.ref];
+    if (typeof expectedText === 'string') {
+      usedPqExport = true;
+      const { matrix: expectedMatrix } = await digestPastedRange(expectedText, r.ref, `expected[${r.ref}]`);
+      const cellDiffs = diffCells(r.ref, expectedMatrix, observedMatrix);
+      mismatches.push(...(cellDiffs.length ? cellDiffs : [{
+        ref: r.ref,
+        expected_value: sanitizeReceiptValue(r.values_digest),
+        observed_value: sanitizeReceiptValue(observedDigest),
+      }]));
+    } else {
+      mismatches.push({
+        ref: r.ref,
+        expected_value: sanitizeReceiptValue(r.values_digest),
+        observed_value: sanitizeReceiptValue(observedDigest),
+      });
+    }
+  }
+
+  return {
+    receipt_type: 'workbook-roundtrip-receipt',
+    manifest_ref: manifest.source.csv_digest,
+    expected: { source: usedPqExport ? 'pq-export' : 'manifest', ranges: expectedRangesOut },
+    observed: { source: 'excel-paste', ranges: observedRangesOut },
+    result: mismatches.length ? 'mismatch' : 'match',
+    mismatches,
+    produced_by: producedBy,
+    produced_at: producedAt,
+  };
+}
+</script>
+
+<!-- === Thin UI renderer -- manifest intake, per-range paste cards, verify,
+     receipt render. No parsing, digesting, or comparison logic lives below
+     this line; everything above is the reused WB-1/XLR-2 core. === -->
+<script>
+const SAMPLE_MANIFEST = {
+  manifest_type: 'spreadsheet-input-manifest',
+  source: { filename: 'line-items.csv', csv_digest: 'f83558f6297fffec9cdbe593d175e6a942467cc09603e7a973f03ea28c6630f7' },
+  ranges: [
+    { ref: 'B2:C3', values_digest: '63ca2fc56cc1051497478f7bb6e244e786ee782057e4151ef2c39cf951f9ef56', semantics: 'policy_parameters pointer: units and unit_price for the two line items' },
+  ],
+  produced_by: 'chaingraph/workbook/workbook.mjs (csvDigest + rangeDigest)',
+  produced_at: '2026-07-18T00:00:00Z',
+};
+
+let currentManifest = null;
+let lastReceipt = null;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function loadSampleManifest() {
+  document.getElementById('manifestInput').value = JSON.stringify(SAMPLE_MANIFEST, null, 2);
+  loadManifest();
+}
+
+function loadManifest() {
+  const raw = document.getElementById('manifestInput').value.trim();
+  const summary = document.getElementById('manifestSummary');
+  if (!raw) { alert('Paste a manifest JSON first.'); return; }
+  let manifest;
+  try {
+    manifest = JSON.parse(raw);
+  } catch (e) {
+    summary.style.display = '';
+    summary.innerHTML = '<span style="color:var(--red)">Invalid JSON: ' + escapeHtml(e.message) + '</span>';
+    return;
+  }
+  try {
+    requireManifest(manifest);
+  } catch (e) {
+    summary.style.display = '';
+    summary.innerHTML = '<span style="color:var(--red)">Invalid manifest: ' + escapeHtml(e.message) + '</span>';
+    return;
+  }
+  currentManifest = manifest;
+  renderManifestSummary(manifest);
+  renderRangeCards(manifest);
+  document.getElementById('rangesSection').style.display = '';
+  document.getElementById('verifySection').style.display = '';
+  document.getElementById('receiptSection').style.display = 'none';
+}
+
+function renderManifestSummary(manifest) {
+  const summary = document.getElementById('manifestSummary');
+  summary.style.display = '';
+  summary.innerHTML =
+    '<div><span class="k">source.filename</span> ' + escapeHtml(manifest.source.filename || '') + '</div>' +
+    '<div><span class="k">source.csv_digest</span> ' + escapeHtml(manifest.source.csv_digest) + '</div>' +
+    '<div><span class="k">ranges</span> ' + manifest.ranges.length + '</div>' +
+    '<div><span class="k">produced_by</span> ' + escapeHtml(manifest.produced_by || '') + '</div>';
+}
+
+function renderRangeCards(manifest) {
+  const wrap = document.getElementById('rangeCards');
+  wrap.innerHTML = manifest.ranges.map((r, i) => `
+    <div class="range-card" data-ref="${escapeHtml(r.ref)}">
+      <div class="range-card-head">
+        <span class="range-ref">${escapeHtml(r.ref)}</span>
+        <span class="range-semantics">${escapeHtml(r.semantics || 'open this range in Excel and recompute it')}</span>
+      </div>
+      <div class="range-digest">expected values_digest ${escapeHtml(r.values_digest)}</div>
+      <div class="grid-2" style="margin-top:.6rem">
+        <div>
+          <label class="field-label">observed (pasted from Excel, required)</label>
+          <textarea class="paste-box observed-box" data-ref="${escapeHtml(r.ref)}" placeholder="10,widget&#10;20,gadget"></textarea>
+        </div>
+        <div>
+          <label class="field-label">expected / pq-export paste (optional, for a per-cell diff)</label>
+          <textarea class="paste-box expected-box" data-ref="${escapeHtml(r.ref)}" placeholder="optional"></textarea>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function runVerify() {
+  if (!currentManifest) { alert('Load a manifest first.'); return; }
+  const producedBy = document.getElementById('producedByInput').value.trim();
+  if (!producedBy) { alert('Enter produced_by before verifying.'); return; }
+
+  const observedByRef = {};
+  const expectedByRef = {};
+  for (const r of currentManifest.ranges) {
+    const oBox = document.querySelector(`.observed-box[data-ref="${CSS.escape(r.ref)}"]`);
+    const eBox = document.querySelector(`.expected-box[data-ref="${CSS.escape(r.ref)}"]`);
+    const oVal = oBox ? oBox.value : '';
+    if (!oVal.trim()) { alert('Paste the observed values for range ' + r.ref + ' first.'); return; }
+    observedByRef[r.ref] = oVal;
+    if (eBox && eBox.value.trim()) expectedByRef[r.ref] = eBox.value;
+  }
+
+  try {
+    const receipt = await verifyRoundtrip(currentManifest, observedByRef, {
+      expectedByRef,
+      producedBy,
+      producedAt: new Date().toISOString(),
+    });
+    lastReceipt = receipt;
+    renderReceipt(receipt);
+    window.enableAP2Btn();
+  } catch (e) {
+    alert('Verify failed: ' + (e && e.message ? e.message : e));
+  }
+}
+
+function renderReceipt(receipt) {
+  const section = document.getElementById('receiptSection');
+  section.style.display = '';
+  const badge = document.getElementById('resultBadge');
+  badge.textContent = receipt.result.toUpperCase();
+  badge.className = 'result-badge ' + (receipt.result === 'match' ? 'result-match' : 'result-mismatch');
+
+  const mmWrap = document.getElementById('mismatchWrap');
+  if (receipt.mismatches.length) {
+    mmWrap.innerHTML = '<table class="mm-table"><thead><tr><th>ref</th><th>expected</th><th>observed</th></tr></thead><tbody>' +
+      receipt.mismatches.map((m) => `<tr><td class="mm-ref">${escapeHtml(m.ref)}</td><td>${escapeHtml(m.expected_value)}</td><td>${escapeHtml(m.observed_value)}</td></tr>`).join('') +
+      '</tbody></table>';
+  } else {
+    mmWrap.innerHTML = '';
+  }
+  document.getElementById('receiptJson').textContent = JSON.stringify(receipt, null, 2);
+}
+
+function downloadReceipt() {
+  if (!lastReceipt) return;
+  const json = JSON.stringify(lastReceipt, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'roundtrip_receipt_' + new Date().toISOString().replace(/[:.TZ]/g, '').slice(0, 14) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "572-workbook-roundtrip-verify", "version": "1.0.0", "title": "Workbook Round-Trip Verify", "description": "Loads a Spreadsheet Input Manifest for a run, surfaces the ranges to recompute in Excel, accepts a pasted range or CSV back per range, and produces a match/mismatch round-trip receipt naming every diverging cell. Client-side. Zero PII.", "category": "core-infrastructure", "tags": ["workbook", "round-trip", "csv", "excel", "reconciliation"], "audience": ["engineer", "compliance", "operations"], "input_schema": {"type": "object", "properties": {"manifest": {"type": "object", "description": "WB-2 Spreadsheet Input Manifest"}, "observedByRef": {"type": "object", "description": "map of range ref to pasted CSV/TSV text"}}}, "output_schema": {"type": "object", "properties": {"receipt": {"type": "object", "description": "workbook-roundtrip-receipt: result, mismatches, both sides ranges"}}}, "mcp_tool_definition": {"name": "verify_workbook_roundtrip", "description": "Compares a WB-2 Spreadsheet Input Manifest against pasted-back Excel ranges and returns a match/mismatch round-trip receipt.", "inputSchema": {"type": "object", "properties": {"manifest": {"type": "object"}, "observedByRef": {"type": "object"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/572-workbook-roundtrip-verify.html", "function_name": "runVerify"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": false, "bridge_version": "1.0"}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+<script>
+/* AP2 Policy Mandate Export — CONTRACT §3–§4. Retained legacy identifiers (ap2ExportBtn / AP2Schema) — do not rename. */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window.exportAP2=function(){
+  if(!lastReceipt){alert('Verify a round-trip first to generate a Policy Mandate.');return;}
+  var ts=new Date().toISOString();
+  var tid='572-workbook-roundtrip-verify';
+  var mandate={
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'disclosure_template',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:lastReceipt,
+    summary:'Workbook round-trip receipt: '+lastReceipt.result+' '+ts.slice(0,10),
+    agent_instructions:['Bind manifest_ref and the receipt result into policy_parameters for the consuming OCG artifact.'],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+</body>
+</html>
