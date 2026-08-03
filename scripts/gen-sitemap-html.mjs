@@ -50,6 +50,7 @@ function extractDesc(html) {
 function sanitizeCopy(s) {
   return String(s)
     .replace(/—/g, ', ')
+    .replace(/\s+--\s+/g, ', ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }

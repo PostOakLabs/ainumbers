@@ -73,6 +73,15 @@ const BASELINE_PATH = resolve(REPO, 'scripts', 'copy-hallmarks-baseline.json');
 const UPDATE = process.argv.includes('--update');
 
 const EMDASH = /—/g;
+// Blocking, zero-tolerance, no baseline (DASHSWEEP-1, 2026-08-03 — CONTRACT §1.4
+// bans the em-dash and prescribes rewrites; sessions removing em-dashes were
+// substituting a double-hyphen instead, which reads as a CLI flag / draft-text
+// tell, the same machine-generated signal the em-dash ban exists to remove).
+// Exempt <option> divider content (`-- Select technique --`, `-- None --`) —
+// established HTML convention, not prose; same precedent as the emoji/bold
+// structural-chrome exemptions above.
+const DOUBLEDASH = /--/g;
+const OPTION_TAG = /<option\b[^>]*>[\s\S]*?<\/option>/gi;
 // Build jargon that must not reach readers. \b keeps ART-ids and W-8 (digit) safe.
 const JARGON = [
   [/\bWave\s+\d+\b/g, 'Wave-N build code'],
@@ -227,6 +236,8 @@ for (const file of htmlFiles(REPO)) {
   const text = visibleText(raw); // fully tag-stripped
 
   const emdash = (text.match(EMDASH) || []).length;
+  const doubledashText = proseHtml(raw).replace(OPTION_TAG, ' ').replace(/<[^>]+>/g, ' ');
+  const doubledash = (doubledashText.match(DOUBLEDASH) || []).length;
   const jargon = [];
   for (const [re, label] of JARGON) {
     const m = text.match(re) || [];
@@ -243,6 +254,7 @@ for (const file of htmlFiles(REPO)) {
   // point (e.g. workbench.html's placeholder targets), not prose emphasis.
   const italics = (prose.match(/<(em|i)\b[^>]*>[^<]+<\/\1>/gi) || []).length;
   if (italics) hallmarks.push(`italics-for-emphasis ×${italics}`);
+  if (doubledash) hallmarks.push(`double-hyphen em-dash substitute (" -- ") ×${doubledash}`);
   // Bold baseline+ratchet scope: headings NO LONGER exempt; only structural UI
   // chrome (th/dt/label/legend/button) stays exempt — that's not prose emphasis.
   const proseForBold = prose.replace(STRUCTURAL_BOLD_EXEMPT, ' ');

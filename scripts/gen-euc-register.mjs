@@ -48,10 +48,10 @@ function trustLabel(node) {
   if (proofReady(node)) {
     const sys = node.compute_proof?.system ?? "risc0";
     const fmt = node.compute_proof?.receiptFormat ?? "groth16-bn254";
-    return `independently verified -- zkVM execution proof (${sys}/${fmt})`;
+    return `independently verified: zkVM execution proof (${sys}/${fmt})`;
   }
-  const reason = node.deferred_reason ? ` -- ${node.deferred_reason}` : "";
-  return `deferred -- deterministic source published, zkVM proof not yet generated${reason}`;
+  const reason = node.deferred_reason ? `; ${node.deferred_reason}` : "";
+  return `deferred: deterministic source published, zkVM proof not yet generated${reason}`;
 }
 
 // Site nodes are one kernel per tool_id (no multi-node workflow packs like Helm),
