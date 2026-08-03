@@ -20,6 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- ART-49 · Wave 11. Inline compute() stays byte-identical to kernels/art-49-clearing-access-model-selector.kernel.mjs. -->
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
 <style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
 <style>
 :root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--radius:6px;--radius-lg:10px}
@@ -138,6 +139,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div><button onclick="run()">Run model →</button></div>
 
   <div class="card results" id="results">
+    <div class="generated-at" id="generatedAt"></div>
     <div class="memo" id="memo"></div>
     <table id="costTable"><thead><tr><th>Access model</th><th>Annual cost</th><th>Est. IM</th><th>Blended score</th><th>Eligible</th></tr></thead><tbody></tbody></table>
     <div class="muted">Exec-access score <span id="execScore" style="color:var(--teal-lt)"></span> · Netting efficiency <span id="netPct" style="color:var(--teal-lt)"></span> · Segregation: <span id="seg" style="color:var(--bright)"></span></div>
@@ -197,7 +199,9 @@ async function run(){
   const pp={};['firm_type','current_access','cash_notional_annual','repo_notional_daily','num_executing_dealers','want_execution_flexibility','capital_constrained','margin_segregation_pref','im_funding_rate','capital_charge_rate'].forEach(id=>{const el=document.getElementById(id);pp[id]=num.includes(id)?Number(el.value):el.value;});
   const {output_payload:op,compliance_flags}=compute(pp);
   const hash=await execHash(pp,op);
-  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'treasury_mandate',tool_id:'art-49-clearing-access-model-selector',tool_version:'1.1.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'treasury_mandate',tool_id:'art-49-clearing-access-model-selector',tool_version:'1.1.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   document.getElementById('results').classList.add('show');
   document.getElementById('memo').textContent=op.cfo_memo;
   document.querySelector('#costTable tbody').innerHTML=MODELS.map(m=>`<tr><td class="${m===op.recommended_model?'rec':''}">${m.replace(/_/g,' ')}${m===op.recommended_model?' ◄':''}</td><td>${fmt(op.annual_cost_by_model[m])}</td><td>${fmt(op.im_estimate_by_model[m])}</td><td>${op.model_scores[m].blended}</td><td>${op.model_scores[m].eligible?'✓':'—'}</td></tr>`).join('');
