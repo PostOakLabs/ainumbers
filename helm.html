@@ -124,6 +124,7 @@ nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:
 .scene h2{font-size:clamp(1.4rem,2.4vw,1.9rem);color:var(--white);margin-bottom:.7rem}
 .scene p.lede{font-size:.92rem;color:var(--body);max-width:640px}
 .scene p.lede b{color:var(--text);font-weight:400}
+.scene p.lede+p.lede{margin-top:.75rem}
 .fig{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem;overflow:hidden}
 .fig svg{width:100%;height:auto;display:block}
 
@@ -749,6 +750,7 @@ npm run build:sea</code></pre>
       <h2>Runs on your machine, not ours</h2>
       <p class="lede">The Helm hub is a small daemon you install. Its browser interface talks to it over a padlocked loopback link on your own computer, and the hub calls your services directly. Nothing routes through an AINumbers server, so there is no involuntary egress to a cloud you do not control.</p>
       <p class="lede">Three terms, one ladder: a tool is one calculator. A workflow is a named composition of tool steps. A pack is a workflow packaged to run in Helm: the same deterministic steps plus a signed manifest, declared inputs, sample data, and any review gates. A pack adds deployability, not new logic.</p>
+      <p class="lede">A pack runs from two surfaces off one kernel. The hub runs it with a journal behind it. The <code>2026.8.2</code> build adds the second surface, <code>helm check</code>, which recomputes a single pack against a file you hand it from the command line, with no daemon running and nothing uploaded. The arithmetic is identical either way, because both routes dispatch the same pinned kernel rather than a reimplementation of it.</p>
     </div>
     <div class="fig reveal">
       <svg viewBox="0 0 900 300" role="img" aria-label="Diagram: a browser interface connects over a padlocked loopback link to a local hub daemon, which calls your services directly. A crossed-out arrow points to a grayed-out cloud card labeled no involuntary egress.">
@@ -795,9 +797,11 @@ npm run build:sea</code></pre>
       <div class="scene-num">03 &middot; A run you can replay</div>
       <h2>Signed logs say what happened. Helm re-computes it.</h2>
       <p class="lede">Each run flows through a trigger, a connector fetch, a deterministic kernel, and an evidence bundle. The kernel is pinned by the digest of its own file, not by a version label, and its inputs and identity stamp into a hash. Feed the same inputs back through the same kernel and the same hash appears, so the recorded work can be reproduced on demand rather than taken on faith.</p>
+      <p class="lede">The same property is what lets a reviewer check somebody else's number. <code>helm check &lt;pack&gt; &lt;file&gt;</code> takes a JSON extract holding the inputs and, optionally, the figure the producer asserted. It recomputes the pack's kernel and reports whether the two agree. There is no prior run to look up and no daemon to start, so the file can come from a counterparty, an outsourced administrator, or a folder somebody emailed you.</p>
+      <p class="lede">The answer is an exit code, so the check belongs in a script rather than on a screen. Agreement and disagreement get separate codes, and a file that asserted nothing gets a third, so a silent pass can never be read as a check that passed. Three packs are registered: bordereau recompute, securitisation waterfall recompute, and a securitisation Article 5 evidence record. The first two carry an asserted figure to disagree with. The third assembles a duty and evidence record rather than recomputing a figure against a report, so it is a pack you can run but not a target you can check.</p>
     </div>
     <div class="fig reveal">
-      <svg viewBox="0 0 900 320" role="img" aria-label="Pipeline: trigger, connector fetch, deterministic kernel, evidence bundle. At the kernel the inputs and version stamp into a hash. A replay pass sends the same inputs through and the same hash reappears with a green equality check.">
+      <svg viewBox="0 0 900 410" role="img" aria-label="Pipeline: trigger, connector fetch, deterministic kernel, evidence bundle. At the kernel the inputs and version stamp into a hash. A replay pass sends the same inputs through and the same hash reappears with a green equality check. A third row labelled helm check sends someone else's file, holding inputs and an asserted figure, through the same kernel with no daemon and no upload, returning exit 0 when the recomputation agrees and exit 1 when it differs.">
         <!-- pipeline nodes -->
         <g font-family="'JetBrains Mono',monospace">
           <rect class="card-box" x="30" y="60" width="150" height="64" rx="8"/>
@@ -838,6 +842,20 @@ npm run build:sea</code></pre>
           <text class="lbl-sm" x="745" y="260" text-anchor="middle" fill="var(--green)">abc123&#8230; = abc123&#8230;</text>
           <text class="lbl-sm" x="745" y="276" text-anchor="middle" fill="var(--green)">&#10003; hashes match</text>
         </g>
+        <!-- helm check row: a stranger's file through the same kernel -->
+        <text class="lbl-mut" x="30" y="330" fill="var(--teal-lt)">helm check</text>
+        <rect class="card-box" x="30" y="340" width="150" height="46" rx="8"/>
+        <text class="lbl-sm" x="105" y="362" text-anchor="middle">their file</text>
+        <text class="lbl-mut" x="105" y="378" text-anchor="middle">inputs + asserted</text>
+        <path class="flow" d="M180 363 H450" stroke-dasharray="4 4"/>
+        <text class="lbl-mut" x="315" y="353" text-anchor="middle">no daemon, no upload</text>
+        <rect class="card-box teal" x="450" y="340" width="150" height="46" rx="8"/>
+        <text class="lbl-sm" x="525" y="368" text-anchor="middle" fill="var(--teal-lt)">same kernel</text>
+        <path class="flow-teal" d="M600 363 H660"/>
+        <rect class="card-box" x="660" y="340" width="170" height="46" rx="8"/>
+        <text class="lbl-sm" x="745" y="358" text-anchor="middle" fill="var(--green)">exit 0 agrees</text>
+        <text class="lbl-sm" x="745" y="374" text-anchor="middle" fill="var(--red)">exit 1 differs</text>
+        <text class="lbl-mut" x="745" y="398" text-anchor="middle">exit 2 nothing asserted</text>
         <!-- travelling dot on top pipeline -->
         <circle class="s2-dot dot" cx="105" cy="92" r="5"/>
       </svg>
@@ -852,6 +870,7 @@ npm run build:sea</code></pre>
       <div class="scene-num">04 &middot; Trust labels, not a green checkmark</div>
       <h2>Five precise labels, each with a boundary</h2>
       <p class="lede">A single "verified" badge hides more than it shows. Helm classifies every claim with exactly one of five labels, and each one states plainly what it does and does not assert. A connector reporting a value is not a statement that the value is true.</p>
+      <p class="lede">The labels do the same work for a one-shot <code>helm check</code>. A matching recomputation earns <code>kernel_verified</code> and nothing stronger: the pack's kernel reproduced the asserted figure from the inputs in that file. Whether those inputs described the world correctly is a separate question, and no label in Helm claims to answer it.</p>
     </div>
     <div class="fig reveal">
       <svg viewBox="0 0 900 240" role="img" aria-label="A mock verified mega-checkmark appears then gets struck through, replaced by five distinct trust labels lighting up in sequence.">
@@ -1020,6 +1039,7 @@ npm run build:sea</code></pre>
       <div class="scene-num">08 &middot; Evidence anyone can check</div>
       <h2>Email it. Verify offline, with no network.</h2>
       <p class="lede">An evidence bundle is a self-contained archive. Drop it into a verifier and it checks signatures, running hashes, and anchors with zero network access. Signatures use Ed25519 alongside post-quantum ML-DSA-44. A tampered copy of the same bundle fails a verification row in plain view. The verifier itself ships inside every bundle, so a colleague can be emailed the archive, open it, and see the same checks with nothing to install.</p>
+      <p class="lede">A <code>helm check</code> run produces one of these too. Pass <code>--out</code> and the recomputation is written as a check-result bundle carrying the inputs, the kernel identity, the recomputed figure, and the asserted figure it was compared against. The reviewer keeps evidence of the check, not just a number they remember running, and the person whose file was checked can verify the same bundle offline without taking the reviewer's word for it.</p>
     </div>
     <div class="fig reveal">
       <svg viewBox="0 0 900 260" role="img" aria-label="An evidence bundle file slides into a browser frame labeled verify offline, no network, with an envelope icon showing the bundle can be emailed to a colleague. Verification rows tick through signatures, running hashes, and anchors. A tampered twin bundle fails with a visible red row.">
