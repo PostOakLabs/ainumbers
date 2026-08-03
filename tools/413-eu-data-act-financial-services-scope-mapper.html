@@ -467,7 +467,7 @@ function toggleMfst(){var b=document.getElementById("mfstBody"),a=document.getEl
 (function(){if(typeof window.AP2Schema==="undefined")window.AP2Schema={};window.AP2Schema.validate=function(m){if(!m||typeof m!=="object")throw new Error("AP2Schema: mandate must be an object");if(typeof m.tool_id!=="string"&&typeof m.mandate_id!=="string")throw new Error("AP2Schema: missing identity");if(typeof m.mandate_type!=="string"||!m.mandate_type)throw new Error("AP2Schema: missing mandate_type");return true;};window.enableAP2Btn=function(){var b=document.getElementById("ap2ExportBtn");if(b){b.disabled=false;b.classList.add("ready");}};window.exportAP2=function(){if(!window._ap2Result){alert("Run the tool first.");return;}var ts=new Date().toISOString();var mandate={ap2_version:"1.0",mandate_id:MANIFEST.tool_id+"-"+ts.replace(/[:.]/g,"-").slice(0,19),issued_at:ts,issued_by:"ainumbers.co",tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,mandate_type:"data_governance_scope_assessment",jurisdiction:["EU"],regulatory_frameworks:["EU Data Act (Reg. 2023/2854)","GDPR (EU) 2016/679","PSD2 (EU) 2015/2366","FIDA (proposed)"],payload:window._ap2Result,summary:"EU Data Act Financial Services Scope Mapping — "+ts.slice(0,10),agent_instructions:["Review Data Act applicability determination and initiate compliance programme workstreams.","Conduct FIDA/Data Act boundary analysis with DPO and legal counsel.","Implement data access infrastructure for in-scope connected products by September 2025."],valid_from:ts.slice(0,10),audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};window.AP2Schema.validate(mandate);var json=JSON.stringify(mandate,null,2);var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([json],{type:"application/json"}));a.download=MANIFEST.tool_id+"_"+ts.replace(/[:.TZ]/g,"").replace(/-/g,"").slice(0,14)+".policy.json";a.click();URL.revokeObjectURL(a.href);};})();
 </script>
 
-<!-- ═══ AIN Bridge v1.0: prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html · CONTRACT §2.4/§6.4 ═══ -->
+<!-- ═══ AIN Bridge v1.1: prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html · CONTRACT §2.4/§6.4 ═══ -->
 <script>window.AIN_BRIDGE_CFG={runFn:'runMapper',intake:false,intakeTarget:null,intakeAnchor:null};</script>
 <script>
 (function(){
@@ -555,11 +555,42 @@ function initPrefill(){
     else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
   }
 }
+var HANDOFF_MAX_CHARS=2000000;
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('\u26a0 No Policy Mandate to send \u2014 run the tool first.','warn');return;}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('\u26a0 Could not serialize the mandate: '+e.message,'warn');return;}
+  if(json.length>HANDOFF_MAX_CHARS){notice('\u26a0 Too large to hand off ('+json.length+' chars).','warn');return;}
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('\u26a0 The verifier window was blocked. Allow pop-ups for this site.','warn');return;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('\u27a1 Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier\u2026','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('\u26a0 The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+}
+window.apSendToVerify=apSendToVerify;
 window.AINBridge={
-  version:'1.0',
+  version:'1.1',
   apply:applyFields,
   run:runTool,
   intake:intakeApply,
+  sendToVerify:apSendToVerify,
   getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
   makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
 };

@@ -260,7 +260,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
       <div class="out-body"><pre class="memo-block" id="memoEl"></pre></div>
     </div>
 
-    <div class="results-export-row">
+    <div class="results-export-row"><button id="ainSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this Policy Mandate \u2014 same-origin message, no file, no network" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:pointer;opacity:.85;transition:opacity .2s,border-color .2s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">&#x27A1; Send to Verify</button>
       <button class="btn btn-ghost" id="mdExportBtn" onclick="exportMarkdown()" data-i18n="btn.export_md">↓ Export Markdown</button>
       <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled data-i18n="btn.export_mandate">
         {} Export Policy Mandate
@@ -606,7 +606,7 @@ buildProductGrid();
 
 <!-- hero-i18n removed: CONTRACT §1.1 -->
 
-<!-- ═══ AIN Bridge v1.0: prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html · CONTRACT §2.4/§6.4 ═══ -->
+<!-- ═══ AIN Bridge v1.1: prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html · CONTRACT §2.4/§6.4 ═══ -->
 <script>window.AIN_BRIDGE_CFG={runFn:'runScoper',intake:false,intakeTarget:null,intakeAnchor:null};</script>
 <script>
 (function(){
@@ -689,11 +689,42 @@ function initPrefill(){
     else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
   }
 }
+var HANDOFF_MAX_CHARS=2000000;
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('\u26a0 No Policy Mandate to send \u2014 run the tool first.','warn');return;}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('\u26a0 Could not serialize the mandate: '+e.message,'warn');return;}
+  if(json.length>HANDOFF_MAX_CHARS){notice('\u26a0 Too large to hand off ('+json.length+' chars).','warn');return;}
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('\u26a0 The verifier window was blocked. Allow pop-ups for this site.','warn');return;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('\u27a1 Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier\u2026','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('\u26a0 The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+}
+window.apSendToVerify=apSendToVerify;
 window.AINBridge={
-  version:'1.0',
+  version:'1.1',
   apply:applyFields,
   run:runTool,
   intake:intakeApply,
+  sendToVerify:apSendToVerify,
   getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
   makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
 };
