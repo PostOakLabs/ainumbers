@@ -200,7 +200,7 @@ nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);backgroun
 .hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
 .hero h1{font-size:clamp(2rem,4vw,2.6rem);color:var(--white);margin-bottom:.85rem}
 .hero-sub{font-size:.93rem;color:var(--body);max-width:680px;line-height:1.85}
-.reg-section{padding:2.5rem 0}
+.reg-section{padding:2.5rem 2rem;max-width:960px;margin:0 auto}
 .reg-section + .reg-section{border-top:1px solid var(--border)}
 .reg-section h2{font-size:1.5rem;color:var(--white);margin-bottom:.5rem}
 .reg-section-note{font-size:.85rem;color:var(--body);margin-bottom:1.5rem;max-width:700px}
