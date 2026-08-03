@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Evidence Handover Bundle · AINumbers.co</title>
+<meta name="description" content="Package a case-file binder and its referenced receipts into one offline zip an examiner can open with no network at all — a self-contained verify.html, the raw JSON receipts, and a plain-English README. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/576-evidence-handover-bundle.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Evidence Handover Bundle","url":"https://ainumbers.co/tools/576-evidence-handover-bundle.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "evidence-handover-bundle",
+  "version": "1.0.0",
+  "title": "Evidence Handover Bundle",
+  "description": "Packages a case-file binder manifest plus its caller-pasted referenced receipts into one client-side zip: a self-contained offline verify.html (zero network calls at verify time), the raw JSON receipts, and a plain-English README explaining what verified does and does not mean. Built for handing an examiner a bundle they can open on an air-gapped machine.",
+  "category": "cat-31",
+  "tags": ["case file","binder","examiner","offline","handover","zip","evidence bundle","air-gapped","merkle root"],
+  "audience": ["engagement partner","examiner","compliance","deal counsel","engineer"],
+  "input_schema": {"type":"object","properties":{"binder":{"type":"object"},"receipts":{"type":"array"}},"required":["binder"]},
+  "output_schema": {"type":"object","properties":{"zip_filename":{"type":"string"},"file_count":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"build_evidence_handover_bundle","description":"Builds an offline zip bundle (self-contained verify.html, binder + receipt JSON files, README) from a case-file binder manifest and the receipts it references. The worker never sees receipt contents.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"A case-file binder manifest (ainumbers-casefile-binder-v1)"},"receipts":{"type":"array","description":"Optional list of receipt JSON objects the caller has in hand, matched to binder entries by digest"}},"required":["binder"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/576-evidence-handover-bundle.html","function_name":"buildBundle","timeout_ms":5000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:block}
+.panel-row{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel-row textarea,.panel-row input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .6rem;border-radius:4px;outline:none;width:100%}
+.panel-row textarea:focus,.panel-row input:focus{border-color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.ghost-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.ghost-btn:hover{border-color:var(--purple);color:var(--purple)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.verdict.neutral{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.hashbox{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.6rem .75rem;margin-top:.5rem}
+.stat-row{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.stat{display:flex;flex-direction:column;gap:.2rem}
+.stat-v{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.stat-l{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.entry-check{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:.75rem}
+.entry-check-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.4rem}
+.kind-tag{font-size:.56rem;padding:.12rem .5rem;border-radius:3px;border:1px solid var(--border-2);color:var(--purple-lt)}
+.hint-note{font-size:.62rem;color:var(--muted)}
+.attach-row{display:flex;gap:.5rem;align-items:flex-start;margin-top:.5rem}
+.attach-row textarea{flex:1;font-size:.6rem}
+.attach-status{font-family:'JetBrains Mono',monospace;font-size:.58rem;margin-top:.4rem}
+.attach-status.on{color:var(--green)}.attach-status.off{color:var(--muted)}.attach-status.bad{color:var(--red)}
+.exclusion-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-3);border-left:3px solid var(--warn);border-radius:4px}
+.file-list{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.8}
+.file-list .dir{color:var(--muted)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>Evidence Handover Bundle</span></div>
+    <div class="nav-right"><a href="574-casefile-binder-composer.html" class="nav-cta">Binder Composer &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-31 · Data Room Diligence</div>
+  <h1 class="tool-title">Evidence Handover Bundle</h1>
+  <p class="hero-desc">Paste a case-file binder manifest (from the Case-File Binder Composer) and, optionally, the receipts it references, and get back one zip an examiner can open on a machine with no network connection at all: a self-contained <code>verify.html</code>, the raw JSON receipts, and a plain-English README. Built entirely in your browser with a small vendored zip writer, no CDN, no server call.</p>
+  <div class="disclaimer">&#9888; This is a digest-level handover, not a data room. The bundle carries exactly what you paste in: the binder plus whichever receipts you attach. A binder entry with no attached receipt still ships in <code>binder.json</code> with its <code>verify_hint</code> intact, so the examiner knows where to go get it.</div>
+  <div class="hero-badges">
+    <span class="badge badge-purple">Offline Verify</span>
+    <span class="badge badge-gold">Zero Network</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <span class="panel-label">Binder</span>
+    <div class="panel-row"><label for="binderInput">Paste the case-file binder manifest JSON</label><textarea id="binderInput" rows="6" placeholder="Paste a binder produced by the Case-File Binder Composer (574)"></textarea></div>
+    <div style="display:flex;gap:.75rem;align-items:center">
+      <button class="run-btn" onclick="loadBinder()">&#9654; Load Binder</button>
+      <span id="binderStatus" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div id="entriesSection"></div>
+
+  <div class="panel" id="buildPanel" style="display:none">
+    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+      <button class="run-btn" id="buildBtn" onclick="buildBundle()">&#9654; Build &amp; Download Bundle</button>
+      <span id="attachCount" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="574-casefile-binder-composer.html">Binder Composer</a>
+      <a href="575-casefile-binder-verifier.html">Binder Verifier</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to chaingraph/kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+async function __ocgSha256Hex(bytesOrStr){var b=typeof bytesOrStr==='string'?new TextEncoder().encode(bytesOrStr):bytesOrStr;var d=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+</script>
+<script>
+var MANIFEST = {"tool_id":"evidence-handover-bundle","version":"1.0.0","title":"Evidence Handover Bundle","description":"Packages a case-file binder manifest plus its caller-pasted referenced receipts into one client-side zip: a self-contained offline verify.html (zero network calls at verify time), the raw JSON receipts, and a plain-English README explaining what verified does and does not mean. Built for handing an examiner a bundle they can open on an air-gapped machine.","category":"cat-31","tags":["case file","binder","examiner","offline","handover","zip","evidence bundle","air-gapped","merkle root"],"audience":["engagement partner","examiner","compliance","deal counsel","engineer"],"input_schema":{"type":"object","properties":{"binder":{"type":"object"},"receipts":{"type":"array"}},"required":["binder"]},"output_schema":{"type":"object","properties":{"zip_filename":{"type":"string"},"file_count":{"type":"number"}}},"mcp_tool_definition":{"name":"build_evidence_handover_bundle","description":"Builds an offline zip bundle (self-contained verify.html, binder + receipt JSON files, README) from a case-file binder manifest and the receipts it references. The worker never sees receipt contents.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"A case-file binder manifest (ainumbers-casefile-binder-v1)"},"receipts":{"type":"array","description":"Optional list of receipt JSON objects the caller has in hand, matched to binder entries by digest"}},"required":["binder"]}},"execution":{"type":"browser-javascript","entry":"tools/576-evidence-handover-bundle.html","function_name":"buildBundle","timeout_ms":5000},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+/* ── binder intake (mirrors 575's loadBinder: entries absent vs entries:[] stay distinct states) ─── */
+var _binder = null;
+var _attached = {}; // entry index -> parsed receipt object
+
+function loadBinder(){
+  var raw = document.getElementById('binderInput').value.trim();
+  var statusEl = document.getElementById('binderStatus');
+  _attached = {};
+  if(!raw){ statusEl.textContent='No binder pasted.'; statusEl.style.color='var(--red)'; return; }
+  try{
+    var b = JSON.parse(raw);
+    if(b.schema !== 'ainumbers-casefile-binder-v1'){ throw new Error('schema is not ainumbers-casefile-binder-v1'); }
+    if(!('entries' in b)){ throw new Error('missing entries key (an empty binder must still carry entries:[])'); }
+    if(!Array.isArray(b.entries)){ throw new Error('entries is present but not an array'); }
+    if(!b.merkle_root){ throw new Error('missing merkle_root'); }
+    _binder = b;
+    statusEl.textContent = 'Loaded: '+(b.engagement_label||'untitled')+' v'+(b.version||'?')+' — '+b.entries.length+' entry(ies)';
+    statusEl.style.color='var(--green)';
+    renderEntries();
+    document.getElementById('buildPanel').style.display = 'block';
+    updateAttachCount();
+  }catch(e){
+    _binder = null;
+    statusEl.textContent = 'Invalid binder: '+e.message;
+    statusEl.style.color='var(--red)';
+    document.getElementById('entriesSection').innerHTML = '';
+    document.getElementById('buildPanel').style.display = 'none';
+    document.getElementById('outputSection').innerHTML = '';
+  }
+}
+
+function renderEntries(){
+  var wrap = document.getElementById('entriesSection');
+  if(_binder.entries.length===0){
+    wrap.innerHTML = '<div class="panel"><div class="exclusion-note">This binder carries zero entries (a valid, empty case file) &mdash; the bundle will still ship verify.html, binder.json, and README.txt.</div></div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="panel"><span class="panel-label">Attach Referenced Receipts (optional, one per entry)</span>' + _binder.entries.map(function(e,i){
+    return '<div class="entry-check">'
+      + '<div class="entry-check-top"><span class="kind-tag">'+escHtml(e.kind)+'</span><strong>'+escHtml(e.ref_label)+'</strong></div>'
+      + '<div class="hashbox">'+escHtml(e.digest)+'</div>'
+      + '<div class="hint-note">Verify hint: '+escHtml(e.verify_hint||'(none stated)')+'</div>'
+      + (e.kind==='helm_bundle' ? '<div class="exclusion-note">Helm bundle entries are recorded by digest only. Do not paste Helm bundle internals here &mdash; the bundle carries the signpost, the examiner opens the bundle itself in Helm\'s embedded verifier.</div>' : '')
+      + '<div class="attach-row">'
+        + '<textarea id="attach'+i+'" rows="2" placeholder="Optionally paste this entry\'s referenced receipt JSON here to include it in the zip"></textarea>'
+        + '<button class="ghost-btn" onclick="attachReceipt('+i+')">Attach</button>'
+      + '</div>'
+      + '<div class="attach-status off" id="attachStatus'+i+'">not attached &mdash; bundle will carry only the binder entry + verify_hint</div>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+
+function attachReceipt(i){
+  var raw = document.getElementById('attach'+i).value.trim();
+  var statusEl = document.getElementById('attachStatus'+i);
+  if(!raw){ delete _attached[i]; statusEl.className='attach-status off'; statusEl.textContent='not attached — bundle will carry only the binder entry + verify_hint'; updateAttachCount(); return; }
+  try{
+    var parsed = JSON.parse(raw);
+    _attached[i] = parsed;
+    statusEl.className = 'attach-status on';
+    statusEl.textContent = '✓ attached — will ship as receipts/'+String(i).padStart(2,'0')+'-'+_binder.entries[i].kind+'.json';
+  }catch(e){
+    delete _attached[i];
+    statusEl.className = 'attach-status bad';
+    statusEl.textContent = '✗ not valid JSON — not attached: '+e.message;
+  }
+  updateAttachCount();
+}
+
+function updateAttachCount(){
+  var n = Object.keys(_attached).length;
+  var total = _binder ? _binder.entries.length : 0;
+  document.getElementById('attachCount').textContent = n+' of '+total+' entr'+(total===1?'y':'ies')+' have a receipt attached';
+}
+
+/* ── filenames ────────────────────────────────────────────────────────── */
+function sanitizeSlug(s){
+  var out = String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  return out.slice(0,48) || 'entry';
+}
+
+/* ── vendored zip writer (store-only, no compression, no external dep) ──
+   Byte-identical port of zipStore in tools/571-export-fidelity-checker.html
+   (itself ported from chaingraph/exporters/zip.mjs). Reused verbatim here,
+   not reimplemented — see CASEFILE-BINDER-BUILD-2 check-off for the citation. */
+var CRC_TABLE=(function(){
+  var t=new Uint32Array(256);
+  for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[n]=c>>>0; }
+  return t;
+})();
+function crc32(bytes){
+  var c=0xFFFFFFFF;
+  for(var i=0;i<bytes.length;i++) c=CRC_TABLE[(c^bytes[i])&0xFF]^(c>>>8);
+  return (c^0xFFFFFFFF)>>>0;
+}
+function u16(n){return [n&0xFF,(n>>>8)&0xFF];}
+function u32(n){return [n&0xFF,(n>>>8)&0xFF,(n>>>16)&0xFF,(n>>>24)&0xFF];}
+function zipStore(files){
+  var parts=[], central=[], offset=0;
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    var nameBytes=new TextEncoder().encode(f.name);
+    var data=f.data;
+    var crc=crc32(data);
+    var size=data.length;
+    var lfh=[].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(size),u32(size),u16(nameBytes.length),u16(0));
+    var lfhBytes=new Uint8Array(lfh);
+    parts.push(lfhBytes, nameBytes, data);
+    var cdh=[].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(size),u32(size),u16(nameBytes.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset));
+    central.push(new Uint8Array(cdh), nameBytes);
+    offset+=lfhBytes.length+nameBytes.length+data.length;
+  }
+  var centralStart=offset, centralSize=0;
+  for(var c=0;c<central.length;c++) centralSize+=central[c].length;
+  var eocd=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(centralSize),u32(centralStart),u16(0)));
+  var total=centralStart+centralSize+eocd.length;
+  var out=new Uint8Array(total);
+  var p=0;
+  for(var b=0;b<parts.length;b++){ out.set(parts[b],p); p+=parts[b].length; }
+  for(var cc=0;cc<central.length;cc++){ out.set(central[cc],p); p+=central[cc].length; }
+  out.set(eocd,p);
+  return out;
+}
+
+/* ── README.txt ──────────────────────────────────────────────────────── */
+function buildReadme(binder, attachedCount){
+  var lines = [];
+  lines.push('EVIDENCE HANDOVER BUNDLE');
+  lines.push('=========================');
+  lines.push('');
+  lines.push('Engagement: '+(binder.engagement_label||'(untitled)'));
+  lines.push('Period: '+(binder.period||'(not stated)'));
+  lines.push('Binder version: '+binder.version+'   Generated: '+binder.generated_at);
+  lines.push('Entries: '+binder.entry_count+' total, '+attachedCount+' with a receipt attached in this bundle.');
+  lines.push('');
+  lines.push('WHAT THIS BUNDLE IS');
+  lines.push('--------------------');
+  lines.push('A digest-level index (the "binder") over a set of receipts the preparer already');
+  lines.push('held, plus whichever of those receipts they chose to attach. It is not a data room:');
+  lines.push('it never claims to be a complete record of everything relevant to the engagement,');
+  lines.push('only of what was indexed in this binder at the time it was generated.');
+  lines.push('');
+  lines.push('HOW TO OPEN IT');
+  lines.push('---------------');
+  lines.push('1. Unzip this file anywhere, including on a computer with no network connection.');
+  lines.push('2. Open verify.html in any modern web browser (double-click it, or use');
+  lines.push('   File > Open in your browser). It runs entirely from the files already in this');
+  lines.push('   zip — it does not need, and will not attempt, any network connection.');
+  lines.push('3. verify.html will show you: whether the binder\'s digital signature is valid,');
+  lines.push('   whether its Merkle root matches the entries listed, and for each attached');
+  lines.push('   receipt, whether its digest matches what the binder committed to.');
+  lines.push('');
+  lines.push('WHAT "VERIFIED" MEANS');
+  lines.push('----------------------');
+  lines.push('- A valid signature means the binder was signed by whoever held the signing key');
+  lines.push('  at the moment it was generated, and has not been altered since. It does not by');
+  lines.push('  itself prove who that signer was — that identity has to come from elsewhere');
+  lines.push('  (e.g. a cover email, an engagement letter).');
+  lines.push('- A matching Merkle root means the entries listed in the binder are exactly the');
+  lines.push('  entries that were hashed into that root — none added, removed, or changed since.');
+  lines.push('- A matching entry digest means the attached receipt is byte-for-byte the same');
+  lines.push('  thing the binder pointed to. It does NOT independently re-verify that receipt\'s');
+  lines.push('  own internals (its own signature, its own hash chain) — some receipt kinds get');
+  lines.push('  that additional check where the logic was already available offline; where it');
+  lines.push('  isn\'t (a Helm bundle, or an anchor proof needing an external trust root like a');
+  lines.push('  Bitcoin block header or a TSA certificate chain), verify.html says so plainly');
+  lines.push('  and names where to check it instead.');
+  lines.push('');
+  lines.push('WHAT "VERIFIED" DOES NOT MEAN');
+  lines.push('------------------------------');
+  lines.push('An anchor inclusion proof, where present, proves that a given hash existed by a');
+  lines.push('given time. It does not prove the underlying computation was correct — only that');
+  lines.push('it existed, unchanged, by that time. Computational correctness (if claimed at all)');
+  lines.push('is a separate, per-artifact matter and is never implied by anchoring alone.');
+  lines.push('');
+  lines.push('CONTENTS OF THIS ZIP');
+  lines.push('---------------------');
+  lines.push('verify.html   — self-contained offline verifier (open this first)');
+  lines.push('binder.json   — the case-file binder manifest itself');
+  lines.push('receipts/     — the receipts that were attached when this bundle was built');
+  lines.push('README.txt    — this file');
+  lines.push('');
+  lines.push('Produced by the Evidence Handover Bundle tool at ainumbers.co. This bundle makes');
+  lines.push('no promise about future support, updates, or response times — it is a standalone,');
+  lines.push('deterministic artifact, not a service.');
+  return lines.join('\n');
+}
+
+/* ── self-contained offline verify.html ──────────────────────────────────
+   Same signature-verify + Merkle-recompute logic as tools/575 (copied, not
+   reimplemented — see the "Why this shape" precedent in the build spec),
+   adapted to run over data embedded in the page itself instead of a paste
+   box, so it needs zero file reads and zero network calls when opened from
+   disk. CSP below carries no external origins at all (no Google Fonts, no
+   font-src) — nothing in this document can reach the network even if asked. */
+var VERIFY_HTML_HEAD = ''
++ '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
++ '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data:; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\';">\n'
++ '<title>Evidence Handover — Offline Verify</title>\n'
++ '<style>\n'
++ ':root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--text:#A8C4DE;--bright:#D4E8F8;--teal:#14B8A6;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:8px}\n'
++ '*{box-sizing:border-box;margin:0;padding:0}\n'
++ 'body{background:var(--bg);color:var(--text);font-family:ui-monospace,Consolas,Menlo,monospace;font-size:14px;line-height:1.7;padding:2rem 1.25rem 4rem}\n'
++ '.wrap{max-width:820px;margin:0 auto}\n'
++ 'h1{font-size:1.3rem;color:var(--bright);margin-bottom:.3rem}\n'
++ '.sub{color:var(--muted);font-size:.75rem;margin-bottom:1.5rem}\n'
++ '.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;overflow:hidden}\n'
++ '.out-header{padding:.7rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--purple)}\n'
++ '.out-body{padding:1rem}\n'
++ '.verdict{padding:.75rem 1rem;border-radius:6px;font-size:.78rem;font-weight:600}\n'
++ '.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}\n'
++ '.verdict.fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3)}\n'
++ '.verdict.neutral{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}\n'
++ '.hashbox{font-size:.68rem;color:#2DD4BF;word-break:break-all;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.55rem .7rem;margin-top:.4rem}\n'
++ '.entry{background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:.7rem .9rem;margin-bottom:.6rem}\n'
++ '.kind{font-size:.62rem;padding:.1rem .45rem;border-radius:3px;border:1px solid var(--border);color:#B794F4}\n'
++ '.note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.6rem;padding:.55rem .75rem;background:var(--bg-3);border-left:3px solid var(--warn);border-radius:4px}\n'
++ '.netnote{font-size:.68rem;color:var(--muted);margin-top:2rem;text-align:center}\n'
++ '</style>\n</head>\n<body><div class="wrap">\n'
++ '<h1>Evidence Handover — Offline Verify</h1>\n'
++ '<div class="sub">Runs entirely from data embedded in this file. No network call is made or attempted.</div>\n'
++ '<div id="out"></div>\n'
++ '<div class="netnote">This page has no server calls. Check your browser\'s network panel &mdash; it will stay empty.</div>\n'
++ '</div>\n<script>\n';
+
+var VERIFY_HTML_LOGIC = ''
++ 'function esc(s){return String(s).replace(/[&<>"\\x27]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","\\x27":"&#39;"}[c];});}\n'
++ 'function ocgCanon(v){return Array.isArray(v)?v.map(ocgCanon):(v&&typeof v==="object")?Object.keys(v).sort().reduce(function(o,k){o[k]=ocgCanon(v[k]);return o;},{}):v;}\n'
++ 'function sha256Hex(bytesOrStr){var b=typeof bytesOrStr==="string"?new TextEncoder().encode(bytesOrStr):bytesOrStr;return crypto.subtle.digest("SHA-256",b).then(function(d){return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,"0");}).join("");});}\n'
++ '(function(){\n'
++ '  var CS="eddsa-jcs-2022";\n'
++ '  function jcs(o){return new TextEncoder().encode(JSON.stringify(ocgCanon(o)));}\n'
++ '  function sha(b){return crypto.subtle.digest("SHA-256",b).then(function(d){return new Uint8Array(d);});}\n'
++ "  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}\n"
++ '  function opts(vm,created){return{type:"DataIntegrityProof",cryptosuite:CS,verificationMethod:vm,proofPurpose:"assertionMethod",created:created};}\n'
++ '  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}\n'
++ '  var B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";\n'
++ '  function b58d(str){var z=0;while(z<str.length&&str[z]==="1")z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error("bad base58");for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}\n'
++ '  function pubFromDid(did){if(did.indexOf("did:key:z")!==0)throw new Error("not did:key z-form");var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error("did:key not Ed25519");return crypto.subtle.importKey("raw",p.slice(2),{name:"Ed25519"},true,["verify"]);}\n'
++ '  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=="DataIntegrityProof"||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=="assertionMethod"||typeof pr.proofValue!=="string"||pr.proofValue[0]!=="z")return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify("Ed25519",pub,sig,hd);}).catch(function(){return false;});}\n'
++ '  window.__ocgVerify=verify;window.__ocgPubFromDidKey=pubFromDid;\n'
++ '})();\n'
++ 'async function merkleRoot(entries){\n'
++ '  if(entries.length===0) return await sha256Hex("EMPTY");\n'
++ '  var level=[];\n'
++ '  for(var i=0;i<entries.length;i++){ level.push(await sha256Hex(entries[i].kind+"|"+entries[i].digest+"|"+entries[i].ref_label)); }\n'
++ '  while(level.length>1){\n'
++ '    var next=[];\n'
++ '    for(var j=0;j<level.length;j+=2){ var l=level[j], r=(j+1<level.length)?level[j+1]:level[j]; next.push(await sha256Hex(l+r)); }\n'
++ '    level=next;\n'
++ '  }\n'
++ '  return level[0];\n'
++ '}\n'
++ 'async function run(){\n'
++ '  var b = __BUNDLE_DATA__.binder;\n'
++ '  var receipts = __BUNDLE_DATA__.receipts;\n'
++ '  var out = document.getElementById("out");\n'
++ '  var sigHtml;\n'
++ '  var proof = b.audit_signature && b.audit_signature.proof;\n'
++ '  if(!proof){ sigHtml = "<div class=\\"verdict fail\\">No signature present on this binder.</div>"; }\n'
++ '  else{\n'
++ '    try{\n'
++ '      var pub = await __ocgPubFromDidKey(proof.verificationMethod);\n'
++ '      var ok = await __ocgVerify(b, pub);\n'
++ '      sigHtml = "<div class=\\"verdict "+(ok?"pass":"fail")+"\\">"+(ok?"\\u2713 eddsa-jcs-2022 signature valid":"\\u2717 signature invalid / tampered")+"</div><div class=\\"hashbox\\">"+esc(proof.verificationMethod)+"</div>";\n'
++ '    }catch(e){ sigHtml = "<div class=\\"verdict fail\\">\\u2717 could not verify signature: "+esc(e.message)+"</div>"; }\n'
++ '  }\n'
++ '  var computedRoot = "sha256:" + await merkleRoot(b.entries);\n'
++ '  var rootOk = computedRoot === b.merkle_root;\n'
++ '  var rootHtml = "<div class=\\"verdict "+(rootOk?"pass":"fail")+"\\">"+(rootOk?"\\u2713 Merkle root matches recomputed entries":"\\u2717 Merkle root MISMATCH \\u2014 binder entries do not hash to the stated root")+"</div>"\n'
++ '    + "<div class=\\"hashbox\\">recomputed: "+esc(computedRoot)+"</div>"\n'
++ '    + "<div class=\\"hashbox\\">stated: "+esc(b.merkle_root)+"</div>";\n'
++ '  var entriesHtml = b.entries.length===0 ? "<div class=\\"note\\">This binder carries zero entries.</div>" : b.entries.map(function(e,i){\n'
++ '    var r = receipts[i];\n'
++ '    var body = "";\n'
++ '    if(!r){ body = "<div class=\\"verdict neutral\\">No receipt attached to this bundle for this entry. Verify hint: "+esc(e.verify_hint||"(none stated)")+"</div>"; }\n'
++ '    else{\n'
++ '      var candidateDigest = e.kind==="disclosure_manifest" ? r.merkle_root : e.kind==="helm_bundle" ? r.journal_root_digest : e.kind==="anchor_proof" ? r.anchored_hash : r.execution_hash;\n'
++ '      var digestMatch = candidateDigest === e.digest;\n'
++ '      body = "<div class=\\"verdict "+(digestMatch?"pass":"fail")+"\\">"+(digestMatch?"\\u2713 attached receipt digest matches this binder entry":"\\u2717 digest does NOT match \\u2014 wrong receipt, or binder entry is stale")+"</div>";\n'
++ '      if(e.kind==="disclosure_manifest" && r.audit_signature && r.audit_signature.proof){\n'
++ '        body += "<div id=\\"dm"+i+"\\" class=\\"verdict neutral\\" style=\\"margin-top:.5rem\\">checking referenced manifest signature\\u2026</div>";\n'
++ '      }\n'
++ '      if(e.kind==="helm_bundle"){ body += "<div class=\\"note\\">Helm bundle entries are recorded by digest only. This page does not and cannot re-verify a Helm bundle\\u2019s internals \\u2014 open it in Helm\\u2019s own embedded verifier.</div>"; }\n'
++ '      if(e.kind==="anchor_proof"){ body += "<div class=\\"note\\">This confirms the attached anchor proof\\u2019s stated hash matches the binder entry (structural, offline). Confirming the anchor itself against its external trust root (e.g. Bitcoin block headers for an OpenTimestamps proof, or a TSA certificate chain for an RFC 3161 timestamp) requires network access \\u2014 verify online at anchor.ainumbers.co/verify.html or with your own OTS/TSA client.</div>"; }\n'
++ '    }\n'
++ '    return "<div class=\\"entry\\"><div><span class=\\"kind\\">"+esc(e.kind)+"</span> <strong>"+esc(e.ref_label)+"</strong></div><div class=\\"hashbox\\">"+esc(e.digest)+"</div>"+body+"</div>";\n'
++ '  }).join("");\n'
++ '  out.innerHTML = "<div class=\\"out-section\\"><div class=\\"out-header\\">Binder Signature</div><div class=\\"out-body\\">"+sigHtml+"</div></div>"\n'
++ '    + "<div class=\\"out-section\\"><div class=\\"out-header\\">Merkle Root ("+b.entry_count+" entries, v"+(b.version||"?")+")</div><div class=\\"out-body\\">"+rootHtml+"</div></div>"\n'
++ '    + "<div class=\\"out-section\\"><div class=\\"out-header\\">Per-Entry Checks</div><div class=\\"out-body\\">"+entriesHtml+"</div></div>";\n'
++ '  for(var i=0;i<b.entries.length;i++){\n'
++ '    var e=b.entries[i], r=receipts[i];\n'
++ '    if(e.kind==="disclosure_manifest" && r && r.audit_signature && r.audit_signature.proof){\n'
++ '      (function(idx,rec){\n'
++ '        __ocgPubFromDidKey(rec.audit_signature.proof.verificationMethod).then(function(pub){ return __ocgVerify(rec,pub); }).then(function(ok){\n'
++ '          var el=document.getElementById("dm"+idx); if(el){ el.className="verdict "+(ok?"pass":"fail"); el.textContent=(ok?"\\u2713":"\\u2717")+" referenced manifest\\u2019s own eddsa-jcs-2022 signature "+(ok?"valid":"invalid"); }\n'
++ '        }).catch(function(e){ var el=document.getElementById("dm"+idx); if(el){ el.className="verdict fail"; el.textContent="\\u2717 could not verify referenced manifest signature: "+e.message; } });\n'
++ '      })(i,r);\n'
++ '    }\n'
++ '  }\n'
++ '}\n'
++ 'run();\n';
+
+var VERIFY_HTML_TAIL = '\n<\/script>\n</body>\n</html>\n';
+
+function buildVerifyHtml(binder, receiptsByIndex){
+  var receiptsArr = binder.entries.map(function(e,i){ return receiptsByIndex[i] || null; });
+  var payload = JSON.stringify({binder: binder, receipts: receiptsArr});
+  return VERIFY_HTML_HEAD + 'var __BUNDLE_DATA__ = ' + payload + ';\n' + VERIFY_HTML_LOGIC + VERIFY_HTML_TAIL;
+}
+
+/* ── assemble + download ─────────────────────────────────────────────── */
+async function buildBundle(){
+  if(!_binder){ alert('Load a binder first.'); return; }
+  document.getElementById('buildBtn').disabled = true;
+  try{
+    var files = [];
+    var enc = new TextEncoder();
+
+    var verifyHtml = buildVerifyHtml(_binder, _attached);
+    files.push({name:'verify.html', data: enc.encode(verifyHtml)});
+    files.push({name:'binder.json', data: enc.encode(JSON.stringify(_binder,null,2))});
+
+    var receiptNames = [];
+    _binder.entries.forEach(function(e,i){
+      if(_attached[i]){
+        var fname = 'receipts/'+String(i).padStart(2,'0')+'-'+e.kind+'-'+sanitizeSlug(e.ref_label)+'.json';
+        files.push({name:fname, data: enc.encode(JSON.stringify(_attached[i],null,2))});
+        receiptNames.push(fname);
+      }
+    });
+
+    var attachedCount = Object.keys(_attached).length;
+    files.push({name:'README.txt', data: enc.encode(buildReadme(_binder, attachedCount))});
+
+    var zipBytes = zipStore(files);
+    var slug = sanitizeSlug(_binder.engagement_label || 'case-file');
+    var filename = 'evidence-handover-'+slug+'-v'+(_binder.version||1)+'.zip';
+
+    var blob = new Blob([zipBytes], {type:'application/zip'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+
+    document.getElementById('outputSection').innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Bundle Built</span></div><div class="out-body">'
+      + '<div class="stat-row"><div class="stat"><div class="stat-v">'+files.length+'</div><div class="stat-l">Files</div></div>'
+      + '<div class="stat"><div class="stat-v">'+(zipBytes.length/1024).toFixed(1)+' KB</div><div class="stat-l">Zip Size</div></div>'
+      + '<div class="stat"><div class="stat-v">'+attachedCount+' / '+_binder.entries.length+'</div><div class="stat-l">Receipts Attached</div></div></div>'
+      + '<div class="hashbox">'+escHtml(filename)+'</div>'
+      + '<div class="file-list" style="margin-top:.75rem">'
+      + 'verify.html<br>binder.json<br>' + (receiptNames.length ? receiptNames.map(escHtml).join('<br>') + '<br>' : '') + 'README.txt'
+      + '</div>'
+      + '<p style="font-size:.62rem;color:var(--muted);margin-top:.75rem">Downloaded. Unzip and open verify.html from disk to confirm it verifies with no network connection &mdash; that is the whole point of this bundle.</p>'
+      + '</div></div>';
+  }catch(e){
+    document.getElementById('outputSection').innerHTML = '<div class="out-section"><div class="out-body"><div class="verdict fail">Failed to build bundle: '+escHtml(e.message)+'</div></div></div>';
+  }
+  document.getElementById('buildBtn').disabled = false;
+}
+</script>
+</body>
+</html>
