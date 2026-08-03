@@ -44,6 +44,7 @@ function sanitizeCopy(s) {
     .replace(/\bW-[A-F]\b\s*/g, '')
     .replace(/\bD0\b\s*/g, '')
     .replace(/—/g, ', ')
+    .replace(/\s+--\s+/g, ', ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }

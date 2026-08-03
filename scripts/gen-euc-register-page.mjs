@@ -58,6 +58,14 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// entry.purpose is node.description verbatim (chaingraph.json, out of this WU's
+// fence) — scrub the CONTRACT §1.4 double-hyphen em-dash substitute before
+// rendering as visible register-page text, same non-destructive precedent as
+// gen-chaingraph-hub.mjs's sanitizeCopy (source chaingraph.json is untouched).
+function sanitizeCopy(s) {
+  return String(s ?? "").replace(/\s+--\s+/g, ", ").replace(/\s{2,}/g, " ").trim();
+}
+
 function shortDigest(d) {
   if (!d) return "n/a";
   const hex = d.replace(/^sha256:/, "");
@@ -79,7 +87,7 @@ function entryCard(entry) {
           ${statusPill(entry)}
         </div>
         <p class="reg-meta">tool_id <code>${esc(entry.tool_id)}</code> &middot; v${esc(entry.tool_version)} &middot; data vintage ${esc(entry.data_vintage || "n/a")}</p>
-        <p class="reg-purpose">${esc(entry.purpose)}</p>
+        <p class="reg-purpose">${esc(sanitizeCopy(entry.purpose))}</p>
         <p class="reg-trust">${esc(entry.trust_label)}</p>
         <p class="reg-digest">kernel digest <code>${esc(shortDigest(entry.kernel_digest))}</code></p>
         <a class="reg-download" href="${jsonHref}" download>Download register entry (JSON)</a>
@@ -236,7 +244,7 @@ footer{border-top:1px solid var(--border);padding:2rem 0}
     <div class="container">
       <p class="hero-eyebrow">Model risk / EUC inventory</p>
       <h1>EUC register.</h1>
-      <p class="hero-sub">Every live tool on AINumbers.co is a spreadsheet a compliance officer would otherwise have to inventory by hand -- name, kernel version and hash, declared inputs and outputs, a control description, a trust label, a data vintage, and a last-validated date. This page generates that register entry from the tool's own published metadata, not from a separately maintained log, so it can never drift from what is actually deployed.</p>
+      <p class="hero-sub">Every live tool on AINumbers.co is a spreadsheet a compliance officer would otherwise have to inventory by hand: name, kernel version and hash, declared inputs and outputs, a control description, a trust label, a data vintage, and a last-validated date. This page generates that register entry from the tool's own published metadata, not from a separately maintained log, so it can never drift from what is actually deployed.</p>
     </div>
   </header>
 
@@ -244,7 +252,7 @@ ${bankingSection}
 ${sampleSection}
 
   <div class="container">
-    <p class="reg-footnote">Trust labels and last-validated dates are derived from each node's <code>compute_proof_ready</code> status and pinned compute-image dates at generation time -- they are never hand-set. A node moving from a deferred proof to a ready one is picked up automatically the next time <code>node scripts/gen-euc-register.mjs</code> runs; nothing here is hardcoded against a future proving pass.</p>
+    <p class="reg-footnote">Trust labels and last-validated dates are derived from each node's <code>compute_proof_ready</code> status and pinned compute-image dates at generation time: they are never hand-set. A node moving from a deferred proof to a ready one is picked up automatically the next time <code>node scripts/gen-euc-register.mjs</code> runs; nothing here is hardcoded against a future proving pass.</p>
   </div>
 </main>
 

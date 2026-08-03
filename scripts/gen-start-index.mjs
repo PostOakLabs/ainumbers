@@ -41,7 +41,7 @@ function extractTitle(html, fallback) {
 // newly-rendered visible text — scrub before embedding, same pattern as
 // gen-sitemap-html.mjs's sanitizeCopy (source data is left untouched).
 function sanitizeCopy(s) {
-  return String(s).replace(/—/g, ', ').replace(/\s{2,}/g, ' ').trim();
+  return String(s).replace(/—/g, ', ').replace(/\s+--\s+/g, ', ').replace(/\s{2,}/g, ' ').trim();
 }
 
 function slug(filename) {

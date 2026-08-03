@@ -64,6 +64,7 @@ function sanitizeCopy(s) {
     .replace(/\bD0\b\s*/g, '')
     .replace(/\ban? honest\s+/gi, 'a ')
     .replace(/—/g, ', ')
+    .replace(/\s+--\s+/g, ', ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
