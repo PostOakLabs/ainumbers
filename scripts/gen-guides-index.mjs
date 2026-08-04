@@ -101,6 +101,7 @@ const EVIDENCE_CARDS = [
   ['pqc-migration-evidence.html', 'Guide', 'PQC Migration Evidence', 'What a post-quantum cryptography migration evidence receipt proves.'],
   ['reserve-watch-continuous-verification.html', 'Guide', 'Continuous Reserve Watch', 'A weekly cron that replays a stablecoin issuer’s reserve report through the live check.'],
   ['recomputation-evidence-pack-guide.html', 'Guide', 'Recomputation Evidence Pack: CPA-in-Loop Specialist Input', 'How a recompute evidence pack fits into a CPA’s AU-C 500/620 specialist workflow, and what it deliberately does not claim to be.'],
+  ['benchmark-series-methodology.html', 'Guide', 'Benchmark Series Methodology', 'Source corpus, derivation formula, and receipt format for the CCP Margin Monitor and Stablecoin Reserve Scorecard.'],
 ];
 
 const REFERENCE_CARDS = [
