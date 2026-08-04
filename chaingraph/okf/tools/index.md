@@ -490,7 +490,11 @@ status: stable
 - [SLATE Reporting Readiness Diagnostic](./art-545-slate-readiness-diagnostic.md) — `run_slate_reporting_fit`
 - [DTC Corporate Actions ISO 20022 Message Validator](./art-546-dtcc-ca-iso20022-validator.md) — `validate_dtcc_ca_iso20022_message`
 - [Corporate Action Entitlement Recompute](./art-547-corporate-action-entitlement-recompute.md) — `recompute_corporate_action_entitlement`
+- [VoP Readiness Diagnostic](./art-548-vop-readiness-diagnostic.md) — `run_vop_readiness_diagnostic`
+- [G20/FSB Corridor Cost-Gap Calculator](./art-549-g20-corridor-cost-gap.md) — `check_g20_corridor_cost_gap`
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`
+- [Reg E Remittance Disclosure Consistency Check](./art-550-reg-e-remittance-disclosure-check.md) — `check_reg_e_remittance_disclosure`
+- [Swift MT101 Coexistence Readiness Diff](./art-551-mt101-coexistence-readiness-diff.md) — `check_mt101_coexistence_readiness`
 - [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`
 - [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md) — `validate_deposit_token_compliance`
 - [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md) — `validate_cross_network_settlement`

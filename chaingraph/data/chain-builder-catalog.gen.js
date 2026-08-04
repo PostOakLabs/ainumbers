@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (546 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (550 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5717,6 +5717,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-548-vop-readiness-diagnostic",
+    "display_name": "VoP Readiness Diagnostic",
+    "mandate_type": "vop_readiness_attestation",
+    "url": "https://ainumbers.co/chaingraph/art-548-vop-readiness-diagnostic.html",
+    "description": "EU Instant Payments Regulation Verification-of-Payee (VoP) readiness/consistency diagnostic. Deterministically classifies a caller-declared ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-549-g20-corridor-cost-gap",
+    "display_name": "G20/FSB Corridor Cost-Gap Calculator",
+    "mandate_type": "risk_parameter",
+    "url": "https://ainumbers.co/chaingraph/art-549-g20-corridor-cost-gap.html",
+    "description": "Recomputes a caller-declared cross-border payment corridor's cost gap against the hardcoded G20/FSB roadmap targets: retail cross-border pay",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-55-trade-document-provenance-verifier",
     "display_name": "Trade Document Provenance & Consistency Verifier",
     "mandate_type": "cryptographic_mandate",
@@ -5731,6 +5751,26 @@ window.CHAINBUILDER_CATALOG = [
       "art-10-amla-transaction-typology-risk-scorer",
       "ml-03-timeseries-anomaly-detector"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-550-reg-e-remittance-disclosure-check",
+    "display_name": "Reg E Remittance Disclosure Consistency Check",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-550-reg-e-remittance-disclosure-check.html",
+    "description": "Deterministic recompute of the Reg E Subpart B (12 CFR 1005.31, implementing Dodd-Frank section 1073) remittance disclosure arithmetic ident",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-551-mt101-coexistence-readiness-diff",
+    "display_name": "Swift MT101 Coexistence Readiness Diff",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/tools/577-mt101-coexistence-readiness-diff.html",
+    "description": "Evaluates Swift CBPR+ MT101 message-type retirement readiness ahead of the 2026-11-14 coexistence deadline, when FI-to-FI bulk/multiple paym",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

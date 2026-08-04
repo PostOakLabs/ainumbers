@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-302"]
+tags: ["compliance_mandate", "count-304"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-302 tool(s) in this mandate-type group:
+304 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -311,6 +311,8 @@ status: stable
 - [SLATE Reporting Readiness Diagnostic](../tools/art-545-slate-readiness-diagnostic.md)
 - [DTC Corporate Actions ISO 20022 Message Validator](../tools/art-546-dtcc-ca-iso20022-validator.md)
 - [Corporate Action Entitlement Recompute](../tools/art-547-corporate-action-entitlement-recompute.md)
+- [Reg E Remittance Disclosure Consistency Check](../tools/art-550-reg-e-remittance-disclosure-check.md)
+- [Swift MT101 Coexistence Readiness Diff](../tools/art-551-mt101-coexistence-readiness-diff.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
