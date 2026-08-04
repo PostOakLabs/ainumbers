@@ -102,6 +102,7 @@ const EVIDENCE_CARDS = [
   ['reserve-watch-continuous-verification.html', 'Guide', 'Continuous Reserve Watch', 'A weekly cron that replays a stablecoin issuer’s reserve report through the live check.'],
   ['recomputation-evidence-pack-guide.html', 'Guide', 'Recomputation Evidence Pack: CPA-in-Loop Specialist Input', 'How a recompute evidence pack fits into a CPA’s AU-C 500/620 specialist workflow, and what it deliberately does not claim to be.'],
   ['benchmark-series-methodology.html', 'Guide', 'Benchmark Series Methodology', 'Source corpus, derivation formula, and receipt format for the CCP Margin Monitor and Stablecoin Reserve Scorecard.'],
+  ['benchmark-series-reserve-scorecard-issue-2026-06.html', 'Issue', 'Reserve Scorecard, Issue #1: EURC, June 2026', 'EURC’s June 2026 reserve disclosure, recomputed and receipted against declared MiCA coverage, composition, segregation and cadence terms.'],
 ];
 
 const REFERENCE_CARDS = [
