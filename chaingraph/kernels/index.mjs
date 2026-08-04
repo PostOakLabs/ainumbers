@@ -483,6 +483,7 @@ import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
 import * as art540    from './art-540-por-liabilities-composer.kernel.mjs';
 import * as art541    from './art-541-best-execution-recompute.kernel.mjs';
 import * as art544    from './art-544-slate-report-validator.kernel.mjs';
+import * as art547    from './art-547-corporate-action-entitlement-recompute.kernel.mjs';
 import * as art549    from './art-549-g20-corridor-cost-gap.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
 import * as art550    from './art-550-reg-e-remittance-disclosure-check.kernel.mjs';
@@ -1030,6 +1031,7 @@ export const KERNELS = {
   'art-540-por-liabilities-composer':                         art540,
   'art-541-best-execution-recompute':                         art541,
   'art-544-slate-report-validator':                           art544,
+  'art-547-corporate-action-entitlement-recompute':           art547,
   'art-549-g20-corridor-cost-gap':                            art549,
   'art-55-trade-document-provenance-verifier':                art55,
   'art-550-reg-e-remittance-disclosure-check':                art550,
