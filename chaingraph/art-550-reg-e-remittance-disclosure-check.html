@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Reg E Remittance Disclosure Consistency Check &middot; ART-550 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes the Reg E Subpart B (12 CFR 1005.31) remittance disclosure arithmetic identity and checks a provider's disclosed recipient amount against it, reporting any discrepancy.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-550-reg-e-remittance-disclosure-check.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:90px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-550 · Reg E Remittance Disclosure Consistency Check</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-550 &middot; Cross-Border Payments Evidence</div>
+  <h1>Reg E Remittance Disclosure Consistency Check</h1>
+  <p class="sub">Recomputes the Reg E Subpart B (12 CFR 1005.31, implementing Dodd-Frank &sect;1073) remittance disclosure arithmetic identity <code>amount_received = (send_amount - total_fees) &times; exchange_rate</code> and checks it against a recipient amount a provider already disclosed. You declare the send amount, total fees, and exchange rate a provider disclosed (all as integer cents / a rate scaled by 1,000,000, never floats), plus the recipient amount they disclosed, and this tool recomputes the identity and reports whether it is internally consistent. It never fetches a live rate and never generates a fresh disclosure of its own: that is a different tool's job (see below).</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Fixed-point cent/rate math, no float drift</span>
+    <span class="flag info">Verifies an already-disclosed figure, never generates one</span>
+    <span class="flag">Zero live rate calls</span>
+    <span class="flag">No PII: amounts and a rate only</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This is a deterministic arithmetic recompute, not a compliance-gate verdict, and it issues no ruling on whether a provider must re-disclose. It computes once when you press the button, stores nothing, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Disclosed figures</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own. Load the discrepancy demo to see a disclosed recipient amount that fails the identity check.</p>
+    <div class="grid2">
+      <div><label class="fld">As-of (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOf" value="2026-08-01"></div>
+      <div><label class="fld">Send amount (cents, e.g. 50000 = $500.00)</label><input type="text" id="sendCents" value="50000"></div>
+    </div>
+    <div class="grid3">
+      <div><label class="fld">Total fees disclosed (cents)</label><input type="text" id="feesCents" value="1500"></div>
+      <div><label class="fld">Exchange rate disclosed (&times;1,000,000, e.g. 850000 = 0.85)</label><input type="text" id="rateE6" value="850000"></div>
+      <div><label class="fld">Recipient amount disclosed (cents)</label><input type="text" id="recipCents" value="41225"></div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Check</button>
+      <button class="ghost" onclick="loadDiscrepancyDemo()">Load discrepancy demo</button>
+      <button class="ghost" onclick="loadInsufficientDemo()">Load missing-inputs edge case</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Regulatory basis</div>
+      <div id="basisDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not fetch a live exchange rate from anywhere: you declare the rate a provider already disclosed. It does not generate a fresh Reg E disclosure from scratch: see the art-248-compute-remittance-disclosure node for that. It issues no ruling on whether the provider must re-disclose, and it does not check the G20/FSB corridor cost-gap target; see the art-549-g20-corridor-cost-gap node for that.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">The standard, in one sentence</div>
+    <p class="sub" style="margin-bottom:0">Reg E Subpart B (12 CFR 1005.31) requires a remittance transfer provider to disclose the amount to be transferred, third-party fees, the exchange rate applied, and the amount the recipient will receive; this tool recomputes that arithmetic identity from the disclosed send amount, fees, and rate, and reports whether the disclosed recipient amount matches.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-550-reg-e-remittance-disclosure-check',
+  version: '1.0.0',
+  mcp_name: 'check_reg_e_remittance_disclosure',
+  title: 'Reg E Remittance Disclosure Consistency Check',
+  description: 'Recomputes the Reg E Subpart B (12 CFR 1005.31) disclosure arithmetic identity amount_received = (send_amount - total_fees) x exchange_rate against a caller-disclosed recipient amount (all as integer cents / a rate scaled by 1e6). Never fetches a live rate, never generates a fresh disclosure -- verifies internal consistency of numbers already disclosed.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'check_reg_e_remittance_disclosure',
+    description: 'Checks a caller-declared Reg E remittance disclosure (send amount, total fees, exchange rate, disclosed recipient amount, all fixed-point) against the recomputed arithmetic identity, returning amount_recipient_recomputed, disclosure_consistent, and discrepancy_amount.',
+    inputSchema: { type: 'object', properties: {
+      as_of: {type:'string'},
+      send_amount_cents: {type:'number', description:'integer cents, e.g. 50000 = $500.00'},
+      total_fees_disclosed_cents: {type:'number', description:'integer cents'},
+      exchange_rate_disclosed_e6: {type:'number', description:'exchange rate scaled by 1,000,000'},
+      amount_recipient_disclosed_cents: {type:'number', description:'integer cents, the provider-disclosed recipient amount'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-550-reg-e-remittance-disclosure-check.kernel.mjs --- */
+var REG_E_BASIS = '12 CFR §1005.31 (Reg E Subpart B, implementing Dodd-Frank §1073), disclosure arithmetic identity: amount_received = (send_amount - total_fees) x exchange_rate';
+
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function toCentsOrNull(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v >= 0) return v;
+  rejected.push({ where: where, reason: 'absent or not a non-negative integer number of cents', supplied: v === undefined ? null : v });
+  return null;
+}
+function toRateE6OrNull(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v > 0) return v;
+  rejected.push({ where: where, reason: 'absent or not a positive integer exchange rate scaled by 1e6', supplied: v === undefined ? null : v });
+  return null;
+}
+function toSignedCentsOrNull(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v)) return v;
+  rejected.push({ where: where, reason: 'absent or not an integer number of cents', supplied: v === undefined ? null : v });
+  return null;
+}
+function centsDisplay(cents){
+  var neg = cents < 0; var abs = neg ? -cents : cents;
+  var whole = Math.trunc(abs / 100); var frac = abs - whole * 100;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
+}
+function rateDisplay(e6){
+  var whole = Math.trunc(e6 / 1000000); var frac = e6 - whole * 1000000;
+  return String(whole) + '.' + String(frac).padStart(6, '0');
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var as_of = isoDateOrNull(pp.as_of);
+
+  var send_amount_cents = toCentsOrNull(pp.send_amount_cents, 'send_amount_cents', rejected_inputs);
+  if (send_amount_cents === null) send_amount_cents = 0;
+  var total_fees_disclosed_cents = toCentsOrNull(pp.total_fees_disclosed_cents, 'total_fees_disclosed_cents', rejected_inputs);
+  if (total_fees_disclosed_cents === null) total_fees_disclosed_cents = 0;
+  var exchange_rate_disclosed_e6 = toRateE6OrNull(pp.exchange_rate_disclosed_e6, 'exchange_rate_disclosed_e6', rejected_inputs);
+  var amount_recipient_disclosed_cents = toSignedCentsOrNull(pp.amount_recipient_disclosed_cents, 'amount_recipient_disclosed_cents', rejected_inputs);
+
+  var inputs_insufficient = rejected_inputs.length > 0;
+
+  var net_cents = inputs_insufficient ? null : (send_amount_cents - total_fees_disclosed_cents);
+  var amount_recipient_recomputed_cents = (net_cents === null || exchange_rate_disclosed_e6 === null)
+    ? null
+    : Math.round((net_cents * exchange_rate_disclosed_e6) / 1000000);
+
+  var discrepancy_amount_cents = (amount_recipient_recomputed_cents === null || amount_recipient_disclosed_cents === null)
+    ? null
+    : (amount_recipient_disclosed_cents - amount_recipient_recomputed_cents);
+
+  var disclosure_consistent = discrepancy_amount_cents === null ? null : (discrepancy_amount_cents === 0);
+
+  var compliance_flags = [];
+  if (inputs_insufficient) compliance_flags.push('REGE_INPUTS_INSUFFICIENT');
+  else compliance_flags.push(disclosure_consistent ? 'REGE_DISCLOSURE_CONSISTENT' : 'REGE_DISCLOSURE_DISCREPANCY');
+
+  var rationale = [];
+  if (inputs_insufficient) {
+    rationale.push('One or more required declared inputs is missing or malformed; see rejected_inputs. No disclosure identity can be recomputed against undeclared amounts or rate.');
+  } else {
+    rationale.push('Disclosed: send ' + centsDisplay(send_amount_cents) + ', total fees ' + centsDisplay(total_fees_disclosed_cents) + ', exchange rate ' + rateDisplay(exchange_rate_disclosed_e6) + ', recipient amount ' + centsDisplay(amount_recipient_disclosed_cents) + '.');
+    rationale.push('amount_received_recomputed = (send ' + centsDisplay(send_amount_cents) + ' - fees ' + centsDisplay(total_fees_disclosed_cents) + ') x rate ' + rateDisplay(exchange_rate_disclosed_e6) + ' = ' + centsDisplay(amount_recipient_recomputed_cents) + '.');
+    rationale.push(disclosure_consistent
+      ? 'Disclosed recipient amount matches the recomputed identity exactly. disclosure_consistent = true.'
+      : ('Disclosed recipient amount ' + centsDisplay(amount_recipient_disclosed_cents) + ' does not match the recomputed ' + centsDisplay(amount_recipient_recomputed_cents) + '; discrepancy = ' + centsDisplay(discrepancy_amount_cents) + '.'));
+  }
+  rationale.push('This is a deterministic recompute of the disclosed arithmetic identity, never a live rate lookup and never a fresh disclosure generator (see art-248-compute-remittance-disclosure for that). It issues no verdict on whether the provider must re-disclose -- only whether the numbers already disclosed are internally consistent.');
+  rationale.push(REG_E_BASIS);
+
+  var output_payload = {
+    as_of: as_of,
+    send_amount_cents: send_amount_cents,
+    total_fees_disclosed_cents: total_fees_disclosed_cents,
+    exchange_rate_disclosed_e6: exchange_rate_disclosed_e6,
+    exchange_rate_disclosed_display: exchange_rate_disclosed_e6 === null ? null : rateDisplay(exchange_rate_disclosed_e6),
+    amount_recipient_disclosed_cents: amount_recipient_disclosed_cents,
+    amount_recipient_recomputed_cents: amount_recipient_recomputed_cents,
+    amount_recipient_recomputed_display: amount_recipient_recomputed_cents === null ? null : centsDisplay(amount_recipient_recomputed_cents),
+    disclosure_consistent: disclosure_consistent,
+    discrepancy_amount_cents: discrepancy_amount_cents,
+    discrepancy_amount_display: discrepancy_amount_cents === null ? null : centsDisplay(discrepancy_amount_cents),
+    regulatory_basis: REG_E_BASIS,
+    rejected_inputs: rejected_inputs,
+    rationale: rationale,
+    note: 'Deterministic recompute of the Reg E Subpart B (12 CFR 1005.31) disclosure arithmetic identity amount_received = (send_amount - total_fees) x exchange_rate against a caller-disclosed recipient amount. Zero live rate calls; verifies internal consistency of numbers already disclosed, never generates a fresh disclosure.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function loadDiscrepancyDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('sendCents').value = '100000';
+  document.getElementById('feesCents').value = '3000';
+  document.getElementById('rateE6').value = '1250000';
+  document.getElementById('recipCents').value = '125000';
+  runCheck();
+}
+function loadInsufficientDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('sendCents').value = '50000';
+  document.getElementById('feesCents').value = '';
+  document.getElementById('rateE6').value = '';
+  document.getElementById('recipCents').value = '';
+  runCheck();
+}
+
+function intOrRaw(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  var n = Number(t);
+  return Number.isFinite(n) ? n : t;
+}
+
+async function runCheck(){
+  var pp = {
+    as_of: document.getElementById('asOf').value || '',
+    send_amount_cents: intOrRaw(document.getElementById('sendCents').value),
+    total_fees_disclosed_cents: intOrRaw(document.getElementById('feesCents').value),
+    exchange_rate_disclosed_e6: intOrRaw(document.getElementById('rateE6').value),
+    amount_recipient_disclosed_cents: intOrRaw(document.getElementById('recipCents').value),
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var ok = op.disclosure_consistent === true;
+  var bad = op.disclosure_consistent === false;
+  vBox.style.color = ok ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)');
+  vBox.style.background = ok ? 'rgba(34,197,94,.08)' : (bad ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  vBox.style.border = '1px solid ' + (ok ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)'));
+  vBox.textContent = res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.amount_recipient_disclosed_cents === null ? '—' : op.discrepancy_amount_display === '0.00' ? '$'+centsDisplay(op.amount_recipient_disclosed_cents) : '$'+centsDisplay(op.amount_recipient_disclosed_cents)) + '</span><span class="stat-key">Disclosed recipient amount</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.amount_recipient_recomputed_display ? '$'+op.amount_recipient_recomputed_display : '—') + '</span><span class="stat-key">Recomputed amount</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.discrepancy_amount_display ? '$'+op.discrepancy_amount_display : '—') + '</span><span class="stat-key">Discrepancy</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.disclosure_consistent === null ? '—' : (op.disclosure_consistent ? 'YES' : 'NO')) + '</span><span class="stat-key">Consistent</span></div>';
+
+  document.getElementById('basisDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">Regulatory basis</span><span class="kv-v">' + op.regulatory_basis + '</span></div>' +
+    '<div class="kv"><span class="kv-k">Exchange rate disclosed</span><span class="kv-v">' + (op.exchange_rate_disclosed_display || '—') + '</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-550-reg-e-remittance-disclosure-check',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-550-reg-e-remittance-disclosure-check.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
