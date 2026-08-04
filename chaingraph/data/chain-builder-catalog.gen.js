@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (531 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (532 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5471,6 +5471,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "attestation_mandate",
     "url": "https://ainumbers.co/chaingraph/art-526-report-gl-reconciliation.html",
     "description": "Ties a caller-declared reported figure to a caller-declared general-ledger figure, by account -- the only node in this reconciliation progra",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-527-classify-ledger-consensus-finality",
+    "display_name": "Ledger Consensus Finality Classifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-527-classify-ledger-consensus-finality.html",
+    "description": "Classifies a ledger-consensus position under a deadline-bounded-inclusion model (XRPL) or a federated-BFT model (Stellar SCP), each expresse",
     "consumes": [],
     "feeds": [],
     "status": "live"

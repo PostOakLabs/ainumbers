@@ -468,6 +468,7 @@ status: stable
 - [Source Arrival & Freshness Register](./art-524-source-arrival-freshness-register.md) — `register_source_arrival_freshness`
 - [N-Way Balance Closure Check](./art-525-nway-balance-closure-check.md) — `check_nway_balance_closure`
 - [Report-to-General-Ledger Reconciliation](./art-526-report-gl-reconciliation.md) — `reconcile_report_to_general_ledger`
+- [Ledger Consensus Finality Classifier](./art-527-classify-ledger-consensus-finality.md) — `classify_ledger_consensus_finality`
 - [Cross-CCP PQD Comparator](./art-528-cross-ccp-pqd-comparator.md) — `compare_cross_ccp_pqd_fields`
 - [CCP Default Waterfall Recomputation](./art-529-ccp-default-waterfall-recompute.md) — `recompute_ccp_default_waterfall`
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
