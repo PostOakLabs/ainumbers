@@ -203,9 +203,28 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // Measured both sides, not assumed: 374/508 fresh + 134 stale on the base commit aed9b8f,
   // 375/508 fresh + 133 stale after. Neither node is added to KNOWN_SEMANTIC_STALE -- both are freshly
   // proven, which is the opposite of a semantic-stale carve-out.
-  assert(total === 508, `expected 508 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 375, `expected 375 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (art-518 reproven fresh by ASSEMBLE-LAND-21), got ${stale.length}`);
+  // 508 -> 513 post-CCPCORE-PROVE-1 (2026-08-04): drained five of the six CCP-core nodes that
+  // CCPCORE-LAND-1 and FINNEUTRAL2-LAND-1 shipped deferred -- art-527 (classify_ledger_consensus_finality),
+  // art-528 (compare_cross_ccp_pqd_fields), art-530 (size_ccp_default_fund_cover2), art-531
+  // (attest_margin_call_lifecycle) and art-532 (check_client_porting) -- each with a groth16-bn254
+  // compute_proof under the universal guest image sha256:a1a0bc89. Before writing, the splice asserted
+  // that each receipt's journal.kernel_digest equalled BOTH the kernel file on disk and the shard's
+  // existing sha256-source compute_image, so all five enter the FRESH set by construction and no
+  // existing node's digest moved. Denominator and fresh each move by exactly 5; the stale count does
+  // NOT move -- this is a DENOMINATOR calibration, not a stale-ceiling raise.
+  // Measured both sides, not assumed: 375/508 fresh + 133 stale on the base commit 79e5ba89,
+  // 380/513 fresh + 133 stale after.
+  //   The sixth node, art-529 (recompute_ccp_default_waterfall), is deliberately NOT in this
+  //   denominator: it stays deferred and carries no receipt. It is a SPEC.md Sec25 ocg-private-input@1
+  //   node whose buildArtifact needs a salt plus three member-level figures, so the universal guest
+  //   journals {"error":"ocg_run",...} instead of an artifact, and the native privin guest
+  //   (sha256:6e5e8839) dispatches on mcp_name through three hardcoded branches (art-413/414/415) and
+  //   journals {"error":"unknown_private_kernel"} for anything else. Proving it needs a rebuilt privin
+  //   guest -- prover-tree work outside CCPCORE-PROVE-1's fence. It is NOT added to
+  //   KNOWN_SEMANTIC_STALE: it has no receipt at all, so there is nothing stale to carve out.
+  assert(total === 513, `expected 513 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 380, `expected 380 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by CCPCORE-PROVE-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
