@@ -1,0 +1,116 @@
+{
+  "tool_id": "art-546-dtcc-ca-iso20022-validator",
+  "note": "DTC corporate-actions ISO 20022 message-shape validation (DTCC Important Notice 23890-26 field set). Vector 1: valid NOTIFICATION. Vector 2: ELECTION missing election_option (known-vector assert). Vector 3: empty-input finite (all four base-field checks fire).",
+  "vectors": [
+    {
+      "name": "notification_valid",
+      "description": "Fully-populated NOTIFICATION message for a DVCA (cash dividend) event -- structurally valid.",
+      "policy_parameters": {
+        "message_function": "NOTIFICATION",
+        "event_type": "DVCA",
+        "cusip": "037833100",
+        "dtc_participant_number": "0443",
+        "record_date": "2027-01-15",
+        "payable_date": "2027-02-01",
+        "reference_id": "CA-OPAQUE-2027-0001"
+      },
+      "output_payload": {
+        "structure_valid": true,
+        "message_function": "NOTIFICATION",
+        "event_type": "DVCA",
+        "error_count": 0,
+        "violations": [],
+        "readiness_pct": 100,
+        "reference_id": "CA-OPAQUE-2027-0001",
+        "dtcc_operator_mandate_basis": "DTCC Important Notice 23890-26 -- legacy corporate-actions message format decommission (DTCC operator mandate: PSE testing 2026-01, Test Facility 2026-03, PROD testing 2026-07, legacy decommission Q3 2027). This is a market-infrastructure migration deadline set by DTCC as CSD operator, NOT a regulatory or statutory deadline.",
+        "disambiguation": "validate_dtcc_ca_iso20022_message checks structural message-shape validity (required fields, CAEV code, CUSIP/date formats) of a single DTC corporate-action event message (notification / election / allocation). It does NOT compute entitlement, dividend, rights, or split amounts -- for deterministic entitlement math per record date use corporate-action entitlement recompute (art-547), which chains from this node's output.",
+        "pii_note": "ZERO PII: CUSIP, DTC participant number, event codes, and dates only. No beneficial-owner name, account, or personal identifier enters this kernel -- use synthetic reference IDs.",
+        "not_legal_advice": "Not legal, tax, or accounting advice. Message-shape validation output requires review by qualified operations staff before use in production DTC CA processing.",
+        "table_version": "DTC-CA-ISO20022-FIELDSET-23890-26-V1",
+        "table_source": "DTCC Important Notice 23890-26 (legacy corporate-actions message format decommission -- DTCC operator mandate); ISO 20022 seev.031/seev.033/seev.035 corporate-action message family field set"
+      },
+      "golden_hash": "2e0aec36b51cf5ffc786b519ded3830fe038e5bea0902f8844afa41ba14eb451"
+    },
+    {
+      "name": "election_missing_option",
+      "description": "ELECTION message missing the required election_option field -- the DTCC 23890-26 field set requires it for any election-function message.",
+      "policy_parameters": {
+        "message_function": "ELECTION",
+        "event_type": "RHDI",
+        "cusip": "594918104",
+        "dtc_participant_number": "0902",
+        "election_deadline": "2027-03-10",
+        "reference_id": "CA-OPAQUE-2027-0002"
+      },
+      "output_payload": {
+        "structure_valid": false,
+        "message_function": "ELECTION",
+        "event_type": "RHDI",
+        "error_count": 1,
+        "violations": [
+          {
+            "code": "MISSING_REQUIRED_FIELD",
+            "severity": "ERROR",
+            "field": "election_option",
+            "message": "election_option is required for a ELECTION message per the DTC CA ISO 20022 field set (DTC-CA-ISO20022-FIELDSET-23890-26-V1)."
+          }
+        ],
+        "readiness_pct": 85,
+        "reference_id": "CA-OPAQUE-2027-0002",
+        "dtcc_operator_mandate_basis": "DTCC Important Notice 23890-26 -- legacy corporate-actions message format decommission (DTCC operator mandate: PSE testing 2026-01, Test Facility 2026-03, PROD testing 2026-07, legacy decommission Q3 2027). This is a market-infrastructure migration deadline set by DTCC as CSD operator, NOT a regulatory or statutory deadline.",
+        "disambiguation": "validate_dtcc_ca_iso20022_message checks structural message-shape validity (required fields, CAEV code, CUSIP/date formats) of a single DTC corporate-action event message (notification / election / allocation). It does NOT compute entitlement, dividend, rights, or split amounts -- for deterministic entitlement math per record date use corporate-action entitlement recompute (art-547), which chains from this node's output.",
+        "pii_note": "ZERO PII: CUSIP, DTC participant number, event codes, and dates only. No beneficial-owner name, account, or personal identifier enters this kernel -- use synthetic reference IDs.",
+        "not_legal_advice": "Not legal, tax, or accounting advice. Message-shape validation output requires review by qualified operations staff before use in production DTC CA processing.",
+        "table_version": "DTC-CA-ISO20022-FIELDSET-23890-26-V1",
+        "table_source": "DTCC Important Notice 23890-26 (legacy corporate-actions message format decommission -- DTCC operator mandate); ISO 20022 seev.031/seev.033/seev.035 corporate-action message family field set"
+      },
+      "golden_hash": "cf3bea669e0fda1511819870773184085eafb79de2a730f711f8c501b673036f"
+    },
+    {
+      "name": "empty_input_finite",
+      "description": "Empty input -- verifies finite output (no NaN/Infinity) and that all base-field checks fire (message_function, event_type, cusip, dtc_participant_number).",
+      "policy_parameters": {},
+      "output_payload": {
+        "structure_valid": false,
+        "message_function": "UNKNOWN",
+        "event_type": null,
+        "error_count": 4,
+        "violations": [
+          {
+            "code": "INVALID_MESSAGE_FUNCTION",
+            "severity": "ERROR",
+            "field": "message_function",
+            "message": "message_function \"(empty)\" is not one of NOTIFICATION, ELECTION, ALLOCATION."
+          },
+          {
+            "code": "MISSING_EVENT_TYPE",
+            "severity": "ERROR",
+            "field": "event_type",
+            "message": "event_type (ISO 20022 CAEV code) is required."
+          },
+          {
+            "code": "MISSING_CUSIP",
+            "severity": "ERROR",
+            "field": "cusip",
+            "message": "cusip is required to identify the security under corporate action."
+          },
+          {
+            "code": "MISSING_DTC_PARTICIPANT_NUMBER",
+            "severity": "ERROR",
+            "field": "dtc_participant_number",
+            "message": "dtc_participant_number is required for DTC CA message routing."
+          }
+        ],
+        "readiness_pct": 40,
+        "reference_id": null,
+        "dtcc_operator_mandate_basis": "DTCC Important Notice 23890-26 -- legacy corporate-actions message format decommission (DTCC operator mandate: PSE testing 2026-01, Test Facility 2026-03, PROD testing 2026-07, legacy decommission Q3 2027). This is a market-infrastructure migration deadline set by DTCC as CSD operator, NOT a regulatory or statutory deadline.",
+        "disambiguation": "validate_dtcc_ca_iso20022_message checks structural message-shape validity (required fields, CAEV code, CUSIP/date formats) of a single DTC corporate-action event message (notification / election / allocation). It does NOT compute entitlement, dividend, rights, or split amounts -- for deterministic entitlement math per record date use corporate-action entitlement recompute (art-547), which chains from this node's output.",
+        "pii_note": "ZERO PII: CUSIP, DTC participant number, event codes, and dates only. No beneficial-owner name, account, or personal identifier enters this kernel -- use synthetic reference IDs.",
+        "not_legal_advice": "Not legal, tax, or accounting advice. Message-shape validation output requires review by qualified operations staff before use in production DTC CA processing.",
+        "table_version": "DTC-CA-ISO20022-FIELDSET-23890-26-V1",
+        "table_source": "DTCC Important Notice 23890-26 (legacy corporate-actions message format decommission -- DTCC operator mandate); ISO 20022 seev.031/seev.033/seev.035 corporate-action message family field set"
+      },
+      "golden_hash": "2bb064b428d25c40287051e88d121863dbffdd42c357b16ddcdb7a76d0b16133"
+    }
+  ]
+}
