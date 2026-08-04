@@ -468,6 +468,7 @@ import * as art526    from './art-526-report-gl-reconciliation.kernel.mjs';
 import * as art528    from './art-528-cross-ccp-pqd-comparator.kernel.mjs';
 import * as art529    from './art-529-ccp-default-waterfall-recompute.kernel.mjs';
 import * as art53     from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
+import * as art530    from './art-530-default-fund-cover2-sizing.kernel.mjs';
 import * as art531    from './art-531-member-margin-call-lifecycle.kernel.mjs';
 import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
@@ -999,6 +1000,7 @@ export const KERNELS = {
   'art-528-cross-ccp-pqd-comparator':                         art528,
   'art-529-ccp-default-waterfall-recompute':                  art529,
   'art-53-mletr-ebl-conformance-validator':                   art53,
+  'art-530-default-fund-cover2-sizing':                       art530,
   'art-531-member-margin-call-lifecycle':                     art531,
   'art-54-digital-trade-rules-checker':                       art54,
   'art-55-trade-document-provenance-verifier':                art55,
