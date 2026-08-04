@@ -222,9 +222,32 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   //   journals {"error":"unknown_private_kernel"} for anything else. Proving it needs a rebuilt privin
   //   guest -- prover-tree work outside CCPCORE-PROVE-1's fence. It is NOT added to
   //   KNOWN_SEMANTIC_STALE: it has no receipt at all, so there is nothing stale to carve out.
-  assert(total === 513, `expected 513 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 380, `expected 380 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by CCPCORE-PROVE-1), got ${stale.length}`);
+  // 513 -> 530 post-BILLABLES-WAVE2-PROVE-1 (2026-08-04): drained seventeen of the eighteen nodes that
+  // BILLABLES-ASSEMBLE-LAND-1, EXCHANGE-ASSURANCE, TRADFI-ASSEMBLE-LAND-1 and XBORDER-VENDOR-1 shipped
+  // deferred -- art-533/534/535/536/537 (BILLABLES-WAVE2), art-538/539/540/541 (EXCHANGE-ASSURANCE),
+  // art-543/544/545/546/547 (TRADFI) and art-549/550/551 (XBORDER) -- each with a groth16-bn254
+  // compute_proof under the universal guest image sha256:a1a0bc89. Before writing, the splice asserted
+  // that each receipt's journal.kernel_digest equalled BOTH the kernel file on disk and the shard's
+  // existing sha256-source compute_image, AND that journal.output carried a real result rather than an
+  // error object, so all seventeen enter the FRESH set by construction and no existing node's digest
+  // moved. Denominator and fresh each move by exactly 17; the stale count does NOT move -- this is a
+  // DENOMINATOR calibration, not a stale-ceiling raise.
+  // Measured both sides, not assumed: 380/513 fresh + 133 stale on the base commit 1bd72f8c,
+  // 397/530 fresh + 133 stale after.
+  //   The eighteenth node, art-548 (run_vop_readiness_diagnostic), is deliberately NOT in this
+  //   denominator: it stays deferred and carries no receipt. Like art-529 it is a SPEC.md Sec25
+  //   ocg-private-input@1 node -- its buildArtifact throws "salt must be a hex string of at least 256
+  //   bits" because the salt and the IBAN/payee-name preimages are private witnesses the universal
+  //   guest is never given, so that guest journals {"error":"ocg_run","code":-3,"msg":"undefined"}
+  //   instead of an artifact. (Its compute() is fine and returns a real classification host-side; only
+  //   buildArtifact needs the witness.) The native privin guest (sha256:6e5e8839) dispatches on
+  //   mcp_name through three hardcoded branches (art-413/414/415) and journals
+  //   {"error":"unknown_private_kernel"} for anything else. Proving it needs a rebuilt privin guest --
+  //   prover-tree work outside BILLABLES-WAVE2-PROVE-1's fence, the same blocker art-529 carries. It is
+  //   NOT added to KNOWN_SEMANTIC_STALE: it has no receipt at all, so there is nothing stale to carve out.
+  assert(total === 530, `expected 530 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 397, `expected 397 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by BILLABLES-WAVE2-PROVE-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
