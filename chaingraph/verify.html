@@ -90,10 +90,12 @@ textarea::placeholder { color:var(--muted); }
 }
 .result-banner.pass { background:var(--green-dim); border:1px solid rgba(34,197,94,.3); }
 .result-banner.fail { background:var(--red-dim); border:1px solid rgba(239,68,68,.3); }
+.result-banner.tier { background:var(--gold-dim); border:1px solid rgba(212,168,71,.35); }
 .result-icon { font-size:1.4rem; flex-shrink:0; }
 .result-status { font-family:'DM Serif Display',serif; font-size:1.2rem; }
 .result-banner.pass .result-status { color:var(--green); }
 .result-banner.fail .result-status { color:var(--red); }
+.result-banner.tier .result-status { color:var(--gold); }
 .result-detail { font-size:.75rem; color:var(--body); margin-top:3px; }
 
 /* METADATA GRID */
@@ -231,6 +233,23 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <p class="hero-sub" style="margin-bottom:10px;">This artifact carries one or more <code>anchor_bindings</code> entries. This page does not verify the binding itself; see the <a href="../tools/568-ocg-receipt-verifier.html" style="color:var(--teal)">OCG Receipt Verifier</a> or the <a href="../verification-desk.html" style="color:var(--teal)">Verification Desk</a> for that. It links out to the anchor's own verifier, pre-filled with this artifact's execution_hash.</p>
       <div class="btn-row">
         <a class="btn btn-ghost" id="anchorVerifierLink" href="#" target="_blank" rel="noopener">Open in Anchor Verifier →</a>
+      </div>
+    </div>
+
+    <div class="card" id="ancestryCard" style="display:none;">
+      <div class="card-label">§21.6 Ancestry commitment</div>
+      <p class="hero-sub" style="margin-bottom:10px;">This artifact's <code>chain.ancestry_digest</code> transitively commits its entire cited ancestor sub-DAG. Paste the artifacts it cites, directly or transitively, as a JSON array below, then walk the digest bottom-up. This page never fetches ancestors; you provide the bundle.</p>
+      <div class="hash-block" style="margin-bottom:10px;">
+        <div class="hash-row"><div class="hash-lbl">Stored ancestry_digest</div><div class="hash-val" id="ancestryStoredDigest"></div></div>
+      </div>
+      <textarea id="ancestryBundleInput" placeholder='[ {ancestor artifact 1}, {ancestor artifact 2}, ... ]' style="min-height:120px;"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runAncestryWalk()">Walk ancestry</button>
+      </div>
+      <div id="ancestryResult" style="display:none;margin-top:10px;" class="hash-block">
+        <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="ancestryStatus"></div></div>
+        <div class="hash-row"><div class="hash-lbl">Computed (bottom-up)</div><div class="hash-val" id="ancestryComputedDigest"></div></div>
+        <div class="hash-row"><div class="hash-lbl">Reason</div><div class="hash-val" id="ancestryReason" style="color:var(--text);"></div></div>
       </div>
     </div>
 
@@ -452,6 +471,16 @@ async function runVerify() {
 
   const { policy_parameters, output_payload, execution_hash: storedHash } = artifact;
 
+  // §20.3.2 body-absent tier — a pruned artifact (both body members absent) held behind a
+  // retained, witness-cosigned §20.1/§20.2 checkpoint is never reported verified/failed; both
+  // presuppose the body. Only fires for this specific new shape — a malformed artifact missing
+  // just one body member, or one with no qualifying checkpoint, falls through to the unchanged
+  // error handling below exactly as before v0.8.18.
+  if (!policy_parameters && !output_payload && storedHash && hasQualifyingCheckpoint(artifact)) {
+    showBodyAbsentResult(artifact);
+    return;
+  }
+
   if (!policy_parameters || !output_payload || !storedHash) {
     if (artifact && typeof artifact === 'object' && (artifact.journal_root_digest || artifact.checkpoint)) {
       showError('This looks like an AINumbers Helm bundle, not an OpenChainGraph artifact — verify it with Helm\'s own bundle verifier (see the Helm verification guide in the Helm app).');
@@ -517,7 +546,150 @@ function showResult(pass, storedRaw, computedHex, artifact) {
     anchorCard.style.display = 'none';
   }
 
+  // §21.6 ancestry commitment — present vs absent, NORMATIVE §21.6.6. Absence is never an error
+  // and never changes anything else on this page: the card simply stays hidden, exactly as it
+  // was before v0.8.17.
+  const ancestryCard = document.getElementById('ancestryCard');
+  const storedAncestryDigest = artifact.chain && artifact.chain.ancestry_digest;
+  if (storedAncestryDigest) {
+    document.getElementById('ancestryStoredDigest').textContent = storedAncestryDigest;
+    document.getElementById('ancestryResult').style.display = 'none';
+    ancestryCard.style.display = 'block';
+  } else {
+    ancestryCard.style.display = 'none';
+  }
+
   document.getElementById('result').style.display = 'block';
+}
+
+/* §20.3.1 precondition, browser-side best-effort: a retained anchor_bindings entry carrying a
+   §20.1 merkle_inclusion root with ≥1 §20.2 witness_cosignatures. This page does not verify the
+   checkpoint itself (same posture as the §20 Anchor Bindings card above) — it only decides
+   whether the pruned-body shape is plausible enough to report the body-absent tier instead of a
+   generic missing-field error. */
+function hasQualifyingCheckpoint(artifact) {
+  const bindings = artifact && artifact.anchor_bindings;
+  if (!Array.isArray(bindings)) return false;
+  return bindings.some(b => b && b.merkle_inclusion && Array.isArray(b.witness_cosignatures) && b.witness_cosignatures.length > 0);
+}
+
+function showBodyAbsentResult(artifact) {
+  hideError();
+  const banner = document.getElementById('resultBanner');
+  banner.className = 'result-banner tier';
+  document.getElementById('resultIcon').textContent = '◑';
+  document.getElementById('resultStatus').textContent = 'Body absent — anchored hash only';
+  document.getElementById('resultDetail').textContent =
+    'SPEC §20.3.2: this artifact’s body was pruned behind a witness-cosigned checkpoint. The leaf hash was included in a cosigned root at a point in time — its internal computation, authorship, kernel identity, and ancestry can no longer be independently checked, because none of those verifications can run without the body. Never reported as verified or failed.';
+
+  const meta = [
+    { key: 'tool_id',            val: artifact.tool_id            ?? '—' },
+    { key: 'chaingraph_version', val: artifact.chaingraph_version ?? '—' },
+    { key: 'retention_class',    val: artifact.retention_class    ?? '—' },
+    { key: 'generated_at',       val: artifact.generated_at       ?? '—' },
+  ];
+  document.getElementById('metaGrid').innerHTML = meta.map(m =>
+    `<div class="meta-item"><div class="meta-key">${m.key}</div><div class="meta-val">${String(m.val)}</div></div>`
+  ).join('');
+
+  document.getElementById('storedHash').textContent = artifact.execution_hash;
+  const computedEl = document.getElementById('computedHash');
+  computedEl.textContent = '— body absent, cannot recompute';
+  computedEl.className = 'hash-val';
+
+  // §20 anchor bindings — same link-out as the pass/fail path; this artifact always has one here.
+  const anchorCard = document.getElementById('anchorBindingsCard');
+  const bindings = artifact.anchor_bindings;
+  const hex = typeof artifact.execution_hash === 'string' ? artifact.execution_hash.replace(/^sha256:/i, '') : '';
+  document.getElementById('anchorVerifierLink').href = 'https://anchor.ainumbers.co/verify#h=' + hex;
+  anchorCard.style.display = bindings.length ? 'block' : 'none';
+
+  // §20.3.2: ancestry (§21.6) cannot be checked without the body either.
+  document.getElementById('ancestryCard').style.display = 'none';
+
+  document.getElementById('result').style.display = 'block';
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   §21.6.6 ANCESTRY WALK — depth-first, bottom-up recompute over a
+   user-supplied ancestor bundle. Mirrors kernels/_ancestry.mjs's
+   ancestryDigest() exactly (same cgCanon path already defined above).
+   ───────────────────────────────────────────────────────────────── */
+async function ancestryDigest(executionHashHex, parentAncestryDigests) {
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon({ execution_hash: executionHashHex, parent_ancestry_digests: parentAncestryDigests })));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const __ancestryNormHash = h => typeof h === 'string' ? h.replace(/^sha256:/i, '').toLowerCase() : h;
+
+function showAncestryResult(status, computed, reason) {
+  const el = document.getElementById('ancestryResult');
+  el.style.display = 'block';
+  const statusEl = document.getElementById('ancestryStatus');
+  statusEl.textContent = status;
+  statusEl.className = 'hash-val' + (status === 'verified' ? '' : ' mismatch');
+  document.getElementById('ancestryComputedDigest').textContent = computed ?? '—';
+  document.getElementById('ancestryReason').textContent = reason;
+}
+
+async function runAncestryWalk() {
+  try {
+    const raw = document.getElementById('artifactInput').value.trim();
+    if (!raw) { showError('Paste and Verify an artifact above first.'); return; }
+    const artifact = JSON.parse(raw);
+    const storedDigest = artifact.chain && artifact.chain.ancestry_digest;
+    if (!storedDigest) { showError('This artifact carries no chain.ancestry_digest to walk.'); return; }
+    if (!artifact.policy_parameters || !artifact.output_payload) { showError('The terminal artifact is missing policy_parameters/output_payload — its own execution_hash cannot be recomputed.'); return; }
+
+    const bundleRaw = document.getElementById('ancestryBundleInput').value.trim();
+    let ancestors = [];
+    if (bundleRaw) {
+      ancestors = JSON.parse(bundleRaw);
+      if (!Array.isArray(ancestors)) throw new Error('Ancestor bundle must be a JSON array of artifacts.');
+    }
+
+    // Index every pasted ancestor by its own (recomputed where possible) execution_hash.
+    const byHash = new Map();
+    for (const a of ancestors) {
+      let hex;
+      if (a && a.policy_parameters && a.output_payload) hex = await executionHash(a.policy_parameters, a.output_payload);
+      else hex = __ancestryNormHash(a && a.execution_hash);
+      if (hex) byHash.set(hex, a);
+    }
+
+    const terminalHex = await executionHash(artifact.policy_parameters, artifact.output_payload);
+    let incomplete = false;
+    const memo = new Map();
+    async function digestFor(hex, node) {
+      if (memo.has(hex)) return memo.get(hex);
+      const parents = (node.chain && Array.isArray(node.chain.parent_hashes)) ? node.chain.parent_hashes.map(__ancestryNormHash) : [];
+      const parentDigests = [];
+      for (const p of parents) {
+        const pNode = byHash.get(p);
+        if (!pNode) { incomplete = true; continue; }
+        parentDigests.push(await digestFor(p, pNode));
+      }
+      const d = await ancestryDigest(hex, parentDigests);
+      memo.set(hex, d);
+      return d;
+    }
+
+    const computed = await digestFor(terminalHex, artifact);
+
+    if (incomplete) {
+      showAncestryResult('incomplete-bundle', computed, '§21.6.6: at least one cited ancestor is missing from the pasted bundle. This is not a failure — an honest "cannot check" tier, distinct from verified/failed.');
+      return;
+    }
+
+    const storedHex = __ancestryNormHash(storedDigest);
+    if (storedHex === computed) {
+      showAncestryResult('verified', computed, 'The recomputed bottom-up digest over the presented ancestor bundle matches the stored chain.ancestry_digest.');
+    } else {
+      showAncestryResult('failed', computed, 'The recomputed digest does not match the stored chain.ancestry_digest — an ancestor was omitted, reordered, substituted, or the topology changed somewhere in the walk.');
+    }
+  } catch (e) {
+    showError('Ancestry walk failed: ' + e.message);
+  }
 }
 
 function hideResult() { document.getElementById('result').style.display = 'none'; }
