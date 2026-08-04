@@ -472,6 +472,7 @@ import * as art53     from './art-53-mletr-ebl-conformance-validator.kernel.mjs'
 import * as art530    from './art-530-default-fund-cover2-sizing.kernel.mjs';
 import * as art531    from './art-531-member-margin-call-lifecycle.kernel.mjs';
 import * as art532    from './art-532-client-porting-check.kernel.mjs';
+import * as art539    from './art-539-asset-liability-coverage.kernel.mjs';
 import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
 import * as art56     from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
@@ -1006,6 +1007,7 @@ export const KERNELS = {
   'art-530-default-fund-cover2-sizing':                       art530,
   'art-531-member-margin-call-lifecycle':                     art531,
   'art-532-client-porting-check':                             art532,
+  'art-539-asset-liability-coverage':                         art539,
   'art-54-digital-trade-rules-checker':                       art54,
   'art-55-trade-document-provenance-verifier':                art55,
   'art-56-tokenized-settlement-fit-diagnostic':               art56,
