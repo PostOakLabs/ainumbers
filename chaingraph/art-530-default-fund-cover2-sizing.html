@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CCP Default Fund Cover-2 Sizing &middot; ART-530 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Sizes a CCP default fund under the PFMI Principle 4 Cover-2 standard: fund size must be at least the largest plus second-largest clearing-member stress loss across caller-declared stress scenarios.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-530-default-fund-cover2-sizing.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:110px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-530 · CCP Default Fund Cover-2 Sizing</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-530 &middot; CCP Clearing Evidence</div>
+  <h1>CCP Default Fund Cover-2 Sizing</h1>
+  <p class="sub">Sizes a CCP default fund under the PFMI Principle 4 "Cover 2" standard: the fund must cover the default of the two clearing members that would create the largest combined stress loss under extreme but plausible market conditions. You declare each clearing member and its stress-exposure base, a set of stress scenarios with a loss rate in basis points each (the same shape <a href="qfa-03-stress-test-engine.html">qfa-03-stress-test-engine</a> already computes per historical crisis scenario), and a fund size to test. This tool applies each scenario's loss rate to every member's declared exposure, ranks members by stress loss per scenario, takes the two largest, and checks your declared fund size against the worst scenario across your declared set.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Per-scenario member stress-loss ranking</span>
+    <span class="flag info">Largest + second-largest = Cover-2 requirement</span>
+    <span class="flag">Worst scenario across the declared set</span>
+    <span class="flag">Fund adequacy verdict + shortfall</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This tool proves the computation ran over the members, exposures, and stress scenarios you declared. It proves nothing about whether those declared exposures match any external position or margin system, and it issues no recommendation to change the fund size. It computes once when you press the button, stores nothing, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Fund &amp; members</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own. Load the shortfall demo to see a fund that fails to cover the worst declared scenario.</p>
+    <div class="grid2">
+      <div><label class="fld">As-of (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOf" value="2026-08-01"></div>
+      <div><label class="fld">Declared fund size (minor units)</label><input type="text" id="fundSize" value="200000000"></div>
+    </div>
+
+    <label class="fld">Clearing members (JSON array: member_id, exposure_minor_units)</label>
+    <textarea id="membersJson">[
+  { "member_id": "member-alpha", "exposure_minor_units": 200000000 },
+  { "member_id": "member-beta", "exposure_minor_units": 150000000 },
+  { "member_id": "member-gamma", "exposure_minor_units": 60000000 }
+]</textarea>
+    <label class="fld">Stress scenarios (JSON array: scenario_id, loss_bps, the same fractional-loss shape qfa-03-stress-test-engine's scenario_losses output uses, converted to basis points)</label>
+    <textarea id="scenariosJson">[
+  { "scenario_id": "gfc_2008", "loss_bps": 4620 },
+  { "scenario_id": "covid_2020", "loss_bps": 3240 }
+]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Check</button>
+      <button class="ghost" onclick="loadShortfallDemo()">Load fund-shortfall demo</button>
+      <button class="ghost" onclick="loadSingleMemberDemo()">Load single-member edge case</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Per-scenario Cover-2 requirement</div>
+      <div id="scenDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Worst-case scenario &amp; fund adequacy</div>
+      <div id="worstDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not run stress scenarios: <a href="qfa-03-stress-test-engine.html">qfa-03-stress-test-engine</a> already computes multi-scenario portfolio stress losses across 6 historical crisis scenarios with Monte Carlo per scenario, and this tool consumes that shape as a declared, chained input and never reimplements it. It does not recompute per-member margin models: it applies each declared scenario's loss rate uniformly to each declared member exposure, which is a sizing simplification, not a real CCP's margin methodology. It issues no recommendation to change the fund size and proves nothing about whether the declared exposures match any external position system.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">The standard, in one sentence</div>
+    <p class="sub" style="margin-bottom:0">PFMI Principle 4 requires a systemically important CCP to hold enough default-fund resources to cover the default of the two clearing members that together would create its largest combined credit exposure under extreme but plausible conditions. This tool checks a declared fund size against exactly that arithmetic, across every stress scenario you declare, and reports the worst one.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-530-default-fund-cover2-sizing',
+  version: '1.0.0',
+  mcp_name: 'size_ccp_default_fund_cover2',
+  title: 'CCP Default Fund Cover-2 Sizing',
+  description: 'Sizes a CCP default fund under the PFMI Principle 4 Cover-2 standard: fund size must be at least the largest plus second-largest clearing-member stress loss across caller-declared stress scenarios. Applies each caller-declared scenario loss rate to every caller-declared member exposure; consumes qfa-03-stress-test-engine\'s scenario-loss shape as a chained input, read-only.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'size_ccp_default_fund_cover2',
+    description: 'Ranks caller-declared clearing members by stress loss per caller-declared stress scenario (loss_bps applied to each member\'s declared exposure), takes the two largest per scenario as the Cover-2 requirement, and checks a caller-declared fund size against the worst scenario across the declared set.',
+    inputSchema: { type: 'object', properties: {
+      as_of: {type:'string'}, fund_size_minor_units: {type:'number'},
+      members: {type:'array', description:'{member_id, exposure_minor_units}'},
+      stress_scenarios: {type:'array', description:'{scenario_id, loss_bps} -- shaped from qfa-03-stress-test-engine scenario_losses'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-530-default-fund-cover2-sizing.kernel.mjs --- */
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where,
+    reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v),
+    supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function toBpsOrNull(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v >= 0) return v;
+  rejected.push({ where: where, reason: 'absent or not a non-negative integer basis-point rate', supplied: v === undefined ? null : v });
+  return null;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / 100); var frac = abs - whole * 100;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var as_of = isoDateOrNull(pp.as_of);
+  var fund_size_minor_units = toMinorUnits(pp.fund_size_minor_units, 'fund_size_minor_units', rejected_inputs);
+
+  var membersIn = Array.isArray(pp.members) ? pp.members : [];
+  if (!Array.isArray(pp.members)) rejected_inputs.push({ where: 'members', reason: 'absent or not an array', supplied: pp.members === undefined ? null : typeof pp.members });
+  var seenMemberIds = {};
+  var members = membersIn.map(function(m, i){
+    m = m && typeof m === 'object' ? m : {};
+    var member_id = isNonEmptyString(m.member_id) ? m.member_id.trim() : ('UNLABELLED-MEMBER-' + (i + 1));
+    if (seenMemberIds[member_id]) { rejected_inputs.push({ where: 'members[' + i + '].member_id', reason: 'duplicate member_id', supplied: member_id }); member_id = member_id + '-DUP-' + (i + 1); }
+    seenMemberIds[member_id] = true;
+    var exposure_minor_units = toMinorUnits(m.exposure_minor_units, 'members[' + i + '].exposure_minor_units', rejected_inputs);
+    return { member_id: member_id, exposure_minor_units: exposure_minor_units };
+  });
+
+  var scenariosIn = Array.isArray(pp.stress_scenarios) ? pp.stress_scenarios : [];
+  if (!Array.isArray(pp.stress_scenarios)) rejected_inputs.push({ where: 'stress_scenarios', reason: 'absent or not an array', supplied: pp.stress_scenarios === undefined ? null : typeof pp.stress_scenarios });
+  var seenScenarioIds = {};
+  var scenarios = scenariosIn.map(function(s, i){
+    s = s && typeof s === 'object' ? s : {};
+    var scenario_id = isNonEmptyString(s.scenario_id) ? s.scenario_id.trim() : ('UNLABELLED-SCENARIO-' + (i + 1));
+    if (seenScenarioIds[scenario_id]) { rejected_inputs.push({ where: 'stress_scenarios[' + i + '].scenario_id', reason: 'duplicate scenario_id', supplied: scenario_id }); scenario_id = scenario_id + '-DUP-' + (i + 1); }
+    seenScenarioIds[scenario_id] = true;
+    var loss_bps = toBpsOrNull(s.loss_bps, 'stress_scenarios[' + i + '].loss_bps', rejected_inputs);
+    if (loss_bps === null) loss_bps = 0;
+    return { scenario_id: scenario_id, loss_bps: loss_bps };
+  });
+
+  var per_scenario = scenarios.map(function(sc){
+    var member_losses = members
+      .map(function(m){ return { member_id: m.member_id, stress_loss_minor_units: Math.trunc(m.exposure_minor_units * sc.loss_bps / 10000) }; })
+      .sort(function(a, b){ return b.stress_loss_minor_units - a.stress_loss_minor_units; });
+    var largest = member_losses.length > 0 ? member_losses[0] : null;
+    var second_largest = member_losses.length > 1 ? member_losses[1] : null;
+    var cover2_requirement_minor_units = (largest ? largest.stress_loss_minor_units : 0) + (second_largest ? second_largest.stress_loss_minor_units : 0);
+    return {
+      scenario_id: sc.scenario_id,
+      loss_bps: sc.loss_bps,
+      member_losses: member_losses,
+      largest: largest,
+      second_largest: second_largest,
+      cover2_requirement_minor_units: cover2_requirement_minor_units,
+      cover2_requirement_display: display(cover2_requirement_minor_units),
+    };
+  });
+
+  var worst = null;
+  per_scenario.forEach(function(row){
+    if (worst === null || row.cover2_requirement_minor_units > worst.cover2_requirement_minor_units) worst = row;
+  });
+  var worst_case_scenario_id = worst ? worst.scenario_id : null;
+  var worst_case_cover2_requirement_minor_units = worst ? worst.cover2_requirement_minor_units : 0;
+
+  var inputs_insufficient = members.length === 0 || scenarios.length === 0;
+  var fund_adequate = fund_size_minor_units >= worst_case_cover2_requirement_minor_units;
+  var shortfall_minor_units = fund_adequate ? 0 : (worst_case_cover2_requirement_minor_units - fund_size_minor_units);
+
+  var compliance_flags = [];
+  if (inputs_insufficient) compliance_flags.push('COVER2_INPUTS_INSUFFICIENT');
+  compliance_flags.push(fund_adequate ? 'COVER2_FUND_ADEQUATE' : 'COVER2_FUND_SHORTFALL');
+
+  var rationale = [];
+  rationale.push(members.length + ' declared clearing member' + (members.length === 1 ? '' : 's') + ' evaluated across ' + scenarios.length + ' declared stress scenario' + (scenarios.length === 1 ? '' : 's') + '.');
+  if (worst) {
+    rationale.push('Worst-case scenario "' + worst_case_scenario_id + '" at ' + worst.loss_bps + ' bps: largest member loss ' + (worst.largest ? display(worst.largest.stress_loss_minor_units) : '0.00') + (worst.largest ? ' (' + worst.largest.member_id + ')' : '') + ', second-largest ' + (worst.second_largest ? display(worst.second_largest.stress_loss_minor_units) : '0.00') + (worst.second_largest ? ' (' + worst.second_largest.member_id + ')' : '') + '; Cover-2 requirement ' + display(worst_case_cover2_requirement_minor_units) + '.');
+  } else {
+    rationale.push('No stress scenarios declared: Cover-2 requirement is 0.00 by definition of an empty scenario set, not a passing adequacy result.');
+  }
+  rationale.push('Declared default fund size ' + display(fund_size_minor_units) + ' is ' + (fund_adequate ? 'adequate against' : 'short of') + ' the worst-case Cover-2 requirement of ' + display(worst_case_cover2_requirement_minor_units) + (fund_adequate ? '.' : (', a shortfall of ' + display(shortfall_minor_units) + '.')));
+  rationale.push('This is an arithmetic sizing check over declared member exposures, declared stress-scenario loss rates, and a declared fund size. It proves nothing about whether those declarations match any external position or margin system, and it recommends no fund-size change.');
+
+  var output_payload = {
+    as_of: as_of,
+    fund_size_minor_units: fund_size_minor_units,
+    fund_size_display: display(fund_size_minor_units),
+    member_count: members.length,
+    scenario_count: scenarios.length,
+    per_scenario: per_scenario,
+    worst_case_scenario_id: worst_case_scenario_id,
+    worst_case_cover2_requirement_minor_units: worst_case_cover2_requirement_minor_units,
+    worst_case_cover2_requirement_display: display(worst_case_cover2_requirement_minor_units),
+    fund_adequate: fund_adequate,
+    shortfall_minor_units: shortfall_minor_units,
+    shortfall_display: display(shortfall_minor_units),
+    rejected_inputs: rejected_inputs,
+    rationale: rationale,
+    note: 'Deterministic Cover-2 default fund sizing over caller-declared clearing members, member exposures, stress-scenario loss rates (shaped from a stress-test-engine chain input as basis points), and a declared fund size. Per PFMI Principle 4, the fund must cover the default of the two members creating the largest combined stress loss under the worst declared scenario. No CCP, currency, or jurisdiction is named. It performs no stress-scenario computation of its own -- that shape is a chained input -- and it recommends no fund-size change.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function intOrRaw(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  var n = Number(t);
+  return Number.isFinite(n) ? n : t;
+}
+
+function loadShortfallDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('fundSize').value = '10000000';
+  document.getElementById('membersJson').value = '[\n  { "member_id": "member-alpha", "exposure_minor_units": 500000000 },\n  { "member_id": "member-beta", "exposure_minor_units": 400000000 }\n]';
+  document.getElementById('scenariosJson').value = '[\n  { "scenario_id": "gfc_2008", "loss_bps": 4620 }\n]';
+  runCheck();
+}
+function loadSingleMemberDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('fundSize').value = '1000000';
+  document.getElementById('membersJson').value = '[\n  { "member_id": "member-solo", "exposure_minor_units": 10000000 }\n]';
+  document.getElementById('scenariosJson').value = '[\n  { "scenario_id": "rate_shock", "loss_bps": 2850 }\n]';
+  runCheck();
+}
+
+async function runCheck(){
+  var mem, scen;
+  try { mem = JSON.parse(document.getElementById('membersJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in members: ' + e.message); return; }
+  try { scen = JSON.parse(document.getElementById('scenariosJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in stress scenarios: ' + e.message); return; }
+
+  var pp = {
+    as_of: document.getElementById('asOf').value || '',
+    fund_size_minor_units: intOrRaw(document.getElementById('fundSize').value),
+    members: mem,
+    stress_scenarios: scen,
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = op.fund_adequate ? 'var(--green)' : 'var(--red)';
+  vBox.style.background = op.fund_adequate ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  vBox.style.border = '1px solid ' + (op.fund_adequate ? 'var(--green)' : 'var(--red)');
+  vBox.textContent = res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.worst_case_cover2_requirement_display + '</span><span class="stat-key">Worst-case Cover-2 requirement</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.fund_size_display + '</span><span class="stat-key">Declared fund size</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.shortfall_display + '</span><span class="stat-key">Shortfall</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.member_count + '</span><span class="stat-key">Declared members</span></div>';
+
+  document.getElementById('scenDiv').innerHTML = op.per_scenario.length
+    ? op.per_scenario.map(function(s){
+        return '<div class="kv"><span class="kv-k">' + s.scenario_id + ' (' + s.loss_bps + ' bps)</span><span class="kv-v">' + s.cover2_requirement_display +
+          (s.largest ? ' &mdash; ' + s.largest.member_id + (s.second_largest ? ' + ' + s.second_largest.member_id : '') : '') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no stress scenarios declared</span></div>';
+
+  document.getElementById('worstDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">Worst-case scenario</span><span class="kv-v">' + (op.worst_case_scenario_id || '&mdash;') + '</span></div>' +
+    '<div class="kv"><span class="kv-k">Fund adequate</span><span class="kv-v"><span class="badge ' + (op.fund_adequate ? 'ok' : 'bad') + '">' + (op.fund_adequate ? 'ADEQUATE' : 'SHORTFALL') + '</span></span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'risk_parameter',tool_id:'art-530-default-fund-cover2-sizing',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-530-default-fund-cover2-sizing.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

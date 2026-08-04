@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CCP Default Waterfall Recomputation &middot; ART-529 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes a CCP default-waterfall loss allocation -- defaulter IM, defaulter default-fund contribution, CCP skin-in-the-game, surviving-member default-fund pool, assessment powers -- per a caller-declared structure and loss amount. OCG Standard §25 ocg-private-input@1. Member-level figures never leave this page in the clear.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-529-ccp-default-waterfall-recompute.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.row2,.row3{grid-template-columns:1fr}}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+.stage-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.stage-row:last-child{border-bottom:none}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:110px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.priv{background:rgba(212,168,71,.1);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.badge.pub{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-529 · CCP Default Waterfall Recomputation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-529 &middot; Private-Input Profile &middot; CCP Core</div>
+  <h1>CCP Default Waterfall Recomputation</h1>
+  <p class="sub">Recomputes the sequential loss-allocation order at a CCP defaulting-member event: defaulter's initial margin, then the defaulter's default-fund contribution, then the CCP's own skin-in-the-game, then the surviving members' default-fund pool, then assessment powers, per a waterfall structure and loss amount you declare. The structure is not hardcoded to any one CCP's rulebook. Carries an OCG Standard &sect;25 <code>ocg-private-input@1</code> declaration: the defaulter's initial margin, the defaulter's default-fund contribution, and the surviving-members' default-fund pool are member-level figures, committed via <code>sha256-salted@1</code>, never present in the clear. Distinct in domain from <a href="art-509-recompute-payment-waterfall.html">art-509</a>, a securitisation cashflow waterfall unrelated to CCP default management.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">OCG &sect;25</span>
+    <span class="flag info">Private Input</span>
+    <span class="flag">PFMI Principle 4</span>
+    <span class="flag">CCP Default Management</span>
+    <span class="flag warn">Proofs Deferred</span>
+  </div>
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data; use synthetic or anonymised inputs only. The three member-level figures below stay a private witness: only a salted commitment and the stage-by-stage recompute ever leave this page.</div>
+
+  <div class="card">
+    <div class="section-head">Private Witness: member-level figures (never leave this page in the clear)</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="defIm">Defaulter's IM (minor units)</label>
+        <input type="number" id="defIm" value="100000000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="defDf">Defaulter's default-fund contribution (minor units)</label>
+        <input type="number" id="defDf" value="20000000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="survPool">Surviving-members' default-fund pool (minor units)</label>
+        <input type="number" id="survPool" value="40000000000">
+      </div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="salt">Commitment Salt (hex, &ge;256-bit, auto-generated)</label>
+      <div class="q-help">Fresh CSPRNG salt per recompute run (SPEC.md &sect;25.1). Never reused, never included in the artifact.</div>
+      <input type="text" id="salt" readonly>
+    </div>
+    <div style="margin-bottom:4px"><button type="button" onclick="regenSalt()" class="ghost">&#8635; Regenerate Salt</button></div>
+
+    <div class="section-head">Public Inputs</div>
+    <div class="row3">
+      <div class="q">
+        <label class="q-label" for="lossAmt">Loss amount (minor units)</label>
+        <input type="number" id="lossAmt" value="500000000000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="ccpSkin">CCP skin-in-the-game (minor units, public)</label>
+        <input type="number" id="ccpSkin" value="30000000000">
+      </div>
+      <div class="q">
+        <label class="q-label" for="currency">Currency</label>
+        <input type="text" id="currency" value="USD">
+      </div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="assessCap">Assessment-powers cap (minor units, blank = uncapped)</label>
+      <input type="number" id="assessCap" value="100000000000">
+    </div>
+    <div class="q">
+      <label class="q-label">Waterfall structure (caller-declared order: check to include, drag not required, order below is the applied order)</label>
+      <div class="q-help">PFMI Principle 4 default order shown; uncheck a stage to omit it (e.g. it was already exhausted upstream). Order is fixed to this sequence per the declared structure.</div>
+      <div class="stage-row"><label><input type="checkbox" id="stage_defaulter_im" checked> defaulter_im <span class="badge priv">PRIVATE</span></label></div>
+      <div class="stage-row"><label><input type="checkbox" id="stage_defaulter_default_fund" checked> defaulter_default_fund <span class="badge priv">PRIVATE</span></label></div>
+      <div class="stage-row"><label><input type="checkbox" id="stage_ccp_skin_in_game" checked> ccp_skin_in_game <span class="badge pub">PUBLIC</span></label></div>
+      <div class="stage-row"><label><input type="checkbox" id="stage_surviving_member_default_fund_pro_rata" checked> surviving_member_default_fund_pro_rata <span class="badge priv">PRIVATE</span></label></div>
+      <div class="stage-row"><label><input type="checkbox" id="stage_assessment_powers" checked> assessment_powers <span class="badge pub">PUBLIC</span></label></div>
+    </div>
+    <div style="margin-top:16px">
+      <button onclick="runCompute()">&#9654; Recompute Waterfall (Commit &amp; Compute)</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="generated-at" id="generatedAt"></div>
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="section-head" style="margin-top:14px">Stage-by-stage recompute</div>
+      <div id="stepsDiv"></div>
+      <div class="section-head" style="margin-top:14px">Private-Input Declaration (&sect;25)</div>
+      <div id="privInputDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+    </div>
+    <button class="mfst-btn" onclick="toggleMfst()">&#9660; View MCP Manifest</button>
+    <div id="mfstBody"><pre id="mfstPre"></pre></div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not size a default fund (see <a href="chaingraph-hub.html">CCP-core sibling nodes</a> for Cover-2 sizing), it does not run stress scenarios of its own, and it makes no determination that any CCP's actual published resources are adequate. It is a sequential recompute over a caller-declared structure and a caller-declared loss amount only.</p>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script id="manifest" type="application/json">
+{
+  "tool_id": "art-529-ccp-default-waterfall-recompute",
+  "tool_version": "1.0.0",
+  "mcp_name": "recompute_ccp_default_waterfall",
+  "mandate_type": "analytics_mandate",
+  "private_inputs_profile": "ocg-private-input@1",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "defaulter_im_minor_units":                       {"type": "integer", "description": "PRIVATE -- committed, never included in the clear."},
+      "defaulter_default_fund_minor_units":              {"type": "integer", "description": "PRIVATE -- committed, never included in the clear."},
+      "surviving_member_default_fund_pool_minor_units":  {"type": "integer", "description": "PRIVATE -- committed, never included in the clear."},
+      "salt":                        {"type": "string", "description": "PRIVATE -- >=256-bit hex CSPRNG salt. Never included in the artifact."},
+      "waterfall_structure":         {"type": "array", "description": "PUBLIC -- caller-declared stage order/subset."},
+      "loss_amount_minor_units":     {"type": "integer"},
+      "ccp_skin_in_game_minor_units":{"type": "integer"},
+      "assessment_powers_cap_minor_units": {"type": ["integer","null"]},
+      "currency": {"type": "string", "default": "USD"}
+    }
+  }
+}
+</script>
+
+<script>
+const TOOL_ID      = 'art-529-ccp-default-waterfall-recompute';
+const TOOL_VERSION = '1.0.0';
+let _lastArtifact  = null;
+
+const KNOWN_STAGES = ['defaulter_im','defaulter_default_fund','ccp_skin_in_game','surviving_member_default_fund_pro_rata','assessment_powers'];
+const PRIVATE_STAGES = new Set(['defaulter_im','defaulter_default_fund','surviving_member_default_fund_pro_rata']);
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function executionHash(pp, op) {
+  const canon = JSON.stringify(cgCanon({ policy_parameters: pp, output_payload: op }));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function randomSaltHex() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function commitPrivateInput(saltHex, inputValue) {
+  const saltBytes = new Uint8Array(saltHex.length / 2);
+  for (let i = 0; i < saltBytes.length; i++) saltBytes[i] = parseInt(saltHex.slice(i * 2, i * 2 + 2), 16);
+  const inputBytes = new TextEncoder().encode(JSON.stringify(cgCanon(inputValue)));
+  const combined = new Uint8Array(saltBytes.length + inputBytes.length);
+  combined.set(saltBytes, 0); combined.set(inputBytes, saltBytes.length);
+  const digest = await crypto.subtle.digest('SHA-256', combined);
+  return 'sha256:' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function regenSalt() { document.getElementById('salt').value = randomSaltHex(); }
+regenSalt();
+
+function display(minor) {
+  const whole = Math.trunc(minor / 100);
+  const frac = minor - whole * 100;
+  return String(whole) + '.' + String(frac).padStart(2, '0');
+}
+
+function recomputeWaterfall(structure, lossMinorUnits, amountsByStage) {
+  let remaining = lossMinorUnits;
+  const steps = [];
+  for (const stage of structure) {
+    const capacity = amountsByStage[stage] ?? 0;
+    const absorbed = Math.min(remaining, capacity);
+    remaining -= absorbed;
+    steps.push({
+      stage, private_figure: PRIVATE_STAGES.has(stage),
+      absorbed_minor_units: absorbed, absorbed_display: display(absorbed),
+      exhausted_stage_capacity: absorbed === capacity && capacity > 0,
+      loss_fully_absorbed_at_this_stage: remaining === 0,
+    });
+    if (remaining === 0) break;
+  }
+  return { steps, residual_minor_units: remaining };
+}
+
+async function runCompute() {
+  const currency = (document.getElementById('currency').value || 'USD').trim().toUpperCase();
+  const loss_amount_minor_units = parseInt(document.getElementById('lossAmt').value, 10) || 0;
+  const ccp_skin_in_game_minor_units = parseInt(document.getElementById('ccpSkin').value, 10) || 0;
+  const assessRaw = document.getElementById('assessCap').value;
+  const assessment_powers_cap_declared = assessRaw !== '';
+  const assessment_powers_cap_minor_units = assessment_powers_cap_declared ? (parseInt(assessRaw, 10) || 0) : null;
+
+  const defaulter_im_minor_units = parseInt(document.getElementById('defIm').value, 10) || 0;
+  const defaulter_default_fund_minor_units = parseInt(document.getElementById('defDf').value, 10) || 0;
+  const surviving_member_default_fund_pool_minor_units = parseInt(document.getElementById('survPool').value, 10) || 0;
+  const salt = document.getElementById('salt').value;
+
+  const waterfall_structure = KNOWN_STAGES.filter(s => document.getElementById('stage_' + s).checked);
+
+  const member_figures = { defaulter_im_minor_units, defaulter_default_fund_minor_units, surviving_member_default_fund_pool_minor_units };
+  const member_figures_commitment = await commitPrivateInput(salt, member_figures);
+
+  const amountsByStage = {
+    defaulter_im: defaulter_im_minor_units,
+    defaulter_default_fund: defaulter_default_fund_minor_units,
+    ccp_skin_in_game: ccp_skin_in_game_minor_units,
+    surviving_member_default_fund_pro_rata: surviving_member_default_fund_pool_minor_units,
+    assessment_powers: assessment_powers_cap_declared ? assessment_powers_cap_minor_units : Number.MAX_SAFE_INTEGER,
+  };
+
+  const { steps, residual_minor_units } = recomputeWaterfall(waterfall_structure, loss_amount_minor_units, amountsByStage);
+  const loss_fully_absorbed = residual_minor_units === 0;
+  const breach = !loss_fully_absorbed;
+
+  const compliance_flags = [];
+  compliance_flags.push(loss_fully_absorbed ? 'WATERFALL_LOSS_FULLY_ABSORBED' : 'WATERFALL_BREACH_RESIDUAL_UNALLOCATED');
+  if (steps.some(s => s.stage === 'assessment_powers' && s.absorbed_minor_units > 0)) compliance_flags.push('WATERFALL_REACHED_ASSESSMENT_POWERS');
+
+  const rationale = [
+    'Waterfall structure: ' + (waterfall_structure.join(' -> ') || 'NONE DECLARED') + '.',
+    'Loss of ' + display(loss_amount_minor_units) + ' ' + currency + ' recomputed sequentially across ' + steps.length + ' stage(s) reached; the three member-level absorption capacities are private witnesses committed under OCG Standard §25 ocg-private-input@1, never disclosed in the clear.',
+    loss_fully_absorbed ? ('Loss fully absorbed; residual unallocated is 0.00 ' + currency + '.') : ('Residual of ' + display(residual_minor_units) + ' ' + currency + ' remains unallocated after every declared stage -- a breach of the declared waterfall structure at this loss amount.'),
+    'This is a sequential recompute over a caller-declared waterfall structure and a caller-declared loss amount, per PFMI Principle 4 and each CCP\'s own published rulebook order. It is not a determination that any CCP\'s actual default-fund sizing is adequate.',
+  ];
+
+  const pp = {
+    currency, waterfall_structure,
+    loss_amount_minor_units, ccp_skin_in_game_minor_units,
+    assessment_powers_cap_declared, assessment_powers_cap_minor_units,
+    member_figures_commitment,
+  };
+  const op = {
+    currency, waterfall_structure,
+    loss_amount_minor_units, loss_amount_display: display(loss_amount_minor_units),
+    ccp_skin_in_game_minor_units, ccp_skin_in_game_display: display(ccp_skin_in_game_minor_units),
+    assessment_powers_cap_declared, assessment_powers_cap_minor_units,
+    steps, residual_minor_units, residual_display: display(residual_minor_units),
+    loss_fully_absorbed, breach, rejected_inputs: [], rationale,
+    provenance: 'PFMI Principle 4 (Credit Risk) -- the standing Cover-2 / waterfall-sequencing requirement -- and the caller-declared waterfall structure, which is not hardcoded to any one CCP rulebook.',
+    note: 'Deterministic, single-run recompute of a sequential default-waterfall loss allocation. The defaulter IM, defaulter default-fund contribution, and surviving-member default-fund pool are member-level figures committed via sha256-salted@1 (OCG Standard §25) and never appear in the clear anywhere in this artifact.',
+  };
+
+  const hash = await executionHash(pp, op);
+  const private_inputs = [{ pointer: '/member_figures_commitment', commitment: member_figures_commitment, commitment_scheme: 'sha256-salted@1' }];
+  const generatedAt = new Date().toISOString();
+  const art = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'analytics_mandate',
+    tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+    generated_at: generatedAt, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: op, private_inputs,
+    compliance_flags, compute_mode: 'client',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  document.getElementById('generatedAt').textContent = 'generated_at ' + generatedAt;
+  _lastArtifact = art;
+
+  const vb = document.getElementById('verdictBox');
+  vb.textContent = loss_fully_absorbed ? 'LOSS FULLY ABSORBED' : ('BREACH -- RESIDUAL ' + display(residual_minor_units) + ' ' + currency);
+  vb.style.background = loss_fully_absorbed ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.08)';
+  vb.style.color       = loss_fully_absorbed ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('statRow').innerHTML = [
+    stat('Stages reached', steps.length), stat('Residual', display(residual_minor_units) + ' ' + currency),
+    stat('Fully absorbed', loss_fully_absorbed ? 'YES' : 'NO'), stat('Breach', breach ? 'YES' : 'NO'),
+  ].join('');
+
+  document.getElementById('stepsDiv').innerHTML = steps.map(s =>
+    '<div class="kv"><span class="kv-k">' + s.stage + (s.private_figure ? ' <span class="badge priv">PRIVATE</span>' : ' <span class="badge pub">PUBLIC</span>') + '</span><span class="kv-v">absorbed ' + s.absorbed_display + ' ' + currency + (s.loss_fully_absorbed_at_this_stage ? ' <span class="badge" style="color:var(--green);border-color:rgba(34,197,94,.3)">EXHAUSTED LOSS</span>' : '') + '</span></div>'
+  ).join('') || '<div class="kv"><span class="kv-k">No stages declared</span><span class="kv-v">n/a</span></div>';
+
+  document.getElementById('privInputDiv').innerHTML =
+    kv('Pointer', '/member_figures_commitment') + kv('Commitment', member_figures_commitment) + kv('Commitment Scheme', 'sha256-salted@1') +
+    kv('Plaintext member figures', 'NEVER included above -- private witness only');
+
+  document.getElementById('execHashBox').textContent = hash;
+  document.getElementById('resultsPanel').className = 'results-panel show';
+}
+
+function stat(k, v) { return '<div class="stat"><span class="stat-val">' + v + '</span><span class="stat-key">' + k + '</span></div>'; }
+function kv(k, v)   { return '<div class="kv"><span class="kv-k">' + k + '</span><span class="kv-v">' + v + '</span></div>'; }
+
+async function verifyHash() {
+  if (!_lastArtifact) return;
+  const h2 = await executionHash(_lastArtifact.policy_parameters, _lastArtifact.output_payload);
+  const el = document.getElementById('verifyResult');
+  if (h2 === _lastArtifact.execution_hash) { el.textContent = '✓ Hash verified'; el.style.color = 'var(--green)'; }
+  else { el.textContent = '✗ Mismatch'; el.style.color = 'var(--red)'; }
+}
+function exportArtifact() {
+  if (!_lastArtifact) return;
+  const blob = new Blob([JSON.stringify(_lastArtifact, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = TOOL_ID + '-artifact.json'; a.click();
+}
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  b.style.display = b.style.display === 'none' ? 'block' : 'none';
+  if (b.style.display === 'block') document.getElementById('mfstPre').textContent = document.getElementById('manifest').textContent;
+}
+</script>
+</body>
+</html>
