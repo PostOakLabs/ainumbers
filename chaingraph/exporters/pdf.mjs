@@ -99,6 +99,8 @@ function layoutLines(artifact) {
   push(`verify: ${m.verify_url}`, { size: 8 });
   spacer(8);
   push('This PDF is a generated view of a verified artifact (OCG Standard §13). It is not independently verifiable - verify the JSON artifact at the URL above.', { size: 8 });
+  spacer(4);
+  push(m.reliance_notice, { size: 8 });
   return L;
 }
 
