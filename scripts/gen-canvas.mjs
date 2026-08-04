@@ -1593,6 +1593,45 @@ document.getElementById('cvTemplates').addEventListener('click', function(e) {
   } catch(err) { _loading = false; }
 });
 
+/* ── ain-handoff/v1 receiver: kind:"chain-draft" from ocg-chain-builder.html
+   (CHAINBUILDER-HANDOFF-1). Same discipline as verification-desk.html's receiver —
+   origin checked on both ends, reply target always window.location.origin (never
+   '*'), payload treated as untrusted input and size-capped. tool_ids is an ordered
+   list from the builder, not an artifact — placed as nodes, best-effort linear
+   edges via the existing canConnect() feeds/consumes check, then auto-laid-out. */
+var HANDOFF_MAX_IDS = 200;
+window.addEventListener('message', function (ev) {
+  if (ev.origin !== window.location.origin) return;          // discard silently
+  var d = ev.data;
+  if (!d || typeof d !== 'object' || d.type !== 'ain-handoff/v1' || d.kind !== 'chain-draft') return;
+  var ids = d.tool_ids;
+  if (!Array.isArray(ids) || !ids.length) { setStatus('⚠ Handoff rejected: the chain draft carried no tool_ids.'); return; }
+  if (ids.length > HANDOFF_MAX_IDS) { setStatus('⚠ Handoff rejected: ' + ids.length + ' steps exceeds the ' + HANDOFF_MAX_IDS + '-step limit.'); return; }
+  var known = ids.filter(function(t){ return typeof t === 'string' && NODE_BY_ID[t]; });
+  if (!known.length) { setStatus('⚠ Handoff rejected: none of the chain draft tool_ids match a live node.'); return; }
+  pushHistory(); /* capture pre-load state as one undo step */
+  _loading = true;
+  clearCanvas();
+  var placed = [];
+  for (var i = 0; i < known.length; i++) {
+    var nid = addNode(known[i], 80 + (i % 6) * 160, 80 + Math.floor(i / 6) * 140);
+    if (nid !== null) placed.push(nid);
+  }
+  for (var j = 0; j < placed.length - 1; j++) addEdge(placed[j], placed[j + 1]);
+  _loading = false;
+  autoLayout(); /* 6a-style auto-trigger, same as the G5 template load path */
+  setStatus('Chain draft received from the builder — ' + placed.length + ' of ' + ids.length + ' step(s) placed.');
+});
+
+/* Ready signal: tell the opener this page can accept a handoff. Same-origin
+   target only; on a file:// origin postMessage throws, which is harmless —
+   the sender simply times out and tells the user to open the Canvas manually. */
+if (window.opener) {
+  try {
+    window.opener.postMessage({ type: 'ain-handoff-ready/v1', accepts: ['chain-draft'] }, window.location.origin);
+  } catch (e) { /* no opener we may talk to */ }
+}
+
 /* ── init ── */
 window.addEventListener('DOMContentLoaded', function() {
   vp = document.getElementById('viewport');
