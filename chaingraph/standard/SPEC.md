@@ -2836,6 +2836,8 @@ A v0.4 implementation MUST pass all of the following. **No normative rule above 
 here** — a rule with no wired gate is not part of the standard (the institutional fix for the
 hash-remediation incident, where canonical `execution_hash` had no end-to-end gate that ran it live).
 
+A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) runs the applicable subset of this gate suite against a submitted artifact entirely in the browser and reports a point-in-time PASS/FAIL verdict per gate; it is not a substitute for running the full CI suite below.
+
 | Rule | Gate | When |
 |---|---|---|
 | §4 canonical execution_hash | `kernel-hash-integrity.mjs`, `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, `determinism-replay.test.mjs` (N=3 idempotency + JCS key-order stability) | validate |
