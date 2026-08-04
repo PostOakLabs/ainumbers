@@ -485,6 +485,11 @@ status: stable
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`
 - [PoR Liabilities Composer](./art-540-por-liabilities-composer.md) — `compute_por_liabilities_composite`
 - [Best-Execution NBBO Recompute](./art-541-best-execution-recompute.md) — `recompute_best_execution`
+- [CSDR Penalty Recompute (Caller Reference Price)](./art-543-csdr-penalty-recompute.md) — `recompute_csdr_penalty`
+- [SLATE Securities-Loan Report Field Validator](./art-544-slate-report-validator.md) — `validate_slate_report_fields`
+- [SLATE Reporting Readiness Diagnostic](./art-545-slate-readiness-diagnostic.md) — `run_slate_reporting_fit`
+- [DTC Corporate Actions ISO 20022 Message Validator](./art-546-dtcc-ca-iso20022-validator.md) — `validate_dtcc_ca_iso20022_message`
+- [Corporate Action Entitlement Recompute](./art-547-corporate-action-entitlement-recompute.md) — `recompute_corporate_action_entitlement`
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`
 - [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`
 - [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md) — `validate_deposit_token_compliance`
