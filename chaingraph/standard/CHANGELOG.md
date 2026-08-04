@@ -28,6 +28,28 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
   (delegation exchange-chain shape, referenced not implemented), RFC 6920 / EU AI Act Art. 12 (naming +
   record-keeping minima) — patterns only, no code or text copied.
 
+## 0.8.19 — Forward decision-outcome mandate (§STPFWD-1)
+- **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.13
+  until the next coordinated K landing moves it, the same separation v0.8.9 through v0.8.18 used.
+- **§STPFWD-1** carves out the normative text `STP-BRANCHABILITY-BUILD-SPEC.md` §3 deliberately left
+  unwritten: a node first published `status:"live"`, `gpu:false` after this section lands MUST emit the
+  already-normative `$defs/haGatePolicy` (§27.4) at `/output_payload/decision/gate_policy` and the
+  already-normative `$defs/haRunState` (§27.10) at the sibling `/output_payload/decision/execution_state`.
+  Both vocabularies are reused verbatim — no new enum value, no new schema property, no `required[]` change.
+  The nested `decision.{gate_policy,execution_state}` shape is adopted on the measured, non-lossy finding of
+  `research/PTRSCOPE-DECISION-1-2026-08-02.md` (four coexisting pointer shapes across 8 live nodes today);
+  this section explicitly does NOT normalize, rename, or alias any of those four — that stays a separate,
+  unadjudicated question, and every node published before this section is untouched.
+- **Enforcement rides the existing §18 ratchet** (`scripts/check-compute-proof-coverage.mjs`, downward-only
+  against `compute-proof-baseline.json`, S18-BASELINE-GUARD-1 provenance discriminator already in place): a
+  brand-new `gpu:false` node cannot silently enter the proven/deferred count, so the §STPFWD-1.1 MUST is a
+  build-time authorship requirement checked at the same review point, not a second automated gate. One new
+  §15 matrix row cites the already-on-disk `kernel-coverage.mjs --strict` / `compute-proof.test.mjs`.
+- **Purely additive** under the same three-condition freeze test every prior text pass used: no existing
+  `execution_hash` moves, no `required[]` entry changes, no MUST-emit reaches an already-published artifact.
+  `$defs/artifact.required` and `chaingraph_version` (`"0.4.0"`) are unchanged; every pinned golden vector is
+  byte-identical before and after.
+
 ## 0.8.18 — Retention & pruning profile (§20.3)
 - **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.13
   until the next coordinated K landing moves it, the same separation v0.8.9 through v0.8.17 used.
