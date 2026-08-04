@@ -476,6 +476,7 @@ import * as art533    from './art-533-mra-remediation-closure-register.kernel.mj
 import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
 import * as art549    from './art-549-g20-corridor-cost-gap.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
+import * as art550    from './art-550-reg-e-remittance-disclosure-check.kernel.mjs';
 import * as art56     from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
 import * as art57     from './art-57-deposit-token-compliance-validator.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
@@ -1012,6 +1013,7 @@ export const KERNELS = {
   'art-54-digital-trade-rules-checker':                       art54,
   'art-549-g20-corridor-cost-gap':                            art549,
   'art-55-trade-document-provenance-verifier':                art55,
+  'art-550-reg-e-remittance-disclosure-check':                art550,
   'art-56-tokenized-settlement-fit-diagnostic':               art56,
   'art-57-deposit-token-compliance-validator':                art57,
   'art-58-cross-network-settlement-validator':                art58,
