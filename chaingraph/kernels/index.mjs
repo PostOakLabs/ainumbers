@@ -487,6 +487,7 @@ import * as art544    from './art-544-slate-report-validator.kernel.mjs';
 import * as art545    from './art-545-slate-readiness-diagnostic.kernel.mjs';
 import * as art546    from './art-546-dtcc-ca-iso20022-validator.kernel.mjs';
 import * as art547    from './art-547-corporate-action-entitlement-recompute.kernel.mjs';
+import * as art548    from './art-548-vop-readiness-diagnostic.kernel.mjs';
 import * as art549    from './art-549-g20-corridor-cost-gap.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
 import * as art550    from './art-550-reg-e-remittance-disclosure-check.kernel.mjs';
@@ -1038,6 +1039,7 @@ export const KERNELS = {
   'art-545-slate-readiness-diagnostic':                       art545,
   'art-546-dtcc-ca-iso20022-validator':                       art546,
   'art-547-corporate-action-entitlement-recompute':           art547,
+  'art-548-vop-readiness-diagnostic':                         art548,
   'art-549-g20-corridor-cost-gap':                            art549,
   'art-55-trade-document-provenance-verifier':                art55,
   'art-550-reg-e-remittance-disclosure-check':                art550,
