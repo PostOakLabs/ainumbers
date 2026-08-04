@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>G20/FSB Corridor Cost-Gap Calculator &middot; ART-549 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes a caller-declared cross-border payment corridor's cost gap against the hardcoded G20/FSB roadmap targets for 2027 retail and 2030 remittance cost, cited against World Bank RPW methodology.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-549-g20-corridor-cost-gap.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:90px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-549 · G20/FSB Corridor Cost-Gap Calculator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-549 &middot; Cross-Border Payments Evidence</div>
+  <h1>G20/FSB Corridor Cost-Gap Calculator</h1>
+  <p class="sub">Checks a cross-border payment corridor's observed cost against the G20/FSB roadmap targets: retail cross-border payments by end-2027 (no more than 1% global average, no more than 3% for any corridor) and remittances by 2030 (no more than 3% global average, no more than 5% for any corridor). You declare a send/receive country pair, the corridor's observed cost as basis points (sourced from <a href="https://remittanceprices.worldbank.org/methodology" target="_blank" rel="noopener">World Bank Remittance Prices Worldwide</a>, methodology Q325, or your own quote basket), which USD basket size the figure is based on, and the target year to check. This tool recomputes the gap against the hardcoded target arithmetic only, and it never vendors RPW's own corridor cost table.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Named G20/FSB policy constants, never fabricated</span>
+    <span class="flag info">RPW methodology cited by name and version</span>
+    <span class="flag">Zero live FX/rate calls</span>
+    <span class="flag">Transparency target, not a compliance-gate</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; These are G20/FSB roadmap targets, not an enforceable deadline against any single firm. This tool is a transparency and benchmarking recompute, not a compliance-gate verdict, and it recommends no corridor pricing change. It computes once when you press the button, stores nothing, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Corridor &amp; observed cost</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own. Load the exceeds-target demo to see a corridor that fails to meet its target.</p>
+    <div class="grid2">
+      <div><label class="fld">As-of (ISO yyyy-mm-dd, your input, never a clock read)</label><input type="text" id="asOf" value="2026-08-01"></div>
+      <div><label class="fld">Observed cost (basis points, e.g. 250 = 2.50%)</label><input type="text" id="observedBps" value="250"></div>
+    </div>
+    <div class="grid3">
+      <div><label class="fld">Send country (2-letter ISO)</label><input type="text" id="sendCountry" value="US"></div>
+      <div><label class="fld">Receive country (2-letter ISO)</label><input type="text" id="receiveCountry" value="MX"></div>
+      <div><label class="fld">USD basket size</label>
+        <select id="basketBasis">
+          <option value="USD_200" selected>USD 200</option>
+          <option value="USD_500">USD 500</option>
+        </select>
+      </div>
+    </div>
+    <label class="fld">Target year</label>
+    <select id="targetYear">
+      <option value="2027" selected>2027, retail cross-border payments</option>
+      <option value="2030">2030, remittances</option>
+    </select>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Check</button>
+      <button class="ghost" onclick="loadExceedsDemo()">Load exceeds-target demo</button>
+      <button class="ghost" onclick="loadInsufficientDemo()">Load missing-inputs edge case</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Target basis</div>
+      <div id="targetDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">RPW methodology cited</div>
+      <div id="rpwDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not fetch a live corridor cost figure from RPW or anywhere else: you declare the observed cost, and this tool never embeds or vendors RPW's own corridor cost table (that would be a live/republished-data problem, not a compute problem). It does not check the US Reg E remittance disclosure arithmetic; see the art-reg-e-remittance-disclosure-check node for that recompute. It issues no recommendation to change corridor pricing and does not enforce the target against any single firm.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">The standard, in one sentence</div>
+    <p class="sub" style="margin-bottom:0">The G20/FSB cross-border payments roadmap sets a target cost ceiling for retail payments by end-2027 and remittances by 2030, both as a global average and a per-corridor ceiling; this tool checks a declared corridor's observed cost against the per-corridor ceiling for the year you select and reports the gap.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-549-g20-corridor-cost-gap',
+  version: '1.0.0',
+  mcp_name: 'check_g20_corridor_cost_gap',
+  title: 'G20/FSB Corridor Cost-Gap Calculator',
+  description: 'Recomputes a caller-declared cross-border payment corridor\'s cost gap against the hardcoded G20/FSB roadmap targets (retail 2027, remittances 2030). Caller supplies the observed cost as basis points, sourced from World Bank RPW (methodology Q325) or elsewhere; never vendors RPW\'s own corridor cost table. Transparency/benchmarking target, not a compliance-gate.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'check_g20_corridor_cost_gap',
+    description: 'Checks a caller-declared corridor (send/receive country, observed cost in basis points, USD basket size) against the hardcoded G20/FSB roadmap target for the declared year (2027 retail or 2030 remittance), returning gap_bps, meets_target, and the exact target text cited.',
+    inputSchema: { type: 'object', properties: {
+      as_of: {type:'string'},
+      corridor_pair: {type:'object', description:'{send_country, receive_country} -- 2-letter ISO codes'},
+      observed_cost_bps: {type:'number', description:'integer basis points, e.g. 250 = 2.50%'},
+      send_amount_basis: {type:'string', enum:['USD_200','USD_500']},
+      target_year: {type:'number', enum:[2027,2030]},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-549-g20-corridor-cost-gap.kernel.mjs --- */
+var G20_FSB_TARGETS = {
+  2027: { scope: 'retail cross-border payments', global_avg_bps: 100, any_corridor_bps: 300, label: 'G20/FSB 2027 retail target: ≤1% global avg / ≤3% any corridor' },
+  2030: { scope: 'remittances', global_avg_bps: 300, any_corridor_bps: 500, label: 'G20/FSB 2030 remittance target: ≤3% global avg / ≤5% any corridor' },
+};
+var RPW_METHODOLOGY = { name: 'World Bank Remittance Prices Worldwide (RPW)', version: 'Q325', url: 'https://remittanceprices.worldbank.org/methodology' };
+
+function isCountryCode(v){ return typeof v === 'string' && /^[A-Za-z]{2}$/.test(v.trim()); }
+function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
+function toBpsOrNull(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v >= 0) return v;
+  rejected.push({ where: where, reason: 'absent or not a non-negative integer number of basis points', supplied: v === undefined ? null : v });
+  return null;
+}
+function bpsDisplay(bps){
+  var neg = bps < 0; var abs = neg ? -bps : bps;
+  var whole = Math.trunc(abs / 100); var frac = abs - whole * 100;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var as_of = isoDateOrNull(pp.as_of);
+
+  var cp = pp.corridor_pair && typeof pp.corridor_pair === 'object' ? pp.corridor_pair : {};
+  if (!pp.corridor_pair || typeof pp.corridor_pair !== 'object') rejected_inputs.push({ where: 'corridor_pair', reason: 'absent or not an object', supplied: pp.corridor_pair === undefined ? null : typeof pp.corridor_pair });
+  var send_country = isCountryCode(cp.send_country) ? cp.send_country.trim().toUpperCase() : null;
+  if (!send_country) rejected_inputs.push({ where: 'corridor_pair.send_country', reason: 'absent or not a 2-letter ISO country code', supplied: cp.send_country === undefined ? null : cp.send_country });
+  var receive_country = isCountryCode(cp.receive_country) ? cp.receive_country.trim().toUpperCase() : null;
+  if (!receive_country) rejected_inputs.push({ where: 'corridor_pair.receive_country', reason: 'absent or not a 2-letter ISO country code', supplied: cp.receive_country === undefined ? null : cp.receive_country });
+
+  var observed_cost_bps = toBpsOrNull(pp.observed_cost_bps, 'observed_cost_bps', rejected_inputs);
+  if (observed_cost_bps === null) observed_cost_bps = 0;
+
+  var send_amount_basis = (pp.send_amount_basis === 'USD_200' || pp.send_amount_basis === 'USD_500') ? pp.send_amount_basis : null;
+  if (!send_amount_basis) rejected_inputs.push({ where: 'send_amount_basis', reason: 'must be exactly "USD_200" or "USD_500"', supplied: pp.send_amount_basis === undefined ? null : pp.send_amount_basis });
+
+  var target_year = (pp.target_year === 2027 || pp.target_year === 2030) ? pp.target_year : null;
+  if (!target_year) rejected_inputs.push({ where: 'target_year', reason: 'must be exactly 2027 or 2030', supplied: pp.target_year === undefined ? null : pp.target_year });
+
+  var target = target_year ? G20_FSB_TARGETS[target_year] : null;
+  var target_any_corridor_bps = target ? target.any_corridor_bps : null;
+  var target_global_avg_bps = target ? target.global_avg_bps : null;
+  var target_basis = target ? target.label : null;
+  var target_scope = target ? target.scope : null;
+
+  var gap_bps = target ? (observed_cost_bps - target_any_corridor_bps) : null;
+  var meets_target = target ? (gap_bps <= 0) : null;
+
+  var inputs_insufficient = !send_country || !receive_country || !send_amount_basis || !target_year;
+
+  var compliance_flags = [];
+  if (inputs_insufficient) compliance_flags.push('COSTGAP_INPUTS_INSUFFICIENT');
+  if (target) compliance_flags.push(meets_target ? 'COSTGAP_MEETS_TARGET' : 'COSTGAP_EXCEEDS_TARGET');
+
+  var rationale = [];
+  if (inputs_insufficient) {
+    rationale.push('One or more required declared inputs is missing or malformed; see rejected_inputs. No gap can be computed against an undeclared target or corridor.');
+  } else {
+    rationale.push('Corridor ' + send_country + '→' + receive_country + ', observed cost ' + bpsDisplay(observed_cost_bps) + '% on the ' + send_amount_basis.replace('_', ' ') + ' RPW basket, checked against the ' + target_year + ' target ("' + target_basis + '").');
+    rationale.push('gap_pct = observed ' + bpsDisplay(observed_cost_bps) + '% - target ' + bpsDisplay(target_any_corridor_bps) + '% (any-corridor ceiling) = ' + bpsDisplay(gap_bps) + '%. ' + (meets_target ? 'Corridor meets the target.' : 'Corridor exceeds the target.'));
+    rationale.push('Global-average target for this year (' + bpsDisplay(target_global_avg_bps) + '%) is reported for context only -- it describes the overall market average, not this single corridor, and is not itself checkable from one corridor\'s observed cost.');
+  }
+  rationale.push('These are G20/FSB roadmap targets, not an enforceable deadline against any single firm. This is a transparency/benchmarking recompute, not a compliance-gate verdict.');
+  rationale.push('Corridor cost table sourced by the caller from ' + RPW_METHODOLOGY.name + ' (methodology ' + RPW_METHODOLOGY.version + ', ' + RPW_METHODOLOGY.url + ') or elsewhere; this kernel does not embed or vendor RPW\'s own corridor cost data.');
+
+  var output_payload = {
+    as_of: as_of,
+    corridor_pair: { send_country: send_country, receive_country: receive_country },
+    observed_cost_bps: observed_cost_bps,
+    observed_cost_display: bpsDisplay(observed_cost_bps) + '%',
+    send_amount_basis: send_amount_basis,
+    target_year: target_year,
+    target_scope: target_scope,
+    target_any_corridor_bps: target_any_corridor_bps,
+    target_any_corridor_display: target_any_corridor_bps === null ? null : (bpsDisplay(target_any_corridor_bps) + '%'),
+    target_global_avg_bps: target_global_avg_bps,
+    target_global_avg_display: target_global_avg_bps === null ? null : (bpsDisplay(target_global_avg_bps) + '%'),
+    target_basis: target_basis,
+    gap_bps: gap_bps,
+    gap_pct_display: gap_bps === null ? null : (bpsDisplay(gap_bps) + '%'),
+    meets_target: meets_target,
+    rpw_methodology: RPW_METHODOLOGY,
+    rejected_inputs: rejected_inputs,
+    rationale: rationale,
+    note: 'Deterministic recompute of a caller-declared corridor\'s cost gap against the hardcoded G20/FSB roadmap target for the declared year. Zero live FX/rate calls; the caller supplies the observed cost, sourced from World Bank RPW or elsewhere, and this kernel never embeds or vendors RPW\'s own corridor cost table. Targets are transparency/benchmarking figures, not an enforceable deadline against any single firm.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function loadExceedsDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('observedBps').value = '675';
+  document.getElementById('sendCountry').value = 'US';
+  document.getElementById('receiveCountry').value = 'NG';
+  document.getElementById('basketBasis').value = 'USD_500';
+  document.getElementById('targetYear').value = '2030';
+  runCheck();
+}
+function loadInsufficientDemo(){
+  document.getElementById('asOf').value = '2026-08-01';
+  document.getElementById('observedBps').value = '400';
+  document.getElementById('sendCountry').value = '';
+  document.getElementById('receiveCountry').value = '';
+  document.getElementById('basketBasis').value = 'USD_200';
+  document.getElementById('targetYear').value = '';
+  runCheck();
+}
+
+function intOrRaw(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  var n = Number(t);
+  return Number.isFinite(n) ? n : t;
+}
+
+async function runCheck(){
+  var yearRaw = document.getElementById('targetYear').value;
+  var pp = {
+    as_of: document.getElementById('asOf').value || '',
+    corridor_pair: {
+      send_country: document.getElementById('sendCountry').value || '',
+      receive_country: document.getElementById('receiveCountry').value || '',
+    },
+    observed_cost_bps: intOrRaw(document.getElementById('observedBps').value),
+    send_amount_basis: document.getElementById('basketBasis').value,
+    target_year: yearRaw === '' ? undefined : Number(yearRaw),
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var ok = op.meets_target === true;
+  var bad = op.meets_target === false;
+  vBox.style.color = ok ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)');
+  vBox.style.background = ok ? 'rgba(34,197,94,.08)' : (bad ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  vBox.style.border = '1px solid ' + (ok ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)'));
+  vBox.textContent = res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.observed_cost_display + '</span><span class="stat-key">Observed cost</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.target_any_corridor_display || '—') + '</span><span class="stat-key">Any-corridor target</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.gap_pct_display || '—') + '</span><span class="stat-key">Gap</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.meets_target === null ? '—' : (op.meets_target ? 'YES' : 'NO')) + '</span><span class="stat-key">Meets target</span></div>';
+
+  document.getElementById('targetDiv').innerHTML = op.target_basis
+    ? ('<div class="kv"><span class="kv-k">Target text</span><span class="kv-v">' + op.target_basis + '</span></div>' +
+       '<div class="kv"><span class="kv-k">Global-average target (context only)</span><span class="kv-v">' + op.target_global_avg_display + '</span></div>')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no target year resolved</span></div>';
+
+  document.getElementById('rpwDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">Methodology</span><span class="kv-v">' + op.rpw_methodology.name + ', ' + op.rpw_methodology.version + '</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'risk_parameter',tool_id:'art-549-g20-corridor-cost-gap',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-549-g20-corridor-cost-gap.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
