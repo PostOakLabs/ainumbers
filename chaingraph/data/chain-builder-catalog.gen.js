@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (532 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (537 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5549,6 +5549,56 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "attestation_mandate",
     "url": "https://ainumbers.co/chaingraph/art-532-client-porting-check.html",
     "description": "Checks whether a client's cleared positions and collateral are portable to a backup clearing member under a caller-declared porting window, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-533-mra-remediation-closure-register",
+    "display_name": "Consent-Order / MRA Remediation Closure Register",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-533-mra-remediation-closure-register.html",
+    "description": "Registers a firm's consent-order Articles / MRA findings against its own remediation records: per-issue milestone completeness (closed with ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-534-aml-lookback-disposition-rollup",
+    "display_name": "AML Lookback Disposition Rollup",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-534-aml-lookback-disposition-rollup.html",
+    "description": "Closes the loop art-470 (lookback-completeness-reconciler) and art-471 (disposition-sampling-frame) leave open. Art-470 reconciles that the ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-535-fdic370-output-file-validator",
+    "display_name": "FDIC Part 370 Output-File Validator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-535-fdic370-output-file-validator.html",
+    "description": "Validates the shape of the institution's own 12 CFR part 370 deposit-insurance-coverage output file (the section 370.10 coverage summary rep",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-536-reg-w-affiliate-transaction-tester",
+    "display_name": "Reg W Affiliate Transaction Tester",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-536-reg-w-affiliate-transaction-tester.html",
+    "description": "Tests each caller-declared covered transaction with an affiliate against the Regulation W (12 CFR 223) quantitative limits: the 10% single-a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-537-qfc-recordkeeping-file-validator",
+    "display_name": "QFC Part 371 Recordkeeping File Validator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-537-qfc-recordkeeping-file-validator.html",
+    "description": "Validates the shape of the institution's own 12 CFR part 371 qualified-financial-contract recordkeeping file -- the position, counterparty, ",
     "consumes": [],
     "feeds": [],
     "status": "live"
