@@ -2231,6 +2231,85 @@ it uses a hash-chaining convention that includes the signature — differing fro
 is attached after hashing and is excluded from the preimage. Re-verify this observation against the
 project's current public material before relying on any row of it.
 
+## §STPFWD-1 Forward decision-outcome mandate (NORMATIVE — additive, new in v0.8.19)
+A §27.4 gate-policy value and a §27.10 run-state value are already normative vocabulary, but nothing has ever
+said where a caller finds them **inside a node's own output**. Today an agent or chain author who wants a
+single node's self-reported outcome has to learn that node's bespoke `output_payload` shape first — the same
+gap §21.4 gates already closed for chain-level branching. §STPFWD-1 closes it going forward, for nodes that
+do not exist yet, without touching a single artifact this standard has already sealed.
+
+**§STPFWD-1.0 Scope and additivity (NORMATIVE — the defining constraint).** This section binds a node **first
+published as `status:"live"`, `"gpu":false` after this section lands in SPEC.md** — its kernel, shard, and
+Graph Index node object committed for the first time. It is silent about every node published before that
+point. It adds no schema property (`output_payload` is already an unconstrained object, §1), no `required[]`
+entry, and no new closed-enum value: `$defs/haGatePolicy` (§27.4) and `$defs/haRunState` (§27.10) are used
+exactly as already defined, unchanged. Measured against the three-condition freeze test this standard applies
+to every additive section (no existing `execution_hash` moves, no `required[]` change, no MUST-emit on an
+existing artifact): a node live before this section landed is untouched by it in all three respects — its
+`execution_hash`, its `required[]` membership, and its conformance status stay exactly as they were, and
+nothing here reaches backward to demand anything of it. **Existing nodes are unaffected until an operator
+deliberately sweeps one forward**, which is a hash-moving `output_payload` edit subject to the same re-prove
+discipline as any other change to that member (§4, §18).
+
+**§STPFWD-1.1 The mandate (NORMATIVE).** A node meeting §STPFWD-1.0's scope **MUST** emit, at the RFC 6901
+pointer `/output_payload/decision/gate_policy`, a `$defs/haGatePolicy` (§27.4) value describing that
+execution's own outcome, and **MUST** emit, at the sibling pointer `/output_payload/decision/execution_state`,
+a value drawn from the closed `$defs/haRunState` vocabulary (§27.10 — `ran` | `did_not_run` | `ran_stale`)
+describing whether the node executed to a verdict, executed against input already known stale, or did not
+execute at all. Both pointers resolve inside the SAME `output_payload` object every node already emits (§4) —
+no new top-level artifact member, no sidecar object, no second hash. Because `output_payload` sits inside the
+§4 hash preimage, both values are genuinely hash-bound: covered by any §16/§18 proof already attached to the
+node, exactly as every other `output_payload` member is, which is the property that makes this stronger than a
+hash-excluded advisory field would have been.
+
+**§STPFWD-1.2 Why this pointer (informative basis for a normative choice).** Nodes published before this
+section coexist under at least four different shapes for a self-reported outcome — flat
+`output_payload.decision` + `output_payload.execution_state`; nested
+`output_payload.decision.{gate_policy,execution_state}`; flat `output_payload.gate_status` alone; and
+`output_payload.roles.partner.gate_status` (measured distribution and per-shape hash-impact recompute:
+`research/PTRSCOPE-DECISION-1-2026-08-02.md`). That measurement found the nested
+`decision.{gate_policy,execution_state}` shape is the only one of the four that loses no information for any
+node already carrying it, and recommended it as the shape a future canonical choice should use, additively,
+if normalization is ever undertaken. §STPFWD-1.1 adopts that shape for new nodes on that basis. **This section
+does NOT normalize, rename, or alias any of the four existing shapes** — that remains open and separately
+adjudicated (§STPFWD-1.0's grandfather clause) — and a caller reading an EXISTING node still needs that node's
+own documented shape until a future sweep, if any, moves it.
+
+**§STPFWD-1.3 Field-name distinction from §27.10 (NORMATIVE clarification).** §27.10's naming duty binds a
+`$defs/humanAccountabilityRecord`'s OWN sibling field, `subject_run_state`, used when a §27 accountability
+record reports the run-state of a subject OTHER than itself. `/output_payload/decision/execution_state` is a
+different carrier: a node reporting its OWN run-state, inside its OWN artifact, never inside a §27 record
+about a separate artifact. §STPFWD-1 reuses `$defs/haRunState`'s three-value closed vocabulary, unchanged,
+under this section's own field name — it does not extend, alias, or rename `subject_run_state`. A future §27
+approval record MAY still separately copy-forward `subject_run_state` per §27.10's own new-artifacts-only
+rule over the SAME node; the two fields answer different questions (who accepted responsibility for what,
+versus what this node's own execution did) and MAY coexist on one artifact without conflict.
+
+**§STPFWD-1.4 Routing posture (NORMATIVE — restates §21.4/§27.4, no new rule).** A `gate_policy` value emitted
+under this mandate carries no routing weight of its own: `review_required` and every other §27.4 value ROUTES
+a §21.4 chain to an exception-handling step when a chain author's own gate targets it, and holds nothing that
+no gate targets. `did_not_run` and `ran_stale` are reporting-only, exactly as §27.10 states for
+`subject_run_state` — they move no `execution_hash`, invalidate no existing verdict, and are not themselves a
+gate predicate unless a chain author's own gate targets the pointer.
+
+**§STPFWD-1.5 Enforcement (NORMATIVE — no new gate).** This section wires no new script. Every node in its
+scope is, by construction, a brand-new `gpu:false`, `status:"live"` node, and every such node is already
+subject to the §18 compute-integrity ratchet (`scripts/check-compute-proof-coverage.mjs`, cited §18): the
+S18-BASELINE-GUARD-1 provenance discriminator already distinguishes a legitimate new-node ceiling raise from a
+proof regression, so a new node cannot silently enter the proven/deferred count without that distinction being
+asserted in writing at land time. §STPFWD-1.1's MUST is a build-time authorship requirement, checked at the
+same review point every other new-node kernel requirement is checked — before that node's fixtures are
+golden-pinned and its proof minted — and deliberately does not duplicate that check inside a second automated
+gate.
+
+**§STPFWD-1.6 Freeze statement (NORMATIVE clarification, recorded per this section's drafting instruction).**
+Confirmed explicitly: a requirement binding only nodes newly published from this section forward moves no
+existing `execution_hash` (no already-published node's `output_payload` is touched by this text), changes no
+`required[]` entry (`output_payload` stays an unconstrained object; `$defs/artifact.required` is unchanged),
+and imposes no MUST-emit on any existing artifact (the MUST in §STPFWD-1.1 is scoped to §STPFWD-1.0's
+new-node definition and nothing else). §STPFWD-1 is purely additive under the same three-condition test every
+other additive section in this standard has been measured against.
+
 ## §27 Human Accountability (NORMATIVE, OPTIONAL — new in v0.8.12)
 The §4 hash proves *what computed*; §16/§18 prove *that it computed correctly*; §22 proves *who was
 authorized to run it*. None of them records **which named human took responsibility for the result** —
@@ -2662,7 +2741,20 @@ the same artifact with `clause_bindings` stripped produce byte-identical `execut
 finding.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.16 (2026-08-02 — SPEC-TEXT PASS settling what a §27.4 gate evaluator must
+See `standard/CHANGELOG.md`. **v0.8.19 (2026-08-04 — SPEC-TEXT PASS drafting the STP forward decision-outcome
+mandate carved out by `STP-BRANCHABILITY-BUILD-SPEC.md` §3; the record `spec_version` stays at whatever
+`chaingraph.json` carries until the next coordinated K landing bumps it, exactly as the v0.8.18/v0.8.17/v0.8.16
+text passes were separated from their record bumps):** §STPFWD-1 requires a node first published
+`status:"live"`, `gpu:false` after this section lands to emit the already-normative `$defs/haGatePolicy`
+(§27.4) at `/output_payload/decision/gate_policy` and the already-normative `$defs/haRunState` (§27.10) at the
+sibling `/output_payload/decision/execution_state` — no new enum, no new schema property, no `required[]`
+change, silent about every already-published node. The nested `decision.{gate_policy,execution_state}` shape
+is adopted on the measured, non-lossy finding of `research/PTRSCOPE-DECISION-1-2026-08-02.md`; the four
+pre-existing pointer shapes across 8 live nodes are explicitly NOT normalized by this section. Enforced at
+build/review time via the existing §18 `check-compute-proof-coverage.mjs` proven-or-deferred ratchet
+(S18-BASELINE-GUARD-1 discriminator already in place) — no second gate built. Purely additive under the same
+three-condition freeze test (no existing `execution_hash` moves, no `required[]` change, no MUST-emit on an
+existing artifact). **v0.8.16 (2026-08-02 — SPEC-TEXT PASS settling what a §27.4 gate evaluator must
 SAY when it never verified the signature bytes; the record `spec_version` stays at whatever `chaingraph.json`
 carries until the next coordinated K landing bumps it, exactly as the v0.8.15/v0.8.14 text passes were
 separated from their record bumps):** §27.11 splits the two facts a §27 gate evaluation carries — the §27.3
@@ -2887,6 +2979,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §28 clause binding profile `ocg-clause-binding@1`: hash-excluded top-level `clause_bindings[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` MUST root at `/policy_parameters` or `/output_payload` — a pointer rooted elsewhere is RED (§28.3); each resolved §28.1 citation object carries the five REQUIRED members (`scheme`, `id`, `in_force_from`, `mapped_by`, `mapped_at`), ISO-date fields validated, `interpretation_ref` when present is a `sha256:` content hash, no unknown members on the closed pinned form; a legacy bare-string citation is valid but classified UNPINNED and MUST NOT be declared in `clause_bindings`; unresolved pointer / malformed citation / off-preimage pointer MUST fail; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED; defaults OFF, absence conformant, new-artifacts-only (no migration path) | `clause-binding.test.mjs`, `schema-validate.mjs` | validate |
 | §21.6 ancestry_digest: bottom-up recompute over `{execution_hash, parent_ancestry_digests}` via the one `cgCanon` path, root uses `[]`, mutation-sensitive (an omitted/reordered/substituted ancestor MUST change the terminal digest — the exact `cgCanon`-object-not-string trap §PPH-1 already guards against, tested identically here), hash-EXCLUDED (byte-identical `execution_hash` with and without the member, both halves asserted), absence conformant + reported as no-claim, incomplete bundle reported as a distinct `incomplete-bundle` tier never conflated with `failed` | `ancestry-digest.test.mjs` (unit) + `schema-validate.mjs` (shape) | validate |
 | §20.3 retention profile: a verifier presented a hash-only survivor (leaf + inclusion proof + cosigned checkpoint, no body) reports `body-absent: anchored-hash-only`, never `verified`/`failed`; a `regulatory-N-years` fixture pruned before N elapses MUST fail a conformance check; `fixture`-class artifacts are NEVER eligible regardless of checkpoint state; top-level `retention_class` (§20.3.0, distinct from §23.4's per-attestation field of the same name) is hash-EXCLUDED (byte-identical `execution_hash` with and without the member); the tier is additive — an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18 | `retention-profile.test.mjs` | validate |
+| §STPFWD-1 forward decision-outcome mandate: a NEW gpu:false live node emits `haGatePolicy` (§27.4) at `/output_payload/decision/gate_policy` and `haRunState` (§27.10) at `/output_payload/decision/execution_state`, both closed enums unchanged and both inside the §4 preimage; silent about every node published before this section; no schema property, no `required[]` entry, no MUST-emit on an existing artifact — enforced at build time (repo scripts/check-compute-proof-coverage.mjs ratchet, cited §18) rather than by a second §15 gate, since every in-scope node is already required to be proven-or-explicitly-deferred before it can ship | `kernel-coverage.mjs --strict`, `compute-proof.test.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
