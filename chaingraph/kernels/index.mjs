@@ -465,6 +465,7 @@ import * as art523    from './art-523-identity-proofing-assurance-level.kernel.m
 import * as art524    from './art-524-source-arrival-freshness-register.kernel.mjs';
 import * as art525    from './art-525-nway-balance-closure-check.kernel.mjs';
 import * as art526    from './art-526-report-gl-reconciliation.kernel.mjs';
+import * as art528    from './art-528-cross-ccp-pqd-comparator.kernel.mjs';
 import * as art53     from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
 import * as art531    from './art-531-member-margin-call-lifecycle.kernel.mjs';
 import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
@@ -994,6 +995,7 @@ export const KERNELS = {
   'art-524-source-arrival-freshness-register':                art524,
   'art-525-nway-balance-closure-check':                       art525,
   'art-526-report-gl-reconciliation':                         art526,
+  'art-528-cross-ccp-pqd-comparator':                         art528,
   'art-53-mletr-ebl-conformance-validator':                   art53,
   'art-531-member-margin-call-lifecycle':                     art531,
   'art-54-digital-trade-rules-checker':                       art54,
