@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-UnNkNzwG5/7mTQE1zwYz8XG/gFk6PSoX1L5nDsnEqI4='; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; base-uri 'none'; form-action 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="ocg-spec-version" content="0.8.13">
+<title>OCG Conformance Gate: free client-side OpenChainGraph v0.4 checker | AINumbers</title>
+<meta name="description" content="Free, static, client-side checker that runs the applicable subset of the OpenChainGraph v0.4 SPEC.md §15 gate suite against a submitted artifact, entirely in your browser. No account, no submission stored, methodology public.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/conformance-gate.html">
+<meta name="robots" content="index, follow">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847;
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif; font-size:.86rem; line-height:1.6; -webkit-font-smoothing:antialiased; }
+a { color:var(--teal); text-decoration:none; }
+a:hover { text-decoration:underline; }
+code, pre, .mono { font-family:ui-monospace,'SFMono-Regular',Consolas,'JetBrains Mono',monospace; }
+nav { position:sticky; top:0; z-index:100; background:rgba(8,14,26,.94); border-bottom:1px solid var(--border); }
+.nav-inner { max-width:980px; margin:0 auto; display:flex; align-items:center; gap:16px; padding:0 20px; height:52px; }
+.logo { font-family:ui-monospace,monospace; font-size:.9rem; font-weight:600; color:var(--bright); }
+.logo span { color:var(--teal); }
+.crumb { font-family:ui-monospace,monospace; font-size:.62rem; color:var(--muted); margin-left:auto; }
+.crumb a { color:var(--body); }
+.wrap { max-width:980px; margin:0 auto; padding:32px 20px 80px; }
+h1 { font-family:Georgia,'Times New Roman',serif; font-size:1.6rem; color:var(--white); line-height:1.25; margin-bottom:10px; }
+h2 { font-family:Georgia,serif; font-size:1.1rem; color:var(--bright); margin:28px 0 10px; }
+h3 { font-size:.85rem; color:var(--bright); margin-bottom:6px; }
+.eyebrow { font-family:ui-monospace,monospace; font-size:.58rem; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.lede { color:var(--body); max-width:680px; margin-bottom:8px; }
+.badge-row { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px; }
+.pill { display:inline-flex; align-items:center; gap:6px; background:var(--teal-dim); border:1px solid rgba(20,184,166,.25); border-radius:20px; padding:.28rem .8rem; font-family:ui-monospace,monospace; font-size:.58rem; color:var(--teal); }
+.pill.warn { background:var(--warn-dim); border-color:rgba(245,158,11,.3); color:var(--warn); }
+
+.panel { background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius-lg); padding:20px; margin:16px 0; }
+.panel.tight { padding:16px; }
+
+.input-modes { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+.demo-btn { background:var(--bg-4); border:1px solid var(--border-2); color:var(--text); border-radius:var(--radius); padding:.4rem .85rem; font-size:.72rem; font-family:inherit; cursor:pointer; transition:border-color .15s; }
+.demo-btn:hover { border-color:var(--teal); }
+.dropzone { border:1.5px dashed var(--border-2); border-radius:var(--radius); padding:18px; text-align:center; color:var(--muted); font-size:.75rem; cursor:pointer; transition:border-color .15s,background .15s; }
+.dropzone.drag { border-color:var(--teal); background:var(--teal-dim); }
+.dropzone input[type=file] { display:none; }
+textarea#pasteArea { width:100%; min-height:160px; margin-top:10px; background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-family:ui-monospace,monospace; font-size:.72rem; padding:10px; resize:vertical; }
+textarea#pasteArea:focus { outline:1px solid var(--teal); border-color:var(--teal); }
+.run-row { display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap; }
+button.primary { background:var(--gold); color:#080E1A; border:none; border-radius:var(--radius); font-weight:600; font-size:.78rem; padding:.55rem 1.3rem; cursor:pointer; font-family:inherit; }
+button.primary:hover { opacity:.88; }
+button.primary:disabled { opacity:.4; cursor:not-allowed; }
+.file-note { font-size:.68rem; color:var(--muted); font-family:ui-monospace,monospace; }
+
+.verdict-banner { border-radius:var(--radius-lg); padding:16px 20px; margin:18px 0; border:1px solid var(--border-2); }
+.verdict-banner.pass { background:var(--green-dim); border-color:rgba(34,197,94,.3); }
+.verdict-banner.fail { background:var(--red-dim); border-color:rgba(239,68,68,.3); }
+.verdict-title { font-weight:600; font-size:.95rem; margin-bottom:4px; }
+.verdict-banner.pass .verdict-title { color:var(--green); }
+.verdict-banner.fail .verdict-title { color:var(--red); }
+.verdict-meta { font-family:ui-monospace,monospace; font-size:.65rem; color:var(--body); margin-top:8px; word-break:break-all; }
+
+.gate-bucket { margin:18px 0; }
+.gate-bucket-h { font-family:ui-monospace,monospace; font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:8px; }
+table.gates { width:100%; border-collapse:collapse; font-size:.76rem; }
+table.gates th { text-align:left; font-family:ui-monospace,monospace; font-size:.58rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:6px 8px; border-bottom:1px solid var(--border); }
+table.gates td { padding:8px; border-bottom:1px solid var(--border); vertical-align:top; }
+table.gates tr:last-child td { border-bottom:none; }
+.status-tag { display:inline-block; font-family:ui-monospace,monospace; font-size:.6rem; font-weight:600; padding:.15rem .5rem; border-radius:4px; white-space:nowrap; }
+.status-tag.pass { background:var(--green-dim); color:var(--green); }
+.status-tag.fail { background:var(--red-dim); color:var(--red); }
+.status-tag.na { background:var(--bg-4); color:var(--muted); }
+.status-tag.partial { background:var(--warn-dim); color:var(--warn); }
+.gate-title { color:var(--bright); font-weight:500; }
+.gate-detail { color:var(--body); font-size:.72rem; margin-top:2px; }
+
+details.methodology { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; margin:14px 0; }
+details.methodology summary { cursor:pointer; color:var(--teal); font-size:.78rem; font-weight:500; }
+details.methodology .m-body { margin-top:10px; font-size:.74rem; color:var(--body); }
+details.methodology .m-body p { margin-bottom:8px; }
+details.methodology ul { padding-left:1.2rem; margin-bottom:8px; }
+details.methodology code { color:var(--text); }
+
+.disclaimers { background:var(--bg-2); border:1px solid var(--border); border-left:3px solid var(--gold); border-radius:var(--radius); padding:16px 20px; margin-top:24px; }
+.disclaimers h2 { margin-top:0; font-size:1rem; }
+.disclaimers ol { padding-left:1.2rem; display:flex; flex-direction:column; gap:8px; }
+.disclaimers li { font-size:.76rem; color:var(--body); line-height:1.6; }
+.disclaimers li strong { color:var(--text); }
+
+footer.foot { text-align:center; font-size:.65rem; color:var(--muted); font-family:ui-monospace,monospace; margin-top:40px; padding-top:20px; border-top:1px solid var(--border); }
+footer.foot a { color:var(--body); }
+
+@media (max-width:640px) {
+  h1 { font-size:1.3rem; }
+  .run-row { flex-direction:column; align-items:stretch; }
+  table.gates, table.gates thead, table.gates tbody, table.gates th, table.gates td, table.gates tr { display:block; }
+  table.gates thead { display:none; }
+  table.gates tr { border-bottom:1px solid var(--border); padding:8px 0; }
+  table.gates td { border-bottom:none; padding:3px 0; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="../index.html">AINumbers<span>.co</span></a>
+    <div class="crumb"><a href="chaingraph-hub.html">ChainGraph</a> / Conformance Gate</div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">Free · Client-Side · No Account</div>
+  <h1>OCG Conformance Gate</h1>
+  <p class="lede">Drop in an OpenChainGraph artifact (or an export-profile output of one). This page runs the applicable subset of the <a href="standard/SPEC.md">SPEC.md §15 gate suite</a> entirely in your browser and shows a point-in-time verdict: which gates passed, which failed, and why, with the evidence to reproduce the run independently.</p>
+  <div class="badge-row">
+    <span class="pill">🔒 zero network calls after load</span>
+    <span class="pill">no storage, no submission kept</span>
+    <span class="pill warn">not a certification, see disclaimers</span>
+  </div>
+
+  <div class="panel">
+    <h3>1. Submit an artifact</h3>
+    <div class="input-modes">
+      <button type="button" class="demo-btn" id="loadPassBtn">Load a PASS fixture</button>
+      <button type="button" class="demo-btn" id="loadFailBtn">Load a deliberately-corrupted FAIL fixture</button>
+      <button type="button" class="demo-btn" id="clearBtn">Clear</button>
+    </div>
+    <label class="dropzone" id="dropzone" for="fileInput">
+      <span id="dropzoneText">Drop a .json file here, or click to choose one</span>
+      <input type="file" id="fileInput" accept=".json,application/json,.txt">
+    </label>
+    <textarea id="pasteArea" placeholder="…or paste artifact JSON here"></textarea>
+    <div class="run-row">
+      <button type="button" class="primary" id="runBtn">Run conformance check</button>
+      <span class="file-note" id="inputNote"></span>
+    </div>
+  </div>
+
+  <div id="resultsArea"></div>
+
+  <details class="methodology">
+    <summary>Methodology &amp; what this checker actually runs</summary>
+    <div class="m-body">
+      <p>Bucket A runs on every submission. §1 envelope well-formed (validated against the published <code>openchain-graph-v0.4.schema.json</code>, embedded verbatim in this page); §4 canonical <code>execution_hash</code> recomputation (ported byte-for-byte from <code>chaingraph/kernels/_hash.mjs</code> lines 19 to 59, the ONE canonical JCS path, no ad-hoc re-derivation); §16 proof binding (ported from <code>chaingraph/kernels/_proof.mjs</code>'s <code>eddsa-jcs-2022</code> sign/verify pipeline, lines ~2961 to 3171, Ed25519 via WebCrypto only). An artifact with no <code>audit_signature.proof</code> is unsigned and conformant; §16 shows "not applicable," not a fail.</p>
+      <p>Bucket B runs only when the relevant member is present in the submission. §PPH-1 <code>policy_parameters_hash</code> (full recompute, ported from the same <code>_hash.mjs</code>); §20 anchor bindings (shape validation plus <code>anchored_hash === execution_hash</code> equality check; Merkle-root reconstruction from <code>merkle_inclusion</code> is not yet ported in this build); §1.4/§28 clause bindings (pointer resolution plus citation-object shape); §25 private-input declarations (pointer resolution plus commitment-string equality, a partial plaintext-exclusion check); §22 Work Mandate and §27 human-accountability records (schema shape plus validity-window/expiry sanity plus reuse of the §16 proof check); §21.4 decision-gate static forward-only routing, when the submission is chain-shaped. §17 kernel identity, §18 compute-integrity (BN254 Groth16 seal), and §23 input attestations are shape-checked only in this build, since deeper cryptographic verification of those three was not ported: Groth16 pairing verification and embedded-credential proof chasing are out of scope for this build, and a false FAIL from an under-tested port is a worse outcome than a plain "shape only" label. §13.11 to 13.14 SD-JWT and xBRL export checks apply only to that export's own serialization, not to a plain artifact JSON submission, and are marked not applicable here.</p>
+      <p>Bucket C can never be checked from a submitted artifact, and is listed here rather than silently omitted. Repo-internal checks that run over our own working tree, not artifact-shaped (<code>kernel-coverage.mjs</code>, <code>spec-version-consistency.mjs</code>, <code>spec-page-parity.mjs</code>, <code>surface-parity.mjs</code>, <code>catalog-parity.mjs</code>, <code>check-tool-names.mjs</code>, <code>linear-hash-freeze.mjs</code>, <code>spec-gate-coverage.mjs</code>); checks needing a live deployed server (<code>hash-sweep.mjs</code>, <code>verify-mcp-registered.mjs</code>, <code>smoke-mcp.mjs</code>, the round-trip half of <code>smoke-compute.mjs</code>); §24.6.2 <code>seed-replay.test.mjs</code> (needs the submitter's kernel source executing, not just its output); and <code>gate-parity.test.mjs</code>'s cross-implementation byte-parity assertion (needs two implementations to compare, this checker has one).</p>
+      <p>Gate suite version, this run's timestamp, and a SHA-256 digest of the exact submitted bytes are stamped on every verdict (§7) so a FAIL is independently reproducible: pull this exact page source, feed it the artifact matching that digest, and you get the same result. A FAIL that can't reproduce this way is a checker bug, not a finding.</p>
+      <p>Source: this whole checker is one static HTML file, <a href="https://github.com/PostOakLabs/ainumbers/blob/main/chaingraph/conformance-gate.html">viewable on GitHub</a>. No coverage percentage is ever computed or shown, only per-gate pass/fail.</p>
+    </div>
+  </details>
+
+  <div class="disclaimers">
+    <h2>Read before you trust a verdict</h2>
+    <ol>
+      <li>Point-in-time automated assessment, not a certification or audit. A PASS here is not a certification, a compliance stamp, or an audit opinion.</li>
+      <li>No regulator affiliation or authority claim. This tool has no supervisory standing and makes none.</li>
+      <li>Methodology and raw evidence are published per verdict. The gate suite version and the exact checks that ran are shown above and stamped on every result, so any verdict can be independently reproduced.</li>
+      <li>Provided as-is, with no warranty. No liability for consequential damages; do not rely on a verdict for a decision without independent review.</li>
+      <li>Think a result is wrong? Email <a href="mailto:contact@ainumbers.co">contact@ainumbers.co</a> with the artifact digest and suite version shown on your verdict and it will be looked at. No ticketing system, no SLA.</li>
+    </ol>
+  </div>
+
+  <footer class="foot">
+    OCG Conformance Gate. Zero network calls after page load. No data leaves your browser. <a href="chaingraph-hub.html">ChainGraph Suite</a> · <a href="standard/SPEC.md">SPEC.md §15</a>
+  </footer>
+</div>
+
+<!-- EMBEDDED SCHEMA — verbatim copy of chaingraph/standard/openchain-graph-v0.4.schema.json. type=application/json so the browser never executes it; zero network calls, so it ships inline instead of being fetched. -->
+<script type="application/json" id="ocg-schema">
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/chaingraph/standard/openchain-graph-v0.4.schema.json",
+  "title": "OpenChainGraph v0.4 — artifact envelope + catalog node object",
+  "description": "NORMATIVE machine schema for OpenChainGraph v0.4. Source of truth pairs with standard/SPEC.md. spec_version of record lives in chaingraph.json.spec_version. Strict (additionalProperties:false) on BOTH the artifact envelope and the catalog node object: chaingraph.json is a single-producer internal catalog in this repo, so the forward-compat case for permissive request bodies does not apply — strictness catches our own typo/drift fields. Adding a new node field = a one-line schema update in the same PR.",
+  "spec_version": "0.8.13",
+  "$defs": {
+    "citationRef": {
+      "description": "A minimal pointer to another legal instrument — the shape used by superseded_by. scheme + id only; the full pinned object lives wherever that instrument is itself cited.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "id"],
+      "properties": {
+        "scheme": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "regulatoryCitation": {
+      "description": "CLAUSE BINDING §1.2 pinned citation object, profile ocg-clause-binding@1. The PINNED form of a regulatory citation, replacing the legacy bare string. The legacy [\"string\"] form stays VALID and conformant but is classified UNPINNED (§1.1) and is ineligible for any pinned-form guarantee. This object is only PINNED when it sits inside the JCS-canonical execution_hash preimage — a member of policy_parameters or output_payload (§1.4); a copy of it anywhere else is unpinned no matter how well-formed it is. scheme is an OPEN enum on purpose (§1.2): ELI does not cover US CFR, Basel paragraph ids, or Fed SR letters, so requiring an ELI/AKN URI would exclude most of this estate. Shape only is validated here; the pointer-is-inside-the-preimage rule and the interpretation_ref content-hash rule are enforced by clause-binding.test.mjs.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "id", "in_force_from", "mapped_by", "mapped_at"],
+      "properties": {
+        "scheme": { "type": "string", "minLength": 1, "description": "Identifier scheme. Suggested values: cfr, eli, akn, bcbs-para, sr-letter, esma-vr, uscode, other. Deliberately NOT a closed enum." },
+        "id": { "type": "string", "minLength": 1, "description": "The instrument identifier, e.g. \"17 CFR 240.15c3-3\"." },
+        "path": { "type": "string", "description": "Paragraph/subsection within the instrument, e.g. \"(e)(3)\". Presence of a real path is what makes a citation L2 rather than L1 (§1.3)." },
+        "uri": { "type": "string", "description": "Resolvable publisher URI, when one exists." },
+        "in_force_from": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "ISO date the cited text took legal force. A bare 4-digit schedule/version year is NOT this (§1.3)." },
+        "in_force_to": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "ISO date the cited text ceased to be in force, or null while it remains in force." },
+        "jurisdiction": { "type": "string", "description": "Jurisdiction of the instrument, e.g. \"US-FED\"." },
+        "governing_law": { "type": "string", "description": "Governing law of the agreement the mapping serves, e.g. \"US-NY\". Distinct from jurisdiction on purpose." },
+        "superseded_by": { "$ref": "#/$defs/citationRef", "description": "The instrument that replaced this one. Recording supersession is ADDITIVE; a superseded citation is never silently stripped (§12)." },
+        "mapped_by": { "type": "string", "minLength": 1, "description": "Attributed identity of whoever made the clause-to-computation mapping. Required: an unattributed mapping is not a pinned mapping." },
+        "mapped_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "ISO date the mapping was made. A dated observation expires honestly; it promises nothing about the future." },
+        "interpretation_ref": { "$ref": "#/$defs/sha256ref", "description": "Content hash of the interpretation document behind the mapping. MUST be a content hash, never a URL or a registry key (§0.10)." }
+      }
+    },
+    "clauseBinding": {
+      "description": "CLAUSE BINDING §1.4 declaration, profile ocg-clause-binding@1. Lives at the top-level clause_bindings array. Attached AFTER hashing and EXCLUDED from execution_hash scope (like §20 anchor_bindings, §23 input_attestations, §25 private_inputs) — the array is a machine-readable index, NOT the binding. The binding itself is the §1.2 citation object sitting inside the preimage that execution_hash already covers. pointer is an RFC 6901 JSON Pointer that MUST start at /policy_parameters or /output_payload; that restriction is §1.4 made mechanical, so a citation outside the signed preimage cannot claim pinned status through this array. Zero entries is byte-identical to a plain artifact and fully conformant: this profile applies to newly-minted artifacts only and migrates nothing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointer"],
+      "properties": {
+        "pointer": { "type": "string", "pattern": "^/(policy_parameters|output_payload)(/([^/~]|~[01])*)*$", "description": "RFC 6901 JSON Pointer, rooted at the artifact, naming where the §1.2 citation object lives INSIDE the execution_hash preimage. Any other root is a §1.4 violation and fails this pattern." },
+        "profile": { "type": "string", "const": "ocg-clause-binding@1", "description": "Optional explicit profile tag. Omitted means the same thing: entries in this array are ocg-clause-binding@1 by definition." }
+      }
+    },
+    "privateInputDeclaration": {
+      "description": "OCG Standard §25 Private-Input declaration — names a policy_parameters location that holds a HIDING COMMITMENT instead of cleartext, under a named commitment scheme. Optional; lives at the top-level private_inputs array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §20 anchor_bindings and §23 input_attestations) — the array is a machine-readable index, not the binding: the binding is the commitment sitting inside policy_parameters (in the §4 preimage) plus the §18 journal. pointer is an RFC 6901 JSON Pointer into policy_parameters; the value it resolves to MUST BE the commitment string (never plaintext) — §25.2 plaintext-exclusion. commitment is a sha256:-prefixed hiding commitment = SHA-256(salt ‖ cgCanon(input)); the ≥256-bit salt is prover-held disclosure material and NEVER appears in the artifact. This schema validates shape only; plaintext-exclusion + scheme validity + the journal-commits-the-commitment binding are enforced by validate-private-inputs.test.mjs (with the §18 pairing check in compute-proof.test.mjs).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointer", "commitment", "commitment_scheme"],
+      "properties": {
+        "pointer": { "type": "string", "pattern": "^(/([^/~]|~[01])*)+$", "description": "RFC 6901 JSON Pointer into policy_parameters naming the private input. The value it resolves to MUST be the commitment (§25.2)." },
+        "commitment": { "$ref": "#/$defs/sha256ref", "description": "The hiding commitment SHA-256(salt ‖ cgCanon(input)); sha256:-prefixed. This same string is what sits at pointer inside policy_parameters." },
+        "commitment_scheme": { "type": "string", "enum": ["sha256-salted@1"], "description": "The commitment construction. sha256-salted@1 is the sole scheme in this profile version; a new construction ships as ocg-private-input@<n>, never an in-place edit (§25.7)." }
+      }
+    },
+    "inputAttestation": {
+      "description": "OCG Standard §23 Input Attestation — portable per-input evidence that a named input value was vouched for by an external source. Optional; lives at the top-level input_attestations array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature and §20 anchor_bindings). pointer is an RFC 6901 JSON Pointer evaluated against policy_parameters (naming WHICH input). Types vc-2.0 / c2pa-manifest / rfc3161-snapshot verify with shipped §16/§13.11/§20 machinery; zktls is defined with EXTERNAL verification (no vendored verifier). This schema validates shape only; digest binding + cryptographic verification are enforced by validate-input-attestations.test.mjs.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "pointer", "proof", "source_ref"],
+      "properties": {
+        "type": { "type": "string", "enum": ["vc-2.0", "c2pa-manifest", "rfc3161-snapshot", "zktls"] },
+        "pointer": { "type": "string", "pattern": "^(/([^/~]|~[01])*)+$", "description": "RFC 6901 JSON Pointer into policy_parameters naming the attested input." },
+        "proof": {
+          "description": "The attestation payload. vc-2.0 = a W3C VC 2.0 credential object; rfc3161-snapshot = base64 verbatim RFC 3161 TST DER; c2pa-manifest = the C2PA manifest (object or base64); zktls = an opaque zkTLS proof string.",
+          "oneOf": [ { "type": "object" }, { "type": "string", "minLength": 1 } ]
+        },
+        "source_ref": { "type": "string", "minLength": 1, "description": "Issuer DID / URL / TLS origin string naming who vouches. Informative to the trust decision, never a substitute for verifying proof." }
+      }
+    },
+    "anchorBinding": {
+      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "anchored_hash", "log_origin", "proof", "policy_oid", "serial", "gen_time", "signer_cert_chain_b64"],
+          "properties": {
+            "type": { "const": "rfc3161-tst" },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "log_origin": { "type": "string", "minLength": 1 },
+            "proof": { "type": "string", "minLength": 1, "description": "Base64 verbatim RFC 3161 TimeStampToken DER." },
+            "policy_oid": { "type": "string", "minLength": 1 },
+            "serial": { "type": "string", "minLength": 1 },
+            "gen_time": { "type": "string", "minLength": 1 },
+            "signer_cert_chain_b64": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "anchored_hash", "log_origin", "proof"],
+          "properties": {
+            "type": { "const": "opentimestamps" },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "log_origin": { "type": "string", "minLength": 1 },
+            "proof": { "type": "string", "minLength": 1, "description": "Base64 OTS proof." },
+            "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "anchored_hash", "log_origin", "proof"],
+          "properties": {
+            "type": { "enum": ["c2sp-tlog-proof-v1", "scitt-receipt-rfc9942"] },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "log_origin": { "type": "string", "minLength": 1 },
+            "proof": { "type": "string", "minLength": 1, "description": "tlog-proof@v1 text | base64 COSE receipt (carries its own inclusion proof)." }
+          }
+        }
+      ]
+    },
+    "buildIdentity": {
+      "type": "object",
+      "description": "OCG Standard §17 Kernel Identity Binding — content digest of the kernel that produced the artifact. Optional; lives at audit_signature.build_identity. Hash-excluded; does not alter execution_hash or chaingraph_version. An advisory published claim of which kernel SOURCE ran (not a proof of execution — that is §18).",
+      "additionalProperties": false,
+      "required": ["kernel_digest", "buildType"],
+      "properties": {
+        "kernel_digest": { "$ref": "#/$defs/sha256ref" },
+        "buildType": { "type": "string", "description": "Algorithm URI that produced the digest." },
+        "source_ref": { "type": "string", "description": "Optional dereferenceable URL/commit pinning the source." }
+      }
+    },
+    "computeProof": {
+      "type": "object",
+      "description": "OCG Standard §18 Compute-Integrity Proof — a zkVM receipt proving the named guest program produced output_payload. Optional; lives at audit_signature.compute_proof. Hash-excluded; does not alter execution_hash or chaingraph_version. System-agnostic; groth16-bn254 is the RECOMMENDED interop receipt form. Cryptographic seal-verification is DELEGATED to the named zkVM's vetted verifier (§18.1); this schema validates the binding shape only.",
+      "additionalProperties": false,
+      "required": ["type", "system", "receiptFormat", "imageId", "seal", "journal"],
+      "properties": {
+        "type": { "const": "ZkVmReceipt" },
+        "system": { "type": "string", "minLength": 1, "description": "zkVM identifier: risc0 | sp1 | jolt | …" },
+        "receiptFormat": { "type": "string", "enum": ["groth16-bn254", "stark"] },
+        "imageId": { "$ref": "#/$defs/sha256ref" },
+        "seal": { "type": "string", "minLength": 1, "description": "Standard-base64 proof bytes." },
+        "journal": { "type": "object", "description": "Public outputs committed by the guest; MUST bind output_payload (§18.0)." }
+      }
+    },
+    "dataIntegrityProof": {
+      "type": "object",
+      "description": "OCG Standard §16 Proof Binding — a W3C Data Integrity proof (cryptosuite eddsa-jcs-2022) over the whole artifact (minus this proof). Optional; lives at audit_signature.proof. Hash-excluded; does not alter execution_hash or chaingraph_version. §16.5 (v0.7): optional id (referenceable by an endorsement) and previousProof (proof-chain endorsement — id(s) of the proof(s) this one countersigns).",
+      "additionalProperties": false,
+      "required": ["type", "cryptosuite", "verificationMethod", "proofPurpose", "created", "proofValue"],
+      "properties": {
+        "type": { "const": "DataIntegrityProof" },
+        "cryptosuite": { "const": "eddsa-jcs-2022" },
+        "verificationMethod": { "type": "string", "pattern": "^did:key:z6Mk" },
+        "proofPurpose": { "const": "assertionMethod" },
+        "created": { "type": "string", "format": "date-time" },
+        "proofValue": { "type": "string", "pattern": "^z" },
+        "id": { "type": "string", "minLength": 1 },
+        "previousProof": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          ]
+        }
+      }
+    },
+    "proofSetOrChain": {
+      "description": "§16.5 (v0.7) — audit_signature.proof MAY be a single proof or an array (parallel proof set and/or previousProof endorsement chain).",
+      "oneOf": [
+        { "$ref": "#/$defs/dataIntegrityProof" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/dataIntegrityProof" } }
+      ]
+    },
+    "sha256ref": {
+      "type": "string",
+      "description": "Either a bare 64-char hex digest or a sha256:-prefixed digest.",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "merkleInclusion": {
+      "type": "object",
+      "description": "OCG Standard §20 (v0.8) — OPTIONAL member on rfc3161-tst / opentimestamps anchor bindings. Batch anchoring: the artifact execution_hash is a LEAF of an RFC 6962 tree whose ROOT is the anchored value, so one timestamp covers many artifacts. When present a verifier MUST reconstruct the root from leaf+path and require root == anchored_hash AND leaf == artifact execution_hash (anchor-binding.test.mjs).",
+      "additionalProperties": false,
+      "required": ["leaf", "index", "path", "tree_size", "algorithm"],
+      "properties": {
+        "leaf": { "$ref": "#/$defs/sha256ref", "description": "The artifact execution_hash (a tree leaf entry)." },
+        "index": { "type": "integer", "minimum": 0 },
+        "path": { "type": "array", "items": { "$ref": "#/$defs/sha256ref" }, "description": "RFC 6962 inclusion-proof node hashes." },
+        "tree_size": { "type": "integer", "minimum": 1 },
+        "algorithm": { "const": "rfc6962" }
+      }
+    },
+    "decisionGate": {
+      "type": "object",
+      "description": "OCG Standard §21.4 (v0.8) — OPTIONAL decision gate on a chain step. Evaluated against THIS step's output_payload; routes control FORWARD (a later step id or \"end\"). First-match; default REQUIRED (total function). Closed op enum; strict typing, no coercion. Static-validated by validate-chains (forward-only, targets resolve, no unreachable step); evaluated by the shared kernels/_gateval.mjs on every surface. gate_policy/gate_threshold (v0.8.12, §27.4) are OPTIONAL additive fields carrying the §27 human-accountability precondition; a gate with neither evaluates byte-identically to a pre-§27 gate — the routing math in rules/default is untouched.",
+      "additionalProperties": false,
+      "required": ["input", "rules", "default"],
+      "properties": {
+        "input": { "type": "string", "description": "RFC 6901 JSON Pointer into this step's output_payload." },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["op", "next"],
+            "properties": {
+              "op": { "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "present", "absent"] },
+              "value": { "description": "Comparison operand (required for value ops; absent for present/absent). For gt/gte/lt/lte a finite number; for in a literal array." },
+              "next": { "type": "string", "minLength": 1, "description": "Target step id or the literal \"end\". MUST be forward-only." }
+            }
+          }
+        },
+        "default": { "type": "string", "minLength": 1, "description": "Target step id or \"end\" when no rule matches. REQUIRED and forward-only." },
+        "gate_policy": { "$ref": "#/$defs/haGatePolicy", "description": "OPTIONAL §27.4 human-accountability precondition on this gate. Absent = pre-§27 gate, no precondition. When present and \"dual_control\", gate_threshold is REQUIRED (enforced by validate-ha-records.test.mjs, not by this shape schema)." },
+        "gate_threshold": { "$ref": "#/$defs/haApprovalThreshold", "description": "OPTIONAL §27.3 in-toto role+threshold pair this gate's dual_control(N) policy evaluates against. Only meaningful when gate_policy is \"dual_control\"." }
+      }
+    },
+    "workMandateCondition": {
+      "type": "object",
+      "description": "OCG Standard §22.1 (v0.8.1) — one threshold condition / escalation trigger inside a Work Mandate document. { pointer, op, value }: pointer is an RFC 6901 JSON Pointer into a step's output_payload; op is the §21.4 closed gate-op enum; value is the operand (omitted for present/absent).",
+      "additionalProperties": false,
+      "required": ["pointer", "op"],
+      "properties": {
+        "pointer": { "type": "string", "description": "RFC 6901 JSON Pointer into a step's output_payload." },
+        "op": { "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "present", "absent"] },
+        "value": { "description": "Comparison operand (required for value ops; absent for present/absent). For gt/gte/lt/lte a finite number; for in a literal array." }
+      }
+    },
+    "workMandateDocument": {
+      "type": "object",
+      "description": "OCG Standard §22 (v0.8.1) — the output_payload of a Work Mandate artifact (mandate_type:\"work_mandate\"). SEPARATE from the frozen v0.4 artifact envelope ($defs/artifact) and NOT referenced by the top-level oneOf — additive, so it never alters existing artifact/catalog validation. A conformant Work Mandate is an $defs/artifact whose mandate_type is \"work_mandate\", whose output_payload matches this shape, and which carries a §16 eddsa-jcs-2022 proof (§22.2 — an unsigned mandate is a non-enforceable draft). scope authorizes nodes/chains; conditions name the auto-approval envelope; escalation_triggers route to the reserved \"escalate\" target (§22.3); validity bounds the window; principal is the signing authority.",
+      "additionalProperties": false,
+      "required": ["mandate_type", "scope", "conditions", "escalation_triggers", "validity", "principal"],
+      "properties": {
+        "mandate_type": { "const": "work_mandate" },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool_ids", "chains"],
+          "description": "Authorized nodes and chains. At least one array MUST be non-empty (§22.1).",
+          "properties": {
+            "tool_ids": { "type": "array", "items": { "type": "string" } },
+            "chains": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "conditions": { "type": "array", "items": { "$ref": "#/$defs/workMandateCondition" }, "description": "Auto-approval threshold conditions (MAY be empty)." },
+        "escalation_triggers": { "type": "array", "items": { "$ref": "#/$defs/workMandateCondition" }, "description": "Conditions that route the run to the reserved \"escalate\" target (MAY be empty)." },
+        "validity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["not_before", "not_after"],
+          "properties": {
+            "not_before": { "type": "string", "format": "date-time" },
+            "not_after": { "type": "string", "format": "date-time" }
+          }
+        },
+        "principal": {
+          "type": "object",
+          "required": ["id"],
+          "description": "The authorizing party. id is a did:key or LEI (§9); the §16 signature MUST verify against it.",
+          "properties": { "id": { "type": "string", "minLength": 1 } }
+        },
+        "anchor": { "$ref": "#/$defs/anchorBinding", "description": "OPTIONAL §20 anchor over the mandate hash (§22.2)." }
+      }
+    },
+    "haGatePolicy": {
+      "description": "OCG Standard §27.4 (v0.8.12) — the closed human-accountability gate-policy vocabulary applied to a §21.4 decision gate as an OPTIONAL precondition. auto_pass = no human act; review_required = ≥1 reviewer approval; dual_control = §27.3 N-distinct-identity threshold (see haApprovalThreshold.threshold); escalate = route to the §22.3 reserved target; hold = suspend pending a human act; reject = terminal human rejection; emergency_override = §27.5 time-boxed override. Additive: the enum is consumed by the accountability layer as a precondition ANNOTATION; the §21.4 _gateval.mjs routing math is UNCHANGED.",
+      "enum": ["auto_pass", "review_required", "dual_control", "escalate", "hold", "reject", "emergency_override"]
+    },
+    "haApprovalThreshold": {
+      "type": "object",
+      "description": "OCG Standard §27.3 (v0.8.12) — an in-toto-style integer dual-control threshold: a gate is satisfied when ≥ threshold DISTINCT role-bound identities (counted by identity.id, NEVER by key) have each signed an `approval` record naming `role` over the same subject_hash. dual_control(2) is the N=2 case.",
+      "additionalProperties": false,
+      "required": ["role", "threshold"],
+      "properties": {
+        "role": { "$ref": "#/$defs/haRole" },
+        "threshold": { "type": "integer", "minimum": 1, "description": "Number of DISTINCT approver identities required. A repeated identity counts once." }
+      }
+    },
+    "haRole": {
+      "description": "OCG Standard §27.1 (v0.8.12) — the closed set of human-accountability roles. approver is the legally-effective sign-off (attestor is its alias); examiner is READ-ONLY (grants inspection, never approval authority). A role binding ties one §9 identity to one role for one subject and MUST carry a §16 proof verifiable against that identity.",
+      "enum": ["preparer", "reviewer", "approver", "attestor", "submitter", "model_owner", "compliance_officer", "examiner"]
+    },
+    "haRunState": {
+      "description": "OCG Standard §27.10 (v0.8.15) — the closed run-state vocabulary carried by the OPTIONAL humanAccountabilityRecord.subject_run_state sibling. ran = the subject was produced by an execution that completed, on inputs the acting party accepted as current (a positive claim, never a default); did_not_run = the computation, check, or control the subject stands for did NOT execute (the record evidences the absence itself, since an absent artifact cannot carry a field); ran_stale = produced from inputs already past their freshness bound (the accountability-side mirror of §23 freshness_status \"stale\"). ABSENCE MEANS NO CLAIM and MUST NOT be read as \"ran\". Closed: adding a value IS a spec change, because a verifier must not silently accept an unknown run-state and thereby treat it as ran. Closure is enforced by this enum under schema-validate; validate-ha-records.test.mjs asserts closure of record_type/haRole/haGatePolicy.",
+      "enum": ["ran", "did_not_run", "ran_stale"]
+    },
+    "humanAccountabilityRecord": {
+      "type": "object",
+      "description": "OCG Standard §27.2 (v0.8.12) — the output_payload of a Human Accountability record artifact (mandate_type:\"human_accountability_record\"). SEPARATE from the frozen v0.4 artifact envelope ($defs/artifact) and NOT referenced by the top-level oneOf — additive, so it never alters existing artifact/catalog validation. A conformant approval record is an $defs/artifact whose mandate_type is \"human_accountability_record\", whose output_payload matches this shape, and which carries a §16 eddsa-jcs-2022 whole-artifact proof bound to the named human (§27.2 — an unsigned approval record is NOT conformant §27 evidence). It is a SCITT-style STATEMENT ABOUT A STATEMENT: it only REFERENCES the subject via subject_hash and never contains the subject's preimage, so it has ZERO impact on the subject artifact's execution_hash or canonicalization (§27.0 additivity). Shape only is validated here; additivity, threshold distinctness (§27.3), override expiry (§27.5), and the signed-named-human requirement are enforced by validate-ha-records.test.mjs (with the §16 pairing check in proof-binding.test.mjs).",
+      "additionalProperties": false,
+      "required": ["record_type", "role", "subject_hash", "identity"],
+      "properties": {
+        "record_type": { "enum": ["role_binding", "approval", "rejection", "override", "annotation"], "description": "§27.2 — the kind of accountable act this record evidences." },
+        "role": { "$ref": "#/$defs/haRole" },
+        "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "The execution_hash of the artifact being acted upon — the SCITT reference (§27.2). The record never contains the subject's preimage." },
+        "identity": {
+          "type": "object",
+          "required": ["id"],
+          "description": "The acting party (§9). id is a did:key or LEI; the §16 signature MUST verify against it. Threshold distinctness (§27.3) counts this id, never the signing key.",
+          "properties": { "id": { "type": "string", "minLength": 1 } }
+        },
+        "decision": { "type": "string", "description": "OPTIONAL decision label where applicable (e.g. approve/reject). The record_type is the authoritative act." },
+        "subject_run_state": { "$ref": "#/$defs/haRunState", "description": "OPTIONAL §27.10 — whether the SUBJECT actually ran, as observed by the acting party. A SIBLING of record_type, deliberately not a record_type member: record_type names the human act, this names the machine state of the subject at the moment of that act. Additive and reporting-only — it enters NO subject execution_hash preimage, appears in no required[], never invalidates a structural/verifiable/execution_hash verdict, and changes no §21.4 routing math (a gate MAY target a copied-forward value). Absence is fully conformant and means NO CLAIM." },
+        "gate_policy": { "$ref": "#/$defs/haGatePolicy", "description": "OPTIONAL §27.4 gate policy this record satisfies or overrides." },
+        "reason_code": { "type": "string", "description": "OPTIONAL machine-stable rationale token (REQUIRED by §27.5 for an override)." },
+        "override": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "OCG Standard §27.5 — REQUIRED when record_type is \"override\": a time-boxed §22.10 attenuation. On expiry the override lapses and the underlying gate policy REVERTS (never a silent permanent auto-pass). scope narrows only, never widens (§22.10 / §SIDECAR.2).",
+          "required": ["scope", "expiry", "subject_hash"],
+          "properties": {
+            "scope": { "type": "string", "description": "Which gate/subject the override covers (narrowing only)." },
+            "expiry": { "type": "string", "format": "date-time", "description": "ISO 8601 instant after which the override is treated as absent." },
+            "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "Immutable link to the overridden artifact's execution_hash." }
+          }
+        },
+        "timestamp": { "type": "string", "description": "ISO 8601 instant of the human act." }
+      }
+    },
+    "haEvidenceBundle": {
+      "type": "object",
+      "description": "OCG Standard §27.6 (v0.8.12) — the accountability trail aggregated for one subject, exportable via §13 (and specifically §13.12 SD-JWT selective disclosure: approver identities + verdict always-disclosed, input values selectively disclosable, disclosure salts the sole permitted nondeterminism, never touching any execution_hash). A redacted bundle is NOT re-executable (§13.12 limitation) — it evidences the human trail, not a recomputation. submission_receipt is populated ONLY after a real transmission, never fabricated.",
+      "additionalProperties": false,
+      "required": ["subject_hash"],
+      "properties": {
+        "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "The §4 execution artifact this bundle documents." },
+        "input_hashes": { "type": "array", "items": { "$ref": "#/$defs/sha256ref" }, "description": "Input lineage." },
+        "kernel_version": { "type": "string", "description": "§12/§17 build identity of the kernel that produced the subject." },
+        "policy_version": { "type": "string" },
+        "verification_result": { "type": "string", "description": "The §16/§18/§20 verdict." },
+        "exception_rationale": { "type": "string" },
+        "annotations": { "type": "array", "items": { "type": "string" } },
+        "reviewers": { "type": "array", "items": { "type": "string" }, "description": "Reviewer identities paired with their signed approval-record hashes." },
+        "approvers": { "type": "array", "items": { "type": "string" }, "description": "Approver identities paired with their signed approval-record hashes." },
+        "timestamps": { "type": "array", "items": { "type": "string" }, "description": "Act timestamps, with OPTIONAL §20 anchor bindings." },
+        "submission_receipt": { "type": "string", "description": "Populated only after a real transmission." }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "description": "A v0.4 OpenChainGraph artifact. execution_hash = SHA-256(JCS({policy_parameters, output_payload})); the hash preimage is exactly those two members and nothing else.",
+      "additionalProperties": false,
+      "required": [
+        "@context",
+        "chaingraph_version",
+        "tool_id",
+        "tool_version",
+        "generated_at",
+        "execution_hash",
+        "chain",
+        "policy_parameters",
+        "output_payload",
+        "audit_signature"
+      ],
+      "properties": {
+        "@context": {
+          "description": "JSON-LD context. NOT version-locked to the spec number — v0.3 context is valid under v0.4 (export profiles are hash-excluded and add no PROV vocabulary).",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "chaingraph_version": {
+          "type": "string",
+          "pattern": "^0\\.4\\.[0-9]+$",
+          "description": "MUST be 0.4.x for a v0.4 artifact."
+        },
+        "compute_mode": {
+          "type": "string",
+          "enum": ["server", "browser"],
+          "description": "New in v0.4 (§12). Excluded from the hash preimage."
+        },
+        "mandate_type": {
+          "type": "string",
+          "description": "§4 taxonomy (recommended) — prompt_template, payment_mandate, payment_policy, compliance_mandate, liquidity_mandate, capital_assessment, risk_control, settlement_mandate, infrastructure_mandate, credit_assessment, treasury_mandate, account_mandate, model_governance, attestation_mandate, cryptographic_mandate, aml_rule, risk_parameter, human_accountability_record (§27). NOT a hard enum: live nodes also use agent_guardrail_mandate / scheme_rule (the enum is not CI-enforced)."
+        },
+        "tool_id": { "type": "string", "minLength": 1 },
+        "tool_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "generated_at": { "type": "string", "description": "ISO 8601." },
+        "buildType": { "type": "string", "description": "Version-independent algorithm URI (e.g. …/v0.2#WebCryptoSHA256)." },
+        "semantic_profile": { "type": "string", "description": "Optional ISO 20022 alignment (§8)." },
+        "dct:conformsTo": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "execution_hash": { "$ref": "#/$defs/sha256ref" },
+        "chain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parent_hashes", "parent_tool_ids", "chain_depth"],
+          "properties": {
+            "parent_hashes": { "type": "array", "items": { "$ref": "#/$defs/sha256ref" } },
+            "parent_tool_ids": { "type": "array", "items": { "type": "string" } },
+            "chain_depth": { "type": "integer", "minimum": 0 },
+            "ancestry_digest": {
+              "$ref": "#/$defs/sha256ref",
+              "description": "OCG Standard §21.6, new in v0.8.17 — OPTIONAL DAG-ancestry commitment, transitively covering order/membership/topology of the artifact's full ancestor sub-DAG. Hash-excluded (chain is outside the §4 preimage). Absence is fully conformant; no MUST-emit."
+            }
+          }
+        },
+        "policy_parameters": {
+          "type": "object",
+          "description": "Half of the hash preimage. Fold all decision inputs in here.",
+          "properties": {
+            "execution_backend": { "type": "string", "enum": ["webgpu", "cpu-fallback", "js", "server"] },
+            "input_parameters": { "type": "object" }
+          }
+        },
+        "output_payload": { "type": "object", "description": "Half of the hash preimage." },
+        "policy_parameters_hash": {
+          "$ref": "#/$defs/sha256ref",
+          "description": "OCG Standard §PPH-1, new in v0.8.10 — OPTIONAL JCS-SHA-256 of policy_parameters alone, via the one canonical _hash.mjs path. EXCLUDED from the execution_hash preimage; purely additive, absence is conformant and carries no meaning."
+        },
+        "supersedes": {
+          "type": "array",
+          "description": "OCG Standard §1, new in v0.7 — OPTIONAL execution_hashes of artifacts this artifact corrects or replaces. Declared at creation; no reverse link, no status registry.",
+          "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        },
+        "anchor_bindings": {
+          "type": "array",
+          "description": "OCG Standard §20, new in v0.7 — OPTIONAL anchor-binding evidence entries. Attached after hashing; excluded from execution_hash scope.",
+          "items": { "$ref": "#/$defs/anchorBinding" }
+        },
+        "input_attestations": {
+          "type": "array",
+          "description": "OCG Standard §23, new in v0.8.3 — OPTIONAL per-input attestation entries. Attached after hashing; excluded from execution_hash scope. Zero attestations is fully conformant.",
+          "items": { "$ref": "#/$defs/inputAttestation" }
+        },
+        "private_inputs": {
+          "type": "array",
+          "description": "OCG Standard §25, new in v0.8.5 — OPTIONAL private-input declarations. Attached after hashing; excluded from execution_hash scope. Each entry names a policy_parameters pointer whose value is a hiding commitment (never plaintext). Zero entries is byte-identical to a plain v0.8.4 artifact and fully conformant.",
+          "items": { "$ref": "#/$defs/privateInputDeclaration" }
+        },
+        "clause_bindings": {
+          "type": "array",
+          "description": "CLAUSE BINDING §1.4, profile ocg-clause-binding@1 — OPTIONAL declarations naming where §1.2 pinned citation objects sit INSIDE the execution_hash preimage. Attached after hashing; excluded from execution_hash scope. Zero entries is byte-identical to an artifact minted before this profile existed and is fully conformant — the profile applies to newly-minted artifacts only and migrates nothing.",
+          "items": { "$ref": "#/$defs/clauseBinding" }
+        },
+        "compliance_flags": { "type": "array", "items": { "type": "string" } },
+        "audit_signature": {
+          "type": "object",
+          "properties": {
+            "client_side_executed": { "type": "boolean" },
+            "zero_pii_verified": { "type": "boolean" },
+            "deterministic_run": { "type": "boolean" },
+            "payloadType": { "type": "string" },
+            "payload": { "type": "string" },
+            "signatures": { "type": "array" },
+            "proof": { "$ref": "#/$defs/proofSetOrChain" },
+            "build_identity": { "$ref": "#/$defs/buildIdentity" },
+            "compute_proof": { "$ref": "#/$defs/computeProof" }
+          }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "description": "A chaingraph.json nodes[] entry. STRICT (additionalProperties:false): every key a node uses MUST be declared here, so a typo field (e.g. gpu_fallbck) fails CI. Adding a new node field = a one-line schema update in the same PR (the §4 meta-rule applied to fields). Single-producer internal catalog — the forward-compat argument for permissive request bodies does not apply.",
+      "additionalProperties": false,
+      "required": [
+        "tool_id",
+        "tool_version",
+        "display_name",
+        "mcp_name",
+        "mandate_type",
+        "wave",
+        "gpu",
+        "url",
+        "description",
+        "input_schema_ref",
+        "consumes",
+        "feeds",
+        "status",
+        "compute_capability"
+      ],
+      "properties": {
+        "tool_id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "tool_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "display_name": { "type": "string", "minLength": 1 },
+        "mcp_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "mandate_type": { "type": "string", "minLength": 1 },
+        "wave": { "description": "int or string label (e.g. 14 or \"A\")." },
+        "gpu": { "type": "boolean" },
+        "url": { "type": "string", "pattern": "^https://" },
+        "description": { "type": "string", "minLength": 1 },
+        "input_schema_ref": { "type": "string", "minLength": 1 },
+        "consumes": { "type": "array", "items": { "type": "string" } },
+        "feeds": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["live", "planned", "deprecated"] },
+        "compute_capability": { "type": "string", "enum": ["server", "browser", "client"] },
+        "export_capability": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^(json|pdf|xlsx|csv|vc|xbrl(:[a-z0-9:-]+)?|xbrl-json(:[a-z0-9:-]+)?|xbrl-csv(:[a-z0-9:-]+)?)$" }
+        },
+        "conformance_fixtures": { "type": "boolean" },
+        "compute_images": {
+          "type": "array",
+          "description": "§17/§18 — published kernel/program identities for this node. system 'sha256-source' = §17 kernel-source digest; 'risc0'/'sp1'/… = §18 zkVM ImageID/vkey.",
+          "items": {
+            "type": "object",
+            "required": ["system", "image_id"],
+            "properties": {
+              "system": { "type": "string", "minLength": 1 },
+              "image_id": { "$ref": "#/$defs/sha256ref" },
+              "valid_from": { "type": "string" }
+            }
+          }
+        },
+        "compute_proof": {
+          "type": "object",
+          "description": "§18 — a real, offline-produced zkVM compute-integrity receipt for this node's canonical/proven input. The worker attaches it to a live artifact only when the produced output_payload JCS-equals journal.output. Hash-excluded; never alters execution_hash or chaingraph_version.",
+          "required": ["type", "system", "receiptFormat", "imageId", "seal", "journal"],
+          "properties": {
+            "type": { "type": "string", "enum": ["ZkVmReceipt"] },
+            "system": { "type": "string", "minLength": 1 },
+            "receiptFormat": { "type": "string", "enum": ["groth16-bn254", "stark"] },
+            "imageId": { "$ref": "#/$defs/sha256ref" },
+            "seal": { "type": "string", "minLength": 1 },
+            "journal": { "type": "object" }
+          }
+        },
+        "compute_proof_ready": {
+          "type": "string",
+          "enum": ["ready", "deferred"],
+          "description": "§18 tiered-rollout annotation (optional). 'deferred' = this gpu:false node has no §18 compute_proof yet and the reason is recorded in deferred_reason. Absence means no explicit annotation (a node with a compute_proof is implicitly ready). Advisory; hash-excluded."
+        },
+        "deferred_reason": { "type": "string", "description": "Why compute_proof_ready is 'deferred' (e.g. guest-capability gap or awaiting a runtime decision)." },
+        "deadline": { "type": ["string", "null"], "description": "ISO date, or null when N/A. Catalog convention: present-as-null rather than omitted." },
+        "deadline_note": { "type": "string" },
+        "semantic_profile": { "type": "string", "description": "ISO 20022 alignment label (e.g. iso20022:pacs.008-subset) (§8)." },
+        "dct:conformsTo": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "feeds_stub": { "type": "array", "items": { "type": "string" }, "description": "Planned downstream tool_ids not yet live." },
+        "chain_depth": { "type": "integer", "minimum": 0 },
+        "protocols": { "type": "object", "description": "Free-form protocol label map (display metadata)." },
+        "educational_note": { "type": "string" },
+        "al_id": { "type": "string", "description": "ApexLogics sister-suite tool id (e.g. AL-97, AL-06+16). Optional; sister-suite catalogs only." },
+        "persona": { "type": "string", "description": "ApexLogics persona label (display metadata)." },
+        "category": { "type": "string", "description": "ApexLogics hub category (display metadata)." },
+        "all_mandate_types": { "type": "array", "items": { "type": "string" }, "description": "All AP2 mandate types a node emits (ApexLogics multi-mandate tools)." },
+        "data_vintage": { "type": ["string", "null"], "description": "Data vintage label, or null when N/A. Present-as-null convention." }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "description": "A chaingraph.json chains[] entry (live shape — the old A3 node_id/page_url schema was never adopted).",
+      "additionalProperties": true,
+      "required": ["name", "steps"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "composer_url": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["tool_id"],
+            "properties": {
+              "tool_id": { "type": "string", "minLength": 1 },
+              "handoff": { "type": "string" },
+              "id": { "type": "string", "minLength": 1, "description": "OCG §21.4 (v0.8) OPTIONAL step id (defaults to tool_id; MUST be unique within a GATED chain). Gate targets reference step ids." },
+              "gate": { "$ref": "#/$defs/decisionGate" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/artifact" },
+    {
+      "type": "object",
+      "description": "A chaingraph.json catalog document.",
+      "required": ["spec_version", "nodes", "chains"],
+      "properties": {
+        "spec_version": { "type": "string", "pattern": "^0\\.[45678]\\.[0-9]+$" },
+        "version": { "type": "string" },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "chains": { "type": "array", "items": { "$ref": "#/$defs/chain" } }
+      }
+    }
+  ]
+}
+</script>
+
+<script>
+'use strict';
+
+/* ============================================================================================
+ * EMBEDDED SCHEMA — parsed from the inline JSON block above (verbatim copy of
+ * chaingraph/standard/openchain-graph-v0.4.schema.json). Zero network calls.
+ * ============================================================================================ */
+const SCHEMA = JSON.parse(document.getElementById('ocg-schema').textContent);
+
+/* ============================================================================================
+ * §4 CANONICAL HASH — ported byte-for-byte from chaingraph/kernels/_hash.mjs lines 19–59.
+ * SINGLE SOURCE OF TRUTH for the execution_hash preimage. Do not hand-modify this block; if the
+ * canonical source ever changes, re-port it whole rather than patching around a divergence.
+ * ============================================================================================ */
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('Non-finite number (' + v + ') is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).');
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer ' + v + ' exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).');
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+const cgCanon = (v) =>
+  Array.isArray(v) ? v.map(cgCanon)
+  : (v && typeof v === 'object')
+    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
+    : v;
+function canonicalPreimage(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  return JSON.stringify(cgCanon(obj));
+}
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function policyParametersHash(policy_parameters) {
+  assertIJson(policy_parameters);
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(policy_parameters)));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256Hex(bytes) {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+function stripSha256Prefix(s) { return typeof s === 'string' && s.startsWith('sha256:') ? s.slice(7) : s; }
+
+/* ============================================================================================
+ * §16 PROOF BINDING — ported from chaingraph/kernels/_proof.mjs (eddsa-jcs-2022 sign/verify
+ * pipeline, ~lines 2961–3171). Ed25519 via WebCrypto ONLY — the §PQC-1 ML-DSA hybrid vendored
+ * block (~2200 lines of noble-post-quantum) is NOT ported in this build; an ML-DSA proof-set
+ * member is reported as present-but-unverified rather than silently skipped or falsely passed.
+ * ============================================================================================ */
+const CRYPTOSUITE = 'eddsa-jcs-2022';
+function jcsBytes(obj) { return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+function securedDocument(artifact) {
+  const a = structuredClone(artifact);
+  if (a && a.audit_signature) {
+    if ('proof' in a.audit_signature) delete a.audit_signature.proof;
+    if (Object.keys(a.audit_signature).length === 0) delete a.audit_signature;
+  }
+  return a;
+}
+function proofOptions({ verificationMethod, created, id, previousProof }) {
+  const o = { type: 'DataIntegrityProof', cryptosuite: CRYPTOSUITE, verificationMethod, proofPurpose: 'assertionMethod', created };
+  if (id !== undefined) o.id = id;
+  if (previousProof !== undefined) o.previousProof = previousProof;
+  return o;
+}
+async function hashDataForDoc(doc, opts) {
+  const optHash = new Uint8Array(await crypto.subtle.digest('SHA-256', jcsBytes(opts)));
+  const docHash = new Uint8Array(await crypto.subtle.digest('SHA-256', jcsBytes(doc)));
+  const cat = new Uint8Array(optHash.length + docHash.length);
+  cat.set(optHash, 0); cat.set(docHash, optHash.length);
+  return cat;
+}
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58decode(str) {
+  let zeros = 0; while (zeros < str.length && str[zeros] === '1') zeros++;
+  const bytes = [0];
+  for (let i = zeros; i < str.length; i++) {
+    let carry = B58.indexOf(str[i]); if (carry < 0) throw new Error('bad base58 char');
+    for (let j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 0xff; carry >>= 8; }
+    while (carry) { bytes.push(carry & 0xff); carry >>= 8; }
+  }
+  const out = new Uint8Array(zeros + bytes.length);
+  for (let k = 0; k < bytes.length; k++) out[zeros + bytes.length - 1 - k] = bytes[k];
+  return out;
+}
+async function didKeyToPublicKey(did) {
+  if (!did || !did.startsWith('did:key:z')) throw new Error('not a did:key z-form');
+  const prefixed = b58decode(did.slice('did:key:z'.length));
+  if (prefixed[0] !== 0xed || prefixed[1] !== 0x01) throw new Error('did:key is not Ed25519');
+  return crypto.subtle.importKey('raw', prefixed.slice(2), { name: 'Ed25519' }, true, ['verify']);
+}
+const asArray = (p) => (p == null ? [] : Array.isArray(p) ? p : [p]);
+const prevIds = (proof) => asArray(proof.previousProof);
+function chainSecuredDocument(artifact, proof) {
+  const doc = securedDocument(artifact);
+  const refs = prevIds(proof);
+  if (refs.length === 0) return doc;
+  const all = asArray(artifact && artifact.audit_signature && artifact.audit_signature.proof);
+  const byId = new Map(all.filter((p) => p && p.id !== undefined).map((p) => [p.id, p]));
+  const attached = refs.map((id) => {
+    const hit = byId.get(id);
+    if (!hit) throw new Error('previousProof "' + id + '" not found in the proof set');
+    return structuredClone(hit);
+  });
+  doc.audit_signature = Object.assign({}, doc.audit_signature || {}, { proof: attached });
+  return doc;
+}
+async function verifyProofSet(artifact) {
+  const proofs = asArray(artifact && artifact.audit_signature && artifact.audit_signature.proof);
+  if (proofs.length === 0) return { ok: null, note: 'no audit_signature.proof present — unsigned artifacts are conformant (§16.2, signing is holder-chosen)' };
+  const ids = new Set(proofs.filter((p) => p && p.id !== undefined).map((p) => p.id));
+  const verified = new Set();
+  const pending = proofs.slice();
+  let unsupportedSuite = false;
+  while (pending.length) {
+    const i = pending.findIndex((p) => prevIds(p).every((id) => verified.has(id)));
+    if (i === -1) return { ok: false, note: 'missing previousProof id or a dependency cycle in the proof set' };
+    const proof = pending.splice(i, 1)[0];
+    if (!proof || proof.type !== 'DataIntegrityProof') return { ok: false, note: 'malformed proof entry (not a DataIntegrityProof)' };
+    if (proof.cryptosuite !== CRYPTOSUITE) {
+      unsupportedSuite = true;
+      if (proof.id !== undefined) verified.add(proof.id);
+      continue; // §PQC-1 ML-DSA member — not verifiable in this build, not counted as verified or failed
+    }
+    if (proof.proofPurpose !== 'assertionMethod' || typeof proof.proofValue !== 'string' || proof.proofValue[0] !== 'z')
+      return { ok: false, note: 'malformed proof (proofPurpose/proofValue shape)' };
+    if (prevIds(proof).some((id) => !ids.has(id))) return { ok: false, note: 'previousProof references an id outside this proof set' };
+    const opts = proofOptions({ verificationMethod: proof.verificationMethod, created: proof.created, id: proof.id, previousProof: proof.previousProof });
+    try {
+      const doc = chainSecuredDocument(artifact, proof);
+      const sig = b58decode(proof.proofValue.slice(1));
+      const publicKey = await didKeyToPublicKey(proof.verificationMethod);
+      const digest = await hashDataForDoc(doc, opts);
+      const ok = await crypto.subtle.verify('Ed25519', publicKey, sig, digest);
+      if (!ok) return { ok: false, note: 'Ed25519 signature did not verify against the resolved did:key' };
+    } catch (e) { return { ok: false, note: 'verify error: ' + e.message }; }
+    if (proof.id !== undefined) verified.add(proof.id);
+  }
+  return { ok: true, note: unsupportedSuite ? 'all eddsa-jcs-2022 proof(s) verified; an ML-DSA (§PQC-1) proof-set member was present and is NOT verified in this build' : 'proof verified (eddsa-jcs-2022 / Ed25519)' };
+}
+
+/* ============================================================================================
+ * §1 SCHEMA VALIDATION — ported from chaingraph/standard/schema-validate.mjs (draft-2020-12
+ * subset: type/required/properties/additionalProperties/enum/const/pattern/items/minItems/
+ * minLength/minimum/oneOf/$ref). Zero-dependency, same as the source.
+ * ============================================================================================ */
+const isObj = (d) => d !== null && typeof d === 'object' && !Array.isArray(d);
+const jsType = (d) => (Array.isArray(d) ? 'array' : d === null ? 'null' : typeof d);
+const trunc = (s) => (s.length > 50 ? s.slice(0, 47) + '…' : s);
+function typeOk(t, d) {
+  if (Array.isArray(t)) return t.some((x) => typeOk(x, d));
+  return t === 'object' ? isObj(d)
+    : t === 'null' ? d === null
+    : t === 'array' ? Array.isArray(d)
+    : t === 'string' ? typeof d === 'string'
+    : t === 'number' ? typeof d === 'number'
+    : t === 'integer' ? Number.isInteger(d)
+    : t === 'boolean' ? typeof d === 'boolean'
+    : true;
+}
+function resolveRef(ref, root) {
+  if (!ref.startsWith('#/')) return null;
+  return ref.slice(2).split('/').reduce((o, seg) => (o ? o[seg] : undefined), root);
+}
+function validateSchema(schema, data, root, path, errs) {
+  if (schema.$ref) {
+    const def = resolveRef(schema.$ref, root);
+    if (!def) { errs.push(path + ': unresolved $ref ' + schema.$ref); return; }
+    return validateSchema(def, data, root, path, errs);
+  }
+  if (schema.oneOf) {
+    const branchErrs = schema.oneOf.map((s) => { const e = []; validateSchema(s, data, root, path, e); return e; });
+    const passing = branchErrs.filter((e) => e.length === 0).length;
+    if (passing !== 1) {
+      errs.push(path + ': matched ' + passing + ' of ' + schema.oneOf.length + ' oneOf branches (need exactly 1)');
+      const closest = branchErrs.reduce((a, b) => (b.length < a.length ? b : a));
+      closest.slice(0, 4).forEach((e) => errs.push('  ↳ ' + e));
+    }
+    return;
+  }
+  if (schema.const !== undefined && JSON.stringify(data) !== JSON.stringify(schema.const)) errs.push(path + ': expected const ' + JSON.stringify(schema.const));
+  if (schema.enum && !schema.enum.some((v) => JSON.stringify(v) === JSON.stringify(data))) errs.push(path + ': ' + JSON.stringify(data) + ' not in enum [' + schema.enum.join(', ') + ']');
+  if (schema.type && !typeOk(schema.type, data)) { errs.push(path + ': expected type ' + schema.type + ', got ' + jsType(data)); return; }
+  if (typeof data === 'string') {
+    if (schema.pattern && !new RegExp(schema.pattern).test(data)) errs.push(path + ': "' + trunc(data) + '" does not match /' + schema.pattern + '/');
+    if (schema.minLength != null && data.length < schema.minLength) errs.push(path + ': shorter than minLength ' + schema.minLength);
+  }
+  if (typeof data === 'number' && schema.minimum != null && data < schema.minimum) errs.push(path + ': ' + data + ' < minimum ' + schema.minimum);
+  if (Array.isArray(data)) {
+    if (schema.minItems != null && data.length < schema.minItems) errs.push(path + ': fewer than minItems ' + schema.minItems);
+    if (schema.items) data.forEach((d, i) => validateSchema(schema.items, d, root, path + '[' + i + ']', errs));
+  }
+  if (isObj(data)) {
+    (schema.required || []).forEach((k) => { if (!(k in data)) errs.push(path + ': missing required "' + k + '"'); });
+    if (schema.properties) for (const [k, s] of Object.entries(schema.properties)) if (k in data) validateSchema(s, data[k], root, path + '.' + k, errs);
+    if (schema.additionalProperties === false && schema.properties) {
+      const allowed = new Set(Object.keys(schema.properties));
+      for (const k of Object.keys(data)) if (!allowed.has(k)) errs.push(path + ': additional property "' + k + '" not allowed (strict)');
+    }
+  }
+}
+
+/* ---- RFC 6901 JSON Pointer resolver (minimal, no deps) ---- */
+function resolvePointer(obj, pointer) {
+  if (pointer === '' || pointer === undefined) return obj;
+  if (pointer[0] !== '/') return undefined;
+  const parts = pointer.slice(1).split('/').map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let cur = obj;
+  for (const p of parts) { if (cur === null || cur === undefined) return undefined; cur = cur[p]; }
+  return cur;
+}
+
+/* ============================================================================================
+ * GATE RUNNER — Bucket A always attempted; Bucket B fires only when the relevant member is
+ * present; Bucket C rendered statically as not-checkable (SPEC.md §15 / BUILD-SPEC §6).
+ * ============================================================================================ */
+function row(bucket, id, title, status, detail) { return { bucket, id, title, status, detail }; }
+
+async function runGates(doc) {
+  const rows = [];
+
+  // ---- Bucket A ----
+  {
+    const errs = [];
+    const sub = doc && doc.execution_hash ? SCHEMA.$defs.artifact
+      : doc && Array.isArray(doc.nodes) ? SCHEMA.oneOf[1]
+      : SCHEMA;
+    validateSchema(sub, doc, SCHEMA, '$', errs);
+    rows.push(row('A', '§1', 'Envelope well-formed (schema-validate.mjs)', errs.length ? 'fail' : 'pass',
+      errs.length ? errs.slice(0, 10).join(' · ') + (errs.length > 10 ? ' · +' + (errs.length - 10) + ' more' : '') : 'validates against openchain-graph-v0.4.schema.json'));
+  }
+  if (doc && doc.policy_parameters !== undefined && doc.output_payload !== undefined && doc.execution_hash !== undefined) {
+    try {
+      const expected = await executionHash(doc.policy_parameters, doc.output_payload);
+      const declared = stripSha256Prefix(doc.execution_hash);
+      const ok = typeof declared === 'string' && declared.toLowerCase() === expected;
+      rows.push(row('A', '§4', 'Canonical execution_hash recompute (_hash.mjs)', ok ? 'pass' : 'fail',
+        ok ? 'recomputed hash matches the declared execution_hash' : 'recomputed ' + expected + ' ≠ declared ' + declared));
+    } catch (e) {
+      rows.push(row('A', '§4', 'Canonical execution_hash recompute (_hash.mjs)', 'fail', 'could not canonicalize: ' + e.message));
+    }
+  } else {
+    rows.push(row('A', '§4', 'Canonical execution_hash recompute (_hash.mjs)', 'na', 'submission is missing policy_parameters / output_payload / execution_hash'));
+  }
+  {
+    const r = await verifyProofSet(doc || {});
+    rows.push(row('A', '§16', 'Proof binding (_proof.mjs, eddsa-jcs-2022)', r.ok === null ? 'na' : r.ok ? 'pass' : 'fail', r.note));
+  }
+
+  // ---- Bucket B ----
+  const b = doc || {};
+
+  if (b.policy_parameters_hash !== undefined) {
+    try {
+      const expected = await policyParametersHash(b.policy_parameters || {});
+      const declared = stripSha256Prefix(b.policy_parameters_hash);
+      const ok = declared.toLowerCase() === expected;
+      rows.push(row('B', '§PPH-1', 'policy_parameters_hash recompute', ok ? 'pass' : 'fail', ok ? 'matches recomputed hash' : 'recomputed ' + expected + ' ≠ declared ' + declared));
+    } catch (e) { rows.push(row('B', '§PPH-1', 'policy_parameters_hash recompute', 'fail', e.message)); }
+  } else rows.push(row('B', '§PPH-1', 'policy_parameters_hash recompute', 'na', 'member absent — conformant'));
+
+  if (Array.isArray(b.anchor_bindings) && b.anchor_bindings.length) {
+    const execHash = 'sha256:' + stripSha256Prefix(b.execution_hash || '');
+    let allOk = true; const notes = [];
+    for (const [i, entry] of b.anchor_bindings.entries()) {
+      const errs = []; validateSchema(SCHEMA.$defs.anchorBinding, entry, SCHEMA, '$.anchor_bindings[' + i + ']', errs);
+      if (errs.length) { allOk = false; notes.push('shape: ' + errs[0]); continue; }
+      if (('sha256:' + stripSha256Prefix(entry.anchored_hash)) !== execHash) { allOk = false; notes.push('[' + i + '] anchored_hash ≠ this artifact execution_hash'); }
+    }
+    rows.push(row('B', '§20', 'Anchor bindings (shape + anchored_hash equality)', allOk ? 'partial' : 'fail',
+      (allOk ? (b.anchor_bindings.length + ' entr' + (b.anchor_bindings.length === 1 ? 'y' : 'ies') + ' shape-valid, anchored_hash matches. ') : notes.join('; ') + '. ') + 'Merkle-root reconstruction from merkle_inclusion not ported in this build.'));
+  } else rows.push(row('B', '§20', 'Anchor bindings', 'na', 'member absent — conformant'));
+
+  if (Array.isArray(b.clause_bindings) && b.clause_bindings.length) {
+    let allOk = true; const notes = [];
+    for (const [i, entry] of b.clause_bindings.entries()) {
+      const errs = []; validateSchema(SCHEMA.$defs.clauseBinding, entry, SCHEMA, '$.clause_bindings[' + i + ']', errs);
+      if (errs.length) { allOk = false; notes.push('[' + i + '] shape: ' + errs[0]); continue; }
+      const target = resolvePointer(b, entry.pointer);
+      if (target === undefined) { allOk = false; notes.push('[' + i + '] pointer "' + entry.pointer + '" does not resolve'); continue; }
+      const cErrs = []; validateSchema(SCHEMA.$defs.regulatoryCitation, target, SCHEMA, '$.clause_bindings[' + i + '].target', cErrs);
+      if (cErrs.length) { allOk = false; notes.push('[' + i + '] citation shape: ' + cErrs[0]); }
+    }
+    rows.push(row('B', '§1.4/§28', 'Clause bindings (pointer resolution + citation shape)', allOk ? 'pass' : 'fail',
+      allOk ? (b.clause_bindings.length + ' binding(s) resolve to a well-formed pinned citation') : notes.join('; ')));
+  } else rows.push(row('B', '§1.4/§28', 'Clause bindings', 'na', 'member absent — conformant'));
+
+  if (Array.isArray(b.private_inputs) && b.private_inputs.length) {
+    let allOk = true; const notes = [];
+    for (const [i, entry] of b.private_inputs.entries()) {
+      const errs = []; validateSchema(SCHEMA.$defs.privateInputDeclaration, entry, SCHEMA, '$.private_inputs[' + i + ']', errs);
+      if (errs.length) { allOk = false; notes.push('[' + i + '] shape: ' + errs[0]); continue; }
+      const target = resolvePointer(b.policy_parameters || {}, entry.pointer);
+      if (target !== entry.commitment) { allOk = false; notes.push('[' + i + '] value at pointer does not equal declared commitment (plaintext-exclusion check)'); }
+    }
+    rows.push(row('B', '§25', 'Private-input declarations (pointer + commitment equality)', allOk ? 'pass' : 'fail',
+      allOk ? (b.private_inputs.length + ' declaration(s) point to their own commitment string') : notes.join('; ')));
+  } else rows.push(row('B', '§25', 'Private-input declarations', 'na', 'member absent — conformant'));
+
+  if (Array.isArray(b.input_attestations) && b.input_attestations.length) {
+    let allOk = true; const notes = [];
+    for (const [i, entry] of b.input_attestations.entries()) {
+      const errs = []; validateSchema(SCHEMA.$defs.inputAttestation, entry, SCHEMA, '$.input_attestations[' + i + ']', errs);
+      if (errs.length) { allOk = false; notes.push('[' + i + '] shape: ' + errs[0]); }
+    }
+    rows.push(row('B', '§23', 'Input attestations (shape only)', allOk ? 'partial' : 'fail',
+      (allOk ? (b.input_attestations.length + ' entr' + (b.input_attestations.length === 1 ? 'y' : 'ies') + ' shape-valid. ') : notes.join('; ') + '. ') + 'Cryptographic verification of embedded credential proofs not ported in this build.'));
+  } else rows.push(row('B', '§23', 'Input attestations', 'na', 'member absent — conformant'));
+
+  if (b.audit_signature && b.audit_signature.build_identity) {
+    const errs = []; validateSchema(SCHEMA.$defs.buildIdentity, b.audit_signature.build_identity, SCHEMA, '$.audit_signature.build_identity', errs);
+    rows.push(row('B', '§17', 'Kernel identity (shape only)', errs.length ? 'fail' : 'partial',
+      errs.length ? errs.join(' · ') : 'shape-valid. Source-digest re-verification requires the referenced kernel source and is not checkable from a submitted artifact alone.'));
+  } else rows.push(row('B', '§17', 'Kernel identity', 'na', 'member absent — conformant'));
+
+  if (b.audit_signature && b.audit_signature.compute_proof) {
+    const errs = []; validateSchema(SCHEMA.$defs.computeProof, b.audit_signature.compute_proof, SCHEMA, '$.audit_signature.compute_proof', errs);
+    rows.push(row('B', '§18', 'Compute-integrity proof (shape only)', errs.length ? 'fail' : 'partial',
+      errs.length ? errs.join(' · ') : 'shape-valid. BN254 Groth16 seal cryptographic verification is not ported in this build (pairing-based SNARK verifier out of scope).'));
+  } else rows.push(row('B', '§18', 'Compute-integrity proof', 'na', 'member absent — conformant'));
+
+  if (b.mandate_type === 'work_mandate') {
+    const errs = []; validateSchema(SCHEMA.$defs.workMandateDocument, b.output_payload || {}, SCHEMA, '$.output_payload', errs);
+    let dateOk = true;
+    const v = (b.output_payload || {}).validity;
+    if (v && v.not_before && v.not_after) dateOk = Date.parse(v.not_before) <= Date.parse(v.not_after);
+    rows.push(row('B', '§22', 'Work Mandate document shape + validity window', (errs.length || !dateOk) ? 'fail' : 'pass',
+      errs.length ? errs.join(' · ') : dateOk ? 'output_payload matches the Work Mandate shape; validity window is well-ordered' : 'validity.not_before is after validity.not_after'));
+  } else rows.push(row('B', '§22', 'Work Mandate document', 'na', 'mandate_type is not "work_mandate"'));
+
+  if (b.mandate_type === 'human_accountability_record') {
+    const errs = []; validateSchema(SCHEMA.$defs.humanAccountabilityRecord, b.output_payload || {}, SCHEMA, '$.output_payload', errs);
+    let overrideOk = true;
+    const ov = (b.output_payload || {}).override;
+    if (ov) overrideOk = !Number.isNaN(Date.parse(ov.expiry));
+    rows.push(row('B', '§27', 'Human-accountability record shape', (errs.length || !overrideOk) ? 'fail' : 'pass',
+      errs.length ? errs.join(' · ') : overrideOk ? 'output_payload matches the §27.2 record shape' : 'override.expiry is not a parseable date-time'));
+  } else rows.push(row('B', '§27', 'Human-accountability record', 'na', 'mandate_type is not "human_accountability_record"'));
+
+  {
+    const chainLike = Array.isArray(b.steps) ? [b] : Array.isArray(b.chains) ? b.chains : [];
+    const withGates = chainLike.filter((c) => Array.isArray(c.steps) && c.steps.some((s) => s.gate));
+    if (withGates.length) {
+      let allOk = true; const notes = [];
+      for (const c of withGates) {
+        const ids = c.steps.map((s, i) => s.id || s.tool_id || String(i));
+        c.steps.forEach((s, i) => {
+          if (!s.gate) return;
+          const targets = s.gate.rules.map((r) => r.next).concat([s.gate.default]);
+          for (const t of targets) {
+            if (t === 'end') continue;
+            const idx = ids.indexOf(t);
+            if (idx <= i) { allOk = false; notes.push('step "' + ids[i] + '" gate targets "' + t + '", not forward-only'); }
+          }
+        });
+      }
+      rows.push(row('B', '§21.4', 'Decision-gate static forward-only routing', allOk ? 'partial' : 'fail',
+        (allOk ? 'all gate targets resolve to "end" or a later step. ' : notes.join('; ') + '. ') + 'Branch-coverage checking requires the submitter\'s own fixture set and is not run here.'));
+    } else rows.push(row('B', '§21.4', 'Decision-gate static routing', 'na', 'submission has no chain-shaped steps[] with a gate'));
+  }
+
+  rows.push(row('B', '§13.11/§13.12', 'SD-JWT export structural + round-trip', 'na', 'applies only to an SD-JWT compact-serialization submission, not a plain artifact JSON — not applicable here'));
+  rows.push(row('B', '§13.13/§13.14', 'xBRL-JSON / xBRL-CSV structural conformance', 'na', 'applies only when the submission IS that export profile\'s own serialization — not applicable here'));
+
+  // ---- Bucket C (static, never varies by submission) ----
+  const bucketC = [
+    ['repo-internal, not artifact-shaped', 'kernel-coverage.mjs, spec-version-consistency.mjs, spec-page-parity.mjs, surface-parity.mjs, catalog-parity.mjs, check-tool-names.mjs, linear-hash-freeze.mjs, spec-gate-coverage.mjs'],
+    ['needs a live deployed server', 'hash-sweep.mjs, verify-mcp-registered.mjs, smoke-mcp.mjs, the round-trip half of smoke-compute.mjs'],
+    ['needs the submitter\'s kernel source executing', '§24.6.2 seed-replay.test.mjs'],
+    ['cross-implementation, not single-submission', 'gate-parity.test.mjs byte-parity assertion'],
+  ];
+  for (const [label, scripts] of bucketC) rows.push(row('C', '—', label, 'na', scripts + ' — not checkable from a submitted artifact'));
+
+  return rows;
+}
+
+/* ============================================================================================
+ * UI wiring
+ * ============================================================================================ */
+const pasteArea = document.getElementById('pasteArea');
+const dropzone = document.getElementById('dropzone');
+const dropzoneText = document.getElementById('dropzoneText');
+const fileInput = document.getElementById('fileInput');
+const runBtn = document.getElementById('runBtn');
+const inputNote = document.getElementById('inputNote');
+const resultsArea = document.getElementById('resultsArea');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  const f = e.dataTransfer.files[0]; if (f) loadFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+function loadFile(f) {
+  const reader = new FileReader();
+  reader.onload = () => { pasteArea.value = String(reader.result); dropzoneText.textContent = f.name + ' loaded (' + f.size + ' bytes)'; };
+  reader.readAsText(f);
+}
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  pasteArea.value = ''; dropzoneText.textContent = 'Drop a .json file here, or click to choose one';
+  resultsArea.innerHTML = ''; inputNote.textContent = '';
+});
+
+const PASS_FIXTURE = {
+  "@context": "https://ainumbers.co/chaingraph/standard/context.jsonld",
+  "chaingraph_version": "0.4.0",
+  "tool_id": "confgate-demo-fixture",
+  "tool_version": "1.0.0",
+  "generated_at": "2026-08-04T00:00:00Z",
+  "execution_hash": "1b0193edfcbe321ae9ce6a833453d99aed62e50e3e13ffd8a7a51d082bc1e68a",
+  "chain": { "parent_hashes": [], "parent_tool_ids": [], "chain_depth": 0 },
+  "policy_parameters": { "execution_backend": "js", "input_parameters": { "submitter": "demo", "amount": 1000 } },
+  "output_payload": { "result": "approved", "score": 0.92 },
+  "policy_parameters_hash": "1dc5a6210e1b48dc0ba2f1327ed244898a5e0100c00f078514f83e036113143f",
+  "audit_signature": {}
+};
+const FAIL_FIXTURE = Object.assign({}, PASS_FIXTURE, {
+  execution_hash: "0".repeat(64)
+});
+document.getElementById('loadPassBtn').addEventListener('click', () => {
+  pasteArea.value = JSON.stringify(PASS_FIXTURE, null, 2);
+  dropzoneText.textContent = 'Drop a .json file here, or click to choose one';
+});
+document.getElementById('loadFailBtn').addEventListener('click', () => {
+  pasteArea.value = JSON.stringify(FAIL_FIXTURE, null, 2);
+  dropzoneText.textContent = 'Drop a .json file here, or click to choose one';
+});
+
+const SUITE_VERSION = 'OCG v0.4 (schema spec_version ' + SCHEMA.spec_version + ') · SPEC.md §15 gate suite · conformance-gate build 2026-08-04';
+
+runBtn.addEventListener('click', async () => {
+  const raw = pasteArea.value.trim();
+  resultsArea.innerHTML = '';
+  if (!raw) { inputNote.textContent = 'Paste or drop a JSON artifact first.'; return; }
+  runBtn.disabled = true; inputNote.textContent = 'Running…';
+  try {
+    let doc;
+    try { doc = JSON.parse(raw); }
+    catch (e) { renderParseError(e); return; }
+    const rawBytes = new TextEncoder().encode(raw);
+    const inputDigest = await sha256Hex(rawBytes);
+    const rows = await runGates(doc);
+    const overallFail = rows.some((r) => r.status === 'fail');
+    const timestamp = new Date().toISOString();
+    const resultDigest = await sha256Hex(new TextEncoder().encode(JSON.stringify(rows.map((r) => [r.bucket, r.id, r.status]))));
+    renderResults(rows, overallFail, timestamp, inputDigest, resultDigest);
+    location.hash = 'v=' + encodeURIComponent(SUITE_VERSION) + '&d=' + inputDigest + '&r=' + resultDigest;
+  } finally { runBtn.disabled = false; inputNote.textContent = ''; }
+});
+
+function renderParseError(e) {
+  resultsArea.innerHTML = '<div class="verdict-banner fail"><div class="verdict-title">Could not parse as JSON</div><div class="gate-detail">' + escapeHtml(e.message) + '</div></div>';
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function renderResults(rows, overallFail, timestamp, inputDigest, resultDigest) {
+  const verdictText = overallFail
+    ? 'This artifact did not pass gate suite v0.4 §15 as of ' + timestamp + '.'
+    : 'This artifact passed gate suite v0.4 §15 as of ' + timestamp + ' — a point-in-time automated check, not a certification.';
+  let html = '<div class="verdict-banner ' + (overallFail ? 'fail' : 'pass') + '">'
+    + '<div class="verdict-title">' + escapeHtml(verdictText) + '</div>'
+    + '<div class="verdict-meta">suite: ' + escapeHtml(SUITE_VERSION) + '<br>input digest (sha256): ' + inputDigest + '<br>result digest (sha256): ' + resultDigest + '<br>permalink: this page\'s URL fragment now encodes v/d/r above — copy the address bar to share this exact result</div>'
+    + '</div>';
+
+  for (const bucket of ['A', 'B', 'C']) {
+    const label = bucket === 'A' ? 'Bucket A — always run' : bucket === 'B' ? 'Bucket B — conditional on artifact contents' : 'Bucket C — not checkable from a submitted artifact';
+    html += '<div class="gate-bucket"><div class="gate-bucket-h">' + label + '</div><table class="gates"><thead><tr><th>Gate</th><th>Check</th><th>Result</th></tr></thead><tbody>';
+    for (const r of rows.filter((x) => x.bucket === bucket)) {
+      html += '<tr><td class="mono">' + escapeHtml(r.id) + '</td><td><div class="gate-title">' + escapeHtml(r.title) + '</div><div class="gate-detail">' + escapeHtml(r.detail) + '</div></td>'
+        + '<td><span class="status-tag ' + r.status + '">' + statusLabel(r.status) + '</span></td></tr>';
+    }
+    html += '</tbody></table></div>';
+  }
+  resultsArea.innerHTML = html;
+}
+function statusLabel(s) { return s === 'pass' ? 'PASS' : s === 'fail' ? 'FAIL' : s === 'partial' ? 'PARTIAL' : 'N/A'; }
+</script>
+</body>
+</html>
