@@ -1,0 +1,200 @@
+{
+  "tool_id": "art-544-slate-report-validator",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: one structurally valid loan report record (FLAT rate, CASH collateral, NEW loan). Vector 2: same record but late-reported with a rebate rate/non-cash collateral -- still valid, different enum branch. Vector 3: two records, one with missing required fields and a negative rate/quantity, one with bad enum values and a malformed security_identifier. Vector 4: zero-report edge (empty array -- finite gate, no throw). Vector 5: unparseable effective_date and out-of-range collateral_value.",
+  "vectors": [
+    {
+      "name": "single_valid_flat_cash",
+      "description": "One structurally valid record: FLAT rate, CASH collateral, NEW loan type, well-formed CUSIP-shaped identifier.",
+      "policy_parameters": {
+        "reports": [
+          {
+            "loan_id": "LOAN-1001",
+            "effective_date": "2026-08-01",
+            "rate_type": "FLAT",
+            "rate": 4.25,
+            "collateral_type": "CASH",
+            "collateral_value": 100000,
+            "counterparty_id": "CPTY-77",
+            "security_identifier": "037833100",
+            "quantity": 5000,
+            "loan_type": "NEW"
+          }
+        ]
+      },
+      "output_payload": {
+        "reports_checked": 1,
+        "reports_valid": 1,
+        "violations": [],
+        "field_spec_version": "finra-rule-6540-6500-series-field-spec-2026.1",
+        "regulatory_basis": "FINRA Rule 6540 (Securities Lending and Transparency Engine reporting, implementing SEC Rule 10c-1a); Rule 6500-series field definitions (loan terms, rate, collateral type, counterparty).",
+        "scope_note": "Field-level structural validator only -- schema-validates report records against the FINRA Rule 6500-series field spec. This is explicitly NOT a full SLATE conformance engine: no cross-record consistency check, no regulatory-timeliness check. Validate-never-transmit: this tool never calls fetch, never calls an RNSA, and never simulates submission -- readiness is not submission.",
+        "compliance_date_note": "SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before treating this date as load-bearing."
+      },
+      "compliance_flags": [
+        "ALL_REPORTS_STRUCTURALLY_VALID"
+      ],
+      "golden_hash": "b9f96fc76e35515bd7ff280673d708cd16463ab536d1e3be8cb71258f710b8b9"
+    },
+    {
+      "name": "single_valid_rebate_securities",
+      "description": "One structurally valid record using the REBATE / SECURITIES / MODIFICATION enum branch.",
+      "policy_parameters": {
+        "reports": [
+          {
+            "loan_id": "LOAN-1002",
+            "effective_date": "2026-08-02",
+            "rate_type": "REBATE",
+            "rate": -1.5,
+            "collateral_type": "SECURITIES",
+            "collateral_value": 250000,
+            "counterparty_id": "CPTY-12",
+            "security_identifier": "US0378331005",
+            "quantity": 12000,
+            "loan_type": "MODIFICATION"
+          }
+        ]
+      },
+      "output_payload": {
+        "reports_checked": 1,
+        "reports_valid": 1,
+        "violations": [],
+        "field_spec_version": "finra-rule-6540-6500-series-field-spec-2026.1",
+        "regulatory_basis": "FINRA Rule 6540 (Securities Lending and Transparency Engine reporting, implementing SEC Rule 10c-1a); Rule 6500-series field definitions (loan terms, rate, collateral type, counterparty).",
+        "scope_note": "Field-level structural validator only -- schema-validates report records against the FINRA Rule 6500-series field spec. This is explicitly NOT a full SLATE conformance engine: no cross-record consistency check, no regulatory-timeliness check. Validate-never-transmit: this tool never calls fetch, never calls an RNSA, and never simulates submission -- readiness is not submission.",
+        "compliance_date_note": "SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before treating this date as load-bearing."
+      },
+      "compliance_flags": [
+        "ALL_REPORTS_STRUCTURALLY_VALID"
+      ],
+      "golden_hash": "4c2f19168f62fe806960278c0f49fb2c4c5c0566ef3789dbef50bc0b7af984aa"
+    },
+    {
+      "name": "two_records_violations",
+      "description": "Two structurally invalid records: one missing required fields with a negative quantity, one with bad enum values and a malformed security_identifier.",
+      "policy_parameters": {
+        "reports": [
+          {
+            "loan_id": "LOAN-1003",
+            "rate_type": "FLAT",
+            "rate": 3,
+            "collateral_type": "CASH",
+            "counterparty_id": "CPTY-1",
+            "quantity": -10,
+            "loan_type": "NEW"
+          },
+          {
+            "loan_id": "LOAN-1004",
+            "effective_date": "2026-08-03",
+            "rate_type": "VARIABLE",
+            "rate": 2,
+            "collateral_type": "GOLD",
+            "collateral_value": 500,
+            "counterparty_id": "CPTY-2",
+            "security_identifier": "AB",
+            "quantity": 100,
+            "loan_type": "ROLLOVER"
+          }
+        ]
+      },
+      "output_payload": {
+        "reports_checked": 2,
+        "reports_valid": 0,
+        "violations": [
+          {
+            "index": 0,
+            "structurally_valid": false,
+            "missing_fields": [
+              "effective_date",
+              "security_identifier"
+            ],
+            "type_errors": [
+              "quantity must be a positive number"
+            ]
+          },
+          {
+            "index": 1,
+            "structurally_valid": false,
+            "missing_fields": [],
+            "type_errors": [
+              "rate_type must be one of: FLAT, REBATE",
+              "collateral_type must be one of: CASH, SECURITIES, LETTER_OF_CREDIT",
+              "loan_type must be one of: NEW, MODIFICATION, TERMINATION",
+              "security_identifier must be a 6-12 character alphanumeric string (CUSIP/ISIN-shaped)"
+            ]
+          }
+        ],
+        "field_spec_version": "finra-rule-6540-6500-series-field-spec-2026.1",
+        "regulatory_basis": "FINRA Rule 6540 (Securities Lending and Transparency Engine reporting, implementing SEC Rule 10c-1a); Rule 6500-series field definitions (loan terms, rate, collateral type, counterparty).",
+        "scope_note": "Field-level structural validator only -- schema-validates report records against the FINRA Rule 6500-series field spec. This is explicitly NOT a full SLATE conformance engine: no cross-record consistency check, no regulatory-timeliness check. Validate-never-transmit: this tool never calls fetch, never calls an RNSA, and never simulates submission -- readiness is not submission.",
+        "compliance_date_note": "SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before treating this date as load-bearing."
+      },
+      "compliance_flags": [
+        "STRUCTURAL_VIOLATIONS_FOUND"
+      ],
+      "golden_hash": "595b273fa47624c6f2138a828b0c9a97b5ab5a60a388d55872f59a4be65e9095"
+    },
+    {
+      "name": "zero_reports_edge",
+      "description": "Empty reports array. Finite gate: resolves to zero-checked, never throws.",
+      "policy_parameters": {
+        "reports": []
+      },
+      "output_payload": {
+        "reports_checked": 0,
+        "reports_valid": 0,
+        "violations": [],
+        "field_spec_version": "finra-rule-6540-6500-series-field-spec-2026.1",
+        "regulatory_basis": "FINRA Rule 6540 (Securities Lending and Transparency Engine reporting, implementing SEC Rule 10c-1a); Rule 6500-series field definitions (loan terms, rate, collateral type, counterparty).",
+        "scope_note": "Field-level structural validator only -- schema-validates report records against the FINRA Rule 6500-series field spec. This is explicitly NOT a full SLATE conformance engine: no cross-record consistency check, no regulatory-timeliness check. Validate-never-transmit: this tool never calls fetch, never calls an RNSA, and never simulates submission -- readiness is not submission.",
+        "compliance_date_note": "SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before treating this date as load-bearing."
+      },
+      "compliance_flags": [
+        "NO_REPORTS_SUPPLIED"
+      ],
+      "golden_hash": "dae1de7cabd012974d9df6569899f004f8a4e8869244fa10082a74ad5613d350"
+    },
+    {
+      "name": "unparseable_date_and_bad_collateral_value",
+      "description": "Unparseable effective_date and a negative collateral_value. Finite gate: resolves to explicit type_errors, never NaN or a thrown error.",
+      "policy_parameters": {
+        "reports": [
+          {
+            "loan_id": "LOAN-1005",
+            "effective_date": "not-a-date",
+            "rate_type": "FLAT",
+            "rate": 1,
+            "collateral_type": "CASH",
+            "collateral_value": -500,
+            "counterparty_id": "CPTY-9",
+            "security_identifier": "037833100",
+            "quantity": 10,
+            "loan_type": "NEW"
+          }
+        ]
+      },
+      "output_payload": {
+        "reports_checked": 1,
+        "reports_valid": 0,
+        "violations": [
+          {
+            "index": 0,
+            "structurally_valid": false,
+            "missing_fields": [],
+            "type_errors": [
+              "collateral_value must be a non-negative number",
+              "effective_date must be a parseable ISO-8601 date string"
+            ]
+          }
+        ],
+        "field_spec_version": "finra-rule-6540-6500-series-field-spec-2026.1",
+        "regulatory_basis": "FINRA Rule 6540 (Securities Lending and Transparency Engine reporting, implementing SEC Rule 10c-1a); Rule 6500-series field definitions (loan terms, rate, collateral type, counterparty).",
+        "scope_note": "Field-level structural validator only -- schema-validates report records against the FINRA Rule 6500-series field spec. This is explicitly NOT a full SLATE conformance engine: no cross-record consistency check, no regulatory-timeliness check. Validate-never-transmit: this tool never calls fetch, never calls an RNSA, and never simulates submission -- readiness is not submission.",
+        "compliance_date_note": "SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before treating this date as load-bearing."
+      },
+      "compliance_flags": [
+        "STRUCTURAL_VIOLATIONS_FOUND"
+      ],
+      "golden_hash": "8c663bae71b3326aef47b10ffae7987e90c75a49f74b58137804a726b0fa39ea"
+    }
+  ]
+}
