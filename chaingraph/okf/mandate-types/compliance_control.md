@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-42"]
+tags: ["compliance_control", "count-44"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-42 tool(s) in this mandate-type group:
+44 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -54,3 +54,5 @@ status: stable
 - [FDIC Part 370 Output-File Validator](../tools/art-535-fdic370-output-file-validator.md)
 - [Reg W Affiliate Transaction Tester](../tools/art-536-reg-w-affiliate-transaction-tester.md)
 - [QFC Part 371 Recordkeeping File Validator](../tools/art-537-qfc-recordkeeping-file-validator.md)
+- [Custody Segregation Ratio](../tools/art-538-custody-segregation-ratio.md)
+- [Asset/Liability Coverage](../tools/art-539-asset-liability-coverage.md)

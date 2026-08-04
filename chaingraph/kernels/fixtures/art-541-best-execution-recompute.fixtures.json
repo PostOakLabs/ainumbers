@@ -1,0 +1,154 @@
+{
+  "tool_id": "art-541-best-execution-recompute",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: seeded default, mixed buy/sell fills all at-or-better NBBO. Vector 2: a fill missing its needed NBBO leg (rejected) alongside one worse-than-NBBO fill. Vector 3: zero-input edge (finite gate, no NaN/Infinity, all totals resolve to null/0). The FILL_SET_CEILING truncation path is exercised in kernels/art-541-best-execution-recompute.kernel.mjs's own unit coverage, not as a golden-hash vector here -- a 5,000+-element fixture is impractical to hand-author and verify.",
+  "vectors": [
+    {
+      "name": "seeded_default_all_at_or_better",
+      "description": "Two fills, one buy and one sell, both executing inside the NBBO (price improvement positive).",
+      "policy_parameters": {
+        "fills": [
+          {
+            "side": "buy",
+            "execution_price": 10.02,
+            "nbbo_bid": 10,
+            "nbbo_ask": 10.05,
+            "quantity": 100
+          },
+          {
+            "side": "sell",
+            "execution_price": 10.03,
+            "nbbo_bid": 10,
+            "nbbo_ask": 10.05,
+            "quantity": 200
+          }
+        ]
+      },
+      "output_payload": {
+        "fills": [
+          {
+            "index": 0,
+            "side": "buy",
+            "execution_price": 10.02,
+            "nbbo_bid": 10,
+            "nbbo_ask": 10.05,
+            "quantity": 100,
+            "price_improvement_bps": 29.85,
+            "at_or_better": true,
+            "rejection_reason": null
+          },
+          {
+            "index": 1,
+            "side": "sell",
+            "execution_price": 10.03,
+            "nbbo_bid": 10,
+            "nbbo_ask": 10.05,
+            "quantity": 200,
+            "price_improvement_bps": 30,
+            "at_or_better": true,
+            "rejection_reason": null
+          }
+        ],
+        "fill_count": 2,
+        "scored_count": 2,
+        "rejected_count": 0,
+        "pct_at_or_better": 100,
+        "avg_price_improvement_bps": 29.93,
+        "fill_set_ceiling": 5000,
+        "fill_set_truncated": false,
+        "rules_version": "best-execution-nbbo-recompute-2026.1",
+        "regulatory_basis": "Reg NMS best-execution obligations (17 CFR 242) and FINRA Rule 5310; the price-improvement-vs-NBBO recompute is the generic shape any best-execution regime ultimately checks.",
+        "note": "Deterministic per-fill recompute of price improvement against the caller-supplied NBBO at execution time. Does not verify the source of the execution-price or NBBO figures, does not fetch live market data, and is not a determination of regulatory compliance."
+      },
+      "compliance_flags": [
+        "ALL_SCORED_FILLS_AT_OR_BETTER"
+      ],
+      "golden_hash": "441f75893a88a3c03541779399935422e78806788eb5fe997318bd3e32d52461"
+    },
+    {
+      "name": "missing_nbbo_and_worse_than_nbbo",
+      "description": "One buy fill missing its NBBO ask leg (rejected), one sell fill executed worse than the NBBO bid.",
+      "policy_parameters": {
+        "fills": [
+          {
+            "side": "buy",
+            "execution_price": 10.02,
+            "nbbo_bid": 10,
+            "quantity": 50
+          },
+          {
+            "side": "sell",
+            "execution_price": 9.95,
+            "nbbo_bid": 10,
+            "nbbo_ask": 10.05,
+            "quantity": 75
+          }
+        ]
+      },
+      "output_payload": {
+        "fills": [
+          {
+            "index": 0,
+            "side": "buy",
+            "execution_price": 10.02,
+            "nbbo_bid": 10,
+            "nbbo_ask": null,
+            "quantity": 50,
+            "price_improvement_bps": null,
+            "at_or_better": null,
+            "rejection_reason": "MISSING_NBBO_ASK"
+          },
+          {
+            "index": 1,
+            "side": "sell",
+            "execution_price": 9.95,
+            "nbbo_bid": 10,
+            "nbbo_ask": 10.05,
+            "quantity": 75,
+            "price_improvement_bps": -50,
+            "at_or_better": false,
+            "rejection_reason": null
+          }
+        ],
+        "fill_count": 2,
+        "scored_count": 1,
+        "rejected_count": 1,
+        "pct_at_or_better": 0,
+        "avg_price_improvement_bps": -50,
+        "fill_set_ceiling": 5000,
+        "fill_set_truncated": false,
+        "rules_version": "best-execution-nbbo-recompute-2026.1",
+        "regulatory_basis": "Reg NMS best-execution obligations (17 CFR 242) and FINRA Rule 5310; the price-improvement-vs-NBBO recompute is the generic shape any best-execution regime ultimately checks.",
+        "note": "Deterministic per-fill recompute of price improvement against the caller-supplied NBBO at execution time. Does not verify the source of the execution-price or NBBO figures, does not fetch live market data, and is not a determination of regulatory compliance."
+      },
+      "compliance_flags": [
+        "SOME_FILLS_REJECTED_MISSING_NBBO",
+        "SOME_SCORED_FILLS_WORSE_THAN_NBBO"
+      ],
+      "golden_hash": "06a3744262a254bcad7c937619a6eca53f6c359b53b2efcb05e5c13384eac01e"
+    },
+    {
+      "name": "zero_input_edge",
+      "description": "No fills supplied at all. Finite gate: every total resolves to 0 or null, never NaN/Infinity.",
+      "policy_parameters": {
+        "fills": []
+      },
+      "output_payload": {
+        "fills": [],
+        "fill_count": 0,
+        "scored_count": 0,
+        "rejected_count": 0,
+        "pct_at_or_better": null,
+        "avg_price_improvement_bps": null,
+        "fill_set_ceiling": 5000,
+        "fill_set_truncated": false,
+        "rules_version": "best-execution-nbbo-recompute-2026.1",
+        "regulatory_basis": "Reg NMS best-execution obligations (17 CFR 242) and FINRA Rule 5310; the price-improvement-vs-NBBO recompute is the generic shape any best-execution regime ultimately checks.",
+        "note": "Deterministic per-fill recompute of price improvement against the caller-supplied NBBO at execution time. Does not verify the source of the execution-price or NBBO figures, does not fetch live market data, and is not a determination of regulatory compliance."
+      },
+      "compliance_flags": [
+        "NO_FILLS_SUPPLIED"
+      ],
+      "golden_hash": "162a7a01195da0437a522ffc5fa2239d2ae0c192dcaa17f41034ca25d920d133"
+    }
+  ]
+}

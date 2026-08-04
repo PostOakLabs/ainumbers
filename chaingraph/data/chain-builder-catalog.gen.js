@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (537 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (541 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5604,6 +5604,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-538-custody-segregation-ratio",
+    "display_name": "Custody Segregation Ratio",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-538-custody-segregation-ratio.html",
+    "description": "Generic, jurisdiction-neutral custody-segregation check: segregated_custody_assets_musd / customer_claims_musd, per asset class and rolled u",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-539-asset-liability-coverage",
+    "display_name": "Asset/Liability Coverage",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-539-asset-liability-coverage.html",
+    "description": "General, jurisdiction-neutral solvency check: total_assets_musd / total_liabilities_musd, plus surplus_shortfall_musd = total_assets_musd - ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-54-digital-trade-rules-checker",
     "display_name": "Digital Trade Rules Compliance Checker",
     "mandate_type": "scheme_rule",
@@ -5616,6 +5636,28 @@ window.CHAINBUILDER_CATALOG = [
       "art-08-en16931-einvoice-batch-validator",
       "art-55-trade-document-provenance-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-540-por-liabilities-composer",
+    "display_name": "PoR Liabilities Composer",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-540-por-liabilities-composer.html",
+    "description": "Composes a caller-restated art-280-reserve-proof-verifier inclusion result (soft-dep: inclusion_verified, computed_root.sum) with a caller-s",
+    "consumes": [
+      "art-280-reserve-proof-verifier"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-541-best-execution-recompute",
+    "display_name": "Best-Execution NBBO Recompute",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-541-best-execution-recompute.html",
+    "description": "Recomputes, per supplied fill, price improvement in basis points against the NBBO at time of execution -- price_improvement_bps = (nbbo_ask ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
