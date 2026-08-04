@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (541 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (546 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5657,6 +5657,62 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-541-best-execution-recompute.html",
     "description": "Recomputes, per supplied fill, price improvement in basis points against the NBBO at time of execution -- price_improvement_bps = (nbbo_ask ",
     "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-543-csdr-penalty-recompute",
+    "display_name": "CSDR Penalty Recompute (Caller Reference Price)",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-543-csdr-penalty-recompute.html",
+    "description": "Per-ISIN/day CSDR cash-penalty recompute over a caller-declared open-fails set: selects the RTS asset-class/penalty-type daily rate (CSDR-RT",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-544-slate-report-validator",
+    "display_name": "SLATE Securities-Loan Report Field Validator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-544-slate-report-validator.html",
+    "description": "Field-level structural validator for a covered-securities-loan report record against the FINRA Rule 6500-series field spec (loan terms, rate",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-545-slate-readiness-diagnostic",
+    "display_name": "SLATE Reporting Readiness Diagnostic",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-545-slate-readiness-diagnostic.html",
+    "description": "Score a caller-declared covered-securities-loan reporting pipeline against the FINRA Rule 6540 obligation checklist (SEC 10c-1a implementati",
+    "consumes": [
+      "art-544-slate-report-validator"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-546-dtcc-ca-iso20022-validator",
+    "display_name": "DTC Corporate Actions ISO 20022 Message Validator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-546-dtcc-ca-iso20022-validator.html",
+    "description": "Validates the structural message-shape of a single DTC corporate-action event message (notification / election / allocation) against the ISO",
+    "consumes": [],
+    "feeds": [
+      "art-547-corporate-action-entitlement-recompute"
+    ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-547-corporate-action-entitlement-recompute",
+    "display_name": "Corporate Action Entitlement Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-547-corporate-action-entitlement-recompute.html",
+    "description": "Deterministic dividend/rights/split entitlement math per record date for a single position, under the ISO 20022 corporate-action event field",
+    "consumes": [
+      "art-546-dtcc-ca-iso20022-validator"
+    ],
     "feeds": [],
     "status": "live"
   },
