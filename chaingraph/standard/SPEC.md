@@ -852,6 +852,94 @@ Attribution: **C2SP** (`https://github.com/C2SP/C2SP`) — tlog-checkpoint + sig
 cosignature format, pinned to `tlog-checkpoint/v1.0.0`, `signed-note/v1.0.0`, `tlog-cosignature/v1.0.1`.
 Sigsum and Armored Witness are cited as conformant independent-witness mechanisms (named, not depended on).
 
+### §20.3 Retention & pruning profile (NORMATIVE, OPTIONAL — new in v0.8.18)
+§20-§20.2 anchor an artifact's `execution_hash` and close root equivocation on a batch anchor; this section
+states, for the first time, when the artifact BODY behind an anchored leaf MAY be discarded while its
+evidentiary value survives — a "prune behind an exchanged commitment" pattern generalized to OCG's existing
+primitives. This section defines a doctrine, a NEW top-level artifact-level field, and a verifier report
+tier. It imposes no MUST-emit and changes no `execution_hash` preimage — the field lives outside the §4
+preimage exactly like `anchor_bindings` and `supersedes` — clearing all three §0.4-FREEZE conditions.
+
+**§20.3.0 `retention_class` — a NEW top-level artifact member, distinct from §23.4's field of the same name
+(NORMATIVE).** An artifact MAY carry an OPTIONAL top-level `retention_class` member, a string drawn from the
+closed enum below, stating the ARTIFACT'S OWN pruning eligibility under §20.3.1. This is a **different field
+from** §23.4's `input_attestations[].freshness.retention_class` (SPEC.md §23.4) — that field is a per-input
+declarative retention statement about one attested EXTERNAL VALUE, scoped inside an attestation entry that
+may not exist at all on an artifact with zero `input_attestations`. The artifact-level field defined here
+governs whether the artifact's OWN execution body — `policy_parameters` + `output_payload` — may be
+discarded behind a checkpoint. The two fields share only their enum vocabulary (extended here with
+`fixture`, §20.3.4) and are independently present or absent; setting one never implies or sets the other.
+Like `anchor_bindings`/`supersedes`, `retention_class` sits at the artifact's top level, outside the §4
+preimage (`chain` is a sibling, not the anchor point — this is not a `chain` member; ancestry commitment
+§21.6 concerns lineage integrity, retention concerns storage lifecycle, and the two are unrelated axes).
+
+```json
+"retention_class": "transient|case-file|regulatory-N-years|fixture"
+```
+
+**§20.3.1 Prune-behind-cosigned-checkpoint (NORMATIVE, OPTIONAL).** An artifact body MAY be pruned ONLY IF
+its `execution_hash` is a leaf under a RETAINED §20.1 `merkle_inclusion` batch anchor whose root carries
+§20.2 `witness_cosignatures` meeting the verifier's own k-of-n policy. Retaining forever, and never pruning,
+the checkpoint itself — the anchor entry (`anchored_hash`, `proof`, `merkle_inclusion`,
+`witness_cosignatures`) — is the precondition, not an option: a pruned body behind a discarded checkpoint
+leaves nothing. Checkpoints SHOULD be periodically re-anchored under a fresh TSA/OTS binding (the §20
+PQ-resilience note above) — cheap standing practice, requires no body, compatible with pruned bodies.
+
+**§20.3.2 Verifier report tier — hash-only survivor (NORMATIVE).** A verifier that cannot obtain a pruned
+artifact's body but holds the retained checkpoint MUST NOT report `verified` or `failed` for that artifact's
+§4 hash — both presuppose the body. It MUST instead report `body-absent: anchored-hash-only`: the leaf hash
+was included in a witness-cosigned root at a point in time; the artifact's internal computation (§4
+re-execution), authorship (§16), kernel identity (§17), or ancestry (§21.6) can no longer be independently
+checked, because none of those verifications can run without the body. This is a THIRD tier, alongside
+`verified`/`failed`, mirroring the §23.2 `structural`/`verifiable` split — never a silent pass, never
+conflated with a body-present verification.
+
+**§20.3.3 Red flags (NORMATIVE — state plainly):**
+- **Hash-tree renewal foreclosure.** RFC 4998's *timestamp* renewal needs only the old timestamp (§20.3.1
+  covers it); RFC 4998's *hash-tree* renewal — required when the underlying hash algorithm itself weakens —
+  needs ALL archived bodies re-hashed and re-timestamped. A pruned body can NEVER be migrated to a
+  post-SHA-256 hash. This is a permanent, structural limit of §20.3.1, not a corner case.
+- **SEC 17a-4 does not treat a hash as sufficient.** The 2022 audit-trail alternative to WORM requires the
+  record be re-creatable if altered, overwritten, or erased — a checkpoint proves INTEGRITY (the hash didn't
+  change), never AVAILABILITY (the record still exists). §20.3 MUST NOT be presented as satisfying a
+  re-creation requirement.
+- **Regulatory floors are prune-forbidden windows, not suggestions.** SEC 17a-4 (3y default / 6y
+  blotters-ledgers-customer-files), MiFID II Art 16(6)/(7) (5y, extendable to 7 at NCA request), BSA 31 CFR
+  1010.430 (5y flat) — an artifact whose `retention_class` (§20.3.0) is `regulatory-N-years` MUST NOT be
+  pruned until N elapses from `generated_at`; best-effort pruning applies only AFTER the floor.
+- **§21 composites embed step bodies.** §21.2's `composite_output` carries each ran step's full
+  `output_payload` — pruning a step body does not remove it from an already-emitted composite, and pruning a
+  composite discards every embedded step at once. Pruning under this profile is DAG-aware: a deployer MUST
+  prune the composite and its steps as one decision, or accept that the step survives inside the composite
+  regardless of the step artifact's own `retention_class`.
+- **A self-signed checkpoint is not a cosigned one.** §20.3.1's precondition is INDEPENDENT k-of-n
+  cosignature (§20.2) — a checkpoint signed only by its own producer does not close equivocation and does
+  not satisfy this section, whatever it is called internally.
+
+**§20.3.4 Retention-class table (NORMATIVE).** §20.3.0's `retention_class` enum and its prune-eligibility
+binding:
+
+| `retention_class` | Prune bodies under §20.3.1? | Basis |
+|---|---|---|
+| `transient` | Anytime, once behind a cosigned checkpoint | short-lived evidence, no ongoing regulatory or case-file interest |
+| `case-file` | After case closure + a stated grace period | firm policy, out of profile |
+| `regulatory-N-years` | **FORBIDDEN until N years elapse from `generated_at`** (17a-4 6y / MiFID 5-7y / BSA 5y per class), best-effort after | §20.3.3 regulatory-floor red flag |
+| `fixture` **(NEW enum value)** | **NEVER** | the §15 gate suite recomputes golden vectors from fixture bodies on every run — a pruned fixture silently disables the gates that depend on it |
+
+An artifact carrying NO `retention_class` (§20.3.0's top-level field absent) is treated as `case-file` for
+§20.3 purposes — the most conservative non-regulatory class — never as `transient`.
+
+**§20.3.5 Non-goal.** This profile does not make OCG, `anchor.ainumbers.co`, or any AINumbers surface a
+retention SERVICE or an archive of record. The holder of an artifact is the retention principal; §20.3
+states what a holder MAY safely discard and what a verifier reports when they did, nothing more.
+
+Gate (NEW): `retention-profile.test.mjs` — a verifier presented a hash-only survivor (leaf + inclusion proof
++ cosigned checkpoint, no body) reports `body-absent: anchored-hash-only`, never `verified`/`failed`; a
+`regulatory-N-years` fixture pruned before N elapses MUST fail a conformance check; `fixture`-class
+artifacts are NEVER eligible regardless of checkpoint state; `retention_class` (§20.3.0) is hash-excluded
+(byte-identical `execution_hash` with and without the member, both halves asserted); the tier is additive —
+an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18.
+
 ## §21 Chain Execution (NORMATIVE — new in v0.8)
 Until v0.8 chain execution (`run_chain` / `composite_execution_hash`) was implementation-defined. §21
 makes the **existing linear contract** normative (§21.1–§21.3, descriptive of shipped behavior) and adds
@@ -2796,6 +2884,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §27 human-accountability records: `$defs/humanAccountabilityRecord` shape (closed `record_type`/`role`/`haGatePolicy` enums, `subject_hash` a valid `sha256ref`); ADDITIVITY — an approval record referencing a subject leaves that subject's `execution_hash` byte-identical and a subject with zero HA records is byte-identical to a plain v0.8.11 artifact (`$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED); THRESHOLD DISTINCTNESS — `dual_control(N)` counts DISTINCT `identity.id`, so a repeated identity satisfies only N=1 and two distinct identities satisfy N=2; OVERRIDE EXPIRY — an expired `emergency_override` reverts the gate policy, never a silent permanent pass; SIGNED-NAMED-HUMAN — an unsigned approval record is rejected (§16 pairing check stays with `proof-binding.test.mjs`); defaults OFF, absence conformant | `validate-ha-records.test.mjs`, `schema-validate.mjs` | validate |
 | §28 clause binding profile `ocg-clause-binding@1`: hash-excluded top-level `clause_bindings[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` MUST root at `/policy_parameters` or `/output_payload` — a pointer rooted elsewhere is RED (§28.3); each resolved §28.1 citation object carries the five REQUIRED members (`scheme`, `id`, `in_force_from`, `mapped_by`, `mapped_at`), ISO-date fields validated, `interpretation_ref` when present is a `sha256:` content hash, no unknown members on the closed pinned form; a legacy bare-string citation is valid but classified UNPINNED and MUST NOT be declared in `clause_bindings`; unresolved pointer / malformed citation / off-preimage pointer MUST fail; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED; defaults OFF, absence conformant, new-artifacts-only (no migration path) | `clause-binding.test.mjs`, `schema-validate.mjs` | validate |
 | §21.6 ancestry_digest: bottom-up recompute over `{execution_hash, parent_ancestry_digests}` via the one `cgCanon` path, root uses `[]`, mutation-sensitive (an omitted/reordered/substituted ancestor MUST change the terminal digest — the exact `cgCanon`-object-not-string trap §PPH-1 already guards against, tested identically here), hash-EXCLUDED (byte-identical `execution_hash` with and without the member, both halves asserted), absence conformant + reported as no-claim, incomplete bundle reported as a distinct `incomplete-bundle` tier never conflated with `failed` | `ancestry-digest.test.mjs` (unit) + `schema-validate.mjs` (shape) | validate |
+| §20.3 retention profile: a verifier presented a hash-only survivor (leaf + inclusion proof + cosigned checkpoint, no body) reports `body-absent: anchored-hash-only`, never `verified`/`failed`; a `regulatory-N-years` fixture pruned before N elapses MUST fail a conformance check; `fixture`-class artifacts are NEVER eligible regardless of checkpoint state; top-level `retention_class` (§20.3.0, distinct from §23.4's per-attestation field of the same name) is hash-EXCLUDED (byte-identical `execution_hash` with and without the member); the tier is additive — an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18 | `retention-profile.test.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

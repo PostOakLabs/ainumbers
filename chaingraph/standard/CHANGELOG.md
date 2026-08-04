@@ -28,6 +28,39 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
   (delegation exchange-chain shape, referenced not implemented), RFC 6920 / EU AI Act Art. 12 (naming +
   record-keeping minima) — patterns only, no code or text copied.
 
+## 0.8.18 — Retention & pruning profile (§20.3)
+- **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.13
+  until the next coordinated K landing moves it, the same separation v0.8.9 through v0.8.17 used.
+- **§20.3** states, for the first time, when an artifact BODY behind a §20.1/§20.2 witness-cosigned batch
+  anchor MAY be discarded while the artifact's evidentiary value survives ("prune behind a cosigned
+  checkpoint"), and defines a NEW verifier report tier, `body-absent: anchored-hash-only`, for a body-absent
+  artifact whose leaf hash is still checkable against a retained checkpoint (never conflated with
+  `verified`/`failed`).
+- **NEW top-level artifact member `retention_class`** (§20.3.0): OPTIONAL, closed enum `{ transient,
+  case-file, regulatory-N-years, fixture }`. **Deliberately a DIFFERENT field from** the pre-existing
+  `input_attestations[].freshness.retention_class` (§23.4, v0.8.9) — that field is a per-attestation
+  declarative statement about one attested external input value; this field states the ARTIFACT'S OWN
+  execution-body pruning eligibility. An earlier draft of this section proposed reusing the §23.4 field for
+  this purpose; `DAG-SPECREVIEW-1`'s adversarial verification (2026-08-03) caught the mismatch before it
+  landed — an artifact with zero `input_attestations` would have had nowhere to bind an artifact-level
+  retention decision — so this pass gives it its own top-level home instead.
+- **`fixture` is a new enum value**, forbidding pruning unconditionally — the §15 gate suite recomputes
+  golden vectors from fixture bodies on every run, and a pruned fixture would silently disable the gates
+  that depend on it.
+- **Regulatory floors are prune-forbidden windows**, not suggestions: SEC 17a-4 (3y default / 6y
+  blotters-ledgers-customer-files), MiFID II Art 16(6)/(7) (5-7y), BSA 31 CFR 1010.430 (5y) — a
+  `regulatory-N-years` artifact MUST NOT be pruned until N years elapse from `generated_at`.
+- **Hash-EXCLUDED.** `retention_class` sits at the artifact's top level, outside the §4 preimage exactly
+  like `anchor_bindings`/`supersedes`. No `required[]` entry, no MUST-emit anywhere — an artifact without
+  the member is byte-identical to a pre-v0.8.18 one and fully conformant; absence is treated as `case-file`
+  (the most conservative non-regulatory class) for §20.3 purposes, never as `transient`.
+- **New §15 gate row** — `retention-profile.test.mjs`, plus fixtures covering the hash-only-survivor report
+  tier, a `regulatory-N-years` artifact pruned before its floor elapses (MUST fail), and a `fixture`-class
+  artifact (NEVER eligible regardless of checkpoint state).
+- **Non-goal, stated explicitly (§20.3.5):** this profile does not make OCG, `anchor.ainumbers.co`, or any
+  AINumbers surface a retention service or archive of record — it states what a holder MAY discard and what
+  a verifier reports, nothing more.
+
 ## 0.8.17 — DAG ancestry commitment (§21.6)
 - **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.13
   until the next coordinated K landing moves it, the same separation v0.8.9 through v0.8.16 used.
