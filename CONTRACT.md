@@ -568,5 +568,20 @@ The per-page CSP `connect-src` for `mcp-playground.html` and any Worker-side COR
 
 ---
 
+## Amendment A9 — Reliance-hedge clause (August 2026)
+
+Measured baseline that motivated this clause: 104 of 155 tools citing a regulation carried no reliance hedge of any kind, only 12 carried a `class="disclaimer*"` div, no estate-wide terms page existed, and this document contained the word "advice" zero times. This amendment fixes the gap going forward; it does not retrofit the 104 already-shipped tools — that retrofit is a separate, larger, future work unit and is explicitly out of scope here.
+
+### A9.1 · Any surface citing regulation MUST carry a reliance hedge
+Any `tools/`, `guides/`, or `chaingraph/` page whose visible output cites a regulation, statute, standard, or published rule (i.e. populates `regulatory_frameworks` or `regulatory_citations`, §3.1) MUST carry reliance-hedge language equivalent in substance to the canonical `.edu-disclaimer` block already used by a subset of existing tools: not legal/investment/tax/compliance advice, a computed view of the cited source as of a stated date, and an instruction to verify against the current official text before relying on it. `disclosures/terms.html` is the estate-wide statement of this posture and MAY be linked from a page instead of restating the full text, but a page whose entire function is producing a regulation-citing result SHOULD carry the hedge inline, not only by link.
+
+### A9.2 · The hedge travels with the artifact, not only the page
+Every OCG §13 export profile embeds a `reliance_notice` string in its shared metadata block (`chaingraph/exporters/_meta.mjs::metaBlock`), so the hedge is present in the exported JSON metadata, the human-readable renderings (PDF, xlsx), and the `vc` profile's `ocg:metadata`, independent of whether the originating page also shows it. A new §13 export profile MUST consume `metaBlock()` (or otherwise embed `RELIANCE_NOTICE`) rather than hand-building its own metadata block. `reliance_notice` is descriptive metadata, excluded from the `execution_hash` preimage like the rest of the §13 metadata block — it does not affect determinism or hash-neutrality (§0.10-class reasoning, `feedback-hash-neutral-is-not-proof-neutral`).
+
+### A9.3 · Not a coverage gate
+This amendment does not create a live "% of tools carrying a hedge" gate, and none should be built from it (mirrors §12's non-goal in `CLAUSE-BINDING-BUILD-SPEC.md`). The 104/155 and 12 figures above are the measured baseline this clause responds to, not a target a gate checks against.
+
+---
+
 **END OF CONTRACT**  
 *This document is version-controlled. All deviations require a formal spec amendment and consensus from Post Oak Labs Engineering & Compliance leads.*

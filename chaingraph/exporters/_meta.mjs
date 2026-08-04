@@ -5,6 +5,12 @@
 
 const VERIFY_BASE = 'https://ainumbers.co/chaingraph/verify';
 
+// CONTRACT.md Amendment A9 (CB10-RELIANCE-POSTURE-1) — reliance hedge that travels with every
+// §13 export rather than living only on a page. Static text, identical on every export.
+export const RELIANCE_NOTICE =
+  'Not legal, investment, tax, or compliance advice. A computed view of the cited authority as of ' +
+  'generated_at, not a substitute for review by a qualified advisor against the current official source text.';
+
 /** The metadata block every export embeds (OCG §13.2 rule 2). */
 export function metaBlock(artifact = {}) {
   const keyid = artifact?.audit_signature?.signatures?.[0]?.keyid ?? null;
@@ -17,6 +23,7 @@ export function metaBlock(artifact = {}) {
     mandate_type: artifact?.mandate_type ?? null,
     keyid,
     verify_url: hash ? `${VERIFY_BASE}?hash=${String(hash).replace(/^sha256:/, '')}` : null,
+    reliance_notice: RELIANCE_NOTICE,
   };
 }
 

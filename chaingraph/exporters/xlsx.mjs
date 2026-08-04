@@ -59,6 +59,8 @@ function decisionRows(artifact) {
     [],
     ['This spreadsheet is a generated VIEW of a verified artifact. It is not'],
     ['independently verifiable — verify the JSON artifact at verify_url.'],
+    [],
+    [m.reliance_notice],
   ];
   return rows;
 }
