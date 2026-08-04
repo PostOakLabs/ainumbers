@@ -466,6 +466,7 @@ import * as art524    from './art-524-source-arrival-freshness-register.kernel.m
 import * as art525    from './art-525-nway-balance-closure-check.kernel.mjs';
 import * as art526    from './art-526-report-gl-reconciliation.kernel.mjs';
 import * as art53     from './art-53-mletr-ebl-conformance-validator.kernel.mjs';
+import * as art530    from './art-530-default-fund-cover2-sizing.kernel.mjs';
 import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
 import * as art56     from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
@@ -994,6 +995,7 @@ export const KERNELS = {
   'art-525-nway-balance-closure-check':                       art525,
   'art-526-report-gl-reconciliation':                         art526,
   'art-53-mletr-ebl-conformance-validator':                   art53,
+  'art-530-default-fund-cover2-sizing':                       art530,
   'art-54-digital-trade-rules-checker':                       art54,
   'art-55-trade-document-provenance-verifier':                art55,
   'art-56-tokenized-settlement-fit-diagnostic':               art56,
