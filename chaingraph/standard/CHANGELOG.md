@@ -28,6 +28,35 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
   (delegation exchange-chain shape, referenced not implemented), RFC 6920 / EU AI Act Art. 12 (naming +
   record-keeping minima) — patterns only, no code or text copied.
 
+## 0.8.17 — DAG ancestry commitment (§21.6)
+- **SPEC-TEXT PASS, not a record bump.** The `spec_version` of record in `chaingraph.json` stays 0.8.13
+  until the next coordinated K landing moves it, the same separation v0.8.9 through v0.8.16 used.
+- **§21.6 `ancestry_digest`** — an OPTIONAL member of `chain`: a `#/$defs/sha256ref` value computed as
+  `SHA-256(cgCanon({ execution_hash, parent_ancestry_digests }))`, where `parent_ancestry_digests` is each
+  cited parent's OWN `ancestry_digest` in `parent_hashes` order, through the SAME shared `_hash.mjs`
+  canonicalizer §4 and §PPH-1 use. Closes the gap `parent_hashes` alone leaves open: `chain` sits outside
+  the §4 preimage, so a producer can omit or reorder a mid-DAG ancestor today without moving any per-node
+  `execution_hash`. A verifier holding the complete ancestor bundle can recompute bottom-up and detect an
+  omitted/reordered/substituted ancestor or a topology change; it does NOT prove the presented bundle is
+  complete relative to the world (stated as a non-guarantee, mirroring §20's anchor-completeness honesty).
+- **Hash-EXCLUDED.** `ancestry_digest` lives inside `chain`, unchanged since §1 as a hash-excluded sibling
+  of the `{policy_parameters, output_payload}` preimage. `required` on `chain` is unchanged (no new entry),
+  and there is no MUST-emit anywhere — an artifact without the member is byte-identical to a pre-v0.8.17
+  one and fully conformant.
+- **New verdict tier.** A verifier missing a cited ancestor from its bundle reports `ancestry:
+  "incomplete-bundle"` — an honest "cannot check" tier, distinct from and never conflated with
+  `verified`/`failed`.
+- **New §15 gate row** — `ancestry-digest.test.mjs`, plus a fixture pair (byte-identical-with/without the
+  member, mutation-sensitive over the `cgCanon`-object-not-string trap §PPH-1 already guards against,
+  incomplete-bundle tier).
+- **New kernel helper** `chaingraph/kernels/_ancestry.mjs` — one exported function `ancestryDigest(...)`,
+  calling the shared `cgCanon` from `_hash.mjs`. No second canonicalizer.
+- **Relation to §21 array chains.** §21.1–§21.5 `run_chain`/`runChain` execution stays an unchanged
+  forward-only array; `ancestry_digest` is the general DAG-shaped mechanism for artifact-level
+  `parent_hashes` citation and composes independently.
+- **The code half is deliberately NOT in this tick.** No kernel emits the member yet; emission lands as a
+  separate row against a reference kernel, mirroring §PPH-1's own precedent.
+
 ## 0.8.13 — xBRL-CSV export profile (§13.14)
 - **Record bump.** `spec_version` of record moves 0.8.12 → 0.8.13.
 - **§13.14** populates the Annex slot §13.13.5 reserved for EBA DPM 2.0 (xBRL-CSV), mandatory from

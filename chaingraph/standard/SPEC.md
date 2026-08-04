@@ -953,6 +953,71 @@ The §21.5 field definition above stays normative and OPTIONAL; only its gate is
 Attribution: **FrankenSim** (J. Emanuel) — the evidence-color / weakest-link design, IDEAS ONLY. Its license
 carries an unvetted "AI rider"; no text or code is copied. Cited as convergent prior art.
 
+### §21.6 Ancestry commitment (NORMATIVE, OPTIONAL — new in v0.8.17)
+An artifact's `chain` block MAY carry an OPTIONAL member `ancestry_digest`, a `#/$defs/sha256ref` value
+that transitively commits the artifact's **entire ancestry sub-DAG — order, membership, and topology** —
+closing a gap that `parent_hashes` alone leaves open: §4 fixes the preimage as exactly
+`{policy_parameters, output_payload}`, and `chain` is a hash-excluded sibling, so `parent_hashes` can be
+rewritten to omit or reorder an ancestor without moving any per-node `execution_hash`.
+
+**§21.6.1 Definition (MUST, where present).** `ancestry_digest = SHA-256` over the RFC 8785 / JCS-canonical
+JSON of exactly `{ execution_hash, parent_ancestry_digests }`, where `parent_ancestry_digests` is the array
+of each cited parent's OWN `ancestry_digest`, **in `parent_hashes` order**, produced by the same single
+shared canonicalizer `kernels/_hash.mjs` (`cgCanon`) that §4 and §PPH-1 use — no second canonicalization
+path. A root artifact (`parent_hashes: []`) uses `parent_ancestry_digests: []`, so its `ancestry_digest` is
+a pure function of its own `execution_hash`. Every §4 FORBIDDEN construction (array-replacer sort,
+`simpleHash`/djb2/FNV, a string mislabeled `sha256:`, hashing a reduced object) is forbidden here
+identically, for the same reason.
+
+**§21.6.2 Value form (MUST).** Bare 64-character lowercase hex, OPTIONALLY `sha256:`-prefixed — the
+`#/$defs/sha256ref` form `parent_hashes[]` and `execution_hash` already carry (§PPH-1.1a precedent:
+producers SHOULD emit bare, verifiers MUST accept either form).
+
+**§21.6.3 Hash exclusion (MUST).** `ancestry_digest` sits inside `chain`, which is OUTSIDE the §4 preimage
+(unchanged since §1). Adding, omitting, or recomputing it MUST NOT move the artifact's own `execution_hash`.
+An artifact without it is byte-identical to one predating v0.8.17 and remains fully conformant — no
+MUST-emit anywhere in this standard.
+
+**§21.6.4 What it proves, and what it does NOT (NORMATIVE honesty, §17.2-style).** A verifier holding a
+COMPLETE presented bundle (the terminal artifact plus every cited ancestor, recursively) can recompute
+`ancestry_digest` bottom-up and detect: an omitted ancestor, a reordered `parent_hashes` entry, a
+substituted ancestor, or a topology change anywhere in the sub-DAG — any of these changes the terminal
+digest. **It does NOT prove the bundle it was given is complete relative to the WORLD** — a producer who
+never cites an artifact in the first place (never puts it in `parent_hashes`) produces a self-consistent
+digest over a smaller, honestly-committed lineage; detecting *that* omission requires an independent signal
+outside this artifact (a §16 signature over a DIFFERENT, wider-citing artifact; a §20 anchor timestamping
+when the wider artifact existed; or a third party's own record of having produced the omitted node). This
+mirrors §20's "anchor evidence proves EXISTENCE and INCLUSION, never completeness of a set" and is stated
+for the identical reason: an overclaim here is a compliance liability, not a compliment.
+
+**§21.6.5 Composability.** A §16 whole-artifact signature transitively secures `ancestry_digest` (it is
+inside `chain`, inside the secured document — §16.1). A §20 anchor over the terminal artifact's
+`execution_hash` timestamps the digest's existence at that time; §20.2 witness cosignatures close
+equivocation on the anchored root the same way they do for any other anchored value. §21.5 `claim_strength`
+is UNCHANGED by this section — ancestry commitment is a lineage-integrity claim, not an execution-evidence
+claim, and is not folded into the `min`-of-evidence-classes computation.
+
+**§21.6.6 Verifier behavior — present vs absent (NORMATIVE).** Absence is NEVER an error and NEVER
+downgrades a verdict: a verifier that does not recognize `ancestry_digest`, or that receives an artifact
+without one, verifies §4 exactly as before. When present, a verifier that CHOOSES to check it MUST: walk
+the presented ancestor bundle depth-first from the terminal artifact, recompute each node's
+`ancestry_digest` per §21.6.1 bottom-up (leaves first), and compare the terminal recomputed value to the
+stored one — a mismatch anywhere in the walk FAILS the terminal artifact's ancestry verdict (reported
+ALONGSIDE, never folded into, the §4 `execution_hash` verdict). A verifier missing any cited ancestor from
+the bundle reports `ancestry: "incomplete-bundle"` (not a failure — an honest "cannot check" tier, distinct
+from `verified`/`failed`). Recursion depth is bounded by `chain_depth`; a cyclic `parent_hashes` graph is
+already excluded by construction (each artifact commits only to STRICTLY PRIOR `execution_hash` values it
+received before it ran).
+
+**§21.6.7 Relation to §21 array chains.** §21 `run_chain`/`runChain` execution (§21.1-§21.5) stays an ARRAY
+(forward-only, no parallel branches — §21.4) and is UNCHANGED by this section. `ancestry_digest` is the
+general DAG-shaped mechanism for artifact-level `parent_hashes` citation (§1, which already permits
+multi-parent `chain_depth = max(parent depths)+1` — joins/fan-in the §21 array model cannot express). The
+two are independent, composable claims: a `run_chain`-executed linear chain's steps MAY each also carry
+`ancestry_digest`, and the composite artifact (§21.3) MAY carry its own.
+
+Gate: `ancestry-digest.test.mjs` (§15).
+
 ## §22 Work Mandates (NORMATIVE — new in v0.8.1)
 A **Work Mandate** is a signed OpenChainGraph artifact that delegates bounded authority: a principal
 authorizes an agent to run a defined set of nodes/chains, under stated conditions, within a validity
@@ -2730,6 +2795,7 @@ hash-remediation incident, where canonical `execution_hash` had no end-to-end ga
 | §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
 | §27 human-accountability records: `$defs/humanAccountabilityRecord` shape (closed `record_type`/`role`/`haGatePolicy` enums, `subject_hash` a valid `sha256ref`); ADDITIVITY — an approval record referencing a subject leaves that subject's `execution_hash` byte-identical and a subject with zero HA records is byte-identical to a plain v0.8.11 artifact (`$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED); THRESHOLD DISTINCTNESS — `dual_control(N)` counts DISTINCT `identity.id`, so a repeated identity satisfies only N=1 and two distinct identities satisfy N=2; OVERRIDE EXPIRY — an expired `emergency_override` reverts the gate policy, never a silent permanent pass; SIGNED-NAMED-HUMAN — an unsigned approval record is rejected (§16 pairing check stays with `proof-binding.test.mjs`); defaults OFF, absence conformant | `validate-ha-records.test.mjs`, `schema-validate.mjs` | validate |
 | §28 clause binding profile `ocg-clause-binding@1`: hash-excluded top-level `clause_bindings[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` MUST root at `/policy_parameters` or `/output_payload` — a pointer rooted elsewhere is RED (§28.3); each resolved §28.1 citation object carries the five REQUIRED members (`scheme`, `id`, `in_force_from`, `mapped_by`, `mapped_at`), ISO-date fields validated, `interpretation_ref` when present is a `sha256:` content hash, no unknown members on the closed pinned form; a legacy bare-string citation is valid but classified UNPINNED and MUST NOT be declared in `clause_bindings`; unresolved pointer / malformed citation / off-preimage pointer MUST fail; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED; defaults OFF, absence conformant, new-artifacts-only (no migration path) | `clause-binding.test.mjs`, `schema-validate.mjs` | validate |
+| §21.6 ancestry_digest: bottom-up recompute over `{execution_hash, parent_ancestry_digests}` via the one `cgCanon` path, root uses `[]`, mutation-sensitive (an omitted/reordered/substituted ancestor MUST change the terminal digest — the exact `cgCanon`-object-not-string trap §PPH-1 already guards against, tested identically here), hash-EXCLUDED (byte-identical `execution_hash` with and without the member, both halves asserted), absence conformant + reported as no-claim, incomplete bundle reported as a distinct `incomplete-bundle` tier never conflated with `failed` | `ancestry-digest.test.mjs` (unit) + `schema-validate.mjs` (shape) | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
