@@ -470,6 +470,7 @@ status: stable
 - [Source Arrival & Freshness Register](./art-524-source-arrival-freshness-register.md)
 - [N-Way Balance Closure Check](./art-525-nway-balance-closure-check.md)
 - [Report-to-General-Ledger Reconciliation](./art-526-report-gl-reconciliation.md)
+- [Ledger Consensus Finality Classifier](./art-527-classify-ledger-consensus-finality.md)
 - [Cross-CCP PQD Comparator](./art-528-cross-ccp-pqd-comparator.md)
 - [CCP Default Waterfall Recomputation](./art-529-ccp-default-waterfall-recompute.md)
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md)
