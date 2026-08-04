@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Client Porting Check &middot; ART-532 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Checks whether a client's cleared positions and collateral are portable to a backup clearing member under a caller-declared porting window, position/collateral completeness, and backup-member consent status. An empty position set, a missed window, and a not-yet-consented backup member each resolve to a distinct, defined not-portable outcome.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-532-client-porting-check.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:110px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-532 &middot; Client Porting Check</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-532 &middot; CCP-Core Clearing Primitives</div>
+  <h1>Client Porting Check</h1>
+  <p class="sub">Checks whether a client's cleared positions and collateral are portable to a backup clearing member, given the porting window, position and collateral completeness, and backup-member consent status you declare. An empty position set, a missed porting window, and a not-yet-consented backup member each resolve to a distinct, defined not-portable outcome rather than a generic failure. A portable verdict is an evaluation of the snapshot you declared. It is not a guarantee that porting will in fact occur, and this tool does not itself move any position or collateral.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Declared snapshot, not a live feed</span>
+    <span class="flag info">No-positions and window-missed kept distinct from a consent gap</span>
+    <span class="flag">Single-run, stateless</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This tool does not pull a client's positions, collateral, or a backup member's consent decision itself. You declare all three and it computes once when you press the button, stores nothing, runs on no schedule, and retains nothing. Clause: PFMI Principle 14 (Segregation and Portability) &middot; 17 CFR 240.15c3-3a.</div>
+
+  <div class="card">
+    <div class="section-head">Porting event</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic and already loaded, so you can press Run without entering anything of your own.</p>
+    <div class="grid3">
+      <div><label class="fld">Client reference (opaque, your input)</label><input type="text" id="clientRef" value="CLIENT-A1"></div>
+      <div><label class="fld">Backup clearing member ID</label><input type="text" id="backupMember" value="BACKUP-MEMBER-77"></div>
+      <div><label class="fld">Backup member consent status</label>
+        <select id="consentStatus"><option value="consented" selected>consented</option><option value="pending">pending</option><option value="declined">declined</option><option value="not_requested">not_requested</option></select>
+      </div>
+    </div>
+    <div class="grid3">
+      <div><label class="fld">Default event at (ISO-8601 UTC, your input, never a clock read)</label><input type="text" id="defaultEventAt" value="2026-08-04T09:00:00Z"></div>
+      <div><label class="fld">Evaluated at (ISO-8601 UTC, your input)</label><input type="text" id="evaluatedAt" value="2026-08-04T15:00:00Z"></div>
+      <div><label class="fld">Porting window (hours, your declared rule)</label><input type="text" id="windowHours" value="48"></div>
+    </div>
+
+    <label class="fld" style="margin-top:14px">Positions (JSON array: position_id, product_type, currency, notional_minor_units, complete)</label>
+    <textarea id="positionsJson">[
+  { "position_id": "POS-1", "product_type": "interest_rate_swap", "currency": "USD", "notional_minor_units": 5000000000, "complete": true },
+  { "position_id": "POS-2", "product_type": "repo", "currency": "USD", "notional_minor_units": 1200000000, "complete": true }
+]</textarea>
+
+    <label class="fld" style="margin-top:14px">Collateral (JSON array: collateral_id, asset_type, currency, amount_minor_units, complete)</label>
+    <textarea id="collateralJson">[
+  { "collateral_id": "COLL-1", "asset_type": "ust_bill", "currency": "USD", "amount_minor_units": 600000000, "complete": true }
+]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Porting Check</button>
+      <button class="ghost" onclick="loadWindowMissedDemo()">Load window-missed demo</button>
+      <button class="ghost" onclick="loadPendingConsentDemo()">Load consent-pending demo</button>
+      <button class="ghost" onclick="loadNoPositionsDemo()">Load no-positions demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Positions</div>
+      <div id="posDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Collateral</div>
+      <div id="collDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not pull a client's positions or collateral, execute a transfer, or bind a backup clearing member to accept a port. Consent status is a fact you declare about a decision made elsewhere. A portable verdict is not a guarantee that porting will in fact occur, and it is not a determination that any party has breached PFMI Principle 14 or SEC Rule 15c3-3a.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">This node evaluates the porting leg of a defaulting-member event. Sibling CCP-core nodes cover the default-fund waterfall, Cover-2 fund sizing, cross-CCP disclosure comparison, and the margin-call lifecycle that this node can follow when a call is not met within its declared SLA window.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-532-client-porting-check',
+  version: '1.0.0',
+  mcp_name: 'check_client_porting',
+  title: 'Client Porting Check',
+  description: 'Checks whether a client\'s cleared positions and collateral are portable to a backup clearing member under a caller-declared porting window, position/collateral completeness, and backup-member consent status. An empty position set, a missed window, and a not-yet-consented backup member each resolve to a distinct, defined not-portable outcome.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'check_client_porting',
+    description: 'Evaluates a declared snapshot of a client\'s positions, collateral, backup-member consent status, and porting window against PFMI Principle 14. Emits a defined not-portable outcome per failure mode -- no positions declared, window missed, consent not given, positions incomplete, collateral incomplete -- and a portable verdict only when all conditions hold.',
+    inputSchema: { type: 'object', properties: {
+      client_ref: {type:'string'}, backup_member_id: {type:'string'}, backup_member_consent_status: {type:'string'},
+      default_event_at: {type:'string'}, evaluated_at: {type:'string'}, porting_window_hours: {type:'number'},
+      positions: {type:'array'}, collateral: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-532-client-porting-check.kernel.mjs --- */
+var CONSENT_STATUSES = ['consented', 'declined', 'pending', 'not_requested'];
+var CITATIONS = {
+  segregation_and_portability: { scheme: 'other', id: 'PFMI Principle 14', in_force_from: '2012-04-16', mapped_by: 'AINumbers CCP-CORE-K-1', mapped_at: '2026-08-04', uri: 'https://www.bis.org/cpmi/publ/d101a.pdf' },
+  customer_protection_segregation: { scheme: 'cfr', id: '17 CFR 240.15c3-3a', in_force_from: '1972-11-03', mapped_by: 'AINumbers CCP-CORE-K-1', mapped_at: '2026-08-04', uri: 'https://www.ecfr.gov/current/title-17/chapter-II/part-240/subject-group-ECFR6c1b03927685662/section-240.15c3-3a' },
+};
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where,
+    reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v),
+    supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / 100); var frac = abs - whole * 100;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(2, '0');
+}
+function isoDateTimeMs(v){
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z$/.test(v)) return null;
+  var ms = Date.parse(v);
+  return Number.isFinite(ms) ? ms : null;
+}
+function positiveIntOrNull(v){
+  return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v > 0 ? v : null;
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var client_ref = isNonEmptyString(pp.client_ref) ? pp.client_ref.trim() : 'UNLABELLED-CLIENT';
+  if (!isNonEmptyString(pp.client_ref)) rejected_inputs.push({ where: 'client_ref', reason: 'absent', supplied: null });
+
+  var backup_member_id = isNonEmptyString(pp.backup_member_id) ? pp.backup_member_id.trim() : null;
+  if (!backup_member_id) rejected_inputs.push({ where: 'backup_member_id', reason: 'absent', supplied: null });
+
+  var backup_member_consent_status = CONSENT_STATUSES.indexOf(pp.backup_member_consent_status) !== -1 ? pp.backup_member_consent_status : null;
+  if (!backup_member_consent_status) rejected_inputs.push({ where: 'backup_member_consent_status', reason: 'absent or not one of consented/declined/pending/not_requested', supplied: pp.backup_member_consent_status == null ? null : pp.backup_member_consent_status });
+
+  var default_event_at_ms = isoDateTimeMs(pp.default_event_at);
+  if (default_event_at_ms === null) rejected_inputs.push({ where: 'default_event_at', reason: 'absent or not a full ISO-8601 UTC datetime', supplied: pp.default_event_at == null ? null : pp.default_event_at });
+  var evaluated_at_ms = isoDateTimeMs(pp.evaluated_at);
+  if (evaluated_at_ms === null) rejected_inputs.push({ where: 'evaluated_at', reason: 'absent or not a full ISO-8601 UTC datetime', supplied: pp.evaluated_at == null ? null : pp.evaluated_at });
+
+  var porting_window_hours = positiveIntOrNull(pp.porting_window_hours);
+  if (porting_window_hours === null) rejected_inputs.push({ where: 'porting_window_hours', reason: 'absent or not a positive integer number of hours', supplied: pp.porting_window_hours == null ? null : pp.porting_window_hours });
+
+  var elapsed_minutes = null, window_minutes = null, window_missed = false;
+  if (default_event_at_ms !== null && evaluated_at_ms !== null && porting_window_hours !== null) {
+    elapsed_minutes = Math.round((evaluated_at_ms - default_event_at_ms) / 60000);
+    window_minutes = porting_window_hours * 60;
+    window_missed = elapsed_minutes > window_minutes;
+  }
+
+  var positionsIn = Array.isArray(pp.positions) ? pp.positions : [];
+  var positions = positionsIn.map(function(p, i){
+    p = p && typeof p === 'object' ? p : {};
+    var position_id = isNonEmptyString(p.position_id) ? p.position_id.trim() : ('UNLABELLED-POS-' + (i + 1));
+    var product_type = isNonEmptyString(p.product_type) ? p.product_type.trim() : 'unspecified';
+    var currency = isNonEmptyString(p.currency) ? p.currency.trim().toUpperCase() : 'USD';
+    var notional_minor_units = toMinorUnits(p.notional_minor_units, 'positions[' + i + '].notional_minor_units', rejected_inputs);
+    var complete;
+    if (p.complete === true) complete = true;
+    else if (p.complete === false) complete = false;
+    else { rejected_inputs.push({ where: 'positions[' + i + '].complete', reason: 'absent -- must be explicitly declared true or false, never assumed', supplied: null }); complete = false; }
+    return { position_id: position_id, product_type: product_type, currency: currency, notional_minor_units: notional_minor_units, notional_display: display(notional_minor_units), complete: complete };
+  });
+
+  var collateralIn = Array.isArray(pp.collateral) ? pp.collateral : [];
+  var collateral = collateralIn.map(function(c, i){
+    c = c && typeof c === 'object' ? c : {};
+    var collateral_id = isNonEmptyString(c.collateral_id) ? c.collateral_id.trim() : ('UNLABELLED-COLL-' + (i + 1));
+    var asset_type = isNonEmptyString(c.asset_type) ? c.asset_type.trim() : 'unspecified';
+    var currency = isNonEmptyString(c.currency) ? c.currency.trim().toUpperCase() : 'USD';
+    var amount_minor_units = toMinorUnits(c.amount_minor_units, 'collateral[' + i + '].amount_minor_units', rejected_inputs);
+    var complete;
+    if (c.complete === true) complete = true;
+    else if (c.complete === false) complete = false;
+    else { rejected_inputs.push({ where: 'collateral[' + i + '].complete', reason: 'absent -- must be explicitly declared true or false, never assumed', supplied: null }); complete = false; }
+    return { collateral_id: collateral_id, asset_type: asset_type, currency: currency, amount_minor_units: amount_minor_units, amount_display: display(amount_minor_units), complete: complete };
+  });
+
+  var total_notional_minor_units = 0;
+  positions.forEach(function(p){ total_notional_minor_units += p.notional_minor_units; });
+  var total_collateral_minor_units = 0;
+  collateral.forEach(function(c){ total_collateral_minor_units += c.amount_minor_units; });
+
+  var incomplete_positions = positions.filter(function(p){ return !p.complete; });
+  var incomplete_collateral = collateral.filter(function(c){ return !c.complete; });
+  var positions_complete = positions.length > 0 && incomplete_positions.length === 0;
+  var collateral_complete = collateral.length === 0 || incomplete_collateral.length === 0;
+
+  var compliance_flags = [];
+  var verdict;
+  if (positions.length === 0) { verdict = 'not_portable_no_positions_declared'; compliance_flags.push('PORTING_NO_POSITIONS_DECLARED'); }
+  else if (window_missed) { verdict = 'not_portable_window_missed'; compliance_flags.push('PORTING_WINDOW_MISSED'); }
+  else if (backup_member_consent_status !== 'consented') {
+    verdict = 'not_portable_no_consent';
+    if (backup_member_consent_status === 'declined') compliance_flags.push('PORTING_CONSENT_DECLINED');
+    else if (backup_member_consent_status === 'pending') compliance_flags.push('PORTING_CONSENT_PENDING');
+    else compliance_flags.push('PORTING_CONSENT_NOT_REQUESTED');
+  } else if (!positions_complete) { verdict = 'not_portable_positions_incomplete'; compliance_flags.push('PORTING_POSITIONS_INCOMPLETE'); }
+  else if (!collateral_complete) { verdict = 'not_portable_collateral_incomplete'; compliance_flags.push('PORTING_COLLATERAL_INCOMPLETE'); }
+  else { verdict = 'portable'; compliance_flags.push('PORTING_CLIENT_PORTABLE'); }
+  if (rejected_inputs.length > 0) compliance_flags.push('PORTING_INPUTS_REJECTED');
+
+  var rationale = [];
+  rationale.push('Client reference ' + client_ref + '; backup clearing member ' + (backup_member_id || 'MISSING') + ', consent status ' + (backup_member_consent_status || 'MISSING') + ' (' + CITATIONS.segregation_and_portability.id + ').');
+  if (positions.length === 0) {
+    rationale.push('No positions were declared, so there is nothing to evaluate for porting. This is a defined outcome under the finite gate, not an error.');
+  } else {
+    rationale.push(positions.length + ' position(s) declared totalling ' + display(total_notional_minor_units) + ' notional, ' + incomplete_positions.length + ' not yet declared complete.');
+    rationale.push(collateral.length + ' collateral component(s) declared totalling ' + display(total_collateral_minor_units) + ', ' + incomplete_collateral.length + ' not yet declared complete.');
+    if (elapsed_minutes !== null && window_minutes !== null) {
+      rationale.push('Elapsed time since the default event is ' + elapsed_minutes + ' minute(s) against a declared porting window of ' + window_minutes + ' minute(s) (' + porting_window_hours + ' hour(s)).');
+    }
+  }
+  if (verdict === 'portable') {
+    rationale.push('On these figures the client\'s positions and collateral are complete, the backup member has consented, and the declared porting window has not elapsed (' + CITATIONS.customer_protection_segregation.id + ' where a broker-dealer customer-protection structure is in view). This is an evaluation of the supplied snapshot, not a guarantee that porting will in fact occur.');
+  } else {
+    rationale.push('On these figures the client is not portable as declared. This is an evaluation of the supplied snapshot, not a determination that any party has breached PFMI Principle 14 or SEC Rule 15c3-3a.');
+  }
+  if (rejected_inputs.length > 0) {
+    rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as absent or zero. Each one is named in rejected_inputs.');
+  }
+
+  var output_payload = {
+    client_ref: client_ref, backup_member_id: backup_member_id, backup_member_consent_status: backup_member_consent_status,
+    default_event_at: pp.default_event_at == null ? null : pp.default_event_at, evaluated_at: pp.evaluated_at == null ? null : pp.evaluated_at,
+    porting_window_hours: porting_window_hours, elapsed_minutes: elapsed_minutes, window_minutes: window_minutes, window_missed: window_missed,
+    position_count: positions.length, positions: positions,
+    total_notional_minor_units: total_notional_minor_units, total_notional_display: display(total_notional_minor_units),
+    positions_complete: positions_complete,
+    collateral_count: collateral.length, collateral: collateral,
+    total_collateral_minor_units: total_collateral_minor_units, total_collateral_display: display(total_collateral_minor_units),
+    collateral_complete: collateral_complete,
+    verdict: verdict, citations: CITATIONS, rejected_inputs: rejected_inputs, rationale: rationale,
+    note: 'Deterministic client-porting check over a caller-declared snapshot of positions, collateral, backup-member consent status, and porting window. Single-run and stateless: this tool holds no records, runs on no schedule, and retains nothing. The verdict evaluates the supplied snapshot; it is not a guarantee of a porting outcome and it does not itself move any position or collateral.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function loadWindowMissedDemo(){
+  document.getElementById('clientRef').value = 'CLIENT-B2';
+  document.getElementById('backupMember').value = 'BACKUP-MEMBER-12';
+  document.getElementById('consentStatus').value = 'consented';
+  document.getElementById('defaultEventAt').value = '2026-08-01T00:00:00Z';
+  document.getElementById('evaluatedAt').value = '2026-08-03T00:00:00Z';
+  document.getElementById('windowHours').value = '24';
+  document.getElementById('positionsJson').value = '[\n  { "position_id": "POS-9", "product_type": "futures", "currency": "EUR", "notional_minor_units": 900000000, "complete": true }\n]';
+  document.getElementById('collateralJson').value = '[]';
+  runCheck();
+}
+function loadPendingConsentDemo(){
+  document.getElementById('clientRef').value = 'CLIENT-C3';
+  document.getElementById('backupMember').value = 'BACKUP-MEMBER-45';
+  document.getElementById('consentStatus').value = 'pending';
+  document.getElementById('defaultEventAt').value = '2026-08-04T09:00:00Z';
+  document.getElementById('evaluatedAt').value = '2026-08-04T12:00:00Z';
+  document.getElementById('windowHours').value = '12';
+  document.getElementById('positionsJson').value = '[\n  { "position_id": "POS-3", "product_type": "options", "currency": "USD", "notional_minor_units": 250000000, "complete": true }\n]';
+  document.getElementById('collateralJson').value = '[\n  { "collateral_id": "COLL-2", "asset_type": "cash", "currency": "USD", "amount_minor_units": 30000000, "complete": true }\n]';
+  runCheck();
+}
+function loadNoPositionsDemo(){
+  document.getElementById('clientRef').value = 'CLIENT-D4';
+  document.getElementById('backupMember').value = 'BACKUP-MEMBER-90';
+  document.getElementById('consentStatus').value = 'consented';
+  document.getElementById('defaultEventAt').value = '2026-08-04T09:00:00Z';
+  document.getElementById('evaluatedAt').value = '2026-08-04T10:00:00Z';
+  document.getElementById('windowHours').value = '24';
+  document.getElementById('positionsJson').value = '[]';
+  document.getElementById('collateralJson').value = '[]';
+  runCheck();
+}
+
+async function runCheck(){
+  var positions, collateral;
+  try { positions = JSON.parse(document.getElementById('positionsJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in positions: ' + e.message); return; }
+  try { collateral = JSON.parse(document.getElementById('collateralJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in collateral: ' + e.message); return; }
+
+  var pp = {
+    client_ref: document.getElementById('clientRef').value || '',
+    backup_member_id: document.getElementById('backupMember').value || '',
+    backup_member_consent_status: document.getElementById('consentStatus').value,
+    default_event_at: document.getElementById('defaultEventAt').value || '',
+    evaluated_at: document.getElementById('evaluatedAt').value || '',
+    porting_window_hours: Number(document.getElementById('windowHours').value),
+    positions: positions,
+    collateral: collateral,
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var ok = op.verdict === 'portable';
+  var color = ok ? 'var(--green)' : 'var(--red)';
+  var bg = ok ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = op.verdict.toUpperCase() + ' · ' + res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.position_count + '</span><span class="stat-key">Positions declared</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.collateral_count + '</span><span class="stat-key">Collateral components</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.window_missed ? 'YES' : 'NO') + '</span><span class="stat-key">Window missed</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.backup_member_consent_status + '</span><span class="stat-key">Consent status</span></div>';
+
+  document.getElementById('posDiv').innerHTML = op.positions.length
+    ? op.positions.map(function(p){
+        return '<div class="kv"><span class="kv-k">' + p.position_id + ' &middot; ' + p.product_type + '</span><span class="kv-v">' + p.notional_display + ' ' + p.currency +
+          (p.complete ? ' <span class="badge ok">complete</span>' : ' <span class="badge bad">incomplete</span>') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No positions declared</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('collDiv').innerHTML = op.collateral.length
+    ? op.collateral.map(function(c){
+        return '<div class="kv"><span class="kv-k">' + c.collateral_id + ' &middot; ' + c.asset_type + '</span><span class="kv-v">' + c.amount_display + ' ' + c.currency +
+          (c.complete ? ' <span class="badge ok">complete</span>' : ' <span class="badge bad">incomplete</span>') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No collateral declared</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-532-client-porting-check',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-532-client-porting-check.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
