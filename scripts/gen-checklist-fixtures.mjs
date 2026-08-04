@@ -69,10 +69,27 @@ const disclosurePrep = {
   ],
 };
 
+const exchangeListingStandards = {
+  definition_id: 'ckl-exchange-listing-standards-baseline',
+  title: 'Exchange Listing Standards Baseline',
+  version: '1.0.0',
+  source_citation: 'Generic quantitative/distribution/governance listing-standards criteria shape common across exchange listing rulebooks; numeric thresholds are venue-specific and caller-supplied, not embedded here.',
+  mandate_hash: null,
+  steps: [
+    { step_id: 'min-market-cap', title: 'Confirm minimum market capitalization', instruction: 'Confirm measured market capitalization (USD millions) meets or exceeds the applicable minimum market cap threshold for this listing venue.', evidence_requirement: 'text', approver_role: null, gate: 'blocking' },
+    { step_id: 'min-public-float', title: 'Confirm minimum public float', instruction: 'Confirm measured public float percentage meets or exceeds the applicable minimum public float threshold for this listing venue.', evidence_requirement: 'text', approver_role: null, gate: 'blocking' },
+    { step_id: 'min-price', title: 'Confirm minimum price', instruction: 'Confirm measured price (USD) meets or exceeds the applicable minimum price threshold for this listing venue.', evidence_requirement: 'text', approver_role: null, gate: 'blocking' },
+    { step_id: 'min-holders', title: 'Confirm minimum holder/distribution count', instruction: 'Confirm measured holder count meets or exceeds the applicable minimum holder count threshold for this listing venue.', evidence_requirement: 'text', approver_role: null, gate: 'blocking' },
+    { step_id: 'independent-board-majority', title: 'Confirm independent board majority', instruction: 'Confirm the board has an independent-director majority as required by the applicable listing venue.', evidence_requirement: 'attestation', approver_role: 'listing_compliance_officer', gate: 'blocking' },
+    { step_id: 'audit-committee', title: 'Confirm audit committee is present', instruction: 'Confirm an audit committee meeting the applicable listing venue\'s composition requirements is in place.', evidence_requirement: 'attestation', approver_role: 'listing_compliance_officer', gate: 'blocking' },
+  ],
+};
+
 const fixtures = [
   ['permit-to-work-ops-check', permitToWork],
   ['soc2-evidence-collection', soc2Evidence],
   ['stablecoin-issuer-disclosure-prep', disclosurePrep],
+  ['exchange-listing-standards-baseline', exchangeListingStandards],
 ];
 
 for (const [slug, def] of fixtures) {
