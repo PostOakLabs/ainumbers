@@ -375,9 +375,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div id="palette_fraud" style="display:none"><div class="palette-head">Available tools: click to add</div><div class="palette-list"></div></div>
       <div id="palette_all" style="display:none"><div class="palette-head">Available tools: click to add</div><div class="palette-list"></div></div>
 
-      <div style="margin-top:1.2rem">
+      <div style="margin-top:1.2rem;display:flex;gap:.5rem">
         <button class="tb-btn danger" onclick="resetChain()" style="width:100%">Reset chain</button>
+        <button class="tb-btn primary" id="openInCanvasBtn" onclick="sendChainDraft()" disabled style="width:100%">Open in Workbench &rarr;</button>
       </div>
+      <div id="chainDraftNotice" style="display:none;margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.5"></div>
 
       <div style="margin-top:1rem;padding:.75rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)">
         <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">Dependency guide</div>
@@ -728,6 +730,7 @@ const CHAIN_IDS = {
 function selectChainType(type) {
   activeChainType = type;
   chain = []; artifacts = {}; selectedNode = null; dagZoom = 1;
+  document.getElementById('openInCanvasBtn').disabled = true;
   TOOL_DEFS = buildToolDefs(catalogForScenario(type));
   ['icaap', 'aml', 'fraud', 'all'].forEach(t => {
     document.getElementById('tab_' + t).classList.toggle('active', t === type);
@@ -806,6 +809,7 @@ async function addTool(toolId) {
   updateStats();
   showArtifact(toolId);
   document.getElementById('builderQuizRow').style.display = chain.length >= 2 ? '' : 'none';
+  document.getElementById('openInCanvasBtn').disabled = chain.length === 0;
 }
 
 function updatePalette() {
@@ -842,6 +846,58 @@ function resetChain() {
   document.getElementById('avContent').innerHTML = '<div class="av-select-hint">Click any node in the DAG above to see its full OCG v0.3 artifact, including the <code>parent_hashes</code> array that creates the chain link.</div>';
   document.getElementById('avNodeName').textContent = '';
   document.getElementById('builderQuizRow').style.display = 'none';
+  document.getElementById('openInCanvasBtn').disabled = true;
+}
+
+// ══════════════════════════════════════════════
+// CHAIN-DRAFT HANDOFF — ain-handoff/v1, kind:"chain-draft" (CHAINBUILDER-HANDOFF-1)
+// Joins the SPINE-GLUE ain-handoff/v1 seam (SPINE-GLUE-BUILD-SPEC.md §1) with a new
+// kind alongside "ocg-artifact"/"policy-mandate": an ordered list of tool_ids, not a
+// completed artifact. Same discipline as apSendToVerify() in gen-canvas.mjs — a
+// same-origin window.open + ain-handoff-ready/v1 handshake, reply target is always
+// window.location.origin, never '*'.
+// ══════════════════════════════════════════════
+
+const CHAIN_TAB_LABELS = { icaap: 'Basel ICAAP', aml: 'AML Consolidation', fraud: 'Fraud Decisioning', all: 'All Tools' };
+
+function setChainDraftNotice(msg, ok) {
+  const el = document.getElementById('chainDraftNotice');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok ? 'var(--teal)' : 'var(--red)';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function sendChainDraft() {
+  if (!chain.length) return;
+  const target = new URL('workbench/canvas.html', window.location.href).href;
+  const win = window.open(target, '_blank');
+  if (!win) {
+    setChainDraftNotice('The Canvas window was blocked. Allow pop-ups for this site, or open the Canvas manually and add the tools from the palette.', false);
+    return;
+  }
+  const payload = { type: 'ain-handoff/v1', kind: 'chain-draft', tool_ids: chain.slice(), scenario_label: CHAIN_TAB_LABELS[activeChainType] || '' };
+  let sent = false;
+  let timer = null;
+  function onReady(ev) {
+    if (ev.origin !== window.location.origin) return;   // discard silently
+    if (ev.source !== win) return;
+    const d = ev.data;
+    if (!d || typeof d !== 'object' || d.type !== 'ain-handoff-ready/v1') return;
+    if (sent) return;
+    sent = true;
+    window.removeEventListener('message', onReady);
+    if (timer) clearTimeout(timer);
+    win.postMessage(payload, window.location.origin);
+    setChainDraftNotice('Sent to the Canvas in the new tab — ' + payload.tool_ids.length + ' step(s).', true);
+  }
+  window.addEventListener('message', onReady);
+  setChainDraftNotice('Opening the Canvas…', true);
+  timer = setTimeout(function () {
+    if (sent) return;
+    window.removeEventListener('message', onReady);
+    setChainDraftNotice('The Canvas did not answer. Open it manually and add the tools from the palette.', false);
+  }, 10000);
 }
 
 // ══════════════════════════════════════════════
