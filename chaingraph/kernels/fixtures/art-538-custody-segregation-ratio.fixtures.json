@@ -1,0 +1,125 @@
+{
+  "tool_id": "art-538-custody-segregation-ratio",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1: fully segregated across all asset classes (cash, securities, BTC), no ceiling configured. Vector 2: under-segregated -- a digital-asset (ETH) shortfall drags the overall ratio below 1.0 even though cash covers. Vector 3: zero-claims edge -- segregated assets on hand with no outstanding customer claims resolves segregation_ratio null, status NO_CLAIMS_OUTSTANDING, never a division artifact. Vector 4: over-segregation ceiling edge -- a configurable 1.5 ceiling trips OVER_SEGREGATED at 2.0x claims.",
+  "vectors": [
+    {
+      "name": "seeded_default_fully_segregated",
+      "description": "Cash + securities + one digital-asset symbol, segregated assets exceed customer claims in every asset class -- overall FULLY_SEGREGATED.",
+      "policy_parameters": {
+        "segregated_assets": [
+          { "asset_class": "cash", "custody_location_type": "qualified_custodian_bank", "amount_musd": 60 },
+          { "asset_class": "securities", "custody_location_type": "qualified_custodian_bank", "amount_musd": 30 },
+          { "asset_class": "BTC", "custody_location_type": "cold_storage_multisig", "amount_musd": 25 }
+        ],
+        "customer_claims": [
+          { "asset_class": "cash", "amount_musd": 50 },
+          { "asset_class": "securities", "amount_musd": 30 },
+          { "asset_class": "BTC", "amount_musd": 20 }
+        ],
+        "over_segregation_ceiling": null
+      },
+      "output_payload": {
+        "line_items": [
+          { "asset_class": "BTC", "segregated_custody_assets_musd": 25, "customer_claims_musd": 20, "segregation_ratio": 1.25, "status": "FULLY_SEGREGATED" },
+          { "asset_class": "cash", "segregated_custody_assets_musd": 60, "customer_claims_musd": 50, "segregation_ratio": 1.2, "status": "FULLY_SEGREGATED" },
+          { "asset_class": "securities", "segregated_custody_assets_musd": 30, "customer_claims_musd": 30, "segregation_ratio": 1, "status": "FULLY_SEGREGATED" }
+        ],
+        "total_segregated_musd": 115,
+        "total_claims_musd": 100,
+        "segregation_ratio": 1.15,
+        "status": "FULLY_SEGREGATED",
+        "over_segregation_ceiling": null,
+        "custody_location_breakdown": { "qualified_custodian_bank": 90, "cold_storage_multisig": 25 },
+        "formula": "segregation_ratio = segregated_custody_assets_musd / customer_claims_musd",
+        "note": "Generic, jurisdiction-neutral segregation check over caller-supplied aggregate totals only (no per-customer or per-wallet line item). Attests the computation over the inputs supplied, not an audit of their source or a determination of regulatory compliance."
+      },
+      "compliance_flags": ["OVERALL_FULLY_SEGREGATED"],
+      "golden_hash": "28dc6ca2a58ed2e19b8337f9d5b34cfb43e4095334017f696291fb488a0191ce"
+    },
+    {
+      "name": "under_segregated_shortfall",
+      "description": "Digital-asset class is short of claims (0.8x) while cash covers -- overall ratio pulled below 1.0, UNDER_SEGREGATED.",
+      "policy_parameters": {
+        "segregated_assets": [
+          { "asset_class": "cash", "custody_location_type": "qualified_custodian_bank", "amount_musd": 40 },
+          { "asset_class": "ETH", "custody_location_type": "cold_storage_multisig", "amount_musd": 16 }
+        ],
+        "customer_claims": [
+          { "asset_class": "cash", "amount_musd": 40 },
+          { "asset_class": "ETH", "amount_musd": 20 }
+        ],
+        "over_segregation_ceiling": null
+      },
+      "output_payload": {
+        "line_items": [
+          { "asset_class": "ETH", "segregated_custody_assets_musd": 16, "customer_claims_musd": 20, "segregation_ratio": 0.8, "status": "UNDER_SEGREGATED" },
+          { "asset_class": "cash", "segregated_custody_assets_musd": 40, "customer_claims_musd": 40, "segregation_ratio": 1, "status": "FULLY_SEGREGATED" }
+        ],
+        "total_segregated_musd": 56,
+        "total_claims_musd": 60,
+        "segregation_ratio": 0.9333,
+        "status": "UNDER_SEGREGATED",
+        "over_segregation_ceiling": null,
+        "custody_location_breakdown": { "qualified_custodian_bank": 40, "cold_storage_multisig": 16 },
+        "formula": "segregation_ratio = segregated_custody_assets_musd / customer_claims_musd",
+        "note": "Generic, jurisdiction-neutral segregation check over caller-supplied aggregate totals only (no per-customer or per-wallet line item). Attests the computation over the inputs supplied, not an audit of their source or a determination of regulatory compliance."
+      },
+      "compliance_flags": ["OVERALL_UNDER_SEGREGATED", "LINE_ITEM_UNDER_SEGREGATED_PRESENT"],
+      "golden_hash": "06d488ee06f5ab79471fe3298c818da07cebab3f26495ddb1fca3292601012be"
+    },
+    {
+      "name": "zero_claims_no_claims_outstanding",
+      "description": "Zero-claims edge case: a legacy cash line with segregated assets on hand but no outstanding customer claims resolves segregation_ratio null, status NO_CLAIMS_OUTSTANDING -- never a division artifact.",
+      "policy_parameters": {
+        "segregated_assets": [
+          { "asset_class": "cash", "custody_location_type": "qualified_custodian_bank", "amount_musd": 5 }
+        ],
+        "customer_claims": [],
+        "over_segregation_ceiling": null
+      },
+      "output_payload": {
+        "line_items": [
+          { "asset_class": "cash", "segregated_custody_assets_musd": 5, "customer_claims_musd": 0, "segregation_ratio": null, "status": "NO_CLAIMS_OUTSTANDING" }
+        ],
+        "total_segregated_musd": 5,
+        "total_claims_musd": 0,
+        "segregation_ratio": null,
+        "status": "NO_CLAIMS_OUTSTANDING",
+        "over_segregation_ceiling": null,
+        "custody_location_breakdown": { "qualified_custodian_bank": 5 },
+        "formula": "segregation_ratio = segregated_custody_assets_musd / customer_claims_musd",
+        "note": "Generic, jurisdiction-neutral segregation check over caller-supplied aggregate totals only (no per-customer or per-wallet line item). Attests the computation over the inputs supplied, not an audit of their source or a determination of regulatory compliance."
+      },
+      "compliance_flags": ["OVERALL_NO_CLAIMS_OUTSTANDING", "LINE_ITEM_NO_CLAIMS_OUTSTANDING_PRESENT"],
+      "golden_hash": "7a4364c77b6c8ded651a024874735e4080a5887357f6e8eccc514367abdb136c"
+    },
+    {
+      "name": "over_segregated_ceiling_edge",
+      "description": "A configurable ceiling of 1.5 is set; the cash line at 2.0x claims trips OVER_SEGREGATED both at the line-item and overall level.",
+      "policy_parameters": {
+        "segregated_assets": [
+          { "asset_class": "cash", "custody_location_type": "qualified_custodian_bank", "amount_musd": 20 }
+        ],
+        "customer_claims": [
+          { "asset_class": "cash", "amount_musd": 10 }
+        ],
+        "over_segregation_ceiling": 1.5
+      },
+      "output_payload": {
+        "line_items": [
+          { "asset_class": "cash", "segregated_custody_assets_musd": 20, "customer_claims_musd": 10, "segregation_ratio": 2, "status": "OVER_SEGREGATED" }
+        ],
+        "total_segregated_musd": 20,
+        "total_claims_musd": 10,
+        "segregation_ratio": 2,
+        "status": "OVER_SEGREGATED",
+        "over_segregation_ceiling": 1.5,
+        "custody_location_breakdown": { "qualified_custodian_bank": 20 },
+        "formula": "segregation_ratio = segregated_custody_assets_musd / customer_claims_musd",
+        "note": "Generic, jurisdiction-neutral segregation check over caller-supplied aggregate totals only (no per-customer or per-wallet line item). Attests the computation over the inputs supplied, not an audit of their source or a determination of regulatory compliance."
+      },
+      "compliance_flags": ["OVERALL_OVER_SEGREGATED", "LINE_ITEM_OVER_SEGREGATED_PRESENT"],
+      "golden_hash": "99e7c9eaf57fdab0053297fab84c1b5c7118fe3632b26a67d0059a4542cfd795"
+    }
+  ]
+}
