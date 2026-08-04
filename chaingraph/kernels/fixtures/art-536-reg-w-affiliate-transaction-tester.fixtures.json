@@ -1,0 +1,213 @@
+{
+  "tool_id": "art-536-reg-w-affiliate-transaction-tester",
+  "note": "golden_hash filled by golden-parity.test.mjs --update; output_payload verified against kernel compute() directly. Vector 1: both capital limits satisfied and collateral fully covers the one credit transaction -- auto_pass. Vector 2: a single affiliate's aggregate exposure exceeds the 10% single-affiliate capital limit -- escalate (a substantive quantitative-limit finding, never reject). Vector 3: within both capital limits but a covered credit transaction's collateral falls short of the required percentage -- review_required. Vector 4: no policy_parameters declared at all -- the KILL CONDITION, did_not_run rather than a guessed decision. Synthetic figures only; 12 CFR 223 codification year cited via policy_vintage (eCFR, as of 2026-01-01).",
+  "vectors": [
+    {
+      "name": "within_limits_collateral_covered_auto_pass",
+      "description": "Capital base 10,000,000. Single-affiliate limit 10% ($1,000,000), aggregate limit 20% ($2,000,000). One affiliate, two transactions totaling $500,000 (under both limits). One credit transaction requires 130% collateral coverage and is fully covered.",
+      "policy_parameters": {
+        "policy_vintage": "12 CFR 223, eCFR as of 2026-01-01",
+        "capital_base": 10000000,
+        "single_affiliate_limit_pct": 10,
+        "aggregate_affiliate_limit_pct": 20,
+        "collateral_coverage_required_pct": 130,
+        "transactions": [
+          {
+            "affiliate_id": "affiliate-alpha-holdings",
+            "transaction_id": "txn-0001",
+            "transaction_type": "credit",
+            "amount": 300000,
+            "collateral_value": 400000,
+            "market_terms_substantially_same": true
+          },
+          {
+            "affiliate_id": "affiliate-alpha-holdings",
+            "transaction_id": "txn-0002",
+            "transaction_type": "other",
+            "amount": 200000,
+            "collateral_value": null,
+            "market_terms_substantially_same": true
+          }
+        ]
+      },
+      "output_payload": {
+        "execution_state": "ran",
+        "decision": "auto_pass",
+        "reason": null,
+        "policy_vintage": "12 CFR 223, eCFR as of 2026-01-01",
+        "single_affiliate_tests": [
+          {
+            "affiliate_id": "affiliate-alpha-holdings",
+            "exposure": 500000,
+            "limit_amount": 1000000,
+            "breach": false
+          }
+        ],
+        "aggregate_test": {
+          "exposure": 500000,
+          "limit_amount": 2000000,
+          "breach": false
+        },
+        "collateral_tests": [
+          {
+            "transaction_id": "txn-0001",
+            "affiliate_id": "affiliate-alpha-holdings",
+            "amount": 300000,
+            "required_collateral_pct": 130,
+            "required_collateral": 390000,
+            "collateral_value": 400000,
+            "shortfall": false
+          }
+        ],
+        "market_terms_declarations": [
+          {
+            "transaction_id": "txn-0001",
+            "affiliate_id": "affiliate-alpha-holdings",
+            "market_terms_substantially_same": true
+          },
+          {
+            "transaction_id": "txn-0002",
+            "affiliate_id": "affiliate-alpha-holdings",
+            "market_terms_substantially_same": true
+          }
+        ]
+      },
+      "golden_hash": "16a2fbe3bcda74cf296c2bb3ec4969340196872c261458ef8e7357b3b023c835"
+    },
+    {
+      "name": "single_affiliate_limit_breach_escalate",
+      "description": "Same policy as vector 1. One affiliate's aggregate exposure is $1,200,000 -- over the $1,000,000 single-affiliate limit. No collateral shortfall. Capital-limit breach escalates regardless.",
+      "policy_parameters": {
+        "policy_vintage": "12 CFR 223, eCFR as of 2026-01-01",
+        "capital_base": 10000000,
+        "single_affiliate_limit_pct": 10,
+        "aggregate_affiliate_limit_pct": 20,
+        "collateral_coverage_required_pct": 130,
+        "transactions": [
+          {
+            "affiliate_id": "affiliate-alpha-holdings",
+            "transaction_id": "txn-0101",
+            "transaction_type": "other",
+            "amount": 1200000,
+            "collateral_value": null,
+            "market_terms_substantially_same": false
+          }
+        ]
+      },
+      "output_payload": {
+        "execution_state": "ran",
+        "decision": "escalate",
+        "reason": null,
+        "policy_vintage": "12 CFR 223, eCFR as of 2026-01-01",
+        "single_affiliate_tests": [
+          {
+            "affiliate_id": "affiliate-alpha-holdings",
+            "exposure": 1200000,
+            "limit_amount": 1000000,
+            "breach": true
+          }
+        ],
+        "aggregate_test": {
+          "exposure": 1200000,
+          "limit_amount": 2000000,
+          "breach": false
+        },
+        "collateral_tests": [],
+        "market_terms_declarations": [
+          {
+            "transaction_id": "txn-0101",
+            "affiliate_id": "affiliate-alpha-holdings",
+            "market_terms_substantially_same": false
+          }
+        ]
+      },
+      "golden_hash": "ca696bd13fc33e6ba11c9d6c1f3ef53f6ba1aedd33949833d11780ec664383ce"
+    },
+    {
+      "name": "collateral_shortfall_review_required",
+      "description": "Same policy as vector 1. Exposure ($400,000) is well within both capital limits. The one credit transaction requires 130% collateral ($520,000) but only $450,000 was posted -- a shortfall with no capital breach.",
+      "policy_parameters": {
+        "policy_vintage": "12 CFR 223, eCFR as of 2026-01-01",
+        "capital_base": 10000000,
+        "single_affiliate_limit_pct": 10,
+        "aggregate_affiliate_limit_pct": 20,
+        "collateral_coverage_required_pct": 130,
+        "transactions": [
+          {
+            "affiliate_id": "affiliate-beta-finco",
+            "transaction_id": "txn-0201",
+            "transaction_type": "credit",
+            "amount": 400000,
+            "collateral_value": 450000,
+            "market_terms_substantially_same": true
+          }
+        ]
+      },
+      "output_payload": {
+        "execution_state": "ran",
+        "decision": "review_required",
+        "reason": null,
+        "policy_vintage": "12 CFR 223, eCFR as of 2026-01-01",
+        "single_affiliate_tests": [
+          {
+            "affiliate_id": "affiliate-beta-finco",
+            "exposure": 400000,
+            "limit_amount": 1000000,
+            "breach": false
+          }
+        ],
+        "aggregate_test": {
+          "exposure": 400000,
+          "limit_amount": 2000000,
+          "breach": false
+        },
+        "collateral_tests": [
+          {
+            "transaction_id": "txn-0201",
+            "affiliate_id": "affiliate-beta-finco",
+            "amount": 400000,
+            "required_collateral_pct": 130,
+            "required_collateral": 520000,
+            "collateral_value": 450000,
+            "shortfall": true
+          }
+        ],
+        "market_terms_declarations": [
+          {
+            "transaction_id": "txn-0201",
+            "affiliate_id": "affiliate-beta-finco",
+            "market_terms_substantially_same": true
+          }
+        ]
+      },
+      "golden_hash": "216248b876a1ba23499e396b1c939d57d676abc8e53e6b3200d612d87e303308"
+    },
+    {
+      "name": "no_policy_declared_did_not_run",
+      "description": "No policy_parameters declared beyond a bare transaction list -- capital_base, both limit percentages, collateral_coverage_required_pct, and policy_vintage are all absent. The KILL CONDITION: the node refuses to guess a decision.",
+      "policy_parameters": {
+        "transactions": [
+          {
+            "affiliate_id": "affiliate-alpha-holdings",
+            "transaction_id": "txn-0301",
+            "transaction_type": "credit",
+            "amount": 100000,
+            "collateral_value": 100000,
+            "market_terms_substantially_same": true
+          }
+        ]
+      },
+      "output_payload": {
+        "execution_state": "did_not_run",
+        "decision": null,
+        "reason": "reg_w_policy_parameters_not_declared",
+        "policy_vintage": null,
+        "single_affiliate_tests": [],
+        "aggregate_test": null,
+        "collateral_tests": [],
+        "market_terms_declarations": []
+      },
+      "golden_hash": "cad79afa11470b19a604ea568a792f31a616c39d211fa2e8cb3b31b8facb0806"
+    }
+  ]
+}
