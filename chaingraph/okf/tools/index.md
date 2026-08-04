@@ -480,7 +480,11 @@ status: stable
 - [FDIC Part 370 Output-File Validator](./art-535-fdic370-output-file-validator.md) — `validate_fdic370_output_file`
 - [Reg W Affiliate Transaction Tester](./art-536-reg-w-affiliate-transaction-tester.md) — `test_reg_w_affiliate_transactions`
 - [QFC Part 371 Recordkeeping File Validator](./art-537-qfc-recordkeeping-file-validator.md) — `validate_qfc_recordkeeping_file`
+- [Custody Segregation Ratio](./art-538-custody-segregation-ratio.md) — `compute_custody_segregation_ratio`
+- [Asset/Liability Coverage](./art-539-asset-liability-coverage.md) — `compute_asset_liability_coverage`
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`
+- [PoR Liabilities Composer](./art-540-por-liabilities-composer.md) — `compute_por_liabilities_composite`
+- [Best-Execution NBBO Recompute](./art-541-best-execution-recompute.md) — `recompute_best_execution`
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`
 - [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`
 - [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md) — `validate_deposit_token_compliance`
