@@ -480,6 +480,7 @@ import * as art537    from './art-537-qfc-recordkeeping-file-validator.kernel.mj
 import * as art538    from './art-538-custody-segregation-ratio.kernel.mjs';
 import * as art539    from './art-539-asset-liability-coverage.kernel.mjs';
 import * as art54     from './art-54-digital-trade-rules-checker.kernel.mjs';
+import * as art540    from './art-540-por-liabilities-composer.kernel.mjs';
 import * as art544    from './art-544-slate-report-validator.kernel.mjs';
 import * as art549    from './art-549-g20-corridor-cost-gap.kernel.mjs';
 import * as art55     from './art-55-trade-document-provenance-verifier.kernel.mjs';
@@ -1025,6 +1026,7 @@ export const KERNELS = {
   'art-538-custody-segregation-ratio':                        art538,
   'art-539-asset-liability-coverage':                         art539,
   'art-54-digital-trade-rules-checker':                       art54,
+  'art-540-por-liabilities-composer':                         art540,
   'art-544-slate-report-validator':                           art544,
   'art-549-g20-corridor-cost-gap':                            art549,
   'art-55-trade-document-provenance-verifier':                art55,
