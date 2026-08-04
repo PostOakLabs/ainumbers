@@ -468,7 +468,12 @@ status: stable
 - [Source Arrival & Freshness Register](./art-524-source-arrival-freshness-register.md) — `register_source_arrival_freshness`
 - [N-Way Balance Closure Check](./art-525-nway-balance-closure-check.md) — `check_nway_balance_closure`
 - [Report-to-General-Ledger Reconciliation](./art-526-report-gl-reconciliation.md) — `reconcile_report_to_general_ledger`
+- [Cross-CCP PQD Comparator](./art-528-cross-ccp-pqd-comparator.md) — `compare_cross_ccp_pqd_fields`
+- [CCP Default Waterfall Recomputation](./art-529-ccp-default-waterfall-recompute.md) — `recompute_ccp_default_waterfall`
 - [MLETR / eBL Conformance & Enforceability Validator](./art-53-mletr-ebl-conformance-validator.md) — `validate_mletr_record`
+- [CCP Default Fund Cover-2 Sizing](./art-530-default-fund-cover2-sizing.md) — `size_ccp_default_fund_cover2`
+- [Member Margin Call Lifecycle](./art-531-member-margin-call-lifecycle.md) — `attest_margin_call_lifecycle`
+- [Client Porting Check](./art-532-client-porting-check.md) — `check_client_porting`
 - [Digital Trade Rules Compliance Checker](./art-54-digital-trade-rules-checker.md) — `check_digital_trade_rules`
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`
 - [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`

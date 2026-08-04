@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (526 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (531 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5476,6 +5476,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-528-cross-ccp-pqd-comparator",
+    "display_name": "Cross-CCP PQD Comparator",
+    "mandate_type": "regulatory_reporting",
+    "url": "https://ainumbers.co/chaingraph/art-528-cross-ccp-pqd-comparator.html",
+    "description": "Compares a caller-selected set of CPMI-IOSCO public quantitative disclosure (PQD) fields across FICC and ICE using a manually-transcribed, s",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-529-ccp-default-waterfall-recompute",
+    "display_name": "CCP Default Waterfall Recomputation",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-529-ccp-default-waterfall-recompute.html",
+    "description": "Recomputes the sequential loss-allocation order at a CCP defaulting-member event: defaulter's initial margin, then the defaulter's default-f",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-53-mletr-ebl-conformance-validator",
     "display_name": "MLETR / eBL Conformance & Enforceability Validator",
     "mandate_type": "compliance_mandate",
@@ -5489,6 +5509,38 @@ window.CHAINBUILDER_CATALOG = [
       "cry-04-merkle-batch-verifier",
       "ml-02-credit-default-risk-scorer"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-530-default-fund-cover2-sizing",
+    "display_name": "CCP Default Fund Cover-2 Sizing",
+    "mandate_type": "risk_parameter",
+    "url": "https://ainumbers.co/chaingraph/art-530-default-fund-cover2-sizing.html",
+    "description": "Sizes a CCP default fund under the PFMI Principle 4 \"Cover 2\" standard: fund size must be at least the largest plus second-largest clearing-",
+    "consumes": [
+      "qfa-03-stress-test-engine"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-531-member-margin-call-lifecycle",
+    "display_name": "Member Margin Call Lifecycle",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-531-member-margin-call-lifecycle.html",
+    "description": "Tracks a clearing member's margin call through its declared lifecycle states -- issued, confirmed, funded, or disputed and escalated as a co",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-532-client-porting-check",
+    "display_name": "Client Porting Check",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-532-client-porting-check.html",
+    "description": "Checks whether a client's cleared positions and collateral are portable to a backup clearing member under a caller-declared porting window, ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

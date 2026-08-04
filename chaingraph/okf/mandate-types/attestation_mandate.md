@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "attestation_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"attestation_mandate\"."
-tags: ["attestation_mandate", "count-24"]
+tags: ["attestation_mandate", "count-26"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # attestation_mandate
 
-24 tool(s) in this mandate-type group:
+26 tool(s) in this mandate-type group:
 
 - [On-Chain Cash-Leg Finality Checker](../tools/506-onchain-cash-leg-finality-checker.md)
 - [GENIUS Act Reserve Attestation Pre-Check](../tools/art-06-genius-act-reserve-attestation.md)
@@ -36,3 +36,5 @@ status: stable
 - [Payment Data Migration Completeness](../tools/art-519-payment-data-migration-completeness.md)
 - [Operator Exit & Data Portability](../tools/art-520-operator-exit-data-portability.md)
 - [Report-to-General-Ledger Reconciliation](../tools/art-526-report-gl-reconciliation.md)
+- [Member Margin Call Lifecycle](../tools/art-531-member-margin-call-lifecycle.md)
+- [Client Porting Check](../tools/art-532-client-porting-check.md)

@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "risk_parameter"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"risk_parameter\"."
-tags: ["risk_parameter", "count-6"]
+tags: ["risk_parameter", "count-7"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,10 +10,11 @@ status: stable
 
 # risk_parameter
 
-6 tool(s) in this mandate-type group:
+7 tool(s) in this mandate-type group:
 
 - [FICC Margin & Netting Estimator](../tools/art-50-ficc-margin-netting-estimator.md)
 - [FICC-CME Cross-Margining Estimator](../tools/art-51-cross-margining-benefit-estimator.md)
+- [CCP Default Fund Cover-2 Sizing](../tools/art-530-default-fund-cover2-sizing.md)
 - [Options Greeks Calculator](../tools/qfa-01-options-greeks.md)
 - [Stress Test Engine](../tools/qfa-03-stress-test-engine.md)
 - [XVA / CVA Calculator](../tools/qfa-04-xva-cva-calculator.md)
