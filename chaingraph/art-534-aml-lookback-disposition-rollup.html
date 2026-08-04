@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AML Lookback Disposition Rollup &middot; ART-534 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Roll up an AML consent-order lookback's per-sampled-item dispositions: coverage, rationale presence, and a population-to-sample tie-out. ZERO PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-534-aml-lookback-disposition-rollup.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="text"],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{min-height:150px;resize:vertical}
+input:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.neutral{background:rgba(58,82,112,.18);color:var(--body);border:1px solid var(--border-2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.verdict-sub{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);text-align:center;margin-bottom:8px}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table{width:100%;border-collapse:collapse;font-size:.68rem;margin-top:8px}
+th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.4rem .55rem;border-bottom:1px solid var(--border);text-align:left}
+td{padding:.4rem .55rem;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+tr:hover td{background:var(--bg-3)}
+.demo-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--border-2);color:var(--body);padding:.4rem .8rem;border-radius:var(--radius);cursor:pointer;margin-right:.5rem}
+.demo-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-534 · AML Lookback Disposition Rollup</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-534 &middot; AML Consent-Order Lookback &middot; Disposition Closure</div>
+  <h1>AML Lookback Disposition Rollup</h1>
+  <p class="sub">A completeness reconciler proves the re-screening extract was complete. A sampling-frame builder draws a deterministic sample of the resulting dispositions for independent review. Neither one checks that a disposition was actually recorded for every sampled item, that a filed or no-SAR call carries a rationale, or that the sample's declared population still ties out to the completeness population. This node rolls those three checks up and emits one gate-policy verdict.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Closes art-470 &rarr; art-471</span>
+    <span class="flag">&sect;27.4 Gate Policy</span>
+    <span class="flag warn">&sect;25 Salted Identifiers Only</span>
+  </div>
+  <div class="pii-notice">&#128274; All computation runs locally in your browser. No data is transmitted. Do not enter real personal data, use synthetic or anonymised inputs only. Customer id and alert id must already be sha256-salted@1 commitment strings; this tool never accepts or displays plaintext identifiers.</div>
+
+  <div class="card">
+    <div class="q">
+      <label class="q-label" for="lbIdInput">Lookback id</label>
+      <input type="text" id="lbIdInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="closeDateInput">Lookback declared close date</label>
+      <div class="q-help">Missing dispositions are only escalated once the evaluation date below is on or after this date.</div>
+      <input type="text" id="closeDateInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="asOfInput">Evaluation date (as_of)</label>
+      <input type="text" id="asOfInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="popInput">Population size (art-470's declared population)</label>
+      <input type="text" id="popInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="framePopInput">Sample frame's declared population size (art-471)</label>
+      <div class="q-help">Must equal the population size above, or the rollup holds on an unresolved tie-out.</div>
+      <input type="text" id="framePopInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label" for="frameSizeInput">Sample frame size (art-471's sample_size)</label>
+      <input type="text" id="frameSizeInput" value="">
+    </div>
+    <div class="q">
+      <label class="q-label">Sampled item dispositions (JSON array)</label>
+      <div class="q-help">Each entry is <code>{"customer_id","alert_id","disposition","rationale_reference"}</code>. <code>customer_id</code>/<code>alert_id</code> must already be <code>sha256:</code>-prefixed sha256-salted@1 commitments &ndash; never a plaintext id. <code>disposition</code> is one of <code>sar_filed</code> / <code>no_sar</code> / <code>escalated</code>.</div>
+      <textarea id="itemsInput"></textarea>
+    </div>
+    <div style="margin-top:20px">
+      <button class="demo-btn" onclick="loadCleanDemo()">Load clean demo</button>
+      <button class="demo-btn" onclick="loadTieOutDemo()">Load tie-out mismatch demo</button>
+      <button class="demo-btn" onclick="loadEscalateDemo()">Load missing-disposition demo</button>
+      <button onclick="runRollup()">&#9654; Run Rollup</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="verdict-sub" id="verdictSub"></div>
+      <div class="generated-at" id="generatedAt"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Sampled item dispositions</div>
+      <table>
+        <thead><tr><th>#</th><th>Identity</th><th>Disposition</th><th>Rationale required</th><th>Rationale ok</th></tr></thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+
+      <div class="section-head" style="margin-top:14px">Notes</div>
+      <div id="notesBox" style="font-family:'JetBrains Mono',monospace;font-size:.68rem"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-534-aml-lookback-disposition-rollup',
+  version: '1.0.0',
+  mcp_name: 'roll_up_aml_lookback_disposition',
+  title: 'AML Lookback Disposition Rollup',
+  description: 'Rolls up disposition-coverage, disposition-rationale-presence, and a population-to-sample tie-out for an AML consent-order lookback, closing the gap art-470 (lookback-completeness-reconciler) and art-471 (disposition-sampling-frame) leave open. Emits a §27.4 gate-policy value at output_payload.decision.gate_policy with a sibling execution_state.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'AML consent-order lookback remediation; generalizes art-470/art-471 outputs',
+  mcp_tool_definition: {
+    name: 'roll_up_aml_lookback_disposition',
+    description: 'Evaluates disposition coverage, rationale presence, and a population-to-sample tie-out over an AML lookback sample frame and returns a §27.4 gate-policy decision.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        lookback_id: { type: 'string' },
+        lookback_close_date: { type: 'string' },
+        as_of: { type: 'string' },
+        population_size: { type: 'integer' },
+        sample_frame_population_size: { type: 'integer' },
+        sample_frame_size: { type: 'integer' },
+        sampled_items: { type: 'array', items: { type: 'object', properties: { customer_id: { type: 'string' }, alert_id: { type: 'string' }, disposition: { type: 'string', enum: ['sar_filed', 'no_sar', 'escalated'] }, rationale_reference: { type: 'string' } }, required: ['customer_id', 'alert_id'] } },
+        sampling_frame_discrepancy_flag: { type: 'boolean' },
+      },
+      required: ['lookback_close_date', 'population_size', 'sample_frame_population_size', 'sample_frame_size'],
+    },
+  },
+};
+
+var COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
+var DISPOSITIONS = ['sar_filed', 'no_sar', 'escalated'];
+var RATIONALE_REQUIRED = ['sar_filed', 'no_sar'];
+var _lastResult = null;
+
+function s(v){ return typeof v === 'string' ? v.trim() : ''; }
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function isSafeNonNegInt(v){ return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0; }
+function isoDateOrNull(v){
+  if (typeof v !== 'string' || v.trim().length === 0) return null;
+  var t = Date.parse(v);
+  return isFinite(t) ? v : null;
+}
+
+function emptyResult(reason, base, flags){
+  return {
+    output_payload: {
+      decision: { gate_policy: 'hold', execution_state: 'did_not_run', reason: reason },
+      lookback_id: base.lookback_id || null,
+      lookback_close_date: base.lookback_close_date || null,
+      as_of: base.as_of || null,
+      population_size: (typeof base.population_size === 'number') ? base.population_size : null,
+      sample_frame_population_size: (typeof base.sample_frame_population_size === 'number') ? base.sample_frame_population_size : null,
+      sample_frame_size: (typeof base.sample_frame_size === 'number') ? base.sample_frame_size : null,
+      population_tie_out_holds: false,
+      sampling_frame_discrepancy_flag: base.sampling_frame_discrepancy_flag === true,
+      sampled_item_count: 0,
+      disposition_coverage_pct: null,
+      missing_disposition_count: 0,
+      rationale_presence_pct: null,
+      items_missing_rationale: [],
+      items: [],
+      rejected_inputs: base.rejected_inputs || [],
+    },
+    compliance_flags: flags,
+  };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var lookback_id = isNonEmptyString(pp.lookback_id) ? pp.lookback_id.trim() : null;
+
+  var lookback_close_date = isoDateOrNull(pp.lookback_close_date);
+  if (pp.lookback_close_date !== undefined && lookback_close_date === null){
+    rejected_inputs.push({ where: 'lookback_close_date', reason: 'not a parseable ISO-8601 date', supplied: String(pp.lookback_close_date) });
+  }
+  var as_of = isoDateOrNull(pp.as_of);
+  if (pp.as_of !== undefined && as_of === null){
+    rejected_inputs.push({ where: 'as_of', reason: 'not a parseable ISO-8601 date', supplied: String(pp.as_of) });
+  }
+
+  var population_size = isSafeNonNegInt(pp.population_size) ? pp.population_size : null;
+  if (!isSafeNonNegInt(pp.population_size)) rejected_inputs.push({ where: 'population_size', reason: 'absent or not a non-negative safe integer', supplied: pp.population_size === undefined ? null : pp.population_size });
+
+  var sample_frame_population_size = isSafeNonNegInt(pp.sample_frame_population_size) ? pp.sample_frame_population_size : null;
+  if (!isSafeNonNegInt(pp.sample_frame_population_size)) rejected_inputs.push({ where: 'sample_frame_population_size', reason: 'absent or not a non-negative safe integer', supplied: pp.sample_frame_population_size === undefined ? null : pp.sample_frame_population_size });
+
+  var sample_frame_size = isSafeNonNegInt(pp.sample_frame_size) ? pp.sample_frame_size : null;
+  if (!isSafeNonNegInt(pp.sample_frame_size)) rejected_inputs.push({ where: 'sample_frame_size', reason: 'absent or not a non-negative safe integer', supplied: pp.sample_frame_size === undefined ? null : pp.sample_frame_size });
+
+  var base = { lookback_id: lookback_id, lookback_close_date: lookback_close_date, as_of: as_of, population_size: population_size, sample_frame_population_size: sample_frame_population_size, sample_frame_size: sample_frame_size, sampling_frame_discrepancy_flag: pp.sampling_frame_discrepancy_flag === true, rejected_inputs: rejected_inputs };
+
+  if (!lookback_close_date || population_size === null || sample_frame_population_size === null || sample_frame_size === null){
+    return emptyResult('required_lookback_or_frame_input_not_declared', base, ['AML_ROLLUP_REQUIRED_INPUT_NOT_DECLARED']);
+  }
+
+  var itemsIn = Array.isArray(pp.sampled_items) ? pp.sampled_items : [];
+  if (itemsIn.length > sample_frame_size){
+    rejected_inputs.push({ where: 'sampled_items', reason: 'more items supplied than the declared sample_frame_size', supplied: itemsIn.length });
+  }
+
+  var items = [];
+  var missing_disposition_count = 0;
+  var with_disposition_count = 0;
+  var requires_rationale_count = 0;
+  var has_rationale_count = 0;
+  var items_missing_rationale = [];
+
+  for (var i = 0; i < itemsIn.length; i++){
+    var row = itemsIn[i] || {};
+    var customer_id = typeof row.customer_id === 'string' ? row.customer_id : '';
+    var alert_id = typeof row.alert_id === 'string' ? row.alert_id : '';
+    var customer_id_valid = COMMITMENT_RE.test(customer_id);
+    var alert_id_valid = COMMITMENT_RE.test(alert_id);
+    if (!customer_id_valid) rejected_inputs.push({ where: 'sampled_items[' + i + '].customer_id', reason: 'expected a §25 sha256-salted@1 commitment (sha256:<64-hex>), not plaintext', supplied: null });
+    if (!alert_id_valid) rejected_inputs.push({ where: 'sampled_items[' + i + '].alert_id', reason: 'expected a §25 sha256-salted@1 commitment (sha256:<64-hex>), not plaintext', supplied: null });
+
+    var disposition = DISPOSITIONS.indexOf(row.disposition) !== -1 ? row.disposition : null;
+    var rationale_reference = isNonEmptyString(row.rationale_reference) ? row.rationale_reference.trim() : null;
+    var identity_ok = customer_id_valid && alert_id_valid;
+    var has_disposition = identity_ok && disposition !== null;
+    var requires_rationale = has_disposition && RATIONALE_REQUIRED.indexOf(disposition) !== -1;
+    var has_rationale = requires_rationale && rationale_reference !== null;
+
+    if (has_disposition) with_disposition_count++; else missing_disposition_count++;
+    if (requires_rationale){
+      requires_rationale_count++;
+      if (has_rationale) has_rationale_count++;
+      else items_missing_rationale.push(alert_id_valid ? alert_id : ('sampled_items[' + i + ']'));
+    }
+
+    items.push({ index: i, identity_ok: identity_ok, disposition: disposition, has_rationale_reference: rationale_reference !== null, rationale_required: requires_rationale, rationale_ok: !requires_rationale || has_rationale });
+  }
+  missing_disposition_count += Math.max(0, sample_frame_size - itemsIn.length);
+
+  var disposition_coverage_pct = sample_frame_size > 0 ? Math.round((with_disposition_count / sample_frame_size) * 10000) / 100 : 100;
+  var rationale_presence_pct = requires_rationale_count > 0 ? Math.round((has_rationale_count / requires_rationale_count) * 10000) / 100 : 100;
+
+  var population_tie_out_holds = population_size === sample_frame_population_size;
+  var sampling_frame_discrepancy_flag = pp.sampling_frame_discrepancy_flag === true;
+
+  var full_coverage = missing_disposition_count === 0;
+  var rationale_complete = items_missing_rationale.length === 0;
+  var closeDatePassed = as_of !== null && as_of >= lookback_close_date;
+
+  var compliance_flags = ['AML_LOOKBACK_DISPOSITION_ROLLUP_EVALUATED'];
+  if (!population_tie_out_holds) compliance_flags.push('AML_POPULATION_TO_SAMPLE_TIE_OUT_FAILED');
+  if (sampling_frame_discrepancy_flag) compliance_flags.push('AML_SAMPLING_FRAME_DISCREPANCY_DECLARED');
+  if (!full_coverage) compliance_flags.push('AML_DISPOSITION_COVERAGE_INCOMPLETE');
+  if (!rationale_complete) compliance_flags.push('AML_DISPOSITION_RATIONALE_MISSING');
+  if (rejected_inputs.length > 0) compliance_flags.push('AML_ROLLUP_INPUTS_REJECTED');
+
+  var gate_policy, execution_state = 'ran', reason = null;
+  if (!population_tie_out_holds || sampling_frame_discrepancy_flag){
+    gate_policy = 'hold';
+    reason = !population_tie_out_holds ? 'population_to_sample_tie_out_failed' : 'sampling_frame_discrepancy_declared';
+  } else if (!full_coverage && closeDatePassed){
+    gate_policy = 'escalate';
+    reason = 'missing_disposition_past_lookback_close_date';
+    compliance_flags.push('AML_MISSING_DISPOSITION_PAST_CLOSE_DATE');
+  } else if (!full_coverage || !rationale_complete){
+    gate_policy = 'review_required';
+    reason = !full_coverage ? 'disposition_coverage_incomplete' : 'disposition_rationale_missing';
+  } else {
+    gate_policy = 'auto_pass';
+    compliance_flags.push('AML_LOOKBACK_DISPOSITION_ROLLUP_CLEAN');
+  }
+
+  return {
+    output_payload: {
+      decision: { gate_policy: gate_policy, execution_state: execution_state, reason: reason },
+      lookback_id: lookback_id, lookback_close_date: lookback_close_date, as_of: as_of,
+      population_size: population_size, sample_frame_population_size: sample_frame_population_size, sample_frame_size: sample_frame_size,
+      population_tie_out_holds: population_tie_out_holds, sampling_frame_discrepancy_flag: sampling_frame_discrepancy_flag,
+      sampled_item_count: itemsIn.length,
+      disposition_coverage_pct: disposition_coverage_pct, missing_disposition_count: missing_disposition_count,
+      rationale_presence_pct: rationale_presence_pct, items_missing_rationale: items_missing_rationale,
+      items: items, rejected_inputs: rejected_inputs,
+    },
+    compliance_flags: compliance_flags,
+  };
+}
+
+function demoItems(){
+  return [
+    { customer_id: 'sha256:' + Array(65).join('a'), alert_id: 'sha256:' + Array(65).join('b'), disposition: 'no_sar', rationale_reference: 'REVIEW-NOTE-0001' },
+    { customer_id: 'sha256:' + Array(65).join('c'), alert_id: 'sha256:' + Array(65).join('d'), disposition: 'sar_filed', rationale_reference: 'SAR-FILING-REF-9931' }
+  ];
+}
+function setDemo(pop, framePop, frameSize, items){
+  document.getElementById('lbIdInput').value = 'LB-2026-CONSENT-ORDER-7';
+  document.getElementById('closeDateInput').value = '2026-06-30';
+  document.getElementById('asOfInput').value = '2026-07-15';
+  document.getElementById('popInput').value = String(pop);
+  document.getElementById('framePopInput').value = String(framePop);
+  document.getElementById('frameSizeInput').value = String(frameSize);
+  document.getElementById('itemsInput').value = JSON.stringify(items, null, 2);
+}
+function loadCleanDemo(){ setDemo(500, 500, 2, demoItems()); }
+function loadTieOutDemo(){ setDemo(500, 480, 2, demoItems()); }
+function loadEscalateDemo(){ setDemo(500, 500, 2, [demoItems()[0]]); }
+
+function parseJsonArray(text){
+  if (s(text) === '') return [];
+  try { var v = JSON.parse(text); return Array.isArray(v) ? v : null; } catch(e){ return null; }
+}
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+function esc(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function runRollup(){
+  var items = parseJsonArray(document.getElementById('itemsInput').value);
+  if (items === null){ alert('Sampled item dispositions must be a valid JSON array.'); return; }
+
+  function intOrRaw(id){ var raw = s(document.getElementById(id).value); if (raw === '') return undefined; var n = Number(raw); return Number.isSafeInteger(n) ? n : raw; }
+
+  var pp = {
+    lookback_id: s(document.getElementById('lbIdInput').value),
+    lookback_close_date: s(document.getElementById('closeDateInput').value),
+    as_of: s(document.getElementById('asOfInput').value),
+    population_size: intOrRaw('popInput'),
+    sample_frame_population_size: intOrRaw('framePopInput'),
+    sample_frame_size: intOrRaw('frameSizeInput'),
+    sampled_items: items,
+  };
+
+  var res = compute(pp);
+  var op = res.output_payload;
+  var generatedAt = new Date().toISOString();
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: res.compliance_flags, generatedAt: generatedAt };
+
+  var state = op.decision.execution_state;
+  var policy = op.decision.gate_policy;
+  var pass = policy === 'auto_pass' && state === 'ran';
+  var color = pass ? 'var(--green)' : (policy === 'hold' || state === 'did_not_run' ? 'var(--warn)' : (policy === 'escalate' ? 'var(--red)' : 'var(--warn)'));
+  var bg = pass ? 'rgba(34,197,94,.08)' : (policy === 'escalate' ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = policy.toUpperCase() + ' · ' + state.toUpperCase();
+  document.getElementById('verdictSub').textContent = op.decision.reason ? ('reason: ' + op.decision.reason) : 'Full coverage, rationale present on every filed/no-SAR item, population tied out.';
+  document.getElementById('generatedAt').textContent = 'generated_at ' + generatedAt;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.sampled_item_count + '</span><span class="stat-key">Items Supplied</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.disposition_coverage_pct === null ? 'n/a' : op.disposition_coverage_pct + '%') + '</span><span class="stat-key">Coverage</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.rationale_presence_pct === null ? 'n/a' : op.rationale_presence_pct + '%') + '</span><span class="stat-key">Rationale Present</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:' + (op.population_tie_out_holds ? 'var(--green)' : 'var(--red)') + '">' + (op.population_tie_out_holds ? 'HOLDS' : 'BREAK') + '</span><span class="stat-key">Tie-Out</span></div>';
+
+  document.getElementById('itemsBody').innerHTML = op.items.length === 0
+    ? '<tr><td colspan="5">No items supplied.</td></tr>'
+    : op.items.map(function(it){
+        return '<tr><td>' + it.index + '</td><td><span class="badge ' + (it.identity_ok ? 'ok' : 'fail') + '">' + (it.identity_ok ? 'VALID' : 'INVALID') + '</span></td><td>' + (it.disposition || '&ndash;') + '</td><td>' + (it.rationale_required ? 'yes' : 'no') + '</td><td><span class="badge ' + (it.rationale_ok ? 'ok' : 'fail') + '">' + (it.rationale_ok ? 'OK' : 'MISSING') + '</span></td></tr>';
+      }).join('');
+
+  var notes = '';
+  notes += '<div>Missing dispositions: ' + op.missing_disposition_count + ' of ' + op.sample_frame_size + ' declared frame item(s).</div>';
+  notes += '<div>Items missing a required rationale: ' + (op.items_missing_rationale.length ? esc(op.items_missing_rationale.join(', ')) : 'none') + '</div>';
+  if (op.rejected_inputs.length > 0) notes += '<div style="margin-top:6px;color:var(--warn)">Rejected inputs: ' + esc(op.rejected_inputs.map(function(r){ return r.where + ' (' + r.reason + ')'; }).join('; ')) + '</div>';
+  notes += '<div style="margin-top:8px;color:var(--muted)">escalate and review_required route to their own steps and never block the chain directly; hold suspends pending a human act on the tie-out or the discrepancy flag.</div>';
+  document.getElementById('notesBox').innerHTML = notes;
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h===cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-534-aml-lookback-disposition-rollup',tool_version:'1.0.0',generated_at:_lastResult.generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-534-aml-lookback-disposition-rollup.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display==='none' || !b.style.display){ b.style.display='block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display='none'; }
+}
+
+loadTieOutDemo();
+</script>
+</body>
+</html>
