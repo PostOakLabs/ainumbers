@@ -2228,16 +2228,24 @@ project's public material as of the observation date; the remaining members of e
 mapped** and are deliberately left blank rather than guessed. A blank is an unmapped field, never an
 asserted absence.
 
-| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA |
-|---|---|---|---|
-| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` |
-| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member |
-| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) |
-| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" |
-| §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles |
-| §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus |
+| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA | SCITT (RFC 9943 architecture + RFC 9942 COSE Receipts) |
+|---|---|---|---|---|
+| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` | — (unmapped; a SCITT Signed Statement's payload is issuer-chosen claims, not a fixed input-hash field — this exporter carries `execution_hash` there instead, see format notes) |
+| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member | — (unmapped; SCITT is a registration/transparency-log model, not a peer-to-peer hash chain — see format notes) |
+| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) | COSE protected header `cwt-claims` (label 15, RFC 9597) `iss` (claim 1) |
+| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" | COSE_Sign1 (RFC 9052) over the protected header + payload; ES256 or EdDSA |
+| §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles | COSE Receipt (RFC 9942) — transparency-service inclusion proof, RFC 9162 Merkle combine/audit-path algorithm |
+| §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus | — (unmapped) |
 
-**Format notes.** *AGT* is a DRAFT — the draft label is retained deliberately and the mapping MUST be
+**Format notes.** *SCITT* is architecturally different from the other three: it is a **registration/transparency-log
+model** — an issuer submits a COSE_Sign1 Signed Statement to a transparency service, which returns a COSE Receipt
+proving the statement's inclusion in an append-only Merkle log — rather than a self-contained receipt or a
+peer-linked hash chain. Both SCITT documents are **published RFCs, not drafts**: architecture = RFC 9943, COSE
+Receipts = RFC 9942 (verified against rfc-editor.org 2026-08-05; supersedes any reference to
+`draft-ietf-scitt-architecture-22`, the pre-publication number). `repo/scripts/export-scitt.mjs` is a zero-dep
+interop exporter/verifier — OCG artifact to Signed Statement, plus RFC 9942 receipt inclusion-proof verification —
+proven via its own `selftest` command; it has not yet been exercised against a live transparency service
+(external registration is FLAG-AND-WAIT, unauthorized spend of a third-party account). *AGT* is a DRAFT — the draft label is retained deliberately and the mapping MUST be
 re-verified before any downstream use; its receipt is a 12-field structure of which the rows above are the
 verified subset. *agent-receipts* carries a proof-suite delta worth stating: it uses `Ed25519Signature2020`
 where §16 uses `eddsa-jcs-2022`. Both are Ed25519 over a canonical form, so the key type is shared, but the
