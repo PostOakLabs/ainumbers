@@ -2057,6 +2057,69 @@ identifier, and RFC 6920 continuity is cited as prior art for that framing.
 contract only: it adds no field to any artifact, does not appear in the §4 preimage, and a deployment that
 never emits a CID is fully conformant.
 
+## §HEAD-1 Head-commit primitive (NORMATIVE, OPTIONAL — additive, lands at the coordinated record bump)
+OCG's artifact envelope (§1) is immutable and content-addressed by construction — it has no notion of
+"the current tip" of an evolving stream (a NAV series, a policy revision history, an application's
+state). §HEAD-1 adds that missing mutable-tip object, ATProto-commit shaped, JCS-canonical,
+self-contained, and orthogonal to §1: nothing here changes the artifact envelope, the §4 preimage, or
+`chaingraph_version` (stays `"0.4.0"`). A deployment that never emits a head-commit is fully conformant.
+
+**§HEAD-1.0 Shape (NORMATIVE).**
+```json
+{ "head_version": "1", "stream": "<origin string, C2SP namespace-not-locator semantics>",
+  "signer": "did:key:<ed25519>", "seq": 42, "prev_head_hash": "sha256:<hex> or null at genesis",
+  "root": "sha256:<execution_hash of the tip artifact>", "root_cid": "b... (OPTIONAL, §CID-1 form)",
+  "timestamp": "<RFC3339>", "proof": { "...eddsa-jcs-2022, §16 suite..." } }
+```
+`stream` is an opaque origin identifier (a namespace, not a network locator) — §HEAD-1 makes no claim
+about how a verifier discovers where to fetch the next head for a given `stream`; that is the backing
+ladder's job (§HEAD-1.3). `root_cid` is OPTIONAL and, when present, MUST be the §CID-1 encoding of the
+same digest as `root`; a deployment landing before §CID-1 keeps it reserved-optional (simply omitted).
+
+**§HEAD-1.1 Hash and proof (NORMATIVE).** `head_hash` (referenced by a subsequent head's
+`prev_head_hash`, and by the equivocation check in §HEAD-1.4) = JCS-SHA-256 over the object **minus**
+`proof` — the ONE canonical hash path (`_hash.mjs` `cgCanon`; §HEAD-1 MUST NOT introduce a second
+canonicalization). `head_hash` is a derived value, not a stored field — exactly like `execution_hash`
+is derived rather than embedded in its own preimage. `proof` is a **§16 `eddsa-jcs-2022`** Data
+Integrity proof secured over the same proof-stripped document, with one placement difference from
+§16: a head-commit has no `audit_signature` wrapper, so `proof` sits directly at the object's own top
+level. A head is self-attesting: `proof.verificationMethod` MUST equal the head's own `signer`.
+
+**§HEAD-1.2 Verification laws (NORMATIVE).** Given an ordered sequence of heads for one `stream`:
+- **seq** MUST strictly increase across the sequence; the first head (genesis) MUST have `seq: 0` and
+  `prev_head_hash: null`.
+- **prev_head_hash** MUST chain: each head's `prev_head_hash` MUST equal the §HEAD-1.1 `head_hash` of
+  the immediately preceding head.
+- **signer continuity**: each head's `signer` MUST equal the preceding head's `signer`, UNLESS the
+  preceding head is an explicit **rotation head** — it carries an OPTIONAL `rotates_to` member naming
+  the new `did:key`, and is itself still signed by the OLD key. A signer change with no matching
+  `rotates_to` on the prior head is a verification FAILURE, not a silent transition. (KERI
+  pre-rotation is cited as the design lineage for this pattern; §HEAD-1 does not import KERI code —
+  this is a single-step "old key vouches for new key" primitive, not full pre-rotation.)
+- Each head's `proof` MUST independently verify per §HEAD-1.1.
+
+**§HEAD-1.3 Backing ladder (NORMATIVE).** A head-commit's durability claim depends on where it is
+published — expressed as `anchor_bindings[]` entries (§20 house pattern), so the same field already
+carrying `rfc3161-tst`/`opentimestamps`/`c2sp-tlog-proof-v1`/`scitt-receipt-rfc9942` gains three more
+types, all scoped to a `head_hash`:
+- **`ocg-head-file@1`** — the signed head JSON published at an HTTPS/access-controlled URL. Ships now.
+- **`ocg-head-tlog@1`** — the `head_hash` anchored via the EXISTING §20.1/§20.2 witness-cosigned
+  transparency-log batch. Ships now; zero new anchoring machinery.
+- **`ocg-head-contract@1`** — RESERVED: type string and field shape only, NO on-chain deployment.
+  Which chain, if any, is unchosen; Post Oak Labs never holds keys or funds on a user's behalf, and
+  deployment of an actual contract is its own future Tim-gated work, not part of this section.
+
+**§HEAD-1.4 Honesty and equivocation (NORMATIVE).** A bare `ocg-head-file@1` head proves only "the
+signer claimed this tip" — it does NOT by itself prove the signer did not ALSO claim a different tip
+at the same `(stream, seq)` to a different audience. Detecting that (equivocation) requires collecting
+two heads for the same `(stream, seq)` and comparing them: identical `head_hash` is a repeated,
+non-conflicting claim; different `head_hash` from the SAME `signer` at the same `(stream, seq)` is
+equivocation — portable misbehavior evidence, the same shape as the BrowserChain §5.5 design (cited as
+design lineage; the BrowserChain network itself stays paused). The `ocg-head-tlog@1` backing makes
+equivocation structurally harder to hide (a witness-cosigned log is a natural place to notice two
+heads at one seq) but §HEAD-1 does not require tlog backing — a verifier presented only head files
+still runs the comparison whenever it has more than one candidate for a `(stream, seq)`.
+
 ## §PQC-1 Post-quantum hybrid proofs (NORMATIVE, OPTIONAL — extends §16; additive, lands as v0.8.7 at the coordinated record bump)
 Extends **§16 whole-artifact signing** to permit a **hybrid dual signature**: two W3C Data Integrity proofs
 over the **same RFC 8785 (JCS) secured-document bytes** — the existing `eddsa-jcs-2022` proof (classical) plus
@@ -3008,6 +3071,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §HASHRES-1 Ledger addressing: the resolution address IS the §4 `execution_hash` (no new hash, no envelope change, `chaingraph_version` 0.4.0 UNCHANGED); a dereference returns content whose recomputed §4 hash equals the address or 404, never a different value — the same live re-verifiability the §4 sweep already asserts over deployed artifacts | `hash-sweep.mjs`, `kernel-hash-integrity.mjs` | post-deploy + validate |
 | §CID-1 OCG CID profile: `toCid()`/`fromCid()` round-trip bijectively over §4-shaped sha256 digests; `toCid()` matches independently-sourced cross-check vectors (never a self-referential proof); `fromCid()` rejects any codec/multihash/version outside the DASL profile (raw 0x55 / sha2-256 / CIDv1) — in particular a dag-cbor (0x71) codec MUST be rejected, proving the "never re-canonicalize into dag-cbor" rule is enforced, not just stated; no new `execution_hash`, `chaingraph_version` stays 0.4.0 | `cid-roundtrip.test.mjs` | validate |
 | §PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry `eddsa-jcs-2022` + a PQ suite over the SAME §16.1 secured document; each proof verifies independently in dependency order (verifier policy classical/pq/both); no new `execution_hash`, `chaingraph_version` stays 0.4.0; the ML-DSA cryptosuite id is TBD-on-registration and MUST NOT be hardcoded (asserted only as a reserved extension point, so the classical proof alone stays conformant) | `proof-binding.test.mjs` | validate |
+| §HEAD-1 head-commit: genesis shape (`seq:0`, `prev_head_hash:null`); chain laws (strictly-increasing `seq`, `prev_head_hash` == prior `head_hash`, signer continuity or an explicit `rotates_to` rotation head); `eddsa-jcs-2022` proof self-attests (`proof.verificationMethod === signer`) and rejects a tampered field or the wrong public key; an unannounced signer swap MUST fail; `detectEquivocation()` flags two different heads at the same `(stream, seq)` from the same signer, and does NOT flag a repeat of the identical head or different signers/seqs; no new `execution_hash`, no envelope change, `chaingraph_version` stays 0.4.0 | `head-commit.test.mjs` | validate |
 | §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
 | §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
