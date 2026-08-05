@@ -506,6 +506,35 @@ async function recomputeExecutionHash(artifact) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+/* ── §CID-1 DECODE (inlined from kernels/_cid.mjs) ───────────────── */
+// Decode-only: the resolver accepts a §CID-1 "b..." CID as a second spelling of the
+// execution_hash address (§HASHRES-1.0) — decode it back to sha256:<hex> and resolve
+// exactly as if the hex had been pasted directly. Rejects anything outside the DASL
+// profile (CIDv1 raw 0x55 + sha2-256 + 32-byte digest) rather than resolving silently wrong.
+const CID_B32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
+function cidBase32Decode(str) {
+  let bits = 0, value = 0;
+  const out = [];
+  for (const ch of str) {
+    const idx = CID_B32_ALPHABET.indexOf(ch);
+    if (idx === -1) return null;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+  }
+  return new Uint8Array(out);
+}
+function fromCid(cid) {
+  if (typeof cid !== 'string' || cid[0] !== 'b') return null;
+  const bytes = cidBase32Decode(cid.slice(1));
+  if (!bytes || bytes.length < 4) return null;
+  const [version, codec, mhFn, mhSize] = bytes;
+  if (version !== 0x01 || codec !== 0x55 || mhFn !== 0x12 || mhSize !== 0x20) return null; // not §CID-1 shape
+  const digest = bytes.slice(4, 4 + 0x20);
+  if (digest.length !== 0x20) return null;
+  return Array.from(digest).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 /* ── GATE EVALUATOR (inlined from kernels/_gateval.mjs) ─────────── */
 // OpenChainGraph shared decision-gate evaluator (OCG Standard §21.4).
 // Inline copy for browser-native gate replay verification.
@@ -2954,8 +2983,13 @@ function wireNav() {
   // Ledger's local store or land on the 404 state. Zero-egress — no network call.
   const resolveHash = () => {
     const input = document.getElementById('nav-resolve-input');
-    const val = (input?.value || '').trim().toLowerCase();
-    if (!/^[0-9a-f]{64,66}$/.test(val)) { showToast('Not a valid execution_hash (64-66 hex chars).', 'warn'); return; }
+    let val = (input?.value || '').trim().toLowerCase();
+    if (/^b[a-z2-7]+$/.test(val)) { // §CID-1: a base32-lower CID resolves the same as its underlying hash
+      const decoded = fromCid(val);
+      if (!decoded) { showToast('Not a valid §CID-1 CID (expected CIDv1 raw+sha2-256).', 'warn'); return; }
+      val = decoded;
+    }
+    if (!/^(sha256:)?[0-9a-f]{64}$/.test(val)) { showToast('Not a valid execution_hash (64 hex chars) or §CID-1 CID.', 'warn'); return; }
     if (input) input.value = '';
     navigate('#view/' + val);
   };
