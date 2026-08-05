@@ -2120,6 +2120,96 @@ equivocation structurally harder to hide (a witness-cosigned log is a natural pl
 heads at one seq) but §HEAD-1 does not require tlog backing — a verifier presented only head files
 still runs the comparison whenever it has more than one candidate for a `(stream, seq)`.
 
+## §APROV-1 Agent Provenance Profile — `ocg-agent-provenance@1` (NORMATIVE, OPTIONAL, profile-scoped — additive, lands at the coordinated record bump)
+§4 artifacts, §CID-1 addressing, and §HEAD-1 heads are each independently additive and independently
+optional. §APROV-1 does not add a new mechanism — it names the **composition** a cross-organization
+deployment ships when it wants a portable, offline-verifiable record of an agent's or a system's
+state-transition history: which artifacts happened, in what order, addressed how, with what tip, and
+exportable as a single file a counterparty can check without calling home. This is the house pattern
+already used for §24/§25/§26/§28: a profile bundles pre-existing, independently-shipped machinery under
+one conformance name and adds no envelope field of its own.
+
+**§APROV-1.0 Scope (NORMATIVE).** A deployment declares `ocg-agent-provenance@1` for a stream when, for
+every artifact it emits on that stream, it: (a) mints a conformant §4 artifact per state transition; (b)
+computes that artifact's §CID-1 CID from its `execution_hash`; (c) advances a §HEAD-1 head over the
+stream, with `root` set to the transition's `execution_hash` and `root_cid` set to its §CID-1 form. Each
+of (a)/(b)/(c) is independently optional elsewhere in this standard; declaring `ocg-agent-provenance@1`
+is what makes all three a bound, machine-checkable set for that stream. A deployment that never declares
+the profile is unaffected by this section and every existing artifact stays fully conformant without it.
+
+**§APROV-1.1 Evidence-bundle export (NORMATIVE).** A profile-conforming deployment MUST be able to export
+an **evidence bundle**: a single **CAR file** (Content Addressable aRchive, CARv1, constrained to the
+**DASL simplified-CAR profile** — dasl.ing; CIDv1 + raw(0x55) + sha2-256 blocks only, no dag-pb, no
+multi-codec block mixing) containing:
+- every artifact on the exported range, each stored as a `raw` block keyed by its §CID-1 CID over its own
+  `execution_hash` digest bytes (the CAR block payload is the artifact's canonical JSON bytes; the CAR
+  block key is the digest §CID-1 already mints — no second hash);
+- the §HEAD-1 head(s) covering that range, each stored as a `raw` block keyed by its §HEAD-1.1
+  `head_hash` re-encoded through §CID-1;
+- any §20/§20.1/§20.2 anchor receipts attached to artifacts or checkpoints in the range, stored as `raw`
+  blocks the same way.
+No new hash is minted for export: every block key is a CID over a digest this standard already computes
+(`execution_hash` or `head_hash`), re-encoded through the one §CID-1 rule. The bundle format is
+**exchange-only** — it carries no claim beyond "these are the blocks, addressed by their own content" —
+verification is the §APROV-1.3 walk below, not a property of the file format itself.
+
+**§APROV-1.2 CAR writer (NORMATIVE, implementation).** `repo/chaingraph/kernels/_car.mjs` is the
+zero-dep, hand-rolled writer/reader: unsigned-LEB128 varint length prefixes + length-prefixed blocks, a
+minimal DAG-CBOR encoder scoped to exactly the CARv1 header shape (`{version:1, roots:[CID]}` — no
+general CBOR encoder is built, matching the `_cid.mjs`/`_head.mjs` precedent of hand-rolling only the
+narrow slice a section needs). **⛔ No `js-car`/`multiformats` npm dependency** — site repo zero-dep is
+absolute (CONTRACT `site-repo-zero-dep`).
+
+**§APROV-1.3 Verification (NORMATIVE).** A verifier walking an evidence bundle: (1) reads the CARv1
+header and each length-prefixed block; (2) for every block, recomputes `SHA-256(block data)` and confirms
+it equals the digest encoded in that block's own CID key — a block whose content does not hash to its own
+key MUST FAIL; (3) for every artifact block, independently recomputes `execution_hash` per §4 over the
+artifact's `{policy_parameters, output_payload}` and confirms it equals the digest the block's CID names —
+this is the §4 re-verifiability property, not a new check; (4) for every head block, verifies the §HEAD-1
+chain laws (§HEAD-1.2) over the heads present in the bundle; (5) for every anchor-receipt block, verifies
+it per its existing §20 type-specific rule. A bundle that passes all five is offline-verifiable: no step
+above requires network access. This is exactly the `raw`-block-plus-CID shape IPLD/DASL define — §APROV-1
+adds no verification rule beyond "every block matches its own address" plus the artifact- and
+head-specific checks §4 and §HEAD-1 already define.
+
+**§APROV-1.4 in-toto predicateType (INFORMATIVE — reserved).** `https://ainumbers.co/chaingraph/predicates/ocg-artifact/v1`
+is reserved as the `predicateType` URI an in-toto Statement (in-toto Attestation Framework v1) would carry
+when its `predicate` is an OCG artifact — the mapping is the artifact object itself, unmodified, with
+`subject[].digest.sha256` naming its `execution_hash`. This is a **naming reservation**, not a shipped
+exporter: no code in this pass produces an in-toto Statement wrapping an OCG artifact. §XMAP-1 records the
+correspondence per its own annex convention.
+
+**§APROV-1.5 A2A note (INFORMATIVE).** The Agent2Agent protocol (A2A 1.0.1) defines an extension
+mechanism (`AgentCard.capabilities.extensions`) through which a participant could advertise support for
+consuming `ocg-agent-provenance@1` evidence bundles as part of a task exchange. No A2A code ships in this
+pass — Post Oak Labs runs solo and assumes no A2A partner today — this paragraph records where the
+integration point would sit if one is ever built, so a future implementer is not left to invent it.
+
+**§APROV-1.6 MCP surface (INFORMATIVE — deferred).** A conformant deployment MAY expose
+`get_provenance_head`, `get_provenance_bundle`, and `verify_head_chain` as MCP tools over its stream(s).
+Naming them here reserves the vocabulary; the worker-side implementation (mcp-name uniqueness, the §A4
+two-repo same-push rule) is explicitly **out of scope for this section** and lands as a separate follow-up
+WU after this section is in SPEC.md — this pass does not touch `mcp-apps-poc/`.
+
+**§APROV-1.7 Frozen-envelope invariance (NORMATIVE).** `ocg-agent-provenance@1` adds no schema property to
+`$defs/artifact`, no `required[]` entry, and no new preimage member — it is a composition of §4 (unchanged),
+§CID-1 (unchanged), and §HEAD-1 (unchanged), plus an export format that sits entirely outside any artifact.
+`$defs/artifact.required` is UNCHANGED and `chaingraph_version` stays `"0.4.0"`. Measured against the
+three-condition freeze test: (a) no existing `execution_hash` moves — nothing here is stored inside an
+artifact; (b) no `required[]` changes; (c) no MUST-emit on any existing artifact — declaring the profile is
+per-deployment and voluntary, and a deployment that never declares it is unaffected. A verifier correct for
+the pre-§APROV-1 standard computes an identical `execution_hash` for every artifact under a
+`ocg-agent-provenance@1` deployment and MAY ignore the profile entirely.
+
+**§APROV-1.8 Conformance (profile-scoped).** A deployment MAY declare `ocg-agent-provenance@1` for a
+stream whose artifacts satisfy §APROV-1.0–§APROV-1.3. Conformance is machine-checked by
+`car-roundtrip.test.mjs` (§15): CAR write→read round-trip byte-identity, every block's content hashing to
+its own CID key, a tampered block (content mutated after write) FAILING the per-block digest check, an
+artifact block's CID recomputing to the same digest as an independently-computed §4 `execution_hash` over
+the same `{policy_parameters, output_payload}` (never a self-referential check), and a malformed/truncated
+CAR file being rejected rather than silently partially parsed. Like §18/§25/§28, the profile **defaults
+OFF**: no deployment is required to adopt it, and its absence is never itself a finding.
+
 ## §SNAP-1 State-snapshot artifact type (NORMATIVE, OPTIONAL — additive, lands at the coordinated record bump)
 OCG's artifact envelope (§1) proves a *computation*; §SNAP-1 gives it a second, equally-shaped reading — proof
 of *application state at a point in time*. A `state_snapshot` artifact is an ordinary v0.4 artifact: no new
@@ -2377,6 +2467,12 @@ posture is unclear. Its receipt is a 15-field structure of which the rows above 
 it uses a hash-chaining convention that includes the signature — differing from OCG's, where the §16 proof
 is attached after hashing and is excluded from the preimage. Re-verify this observation against the
 project's current public material before relying on any row of it.
+
+**in-toto predicateType (informative, added by §APROV-1).** `https://ainumbers.co/chaingraph/predicates/ocg-artifact/v1`
+is reserved as the in-toto Attestation Framework v1 `predicateType` an in-toto Statement would carry when
+wrapping an OCG artifact as its `predicate`, unmodified, with `subject[].digest.sha256` naming the
+artifact's `execution_hash`. This is a naming reservation only (§APROV-1.4) — no exporter ships in this
+pass, and, like the rows above, no OCG vocabulary is renamed to match in-toto's.
 
 ## §STPFWD-1 Forward decision-outcome mandate (NORMATIVE — additive, new in v0.8.19)
 A §27.4 gate-policy value and a §27.10 run-state value are already normative vocabulary, but nothing has ever
@@ -3122,6 +3218,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry `eddsa-jcs-2022` + a PQ suite over the SAME §16.1 secured document; each proof verifies independently in dependency order (verifier policy classical/pq/both); no new `execution_hash`, `chaingraph_version` stays 0.4.0; the ML-DSA cryptosuite id is TBD-on-registration and MUST NOT be hardcoded (asserted only as a reserved extension point, so the classical proof alone stays conformant) | `proof-binding.test.mjs` | validate |
 | §HEAD-1 head-commit: genesis shape (`seq:0`, `prev_head_hash:null`); chain laws (strictly-increasing `seq`, `prev_head_hash` == prior `head_hash`, signer continuity or an explicit `rotates_to` rotation head); `eddsa-jcs-2022` proof self-attests (`proof.verificationMethod === signer`) and rejects a tampered field or the wrong public key; an unannounced signer swap MUST fail; `detectEquivocation()` flags two different heads at the same `(stream, seq)` from the same signer, and does NOT flag a repeat of the identical head or different signers/seqs; no new `execution_hash`, no envelope change, `chaingraph_version` stays 0.4.0 | `head-commit.test.mjs` | validate |
 | §SNAP-1 state-snapshot artifact: `mandate_type:"state_snapshot"` accepted in the existing open envelope string; a fixture artifact validates against `$defs/artifact` (`policy_parameters.state_schema/capture_scope/snapshot_seq`, `output_payload.state_digest/entry_count/prev_snapshot_hash`, `chain.parent_hashes` carrying the predecessor); `execution_hash` recomputes byte-identical to a pinned golden vector; frozen `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs` (fixture), `golden-parity.test.mjs` | validate |
+| §APROV-1 `ocg-agent-provenance@1` evidence bundle: CARv1 write→read round-trip byte-identity; every block's content re-hashes to the digest encoded in its own CID key; a tampered block (content mutated post-write) MUST fail the per-block digest check; an artifact block's CID digest matches an independently-computed §4 `execution_hash` over the same `{policy_parameters, output_payload}` (not a self-referential check); a malformed/truncated CAR file is rejected rather than silently partially parsed; no new artifact field, no envelope change, `chaingraph_version` stays 0.4.0 | `car-roundtrip.test.mjs` | validate |
 | §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
 | §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
