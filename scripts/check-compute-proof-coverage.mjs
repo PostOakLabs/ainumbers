@@ -79,6 +79,16 @@ export function classifyNode(node) {
     if (typeof cp.seal !== 'string' || cp.seal.length === 0) problems.push('seal missing or empty');
     if (!cp.journal || typeof cp.journal !== 'object') problems.push('journal missing');
     else if (cp.journal.output === undefined) problems.push('journal.output missing (the committed public output — MUST equal output_payload, §18.0)');
+    // ⛔⛔ A VERIFYING SEAL IS NOT EVIDENCE THE COMPUTATION SUCCEEDED (PRIVIN-GUEST-EXTEND-1, 2026-08-04).
+    // CCPCORE-PROVE-1 measured the universal guest emitting a VALID groth16 seal over
+    // {"error":"ocg_run","code":-3,"msg":…} for art-529. The seal was real and it verified — it just
+    // proved that the kernel THREW. Every other check here passes on such a receipt (type, format,
+    // imageId, seal are all well-formed, and `output` is merely "not undefined"), so the whole estate
+    // read it as green and only a hand-run journal inspection caught it. The two lines below make that
+    // inspection structural: a journal that commits an error, or whose committed output is not the
+    // output_payload OBJECT §18.0 requires it to equal, is a malformed proof -> node is 'missing'.
+    else if (cp.journal.error !== undefined) problems.push(`journal commits an ERROR, not a result (${JSON.stringify(cp.journal.error)}) — a verifying seal over a failed run is not a proof of computation (§18.0)`);
+    else if (typeof cp.journal.output !== 'object' || cp.journal.output === null || Array.isArray(cp.journal.output)) problems.push(`journal.output must be the output_payload object (§18.0), got ${Array.isArray(cp.journal.output) ? 'an array' : JSON.stringify(cp.journal.output).slice(0, 60)}`);
     // Binding: imageId MUST be published in the node's compute_images (§18.1). Skip only if the images list is
     // absent (a §17 gap that check-kernel-identity coverage owns, not this gate).
     const imgIds = (node.compute_images ?? []).map((i) => i.image_id);
