@@ -35,7 +35,16 @@ export const REQUIRED_CITATION_FIELDS = Object.freeze(['scheme', 'id', 'in_force
 // ELI does not cover US CFR, Basel paragraph ids, or Fed SR letters.
 export const SUGGESTED_SCHEMES = Object.freeze(['cfr', 'eli', 'akn', 'bcbs-para', 'sr-letter', 'esma-vr', 'uscode', 'other']);
 
-const OPTIONAL_CITATION_FIELDS = Object.freeze(['path', 'uri', 'in_force_to', 'jurisdiction', 'governing_law', 'superseded_by', 'interpretation_ref']);
+// §9 CB-8 — OPTIONAL, additive. `clause_version` names the version of the cited text a citation
+// was mapped against (a Handbook release tag, an amendment number, a consolidated-text edition).
+// It is OPTIONAL, not REQUIRED: no kernel emits it today, so adding it to the schema moves no
+// execution_hash for anyone — nobody's citation object gains a field they did not already choose
+// to add. A kernel that STARTS emitting it puts the field inside its own citation object, which
+// already sits inside output_payload (or policy_parameters) for that kernel — so for THAT kernel
+// the addition is hash-moving (§1.4 preimage), exactly like adding any other member to an
+// already-minted citation shape. That is a decision for the adopting kernel's own row, not a change
+// forced by this profile addition.
+export const OPTIONAL_CITATION_FIELDS = Object.freeze(['path', 'uri', 'in_force_to', 'jurisdiction', 'governing_law', 'superseded_by', 'interpretation_ref', 'clause_version']);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256REF = /^sha256:[0-9a-f]{64}$/;
 
@@ -112,6 +121,8 @@ export function validateCitation(citation, where = 'citation') {
   }
   if ('scheme' in citation && typeof citation.scheme !== 'string')
     errs.push(`${where}: "scheme" must be a string (open enum — any scheme name is allowed)`);
+  if ('clause_version' in citation && !(typeof citation.clause_version === 'string' && citation.clause_version.trim().length > 0))
+    errs.push(`${where}: "clause_version" must be a non-empty string when present`);
   return errs;
 }
 
@@ -162,4 +173,47 @@ export function attachClauseBindings(artifact, pointers) {
       throw new Error(`clause_bindings pointer "${b.pointer}" is outside the execution_hash preimage; a citation there is UNPINNED (§1.4)`);
   if (list.length === 0) return { ...artifact };
   return { ...artifact, clause_bindings: list };
+}
+
+/**
+ * §9 CB-8 — as-of replay. Recomputes, from data already inside the signed preimage, whether every
+ * pinned citation on this artifact was in force as of a given date — PROVABLE rather than asserted,
+ * because `in_force_from`/`in_force_to` (and `clause_version` where a kernel carries it) sit inside
+ * the same citation object the pointer resolves to, which is why they hash under execution_hash in
+ * the first place. This is the binding, not a new engine: it reads §1.2/§1.4 fields that already
+ * exist, it does not compute a new artifact and it never touches a clock — `asOfDate` is a caller
+ * input, exactly like `as_of_date` on an adopting kernel's own policy_parameters.
+ *
+ * String comparison is intentional and sufficient: ISO yyyy-mm-dd sorts identically under `<=`/`>=`
+ * string and chronological ordering, so no Date object and no timezone is ever involved.
+ *
+ * Returns { ok, asOfDate, checked, errors, findings }. `errors` carries §1.2/§1.4 shape failures
+ * (same as validateClauseBindings); `findings` is empty when `errors` is non-empty, since an
+ * invalid binding has nothing provable to replay.
+ */
+export function asOfReplay(artifact, asOfDate) {
+  if (!ISO_DATE.test(String(asOfDate)))
+    return { ok: false, asOfDate, checked: 0, errors: [`asOfDate must be an ISO yyyy-mm-dd date, got "${asOfDate}"`], findings: [] };
+
+  const shape = validateClauseBindings(artifact);
+  if (!shape.ok) return { ok: false, asOfDate, checked: shape.checked, errors: shape.errors, findings: [] };
+
+  const bindings = artifact.clause_bindings || [];
+  const findings = bindings.map((b) => {
+    const { value: citation } = resolvePointer(artifact, b.pointer);
+    const from = citation.in_force_from;
+    const to = 'in_force_to' in citation && citation.in_force_to ? citation.in_force_to : null;
+    const valid_as_of = asOfDate >= from && (to === null || asOfDate <= to);
+    return {
+      pointer: b.pointer,
+      scheme: citation.scheme,
+      id: citation.id,
+      clause_version: 'clause_version' in citation ? citation.clause_version : null,
+      in_force_from: from,
+      in_force_to: to,
+      valid_as_of,
+    };
+  });
+
+  return { ok: findings.every((f) => f.valid_as_of), asOfDate, checked: findings.length, errors: [], findings };
 }

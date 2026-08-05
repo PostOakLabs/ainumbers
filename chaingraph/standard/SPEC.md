@@ -2030,6 +2030,33 @@ It adds no field to any artifact, does not appear in the §4 preimage, and leave
 `"0.4.0"`. A deployment that serves no Ledger is fully conformant; a deployment that does serve one at the
 `<hash>` address MUST honor the return-matching-content-or-404 rule above.
 
+## §CID-1 OCG CID profile (NORMATIVE, addressing-scoped — additive, lands at the coordinated record bump)
+A canonical CID re-encoding of the §4 `execution_hash`, addressing-scoped exactly like §HASHRES-1: no new
+envelope field, no preimage change, `chaingraph_version` stays `"0.4.0"`. §CID-1 gives the existing intrinsic
+identifier a second, IPLD-ecosystem-interoperable spelling — it does not mint a new identity.
+
+**§CID-1.0 Shape (NORMATIVE).** `ocg_cid(artifact) = CIDv1( codec=raw(0x55), multihash=sha2-256(0x12,0x20,
+digest) )`, where `digest` is the 32 raw bytes of the existing `execution_hash` (hex after the `sha256:`
+prefix). The CID wraps the exact JCS bytes' hash OCG already mints. **§CID-1 MUST NOT re-canonicalize OCG JSON
+into dag-cbor** — JCS (RFC 8785, the §4 canonicalization) and dag-cbor (deterministic-CBOR key-sort and float
+rules) are mutually incompatible canonicalizations of the same logical document, and minting a CID over a
+dag-cbor re-encoding would silently create a second, divergent hash of the same artifact. The only conformant
+input to §CID-1 is the already-computed `execution_hash` digest bytes.
+
+**§CID-1.1 Text form (NORMATIVE).** Base32-lower, unpadded (`b...` multibase prefix) — the **DASL** constraint
+profile (CIDv1 + sha2-256 + base32 only; dasl.ing is cited as the interop profile this conforms to).
+
+**§CID-1.2 Round-trip law (NORMATIVE).** `cid → digest → sha256:<hex>` MUST be bijective. A Ledger resolver
+serving `ledger.ainumbers.co/<cid>` obeys the same §HASHRES-1.0 contract (return content whose recomputed §4
+hash equals the address, or 404 — never a different value); §CID-1 is a second spelling of the same intrinsic
+identifier, and RFC 6920 continuity is cited as prior art for that framing.
+
+**§CID-1.3 Scope (NORMATIVE).** §CID-1 applies to any §4-shaped digest — `execution_hash`,
+`policy_parameters_hash` (§PPH-1), a §20.1 Merkle root — one encoding rule, stated once, reused wherever a
+32-byte sha256 digest needs a second IPLD-interoperable text form. §CID-1 is normative for the encoding
+contract only: it adds no field to any artifact, does not appear in the §4 preimage, and a deployment that
+never emits a CID is fully conformant.
+
 ## §PQC-1 Post-quantum hybrid proofs (NORMATIVE, OPTIONAL — extends §16; additive, lands as v0.8.7 at the coordinated record bump)
 Extends **§16 whole-artifact signing** to permit a **hybrid dual signature**: two W3C Data Integrity proofs
 over the **same RFC 8785 (JCS) secured-document bytes** — the existing `eddsa-jcs-2022` proof (classical) plus
@@ -2201,16 +2228,24 @@ project's public material as of the observation date; the remaining members of e
 mapped** and are deliberately left blank rather than guessed. A blank is an unmapped field, never an
 asserted absence.
 
-| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA |
-|---|---|---|---|
-| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` |
-| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member |
-| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) |
-| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" |
-| §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles |
-| §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus |
+| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA | SCITT (RFC 9943 architecture + RFC 9942 COSE Receipts) |
+|---|---|---|---|---|
+| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` | — (unmapped; a SCITT Signed Statement's payload is issuer-chosen claims, not a fixed input-hash field — this exporter carries `execution_hash` there instead, see format notes) |
+| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member | — (unmapped; SCITT is a registration/transparency-log model, not a peer-to-peer hash chain — see format notes) |
+| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) | COSE protected header `cwt-claims` (label 15, RFC 9597) `iss` (claim 1) |
+| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" | COSE_Sign1 (RFC 9052) over the protected header + payload; ES256 or EdDSA |
+| §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles | COSE Receipt (RFC 9942) — transparency-service inclusion proof, RFC 9162 Merkle combine/audit-path algorithm |
+| §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus | — (unmapped) |
 
-**Format notes.** *AGT* is a DRAFT — the draft label is retained deliberately and the mapping MUST be
+**Format notes.** *SCITT* is architecturally different from the other three: it is a **registration/transparency-log
+model** — an issuer submits a COSE_Sign1 Signed Statement to a transparency service, which returns a COSE Receipt
+proving the statement's inclusion in an append-only Merkle log — rather than a self-contained receipt or a
+peer-linked hash chain. Both SCITT documents are **published RFCs, not drafts**: architecture = RFC 9943, COSE
+Receipts = RFC 9942 (verified against rfc-editor.org 2026-08-05; supersedes any reference to
+`draft-ietf-scitt-architecture-22`, the pre-publication number). `repo/scripts/export-scitt.mjs` is a zero-dep
+interop exporter/verifier — OCG artifact to Signed Statement, plus RFC 9942 receipt inclusion-proof verification —
+proven via its own `selftest` command; it has not yet been exercised against a live transparency service
+(external registration is FLAG-AND-WAIT, unauthorized spend of a third-party account). *AGT* is a DRAFT — the draft label is retained deliberately and the mapping MUST be
 re-verified before any downstream use; its receipt is a 12-field structure of which the rows above are the
 verified subset. *agent-receipts* carries a proof-suite delta worth stating: it uses `Ed25519Signature2020`
 where §16 uses `eddsa-jcs-2022`. Both are Ed25519 over a canonical form, so the key type is shared, but the
@@ -2971,6 +3006,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §23 input attestations: hash-excluded top-level `input_attestations[]` (zero-attestation artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; `vc-2.0` verifies via §16/§13.11 Data Integrity + subject-digest == input digest, `rfc3161-snapshot` via the §20 `rfc3161-tst` verifier (messageImprint == input digest, no second RFC 3161 impl), `c2pa-manifest` structural + hard-binding digest match; `zktls` structural-only (`verifiable:"external"`, no vendored verifier); tampered proof / unresolved pointer / digest mismatch MUST fail; verdict reported per-input alongside `execution_hash`; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `validate-input-attestations.test.mjs`, `schema-validate.mjs` | validate |
 | §25 private-input profile: hash-excluded top-level `private_inputs[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` resolves into `policy_parameters`; the pointed value IS the `sha256:` `commitment`, never plaintext (plaintext-exclusion §25.2); `commitment_scheme` ∈ {`sha256-salted@1`}; a §18 `compute_proof` is present and its `journal` commits every declared `commitment` AND `output_payload`; unknown scheme / unresolved pointer / plaintext-at-pointer / missing commitment-in-journal MUST fail; salt never appears in the artifact; verdict reported without the plaintext; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED (§18 pairing check stays with `compute-proof.test.mjs`) | `validate-private-inputs.test.mjs`, `schema-validate.mjs` | validate |
 | §HASHRES-1 Ledger addressing: the resolution address IS the §4 `execution_hash` (no new hash, no envelope change, `chaingraph_version` 0.4.0 UNCHANGED); a dereference returns content whose recomputed §4 hash equals the address or 404, never a different value — the same live re-verifiability the §4 sweep already asserts over deployed artifacts | `hash-sweep.mjs`, `kernel-hash-integrity.mjs` | post-deploy + validate |
+| §CID-1 OCG CID profile: `toCid()`/`fromCid()` round-trip bijectively over §4-shaped sha256 digests; `toCid()` matches independently-sourced cross-check vectors (never a self-referential proof); `fromCid()` rejects any codec/multihash/version outside the DASL profile (raw 0x55 / sha2-256 / CIDv1) — in particular a dag-cbor (0x71) codec MUST be rejected, proving the "never re-canonicalize into dag-cbor" rule is enforced, not just stated; no new `execution_hash`, `chaingraph_version` stays 0.4.0 | `cid-roundtrip.test.mjs` | validate |
 | §PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry `eddsa-jcs-2022` + a PQ suite over the SAME §16.1 secured document; each proof verifies independently in dependency order (verifier policy classical/pq/both); no new `execution_hash`, `chaingraph_version` stays 0.4.0; the ML-DSA cryptosuite id is TBD-on-registration and MUST NOT be hardcoded (asserted only as a reserved extension point, so the classical proof alone stays conformant) | `proof-binding.test.mjs` | validate |
 | §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
