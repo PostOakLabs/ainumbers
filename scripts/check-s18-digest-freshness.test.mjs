@@ -245,9 +245,27 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   //   {"error":"unknown_private_kernel"} for anything else. Proving it needs a rebuilt privin guest --
   //   prover-tree work outside BILLABLES-WAVE2-PROVE-1's fence, the same blocker art-529 carries. It is
   //   NOT added to KNOWN_SEMANTIC_STALE: it has no receipt at all, so there is nothing stale to carve out.
-  assert(total === 530, `expected 530 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 397, `expected 397 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by BILLABLES-WAVE2-PROVE-1), got ${stale.length}`);
+  // 530 -> 532 post-PRIVIN-GUEST-EXTEND-1 (2026-08-04): proved the LAST two Sec25 private-input nodes,
+  // art-529 (recompute_ccp_default_waterfall) and art-548 (run_vop_readiness_diagnostic) -- the two the
+  // comments above record as unprovable. The blocker is gone: they were proven under a NEW guest image
+  // sha256:adf39b5c, a QuickJS guest that EXECUTES the real kernel's buildArtifact(private witness)
+  // rather than reimplementing its verdict math in Rust the way the native privin guest (sha256:6e5e8839)
+  // does through three hardcoded mcp_name branches. That guest is ADDITIVE: all four pre-existing guest
+  // ELFs still hash to their recorded values byte for byte and every existing receipt still verifies
+  // under the image it was proved with, so nothing was staled to make this possible.
+  // Before writing, the splice asserted the same three-way identity the wave above used -- each receipt's
+  // journal.kernel_digest equalled BOTH the kernel file on disk and the shard's existing sha256-source
+  // compute_image -- AND that journal.output carried a real result rather than an error object, so both
+  // nodes enter the FRESH set by construction and no existing node's digest moved.
+  // Measured both sides, not assumed: 397/530 fresh + 133 stale on the base commit 71ef7205,
+  // 399/532 fresh + 133 stale after. Denominator and fresh each move by exactly 2; the stale count does
+  // NOT move -- this is a DENOMINATOR calibration, not a stale-ceiling raise.
+  //   With these two, the Sec25 set is CLOSED: all five ocg-private-input@1 nodes in the estate
+  //   (art-413/414/415 under 6e5e8839, art-529/548 under adf39b5c) now carry groth16 receipts, and no
+  //   node anywhere remains blocked on a private-input guest.
+  assert(total === 532, `expected 532 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 399, `expected 399 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by PRIVIN-GUEST-EXTEND-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
