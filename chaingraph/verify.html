@@ -199,6 +199,20 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-label">§HEAD-1 Verify head chain</div>
+    <p class="hero-sub" style="margin-bottom:10px;">Paste a JSON array of head-commits for one <code>stream</code>, oldest (genesis, <code>seq:0</code>) first. This checks the §HEAD-1.2 verification laws (strictly-increasing <code>seq</code>, <code>prev_head_hash</code> chaining to the prior head's own hash, signer continuity, or an explicit <code>rotates_to</code> rotation head), and, when every <code>signer</code> is a resolvable <code>did:key</code>, the <code>eddsa-jcs-2022</code> proof on each head. Nothing is fetched; you supply the whole chain.</p>
+    <textarea id="headChainInput" placeholder='[ {genesis head, seq:0, prev_head_hash:null}, {head, seq:1}, ... ]' style="min-height:120px;"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runHeadChainVerify()">Verify head chain</button>
+    </div>
+    <div id="headChainResult" style="display:none;margin-top:10px;" class="hash-block">
+      <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="headChainStatus"></div></div>
+      <div class="hash-row"><div class="hash-lbl">Heads checked</div><div class="hash-val" id="headChainLength"></div></div>
+      <div class="hash-row"><div class="hash-lbl">Errors</div><div class="hash-val" id="headChainErrors" style="color:var(--text);white-space:pre-wrap;"></div></div>
+    </div>
+  </div>
+
   <div class="error-box" id="errorBox"></div>
 
   <div id="result">
@@ -795,6 +809,69 @@ function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v===
   function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
   window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
 })();
+
+/* ─────────────────────────────────────────────────────────────────
+   OCG-HEAD v1 — §HEAD-1 head-commit primitive. Byte-identical in spirit to
+   chaingraph/kernels/_head.mjs (ported inline: this page has no module
+   loader). Proof lives at the head object's OWN top-level `.proof`, not
+   under an audit_signature wrapper, so it reuses __ocgCanon (the same JCS
+   canonicalizer the OCG-PROOF block above already exposes as a page global)
+   but reimplements its own tiny proof pipeline rather than calling
+   __ocgSign/__ocgVerify above, which hardcode the audit_signature location.
+   ───────────────────────────────────────────────────────────────── */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function shaHex(b){return sha(b).then(function(u){return Array.from(u).map(function(x){return x.toString(16).padStart(2,'0');}).join('');});}
+  function securedHead(h){var c=Object.assign({},h);delete c.proof;return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(h,o){return Promise.all([sha(jcs(o)),sha(jcs(securedHead(h)))]).then(function(r){var oh=r[0],dh=r[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  function headHash(h){return shaHex(jcs(securedHead(h))).then(function(hex){return 'sha256:'+hex;});}
+  function verifyHeadProof(h,pub){var pr=h&&h.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);if(pr.verificationMethod!==h.signer)return Promise.resolve(false);var o=opts(pr.verificationMethod,pr.created);return hashData(h,o).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  async function verifyChain(heads){
+    var errors=[],headHashes=[];
+    if(!Array.isArray(heads)||heads.length===0)return{valid:false,length:0,headHashes:[],errors:['empty chain — expected a JSON array of head-commit objects']};
+    if(heads[0].prev_head_hash!==null)errors.push('genesis: heads[0].prev_head_hash must be null');
+    if(heads[0].seq!==0)errors.push('genesis: heads[0].seq must be 0');
+    for(var i=0;i<heads.length;i++){
+      var h=heads[i];
+      headHashes.push(await headHash(h));
+      if(i>0){
+        var prev=heads[i-1];
+        if(!(h.seq>prev.seq))errors.push('seq not strictly increasing at index '+i+' ('+prev.seq+' -> '+h.seq+')');
+        if(h.prev_head_hash!==headHashes[i-1])errors.push('prev_head_hash mismatch at index '+i+': expected '+headHashes[i-1]+', got '+h.prev_head_hash);
+        var rotated=prev.rotates_to!==undefined&&prev.rotates_to===h.signer;
+        if(h.signer!==prev.signer&&!rotated)errors.push('signer discontinuity at index '+i+': '+prev.signer+' -> '+h.signer+' with no matching rotates_to on the prior head');
+      }
+      try{
+        var pub=await window.__ocgPubFromDidKey(h.signer);
+        var okProof=await verifyHeadProof(h,pub);
+        if(!okProof)errors.push('proof verification failed at index '+i+' (signer '+h.signer+')');
+      }catch(e){errors.push('proof verification threw at index '+i+': '+e.message);}
+    }
+    return{valid:errors.length===0,length:heads.length,headHashes:headHashes,errors:errors};
+  }
+  window.__ocgVerifyHeadChain=verifyChain;
+})();
+
+function runHeadChainVerify(){
+  var raw=document.getElementById('headChainInput').value.trim();
+  var out=document.getElementById('headChainResult');
+  var statusEl=document.getElementById('headChainStatus');
+  var lenEl=document.getElementById('headChainLength');
+  var errEl=document.getElementById('headChainErrors');
+  out.style.display='block';
+  var heads;
+  try{heads=JSON.parse(raw);}catch(e){statusEl.textContent='✗ invalid JSON';statusEl.style.color='var(--red)';lenEl.textContent='0';errEl.textContent=e.message;return;}
+  window.__ocgVerifyHeadChain(heads).then(function(result){
+    lenEl.textContent=String(result.length);
+    if(result.valid){statusEl.textContent='✓ chain verifies';statusEl.style.color='var(--green,#4ade80)';errEl.textContent='(none)';}
+    else{statusEl.textContent='✗ chain does not verify';statusEl.style.color='var(--red)';errEl.textContent=result.errors.join('\n');}
+  });
+}
 
 /* ─────────────────────────────────────────────────────────────────
    §27 HUMAN ACCOUNTABILITY — gate-precondition evaluator, byte-identical in
