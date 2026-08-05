@@ -2120,6 +2120,55 @@ equivocation structurally harder to hide (a witness-cosigned log is a natural pl
 heads at one seq) but §HEAD-1 does not require tlog backing — a verifier presented only head files
 still runs the comparison whenever it has more than one candidate for a `(stream, seq)`.
 
+## §SNAP-1 State-snapshot artifact type (NORMATIVE, OPTIONAL — additive, lands at the coordinated record bump)
+OCG's artifact envelope (§1) proves a *computation*; §SNAP-1 gives it a second, equally-shaped reading — proof
+of *application state at a point in time*. A `state_snapshot` artifact is an ordinary v0.4 artifact: no new
+envelope field, no preimage change, `chaingraph_version` stays `"0.4.0"`. The state document itself is never
+embedded in the artifact — only its digest is. A deployment that never emits a `state_snapshot` is fully
+conformant.
+
+**§SNAP-1.0 mandate_type (NORMATIVE).** `mandate_type: "state_snapshot"` is an accepted value of the EXISTING
+open `mandate_type` string (§5 — not a hard enum), exactly the pattern §22 used for `"work_mandate"`.
+
+**§SNAP-1.1 Shape (NORMATIVE).**
+- `policy_parameters` MUST carry `{ state_schema: "<uri or name identifying the state document's schema>",
+  capture_scope: "<what subset of application state this snapshot covers>", snapshot_seq: <integer> }`.
+- `output_payload` MUST carry `{ state_digest: "sha256:<JCS-SHA-256 of the canonical state document>",
+  entry_count: <integer>, prev_snapshot_hash: "sha256:<hex> or null at genesis" }`. `state_digest` is computed
+  by the same ONE canonicalizer `_hash.mjs` `cgCanon` applied to the state document — never a second
+  canonicalization, never a hand-built preimage.
+
+**§SNAP-1.2 Three-tier visibility (NORMATIVE).** The state document is OFF-artifact by construction — the
+artifact commits to `state_digest`, not to the document's content. A deployment MAY publish the document
+alongside the artifact as a §CID-1-addressed raw block (tier 1: public), MAY serve it only to authorized
+parties out-of-band (tier 2: access-controlled), or MAY never publish it at all (tier 3: private, digest-only
+provenance). §SNAP-1 makes no requirement on which tier a deployment chooses; the artifact is fully
+conformant, and `state_digest` fully re-verifiable against the document, under all three.
+
+**§SNAP-1.3 Chain law — the state DAG IS the artifact DAG (NORMATIVE).** A `state_snapshot` artifact's
+`chain.parent_hashes` (§1) MUST include the immediately preceding snapshot's `execution_hash` where one
+exists (empty at genesis, exactly like any other §1 artifact's `chain.parent_hashes`). §SNAP-1 introduces NO
+parallel chaining mechanism, second `parent_hashes`-shaped field, or side-channel lineage structure — a
+snapshot stream is an ordinary OCG chain whose nodes happen to carry `mandate_type: "state_snapshot"`, and
+`output_payload.prev_snapshot_hash` (§SNAP-1.1) is redundant-but-convenient with `chain.parent_hashes[0]`
+for a reader who wants the predecessor without walking the chain object.
+
+**§SNAP-1.4 Current tip (NORMATIVE).** The mutable "what is the state right now" pointer over a snapshot
+stream is a **§HEAD-1** head-commit whose `root` is the latest snapshot's `execution_hash` and whose `stream`
+identifies the snapshot series. §SNAP-1 mints no second tip primitive — §HEAD-1 already generalizes over any
+evolving artifact stream, and a snapshot stream is exactly that.
+
+**§SNAP-1.5 Large state (INFORMATIVE — reserved, not specified now).** A single `state_digest` over the whole
+state document does not scale to large state: any single-entry mutation forces re-hashing and re-publishing
+the entire document. The reserved direction is chunked canonical serialization with a content-defined chunk
+boundary (Dolt's prolly-tree design is cited as the source of the history-independent-boundary property a
+naive fixed-size chunker lacks) plus a Merkle root of the chunks, so an unchanged chunk need not move. This is
+NOT specified in §SNAP-1 — a v1 deployment ships the whole-document `state_digest` of §SNAP-1.1. **The Mithril
+lesson is stated as the design constraint that any future chunking scheme MUST satisfy:** without a bit-exact,
+versioned serialization rule, two honest implementations of "the same" chunker can produce different chunk
+boundaries for the same logical state, breaking cross-implementation certification of the resulting root —
+exactly the failure class Mithril's aggregate signatures require a frozen wire format to avoid.
+
 ## §PQC-1 Post-quantum hybrid proofs (NORMATIVE, OPTIONAL — extends §16; additive, lands as v0.8.7 at the coordinated record bump)
 Extends **§16 whole-artifact signing** to permit a **hybrid dual signature**: two W3C Data Integrity proofs
 over the **same RFC 8785 (JCS) secured-document bytes** — the existing `eddsa-jcs-2022` proof (classical) plus
@@ -3072,6 +3121,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §CID-1 OCG CID profile: `toCid()`/`fromCid()` round-trip bijectively over §4-shaped sha256 digests; `toCid()` matches independently-sourced cross-check vectors (never a self-referential proof); `fromCid()` rejects any codec/multihash/version outside the DASL profile (raw 0x55 / sha2-256 / CIDv1) — in particular a dag-cbor (0x71) codec MUST be rejected, proving the "never re-canonicalize into dag-cbor" rule is enforced, not just stated; no new `execution_hash`, `chaingraph_version` stays 0.4.0 | `cid-roundtrip.test.mjs` | validate |
 | §PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry `eddsa-jcs-2022` + a PQ suite over the SAME §16.1 secured document; each proof verifies independently in dependency order (verifier policy classical/pq/both); no new `execution_hash`, `chaingraph_version` stays 0.4.0; the ML-DSA cryptosuite id is TBD-on-registration and MUST NOT be hardcoded (asserted only as a reserved extension point, so the classical proof alone stays conformant) | `proof-binding.test.mjs` | validate |
 | §HEAD-1 head-commit: genesis shape (`seq:0`, `prev_head_hash:null`); chain laws (strictly-increasing `seq`, `prev_head_hash` == prior `head_hash`, signer continuity or an explicit `rotates_to` rotation head); `eddsa-jcs-2022` proof self-attests (`proof.verificationMethod === signer`) and rejects a tampered field or the wrong public key; an unannounced signer swap MUST fail; `detectEquivocation()` flags two different heads at the same `(stream, seq)` from the same signer, and does NOT flag a repeat of the identical head or different signers/seqs; no new `execution_hash`, no envelope change, `chaingraph_version` stays 0.4.0 | `head-commit.test.mjs` | validate |
+| §SNAP-1 state-snapshot artifact: `mandate_type:"state_snapshot"` accepted in the existing open envelope string; a fixture artifact validates against `$defs/artifact` (`policy_parameters.state_schema/capture_scope/snapshot_seq`, `output_payload.state_digest/entry_count/prev_snapshot_hash`, `chain.parent_hashes` carrying the predecessor); `execution_hash` recomputes byte-identical to a pinned golden vector; frozen `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs` (fixture), `golden-parity.test.mjs` | validate |
 | §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
 | §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
