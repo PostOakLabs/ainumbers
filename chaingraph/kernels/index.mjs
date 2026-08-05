@@ -494,6 +494,7 @@ import * as art550    from './art-550-reg-e-remittance-disclosure-check.kernel.m
 import * as art551    from './art-551-mt101-coexistence-readiness-diff.kernel.mjs';
 import * as art557    from './art-557-record-index-constituents.kernel.mjs';
 import * as art558    from './art-558-record-fund-positions.kernel.mjs';
+import * as art559    from './art-559-attest-calc-agent-independence.kernel.mjs';
 import * as art56     from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
 import * as art57     from './art-57-deposit-token-compliance-validator.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
@@ -1048,6 +1049,7 @@ export const KERNELS = {
   'art-551-mt101-coexistence-readiness-diff':                 art551,
   'art-557-record-index-constituents':                        art557,
   'art-558-record-fund-positions':                            art558,
+  'art-559-attest-calc-agent-independence':                   art559,
   'art-56-tokenized-settlement-fit-diagnostic':               art56,
   'art-57-deposit-token-compliance-validator':                art57,
   'art-58-cross-network-settlement-validator':                art58,
