@@ -7,6 +7,18 @@
 #
 # CI remains the real backstop — this hook only enforces locally and can be bypassed.
 
+# Re-entry guard: the attestation step below pushes refs/notes/preflight-attestation,
+# which re-invokes this same hook. That inner push is already covered by the outer
+# preflight run — running preflight again on it is redundant and, worse, its own
+# diff-against-merge-base can re-trigger the attestation push, recursing without end
+# (PREPUSH-RECURSION-1: observed depth ≥6 nested git/node processes, killed after 280s
+# still descending). The outer invocation exports this sentinel only around the notes
+# push; the inner hook process inherits it and exits immediately instead of re-running
+# preflight.
+if [ -n "$AINUM_PREPUSH_ATTESTING" ]; then
+  exit 0
+fi
+
 # Branches that predate preflight (or non-site checkouts) have nothing to gate.
 if [ ! -f scripts/preflight.mjs ]; then
   exit 0
@@ -42,7 +54,7 @@ if [ -n "$merge_base" ] && git diff --name-only "$merge_base" HEAD -- chaingraph
   echo "   Attesting commit $note_sha at $ts (git note, ref preflight-attestation)."
   echo "════════════════════════════════════════════════════════════════"
   if git notes --ref=preflight-attestation add -f -m "PREFLIGHT-VERIFIED sha=$note_sha ts=$ts" "$note_sha" >/dev/null 2>&1; then
-    git push origin refs/notes/preflight-attestation >/dev/null 2>&1 || \
+    AINUM_PREPUSH_ATTESTING=1 git push origin refs/notes/preflight-attestation >/dev/null 2>&1 || \
       echo "pre-push: (non-fatal) could not push preflight-attestation note upstream — local note still recorded." 1>&2
   else
     echo "pre-push: (non-fatal) could not write preflight-attestation note." 1>&2
