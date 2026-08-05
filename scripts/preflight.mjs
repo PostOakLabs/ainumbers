@@ -216,6 +216,8 @@ const GATES = [
   ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
   ['Authority contradiction gate (CB4-CONTRADICTION-GATE-1)', 'node scripts/check-authority-contradiction.mjs'],
   ['Authority contradiction gate fixture proof', 'node scripts/check-authority-contradiction.test.mjs'],
+  ['Amendment detection gate (CB7-AMENDMENT-DETECT-1)', 'node scripts/check-amendment-detection.mjs'],
+  ['Amendment detection gate fixture proof', 'node scripts/check-amendment-detection.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
   ['Template integrity (advisory, TPL-GATE-1)', 'node scripts/check-template-integrity.mjs'],
   ['CSV-injection sanitization (WB-5)', 'node scripts/check-csv-injection.mjs'],
