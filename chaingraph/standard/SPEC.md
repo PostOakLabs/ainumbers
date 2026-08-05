@@ -2121,6 +2121,9 @@ heads at one seq) but §HEAD-1 does not require tlog backing — a verifier pres
 still runs the comparison whenever it has more than one candidate for a `(stream, seq)`.
 
 ## §APROV-1 Agent Provenance Profile — `ocg-agent-provenance@1` (NORMATIVE, OPTIONAL, profile-scoped — additive, lands at the coordinated record bump)
+*OCG is the lineage layer that emits SCITT/RFC 3161-anchorable receipts — existing per-domain standards
+(OMS, EPCIS, C2PA, RO-Crate, AP2) become leaf-attestation formats inside the DAG.*
+
 §4 artifacts, §CID-1 addressing, and §HEAD-1 heads are each independently additive and independently
 optional. §APROV-1 does not add a new mechanism — it names the **composition** a cross-organization
 deployment ships when it wants a portable, offline-verifiable record of an agent's or a system's
