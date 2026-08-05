@@ -1,6 +1,6 @@
 {
   "tool_id": "art-484-regrpt-editcheck-runner",
-  "note": "Vectors computed directly from the shipped kernel. clean-pass exercises all four rule shapes evaluating pass with zero suppressions. validation-failures-with-suppression exercises a failing arithmetic_identity, a failing cross_schedule_tie_out, a failing sign_domain (missing ref), a failing mandatory_field (empty value), a suppressed rule, and a stale suppression (edit_id absent from the rule set). empty-input exercises the finite empty-input path.",
+  "note": "Vectors computed directly from the shipped kernel. clean-pass exercises the four original rule shapes evaluating pass with zero suppressions. validation-failures-with-suppression exercises a failing arithmetic_identity, a failing cross_schedule_tie_out, a failing sign_domain (missing ref), a failing mandatory_field (empty value), a suppressed rule, and a stale suppression (edit_id absent from the rule set). empty-input exercises the finite empty-input path. conditional-rules-clean-pass and conditional-rules-failures-and-defects exercise the three conditional shapes added under FR2052A-DEPTH-BUILD-SPEC.md §3.1, including a predicate that does not hold (not applicable) and two malformed rules raising RULE_PREDICATE_INVALID.",
   "vectors": [
     {
       "name": "clean-pass",
@@ -114,6 +114,97 @@
         "note": "Evaluates a caller-supplied published edit-check rule set (FFIEC validity/quality edits or EBA ITS validation rules) against a caller-supplied report instance. The kernel is the evaluator; it carries no rule content of its own. Findings are keyed by the published edit id for round-trip into the issuer's own vocabulary."
       },
       "golden_hash": "73a11dc255e5388e3eb40677647435beb257fc98d73280095a245c7b0aa4cd0f"
+    },
+    {
+      "name": "conditional-rules-clean-pass",
+      "description": "One instance of each conditional rule shape evaluating pass, including a conditional_required whose when predicate does not hold (not applicable to this row). Rule ids and values are synthetic; the rule set itself carries no published rule content.",
+      "policy_parameters": {
+        "report_instance": {
+          "as_of": "2026-03-31",
+          "cells": [
+            { "cell_ref": "PRODUCT", "schedule": "I.A", "line_item": "product", "value": "I.A.1" },
+            { "cell_ref": "SUB_PRODUCT", "schedule": "I.A", "line_item": "sub_product", "value": "Currency and Coin" },
+            { "cell_ref": "COUNTERPARTY", "schedule": "I.A", "line_item": "counterparty", "value": "Bank" },
+            { "cell_ref": "MATURITY_BUCKET", "schedule": "I.A", "line_item": "maturity_bucket", "value": "Open" },
+            { "cell_ref": "COLLATERAL_CLASS", "schedule": "I.A", "line_item": "collateral_class", "value": "A-1-Q" },
+            { "cell_ref": "MARKET_VALUE", "schedule": "I.A", "line_item": "market_value", "value": 25000 }
+          ]
+        },
+        "rule_set": {
+          "version": "SYNTHETIC-COND-1",
+          "source": "Synthetic conditional-shape vectors for the evaluator itself; carries no published rule content.",
+          "rules": [
+            { "edit_id": "COND-ENUM-01", "type": "enum_membership", "schedule": "I.A", "description": "Collateral class is a member of the permitted class list.", "severity": "fatal", "ref": "COLLATERAL_CLASS", "allowed_values": ["A-1-Q", "A-2-Q", "A-3-Q"] },
+            { "edit_id": "COND-ENUM-02", "type": "enum_membership", "schedule": "I.A", "description": "Counterparty is a member of the permitted list where the product is an asset line carrying a positive market value.", "severity": "fatal", "ref": "COUNTERPARTY", "allowed_values": ["Bank", "Non-Financial Corporate"], "when": { "all_of": [{ "ref": "PRODUCT", "op": "in", "values": ["I.A.1", "I.A.2"] }, { "ref": "MARKET_VALUE", "op": "gt", "value": 0 }] } },
+            { "edit_id": "COND-REQ-01", "type": "conditional_required", "schedule": "I.A", "description": "Maturity bucket is reported where the product is I.A.1.", "severity": "fatal", "ref": "MATURITY_BUCKET", "when": { "ref": "PRODUCT", "op": "equals", "value": "I.A.1" } },
+            { "edit_id": "COND-REQ-02", "type": "conditional_required", "schedule": "S.L", "description": "Forward start amount is reported only on forward-start lines.", "severity": "fatal", "ref": "FORWARD_START_AMOUNT", "when": { "ref": "PRODUCT", "op": "equals", "value": "S.L.1" } },
+            { "edit_id": "COND-PRO-01", "type": "conditional_prohibited", "schedule": "I.A", "description": "Sub-product is not reported as Not Applicable outside the forward-start lines.", "severity": "fatal", "ref": "SUB_PRODUCT", "forbidden_values": ["Not Applicable"], "when": { "not": { "ref": "PRODUCT", "op": "equals", "value": "S.L.1" } } }
+          ]
+        },
+        "suppressions": []
+      },
+      "output_payload": {
+        "rule_set_version": "SYNTHETIC-COND-1",
+        "rule_set_source": "Synthetic conditional-shape vectors for the evaluator itself; carries no published rule content.",
+        "suppressions_applied": [],
+        "stale_suppressions": [],
+        "findings": [
+          { "edit_id": "COND-ENUM-01", "type": "enum_membership", "schedule": "I.A", "severity": "fatal", "description": "Collateral class is a member of the permitted class list.", "status": "pass", "computed_value": null, "reported_value": "A-1-Q", "message": "COLLATERAL_CLASS (\"A-1-Q\") is a member of the permitted values [\"A-1-Q\", \"A-2-Q\", \"A-3-Q\"].", "cav": "validity" },
+          { "edit_id": "COND-ENUM-02", "type": "enum_membership", "schedule": "I.A", "severity": "fatal", "description": "Counterparty is a member of the permitted list where the product is an asset line carrying a positive market value.", "status": "pass", "computed_value": null, "reported_value": "Bank", "message": "COUNTERPARTY (\"Bank\") is a member of the permitted values [\"Bank\", \"Non-Financial Corporate\"].", "cav": "validity" },
+          { "edit_id": "COND-REQ-01", "type": "conditional_required", "schedule": "I.A", "severity": "fatal", "description": "Maturity bucket is reported where the product is I.A.1.", "status": "pass", "computed_value": null, "reported_value": "Open", "message": "MATURITY_BUCKET is required when PRODUCT == \"I.A.1\", and is present and non-empty.", "cav": "completeness" },
+          { "edit_id": "COND-REQ-02", "type": "conditional_required", "schedule": "S.L", "severity": "fatal", "description": "Forward start amount is reported only on forward-start lines.", "status": "pass", "computed_value": null, "reported_value": null, "message": "Not applicable: condition (PRODUCT == \"S.L.1\") does not hold for this row.", "cav": "completeness" },
+          { "edit_id": "COND-PRO-01", "type": "conditional_prohibited", "schedule": "I.A", "severity": "fatal", "description": "Sub-product is not reported as Not Applicable outside the forward-start lines.", "status": "pass", "computed_value": null, "reported_value": "Currency and Coin", "message": "SUB_PRODUCT (\"Currency and Coin\") is not among the values prohibited when not (PRODUCT == \"S.L.1\") [\"Not Applicable\"].", "cav": "validity" }
+        ],
+        "summary": { "total_rules": 5, "applied": 5, "suppressed": 0, "pass": 5, "fail": 0, "stale_suppression_count": 0, "overall_pass": true },
+        "compliance_flags": [],
+        "note": "Evaluates a caller-supplied published edit-check rule set (FFIEC validity/quality edits or EBA ITS validation rules) against a caller-supplied report instance. The kernel is the evaluator; it carries no rule content of its own. Findings are keyed by the published edit id for round-trip into the issuer's own vocabulary."
+      },
+      "golden_hash": "d6cde0cf281d80da5f7f131af110c12a6fcffb16fbf63cf38192210bef376280"
+    },
+    {
+      "name": "conditional-rules-failures-and-defects",
+      "description": "One failure of each conditional rule shape, plus two malformed rules (a conditional_required with no when predicate, and a predicate with an unknown op) raising RULE_PREDICATE_INVALID once. Rule ids and values are synthetic.",
+      "policy_parameters": {
+        "report_instance": {
+          "as_of": "2026-06-30",
+          "cells": [
+            { "cell_ref": "PRODUCT", "schedule": "S.L", "line_item": "product", "value": "S.L.1" },
+            { "cell_ref": "SUB_PRODUCT", "schedule": "S.L", "line_item": "sub_product", "value": "" },
+            { "cell_ref": "COUNTERPARTY", "schedule": "S.L", "line_item": "counterparty", "value": "Not Applicable" },
+            { "cell_ref": "COLLATERAL_CLASS", "schedule": "S.L", "line_item": "collateral_class", "value": "Z-9-Q" },
+            { "cell_ref": "MARKET_VALUE", "schedule": "S.L", "line_item": "market_value", "value": 100 }
+          ]
+        },
+        "rule_set": {
+          "version": "SYNTHETIC-COND-1",
+          "source": "Synthetic conditional-shape vectors for the evaluator itself; carries no published rule content.",
+          "rules": [
+            { "edit_id": "COND-ENUM-01", "type": "enum_membership", "schedule": "S.L", "description": "Collateral class is a member of the permitted class list.", "severity": "fatal", "ref": "COLLATERAL_CLASS", "allowed_values": ["A-1-Q", "A-2-Q", "A-3-Q"] },
+            { "edit_id": "COND-REQ-01", "type": "conditional_required", "schedule": "S.L", "description": "Sub-product is reported on secured lending lines.", "severity": "fatal", "ref": "SUB_PRODUCT", "when": { "ref": "PRODUCT", "op": "in", "values": ["S.L.1", "S.L.2"] } },
+            { "edit_id": "COND-PRO-01", "type": "conditional_prohibited", "schedule": "S.L", "description": "Counterparty is not reported as Not Applicable where a market value is reported.", "severity": "fatal", "ref": "COUNTERPARTY", "forbidden_values": ["Not Applicable", "N/A"], "when": { "ref": "MARKET_VALUE", "op": "gt", "value": 0 } },
+            { "edit_id": "COND-REQ-99", "type": "conditional_required", "schedule": "S.L", "description": "Malformed: a conditional rule carrying no when predicate.", "severity": "fatal", "ref": "MATURITY_BUCKET" },
+            { "edit_id": "COND-ENUM-98", "type": "enum_membership", "schedule": "S.L", "description": "Malformed: a predicate using an operator the evaluator does not define.", "severity": "warning", "ref": "COLLATERAL_CLASS", "allowed_values": ["A-1-Q"], "when": { "ref": "PRODUCT", "op": "matches", "value": "S.L.*" } }
+          ]
+        },
+        "suppressions": []
+      },
+      "output_payload": {
+        "rule_set_version": "SYNTHETIC-COND-1",
+        "rule_set_source": "Synthetic conditional-shape vectors for the evaluator itself; carries no published rule content.",
+        "suppressions_applied": [],
+        "stale_suppressions": [],
+        "findings": [
+          { "edit_id": "COND-ENUM-01", "type": "enum_membership", "schedule": "S.L", "severity": "fatal", "description": "Collateral class is a member of the permitted class list.", "status": "fail", "computed_value": null, "reported_value": "Z-9-Q", "message": "COLLATERAL_CLASS (\"Z-9-Q\") is not a member of the permitted values [\"A-1-Q\", \"A-2-Q\", \"A-3-Q\"].", "cav": "validity" },
+          { "edit_id": "COND-REQ-01", "type": "conditional_required", "schedule": "S.L", "severity": "fatal", "description": "Sub-product is reported on secured lending lines.", "status": "fail", "computed_value": null, "reported_value": "", "message": "SUB_PRODUCT is required when PRODUCT in [\"S.L.1\", \"S.L.2\"], and is present but empty/null.", "cav": "completeness" },
+          { "edit_id": "COND-PRO-01", "type": "conditional_prohibited", "schedule": "S.L", "severity": "fatal", "description": "Counterparty is not reported as Not Applicable where a market value is reported.", "status": "fail", "computed_value": null, "reported_value": "Not Applicable", "message": "COUNTERPARTY (\"Not Applicable\") is prohibited when MARKET_VALUE > 0; prohibited values are [\"Not Applicable\", \"N/A\"].", "cav": "validity" },
+          { "edit_id": "COND-REQ-99", "type": "conditional_required", "schedule": "S.L", "severity": "fatal", "description": "Malformed: a conditional rule carrying no when predicate.", "status": "fail", "computed_value": null, "reported_value": null, "message": "Rule cannot be evaluated: rule declares no \"when\" predicate.", "cav": "completeness" },
+          { "edit_id": "COND-ENUM-98", "type": "enum_membership", "schedule": "S.L", "severity": "warning", "description": "Malformed: a predicate using an operator the evaluator does not define.", "status": "fail", "computed_value": null, "reported_value": null, "message": "Rule cannot be evaluated: unknown predicate op \"matches\".", "cav": "validity" }
+        ],
+        "summary": { "total_rules": 5, "applied": 5, "suppressed": 0, "pass": 0, "fail": 5, "stale_suppression_count": 0, "overall_pass": false },
+        "compliance_flags": ["EDIT_CHECK_FAILED:COND-ENUM-01", "EDIT_CHECK_FAILED:COND-REQ-01", "EDIT_CHECK_FAILED:COND-PRO-01", "EDIT_CHECK_FAILED:COND-REQ-99", "RULE_PREDICATE_INVALID", "EDIT_CHECK_FAILED:COND-ENUM-98"],
+        "note": "Evaluates a caller-supplied published edit-check rule set (FFIEC validity/quality edits or EBA ITS validation rules) against a caller-supplied report instance. The kernel is the evaluator; it carries no rule content of its own. Findings are keyed by the published edit id for round-trip into the issuer's own vocabulary."
+      },
+      "golden_hash": "14d617b48a8f8c7257949f3de6a9c80c2d3e1dffd05aabab82b93e54a30ef469"
     }
   ]
 }
