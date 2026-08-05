@@ -3,7 +3,7 @@ type: DecisionTool
 title: "Google AP2 Mandate Builder"
 description: "Builds an illustrative Google AP2 Checkout/Payment Mandate Verifiable Digital Credential (VDC) skeleton from a declared mandate type, stage, agent, subject, merchant, and amount. Stage 2 of the Agentic Policy Chain. This is the EXTERNAL Google AP2 payments protocol shape (ap2-protocol.org), distinct from the AINumbers Policy Mandate export. Field names are illustrative; sign with the agent key and verify against the live spec before real use. Zero PII, deterministic compute."
 resource: https://ainumbers.co/chaingraph/art-16-google-ap2-mandate-builder.html
-tags: ["payment_policy", "wave-ORPHANNODE-ONBOARD-2", "mcp:draft_ap2_mandate_credential"]
+tags: ["payment_policy", "wave-A", "mcp:draft_ap2_mandate_credential"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable

@@ -3,7 +3,7 @@ type: DecisionTool
 title: "AP2/MCP Policy Validator"
 description: "Validates a caller-supplied payload against the AINumbers Unified Build Contract v1.0 Policy Mandate field set (ap2_version, mandate_id, tool_id, mandate_type, jurisdiction, audit_metadata, and related fields), scoring compliance 0-100 and flagging deprecated fields. Stage 3 of the Agentic Policy Chain. Deterministic, zero PII, no external network calls."
 resource: https://ainumbers.co/chaingraph/art-17-ap2-mcp-policy-validator.html
-tags: ["scheme_rule", "wave-ORPHANNODE-ONBOARD-2", "mcp:validate_ap2_mandate_credential"]
+tags: ["scheme_rule", "wave-A", "mcp:validate_ap2_mandate_credential"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
