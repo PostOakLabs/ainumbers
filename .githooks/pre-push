@@ -19,4 +19,34 @@ if [ "$status" -ne 0 ]; then
   echo "pre-push: preflight FAILED — push blocked. Fix the gate above, or 'git push --no-verify' to override." 1>&2
   exit 1
 fi
+
+# PREPUSH-SITEHOOK-1 (2026-08-04): VISIBILITY, not prevention — SO #27 stays legal,
+# a documented --no-verify bypass is still possible. The gap this closes: a push that
+# skips this hook (--no-verify) produces IDENTICAL terminal output to a clean push —
+# nothing distinguishes "preflight ran and passed" from "preflight never ran" at push
+# time. This hook cannot warn about its own bypass (it doesn't run when bypassed), so
+# for pushes touching chaingraph/chaingraph.json we leave a POSITIVE attestation a
+# later reader can check for and find ABSENT on a bypassed push: a git note on the
+# pushed commit, on its own ref, pushed alongside the branch.
+#   Check it:  git fetch origin refs/notes/preflight-attestation:refs/notes/preflight-attestation
+#              git notes --ref=preflight-attestation show <sha>
+#   Present = preflight ran and passed for that commit.
+#   Absent on a commit touching chaingraph/chaingraph.json = preflight was bypassed —
+#   flag it per SO #27 (name the gate + reason) or treat as an undocumented bypass.
+merge_base=$(git merge-base origin/main HEAD 2>/dev/null) || merge_base=""
+if [ -n "$merge_base" ] && git diff --name-only "$merge_base" HEAD -- chaingraph/chaingraph.json | grep -q .; then
+  note_sha=$(git rev-parse HEAD)
+  ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  echo "════════════════════════════════════════════════════════════════"
+  echo "✅ PREFLIGHT VERIFIED — chaingraph.json touched, all hard CI gates passed."
+  echo "   Attesting commit $note_sha at $ts (git note, ref preflight-attestation)."
+  echo "════════════════════════════════════════════════════════════════"
+  if git notes --ref=preflight-attestation add -f -m "PREFLIGHT-VERIFIED sha=$note_sha ts=$ts" "$note_sha" >/dev/null 2>&1; then
+    git push origin refs/notes/preflight-attestation >/dev/null 2>&1 || \
+      echo "pre-push: (non-fatal) could not push preflight-attestation note upstream — local note still recorded." 1>&2
+  else
+    echo "pre-push: (non-fatal) could not write preflight-attestation note." 1>&2
+  fi
+fi
+
 exit 0
