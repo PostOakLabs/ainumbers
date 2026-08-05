@@ -11,8 +11,13 @@
 //   4. §1.4 — a citation outside the signed preimage claiming pinned status is RED.
 //   5. §0.10 — an interpretation_ref that is not a content hash is RED.
 //   6. §1.1 — a legacy bare string may not be declared pinned (it stays valid, just unpinned).
-//   7. LIVE SWEEP — every artifact-shaped file on disk that declares clause_bindings must validate.
-//   8. §0.7 / §13 — this gate emits no percentage. Asserted against the gate's own output.
+//   7. §9 CB-8 — `clause_version` is OPTIONAL and its addition to the schema is hash-neutral; a
+//      present-but-empty value is RED. `asOfReplay()` recomputes in-force status from data already
+//      inside the preimage, against a synthetic artifact AND against art-499's real shipped
+//      citation set (fixtures/art-499-check-safeguarding-reconciliation.fixtures.json) — the one
+//      existing node this row demonstrates the binding on, per its check-off.
+//   8. LIVE SWEEP — every artifact-shaped file on disk that declares clause_bindings must validate.
+//   9. §0.7 / §13 — this gate emits no percentage. Asserted against the gate's own output.
 //
 // Zero-dependency. Non-zero exit blocks.  node chaingraph/kernels/clause-binding.test.mjs
 
@@ -27,6 +32,7 @@ import {
   attachClauseBindings,
   isInPreimage,
   resolvePointer,
+  asOfReplay,
 } from './_clausebinding.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -148,7 +154,67 @@ red('declaration tagged with a different profile',
 ok(validateCitation(CITATION).length === 0, 'the reference §1.2 citation object is valid');
 ok(resolvePointer(bound, '/output_payload/regulatory_citation').value === CITATION, 'resolvePointer resolves into the preimage');
 
-// ── 7. LIVE SWEEP ────────────────────────────────────────────────────────────
+// ── 7. §9 CB-8 — as-of replay ────────────────────────────────────────────────
+log('— §9 CB-8: clause_version + as-of replay —');
+
+// clause_version is OPTIONAL and additive — the reference citation (no clause_version) still
+// validates, and adding a well-formed one still validates. Neither moves execution_hash: both are
+// the same citation object at the same preimage pointer, exercised without re-hashing.
+ok(validateCitation(CITATION).length === 0, 'reference citation with no clause_version still valid (additive, hash-neutral)');
+ok(validateCitation({ ...CITATION, clause_version: '2026-ed3' }).length === 0, 'citation with a well-formed clause_version validates');
+ok(validateCitation({ ...CITATION, clause_version: '' }).some((e) => e.includes('clause_version')),
+  'present-but-empty clause_version is RED');
+
+// asOfReplay recomputes in-force status from fields already inside the preimage.
+ok(asOfReplay(bound, '2005-01-01').ok === false && asOfReplay(bound, '2005-01-01').findings[0].valid_as_of === false,
+  'asOfReplay: a date before in_force_from (12 CFR 1026 App J, 2011-12-30) is NOT valid as-of');
+const midWindow = asOfReplay(bound, '2026-01-01');
+ok(midWindow.ok === true && midWindow.findings[0].valid_as_of === true && midWindow.findings[0].clause_version === null,
+  'asOfReplay: a date inside an open-ended in_force window is valid as-of; clause_version reports null when the citation does not carry one');
+const withVersion = attachClauseBindings(
+  { ...minted, output_payload: { ...op, regulatory_citation: { ...CITATION, clause_version: '2026-ed3' } } },
+  ['/output_payload/regulatory_citation'],
+);
+ok(asOfReplay(withVersion, '2026-01-01').findings[0].clause_version === '2026-ed3',
+  'asOfReplay surfaces clause_version from the preimage when a kernel carries one');
+ok(asOfReplay(bound, 'not-a-date').ok === false && /must be an ISO/.test(asOfReplay(bound, 'not-a-date').errors[0]),
+  'asOfReplay: a malformed asOfDate is RED with no findings computed');
+ok(asOfReplay({ ...bound, clause_bindings: [{ pointer: '/output_payload/nope' }] }, '2026-01-01').ok === false,
+  'asOfReplay refuses to compute findings over a shape that is already RED (unresolvable pointer)');
+
+// Demonstrated on ONE EXISTING NODE (this row's check-off names it): art-499's real shipped
+// citation set, taken from its own fixture — not a synthetic. No kernel/shard file is touched;
+// this only reads the already-shipped output_payload and re-derives clause_bindings pointers the
+// same way art-499's own CLAUSE_BINDING_POINTERS does, to prove replay against real preimage data.
+{
+  const art499Path = join(FIXDIR, 'art-499-check-safeguarding-reconciliation.fixtures.json');
+  if (existsSync(art499Path)) {
+    const doc = JSON.parse(readFileSync(art499Path, 'utf8'));
+    const vector = (doc.vectors ?? []).find((v) => v.output_payload?.citations);
+    if (vector) {
+      const artifact = {
+        policy_parameters: vector.policy_parameters,
+        output_payload: vector.output_payload,
+        clause_bindings: Object.keys(vector.output_payload.citations).map((k) => ({
+          profile: CLAUSE_BINDING_PROFILE,
+          pointer: `/output_payload/citations/${k}`,
+        })),
+      };
+      const replay = asOfReplay(artifact, vector.output_payload.as_of_date);
+      ok(replay.ok === true && replay.checked === Object.keys(vector.output_payload.citations).length,
+        `art-499: as-of replay against its OWN as_of_date (${vector.output_payload.as_of_date}) recomputes all ${replay.checked} citations as in force, from the real shipped output_payload`);
+      const early = asOfReplay(artifact, '2020-01-01');
+      ok(early.ok === false && early.findings.every((f) => f.valid_as_of === false),
+        'art-499: replaying a date before CASS 15.8 commencement (2026-05-07) correctly finds every citation NOT yet in force — provable, not asserted');
+    } else {
+      err('✗ art-499 fixture has no vector with output_payload.citations to replay against');
+    }
+  } else {
+    err('✗ art-499 fixture missing — cannot demonstrate as-of replay on the named node');
+  }
+}
+
+// ── 8. LIVE SWEEP ────────────────────────────────────────────────────────────
 // Every artifact-shaped file on disk that DECLARES clause_bindings must validate. Today the
 // declaring set is empty by design — the profile is new-artifacts-only and retrofits nothing —
 // so this loop is the tripwire that keeps the first adopter honest rather than a backlog counter.
@@ -171,7 +237,7 @@ for (const [dir, pred] of [[FIXDIR, (f) => f.endsWith('.fixtures.json')], [SHARD
 }
 log(`✓ swept ${swept} file(s); ${declaring} declare clause_bindings, all valid`);
 
-// ── 8. NO PERCENTAGE ─────────────────────────────────────────────────────────
+// ── 9. NO PERCENTAGE ─────────────────────────────────────────────────────────
 // §0.7 / §13: any gate emitting a percentage is RED. A published completeness figure converts an
 // ordinary miss into a misrepresentation claim, so gaps ship as a LIST, never as a ratio.
 const emitted = out.join('\n');
