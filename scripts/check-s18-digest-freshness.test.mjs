@@ -263,9 +263,20 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   //   With these two, the Sec25 set is CLOSED: all five ocg-private-input@1 nodes in the estate
   //   (art-413/414/415 under 6e5e8839, art-529/548 under adf39b5c) now carry groth16 receipts, and no
   //   node anywhere remains blocked on a private-input guest.
-  assert(total === 532, `expected 532 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 399, `expected 399 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by PRIVIN-GUEST-EXTEND-1), got ${stale.length}`);
+  // 532 -> 535 post-VERT-RECEIPTS-LAND-3 (2026-08-06): landed art-557 (record_index_constituents),
+  // art-558 (record_fund_positions) and art-559 (attest_calc_agent_independence) -- the three VERT
+  // receipts nodes carrying groth16-bn254 compute_proof from VERT-PROVE-1 (PR #984), with the risc0
+  // compute_images binding spliced by VERT-IMAGEID-FIX-1 (PR #986) and the stale deferred_reason:null
+  // key deleted by VERT-DEFERREDKEY-FIX-1 (PR #987). The land row asserted schema-validate CLEAN and
+  // ran no re-prove; hash-neutrality for both PR #986 and PR #987's edits was verified upstream by
+  // their own K-lane rows before this land. All three enter the FRESH set by construction --
+  // compute_proof_ready:'ready' with no prior receipt on main -- so denominator and fresh each move by
+  // exactly 3; the stale count does not move.
+  // Measured both sides, not assumed: 397/530 fresh + 133 stale before VERT-RECEIPTS-LAND-3's merge
+  // base, 402/535 fresh + 133 stale after.
+  assert(total === 535, `expected 535 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 402, `expected 402 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by VERT-RECEIPTS-LAND-3), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
