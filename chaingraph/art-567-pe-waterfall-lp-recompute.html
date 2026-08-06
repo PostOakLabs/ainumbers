@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>PE Distribution Waterfall LP-Side Recompute &middot; ART-567 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes a PE fund's distribution waterfall (return of capital, preferred return, GP catch-up, carry split) from declared cashflows and diffs it against the GP-reported allocation. Verdict MATCHES, DIVERGES, or INDETERMINATE. The LP-side check ILPA's own guidance says its templates were not designed to provide.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-567-pe-waterfall-lp-recompute.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:110px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-567 &middot; PE Distribution Waterfall LP-Side Recompute</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-567 &middot; Funds &amp; Private Markets Recompute</div>
+  <h1>PE Distribution Waterfall LP-Side Recompute</h1>
+  <p class="sub">Recomputes a standard 4-tier PE distribution waterfall (return of capital, preferred return, GP catch-up, residual carry split) from declared dated cashflows and a declared waterfall parameterization, then diffs the result against the GP-reported allocation. ILPA's own reporting-template guidance says it "was not designed for verifying any of the GP's calculations." This is the LP-side recompute that gap leaves open. All existing waterfall tooling serves the GP; this serves the party checking the GP's math.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">European whole-fund or American deal-by-deal</span>
+    <span class="flag info">MATCHES &middot; DIVERGES &middot; INDETERMINATE</span>
+    <span class="flag">Fixed-point BigInt money math</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Not ILPA-endorsed and never claimed "ILPA-compliant." ILPA guidance is cited only as dated context. Not an opinion on whether the declared parameterization is what the fund's LPA actually authorizes. Cashflows and the GP-reported allocation are exactly what the caller typed in, asserted, never independently verified.</div>
+
+  <div class="card">
+    <div class="section-head">Waterfall parameterization</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo values below are synthetic and already loaded, so you can press Run without entering anything of your own.</p>
+    <div class="grid3">
+      <div><label class="fld">Fund ID</label><input type="text" id="fundId" value="FUND-A"></div>
+      <div><label class="fld">Preferred return rate (e.g. 0.08 = 8%)</label><input type="number" step="0.0001" id="prefRate" value="0.08"></div>
+      <div><label class="fld">Compounding basis</label>
+        <select id="compoundingBasis"><option value="simple" selected>simple (non-compounding)</option><option value="annual">annual (compounds into principal)</option></select>
+      </div>
+    </div>
+    <div class="grid3" style="margin-top:10px">
+      <div><label class="fld">Day-count convention</label>
+        <select id="dayCount"><option value="actual/365" selected>actual/365</option><option value="30/360">30/360</option><option value="actual/360">actual/360</option><option value="actual/actual">actual/actual</option></select>
+      </div>
+      <div><label class="fld">GP catch-up % (e.g. 1.0 = 100% to GP)</label><input type="number" step="0.01" id="gpCatchupPct" value="1.0"></div>
+      <div><label class="fld">Carry % (e.g. 0.20 = 20%)</label><input type="number" step="0.01" id="carryPct" value="0.20"></div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div><label class="fld">Tier structure</label>
+        <select id="tierStructure"><option value="european_whole_fund" selected>european_whole_fund</option><option value="american_deal_by_deal">american_deal_by_deal</option></select>
+      </div>
+      <div><label class="fld">Clawback check<input type="checkbox" id="clawbackFlag" checked style="width:auto;margin-left:8px;vertical-align:middle"></label></div>
+    </div>
+
+    <label class="fld" style="margin-top:14px">Dated cashflows (JSON array: date, type "contribution"/"distribution", amount, optional deal_id when tier_structure is american_deal_by_deal)</label>
+    <textarea id="cashflowsJson">[
+  { "date": "2025-01-01", "type": "contribution", "amount": 1000000 },
+  { "date": "2026-01-01", "type": "distribution", "amount": 1300000 }
+]</textarea>
+
+    <label class="fld" style="margin-top:14px">GP-reported allocation to diff against (JSON: tiers[] each with tier, lp_amount, gp_amount. Leave the textarea empty for an INDETERMINATE demo)</label>
+    <textarea id="gpReportedJson">{
+  "tiers": [
+    { "tier": "return_of_capital", "lp_amount": 1000000, "gp_amount": 0 },
+    { "tier": "preferred_return", "lp_amount": 80000, "gp_amount": 0 },
+    { "tier": "gp_catchup", "lp_amount": 0, "gp_amount": 20000 },
+    { "tier": "carry_residual", "lp_amount": 160000, "gp_amount": 40000 }
+  ]
+}</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Recompute</button>
+      <button class="ghost" onclick="loadMatchesDemo()">Load matches demo</button>
+      <button class="ghost" onclick="loadDivergesDemo()">Load diverges demo</button>
+      <button class="ghost" onclick="loadIndeterminateDemo()">Load indeterminate demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Recomputed vs GP-reported, per tier</div>
+      <div id="tierDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Clawback check</div>
+      <div id="clawbackDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not verify that the declared cashflows match the fund's actual capital account records, and it does not determine whether the declared waterfall parameterization is what the limited partnership agreement authorizes. That is a question for the LPA and counsel. It is not endorsed by ILPA and never claims "ILPA-compliant"; ILPA's guidance is cited only as dated evidence that GP-side reporting templates were not built to check the GP's own math. A clean MATCHES result is a record that the recomputed arithmetic, over the declared inputs, lands on the declared GP-reported figures, nothing more.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0"><a href="art-373-recompute-fund-nav.html">ART-373</a> recomputes a fund's net-asset-value-per-share from declared holdings, accruals, liabilities, and shares outstanding, a NAV control, not a distribution-waterfall control. This node asks a different question: given a set of dated contributions and distributions and a declared tier structure, does the GP's reported per-tier LP/GP split match the arithmetic. The two nodes do not duplicate each other and may be cited together in a single LP fund-oversight evidence pack.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-insurance-stp.html">Insurance STP</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-567-pe-waterfall-lp-recompute',
+  version: '1.0.0',
+  mcp_name: 'recompute_pe_waterfall_lp',
+  title: 'PE Distribution Waterfall LP-Side Recompute',
+  description: 'Recomputes a standard 4-tier PE distribution waterfall (return of capital, preferred return, GP catch-up, residual carry split) from declared dated cashflows and a declared waterfall parameterization, then diffs the recomputed per-tier LP/GP allocation against a caller-supplied GP-reported allocation. Verdict MATCHES, DIVERGES with per-tier deltas, or INDETERMINATE.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_pe_waterfall_lp',
+    description: 'Recomputes a PE distribution waterfall over declared cashflows and diffs it against a GP-reported allocation.',
+    inputSchema: { type: 'object', properties: {
+      fund_id: {type:'string'}, waterfall: {type:'object'},
+      cashflows: {type:'array'}, gp_reported_allocation: {type:'object'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-567-pe-waterfall-lp-recompute.kernel.mjs --- */
+var SCALE_EXP = 8;
+var SCALE = 10n ** BigInt(SCALE_EXP);
+
+function toFixed(value){
+  var s = String(value == null ? 0 : value).trim();
+  var neg = false;
+  if (s.charAt(0) === '-') { neg = true; s = s.slice(1); }
+  else if (s.charAt(0) === '+') { s = s.slice(1); }
+  if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
+  var parts = s.split('.'); var intPart = parts[0] || '0'; var fracPart = parts[1] || '';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  fracPart = fracPart.padEnd(SCALE_EXP, '0');
+  var mag = BigInt(intPart + fracPart);
+  if (neg) mag = -mag;
+  return mag;
+}
+function mulFixed(a, b){ return (a * b) / SCALE; }
+function divFixed(a, b){ return b === 0n ? 0n : (a * SCALE) / b; }
+function fixedToPlainString(value, places){
+  var neg = value < 0n;
+  var abs = neg ? -value : value;
+  var divisor = 10n ** BigInt(SCALE_EXP - places);
+  var q = abs / divisor;
+  var qs = q.toString();
+  var result;
+  if (places === 0) result = qs;
+  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
+  return (neg && q !== 0n) ? ('-' + result) : result;
+}
+
+var DAY_COUNT_DENOMINATORS = { '30/360': 360, 'actual/360': 360, 'actual/365': 365, 'actual/actual': 365 };
+var MS_PER_DAY = 86400000;
+function daysBetween(a, b){
+  var da = Date.parse(a); var db = Date.parse(b);
+  if (isNaN(da) || isNaN(db)) return 0;
+  return Math.max(0, Math.round((db - da) / MS_PER_DAY));
+}
+
+var TIER_STRUCTURES = ['european_whole_fund', 'american_deal_by_deal'];
+var CASHFLOW_TYPES = ['contribution', 'distribution'];
+var TIER_NAMES = ['return_of_capital', 'preferred_return', 'gp_catchup', 'carry_residual'];
+
+var NOT_PROVEN = [
+  { item: 'Cashflow accuracy', detail: 'Every dated cashflow is caller-supplied and asserted. This kernel performs no document parsing or fund-administrator data lookups (zero-egress) and does not verify these values against any external source.' },
+  { item: 'LPA authorization', detail: 'This kernel recomputes arithmetic under a DECLARED waterfall parameterization; it makes no finding on whether that parameterization is what the governing limited partnership agreement actually specifies.' },
+  { item: 'ILPA endorsement or compliance', detail: 'ILPA reporting-template guidance is cited only as dated context that GP-side verification tooling is not designed to check the GP\'s own math. This kernel is not endorsed by, and makes no claim of compliance with, ILPA.' },
+  { item: 'GP-reported allocation source', detail: 'The GP-reported allocation compared against is exactly what the caller typed in; this kernel does not verify it was transcribed correctly from the GP\'s capital account statement.' },
+];
+
+function runWaterfallOverEvents(events, prefRateFixed, compoundingBasis, dayCountConvention){
+  var yearDays = DAY_COUNT_DENOMINATORS[dayCountConvention] || 365;
+  var yearDaysFixed = toFixed(yearDays);
+  var unreturnedCapital = 0n;
+  var accruedPref = 0n;
+  var lastEventDays = null;
+  var ledger = [];
+  for (var i = 0; i < events.length; i++){
+    var ev = events[i];
+    if (lastEventDays !== null && unreturnedCapital > 0n){
+      var elapsedDays = Math.max(0, ev.days_from_first - lastEventDays);
+      var elapsedFixed = toFixed(elapsedDays);
+      var periodFraction = divFixed(elapsedFixed, yearDaysFixed);
+      var periodInterest = mulFixed(mulFixed(unreturnedCapital, prefRateFixed), periodFraction);
+      accruedPref += periodInterest;
+      if (compoundingBasis === 'annual') unreturnedCapital += periodInterest;
+    }
+    lastEventDays = ev.days_from_first;
+
+    if (ev.type === 'contribution'){
+      unreturnedCapital += ev.amount_fixed;
+      ledger.push(Object.assign({}, ev, { tier_allocations: null }));
+      continue;
+    }
+    var remaining = ev.amount_fixed;
+    var alloc = { return_of_capital: 0n, preferred_return: 0n, gp_catchup: 0n, carry_residual_lp: 0n, carry_residual_gp: 0n };
+    if (remaining > 0n && unreturnedCapital > 0n){
+      var roc = remaining < unreturnedCapital ? remaining : unreturnedCapital;
+      alloc.return_of_capital = roc; unreturnedCapital -= roc; remaining -= roc;
+    }
+    if (remaining > 0n && accruedPref > 0n){
+      var pref = remaining < accruedPref ? remaining : accruedPref;
+      alloc.preferred_return = pref; accruedPref -= pref; remaining -= pref;
+    }
+    ledger.push(Object.assign({}, ev, { tier_allocations: alloc, remaining_before_catchup: remaining }));
+  }
+  return { unreturnedCapital: unreturnedCapital, accruedPref: accruedPref, ledger: ledger };
+}
+
+function applyCatchupAndCarry(ledger, gpCatchupPctFixed, carryPctFixed){
+  var oneMinusCarry = SCALE - carryPctFixed;
+  var catchupTargetRatio = oneMinusCarry > 0n ? divFixed(carryPctFixed, oneMinusCarry) : 0n;
+  var cumulativePrefPaid = 0n;
+  var cumulativeGpCatchup = 0n;
+  var lpTotal = { return_of_capital: 0n, preferred_return: 0n, gp_catchup: 0n, carry_residual: 0n };
+  var gpTotal = { return_of_capital: 0n, preferred_return: 0n, gp_catchup: 0n, carry_residual: 0n };
+  for (var i = 0; i < ledger.length; i++){
+    var ev = ledger[i];
+    if (!ev.tier_allocations) continue;
+    var a = ev.tier_allocations;
+    lpTotal.return_of_capital += a.return_of_capital;
+    lpTotal.preferred_return += a.preferred_return;
+    cumulativePrefPaid += a.preferred_return;
+
+    var remaining = ev.remaining_before_catchup;
+    var catchupTarget = mulFixed(cumulativePrefPaid, catchupTargetRatio);
+    if (remaining > 0n && cumulativeGpCatchup < catchupTarget && gpCatchupPctFixed > 0n){
+      var catchupDollarsNeeded = divFixed(catchupTarget - cumulativeGpCatchup, gpCatchupPctFixed);
+      var catchupTier = remaining < catchupDollarsNeeded ? remaining : catchupDollarsNeeded;
+      var gpShare = mulFixed(catchupTier, gpCatchupPctFixed);
+      var lpShare = catchupTier - gpShare;
+      a.gp_catchup = gpShare; a.lp_catchup = lpShare;
+      cumulativeGpCatchup += gpShare;
+      gpTotal.gp_catchup += gpShare; lpTotal.gp_catchup += lpShare;
+      remaining -= catchupTier;
+    } else { a.gp_catchup = 0n; a.lp_catchup = 0n; }
+
+    if (remaining > 0n){
+      var gpCarry = mulFixed(remaining, carryPctFixed);
+      var lpCarry = remaining - gpCarry;
+      a.carry_residual_gp = gpCarry; a.carry_residual_lp = lpCarry;
+      gpTotal.carry_residual += gpCarry; lpTotal.carry_residual += lpCarry;
+    }
+  }
+  return { lpTotal: lpTotal, gpTotal: gpTotal };
+}
+
+function runPool(cashflows, waterfall){
+  var prefRateFixed = toFixed(waterfall.pref_rate);
+  var gpCatchupPctFixed = toFixed(waterfall.gp_catchup_pct);
+  var carryPctFixed = toFixed(waterfall.carry_pct);
+  var dayCountConvention = waterfall.day_count_convention || 'actual/365';
+  var sorted = cashflows.slice().sort(function(x,y){ return (Date.parse(x.date)||0) - (Date.parse(y.date)||0); });
+  var firstDate = sorted.length ? sorted[0].date : null;
+  var events = sorted.map(function(cf){
+    return { date: cf.date, type: cf.type, amount_fixed: toFixed(cf.amount), days_from_first: firstDate ? daysBetween(firstDate, cf.date) : 0, deal_id: cf.deal_id || null };
+  });
+  var r = runWaterfallOverEvents(events, prefRateFixed, waterfall.compounding_basis, dayCountConvention);
+  return applyCatchupAndCarry(r.ledger, gpCatchupPctFixed, carryPctFixed);
+}
+
+function sumTierTotals(pools, side){
+  var out = { return_of_capital: 0n, preferred_return: 0n, gp_catchup: 0n, carry_residual: 0n };
+  for (var i = 0; i < pools.length; i++) for (var t = 0; t < TIER_NAMES.length; t++) out[TIER_NAMES[t]] += pools[i][side][TIER_NAMES[t]];
+  return out;
+}
+
+function computeClawback(recomputedGpTiers, cashflows){
+  var contributed = 0n; var distributed = 0n;
+  for (var i = 0; i < cashflows.length; i++){
+    var amt = toFixed(cashflows[i].amount);
+    if (cashflows[i].type === 'contribution') contributed += amt; else if (cashflows[i].type === 'distribution') distributed += amt;
+  }
+  var totalProfit = distributed > contributed ? distributed - contributed : 0n;
+  var gpCarryReceived = recomputedGpTiers.gp_catchup + recomputedGpTiers.carry_residual;
+  return { totalProfit: totalProfit, gpCarryReceived: gpCarryReceived };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var w = (pp.waterfall && typeof pp.waterfall === 'object') ? pp.waterfall : {};
+
+  var prefRateOk = w.pref_rate !== undefined && w.pref_rate !== null && w.pref_rate !== '';
+  if (!prefRateOk) rejected_inputs.push({ where: 'waterfall.pref_rate', reason: 'absent -- the preferred return rate must be declared, never defaulted', supplied: null });
+
+  var compoundingBasis = (w.compounding_basis === 'annual' || w.compounding_basis === 'simple') ? w.compounding_basis : null;
+  if (!compoundingBasis) rejected_inputs.push({ where: 'waterfall.compounding_basis', reason: 'absent or not one of "annual"/"simple"', supplied: w.compounding_basis == null ? null : w.compounding_basis });
+
+  var gpCatchupOk = w.gp_catchup_pct !== undefined && w.gp_catchup_pct !== null && w.gp_catchup_pct !== '';
+  if (!gpCatchupOk) rejected_inputs.push({ where: 'waterfall.gp_catchup_pct', reason: 'absent -- the GP catch-up percentage must be declared, never defaulted', supplied: null });
+
+  var carryOk = w.carry_pct !== undefined && w.carry_pct !== null && w.carry_pct !== '';
+  if (!carryOk) rejected_inputs.push({ where: 'waterfall.carry_pct', reason: 'absent -- the carry percentage must be declared, never defaulted', supplied: null });
+
+  var tierStructure = TIER_STRUCTURES.indexOf(w.tier_structure) !== -1 ? w.tier_structure : null;
+  if (!tierStructure) rejected_inputs.push({ where: 'waterfall.tier_structure', reason: 'absent or not one of "european_whole_fund"/"american_deal_by_deal"', supplied: w.tier_structure == null ? null : w.tier_structure });
+
+  var clawbackFlag = w.clawback_flag === true;
+
+  var cashflowsIn = Array.isArray(pp.cashflows) ? pp.cashflows : [];
+  if (cashflowsIn.length === 0) rejected_inputs.push({ where: 'cashflows', reason: 'absent or empty -- at least one dated cashflow is required', supplied: null });
+  var validatedCashflows = [];
+  cashflowsIn.forEach(function(cf, i){
+    var c = cf && typeof cf === 'object' ? cf : {};
+    var dateOk = typeof c.date === 'string' && !isNaN(Date.parse(c.date));
+    if (!dateOk) rejected_inputs.push({ where: 'cashflows[' + i + '].date', reason: 'absent or unparseable', supplied: c.date == null ? null : c.date });
+    var typeOk = CASHFLOW_TYPES.indexOf(c.type) !== -1;
+    if (!typeOk) rejected_inputs.push({ where: 'cashflows[' + i + '].type', reason: 'absent or not one of "contribution"/"distribution"', supplied: c.type == null ? null : c.type });
+    var amountOk = c.amount !== undefined && c.amount !== null && c.amount !== '';
+    if (!amountOk) rejected_inputs.push({ where: 'cashflows[' + i + '].amount', reason: 'absent', supplied: null });
+    if (tierStructure === 'american_deal_by_deal' && !c.deal_id){
+      rejected_inputs.push({ where: 'cashflows[' + i + '].deal_id', reason: 'absent -- required when tier_structure is "american_deal_by_deal" so each cashflow can be assigned to its deal pool', supplied: null });
+    }
+    if (dateOk && typeOk && amountOk) validatedCashflows.push({ date: c.date, type: c.type, amount: c.amount, deal_id: c.deal_id || null });
+  });
+
+  var gpReportedIn = pp.gp_reported_allocation && typeof pp.gp_reported_allocation === 'object' ? pp.gp_reported_allocation : null;
+  var gpReportedTiers = Array.isArray(gpReportedIn && gpReportedIn.tiers) ? gpReportedIn.tiers : null;
+  if (!gpReportedTiers || gpReportedTiers.length === 0) rejected_inputs.push({ where: 'gp_reported_allocation.tiers', reason: 'absent or empty -- the GP-reported allocation to diff against is required', supplied: null });
+
+  var structuralOk = prefRateOk && compoundingBasis && gpCatchupOk && carryOk && tierStructure && validatedCashflows.length > 0 && gpReportedTiers && gpReportedTiers.length > 0;
+
+  if (!structuralOk){
+    var opInd = {
+      fund_id: pp.fund_id != null ? pp.fund_id : null,
+      deal_id: pp.deal_id != null ? pp.deal_id : null,
+      as_of_date: pp.as_of_date != null ? pp.as_of_date : null,
+      verdict: 'INDETERMINATE',
+      reason: 'One or more required parameters are missing -- see rejected_inputs. Never defaulted, never guessed.',
+      recomputed_allocation: null,
+      gp_reported_allocation: gpReportedIn,
+      tier_deltas: [],
+      per_deal: null,
+      clawback: null,
+      rejected_inputs: rejected_inputs,
+      not_proven: NOT_PROVEN,
+      fence: 'Cashflows and the waterfall parameterization are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes ARITHMETIC over declared inputs and attests THAT -- never an opinion on LPA authorization, never ILPA-endorsed.',
+    };
+    return { output_payload: opInd, compliance_flags: ['PE_WATERFALL_INDETERMINATE', 'PE_WATERFALL_INPUTS_REJECTED'] };
+  }
+
+  var waterfallParams = {
+    pref_rate: w.pref_rate, compounding_basis: compoundingBasis, day_count_convention: w.day_count_convention || 'actual/365',
+    gp_catchup_pct: w.gp_catchup_pct, carry_pct: w.carry_pct,
+  };
+
+  var pools = [];
+  var perDeal = null;
+  if (tierStructure === 'european_whole_fund'){
+    pools = [runPool(validatedCashflows, waterfallParams)];
+  } else {
+    var dealIds = Array.from(new Set(validatedCashflows.map(function(c){ return c.deal_id; })));
+    pools = dealIds.map(function(dealId){ return runPool(validatedCashflows.filter(function(c){ return c.deal_id === dealId; }), waterfallParams); });
+    perDeal = dealIds.map(function(dealId, idx){
+      var p = pools[idx];
+      var out = { deal_id: dealId };
+      TIER_NAMES.forEach(function(t){ out['lp_' + t] = fixedToPlainString(p.lpTotal[t], SCALE_EXP); out['gp_' + t] = fixedToPlainString(p.gpTotal[t], SCALE_EXP); });
+      return out;
+    });
+  }
+
+  var lpTotals = sumTierTotals(pools, 'lpTotal');
+  var gpTotals = sumTierTotals(pools, 'gpTotal');
+
+  var recomputedAllocation = TIER_NAMES.map(function(tier){
+    return { tier: tier, lp_amount: fixedToPlainString(lpTotals[tier], SCALE_EXP), gp_amount: fixedToPlainString(gpTotals[tier], SCALE_EXP) };
+  });
+
+  var reportedByTier = new Map(gpReportedTiers.map(function(t){ return [t.tier, t]; }));
+  var tier_deltas = TIER_NAMES.map(function(tier){
+    var reported = reportedByTier.get(tier);
+    var reportedLp = reported && reported.lp_amount !== undefined ? toFixed(reported.lp_amount) : null;
+    var reportedGp = reported && reported.gp_amount !== undefined ? toFixed(reported.gp_amount) : null;
+    var lpDelta = reportedLp === null ? null : fixedToPlainString(lpTotals[tier] - reportedLp, SCALE_EXP);
+    var gpDelta = reportedGp === null ? null : fixedToPlainString(gpTotals[tier] - reportedGp, SCALE_EXP);
+    return {
+      tier: tier,
+      recomputed_lp_amount: fixedToPlainString(lpTotals[tier], SCALE_EXP),
+      recomputed_gp_amount: fixedToPlainString(gpTotals[tier], SCALE_EXP),
+      gp_reported_lp_amount: reported && reported.lp_amount !== undefined ? String(reported.lp_amount) : null,
+      gp_reported_gp_amount: reported && reported.gp_amount !== undefined ? String(reported.gp_amount) : null,
+      lp_delta: lpDelta, gp_delta: gpDelta,
+      matches: lpDelta === '0.00000000' && gpDelta === '0.00000000',
+    };
+  });
+
+  var anyMissingReported = tier_deltas.some(function(d){ return d.gp_reported_lp_amount === null || d.gp_reported_gp_amount === null; });
+  var anyDiverges = tier_deltas.some(function(d){ return !d.matches; });
+  var verdict = anyMissingReported ? 'INDETERMINATE' : (anyDiverges ? 'DIVERGES' : 'MATCHES');
+
+  var clawback = null;
+  var compliance_flags = ['PE_WATERFALL_RECOMPUTED'];
+  if (clawbackFlag){
+    var cw = computeClawback(gpTotals, validatedCashflows);
+    var entitled = mulFixed(cw.totalProfit, toFixed(w.carry_pct));
+    var clawbackAmountFixed = cw.gpCarryReceived > entitled ? cw.gpCarryReceived - entitled : 0n;
+    clawback = {
+      clawback_flag_declared: true,
+      total_realized_profit: fixedToPlainString(cw.totalProfit, SCALE_EXP),
+      gp_carry_and_catchup_received: fixedToPlainString(cw.gpCarryReceived, SCALE_EXP),
+      gp_entitled_at_carry_pct: fixedToPlainString(entitled, SCALE_EXP),
+      clawback_amount: fixedToPlainString(clawbackAmountFixed, SCALE_EXP),
+      note: 'Aggregate check only: does cumulative GP catch-up + carry exceed carry_pct of cumulative realized profit (distributions minus contributions) at this as-of date. Not a fund-level clawback provision recompute -- the governing LPA clawback mechanics (interim vs final, tax-effected or gross, escrow terms) are not modeled here.',
+    };
+    compliance_flags.push(clawbackAmountFixed > 0n ? 'PE_WATERFALL_CLAWBACK_EXPOSURE_DETECTED' : 'PE_WATERFALL_CLAWBACK_NONE_DETECTED');
+  }
+
+  compliance_flags.push(verdict === 'MATCHES' ? 'PE_WATERFALL_MATCHES' : verdict === 'DIVERGES' ? 'PE_WATERFALL_DIVERGES' : 'PE_WATERFALL_INDETERMINATE');
+  if (rejected_inputs.length > 0) compliance_flags.push('PE_WATERFALL_SOME_INPUTS_REJECTED');
+
+  var output_payload = {
+    fund_id: pp.fund_id != null ? pp.fund_id : null,
+    deal_id: pp.deal_id != null ? pp.deal_id : null,
+    as_of_date: pp.as_of_date != null ? pp.as_of_date : null,
+    verdict: verdict, tier_structure: tierStructure, waterfall: waterfallParams,
+    recomputed_allocation: recomputedAllocation, gp_reported_allocation: gpReportedIn,
+    tier_deltas: tier_deltas, per_deal: perDeal, clawback: clawback,
+    rejected_inputs: rejected_inputs, not_proven: NOT_PROVEN,
+    fence: 'Cashflows and the waterfall parameterization are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes ARITHMETIC over declared inputs and attests THAT -- never an opinion on LPA authorization, never ILPA-endorsed or ILPA-compliant.',
+    ilpa_context: 'ILPA reporting-template guidance states it was not designed for verifying any of the GP\'s calculations (cited as dated gap evidence, not as an endorsement of this tool).',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function loadMatchesDemo(){
+  document.getElementById('fundId').value = 'FUND-A';
+  document.getElementById('prefRate').value = '0.08';
+  document.getElementById('compoundingBasis').value = 'simple';
+  document.getElementById('dayCount').value = 'actual/365';
+  document.getElementById('gpCatchupPct').value = '1.0';
+  document.getElementById('carryPct').value = '0.20';
+  document.getElementById('tierStructure').value = 'european_whole_fund';
+  document.getElementById('clawbackFlag').checked = true;
+  document.getElementById('cashflowsJson').value = '[\n  { "date": "2025-01-01", "type": "contribution", "amount": 1000000 },\n  { "date": "2026-01-01", "type": "distribution", "amount": 1300000 }\n]';
+  document.getElementById('gpReportedJson').value = '{\n  "tiers": [\n    { "tier": "return_of_capital", "lp_amount": 1000000, "gp_amount": 0 },\n    { "tier": "preferred_return", "lp_amount": 80000, "gp_amount": 0 },\n    { "tier": "gp_catchup", "lp_amount": 0, "gp_amount": 20000 },\n    { "tier": "carry_residual", "lp_amount": 160000, "gp_amount": 40000 }\n  ]\n}';
+  runCheck();
+}
+function loadDivergesDemo(){
+  document.getElementById('fundId').value = 'FUND-B';
+  document.getElementById('prefRate').value = '0.08';
+  document.getElementById('compoundingBasis').value = 'simple';
+  document.getElementById('dayCount').value = 'actual/365';
+  document.getElementById('gpCatchupPct').value = '1.0';
+  document.getElementById('carryPct').value = '0.20';
+  document.getElementById('tierStructure').value = 'european_whole_fund';
+  document.getElementById('clawbackFlag').checked = false;
+  document.getElementById('cashflowsJson').value = '[\n  { "date": "2025-01-01", "type": "contribution", "amount": 1000000 },\n  { "date": "2026-01-01", "type": "distribution", "amount": 1300000 }\n]';
+  document.getElementById('gpReportedJson').value = '{\n  "tiers": [\n    { "tier": "return_of_capital", "lp_amount": 1000000, "gp_amount": 0 },\n    { "tier": "preferred_return", "lp_amount": 80000, "gp_amount": 0 },\n    { "tier": "gp_catchup", "lp_amount": 0, "gp_amount": 35000 },\n    { "tier": "carry_residual", "lp_amount": 145000, "gp_amount": 40000 }\n  ]\n}';
+  runCheck();
+}
+function loadIndeterminateDemo(){
+  document.getElementById('fundId').value = 'FUND-C';
+  document.getElementById('prefRate').value = '0.08';
+  document.getElementById('compoundingBasis').value = 'annual';
+  document.getElementById('dayCount').value = 'actual/365';
+  document.getElementById('gpCatchupPct').value = '0.5';
+  document.getElementById('carryPct').value = '0.20';
+  document.getElementById('tierStructure').value = 'american_deal_by_deal';
+  document.getElementById('clawbackFlag').checked = false;
+  document.getElementById('cashflowsJson').value = '[\n  { "date": "2025-01-01", "type": "contribution", "amount": 500000, "deal_id": "DEAL-1" },\n  { "date": "2026-01-01", "type": "distribution", "amount": 650000, "deal_id": "DEAL-1" }\n]';
+  document.getElementById('gpReportedJson').value = '';
+  runCheck();
+}
+
+function runCheck(){
+  var cashflows, gpReported;
+  try { cashflows = JSON.parse(document.getElementById('cashflowsJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in cashflows: ' + e.message); return; }
+  var gpReportedRaw = document.getElementById('gpReportedJson').value.trim();
+  try { gpReported = gpReportedRaw ? JSON.parse(gpReportedRaw) : null; }
+  catch(e){ alert('Invalid JSON in GP-reported allocation: ' + e.message); return; }
+
+  var pp = {
+    fund_id: document.getElementById('fundId').value || undefined,
+    waterfall: {
+      pref_rate: document.getElementById('prefRate').value !== '' ? Number(document.getElementById('prefRate').value) : undefined,
+      compounding_basis: document.getElementById('compoundingBasis').value || undefined,
+      day_count_convention: document.getElementById('dayCount').value || undefined,
+      gp_catchup_pct: document.getElementById('gpCatchupPct').value !== '' ? Number(document.getElementById('gpCatchupPct').value) : undefined,
+      carry_pct: document.getElementById('carryPct').value !== '' ? Number(document.getElementById('carryPct').value) : undefined,
+      tier_structure: document.getElementById('tierStructure').value || undefined,
+      clawback_flag: document.getElementById('clawbackFlag').checked,
+    },
+    cashflows: cashflows,
+    gp_reported_allocation: gpReported,
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var color = op.verdict === 'MATCHES' ? 'var(--green)' : op.verdict === 'DIVERGES' ? 'var(--red)' : 'var(--warn)';
+  var bg = op.verdict === 'MATCHES' ? 'rgba(34,197,94,.08)' : op.verdict === 'DIVERGES' ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)';
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = op.verdict + ' · ' + res.compliance_flags.join(', ');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.verdict + '</span><span class="stat-key">Verdict</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.tier_structure || '—') + '</span><span class="stat-key">Tier structure</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.rejected_inputs.length + '</span><span class="stat-key">Rejected inputs</span></div>';
+
+  document.getElementById('tierDiv').innerHTML = op.tier_deltas.length
+    ? op.tier_deltas.map(function(d){
+        var badge = d.gp_reported_lp_amount === null ? '<span class="badge warn">no report</span>' : (d.matches ? '<span class="badge ok">matches</span>' : '<span class="badge bad">diverges</span>');
+        return '<div class="kv"><span class="kv-k">' + d.tier + ' ' + badge + '</span><span class="kv-v">LP recomputed ' + d.recomputed_lp_amount + ' vs reported ' + d.gp_reported_lp_amount + ' (delta ' + d.lp_delta + ') &middot; GP recomputed ' + d.recomputed_gp_amount + ' vs reported ' + d.gp_reported_gp_amount + ' (delta ' + d.gp_delta + ')</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No allocation recomputed</span><span class="kv-v">' + (op.reason || '—') + '</span></div>';
+
+  document.getElementById('clawbackDiv').innerHTML = op.clawback
+    ? '<div class="kv"><span class="kv-k">Total realized profit</span><span class="kv-v">' + op.clawback.total_realized_profit + '</span></div>' +
+      '<div class="kv"><span class="kv-k">GP catch-up + carry received</span><span class="kv-v">' + op.clawback.gp_carry_and_catchup_received + '</span></div>' +
+      '<div class="kv"><span class="kv-k">GP entitled at carry %</span><span class="kv-v">' + op.clawback.gp_entitled_at_carry_pct + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Clawback amount</span><span class="kv-v">' + op.clawback.clawback_amount + '</span></div>'
+    : '<div class="kv"><span class="kv-k">Not requested</span><span class="kv-v">clawback check checkbox was unchecked, or verdict is INDETERMINATE</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-567-pe-waterfall-lp-recompute',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-567-pe-waterfall-lp-recompute.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
