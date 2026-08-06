@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Muni Arbitrage Spending-Exception Checker &middot; ART-569 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Tests whether a tax-exempt bond issue's declared expenditure schedule satisfies the IRC section 148 / Treas. Reg. 1.148-7 6-month, 18-month, or 24-month spending exception. Per-milestone verdict MET, FAILED, or PENDING plus overall exception status.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-569-muni-arbitrage-spending-exception-checker.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:120px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-569 · Muni Arbitrage Spending-Exception Checker</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-569 &middot; Municipal Finance &amp; Tax-Exempt Bonds</div>
+  <h1>Muni Arbitrage Spending-Exception Checker</h1>
+  <p class="sub">Tests whether a tax-exempt bond issue's declared expenditure schedule satisfies the IRC section 148 / Treas. Reg. 1.148-7 6-month, 18-month, or 24-month spending exception, including the reasonable-retainage variant of each schedule and a caller-declared de minimis amount. Each milestone gets its own verdict; the full exception status rolls those up.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Spending exceptions only &middot; not the rebate computation</span>
+    <span class="flag info">Reasonable retainage &amp; de minimis are declared, never assumed</span>
+    <span class="flag">Verdict per milestone: MET &middot; FAILED &middot; PENDING</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Not tax advice. This tool tests only the spending-exception milestone schedules in Treas. Reg. section 1.148-7 against the expenditure schedule you supply; it does not compute the future-value arbitrage rebate, and satisfying a milestone here means only what the cited regulation says it means. Confirm current text and facts with qualified bond counsel.</div>
+
+  <div class="card">
+    <div class="section-head">Issue &amp; election</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo values below are synthetic and already loaded, so you can press Run without entering anything of your own.</p>
+    <div class="grid3">
+      <div><label class="fld">Issue date</label><input type="text" id="issueDate" value="2026-01-15"></div>
+      <div><label class="fld">Evaluation (as-of) date</label><input type="text" id="asOfDate" value="2026-12-01"></div>
+      <div><label class="fld">Gross proceeds (minor units)</label><input type="number" id="grossProceeds" value="10000000000"></div>
+    </div>
+    <div class="grid3">
+      <div>
+        <label class="fld">Elected exception</label>
+        <select id="electedException">
+          <option value="6_MONTH">6-month (1.148-7(c))</option>
+          <option value="18_MONTH">18-month (1.148-7(d))</option>
+          <option value="24_MONTH">24-month construction (1.148-7(e))</option>
+        </select>
+      </div>
+      <div>
+        <label class="fld">Reasonable retainage elected</label>
+        <select id="reasonableRetainage">
+          <option value="false">No</option>
+          <option value="true">Yes</option>
+        </select>
+      </div>
+      <div><label class="fld">De minimis (minor units, optional, capped at lesser of 3% of gross proceeds or $150,000)</label><input type="number" id="deMinimis" value=""></div>
+    </div>
+
+    <label class="fld" style="margin-top:14px">Expenditure schedule (JSON array: date, amount_minor, description)</label>
+    <textarea id="expJson">[
+  { "date": "2026-02-01", "amount_minor": 4000000000, "description": "construction draw 1" },
+  { "date": "2026-04-15", "amount_minor": 3500000000, "description": "construction draw 2" },
+  { "date": "2026-07-10", "amount_minor": 2500000000, "description": "construction draw 3" }
+]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Spending-Exception Check</button>
+      <button class="ghost" onclick="loadFailedDemo()">Load 18-month retainage shortfall demo</button>
+      <button class="ghost" onclick="loadIncompleteDemo()">Load missing-election demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Milestones</div>
+      <div id="milestonesDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not compute the future-value arbitrage rebate liability, which is a deliberately separate, not-yet-built tool. It does not determine whether a particular expenditure qualifies as a capital expenditure of the issue, does not source or verify any expenditure against a bank record or draw request, and is not legal or tax advice. A MET result means only that the declared expenditure schedule satisfies the cited milestone percentages as of the declared evaluation date.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0"><a href="art-566-iolta-three-way-reconciliation.html">ART-566</a> and <a href="art-568-securitization-trustee-report-recompute.html">ART-568</a> are the other recompute-the-counterparty's-number nodes in this wave: this one is the municipal-finance case, testing IRC section 148 spending-exception milestones rather than a three-way balance close or a securitization waterfall.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-insurance-stp.html">Insurance STP</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-569-muni-arbitrage-spending-exception-checker',
+  version: '1.0.0',
+  mcp_name: 'check_muni_arbitrage_spending_exception',
+  title: 'Muni Arbitrage Spending-Exception Checker',
+  description: 'Tests whether a tax-exempt bond issue satisfies the IRC section 148 6-month, 18-month, or 24-month spending exception under Treas. Reg. section 1.148-7. Verdict per milestone MET | FAILED | PENDING, plus overall exception status.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'check_muni_arbitrage_spending_exception',
+    description: 'Tests a tax-exempt bond issue expenditure schedule against the elected IRC section 148 spending-exception milestone schedule.',
+    inputSchema: { type: 'object', properties: {
+      issue_date: {type:'string'}, as_of_date: {type:'string'}, gross_proceeds_minor: {type:'integer'},
+      elected_exception: {type:'string', enum:['6_MONTH','18_MONTH','24_MONTH']}, reasonable_retainage: {type:'boolean'},
+      de_minimis_minor: {type:'integer'}, expenditure_schedule: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-569-muni-arbitrage-spending-exception-checker.kernel.mjs --- */
+var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+var MAX_EXPENDITURES = 500;
+var EXCEPTIONS = ['6_MONTH', '18_MONTH', '24_MONTH'];
+function s(v){ return String(v == null ? '' : v).trim(); }
+function minorInt(v){
+  if (typeof v === 'number' && Number.isSafeInteger(v)) return v;
+  if (typeof v === 'string' && v.trim() !== ''){ var n = Number(v); if (Number.isSafeInteger(n)) return n; }
+  return null;
+}
+function isDate(v){ return typeof v === 'string' && DATE_RE.test(v); }
+function parseDate(d){ var parts = d.split('-').map(Number); return { y: parts[0], m: parts[1], day: parts[2] }; }
+function daysInMonth(y, m){ return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+function addMonths(dateStr, months){
+  var p = parseDate(dateStr);
+  var total = (p.m - 1) + months;
+  var ny = p.y + Math.floor(total / 12);
+  var nm = (total % 12) + 1;
+  var nd = Math.min(p.day, daysInMonth(ny, nm));
+  return ny + '-' + String(nm).padStart(2, '0') + '-' + String(nd).padStart(2, '0');
+}
+function cmpDate(a, b){ return a < b ? -1 : a > b ? 1 : 0; }
+function scheduleFor(elected, reasonableRetainage){
+  if (elected === '6_MONTH'){
+    return reasonableRetainage
+      ? [{ months: 6, required_pct: 95 }, { months: 12, required_pct: 100 }]
+      : [{ months: 6, required_pct: 100 }];
+  }
+  if (elected === '18_MONTH'){
+    return reasonableRetainage
+      ? [{ months: 6, required_pct: 15 }, { months: 12, required_pct: 60 }, { months: 18, required_pct: 95 }, { months: 30, required_pct: 100 }]
+      : [{ months: 6, required_pct: 15 }, { months: 12, required_pct: 60 }, { months: 18, required_pct: 100 }];
+  }
+  return reasonableRetainage
+    ? [{ months: 6, required_pct: 10 }, { months: 12, required_pct: 45 }, { months: 18, required_pct: 75 }, { months: 24, required_pct: 95 }, { months: 36, required_pct: 100 }]
+    : [{ months: 6, required_pct: 10 }, { months: 12, required_pct: 45 }, { months: 18, required_pct: 75 }, { months: 24, required_pct: 100 }];
+}
+var SCOPE_NOTE = 'Tests ONLY whether the issue satisfies the elected spending exception milestone schedule under Treas. Reg. section 1.148-7. Does not compute the future-value arbitrage rebate; that is a separate, not-yet-built tool. Meeting a milestone means only what the cited regulation says it means.';
+var CLAUSE_NOTE = 'IRC section 148 (Arbitrage); Treas. Reg. section 1.148-7 (Spending exceptions to the rebate requirement), specifically -7(c) 6-month, -7(d) 18-month, and -7(e) 24-month (construction) schedules including their reasonable-retainage variants; IRS Pub 5271 (Tax Exempt Bonds: Arbitrage Rebate compliance overview). Not tax advice -- confirm current text and facts with qualified bond counsel.';
+
+function emptyResult(reason, extra, flags){
+  return { output_payload: {
+    decision: { gate_policy: 'review_required', execution_state: 'did_not_run', reason: reason },
+    overall_status: 'PENDING',
+    elected_exception: (extra && extra.elected_exception) || null,
+    reasonable_retainage: (extra && typeof extra.reasonable_retainage === 'boolean') ? extra.reasonable_retainage : null,
+    issue_date: (extra && extra.issue_date) || null, as_of_date: (extra && extra.as_of_date) || null,
+    gross_proceeds_minor: (extra && typeof extra.gross_proceeds_minor === 'number') ? extra.gross_proceeds_minor : null,
+    de_minimis_minor: (extra && typeof extra.de_minimis_minor === 'number') ? extra.de_minimis_minor : null,
+    de_minimis_cap_minor: (extra && typeof extra.de_minimis_cap_minor === 'number') ? extra.de_minimis_cap_minor : null,
+    total_expenditures_minor: 0, milestones: [],
+    rejected_inputs: (extra && extra.rejected_inputs) || [], scope_note: SCOPE_NOTE, clause_note: CLAUSE_NOTE,
+  }, compliance_flags: flags };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var issue_date = isDate(pp.issue_date) ? pp.issue_date : null;
+  if (!issue_date) rejected_inputs.push({ where: 'issue_date', reason: 'absent or not YYYY-MM-DD', supplied: pp.issue_date === undefined ? null : s(pp.issue_date) });
+
+  var as_of_date = isDate(pp.as_of_date) ? pp.as_of_date : null;
+  if (!as_of_date) rejected_inputs.push({ where: 'as_of_date', reason: 'absent or not YYYY-MM-DD -- an evaluation date is required to distinguish PENDING from FAILED milestones', supplied: pp.as_of_date === undefined ? null : s(pp.as_of_date) });
+
+  var gross_proceeds_minor = minorInt(pp.gross_proceeds_minor);
+  if (gross_proceeds_minor === null || gross_proceeds_minor <= 0){
+    rejected_inputs.push({ where: 'gross_proceeds_minor', reason: 'absent or not a positive integer number of minor units', supplied: pp.gross_proceeds_minor === undefined ? null : s(pp.gross_proceeds_minor) });
+  }
+
+  var elected_exception = EXCEPTIONS.indexOf(pp.elected_exception) !== -1 ? pp.elected_exception : null;
+  if (!elected_exception) rejected_inputs.push({ where: 'elected_exception', reason: 'absent or not one of 6_MONTH, 18_MONTH, 24_MONTH', supplied: pp.elected_exception === undefined ? null : s(pp.elected_exception) });
+
+  var retainageDeclared = typeof pp.reasonable_retainage === 'boolean';
+  if (!retainageDeclared) rejected_inputs.push({ where: 'reasonable_retainage', reason: 'absent -- whether reasonable retainage is elected must be declared as true/false, never defaulted', supplied: null });
+  var reasonable_retainage = retainageDeclared ? pp.reasonable_retainage : null;
+
+  var de_minimis_declared = pp.de_minimis_minor !== undefined && pp.de_minimis_minor !== null && pp.de_minimis_minor !== '';
+  var de_minimis_minor = 0;
+  var de_minimis_cap_minor = null;
+  if (gross_proceeds_minor !== null && gross_proceeds_minor > 0){
+    de_minimis_cap_minor = Math.min(Math.floor(gross_proceeds_minor * 0.03), 15000000);
+  }
+  if (de_minimis_declared){
+    var v = minorInt(pp.de_minimis_minor);
+    if (v === null || v < 0){
+      rejected_inputs.push({ where: 'de_minimis_minor', reason: 'not a non-negative integer number of minor units', supplied: s(pp.de_minimis_minor) });
+    } else if (de_minimis_cap_minor !== null && v > de_minimis_cap_minor){
+      rejected_inputs.push({ where: 'de_minimis_minor', reason: 'exceeds the lesser of 3% of gross proceeds or $150,000 (' + de_minimis_cap_minor + ' minor units)', supplied: v });
+    } else {
+      de_minimis_minor = v;
+    }
+  }
+
+  var expIn = Array.isArray(pp.expenditure_schedule) ? pp.expenditure_schedule.slice(0, MAX_EXPENDITURES) : [];
+  var expenditure_schedule = [];
+  for (var i = 0; i < expIn.length; i++){
+    var row = expIn[i] || {};
+    var date = isDate(row.date) ? row.date : null;
+    var amount_minor = minorInt(row.amount_minor);
+    if (!date || amount_minor === null || amount_minor <= 0){
+      rejected_inputs.push({ where: 'expenditure_schedule[' + i + ']', reason: 'date must be YYYY-MM-DD and amount_minor a positive integer number of minor units', supplied: row.date === undefined ? null : s(row.date) });
+      continue;
+    }
+    expenditure_schedule.push({ date: date, amount_minor: amount_minor, description: s(row.description) });
+  }
+  if (expIn.length > MAX_EXPENDITURES) rejected_inputs.push({ where: 'expenditure_schedule', reason: 'more than ' + MAX_EXPENDITURES + ' expenditure rows supplied', supplied: expIn.length });
+
+  var requiredMissing = !issue_date || !as_of_date || gross_proceeds_minor === null || gross_proceeds_minor <= 0
+    || !elected_exception || !retainageDeclared;
+  if (requiredMissing){
+    return emptyResult('required_inputs_incomplete', {
+      elected_exception: elected_exception, reasonable_retainage: reasonable_retainage, issue_date: issue_date, as_of_date: as_of_date,
+      gross_proceeds_minor: gross_proceeds_minor, de_minimis_minor: de_minimis_declared ? de_minimis_minor : null, de_minimis_cap_minor: de_minimis_cap_minor, rejected_inputs: rejected_inputs,
+    }, ['MUNI_SPEND_EXC_REQUIRED_INPUTS_INCOMPLETE']);
+  }
+
+  expenditure_schedule.sort(function(a,b){ return cmpDate(a.date, b.date); });
+  var total_expenditures_minor = expenditure_schedule.reduce(function(acc,e){ return acc + e.amount_minor; }, 0);
+
+  var schedule = scheduleFor(elected_exception, reasonable_retainage);
+  var milestones = [];
+  for (var mi = 0; mi < schedule.length; mi++){
+    var m = schedule[mi];
+    var milestone_date = addMonths(issue_date, m.months);
+    var cumulative_spent_minor = 0;
+    for (var ei = 0; ei < expenditure_schedule.length; ei++){
+      if (cmpDate(expenditure_schedule[ei].date, milestone_date) <= 0) cumulative_spent_minor += expenditure_schedule[ei].amount_minor;
+    }
+    var required_gross_minor = Math.ceil((m.required_pct / 100) * gross_proceeds_minor);
+    var required_minor = Math.max(0, required_gross_minor - de_minimis_minor);
+    var isFuture = cmpDate(milestone_date, as_of_date) > 0;
+    var verdict;
+    if (isFuture) verdict = 'PENDING';
+    else verdict = cumulative_spent_minor >= required_minor ? 'MET' : 'FAILED';
+    milestones.push({
+      months_after_issue_date: m.months, milestone_date: milestone_date, required_pct: m.required_pct,
+      required_gross_minor: required_gross_minor, required_minor: required_minor,
+      cumulative_spent_minor: cumulative_spent_minor, verdict: verdict,
+    });
+  }
+
+  var anyFailed = milestones.some(function(m){ return m.verdict === 'FAILED'; });
+  var anyPending = milestones.some(function(m){ return m.verdict === 'PENDING'; });
+  var overall_status = anyFailed ? 'FAILED' : anyPending ? 'PENDING' : 'MET';
+  var gate_policy = overall_status === 'MET' ? 'auto_pass' : 'review_required';
+
+  var compliance_flags = ['MUNI_SPEND_EXC_MILESTONES_EVALUATED'];
+  if (overall_status === 'FAILED') compliance_flags.push('MUNI_SPEND_EXC_MILESTONE_FAILED');
+  if (overall_status === 'PENDING') compliance_flags.push('MUNI_SPEND_EXC_MILESTONE_PENDING');
+  if (overall_status === 'MET') compliance_flags.push('MUNI_SPEND_EXC_ALL_MILESTONES_MET');
+  if (de_minimis_minor > 0) compliance_flags.push('MUNI_SPEND_EXC_DE_MINIMIS_APPLIED');
+  if (reasonable_retainage) compliance_flags.push('MUNI_SPEND_EXC_REASONABLE_RETAINAGE_ELECTED');
+  if (rejected_inputs.length > 0) compliance_flags.push('MUNI_SPEND_EXC_INPUTS_REJECTED');
+
+  return { output_payload: {
+    decision: { gate_policy: gate_policy, execution_state: 'ran', reason: null },
+    overall_status: overall_status, elected_exception: elected_exception, reasonable_retainage: reasonable_retainage,
+    issue_date: issue_date, as_of_date: as_of_date, gross_proceeds_minor: gross_proceeds_minor,
+    de_minimis_minor: de_minimis_declared ? de_minimis_minor : null, de_minimis_cap_minor: de_minimis_cap_minor,
+    total_expenditures_minor: total_expenditures_minor, milestones: milestones,
+    rejected_inputs: rejected_inputs, scope_note: SCOPE_NOTE, clause_note: CLAUSE_NOTE,
+  }, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function loadFailedDemo(){
+  document.getElementById('issueDate').value = '2026-01-15';
+  document.getElementById('asOfDate').value = '2027-02-01';
+  document.getElementById('grossProceeds').value = 20000000000;
+  document.getElementById('electedException').value = '18_MONTH';
+  document.getElementById('reasonableRetainage').value = 'true';
+  document.getElementById('deMinimis').value = 10000000;
+  document.getElementById('expJson').value = JSON.stringify([
+    { date: '2026-03-01', amount_minor: 3200000000, description: 'design and permitting' },
+    { date: '2026-09-01', amount_minor: 6000000000, description: 'site work' }
+  ], null, 2);
+  runCheck();
+}
+function loadIncompleteDemo(){
+  document.getElementById('electedException').value = '';
+  runCheck();
+}
+
+function runCheck(){
+  var expenditures;
+  try { expenditures = JSON.parse(document.getElementById('expJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in expenditure schedule: ' + e.message); return; }
+
+  var deVal = document.getElementById('deMinimis').value;
+  var electedVal = document.getElementById('electedException').value;
+  var pp = {
+    issue_date: document.getElementById('issueDate').value || undefined,
+    as_of_date: document.getElementById('asOfDate').value || undefined,
+    gross_proceeds_minor: Number(document.getElementById('grossProceeds').value),
+    elected_exception: electedVal === '' ? undefined : electedVal,
+    reasonable_retainage: document.getElementById('reasonableRetainage').value === 'true',
+    de_minimis_minor: deVal === '' ? undefined : Number(deVal),
+    expenditure_schedule: expenditures,
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var color = op.overall_status === 'MET' ? 'var(--green)' : op.overall_status === 'FAILED' ? 'var(--red)' : 'var(--warn)';
+  var bg = op.overall_status === 'MET' ? 'rgba(34,197,94,.08)' : op.overall_status === 'FAILED' ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)';
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = op.overall_status + (op.decision.reason ? (' · ' + op.decision.reason) : '');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.milestones ? op.milestones.length : 0) + '</span><span class="stat-key">Milestones</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.total_expenditures_minor + '</span><span class="stat-key">Total spent (minor)</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.rejected_inputs.length + '</span><span class="stat-key">Rejected inputs</span></div>';
+
+  document.getElementById('milestonesDiv').innerHTML = (op.milestones && op.milestones.length)
+    ? op.milestones.map(function(m){
+        var badgeClass = m.verdict === 'MET' ? 'ok' : m.verdict === 'FAILED' ? 'bad' : 'warn';
+        return '<div class="kv"><span class="kv-k">' + m.months_after_issue_date + 'mo &middot; ' + m.milestone_date + ' &middot; ' + m.required_pct + '%</span><span class="kv-v">req ' + m.required_minor + ', spent ' + m.cumulative_spent_minor + ' <span class="badge ' + badgeClass + '">' + m.verdict + '</span></span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">Not evaluated</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-569-muni-arbitrage-spending-exception-checker',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-569-muni-arbitrage-spending-exception-checker.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
