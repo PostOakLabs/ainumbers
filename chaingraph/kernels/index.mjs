@@ -503,6 +503,7 @@ import * as art566    from './art-566-iolta-three-way-reconciliation.kernel.mjs'
 import * as art568    from './art-568-securitization-trustee-report-recompute.kernel.mjs';
 import * as art569    from './art-569-muni-arbitrage-spending-exception-checker.kernel.mjs';
 import * as art57     from './art-57-deposit-token-compliance-validator.kernel.mjs';
+import * as art572    from './art-572-multi-garnishment-stacking-recompute.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
@@ -1064,6 +1065,7 @@ export const KERNELS = {
   'art-568-securitization-trustee-report-recompute':          art568,
   'art-569-muni-arbitrage-spending-exception-checker':        art569,
   'art-57-deposit-token-compliance-validator':                art57,
+  'art-572-multi-garnishment-stacking-recompute':             art572,
   'art-58-cross-network-settlement-validator':                art58,
   'art-59-settlement-asset-finality-classifier':              art59,
   'art-60-agent-economy-runtime-fit-diagnostic':              art60,
