@@ -495,6 +495,9 @@ status: stable
 - [Trade Document Provenance & Consistency Verifier](./art-55-trade-document-provenance-verifier.md) — `verify_trade_document_set`
 - [Reg E Remittance Disclosure Consistency Check](./art-550-reg-e-remittance-disclosure-check.md) — `check_reg_e_remittance_disclosure`
 - [Swift MT101 Coexistence Readiness Diff](./art-551-mt101-coexistence-readiness-diff.md) — `check_mt101_coexistence_readiness`
+- [Record Index Constituents](./art-557-record-index-constituents.md) — `record_index_constituents`
+- [Record Fund Positions](./art-558-record-fund-positions.md) — `record_fund_positions`
+- [Calculation-Agent Independence Attestation](./art-559-attest-calc-agent-independence.md) — `attest_calc_agent_independence`
 - [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`
 - [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md) — `validate_deposit_token_compliance`
 - [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md) — `validate_cross_network_settlement`
