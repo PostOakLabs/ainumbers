@@ -1,0 +1,314 @@
+{
+  "tool_id": "art-565-kya-x402-scope-verifier",
+  "note": "Vectors computed directly from the shipped kernel. Covers IN_SCOPE (all checks pass), OUT_OF_SCOPE (spend cap exceeded), and INDETERMINATE (credential omits a claim the payload requires -- never guessed).",
+  "vectors": [
+    {
+      "name": "in-scope",
+      "description": "Every check passes: payload within spend cap, allowed network/asset, allowlisted payee, inside the validity window, scope covers the scheme.",
+      "policy_parameters": {
+        "kya_credential": {
+          "sub": "buyer-agent-001",
+          "aud": "seller-agent-042",
+          "ssi": "svc-abc123",
+          "iss": "https://issuer.skyfire.xyz",
+          "iat": 1754400000,
+          "exp": 1754500000,
+          "env": "production",
+          "spend_cap_amt": "10000000",
+          "allowed_networks": [
+            "base"
+          ],
+          "allowed_assets": [
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+          ],
+          "payee_allowlist": [
+            "0xMERCHANT0000000000000000000000000000beef"
+          ],
+          "scope": [
+            "payments:x402:exact"
+          ]
+        },
+        "x402_payload": {
+          "x402Version": 1,
+          "scheme": "exact",
+          "network": "base",
+          "asset": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "payload": {
+            "signature": "0xsig",
+            "authorization": {
+              "from": "0xBUYER",
+              "to": "0xMERCHANT0000000000000000000000000000beef",
+              "value": "5000000",
+              "validAfter": 1754400100,
+              "validBefore": 1754400400,
+              "nonce": "0x01"
+            }
+          }
+        }
+      },
+      "output_payload": {
+        "verdict": "IN_SCOPE",
+        "findings": [
+          {
+            "check": "amount_vs_spend_cap",
+            "pass": true,
+            "detail": "payload value 5000000 vs credential spend_cap_amt 10000000"
+          },
+          {
+            "check": "network_vs_allowed_set",
+            "pass": true,
+            "detail": "payload network \"base\" vs credential allowed_networks [\"base\"]"
+          },
+          {
+            "check": "asset_vs_allowed_set",
+            "pass": true,
+            "detail": "payload asset \"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\" vs credential allowed_assets [\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"]"
+          },
+          {
+            "check": "payee_vs_merchant_allowlist",
+            "pass": true,
+            "detail": "payload payee \"0xMERCHANT0000000000000000000000000000beef\" vs credential payee_allowlist [\"0xMERCHANT0000000000000000000000000000beef\"]"
+          },
+          {
+            "check": "validity_window_vs_payload_timestamp",
+            "pass": true,
+            "detail": "payload window [1754400100, 1754400400] vs credential window [1754400000, 1754500000]"
+          },
+          {
+            "check": "scope_string_coverage",
+            "pass": true,
+            "detail": "payload scheme \"exact\" needs scope \"payments:x402:exact\" (or a wildcard) in credential scope [\"payments:x402:exact\"]"
+          }
+        ],
+        "indeterminate_reasons": [],
+        "credential_subject": "buyer-agent-001",
+        "credential_audience": "seller-agent-042",
+        "credential_seller_service_id": "svc-abc123",
+        "payload_scheme": "exact",
+        "payload_network": "base",
+        "kya_claim_basis": "Skyfire kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06): documented sub/aud/ssi/sdm/iss/iat/exp/env/amt/cur/val. allowed_networks/allowed_assets/payee_allowlist/scope are this tool's own scope-representation extension, not documented Skyfire claims -- stated here so the distinction is never implied as pinned.",
+        "rejected_inputs": [],
+        "rationale": [
+          "Ran 6 evaluable check(s) (amount vs spend cap, network vs allowed set, asset vs allowed set, payee vs merchant allowlist, validity window vs payload timestamp, scope string coverage); 0 check(s) could not run because the credential omitted a claim the payload requires.",
+          "amount_vs_spend_cap: PASS -- payload value 5000000 vs credential spend_cap_amt 10000000",
+          "network_vs_allowed_set: PASS -- payload network \"base\" vs credential allowed_networks [\"base\"]",
+          "asset_vs_allowed_set: PASS -- payload asset \"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\" vs credential allowed_assets [\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"]",
+          "payee_vs_merchant_allowlist: PASS -- payload payee \"0xMERCHANT0000000000000000000000000000beef\" vs credential payee_allowlist [\"0xMERCHANT0000000000000000000000000000beef\"]",
+          "validity_window_vs_payload_timestamp: PASS -- payload window [1754400100, 1754400400] vs credential window [1754400000, 1754500000]",
+          "scope_string_coverage: PASS -- payload scheme \"exact\" needs scope \"payments:x402:exact\" (or a wildcard) in credential scope [\"payments:x402:exact\"]",
+          "Verify-only: this kernel never initiates, signs, or settles an x402 payment (x402 EXECUTION is a KILLED ledger row). It performs no signature verification -- the pinned Skyfire docs (2026-08-06) do not specify a caller-reproducible KYA signing scheme in this context, so this is a scope cross-check only.",
+          "Skyfire kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06): documented sub/aud/ssi/sdm/iss/iat/exp/env/amt/cur/val. allowed_networks/allowed_assets/payee_allowlist/scope are this tool's own scope-representation extension, not documented Skyfire claims -- stated here so the distinction is never implied as pinned."
+        ],
+        "note": "Cross-checks a declared KYA-shaped credential's scope (spend cap, allowed networks/assets, payee allowlist, validity window, scope strings) against a declared x402 PaymentPayload. Never fetches either, never contacts Skyfire or a facilitator, never verifies a signature, never initiates or settles a payment."
+      },
+      "compliance_flags": [
+        "KYA_X402_IN_SCOPE"
+      ],
+      "golden_hash": "e377cab2502c5c46ecd1fac9c63bae489acb71f59c94db0e41acb7ba6c1a906c"
+    },
+    {
+      "name": "out-of-scope",
+      "description": "Payload value 990000.00 (asset smallest-unit 99000000) exceeds the credential spend_cap_amt 10000000; every other check passes.",
+      "policy_parameters": {
+        "kya_credential": {
+          "sub": "buyer-agent-001",
+          "aud": "seller-agent-042",
+          "ssi": "svc-abc123",
+          "iss": "https://issuer.skyfire.xyz",
+          "iat": 1754400000,
+          "exp": 1754500000,
+          "env": "production",
+          "spend_cap_amt": "10000000",
+          "allowed_networks": [
+            "base"
+          ],
+          "allowed_assets": [
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+          ],
+          "payee_allowlist": [
+            "0xMERCHANT0000000000000000000000000000beef"
+          ],
+          "scope": [
+            "payments:x402:exact"
+          ]
+        },
+        "x402_payload": {
+          "x402Version": 1,
+          "scheme": "exact",
+          "network": "base",
+          "asset": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "payload": {
+            "signature": "0xsig",
+            "authorization": {
+              "from": "0xBUYER",
+              "to": "0xMERCHANT0000000000000000000000000000beef",
+              "value": "99000000",
+              "validAfter": 1754400100,
+              "validBefore": 1754400400,
+              "nonce": "0x02"
+            }
+          }
+        }
+      },
+      "output_payload": {
+        "verdict": "OUT_OF_SCOPE",
+        "findings": [
+          {
+            "check": "amount_vs_spend_cap",
+            "pass": false,
+            "detail": "payload value 99000000 vs credential spend_cap_amt 10000000"
+          },
+          {
+            "check": "network_vs_allowed_set",
+            "pass": true,
+            "detail": "payload network \"base\" vs credential allowed_networks [\"base\"]"
+          },
+          {
+            "check": "asset_vs_allowed_set",
+            "pass": true,
+            "detail": "payload asset \"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\" vs credential allowed_assets [\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"]"
+          },
+          {
+            "check": "payee_vs_merchant_allowlist",
+            "pass": true,
+            "detail": "payload payee \"0xMERCHANT0000000000000000000000000000beef\" vs credential payee_allowlist [\"0xMERCHANT0000000000000000000000000000beef\"]"
+          },
+          {
+            "check": "validity_window_vs_payload_timestamp",
+            "pass": true,
+            "detail": "payload window [1754400100, 1754400400] vs credential window [1754400000, 1754500000]"
+          },
+          {
+            "check": "scope_string_coverage",
+            "pass": true,
+            "detail": "payload scheme \"exact\" needs scope \"payments:x402:exact\" (or a wildcard) in credential scope [\"payments:x402:exact\"]"
+          }
+        ],
+        "indeterminate_reasons": [],
+        "credential_subject": "buyer-agent-001",
+        "credential_audience": "seller-agent-042",
+        "credential_seller_service_id": "svc-abc123",
+        "payload_scheme": "exact",
+        "payload_network": "base",
+        "kya_claim_basis": "Skyfire kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06): documented sub/aud/ssi/sdm/iss/iat/exp/env/amt/cur/val. allowed_networks/allowed_assets/payee_allowlist/scope are this tool's own scope-representation extension, not documented Skyfire claims -- stated here so the distinction is never implied as pinned.",
+        "rejected_inputs": [],
+        "rationale": [
+          "Ran 6 evaluable check(s) (amount vs spend cap, network vs allowed set, asset vs allowed set, payee vs merchant allowlist, validity window vs payload timestamp, scope string coverage); 0 check(s) could not run because the credential omitted a claim the payload requires.",
+          "amount_vs_spend_cap: FAIL -- payload value 99000000 vs credential spend_cap_amt 10000000",
+          "network_vs_allowed_set: PASS -- payload network \"base\" vs credential allowed_networks [\"base\"]",
+          "asset_vs_allowed_set: PASS -- payload asset \"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\" vs credential allowed_assets [\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"]",
+          "payee_vs_merchant_allowlist: PASS -- payload payee \"0xMERCHANT0000000000000000000000000000beef\" vs credential payee_allowlist [\"0xMERCHANT0000000000000000000000000000beef\"]",
+          "validity_window_vs_payload_timestamp: PASS -- payload window [1754400100, 1754400400] vs credential window [1754400000, 1754500000]",
+          "scope_string_coverage: PASS -- payload scheme \"exact\" needs scope \"payments:x402:exact\" (or a wildcard) in credential scope [\"payments:x402:exact\"]",
+          "Verify-only: this kernel never initiates, signs, or settles an x402 payment (x402 EXECUTION is a KILLED ledger row). It performs no signature verification -- the pinned Skyfire docs (2026-08-06) do not specify a caller-reproducible KYA signing scheme in this context, so this is a scope cross-check only.",
+          "Skyfire kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06): documented sub/aud/ssi/sdm/iss/iat/exp/env/amt/cur/val. allowed_networks/allowed_assets/payee_allowlist/scope are this tool's own scope-representation extension, not documented Skyfire claims -- stated here so the distinction is never implied as pinned."
+        ],
+        "note": "Cross-checks a declared KYA-shaped credential's scope (spend cap, allowed networks/assets, payee allowlist, validity window, scope strings) against a declared x402 PaymentPayload. Never fetches either, never contacts Skyfire or a facilitator, never verifies a signature, never initiates or settles a payment."
+      },
+      "compliance_flags": [
+        "KYA_X402_OUT_OF_SCOPE"
+      ],
+      "golden_hash": "60359f567dfef67ec7c372b6b07dc6d01f892fcc45e82f466d08f7307e3d6f7c"
+    },
+    {
+      "name": "indeterminate-missing-spend-cap",
+      "description": "Credential omits spend_cap_amt: the amount-vs-cap check cannot run, so verdict is INDETERMINATE even though every other check passes -- never guessed.",
+      "policy_parameters": {
+        "kya_credential": {
+          "sub": "buyer-agent-001",
+          "aud": "seller-agent-042",
+          "ssi": "svc-abc123",
+          "iss": "https://issuer.skyfire.xyz",
+          "iat": 1754400000,
+          "exp": 1754500000,
+          "env": "production",
+          "allowed_networks": [
+            "base"
+          ],
+          "allowed_assets": [
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+          ],
+          "payee_allowlist": [
+            "0xMERCHANT0000000000000000000000000000beef"
+          ],
+          "scope": [
+            "payments:x402:exact"
+          ]
+        },
+        "x402_payload": {
+          "x402Version": 1,
+          "scheme": "exact",
+          "network": "base",
+          "asset": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "payload": {
+            "signature": "0xsig",
+            "authorization": {
+              "from": "0xBUYER",
+              "to": "0xMERCHANT0000000000000000000000000000beef",
+              "value": "5000000",
+              "validAfter": 1754400100,
+              "validBefore": 1754400400,
+              "nonce": "0x01"
+            }
+          }
+        }
+      },
+      "output_payload": {
+        "verdict": "INDETERMINATE",
+        "findings": [
+          {
+            "check": "network_vs_allowed_set",
+            "pass": true,
+            "detail": "payload network \"base\" vs credential allowed_networks [\"base\"]"
+          },
+          {
+            "check": "asset_vs_allowed_set",
+            "pass": true,
+            "detail": "payload asset \"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\" vs credential allowed_assets [\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"]"
+          },
+          {
+            "check": "payee_vs_merchant_allowlist",
+            "pass": true,
+            "detail": "payload payee \"0xMERCHANT0000000000000000000000000000beef\" vs credential payee_allowlist [\"0xMERCHANT0000000000000000000000000000beef\"]"
+          },
+          {
+            "check": "validity_window_vs_payload_timestamp",
+            "pass": true,
+            "detail": "payload window [1754400100, 1754400400] vs credential window [1754400000, 1754500000]"
+          },
+          {
+            "check": "scope_string_coverage",
+            "pass": true,
+            "detail": "payload scheme \"exact\" needs scope \"payments:x402:exact\" (or a wildcard) in credential scope [\"payments:x402:exact\"]"
+          }
+        ],
+        "indeterminate_reasons": [
+          "credential omits spend_cap_amt -- cannot check payload amount against a spend cap."
+        ],
+        "credential_subject": "buyer-agent-001",
+        "credential_audience": "seller-agent-042",
+        "credential_seller_service_id": "svc-abc123",
+        "payload_scheme": "exact",
+        "payload_network": "base",
+        "kya_claim_basis": "Skyfire kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06): documented sub/aud/ssi/sdm/iss/iat/exp/env/amt/cur/val. allowed_networks/allowed_assets/payee_allowlist/scope are this tool's own scope-representation extension, not documented Skyfire claims -- stated here so the distinction is never implied as pinned.",
+        "rejected_inputs": [],
+        "rationale": [
+          "Ran 5 evaluable check(s) (amount vs spend cap, network vs allowed set, asset vs allowed set, payee vs merchant allowlist, validity window vs payload timestamp, scope string coverage); 1 check(s) could not run because the credential omitted a claim the payload requires.",
+          "network_vs_allowed_set: PASS -- payload network \"base\" vs credential allowed_networks [\"base\"]",
+          "asset_vs_allowed_set: PASS -- payload asset \"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\" vs credential allowed_assets [\"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48\"]",
+          "payee_vs_merchant_allowlist: PASS -- payload payee \"0xMERCHANT0000000000000000000000000000beef\" vs credential payee_allowlist [\"0xMERCHANT0000000000000000000000000000beef\"]",
+          "validity_window_vs_payload_timestamp: PASS -- payload window [1754400100, 1754400400] vs credential window [1754400000, 1754500000]",
+          "scope_string_coverage: PASS -- payload scheme \"exact\" needs scope \"payments:x402:exact\" (or a wildcard) in credential scope [\"payments:x402:exact\"]",
+          "INDETERMINATE: credential omits spend_cap_amt -- cannot check payload amount against a spend cap.",
+          "Verify-only: this kernel never initiates, signs, or settles an x402 payment (x402 EXECUTION is a KILLED ledger row). It performs no signature verification -- the pinned Skyfire docs (2026-08-06) do not specify a caller-reproducible KYA signing scheme in this context, so this is a scope cross-check only.",
+          "Skyfire kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06): documented sub/aud/ssi/sdm/iss/iat/exp/env/amt/cur/val. allowed_networks/allowed_assets/payee_allowlist/scope are this tool's own scope-representation extension, not documented Skyfire claims -- stated here so the distinction is never implied as pinned."
+        ],
+        "note": "Cross-checks a declared KYA-shaped credential's scope (spend cap, allowed networks/assets, payee allowlist, validity window, scope strings) against a declared x402 PaymentPayload. Never fetches either, never contacts Skyfire or a facilitator, never verifies a signature, never initiates or settles a payment."
+      },
+      "compliance_flags": [
+        "KYA_X402_INDETERMINATE"
+      ],
+      "golden_hash": "533e0e02395b469a2f60aad90ab46944f5abe34efa21ec2f20c717f1fba74593"
+    }
+  ]
+}
