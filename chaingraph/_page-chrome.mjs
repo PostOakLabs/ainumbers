@@ -125,6 +125,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="${root}about.html">About</a>
+        <a href="${root}methods.html">Methods</a>
         <a href="${root}suggest.html">Suggest</a>
         <a href="${root}contact.html">Contact</a>
         <a href="${root}security.html">Security</a>
