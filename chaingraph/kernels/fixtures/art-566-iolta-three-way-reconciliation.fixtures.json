@@ -1,0 +1,337 @@
+{
+  "tool_id": "art-566-iolta-three-way-reconciliation",
+  "note": "Vector 1 is a clean three-way close: bank (adjusted for one deposit-in-transit and one uncleared check), the trust ledger, and the sum of two client ledgers all agree, no client ledger ever went negative, both outstanding items are recent: RECONCILED/auto_pass. Vector 2 holds the three-way equality but breaks on two independent findings: client-X's ledger dips to -800000 minor units mid-period (a disbursement posted before its offsetting replenishment deposit landed -- the classic commingling fact pattern, invisible from the ending balance alone) and one uncleared check is 95 days old at period end: DISCREPANT/review_required. Vector 3 omits the tolerance entirely and exercises the did_not_run/INCOMPLETE path. Balances are synthetic, stated in integer minor units. golden_hash computed at fixture generation time.",
+  "vectors": [
+    {
+      "name": "clean-three-way-close-reconciled",
+      "policy_parameters": {
+        "reconciliation_tolerance_minor": 100,
+        "statement_period": {
+          "start_date": "2026-06-01",
+          "end_date": "2026-06-30"
+        },
+        "bank": {
+          "ending_balance_minor": 5000000,
+          "statement_date": "2026-06-30"
+        },
+        "trust_ledger": {
+          "ending_balance_minor": 5050000,
+          "as_of": "2026-06-30"
+        },
+        "client_ledgers": [
+          {
+            "client_id": "client-A",
+            "ending_balance_minor": 3000000,
+            "as_of": "2026-06-30",
+            "entries": [
+              {
+                "date": "2026-06-05",
+                "amount_minor": 500000,
+                "description": "deposit retainer"
+              },
+              {
+                "date": "2026-06-20",
+                "amount_minor": -200000,
+                "description": "disbursement"
+              }
+            ]
+          },
+          {
+            "client_id": "client-B",
+            "ending_balance_minor": 2050000,
+            "as_of": "2026-06-30",
+            "entries": []
+          }
+        ],
+        "outstanding_items": [
+          {
+            "type": "deposit_in_transit",
+            "date": "2026-06-29",
+            "amount_minor": 100000,
+            "description": "client A retainer deposited 6/29"
+          },
+          {
+            "type": "uncleared_check",
+            "date": "2026-06-15",
+            "amount_minor": 50000,
+            "description": "disbursement check #1042"
+          }
+        ]
+      },
+      "output_payload": {
+        "decision": {
+          "gate_policy": "auto_pass",
+          "execution_state": "ran",
+          "reason": null
+        },
+        "verdict": "RECONCILED",
+        "statement_period": {
+          "start_date": "2026-06-01",
+          "end_date": "2026-06-30"
+        },
+        "reconciliation_tolerance_minor": 100,
+        "three_way": {
+          "bank_ending_balance_minor": 5000000,
+          "deposits_in_transit_total_minor": 100000,
+          "uncleared_checks_total_minor": 50000,
+          "adjusted_bank_balance_minor": 5050000,
+          "trust_ledger_ending_balance_minor": 5050000,
+          "client_ledger_total_minor": 5050000,
+          "bank_vs_trust_minor": 0,
+          "trust_vs_clients_minor": 0,
+          "bank_vs_clients_minor": 0,
+          "equality_holds": true
+        },
+        "client_count": 2,
+        "client_ledgers": [
+          {
+            "client_id": "client-A",
+            "ending_balance_minor": 3000000,
+            "as_of": "2026-06-30",
+            "opening_balance_minor": 2700000,
+            "low_point_minor": 2700000,
+            "low_point_date": "2026-06-01",
+            "entry_count": 2
+          },
+          {
+            "client_id": "client-B",
+            "ending_balance_minor": 2050000,
+            "as_of": "2026-06-30",
+            "opening_balance_minor": 2050000,
+            "low_point_minor": 2050000,
+            "low_point_date": "2026-06-01",
+            "entry_count": 0
+          }
+        ],
+        "negative_balance_findings": [],
+        "outstanding_items": [
+          {
+            "type": "deposit_in_transit",
+            "date": "2026-06-29",
+            "amount_minor": 100000,
+            "description": "client A retainer deposited 6/29",
+            "age_days": 1,
+            "age_bucket": "0-30"
+          },
+          {
+            "type": "uncleared_check",
+            "date": "2026-06-15",
+            "amount_minor": 50000,
+            "description": "disbursement check #1042",
+            "age_days": 15,
+            "age_bucket": "0-30"
+          }
+        ],
+        "outstanding_summary": {
+          "deposits_in_transit_total_minor": 100000,
+          "uncleared_checks_total_minor": 50000,
+          "item_count": 2,
+          "aged_over_90_count": 0,
+          "aged_61_to_90_count": 0
+        },
+        "period_boundary_consistent": true,
+        "period_boundary_mismatches": [],
+        "findings": [],
+        "rejected_inputs": [],
+        "scope_note": "Performs arithmetic only over caller-declared bank, trust-ledger, and per-client-ledger balances plus caller-declared outstanding items. Does not source, derive, or independently verify any balance and does not determine which bank lines are outstanding.",
+        "clause_note": "ABA Model Rule 1.15 (Safekeeping Property) requires complete trust-fund records and reconciliation of those records. State record-keeping requirements govern the specifics and are not restated here (e.g. California Rule of Professional Conduct 1.15 / trust accounting rules effective 2018-11-01; New York Rule 1.15, 22 NYCRR Part 1200, as amended; Texas Disciplinary Rule 1.14) -- confirm the current rule text for the applicable jurisdiction."
+      },
+      "golden_hash": "b07463ff8f1e830a84685fdc8aba60a7865b46bf746b3cf8769394d6aceb79ef"
+    },
+    {
+      "name": "negative-client-ledger-and-stale-item-discrepant",
+      "policy_parameters": {
+        "reconciliation_tolerance_minor": 100,
+        "statement_period": {
+          "start_date": "2026-05-01",
+          "end_date": "2026-05-31"
+        },
+        "bank": {
+          "ending_balance_minor": 4000000,
+          "statement_date": "2026-05-31"
+        },
+        "trust_ledger": {
+          "ending_balance_minor": 3900000,
+          "as_of": "2026-05-31"
+        },
+        "client_ledgers": [
+          {
+            "client_id": "client-X",
+            "ending_balance_minor": 200000,
+            "as_of": "2026-05-31",
+            "entries": [
+              {
+                "date": "2026-05-05",
+                "amount_minor": -900000,
+                "description": "disbursement"
+              },
+              {
+                "date": "2026-05-20",
+                "amount_minor": 1000000,
+                "description": "replenishment deposit"
+              }
+            ]
+          },
+          {
+            "client_id": "client-Y",
+            "ending_balance_minor": 3700000,
+            "as_of": "2026-05-31",
+            "entries": []
+          }
+        ],
+        "outstanding_items": [
+          {
+            "type": "deposit_in_transit",
+            "date": "2026-05-29",
+            "amount_minor": 50000,
+            "description": "late deposit"
+          },
+          {
+            "type": "uncleared_check",
+            "date": "2026-02-25",
+            "amount_minor": 150000,
+            "description": "stale check #987"
+          }
+        ]
+      },
+      "output_payload": {
+        "decision": {
+          "gate_policy": "review_required",
+          "execution_state": "ran",
+          "reason": null
+        },
+        "verdict": "DISCREPANT",
+        "statement_period": {
+          "start_date": "2026-05-01",
+          "end_date": "2026-05-31"
+        },
+        "reconciliation_tolerance_minor": 100,
+        "three_way": {
+          "bank_ending_balance_minor": 4000000,
+          "deposits_in_transit_total_minor": 50000,
+          "uncleared_checks_total_minor": 150000,
+          "adjusted_bank_balance_minor": 3900000,
+          "trust_ledger_ending_balance_minor": 3900000,
+          "client_ledger_total_minor": 3900000,
+          "bank_vs_trust_minor": 0,
+          "trust_vs_clients_minor": 0,
+          "bank_vs_clients_minor": 0,
+          "equality_holds": true
+        },
+        "client_count": 2,
+        "client_ledgers": [
+          {
+            "client_id": "client-X",
+            "ending_balance_minor": 200000,
+            "as_of": "2026-05-31",
+            "opening_balance_minor": 100000,
+            "low_point_minor": -800000,
+            "low_point_date": "2026-05-05",
+            "entry_count": 2
+          },
+          {
+            "client_id": "client-Y",
+            "ending_balance_minor": 3700000,
+            "as_of": "2026-05-31",
+            "opening_balance_minor": 3700000,
+            "low_point_minor": 3700000,
+            "low_point_date": "2026-05-01",
+            "entry_count": 0
+          }
+        ],
+        "negative_balance_findings": [
+          {
+            "client_id": "client-X",
+            "low_point_minor": -800000,
+            "low_point_date": "2026-05-05"
+          }
+        ],
+        "outstanding_items": [
+          {
+            "type": "deposit_in_transit",
+            "date": "2026-05-29",
+            "amount_minor": 50000,
+            "description": "late deposit",
+            "age_days": 2,
+            "age_bucket": "0-30"
+          },
+          {
+            "type": "uncleared_check",
+            "date": "2026-02-25",
+            "amount_minor": 150000,
+            "description": "stale check #987",
+            "age_days": 95,
+            "age_bucket": "90+"
+          }
+        ],
+        "outstanding_summary": {
+          "deposits_in_transit_total_minor": 50000,
+          "uncleared_checks_total_minor": 150000,
+          "item_count": 2,
+          "aged_over_90_count": 1,
+          "aged_61_to_90_count": 0
+        },
+        "period_boundary_consistent": true,
+        "period_boundary_mismatches": [],
+        "findings": [
+          {
+            "code": "CLIENT_LEDGER_WENT_NEGATIVE",
+            "severity": "high",
+            "message": "Client client-X ledger reached -800000 minor units on 2026-05-05.",
+            "client_id": "client-X"
+          },
+          {
+            "code": "OUTSTANDING_ITEM_AGED_OVER_90_DAYS",
+            "severity": "high",
+            "message": "1 outstanding item(s) are more than 90 days old as of period end."
+          }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Performs arithmetic only over caller-declared bank, trust-ledger, and per-client-ledger balances plus caller-declared outstanding items. Does not source, derive, or independently verify any balance and does not determine which bank lines are outstanding.",
+        "clause_note": "ABA Model Rule 1.15 (Safekeeping Property) requires complete trust-fund records and reconciliation of those records. State record-keeping requirements govern the specifics and are not restated here (e.g. California Rule of Professional Conduct 1.15 / trust accounting rules effective 2018-11-01; New York Rule 1.15, 22 NYCRR Part 1200, as amended; Texas Disciplinary Rule 1.14) -- confirm the current rule text for the applicable jurisdiction."
+      },
+      "golden_hash": "62af57d642a18f897cfe69cef39e507b2a4c840c63b0fd88001084c9a574daba"
+    },
+    {
+      "name": "tolerance-not-declared-incomplete",
+      "policy_parameters": {
+        "statement_period": {
+          "start_date": "2026-06-01",
+          "end_date": "2026-06-30"
+        },
+        "bank": {
+          "ending_balance_minor": 5000000,
+          "statement_date": "2026-06-30"
+        }
+      },
+      "output_payload": {
+        "decision": {
+          "gate_policy": "review_required",
+          "execution_state": "did_not_run",
+          "reason": "reconciliation_tolerance_not_declared"
+        },
+        "verdict": "INCOMPLETE",
+        "statement_period": null,
+        "reconciliation_tolerance_minor": null,
+        "three_way": null,
+        "client_count": 0,
+        "negative_balance_findings": [],
+        "outstanding_items": [],
+        "outstanding_summary": null,
+        "period_boundary_consistent": null,
+        "period_boundary_mismatches": [],
+        "findings": [],
+        "rejected_inputs": [
+          {
+            "where": "reconciliation_tolerance_minor",
+            "reason": "absent -- a tolerance must be declared, never defaulted",
+            "supplied": null
+          }
+        ],
+        "scope_note": "Performs arithmetic only over caller-declared bank, trust-ledger, and per-client-ledger balances plus caller-declared outstanding items. Does not source, derive, or independently verify any balance and does not determine which bank lines are outstanding.",
+        "clause_note": "ABA Model Rule 1.15 (Safekeeping Property) requires complete trust-fund records and reconciliation of those records. State record-keeping requirements govern the specifics and are not restated here (e.g. California Rule of Professional Conduct 1.15 / trust accounting rules effective 2018-11-01; New York Rule 1.15, 22 NYCRR Part 1200, as amended; Texas Disciplinary Rule 1.14) -- confirm the current rule text for the applicable jurisdiction."
+      },
+      "golden_hash": "06e037e0d1792414a96a4e827593b4102dc61764ae37e6f3502a807b5ea5c778"
+    }
+  ]
+}
