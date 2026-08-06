@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Certified Payroll / Prevailing Wage Recomputation &middot; ART-574 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes whether a certified payroll meets the wage-determination rate with CWHSSA overtime, diffs it against a submitted payroll, and in PWA mode computes the IRC Sec. 45(b)(7)-(8) correction payment and penalty for any deficiency.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.open{background:rgba(58,82,112,.2);color:var(--body);border:1px solid var(--border-2)}
+.ruleset-pin{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.4rem .75rem;display:inline-block;margin:8px 0}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+.chk{display:flex;align-items:center;gap:8px;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--body)}
+.chk input{width:auto}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-574 · Certified Payroll / Prevailing Wage Recomputation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-574 &middot; Payroll &middot; Prime + Tax-Credit Verification</div>
+  <h1>Certified Payroll / Prevailing Wage Recomputation</h1>
+  <p class="sub">Runs a caller-declared certified payroll for one week against a wage determination, recomputing whether each worker was paid at or above the required combined rate for their classification with Contract Work Hours and Safety Standards Act overtime applied. Where you also paste a submitted certified payroll, the two are compared worker by worker; the recomputed side is derived here from the wage determination and hours, not copied from the submission. A prime contractor verifying a sub's weekly certified payroll can run this the same way as a Section 6418 credit-transferee diligencing a developer's prevailing-wage math before purchasing transferred credits. PWA mode adds the IRC Sec. 45(b)(7)-(8) correction-payment and penalty computation for any deficiency found.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Caller supplied wage determination + payroll</span>
+    <span class="flag info">Dual audience: prime or credit-transferee side</span>
+    <span class="flag">Fixed-point money math</span>
+    <span class="flag">Not tax or legal advice</span>
+  </div>
+  <div class="ruleset-pin" id="rulesetPin">Basis: Davis-Bacon rate compliance (base + fringe) &middot; CWHSSA 1.5x overtime on base rate, fringe straight-time &middot; IRC Sec. 45(b)(7)-(8) correction + penalty in PWA mode &middot; no bundled state or WD table, wage determination is your declared parameter</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This is not tax or legal advice. It does not verify your wage determination or classifications against the governing DOL publication, and it bundles no 50-state or program table for apprentice ratios, you declare those parameters. A divergence against a submitted payroll is an arithmetic finding about the figures you supply. Whether any classification, correction, or penalty figure is legally or factually correct is for counsel, a CPA, the Department of Labor, or the IRS. This page computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Project and payroll week</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic. They are not a copy of any real payroll record, and they are already loaded so you can press Run without entering anything of your own.</p>
+    <div class="grid2">
+      <div><label class="fld">Project reference</label><input type="text" id="projectRef" value="SYNTH-PROJ-574-B (synthetic)"></div>
+      <div><label class="fld">Week ending label (your input, never a clock read)</label><input type="text" id="weekEndingLabel" value="2026-08-08 payroll week"></div>
+    </div>
+    <div><label class="fld">Currency</label><input type="text" id="currency" value="USD"></div>
+
+    <div class="section-head">Wage determination (per classification, minor units per hour)</div>
+    <label class="fld">JSON array: classification, base_rate_minor_units, fringe_rate_minor_units</label>
+    <textarea id="wdJson" style="min-height:70px">[
+  { "classification": "Laborer", "base_rate_minor_units": 2800, "fringe_rate_minor_units": 600 }
+]</textarea>
+
+    <div class="section-head">Payroll rows for this week</div>
+    <label class="fld">JSON array: worker_id, classification, st_hours, ot_hours, rate_paid_minor_units, fringe_paid_minor_units</label>
+    <textarea id="payrollJson" style="min-height:70px">[
+  { "worker_id": "W-2", "classification": "Laborer", "st_hours": 40, "ot_hours": 0, "rate_paid_minor_units": 2200, "fringe_paid_minor_units": 600 }
+]</textarea>
+
+    <div class="section-head">Submitted certified payroll (what a WH-347-style submission states)</div>
+    <label class="fld">JSON array, optional: worker_id, gross_minor_units. Leave empty and the verdict is INDETERMINATE, which is not agreement.</label>
+    <textarea id="submittedJson" style="min-height:50px">[
+  { "worker_id": "W-2", "gross_minor_units": 112000 }
+]</textarea>
+
+    <div class="section-head">Apprentice ratio (optional, declared parameter)</div>
+    <label class="fld">JSON object, optional: permitted_ratio_per_journeyman, actual_journeyman_count, actual_apprentice_count</label>
+    <textarea id="apprenticeJson" style="min-height:50px">{}</textarea>
+
+    <div class="section-head">PWA mode: IRC Sec. 45(b)(7)-(8) correction and penalty</div>
+    <div class="chk"><input type="checkbox" id="pwaMode" checked><label for="pwaMode">Enable PWA mode for any deficiency found</label></div>
+    <div class="chk"><input type="checkbox" id="intentionalDisregard"><label for="intentionalDisregard">Intentional disregard declared (triples the wage component, doubles the per-worker penalty)</label></div>
+    <div class="grid2">
+      <div><label class="fld">Sec. 6621 underpayment rate, annual percent (declared, dated by IRS quarterly)</label><input type="number" id="ircRate" value="14"></div>
+      <div><label class="fld">Underpayment days (declared, for simple-interest approximation)</label><input type="number" id="underpaymentDays" value="90"></div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runPwaRecompute()">&#9654; Run Certified Payroll Recomputation</button>
+      <button class="ghost" onclick="loadIndeterminateDemo()">Load indeterminate demo</button>
+      <button class="ghost" onclick="loadMatchesDemo()">Load matches demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Payroll rows</div>
+      <div id="rowsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">PWA correction and penalty</div>
+      <div id="pwaDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Against the submitted payroll</div>
+      <div id="diffDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not forecast, project or model a scenario. It recomputes a stated payroll week and nothing else. It does not verify a wage determination or classification against the governing DOL publication, and it bundles no 50-state or program table for apprentice ratios, both are your declared parameters. It does not reassign excess-apprentice hours to the journeyman rate, and its Sec. 6621 interest figure is a simple-interest approximation, not the statute's daily-compounding convention. No WH-347 expiration date is encoded. It makes no assertion that any classification, correction, or penalty figure is legally or factually correct, and it is not tax or legal advice.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Shares a caller-declared-stack recomputation-against-a-submission shape with <a href="art-572-multi-garnishment-stacking-recompute.html">ART-572 Multi-Garnishment Stacking Recomputation</a>, but is an independent tool with its own vocabulary, statutory basis and citations.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-574-certified-payroll-prevailing-wage-recompute',
+  version: '1.0.0',
+  mcp_name: 'recompute_certified_payroll_pwa',
+  title: 'Certified Payroll / Prevailing Wage Recomputation',
+  description: 'Recomputes, for one stated certified-payroll week, whether each worker was paid at or above the wage-determination rate with CWHSSA overtime, compares against a submitted payroll, and in PWA mode computes the IRC Sec. 45(b)(7)-(8) correction and penalty for any deficiency.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_certified_payroll_pwa',
+    description: 'Recomputes required and paid gross per worker against a caller-declared wage determination with CWHSSA overtime, reports deficiency and (in PWA mode) IRC Sec. 45(b)(7)-(8) correction payment and penalty, and compares against a submitted certified payroll.',
+    inputSchema: { type: 'object', properties: {
+      project_ref: {type:'string'}, week_ending_label: {type:'string'}, currency: {type:'string'},
+      wage_determination: {type:'array'}, payroll_rows: {type:'array'},
+      submitted_payroll: {type:'array'}, apprentice_program: {type:'object'},
+      pwa_mode: {type:'boolean'}, intentional_disregard: {type:'boolean'},
+      irc_6621_underpayment_rate_percent: {type:'number'}, underpayment_days: {type:'number'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-574-certified-payroll-prevailing-wage-recompute.kernel.mjs --- */
+var CITATIONS = {
+  davis_bacon_act: { source: '40 U.S.C. Sec. 3141 ff. (Davis-Bacon Act); 29 CFR Part 5', detail: 'Requires laborers and mechanics on covered federal construction contracts to be paid not less than the wage determination rate (base plus fringe) for their classification.' },
+  cwhssa: { source: '40 U.S.C. Sec. 3701 ff. (Contract Work Hours and Safety Standards Act); 29 CFR Part 5 contract clauses', detail: 'Requires time-and-a-half overtime pay after 40 hours in a week. This kernel applies the premium to the basic hourly rate only, with fringe due straight-time for every hour -- the general convention, not an exhaustive rule for every fringe arrangement.' },
+  irc_45b7_correction: { source: 'IRC Sec. 45(b)(7)(B)(i)(I); 26 CFR Sec. 1.45-7', detail: 'Correction payment = the wage deficiency (tripled on intentional disregard) plus interest at the Sec. 6621 underpayment rate with 6 percentage points substituted for 3. Re-verify against primary text before relying on it (research findings, not facts).' },
+  irc_45b7_penalty: { source: 'IRC Sec. 45(b)(7)(B)(i)(II)/(iii); 26 CFR Sec. 1.45-7', detail: 'Penalty of $5,000 per laborer or mechanic paid below the prevailing wage for any period during the year ($10,000 on intentional disregard). This kernel computes the penalty for the ONE stated period only; annual aggregation and deduplication across periods is the caller’s responsibility.' },
+  wh347: { source: 'DOL Form WH-347 (OMB Control No. 1235-0008)', detail: 'Certified payroll form referenced for the shape of a submitted-payroll comparison. No expiration/sunset date is encoded here -- verify current validity at dol.gov/agencies/whd/forms/wh347.' },
+};
+var NOT_PROVEN = [
+  { item: 'Not tax or legal advice', detail: 'This kernel recomputes wage/hour and IRC Sec. 45 correction arithmetic from caller-declared facts about one payroll week. It is not a substitute for counsel, a CPA, the Department of Labor, or the IRS.' },
+  { item: 'Wage determination match', detail: 'The wage determination rows and each payroll row’s classification are caller-declared and are not independently verified against the governing WD published for the project’s locality.' },
+  { item: 'CWHSSA overtime convention', detail: 'Overtime premium is modelled on the basic hourly rate only, with fringe due straight-time for every hour. Fringe-in-lieu-of-benefits arrangements and split-shift rules are not modelled.' },
+  { item: 'Apprentice ratio recompute', detail: 'An excess-apprentice count is flagged, but this kernel does not reassign excess apprentice hours to the journeyman rate or verify the declared ratio against the governing apprenticeship program.' },
+  { item: 'Sec. 6621 interest approximation', detail: 'Interest on a deficiency is computed as simple interest over the caller-declared number of underpayment days at the declared annual rate, not the daily-compounding convention Sec. 6621 actually uses.' },
+  { item: 'Annual penalty aggregation', detail: 'The Sec. 45(b)(7)(B) penalty aggregates by calendar year across every payroll period. This kernel is single-run and stateless and computes the penalty for the ONE stated period only; deduplicating a worker who recurs across periods in the same year is the caller’s responsibility.' },
+  { item: 'WH-347 form currency', detail: 'No WH-347 OMB expiration/sunset date is encoded. Verify current form validity directly at dol.gov/agencies/whd/forms/wh347.' },
+  { item: 'Input accuracy', detail: 'Hours, rates, fringe, and every submitted-payroll figure are caller-supplied and asserted, not independently verified against timecards or payroll records.' },
+];
+var MINOR_UNIT_EXPONENT = 2;
+var MINOR_SCALE = 100;
+
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where, reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v), supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function toHours(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where, reason: 'expected a non-negative number of hours', supplied: typeof v === 'number' ? v : String(v) });
+  return 0;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / MINOR_SCALE); var frac = Math.round(abs - whole * MINOR_SCALE);
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(MINOR_UNIT_EXPONENT, '0');
+}
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function arr(v){ return Array.isArray(v) ? v : []; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var project_ref = str(pp.project_ref, 'UNSTATED');
+  var week_ending_label = str(pp.week_ending_label, 'UNSTATED');
+  var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'USD';
+  var pwa_mode = pp.pwa_mode === true;
+  var intentional_disregard = pwa_mode && pp.intentional_disregard === true;
+
+  var wdRowsIn = arr(pp.wage_determination);
+  var wdByClass = {};
+  var wage_determination = wdRowsIn.map(function(raw, i){
+    var w = obj(raw);
+    var classification = str(w.classification, 'CLASS-' + (i + 1));
+    var base_rate_minor_units = toMinorUnits(w.base_rate_minor_units, 'wage_determination[' + i + '].base_rate_minor_units', rejected_inputs);
+    var fringe_rate_minor_units = toMinorUnits(w.fringe_rate_minor_units, 'wage_determination[' + i + '].fringe_rate_minor_units', rejected_inputs);
+    var row = { classification: classification, base_rate_minor_units: base_rate_minor_units, fringe_rate_minor_units: fringe_rate_minor_units, combined_rate_minor_units: base_rate_minor_units + fringe_rate_minor_units };
+    wdByClass[classification] = row;
+    return row;
+  });
+
+  var payrollIn = arr(pp.payroll_rows);
+  var payroll_rows = payrollIn.map(function(raw, i){
+    var r = obj(raw);
+    var worker_id = str(r.worker_id, 'WORKER-' + (i + 1));
+    var classification = str(r.classification, '');
+    var st_hours = toHours(r.st_hours, 'payroll_rows[' + i + '].st_hours', rejected_inputs);
+    var ot_hours = toHours(r.ot_hours, 'payroll_rows[' + i + '].ot_hours', rejected_inputs);
+    var rate_paid_minor_units = toMinorUnits(r.rate_paid_minor_units, 'payroll_rows[' + i + '].rate_paid_minor_units', rejected_inputs);
+    var fringe_paid_minor_units = toMinorUnits(r.fringe_paid_minor_units, 'payroll_rows[' + i + '].fringe_paid_minor_units', rejected_inputs);
+    var combined_paid_rate_minor_units = rate_paid_minor_units + fringe_paid_minor_units;
+
+    var wd = classification !== '' ? wdByClass[classification] : undefined;
+    var wd_found = wd !== undefined;
+    if (!wd_found) rejected_inputs.push({ where: 'payroll_rows[' + i + '].classification', reason: classification === '' ? 'absent' : 'not found in the supplied wage determination', supplied: classification === '' ? null : classification });
+
+    var required_gross_minor_units = null, paid_gross_minor_units = null, deficiency_minor_units = null, rate_meets_wd = null;
+    if (wd_found) {
+      required_gross_minor_units = Math.round(st_hours * wd.base_rate_minor_units + ot_hours * wd.base_rate_minor_units * 1.5 + (st_hours + ot_hours) * wd.fringe_rate_minor_units);
+      paid_gross_minor_units = Math.round(st_hours * rate_paid_minor_units + ot_hours * rate_paid_minor_units * 1.5 + (st_hours + ot_hours) * fringe_paid_minor_units);
+      deficiency_minor_units = Math.max(required_gross_minor_units - paid_gross_minor_units, 0);
+      rate_meets_wd = combined_paid_rate_minor_units >= wd.combined_rate_minor_units;
+    }
+
+    return { worker_id: worker_id, classification: classification === '' ? null : classification, wd_found: wd_found,
+      st_hours: st_hours, ot_hours: ot_hours,
+      rate_paid_minor_units: rate_paid_minor_units, rate_paid_display: display(rate_paid_minor_units),
+      fringe_paid_minor_units: fringe_paid_minor_units, fringe_paid_display: display(fringe_paid_minor_units),
+      combined_paid_rate_minor_units: combined_paid_rate_minor_units, combined_paid_rate_display: display(combined_paid_rate_minor_units),
+      wd_combined_rate_minor_units: wd_found ? wd.combined_rate_minor_units : null, wd_combined_rate_display: wd_found ? display(wd.combined_rate_minor_units) : null,
+      rate_meets_wd: rate_meets_wd,
+      required_gross_minor_units: required_gross_minor_units, required_gross_display: required_gross_minor_units === null ? null : display(required_gross_minor_units),
+      paid_gross_minor_units: paid_gross_minor_units, paid_gross_display: paid_gross_minor_units === null ? null : display(paid_gross_minor_units),
+      deficiency_minor_units: deficiency_minor_units, deficiency_display: deficiency_minor_units === null ? null : display(deficiency_minor_units) };
+  });
+
+  var deficient_rows = payroll_rows.filter(function(r){ return r.wd_found && r.deficiency_minor_units > 0; });
+  var any_wd_unresolved = payroll_rows.some(function(r){ return !r.wd_found; });
+  var i;
+  var total_deficiency_minor_units = 0;
+  for (i = 0; i < deficient_rows.length; i++) total_deficiency_minor_units += deficient_rows[i].deficiency_minor_units;
+
+  var apprenticeIn = pp.apprentice_program !== undefined && pp.apprentice_program !== null ? obj(pp.apprentice_program) : null;
+  var apprentice_check = null;
+  if (apprenticeIn !== null) {
+    var permitted_ratio_per_journeyman = typeof apprenticeIn.permitted_ratio_per_journeyman === 'number' && Number.isFinite(apprenticeIn.permitted_ratio_per_journeyman) ? apprenticeIn.permitted_ratio_per_journeyman : 0;
+    var actual_journeyman_count = typeof apprenticeIn.actual_journeyman_count === 'number' && Number.isFinite(apprenticeIn.actual_journeyman_count) ? apprenticeIn.actual_journeyman_count : 0;
+    var actual_apprentice_count = typeof apprenticeIn.actual_apprentice_count === 'number' && Number.isFinite(apprenticeIn.actual_apprentice_count) ? apprenticeIn.actual_apprentice_count : 0;
+    var permitted_apprentice_count = Math.floor(actual_journeyman_count * permitted_ratio_per_journeyman);
+    var excess_apprentice_count = Math.max(actual_apprentice_count - permitted_apprentice_count, 0);
+    apprentice_check = { permitted_ratio_per_journeyman: permitted_ratio_per_journeyman, actual_journeyman_count: actual_journeyman_count, actual_apprentice_count: actual_apprentice_count, permitted_apprentice_count: permitted_apprentice_count, excess_apprentice_count: excess_apprentice_count, ratio_exceeded: excess_apprentice_count > 0 };
+  }
+
+  var pwa_result = null;
+  if (pwa_mode) {
+    var rateSupplied = typeof pp.irc_6621_underpayment_rate_percent === 'number' && Number.isFinite(pp.irc_6621_underpayment_rate_percent);
+    var daysSupplied = typeof pp.underpayment_days === 'number' && Number.isFinite(pp.underpayment_days) && pp.underpayment_days >= 0;
+    if (deficient_rows.length > 0 && (!rateSupplied || !daysSupplied)) {
+      rejected_inputs.push({ where: 'irc_6621_underpayment_rate_percent / underpayment_days', reason: 'deficiencies were found but one or both interest inputs were absent; correction interest could not be computed', supplied: null });
+    }
+    var rate_percent = rateSupplied ? pp.irc_6621_underpayment_rate_percent : null;
+    var underpayment_days = daysSupplied ? pp.underpayment_days : null;
+    var can_compute_interest = rateSupplied && daysSupplied;
+
+    var worker_corrections = deficient_rows.map(function(r){
+      var wage_component_minor_units = intentional_disregard ? r.deficiency_minor_units * 3 : r.deficiency_minor_units;
+      var interest_minor_units = can_compute_interest ? Math.round(r.deficiency_minor_units * (rate_percent / 100) * (underpayment_days / 365)) : null;
+      var correction_payment_minor_units = interest_minor_units === null ? null : wage_component_minor_units + interest_minor_units;
+      return { worker_id: r.worker_id, classification: r.classification, deficiency_minor_units: r.deficiency_minor_units, deficiency_display: r.deficiency_display,
+        wage_component_minor_units: wage_component_minor_units, wage_component_display: display(wage_component_minor_units),
+        interest_minor_units: interest_minor_units, interest_display: interest_minor_units === null ? null : display(interest_minor_units),
+        correction_payment_minor_units: correction_payment_minor_units, correction_payment_display: correction_payment_minor_units === null ? null : display(correction_payment_minor_units) };
+    });
+    var total_correction_payment_minor_units = 0;
+    var correction_computable = can_compute_interest;
+    for (i = 0; i < worker_corrections.length; i++) {
+      if (worker_corrections[i].correction_payment_minor_units === null) { correction_computable = false; continue; }
+      total_correction_payment_minor_units += worker_corrections[i].correction_payment_minor_units;
+    }
+
+    var per_worker_penalty_minor_units = intentional_disregard ? 1000000 : 500000;
+    var penalty_worker_count = deficient_rows.length;
+    var total_penalty_minor_units = per_worker_penalty_minor_units * penalty_worker_count;
+
+    pwa_result = { intentional_disregard: intentional_disregard, irc_6621_underpayment_rate_percent: rate_percent, underpayment_days: underpayment_days,
+      deficient_worker_count: deficient_rows.length, worker_corrections: worker_corrections,
+      correction_computable: deficient_rows.length === 0 ? true : correction_computable,
+      total_correction_payment_minor_units: correction_computable ? total_correction_payment_minor_units : null,
+      total_correction_payment_display: correction_computable ? display(total_correction_payment_minor_units) : null,
+      per_worker_penalty_minor_units: per_worker_penalty_minor_units, per_worker_penalty_display: display(per_worker_penalty_minor_units),
+      penalty_worker_count: penalty_worker_count, total_penalty_minor_units: total_penalty_minor_units, total_penalty_display: display(total_penalty_minor_units),
+      penalty_scope: 'This penalty is computed for the ONE stated payroll period only. The statute aggregates by calendar year across every period; deduplicating a worker who recurs across periods in the same year is the caller’s responsibility.' };
+  }
+
+  var submittedSupplied = pp.submitted_payroll !== undefined && pp.submitted_payroll !== null && arr(pp.submitted_payroll).length > 0;
+  var diff = [];
+  if (submittedSupplied) {
+    var submittedRows = arr(pp.submitted_payroll);
+    var seen = [];
+    var byWorker = {};
+    for (i = 0; i < payroll_rows.length; i++) byWorker[payroll_rows[i].worker_id] = payroll_rows[i];
+    for (i = 0; i < submittedRows.length; i++) {
+      var s = obj(submittedRows[i]);
+      var worker_id = str(s.worker_id, 'SUBMITTED-' + (i + 1));
+      seen.push(worker_id);
+      var submitted_gross_minor_units = toMinorUnits(s.gross_minor_units, 'submitted_payroll[' + i + '].gross_minor_units', rejected_inputs);
+      var match = byWorker[worker_id];
+      if (match === undefined) {
+        diff.push({ worker_id: worker_id, in_payroll: false, recomputed_gross_minor_units: null, recomputed_gross_display: null,
+          submitted_gross_minor_units: submitted_gross_minor_units, submitted_gross_display: display(submitted_gross_minor_units),
+          difference_minor_units: null, difference_display: null, agrees: false,
+          detail: 'The submitted payroll names a worker who is not in the payroll rows supplied. It is carried here rather than dropped; the payroll may be incomplete.' });
+      } else if (!match.wd_found) {
+        diff.push({ worker_id: worker_id, in_payroll: true, recomputed_gross_minor_units: null, recomputed_gross_display: null,
+          submitted_gross_minor_units: submitted_gross_minor_units, submitted_gross_display: display(submitted_gross_minor_units),
+          difference_minor_units: null, difference_display: null, agrees: false,
+          detail: 'This worker’s classification was not found in the supplied wage determination, so no recomputed gross could be compared.' });
+      } else {
+        var difference_minor_units = match.required_gross_minor_units - submitted_gross_minor_units;
+        diff.push({ worker_id: worker_id, in_payroll: true, recomputed_gross_minor_units: match.required_gross_minor_units, recomputed_gross_display: match.required_gross_display,
+          submitted_gross_minor_units: submitted_gross_minor_units, submitted_gross_display: display(submitted_gross_minor_units),
+          difference_minor_units: difference_minor_units, difference_display: display(difference_minor_units), agrees: difference_minor_units === 0,
+          detail: difference_minor_units === 0 ? 'The independently recomputed required gross equals the amount the submitted certified payroll states for this worker.' : 'The independently recomputed required gross differs from the amount the submitted certified payroll states for this worker.' });
+      }
+    }
+    for (i = 0; i < payroll_rows.length; i++) {
+      if (seen.indexOf(payroll_rows[i].worker_id) === -1) {
+        diff.push({ worker_id: payroll_rows[i].worker_id, in_payroll: true, recomputed_gross_minor_units: payroll_rows[i].required_gross_minor_units, recomputed_gross_display: payroll_rows[i].required_gross_display,
+          submitted_gross_minor_units: null, submitted_gross_display: null, difference_minor_units: null, difference_display: null, agrees: false,
+          detail: 'This worker is in the payroll rows but the submitted certified payroll names no gross figure for them, so there is nothing to compare against.' });
+      }
+    }
+  }
+  var disagreeing = diff.filter(function(d){ return !d.agrees; });
+
+  var verdict, indeterminate_reason;
+  if (wage_determination.length === 0) { verdict = 'INDETERMINATE'; indeterminate_reason = 'No wage determination was supplied, so no required rate could be established.'; }
+  else if (payroll_rows.length === 0) { verdict = 'INDETERMINATE'; indeterminate_reason = 'No payroll rows were supplied, so nothing could be recomputed.'; }
+  else if (any_wd_unresolved) { verdict = 'INDETERMINATE'; indeterminate_reason = 'At least one payroll row’s classification was not found in the supplied wage determination, so the payroll could not be fully recomputed.'; }
+  else if (!submittedSupplied) { verdict = 'INDETERMINATE'; indeterminate_reason = 'No submitted certified payroll was supplied, so the recomputed payroll has nothing to compare against.'; }
+  else { verdict = disagreeing.length === 0 ? 'MATCHES' : 'DIVERGES'; indeterminate_reason = null; }
+
+  var rationale = [];
+  rationale.push('Certified payroll recomputed for project reference ' + project_ref + ', week ending ' + week_ending_label + '.');
+  rationale.push(wage_determination.length + ' wage-determination classification' + (wage_determination.length === 1 ? '' : 's') + ' and ' + payroll_rows.length + ' payroll row' + (payroll_rows.length === 1 ? '' : 's') + ' were supplied.');
+  if (any_wd_unresolved) rationale.push('One or more payroll rows named a classification absent from the wage determination; those rows could not be recomputed and are listed in rejected_inputs.');
+  rationale.push(deficient_rows.length === 0 ? 'No worker’s recomputed required gross exceeded the recomputed paid gross; no deficiency was found.' : (deficient_rows.length + ' worker' + (deficient_rows.length === 1 ? '' : 's') + ' had a recomputed deficiency totalling ' + display(total_deficiency_minor_units) + ' ' + currency + ', applying Davis-Bacon rate compliance and CWHSSA overtime (time-and-a-half on the basic hourly rate, fringe due straight-time).'));
+  if (apprentice_check !== null) rationale.push(apprentice_check.ratio_exceeded ? ('The declared apprentice program exceeds its permitted ratio by ' + apprentice_check.excess_apprentice_count + ' apprentice(s); excess-apprentice hours were not reassigned to the journeyman rate (out of scope).') : 'The declared apprentice program is within its permitted ratio.');
+  if (pwa_mode) rationale.push(pwa_result.deficient_worker_count === 0 ? 'PWA mode was requested but no deficiency was found, so no IRC Sec. 45(b)(7)-(8) correction or penalty applies.' : (pwa_result.correction_computable ? ('PWA mode computed a total correction payment of ' + pwa_result.total_correction_payment_display + ' ' + currency + ' and a total penalty of ' + pwa_result.total_penalty_display + ' ' + currency + ' across ' + pwa_result.deficient_worker_count + ' worker(s)' + (intentional_disregard ? ', tripled on the declared intentional disregard' : '') + ', for THIS stated period only.') : 'PWA mode found deficiencies but could not compute the correction interest because the Sec. 6621 rate and/or underpayment-days inputs were absent; see rejected_inputs.'));
+  rationale.push(verdict === 'INDETERMINATE' ? ('Verdict is INDETERMINATE: ' + indeterminate_reason) : verdict === 'MATCHES' ? ('The independently recomputed required gross agrees with every one of the ' + diff.length + ' worker' + (diff.length === 1 ? '' : 's') + ' the submitted certified payroll states a figure for. The left-hand side was computed here from the wage determination and hours, not lifted from the submission.') : ('The independently recomputed required gross diverges from the submitted certified payroll on ' + disagreeing.length + ' of ' + diff.length + ' worker' + (diff.length === 1 ? '' : 's') + '. Each difference is listed with both figures. A divergence is an arithmetic finding about the wage determination and hours supplied here, not a legal or tax determination.'));
+  if (rejected_inputs.length > 0) rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as zero, ignored, or left uncomputed. Each one is named in rejected_inputs rather than silently dropped.');
+  rationale.push('This is not tax or legal advice. WH-347 is referenced only for the shape of a submitted-payroll comparison; no form expiration/sunset date is encoded here.');
+
+  var compliance_flags = ['PWA_PAYROLL_RECOMPUTED'];
+  compliance_flags.push(verdict === 'INDETERMINATE' ? 'PWA_VERDICT_INDETERMINATE' : verdict === 'MATCHES' ? 'PWA_VERDICT_MATCHES' : 'PWA_VERDICT_DIVERGES');
+  if (deficient_rows.length > 0) compliance_flags.push('PWA_DEFICIENCY_FOUND');
+  if (verdict === 'DIVERGES') compliance_flags.push('ESCALATION_RAISED');
+  if (any_wd_unresolved) compliance_flags.push('PWA_WD_CLASSIFICATION_UNRESOLVED');
+  if (apprentice_check !== null && apprentice_check.ratio_exceeded) compliance_flags.push('PWA_APPRENTICE_RATIO_EXCEEDED');
+  if (pwa_mode) compliance_flags.push('PWA_MODE_ENABLED');
+  if (pwa_mode && intentional_disregard) compliance_flags.push('PWA_INTENTIONAL_DISREGARD');
+  if (pwa_mode && pwa_result.deficient_worker_count > 0 && !pwa_result.correction_computable) compliance_flags.push('PWA_CORRECTION_INTEREST_UNCOMPUTABLE');
+  if (rejected_inputs.length > 0) compliance_flags.push('PWA_INPUTS_REJECTED');
+
+  var output_payload = {
+    project_ref: project_ref, week_ending_label: week_ending_label, currency: currency, minor_unit_exponent: MINOR_UNIT_EXPONENT,
+    wage_determination: wage_determination, payroll_rows: payroll_rows,
+    deficient_worker_count: deficient_rows.length, total_deficiency_minor_units: total_deficiency_minor_units, total_deficiency_display: display(total_deficiency_minor_units),
+    apprentice_check: apprentice_check, pwa_mode: pwa_mode, pwa_result: pwa_result,
+    submitted_supplied: submittedSupplied,
+    comparison_basis: 'The recomputed side of every comparison is derived here from the wage determination and the caller-declared payroll hours. It is not read from a submitted certified payroll. A comparison is only meaningful because the two sides have independent provenance.',
+    diff: diff, verdict: verdict, indeterminate_reason: indeterminate_reason,
+    rejected_inputs: rejected_inputs, citations: CITATIONS, rationale: rationale, not_proven: NOT_PROVEN,
+    fence: 'This is not tax or legal advice. Rate compliance and CWHSSA overtime are recomputed from a caller-declared wage determination and payroll hours. PWA-mode correction and penalty figures follow IRC Sec. 45(b)(7)-(8) as re-verified against primary text at build, computed for the ONE stated period only -- annual aggregation across periods is the caller’s responsibility. No WH-347 expiration date is encoded. A divergence against a submitted payroll is an arithmetic finding about the figures supplied here, never a legal or tax determination.',
+    note: 'Deterministic certified-payroll and prevailing-wage recomputation for one stated payroll week. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function parseJsonField(id, label){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  try { return JSON.parse(raw); }
+  catch(e){ alert('Invalid JSON in ' + label + ': ' + e.message); throw e; }
+}
+
+function loadIndeterminateDemo(){
+  document.getElementById('submittedJson').value = '';
+  runPwaRecompute();
+}
+function loadMatchesDemo(){
+  document.getElementById('wdJson').value = '[\n  { "classification": "Electrician", "base_rate_minor_units": 4200, "fringe_rate_minor_units": 1100 }\n]';
+  document.getElementById('payrollJson').value = '[\n  { "worker_id": "W-1", "classification": "Electrician", "st_hours": 40, "ot_hours": 4, "rate_paid_minor_units": 4200, "fringe_paid_minor_units": 1100 }\n]';
+  document.getElementById('submittedJson').value = '[\n  { "worker_id": "W-1", "gross_minor_units": 241600 }\n]';
+  runPwaRecompute();
+}
+
+async function runPwaRecompute(){
+  var wd, payroll, submitted, apprentice;
+  try {
+    wd = parseJsonField('wdJson', 'wage determination');
+    payroll = parseJsonField('payrollJson', 'payroll rows');
+    submitted = parseJsonField('submittedJson', 'submitted payroll');
+    apprentice = parseJsonField('apprenticeJson', 'apprentice program');
+  } catch(e){ return; }
+
+  var pp = {
+    project_ref: document.getElementById('projectRef').value || '',
+    week_ending_label: document.getElementById('weekEndingLabel').value || '',
+    currency: document.getElementById('currency').value || '',
+    wage_determination: wd === null ? [] : wd,
+    payroll_rows: payroll === null ? [] : payroll,
+    pwa_mode: document.getElementById('pwaMode').checked,
+  };
+  if (submitted !== null) pp.submitted_payroll = submitted;
+  if (apprentice !== null && Object.keys(apprentice).length > 0) pp.apprentice_program = apprentice;
+  if (pp.pwa_mode) {
+    pp.intentional_disregard = document.getElementById('intentionalDisregard').checked;
+    var rateRaw = document.getElementById('ircRate').value;
+    var daysRaw = document.getElementById('underpaymentDays').value;
+    if (rateRaw !== '') pp.irc_6621_underpayment_rate_percent = Number(rateRaw);
+    if (daysRaw !== '') pp.underpayment_days = Number(daysRaw);
+  }
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var good = op.verdict === 'MATCHES';
+  var indet = op.verdict === 'INDETERMINATE';
+  var colour = good ? 'var(--green)' : (indet ? 'var(--teal-lt)' : 'var(--red)');
+  var bg = good ? 'rgba(34,197,94,.08)' : (indet ? 'rgba(20,184,166,.08)' : 'rgba(239,68,68,.08)');
+  vBox.style.color = colour; vBox.style.background = bg; vBox.style.border = '1px solid ' + colour;
+  vBox.textContent = op.verdict + ' · ' + op.week_ending_label;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.payroll_rows.length + '</span><span class="stat-key">Workers</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.deficient_worker_count + '</span><span class="stat-key">Deficient</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.total_deficiency_display + '</span><span class="stat-key">Total deficiency ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.pwa_result && op.pwa_result.total_correction_payment_display !== null ? op.pwa_result.total_correction_payment_display : 'n/a') + '</span><span class="stat-key">Correction ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.pwa_result ? op.pwa_result.total_penalty_display : 'n/a') + '</span><span class="stat-key">Penalty ' + op.currency + '</span></div>';
+
+  document.getElementById('rowsDiv').innerHTML = op.payroll_rows.length
+    ? op.payroll_rows.map(function(r){
+        var badges = '';
+        if (!r.wd_found) badges += ' <span class="badge warn">CLASSIFICATION NOT FOUND</span>';
+        else if (r.deficiency_minor_units > 0) badges += ' <span class="badge bad">DEFICIENCY ' + r.deficiency_display + '</span>';
+        else badges += ' <span class="badge ok">MEETS WD</span>';
+        return '<div class="kv"><span class="kv-k">' + r.worker_id + ' · ' + (r.classification || 'untyped') + ' (' + r.st_hours + 'ST/' + r.ot_hours + 'OT)</span><span class="kv-v">required ' + (r.required_gross_display || 'n/a') + ' · paid ' + (r.paid_gross_display || 'n/a') + badges + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No payroll rows supplied</span><span class="kv-v">nothing was recomputed</span></div>';
+
+  document.getElementById('pwaDiv').innerHTML = !op.pwa_mode
+    ? '<div class="kv"><span class="kv-k">PWA mode not enabled</span><span class="kv-v">no correction/penalty computed</span></div>'
+    : op.pwa_result.deficient_worker_count === 0
+      ? '<div class="kv"><span class="kv-k">No deficiency found</span><span class="kv-v">no correction/penalty applies</span></div>'
+      : op.pwa_result.worker_corrections.map(function(w){
+          return '<div class="kv"><span class="kv-k">' + w.worker_id + '</span><span class="kv-v">deficiency ' + w.deficiency_display + ' · wage component ' + w.wage_component_display + ' · interest ' + (w.interest_display || 'n/a') + ' · correction ' + (w.correction_payment_display || 'n/a') + '</span></div>';
+        }).join('') + '<div class="kv"><span class="kv-k">Penalty</span><span class="kv-v">' + op.pwa_result.per_worker_penalty_display + ' &times; ' + op.pwa_result.penalty_worker_count + ' = ' + op.pwa_result.total_penalty_display + ' (this period only)</span></div>';
+
+  document.getElementById('diffDiv').innerHTML = !op.submitted_supplied
+    ? '<div class="kv"><span class="kv-k">No submitted payroll supplied</span><span class="kv-v">verdict is INDETERMINATE, which is not agreement</span></div>'
+    : op.diff.map(function(d){
+        var cls = d.agrees ? 'ok' : 'bad';
+        var right = d.difference_minor_units === null
+          ? (d.in_payroll ? 'no figure submitted for this worker' : 'submitted ' + d.submitted_gross_display + ', not in the payroll rows')
+          : 'recomputed ' + d.recomputed_gross_display + ' · submitted ' + d.submitted_gross_display + ' · difference ' + d.difference_display;
+        return '<div class="kv"><span class="kv-k">' + d.worker_id + '</span><span class="kv-v"><span class="badge ' + cls + '">' + (d.agrees ? 'AGREES' : 'REVIEW') + '</span> ' + right + '</span></div>';
+      }).join('');
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){ return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-574-certified-payroll-prevailing-wage-recompute',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-574-certified-payroll-prevailing-wage-recompute.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
