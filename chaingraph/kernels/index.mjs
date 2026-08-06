@@ -501,6 +501,7 @@ import * as art564    from './art-564-ucp-checkout-payload-lint.kernel.mjs';
 import * as art565    from './art-565-kya-x402-scope-verifier.kernel.mjs';
 import * as art566    from './art-566-iolta-three-way-reconciliation.kernel.mjs';
 import * as art568    from './art-568-securitization-trustee-report-recompute.kernel.mjs';
+import * as art569    from './art-569-muni-arbitrage-spending-exception-checker.kernel.mjs';
 import * as art57     from './art-57-deposit-token-compliance-validator.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
@@ -1061,6 +1062,7 @@ export const KERNELS = {
   'art-565-kya-x402-scope-verifier':                          art565,
   'art-566-iolta-three-way-reconciliation':                   art566,
   'art-568-securitization-trustee-report-recompute':          art568,
+  'art-569-muni-arbitrage-spending-exception-checker':        art569,
   'art-57-deposit-token-compliance-validator':                art57,
   'art-58-cross-network-settlement-validator':                art58,
   'art-59-settlement-asset-finality-classifier':              art59,
