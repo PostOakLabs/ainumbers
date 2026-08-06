@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>MT9xx to camt Statement Migration Mapper &middot; ART-563 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Maps a pasted Swift MT900/910/940/942/950 statement or notification message to a camt.052/053/054-shaped JSON mapping object, plus a fidelity report covering truncation findings, unmappable tags, and a balance-consistency check.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-563-mt9xx-camt-statement-migration-mapper.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:740px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:200px;resize:vertical;white-space:pre;font-size:.68rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table{width:100%;border-collapse:collapse;font-size:.68rem;font-family:'JetBrains Mono',monospace}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:top;word-break:break-word}
+th{color:var(--muted);font-size:.58rem;letter-spacing:.06em;text-transform:uppercase}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-563 · MT9xx to camt Migration Mapper</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-563 &middot; Cross-Border Payments Evidence</div>
+  <h1>MT9xx to camt Statement Migration Mapper</h1>
+  <p class="sub">Swift retires MT900/910/940/942/950 statement and notification messages in the 2027-2028 coexistence window, and receive-capability for the camt.052/053/054 equivalents is mandated from November 2027 (dated observation, source below). Swift itself provides no MT-to-ISO&nbsp;20022 conversion tool, so the translation burden lands on the corporate or treasury receiving the message. Paste an MT9xx tag-line message below; this tool maps it to a camt-shaped JSON object field by field and, more importantly, runs a fidelity report: truncation findings, unmappable tags, and (for MT940/950/942) a <code>60F + &Sigma;61 = 62F</code> balance-consistency check. The kernel emits JSON only; camt XML is serialized from that JSON in your browser, never on the wire.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Fidelity report is the point, not just the mapping</span>
+    <span class="flag info">Kernel emits JSON only; XML serialized client-side</span>
+    <span class="flag">No Swift endorsement claim</span>
+    <span class="flag">Zero live rate/network calls</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Verified 2026-08-06: redcompasslabs.com/insights/what-now-iso-20022-deadlines-in-2026-onwards &middot; usbank.com ISO 20022 migration page. This tool states the 2027-11 receive mandate and 2027-28 coexistence window as dated observations only. It makes no Swift-endorsement claim and no compliance-deadline guarantee.</div>
+
+  <div class="card">
+    <div class="section-head">MT9xx message</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">Paste tag-line fields (<code>:20:</code>, <code>:25:</code>, <code>:28C:</code>, <code>:60F:</code>, <code>:61:</code>, <code>:86:</code>, <code>:62F:</code>, or <code>:32A:</code>/<code>:72:</code> for a notification). A demo below is already loaded.</p>
+    <label class="fld">Message text</label>
+    <textarea id="msgText"></textarea>
+    <div class="grid2" style="margin-top:10px">
+      <div>
+        <label class="fld">Declared MT type (used when no <code>{2:...}</code> header is present)</label>
+        <select id="declaredType">
+          <option value="940">MT940 &middot; Customer Statement</option>
+          <option value="950">MT950 &middot; Statement Message</option>
+          <option value="942">MT942 &middot; Interim Transaction Report</option>
+          <option value="900">MT900 &middot; Confirmation of Debit</option>
+          <option value="910">MT910 &middot; Confirmation of Credit</option>
+        </select>
+      </div>
+      <div>
+        <label class="fld">Target camt (override default; leave to auto-derive)</label>
+        <select id="targetOverride">
+          <option value="">Auto (from MT type)</option>
+          <option value="camt.053">camt.053</option>
+          <option value="camt.052">camt.052</option>
+          <option value="camt.054">camt.054</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runMap()">&#9654; Run Mapping</button>
+      <button class="ghost" onclick="loadMt940Demo()">Load MT940 (balanced, clean)</button>
+      <button class="ghost" onclick="loadMt942Demo()">Load MT942 (interim, no 62F)</button>
+      <button class="ghost" onclick="loadMt900Demo()">Load MT900 (oversized :72:, warnings)</button>
+      <button class="ghost" onclick="loadEmptyDemo()">Load empty edge case</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Field mapping (MT tag &rarr; camt element path)</div>
+      <table id="mapTable"><thead><tr><th>MT tag</th><th>camt path</th><th>value</th><th>transform</th></tr></thead><tbody id="mapBody"></tbody></table>
+
+      <div class="section-head" style="margin-top:14px">Balance check (60F + &Sigma;61 vs 62F)</div>
+      <div id="balDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Fidelity findings</div>
+      <div id="findDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected / unmappable inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not decode structured <code>?nn</code> subfields inside <code>:86:</code> narrative text; those pass through as raw text with a flag. It does not reconcile the mapped statement against a ledger or a second source; see <a href="../tools/565-camt053-reconciliation-workbench.html">tools/565</a> for that. It carries no Swift endorsement and issues no compliance-deadline guarantee.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Field vocabulary reuse</div>
+    <p class="sub" style="margin-bottom:0">MT tag &rarr; camt element path mappings are reused from <a href="../tools/402-swift-mt-mx-field-decoder.html">tools/402, the Swift MT/MX field decoder</a>. This tool composes that vocabulary into a full-message mapper with a fidelity report; it does not maintain a second, divergent field table.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-563-mt9xx-camt-statement-migration-mapper',
+  version: '1.0.0',
+  mcp_name: 'map_mt9xx_to_camt',
+  title: 'MT9xx to camt Statement Migration Mapper',
+  description: 'Maps a pasted Swift MT900/910/940/942/950 statement or notification message to a camt.052/053/054-shaped JSON mapping object, plus a fidelity report (truncation findings, unmappable tags, and a 60F + sum(61) = 62F balance-consistency check). Kernel emits JSON only; camt XML serialization happens client-side from that JSON.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'map_mt9xx_to_camt',
+    description: 'Maps a pasted MT900/910/940/942/950 message to a camt-shaped JSON mapping object plus a fidelity report, returning verdict CLEAN | MAPPED_WITH_WARNINGS | UNMAPPABLE.',
+    inputSchema: { type: 'object', properties: {
+      message_text: {type:'string', description:'raw MT9xx tag-line message text'},
+      declared_mt_type: {type:'string', enum:['900','910','940','942','950'], description:'used when no {2:...} header is present in message_text'},
+      target: {type:'string', enum:['camt.053','camt.052','camt.054'], description:'override the default camt target derived from mt_type'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-563-mt9xx-camt-statement-migration-mapper.kernel.mjs --- */
+var MT_TYPE_TO_TARGET = { '940': 'camt.053', '950': 'camt.053', '942': 'camt.052', '900': 'camt.054', '910': 'camt.054' };
+var STATEMENT_TYPES = ['940', '950', '942'];
+var NOTIFICATION_TYPES = ['900', '910'];
+var MT86_MT_LIMIT = 390;
+var MT72_MT_LIMIT = 210;
+var CAMT_INSTR_MAX = 140;
+
+function safeStr(v){ return typeof v === 'string' ? v : ''; }
+
+function parseFields(text){
+  var lines = safeStr(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  var fields = []; var current = null;
+  for (var i=0;i<lines.length;i++){
+    var line = lines[i];
+    var m = line.match(/^:(\d{2}[A-Z]?):(.*)$/);
+    if (m){
+      if (current) fields.push(current);
+      current = { tag: m[1], value: m[2] };
+    } else if (current){
+      current.value += '\n' + line;
+    }
+  }
+  if (current) fields.push(current);
+  return fields.map(function(f){ return { tag: f.tag, value: f.value.replace(/\n+$/, '') }; });
+}
+
+function detectHeaderMtType(text){
+  var m = safeStr(text).match(/\{2:[IO](\d{3})/);
+  return m ? m[1] : null;
+}
+
+function centsFromMtAmount(s){
+  if (typeof s !== 'string' || !/^[0-9]+,[0-9]*$/.test(s)) return null;
+  var parts = s.split(',');
+  var fracPadded = (parts[1] || '').padEnd(2,'0').slice(0,2);
+  return parseInt(parts[0],10) * 100 + parseInt(fracPadded,10);
+}
+
+function yymmddToIso(s){
+  if (typeof s !== 'string' || !/^\d{6}$/.test(s)) return null;
+  var yy = parseInt(s.slice(0,2),10);
+  var year = 2000 + yy;
+  return String(year) + '-' + s.slice(2,4) + '-' + s.slice(4,6);
+}
+
+function parseBalanceField(value){
+  var m = safeStr(value).match(/^([DC])(\d{6})([A-Z]{3})([0-9]+,[0-9]*)$/);
+  if (!m) return null;
+  var dc = m[1], date = m[2], ccy = m[3], amt = m[4];
+  var cents = centsFromMtAmount(amt);
+  if (cents === null) return null;
+  return { dc: dc, date_iso: yymmddToIso(date), currency: ccy, amount_cents: cents, signed_cents: dc === 'C' ? cents : -cents };
+}
+
+function parseStatementLine(value){
+  var m = safeStr(value).match(/^(\d{6})(\d{4})?(RD|RC|D|C)([A-Z])?([0-9]+,[0-9]*)([A-Z][A-Z0-9]{3})?(.*)$/);
+  if (!m) return null;
+  var valueDate=m[1], entryDate=m[2], dc=m[3], fundsCode=m[4], amtRaw=m[5], txType=m[6], rest=m[7];
+  var amount_cents = centsFromMtAmount(amtRaw);
+  if (amount_cents === null) return null;
+  var signed_cents = (dc === 'C' || dc === 'RD') ? amount_cents : -amount_cents;
+  var customer_ref = null, bank_ref = null;
+  var restTrim = safeStr(rest);
+  var slashIdx = restTrim.indexOf('//');
+  if (slashIdx >= 0){
+    customer_ref = restTrim.slice(0, slashIdx) || null;
+    bank_ref = restTrim.slice(slashIdx + 2) || null;
+  } else if (restTrim){
+    customer_ref = restTrim;
+  }
+  return {
+    value_date_iso: yymmddToIso(valueDate),
+    entry_date_mmdd: entryDate || null,
+    dc: dc,
+    funds_code: fundsCode || null,
+    amount_cents: amount_cents,
+    signed_cents: signed_cents,
+    transaction_type_code: txType || null,
+    customer_reference: customer_ref,
+    bank_reference: bank_ref,
+  };
+}
+
+function mt86Finding(value, entryIndex){
+  var findings = [];
+  var len = safeStr(value).length;
+  if (len > MT86_MT_LIMIT) findings.push({ tag:'86', entry_index: entryIndex, code:'TAG_86_EXCEEDS_MT_LIMIT', detail: ':86: narrative is ' + len + ' chars, exceeding the MT 6x65=' + MT86_MT_LIMIT + '-char field spec; source message was already non-conformant.' });
+  if (/\?\d\d/.test(value)) findings.push({ tag:'86', entry_index: entryIndex, code:'STRUCTURED_SUBFIELDS_NOT_DECODED', detail:'Narrative contains structured ?nn subfield codes; this mapper carries the raw text into AddtlNtryInf without decoding individual ?nn codes to camt.053 usage-guideline sub-elements.' });
+  return findings;
+}
+
+function buildStatement(fields, target){
+  var rejected = [];
+  function get(tag){ for (var i=0;i<fields.length;i++) if (fields[i].tag === tag) return fields[i]; return null; }
+  var msgIdF = get('20');
+  var acctF = get('25');
+  var seqF = get('28C');
+  var openF = null, closeF = null;
+  for (var i=0;i<fields.length;i++){
+    if (!openF && (fields[i].tag === '60F' || fields[i].tag === '60M')) openF = fields[i];
+    if (!closeF && (fields[i].tag === '62F' || fields[i].tag === '62M')) closeF = fields[i];
+  }
+
+  if (!msgIdF) rejected.push({ where:':20:', reason:'missing Transaction Reference Number' });
+  if (!acctF) rejected.push({ where:':25:', reason:'missing Account Identification' });
+  if (!openF) rejected.push({ where:':60F:/:60M:', reason:'missing opening balance' });
+  if (!closeF && target !== 'camt.052') rejected.push({ where:':62F:/:62M:', reason:'missing closing balance' });
+
+  var opening = openF ? parseBalanceField(openF.value) : null;
+  if (openF && !opening) rejected.push({ where: ':'+openF.tag+':', reason:'opening balance did not match [D/C]YYMMDD CCY amount format', supplied: openF.value });
+  var closing = closeF ? parseBalanceField(closeF.value) : null;
+  if (closeF && !closing) rejected.push({ where: ':'+closeF.tag+':', reason:'closing balance did not match [D/C]YYMMDD CCY amount format', supplied: closeF.value });
+
+  var stmt_number = null, seq_number = null;
+  if (seqF){
+    var parts = safeStr(seqF.value).split('/');
+    stmt_number = parts[0] || null;
+    seq_number = parts.length > 1 ? parts[1] : null;
+  }
+
+  var entries = [], unmappable_tags = [], truncation_findings = [];
+  for (var j=0;j<fields.length;j++){
+    if (fields[j].tag !== '61') continue;
+    var entryIndex = entries.length;
+    var parsed = parseStatementLine(fields[j].value);
+    if (!parsed){
+      unmappable_tags.push({ tag:'61', index: entryIndex, reason:'statement line did not match the MT :61: composite format', supplied: fields[j].value });
+      continue;
+    }
+    var narrative = null;
+    if (fields[j+1] && fields[j+1].tag === '86'){
+      narrative = fields[j+1].value;
+      truncation_findings = truncation_findings.concat(mt86Finding(narrative, entryIndex));
+    }
+    var entry = Object.assign({}, parsed, { narrative: narrative, camt_path: (target === 'camt.052' ? 'BkToCstmrAcctRpt/Rpt' : 'BkToCstmrStmt/Stmt') + '/Ntry' });
+    entries.push(entry);
+  }
+
+  var currency_consistent = !!(opening && closing && opening.currency === closing.currency);
+  var balance_check = null;
+  if (opening && closing){
+    var sumEntries = entries.reduce(function(s,e){ return s + e.signed_cents; }, 0);
+    var expected_closing_cents = opening.signed_cents + sumEntries;
+    balance_check = {
+      opening_signed_cents: opening.signed_cents,
+      sum_entries_signed_cents: sumEntries,
+      expected_closing_signed_cents: expected_closing_cents,
+      actual_closing_signed_cents: closing.signed_cents,
+      currency_consistent: currency_consistent,
+      pass: currency_consistent && expected_closing_cents === closing.signed_cents,
+      discrepancy_cents: currency_consistent ? (closing.signed_cents - expected_closing_cents) : null,
+    };
+  }
+
+  var root = target === 'camt.052' ? 'BkToCstmrAcctRpt/Rpt' : 'BkToCstmrStmt/Stmt';
+  var mapping = [];
+  if (msgIdF) mapping.push({ mt_tag:'20', camt_path: (target === 'camt.052' ? 'BkToCstmrAcctRpt/GrpHdr' : 'BkToCstmrStmt/GrpHdr') + '/MsgId', value: msgIdF.value, transform:'direct' });
+  if (acctF) mapping.push({ mt_tag:'25', camt_path: root + '/Acct/Id/IBAN or Othr', value: acctF.value.trim(), transform:'IBAN direct; non-IBAN to Othr/Id' });
+  if (seqF) mapping.push({ mt_tag:'28C', camt_path: root + '/' + (target === 'camt.052' ? 'RptPgntn' : 'StmtPgntn') + ' or LglSeqNb', value: seqF.value, transform:'split statement/sequence number' });
+  if (opening) mapping.push({ mt_tag: openF.tag, camt_path: root + '/Bal[Tp/CdOrPrtry/Cd=OPBD]', value: openF.value, transform:'balance field parse' });
+  if (closing) mapping.push({ mt_tag: closeF.tag, camt_path: root + '/Bal[Tp/CdOrPrtry/Cd=CLBD]', value: closeF.value, transform:'balance field parse' });
+  if (entries.length > 0) mapping.push({ mt_tag:'61', camt_path: root + '/Ntry', value: entries.length + ' statement line(s)', transform:'composite MT61 parse to structured Ntry[]' });
+
+  return {
+    root: root, stmt_number: stmt_number, seq_number: seq_number,
+    account_id: acctF ? acctF.value.trim() : null,
+    message_id: msgIdF ? msgIdF.value.trim() : null,
+    opening: opening, closing: closing, entries: entries, mapping: mapping,
+    unmappable_tags: unmappable_tags, truncation_findings: truncation_findings,
+    balance_check: balance_check, rejected_inputs: rejected,
+  };
+}
+
+function buildNotification(fields, dcAssumed){
+  var rejected = [];
+  function get(tag){ for (var i=0;i<fields.length;i++) if (fields[i].tag === tag) return fields[i]; return null; }
+  var msgIdF = get('20'), relRefF = get('21'), acctF = get('25'), valF = get('32A'), infoF = get('72');
+  var ordF = null;
+  for (var i=0;i<fields.length;i++){ if (fields[i].tag === '52A' || fields[i].tag === '52D'){ ordF = fields[i]; break; } }
+
+  if (!msgIdF) rejected.push({ where:':20:', reason:'missing Transaction Reference Number' });
+  if (!acctF) rejected.push({ where:':25:', reason:'missing Account Identification' });
+  if (!valF) rejected.push({ where:':32A:', reason:'missing value date / currency / amount' });
+
+  var value = null;
+  if (valF){
+    var m = safeStr(valF.value).match(/^(\d{6})([A-Z]{3})([0-9]+,[0-9]*)$/);
+    if (m){
+      var cents = centsFromMtAmount(m[3]);
+      value = cents === null ? null : { value_date_iso: yymmddToIso(m[1]), currency: m[2], amount_cents: cents, dc: dcAssumed };
+    }
+    if (!value) rejected.push({ where:':32A:', reason:'did not match YYMMDD CCY amount format', supplied: valF.value });
+  }
+
+  var truncation_findings = [];
+  if (infoF){
+    var len = safeStr(infoF.value).length;
+    if (len > MT72_MT_LIMIT) truncation_findings.push({ tag:'72', code:'TAG_72_EXCEEDS_MT_LIMIT', detail: ':72: is ' + len + ' chars, exceeding the MT 6x35=' + MT72_MT_LIMIT + '-char field spec.' });
+    if (len > CAMT_INSTR_MAX) truncation_findings.push({ tag:'72', code:'DATA_LOSS_RISK_MAX140TEXT', detail: ':72: content (' + len + ' chars) exceeds camt Max140Text (' + CAMT_INSTR_MAX + '); mapping to InstrForNxtAgt truncates or requires SplmtryData carry-over.' });
+  }
+
+  var root = 'BkToCstmrDbtCdtNtfctn/Ntfctn';
+  var mapping = [];
+  if (msgIdF) mapping.push({ mt_tag:'20', camt_path: root.split('/')[0] + '/GrpHdr/MsgId', value: msgIdF.value, transform:'direct' });
+  if (relRefF) mapping.push({ mt_tag:'21', camt_path: root + '/Ntry/NtryDtls/TxDtls/Refs/InstrId', value: relRefF.value, transform:'direct' });
+  if (acctF) mapping.push({ mt_tag:'25', camt_path: root + '/Acct/Id/IBAN or Othr', value: acctF.value.trim(), transform:'IBAN direct; non-IBAN to Othr/Id' });
+  if (valF) mapping.push({ mt_tag:'32A', camt_path: root + '/Ntry/(Amt + ValDt/Dt + CdtDbtInd)', value: valF.value, transform:'split date/currency/amount; CdtDbtInd from message type (900=DBIT,910=CRDT)' });
+  if (ordF) mapping.push({ mt_tag: ordF.tag, camt_path: root + '/Ntry/NtryDtls/TxDtls/RltdAgts/InstgAgt', value: ordF.value, transform:'BIC direct' });
+  if (infoF) mapping.push({ mt_tag:'72', camt_path: root + '/Ntry/NtryDtls/TxDtls/AddtlTxInf', value: infoF.value, transform:'6x35=210 chars vs Max140Text -- data-loss risk direction' });
+
+  return {
+    root: root,
+    message_id: msgIdF ? msgIdF.value.trim() : null,
+    related_reference: relRefF ? relRefF.value.trim() : null,
+    account_id: acctF ? acctF.value.trim() : null,
+    ordering_institution: ordF ? ordF.value.trim() : null,
+    notification_info: infoF ? infoF.value : null,
+    value: value, mapping: mapping,
+    unmappable_tags: [], truncation_findings: truncation_findings,
+    balance_check: null, rejected_inputs: rejected,
+  };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var message_text = safeStr(pp.message_text);
+
+  if (!message_text.trim()) rejected_inputs.push({ where:'message_text', reason:'absent or empty' });
+
+  var headerType = detectHeaderMtType(message_text);
+  var declared = ['900','910','940','942','950'].indexOf(safeStr(pp.declared_mt_type)) >= 0 ? pp.declared_mt_type : null;
+  var mt_type = (headerType && MT_TYPE_TO_TARGET[headerType]) ? headerType : (declared || null);
+  var mt_type_conflict = !!(headerType && declared && headerType !== declared);
+  if (!mt_type) rejected_inputs.push({ where:'mt_type', reason:'could not detect a supported MT9xx type from the {2:...} header and no declared_mt_type override supplied' });
+
+  var requestedTarget = ['camt.053','camt.052','camt.054'].indexOf(safeStr(pp.target)) >= 0 ? pp.target : null;
+  var default_target = mt_type ? MT_TYPE_TO_TARGET[mt_type] : null;
+  var target = requestedTarget || default_target;
+  var target_overridden = !!(requestedTarget && default_target && requestedTarget !== default_target);
+
+  var fields = parseFields(message_text);
+  if (message_text.trim() && fields.length === 0) rejected_inputs.push({ where:'message_text', reason:'no :NN: tag-line fields found' });
+
+  var supported = !!mt_type && !!target;
+  var body = null;
+  if (supported){
+    body = STATEMENT_TYPES.indexOf(mt_type) >= 0
+      ? buildStatement(fields, target)
+      : buildNotification(fields, mt_type === '900' ? 'DBIT' : 'CRDT');
+  }
+
+  var data_loss_warnings = [];
+  if (mt_type_conflict) data_loss_warnings.push('DECLARED_MT_TYPE_CONFLICTS_WITH_HEADER: using header-detected type.');
+  if (target_overridden) data_loss_warnings.push('TARGET_OVERRIDDEN_FROM_DEFAULT: requested ' + requestedTarget + ', default for MT' + mt_type + ' is ' + default_target + '.');
+
+  var structural_incomplete = !supported || (body && body.rejected_inputs.length > 0);
+  var has_findings = !!body && (body.unmappable_tags.length > 0 || body.truncation_findings.length > 0 || (body.balance_check && !body.balance_check.pass) || data_loss_warnings.length > 0);
+
+  var verdict;
+  if (structural_incomplete) verdict = 'UNMAPPABLE';
+  else if (has_findings) verdict = 'MAPPED_WITH_WARNINGS';
+  else verdict = 'CLEAN';
+
+  var compliance_flags = ['MT9XX_CAMT_MAP_' + verdict];
+  if (rejected_inputs.length) compliance_flags.push('MT9XX_CAMT_INPUTS_INSUFFICIENT');
+
+  var output_payload = {
+    mt_type: mt_type, mt_type_conflict: mt_type_conflict, target: target,
+    default_target: default_target, target_overridden: target_overridden,
+    camt_message_root: body ? body.root : null,
+    account_id: body ? body.account_id : null,
+    message_id: body ? body.message_id : null,
+    mapping: body ? body.mapping : [],
+    statement: (body && STATEMENT_TYPES.indexOf(mt_type) >= 0) ? {
+      stmt_number: body.stmt_number, seq_number: body.seq_number,
+      opening: body.opening, closing: body.closing, entries: body.entries,
+    } : null,
+    notification: (body && NOTIFICATION_TYPES.indexOf(mt_type) >= 0) ? {
+      related_reference: body.related_reference, ordering_institution: body.ordering_institution,
+      notification_info: body.notification_info, value: body.value,
+    } : null,
+    fidelity_report: {
+      truncation_findings: body ? body.truncation_findings : [],
+      unmappable_tags: body ? body.unmappable_tags : [],
+      data_loss_warnings: data_loss_warnings,
+      balance_check: body ? body.balance_check : null,
+    },
+    verdict: verdict,
+    rejected_inputs: rejected_inputs.concat(body ? body.rejected_inputs : []),
+    disambiguation: 'map_mt9xx_to_camt maps a pasted MT900/910/940/942/950 statement/notification message to a camt.052/053/054-shaped JSON mapping object plus a fidelity report (truncation, unmappable tags, 60F+61=62F balance check). It reuses tools/402\'s MT-to-camt field vocabulary but does not duplicate art-565-camt053-reconciliation-workbench\'s bank-vs-ledger reconciliation semantics -- this node maps message format, art-565 (tools/565) reconciles already-mapped camt.053 data against a ledger.',
+    pii_note: 'Statement/notification data may include real account numbers and counterparty references if a caller pastes a genuine message. This tool is zero-egress and computes entirely client-side or server-side per compute_mode; goldens ship synthetic statements only.',
+    no_swift_endorsement: 'This mapping is produced by AINumbers.co and carries no Swift endorsement. Swift does not provide MT-to-ISO 20022 conversion tooling.',
+    coexistence_note: 'Swift MT900/910/940/942/950 retirement runs the 2027-28 coexistence window; camt receive-capability is mandated from 2027-11 (dated observation, not a compliance-deadline claim by this tool).',
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+var MT940_DEMO = ':20:STMT2026080601\n:25:DE89370400440532013000\n:28C:5/1\n:60F:C260801USD100000,00\n:61:2608020802D1500,00NTRFREF12345//BANKREF01\n:86:Payment to vendor ABC invoice 1234\n:61:2608030803C5000,00NTRFREF67890//BANKREF02\n:86:Incoming wire from customer XYZ\n:62F:C260803USD103500,00\n';
+var MT942_DEMO = ':20:STMT2026080602\n:25:DE89370400440532013000\n:28C:6\n:60F:C260804USD103500,00\n:61:2608050805D2000,00NMSCREF22222\n:86:Long narrative exceeding the sixty-five character times six MT field limit deliberately so the truncation finding fires as intended for testing purposes here now\n:90D:1USD2000,00\n';
+var MT900_DEMO = ':20:DBTCONF2026080601\n:21:RELREF001\n:25:DE89370400440532013000\n:32A:260806USD2500,00\n:52A:BANKDEFFXXX\n:72:This sender to receiver narrative is deliberately long enough to exceed both the two hundred ten character MT limit and the camt one hundred forty character limit so both findings fire together here\n';
+
+function loadMt940Demo(){ document.getElementById('msgText').value = MT940_DEMO; document.getElementById('declaredType').value = '940'; document.getElementById('targetOverride').value = ''; runMap(); }
+function loadMt942Demo(){ document.getElementById('msgText').value = MT942_DEMO; document.getElementById('declaredType').value = '942'; document.getElementById('targetOverride').value = ''; runMap(); }
+function loadMt900Demo(){ document.getElementById('msgText').value = MT900_DEMO; document.getElementById('declaredType').value = '900'; document.getElementById('targetOverride').value = ''; runMap(); }
+function loadEmptyDemo(){ document.getElementById('msgText').value = ''; runMap(); }
+
+function badgeFor(v){
+  if (v === 'CLEAN') return '<span class="badge ok">CLEAN</span>';
+  if (v === 'MAPPED_WITH_WARNINGS') return '<span class="badge warn">MAPPED_WITH_WARNINGS</span>';
+  return '<span class="badge bad">UNMAPPABLE</span>';
+}
+
+async function runMap(){
+  var pp = {
+    message_text: document.getElementById('msgText').value || '',
+    declared_mt_type: document.getElementById('declaredType').value || '',
+    target: document.getElementById('targetOverride').value || '',
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var ok = op.verdict === 'CLEAN', warn = op.verdict === 'MAPPED_WITH_WARNINGS';
+  vBox.style.color = ok ? 'var(--green)' : (warn ? 'var(--warn)' : 'var(--red)');
+  vBox.style.background = ok ? 'rgba(34,197,94,.08)' : (warn ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)');
+  vBox.style.border = '1px solid ' + (ok ? 'var(--green)' : (warn ? 'var(--warn)' : 'var(--red)'));
+  vBox.textContent = op.verdict;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.mt_type ? 'MT'+op.mt_type : '—') + '</span><span class="stat-key">Detected MT type</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.target || '—') + '</span><span class="stat-key">Target camt</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.mapping ? op.mapping.length : 0) + '</span><span class="stat-key">Fields mapped</span></div>' +
+    '<div class="stat"><span class="stat-val">' + badgeFor(op.verdict) + '</span><span class="stat-key">Verdict</span></div>';
+
+  document.getElementById('mapBody').innerHTML = (op.mapping || []).map(function(m){
+    return '<tr><td>:' + m.mt_tag + ':</td><td>' + m.camt_path + '</td><td>' + String(m.value).replace(/</g,'&lt;') + '</td><td>' + m.transform + '</td></tr>';
+  }).join('') || '<tr><td colspan="4">No fields mapped.</td></tr>';
+
+  var bal = op.fidelity_report.balance_check;
+  document.getElementById('balDiv').innerHTML = bal
+    ? ('<div class="kv"><span class="kv-k">Opening (signed cents)</span><span class="kv-v">' + bal.opening_signed_cents + '</span></div>' +
+       '<div class="kv"><span class="kv-k">&Sigma; entries (signed cents)</span><span class="kv-v">' + bal.sum_entries_signed_cents + '</span></div>' +
+       '<div class="kv"><span class="kv-k">Expected closing</span><span class="kv-v">' + bal.expected_closing_signed_cents + '</span></div>' +
+       '<div class="kv"><span class="kv-k">Actual closing (62F)</span><span class="kv-v">' + bal.actual_closing_signed_cents + '</span></div>' +
+       '<div class="kv"><span class="kv-k">Pass</span><span class="kv-v">' + (bal.pass ? '<span class="badge ok">YES</span>' : '<span class="badge bad">NO (discrepancy ' + bal.discrepancy_cents + ' cents)</span>') + '</span></div>')
+    : '<div class="kv"><span class="kv-k">N/A</span><span class="kv-v">no 60F/62F pair to check (e.g. MT942 interim, or a notification type)</span></div>';
+
+  var findings = (op.fidelity_report.truncation_findings || []).concat(op.fidelity_report.unmappable_tags || []).concat((op.fidelity_report.data_loss_warnings || []).map(function(w){ return { code: 'WARNING', detail: w }; }));
+  document.getElementById('findDiv').innerHTML = findings.length
+    ? findings.map(function(f){ return '<div class="kv"><span class="kv-k">' + (f.code || f.tag || 'finding') + '</span><span class="kv-v">' + (f.detail || f.reason || '') + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no truncation, unmappable-tag, or override findings</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = (op.rejected_inputs || []).length
+    ? op.rejected_inputs.map(function(r){ return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied ? ' (supplied: ' + String(r.supplied).slice(0,80) + ')' : '') + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every required field was present and parsed</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-563-mt9xx-camt-statement-migration-mapper',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-563-mt9xx-camt-statement-migration-mapper.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+
+loadMt940Demo();
+</script>
+</body>
+</html>

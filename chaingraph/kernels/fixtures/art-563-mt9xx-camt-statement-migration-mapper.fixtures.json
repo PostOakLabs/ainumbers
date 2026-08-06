@@ -1,0 +1,350 @@
+{
+  "tool_id": "art-563-mt9xx-camt-statement-migration-mapper",
+  "note": "golden_hash filled by golden-parity.test.mjs --update; output_payload verified against kernel compute() directly. Vector 1: MT940 to camt.053, balanced (60F + sum61 = 62F), CLEAN. Vector 2: MT942 to camt.052, no :62F: by spec (interim report), CLEAN. Vector 3: MT900 to camt.054, oversized :72: triggers a real data-loss finding (210 MT limit vs 140 camt limit), MAPPED_WITH_WARNINGS. Vector 4: empty message, structurally incomplete, UNMAPPABLE.",
+  "vectors": [
+    {
+      "name": "mt940_balanced_clean",
+      "description": "MT940 statement with two entries whose signed sum ties opening to closing exactly; maps cleanly to camt.053.",
+      "policy_parameters": {
+        "message_text": ":20:STMT2026080601\n:25:DE89370400440532013000\n:28C:5/1\n:60F:C260801USD100000,00\n:61:2608020802D1500,00NTRFREF12345//BANKREF01\n:86:Payment to vendor ABC invoice 1234\n:61:2608030803C5000,00NTRFREF67890//BANKREF02\n:86:Incoming wire from customer XYZ\n:62F:C260803USD103500,00\n",
+        "declared_mt_type": "940"
+      },
+      "output_payload": {
+        "mt_type": "940",
+        "mt_type_conflict": false,
+        "target": "camt.053",
+        "default_target": "camt.053",
+        "target_overridden": false,
+        "camt_message_root": "BkToCstmrStmt/Stmt",
+        "account_id": "DE89370400440532013000",
+        "message_id": "STMT2026080601",
+        "mapping": [
+          {
+            "mt_tag": "20",
+            "camt_path": "BkToCstmrStmt/GrpHdr/MsgId",
+            "value": "STMT2026080601",
+            "transform": "direct"
+          },
+          {
+            "mt_tag": "25",
+            "camt_path": "BkToCstmrStmt/Stmt/Acct/Id/IBAN or Othr",
+            "value": "DE89370400440532013000",
+            "transform": "IBAN direct; non-IBAN to Othr/Id"
+          },
+          {
+            "mt_tag": "28C",
+            "camt_path": "BkToCstmrStmt/Stmt/StmtPgntn or LglSeqNb",
+            "value": "5/1",
+            "transform": "split statement/sequence number"
+          },
+          {
+            "mt_tag": "60F",
+            "camt_path": "BkToCstmrStmt/Stmt/Bal[Tp/CdOrPrtry/Cd=OPBD]",
+            "value": "C260801USD100000,00",
+            "transform": "balance field parse"
+          },
+          {
+            "mt_tag": "62F",
+            "camt_path": "BkToCstmrStmt/Stmt/Bal[Tp/CdOrPrtry/Cd=CLBD]",
+            "value": "C260803USD103500,00",
+            "transform": "balance field parse"
+          },
+          {
+            "mt_tag": "61",
+            "camt_path": "BkToCstmrStmt/Stmt/Ntry",
+            "value": "2 statement line(s)",
+            "transform": "composite MT61 parse to structured Ntry[]"
+          }
+        ],
+        "statement": {
+          "stmt_number": "5",
+          "seq_number": "1",
+          "opening": {
+            "dc": "C",
+            "date_iso": "2026-08-01",
+            "currency": "USD",
+            "amount_cents": 10000000,
+            "signed_cents": 10000000
+          },
+          "closing": {
+            "dc": "C",
+            "date_iso": "2026-08-03",
+            "currency": "USD",
+            "amount_cents": 10350000,
+            "signed_cents": 10350000
+          },
+          "entries": [
+            {
+              "value_date_iso": "2026-08-02",
+              "entry_date_mmdd": "0802",
+              "dc": "D",
+              "funds_code": null,
+              "amount_cents": 150000,
+              "signed_cents": -150000,
+              "transaction_type_code": "NTRF",
+              "customer_reference": "REF12345",
+              "bank_reference": "BANKREF01",
+              "narrative": "Payment to vendor ABC invoice 1234",
+              "camt_path": "BkToCstmrStmt/Stmt/Ntry"
+            },
+            {
+              "value_date_iso": "2026-08-03",
+              "entry_date_mmdd": "0803",
+              "dc": "C",
+              "funds_code": null,
+              "amount_cents": 500000,
+              "signed_cents": 500000,
+              "transaction_type_code": "NTRF",
+              "customer_reference": "REF67890",
+              "bank_reference": "BANKREF02",
+              "narrative": "Incoming wire from customer XYZ",
+              "camt_path": "BkToCstmrStmt/Stmt/Ntry"
+            }
+          ]
+        },
+        "notification": null,
+        "fidelity_report": {
+          "truncation_findings": [],
+          "unmappable_tags": [],
+          "data_loss_warnings": [],
+          "balance_check": {
+            "opening_signed_cents": 10000000,
+            "sum_entries_signed_cents": 350000,
+            "expected_closing_signed_cents": 10350000,
+            "actual_closing_signed_cents": 10350000,
+            "currency_consistent": true,
+            "pass": true,
+            "discrepancy_cents": 0
+          }
+        },
+        "verdict": "CLEAN",
+        "rejected_inputs": [],
+        "disambiguation": "map_mt9xx_to_camt maps a pasted MT900/910/940/942/950 statement/notification message to a camt.052/053/054-shaped JSON mapping object plus a fidelity report (truncation, unmappable tags, 60F+61=62F balance check). It reuses tools/402's MT-to-camt field vocabulary but does not duplicate art-565-camt053-reconciliation-workbench's bank-vs-ledger reconciliation semantics -- this node maps message format, art-565 (tools/565) reconciles already-mapped camt.053 data against a ledger.",
+        "pii_note": "Statement/notification data may include real account numbers and counterparty references if a caller pastes a genuine message. This tool is zero-egress and computes entirely client-side or server-side per compute_mode; goldens ship synthetic statements only.",
+        "no_swift_endorsement": "This mapping is produced by AINumbers.co and carries no Swift endorsement. Swift does not provide MT-to-ISO 20022 conversion tooling.",
+        "coexistence_note": "Swift MT900/910/940/942/950 retirement runs the 2027-28 coexistence window; camt receive-capability is mandated from 2027-11 (dated observation, not a compliance-deadline claim by this tool)."
+      },
+      "golden_hash": "7444549c2605afff0f58e462f1e546ba2ec745addd458758da1864bb2d0e3eff"
+    },
+    {
+      "name": "mt942_no_closing_balance_clean",
+      "description": "MT942 interim report has no :62F: by spec -- the mapper does not treat that as a structural gap for camt.052.",
+      "policy_parameters": {
+        "message_text": ":20:STMT2026080602\n:25:DE89370400440532013000\n:28C:6\n:60F:C260804USD103500,00\n:61:2608050805D2000,00NMSCREF22222\n:86:Long narrative exceeding the sixty-five character times six MT field limit deliberately so the truncation finding fires as intended for testing purposes here now\n:90D:1USD2000,00\n",
+        "declared_mt_type": "942"
+      },
+      "output_payload": {
+        "mt_type": "942",
+        "mt_type_conflict": false,
+        "target": "camt.052",
+        "default_target": "camt.052",
+        "target_overridden": false,
+        "camt_message_root": "BkToCstmrAcctRpt/Rpt",
+        "account_id": "DE89370400440532013000",
+        "message_id": "STMT2026080602",
+        "mapping": [
+          {
+            "mt_tag": "20",
+            "camt_path": "BkToCstmrAcctRpt/GrpHdr/MsgId",
+            "value": "STMT2026080602",
+            "transform": "direct"
+          },
+          {
+            "mt_tag": "25",
+            "camt_path": "BkToCstmrAcctRpt/Rpt/Acct/Id/IBAN or Othr",
+            "value": "DE89370400440532013000",
+            "transform": "IBAN direct; non-IBAN to Othr/Id"
+          },
+          {
+            "mt_tag": "28C",
+            "camt_path": "BkToCstmrAcctRpt/Rpt/RptPgntn or LglSeqNb",
+            "value": "6",
+            "transform": "split statement/sequence number"
+          },
+          {
+            "mt_tag": "60F",
+            "camt_path": "BkToCstmrAcctRpt/Rpt/Bal[Tp/CdOrPrtry/Cd=OPBD]",
+            "value": "C260804USD103500,00",
+            "transform": "balance field parse"
+          },
+          {
+            "mt_tag": "61",
+            "camt_path": "BkToCstmrAcctRpt/Rpt/Ntry",
+            "value": "1 statement line(s)",
+            "transform": "composite MT61 parse to structured Ntry[]"
+          }
+        ],
+        "statement": {
+          "stmt_number": "6",
+          "seq_number": null,
+          "opening": {
+            "dc": "C",
+            "date_iso": "2026-08-04",
+            "currency": "USD",
+            "amount_cents": 10350000,
+            "signed_cents": 10350000
+          },
+          "closing": null,
+          "entries": [
+            {
+              "value_date_iso": "2026-08-05",
+              "entry_date_mmdd": "0805",
+              "dc": "D",
+              "funds_code": null,
+              "amount_cents": 200000,
+              "signed_cents": -200000,
+              "transaction_type_code": "NMSC",
+              "customer_reference": "REF22222",
+              "bank_reference": null,
+              "narrative": "Long narrative exceeding the sixty-five character times six MT field limit deliberately so the truncation finding fires as intended for testing purposes here now",
+              "camt_path": "BkToCstmrAcctRpt/Rpt/Ntry"
+            }
+          ]
+        },
+        "notification": null,
+        "fidelity_report": {
+          "truncation_findings": [],
+          "unmappable_tags": [],
+          "data_loss_warnings": [],
+          "balance_check": null
+        },
+        "verdict": "CLEAN",
+        "rejected_inputs": [],
+        "disambiguation": "map_mt9xx_to_camt maps a pasted MT900/910/940/942/950 statement/notification message to a camt.052/053/054-shaped JSON mapping object plus a fidelity report (truncation, unmappable tags, 60F+61=62F balance check). It reuses tools/402's MT-to-camt field vocabulary but does not duplicate art-565-camt053-reconciliation-workbench's bank-vs-ledger reconciliation semantics -- this node maps message format, art-565 (tools/565) reconciles already-mapped camt.053 data against a ledger.",
+        "pii_note": "Statement/notification data may include real account numbers and counterparty references if a caller pastes a genuine message. This tool is zero-egress and computes entirely client-side or server-side per compute_mode; goldens ship synthetic statements only.",
+        "no_swift_endorsement": "This mapping is produced by AINumbers.co and carries no Swift endorsement. Swift does not provide MT-to-ISO 20022 conversion tooling.",
+        "coexistence_note": "Swift MT900/910/940/942/950 retirement runs the 2027-28 coexistence window; camt receive-capability is mandated from 2027-11 (dated observation, not a compliance-deadline claim by this tool)."
+      },
+      "golden_hash": "357f288b8ffabf4a5dde7f57f5251a95543352a530651956019914b927f2b773"
+    },
+    {
+      "name": "mt900_oversized_narrative_warnings",
+      "description": "MT900 debit confirmation to camt.054 whose :72: narrative exceeds both the MT 210-char limit and the camt Max140Text limit -- a real data-loss direction, unlike :86:.",
+      "policy_parameters": {
+        "message_text": ":20:DBTCONF2026080601\n:21:RELREF001\n:25:DE89370400440532013000\n:32A:260806USD2500,00\n:52A:BANKDEFFXXX\n:72:This sender to receiver narrative is deliberately long enough to exceed both the two hundred ten character MT limit and the camt one hundred forty character limit so both findings fire together here\n",
+        "declared_mt_type": "900"
+      },
+      "output_payload": {
+        "mt_type": "900",
+        "mt_type_conflict": false,
+        "target": "camt.054",
+        "default_target": "camt.054",
+        "target_overridden": false,
+        "camt_message_root": "BkToCstmrDbtCdtNtfctn/Ntfctn",
+        "account_id": "DE89370400440532013000",
+        "message_id": "DBTCONF2026080601",
+        "mapping": [
+          {
+            "mt_tag": "20",
+            "camt_path": "BkToCstmrDbtCdtNtfctn/GrpHdr/MsgId",
+            "value": "DBTCONF2026080601",
+            "transform": "direct"
+          },
+          {
+            "mt_tag": "21",
+            "camt_path": "BkToCstmrDbtCdtNtfctn/Ntfctn/Ntry/NtryDtls/TxDtls/Refs/InstrId",
+            "value": "RELREF001",
+            "transform": "direct"
+          },
+          {
+            "mt_tag": "25",
+            "camt_path": "BkToCstmrDbtCdtNtfctn/Ntfctn/Acct/Id/IBAN or Othr",
+            "value": "DE89370400440532013000",
+            "transform": "IBAN direct; non-IBAN to Othr/Id"
+          },
+          {
+            "mt_tag": "32A",
+            "camt_path": "BkToCstmrDbtCdtNtfctn/Ntfctn/Ntry/(Amt + ValDt/Dt + CdtDbtInd)",
+            "value": "260806USD2500,00",
+            "transform": "split date/currency/amount; CdtDbtInd from message type (900=DBIT,910=CRDT)"
+          },
+          {
+            "mt_tag": "52A",
+            "camt_path": "BkToCstmrDbtCdtNtfctn/Ntfctn/Ntry/NtryDtls/TxDtls/RltdAgts/InstgAgt",
+            "value": "BANKDEFFXXX",
+            "transform": "BIC direct"
+          },
+          {
+            "mt_tag": "72",
+            "camt_path": "BkToCstmrDbtCdtNtfctn/Ntfctn/Ntry/NtryDtls/TxDtls/AddtlTxInf",
+            "value": "This sender to receiver narrative is deliberately long enough to exceed both the two hundred ten character MT limit and the camt one hundred forty character limit so both findings fire together here",
+            "transform": "6x35=210 chars vs Max140Text -- data-loss risk direction"
+          }
+        ],
+        "statement": null,
+        "notification": {
+          "related_reference": "RELREF001",
+          "ordering_institution": "BANKDEFFXXX",
+          "notification_info": "This sender to receiver narrative is deliberately long enough to exceed both the two hundred ten character MT limit and the camt one hundred forty character limit so both findings fire together here",
+          "value": {
+            "value_date_iso": "2026-08-06",
+            "currency": "USD",
+            "amount_cents": 250000,
+            "dc": "DBIT"
+          }
+        },
+        "fidelity_report": {
+          "truncation_findings": [
+            {
+              "tag": "72",
+              "code": "DATA_LOSS_RISK_MAX140TEXT",
+              "detail": ":72: content (198 chars) exceeds camt Max140Text (140); mapping to InstrForNxtAgt truncates or requires SplmtryData carry-over."
+            }
+          ],
+          "unmappable_tags": [],
+          "data_loss_warnings": [],
+          "balance_check": null
+        },
+        "verdict": "MAPPED_WITH_WARNINGS",
+        "rejected_inputs": [],
+        "disambiguation": "map_mt9xx_to_camt maps a pasted MT900/910/940/942/950 statement/notification message to a camt.052/053/054-shaped JSON mapping object plus a fidelity report (truncation, unmappable tags, 60F+61=62F balance check). It reuses tools/402's MT-to-camt field vocabulary but does not duplicate art-565-camt053-reconciliation-workbench's bank-vs-ledger reconciliation semantics -- this node maps message format, art-565 (tools/565) reconciles already-mapped camt.053 data against a ledger.",
+        "pii_note": "Statement/notification data may include real account numbers and counterparty references if a caller pastes a genuine message. This tool is zero-egress and computes entirely client-side or server-side per compute_mode; goldens ship synthetic statements only.",
+        "no_swift_endorsement": "This mapping is produced by AINumbers.co and carries no Swift endorsement. Swift does not provide MT-to-ISO 20022 conversion tooling.",
+        "coexistence_note": "Swift MT900/910/940/942/950 retirement runs the 2027-28 coexistence window; camt receive-capability is mandated from 2027-11 (dated observation, not a compliance-deadline claim by this tool)."
+      },
+      "golden_hash": "761738354bd804a7c3ad3df9a0500a72444d0f7403999f78b6e0cf0b2dcdd0ff"
+    },
+    {
+      "name": "empty_message_unmappable",
+      "description": "No message text and no declared_mt_type override -- structurally incomplete, verdict UNMAPPABLE rather than a guess.",
+      "policy_parameters": {
+        "message_text": ""
+      },
+      "output_payload": {
+        "mt_type": null,
+        "mt_type_conflict": false,
+        "target": null,
+        "default_target": null,
+        "target_overridden": false,
+        "camt_message_root": null,
+        "account_id": null,
+        "message_id": null,
+        "mapping": [],
+        "statement": null,
+        "notification": null,
+        "fidelity_report": {
+          "truncation_findings": [],
+          "unmappable_tags": [],
+          "data_loss_warnings": [],
+          "balance_check": null
+        },
+        "verdict": "UNMAPPABLE",
+        "rejected_inputs": [
+          {
+            "where": "message_text",
+            "reason": "absent or empty"
+          },
+          {
+            "where": "mt_type",
+            "reason": "could not detect a supported MT9xx type from the {2:...} header and no declared_mt_type override supplied"
+          }
+        ],
+        "disambiguation": "map_mt9xx_to_camt maps a pasted MT900/910/940/942/950 statement/notification message to a camt.052/053/054-shaped JSON mapping object plus a fidelity report (truncation, unmappable tags, 60F+61=62F balance check). It reuses tools/402's MT-to-camt field vocabulary but does not duplicate art-565-camt053-reconciliation-workbench's bank-vs-ledger reconciliation semantics -- this node maps message format, art-565 (tools/565) reconciles already-mapped camt.053 data against a ledger.",
+        "pii_note": "Statement/notification data may include real account numbers and counterparty references if a caller pastes a genuine message. This tool is zero-egress and computes entirely client-side or server-side per compute_mode; goldens ship synthetic statements only.",
+        "no_swift_endorsement": "This mapping is produced by AINumbers.co and carries no Swift endorsement. Swift does not provide MT-to-ISO 20022 conversion tooling.",
+        "coexistence_note": "Swift MT900/910/940/942/950 retirement runs the 2027-28 coexistence window; camt receive-capability is mandated from 2027-11 (dated observation, not a compliance-deadline claim by this tool)."
+      },
+      "golden_hash": "6a4f8531186f93070e81fff9d3bed9ed08cce81f5442c00a81751ec90b8abd53"
+    }
+  ]
+}
