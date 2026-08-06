@@ -500,6 +500,7 @@ import * as art563    from './art-563-mt9xx-camt-statement-migration-mapper.kern
 import * as art564    from './art-564-ucp-checkout-payload-lint.kernel.mjs';
 import * as art565    from './art-565-kya-x402-scope-verifier.kernel.mjs';
 import * as art566    from './art-566-iolta-three-way-reconciliation.kernel.mjs';
+import * as art568    from './art-568-securitization-trustee-report-recompute.kernel.mjs';
 import * as art57     from './art-57-deposit-token-compliance-validator.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
@@ -1059,6 +1060,7 @@ export const KERNELS = {
   'art-564-ucp-checkout-payload-lint':                        art564,
   'art-565-kya-x402-scope-verifier':                          art565,
   'art-566-iolta-three-way-reconciliation':                   art566,
+  'art-568-securitization-trustee-report-recompute':          art568,
   'art-57-deposit-token-compliance-validator':                art57,
   'art-58-cross-network-settlement-validator':                art58,
   'art-59-settlement-asset-finality-classifier':              art59,
