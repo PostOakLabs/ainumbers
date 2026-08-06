@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (550 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (553 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5769,6 +5769,36 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/tools/577-mt101-coexistence-readiness-diff.html",
     "description": "Evaluates Swift CBPR+ MT101 message-type retirement readiness ahead of the 2026-11-14 coexistence deadline, when FI-to-FI bulk/multiple paym",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-557-record-index-constituents",
+    "display_name": "Record Index Constituents",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-557-record-index-constituents.html",
+    "description": "Gives an index's constituent set, as of a stated date, its own citable execution_hash -- the BMR/SEBI-shaped starting point ('what was in th",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-558-record-fund-positions",
+    "display_name": "Record Fund Positions",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-558-record-fund-positions.html",
+    "description": "Gives a fund's declared positions snapshot, as of a stated valuation date, its own citable execution_hash -- the upstream input-receipt that",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-559-attest-calc-agent-independence",
+    "display_name": "Calculation-Agent Independence Attestation",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-559-attest-calc-agent-independence.html",
+    "description": "Receipts the organizational-independence claim a parametric trigger's neutrality depends on: that the entity whose kernel computed a specifi",
     "consumes": [],
     "feeds": [],
     "status": "live"
