@@ -497,6 +497,7 @@ import * as art558    from './art-558-record-fund-positions.kernel.mjs';
 import * as art559    from './art-559-attest-calc-agent-independence.kernel.mjs';
 import * as art56     from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
 import * as art563    from './art-563-mt9xx-camt-statement-migration-mapper.kernel.mjs';
+import * as art564    from './art-564-ucp-checkout-payload-lint.kernel.mjs';
 import * as art565    from './art-565-kya-x402-scope-verifier.kernel.mjs';
 import * as art57     from './art-57-deposit-token-compliance-validator.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
@@ -1054,6 +1055,7 @@ export const KERNELS = {
   'art-559-attest-calc-agent-independence':                   art559,
   'art-56-tokenized-settlement-fit-diagnostic':               art56,
   'art-563-mt9xx-camt-statement-migration-mapper':            art563,
+  'art-564-ucp-checkout-payload-lint':                        art564,
   'art-565-kya-x402-scope-verifier':                          art565,
   'art-57-deposit-token-compliance-validator':                art57,
   'art-58-cross-network-settlement-validator':                art58,
