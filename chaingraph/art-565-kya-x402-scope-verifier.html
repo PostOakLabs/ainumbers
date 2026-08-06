@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>KYA Credential &times; x402 Payload Scope Verifier &middot; ART-565 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Cross-checks a declared KYA (Know Your Agent) credential's scope -- spend cap, allowed networks/assets, payee allowlist, validity window, scope strings -- against a declared x402 PaymentPayload. Verify-only, zero network, no signature verification claimed.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-565-kya-x402-scope-verifier.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:160px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-565 &middot; KYA &times; x402 Scope Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-565 &middot; Agentic Payments Evidence</div>
+  <h1>KYA Credential &times; x402 Payload Scope Verifier</h1>
+  <p class="sub">Cross-checks a declared KYA (Know Your Agent) credential's scope against a declared x402 payment payload: the payload amount against the credential's spend cap, the payload network and asset against its allowed set, the payload payee against its merchant allowlist, the payload's validity window against the credential's, and scope-string coverage of the payment scheme. Returns a verdict of <code>IN_SCOPE</code>, <code>OUT_OF_SCOPE</code>, or <code>INDETERMINATE</code> when the credential omits a claim the payload needs; it never guesses. This tool never fetches either input, never contacts Skyfire or a facilitator, and performs no signature verification.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Verify-only: no execution, no settlement</span>
+    <span class="flag info">No signature verification claimed</span>
+    <span class="flag">Zero network calls</span>
+    <span class="flag">No PII: agent/credential ids and a payment payload only</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This never initiates, signs, or settles an x402 payment (x402 EXECUTION is a KILLED ledger row) and never verifies a signature: the pinned Skyfire docs (2026-08-06) do not specify a caller-reproducible KYA signing scheme in this context, so this is a scope cross-check only.</div>
+
+  <div class="card">
+    <div class="section-head">KYA credential</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">Documented Skyfire kya-pay claims (docs.skyfire.xyz, pinned 2026-08-06): <code>sub</code>, <code>aud</code>, <code>ssi</code>, <code>iss</code>, <code>iat</code>, <code>exp</code>, <code>env</code>. <code>spend_cap_amt</code>, <code>allowed_networks</code>, <code>allowed_assets</code>, <code>payee_allowlist</code>, <code>scope</code> are this tool's own scope-representation fields layered on top, not documented Skyfire claims.</p>
+    <textarea id="credInput"></textarea>
+    <div class="section-head" style="margin-top:16px">x402 payload</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">PaymentPayload shape reused from the <a href="art-26-x402-payload-decoder-flow-simulator.html">x402 decoder</a> (tools/277).</p>
+    <textarea id="payInput"></textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Check</button>
+      <button class="ghost" onclick="loadInScopeDemo()">Load in-scope demo</button>
+      <button class="ghost" onclick="loadOutOfScopeDemo()">Load out-of-scope demo</button>
+      <button class="ghost" onclick="loadIndeterminateDemo()">Load indeterminate demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Findings</div>
+      <div id="findDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Indeterminate reasons</div>
+      <div id="indetDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not fetch a KYA credential or x402 payload from anywhere: you declare both. It does not verify a signature: the pinned Skyfire docs don't specify a caller-reproducible signing scheme in this context. It does not initiate, sign, or settle a payment: x402 execution is a killed ledger row. See <a href="art-26-x402-payload-decoder-flow-simulator.html">art-26</a> for decoding raw x402 headers and <a href="art-478-kya-compliance-firewall.html">tools/478</a> for the KYA policy side this tool cross-checks against a concrete payload.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">The claim shape, in one sentence</div>
+    <p class="sub" style="margin-bottom:0">Skyfire's published kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06) document identity, audience-binding, and expiry claims (<code>sub</code>/<code>aud</code>/<code>ssi</code>/<code>iss</code>/<code>iat</code>/<code>exp</code>/<code>env</code>) plus spend fields (<code>amt</code>/<code>cur</code>/<code>val</code>); they do not enumerate an explicit network-allowlist, asset-allowlist, or multi-entry payee-allowlist array, so this tool layers <code>allowed_networks</code>/<code>allowed_assets</code>/<code>payee_allowlist</code>/<code>scope</code> on top as its own scope representation.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-565-kya-x402-scope-verifier',
+  version: '1.0.0',
+  mcp_name: 'verify_kya_x402_scope',
+  title: 'KYA Credential x x402 Payload Scope Verifier',
+  description: 'Cross-checks a declared KYA-shaped credential (Skyfire kya-pay claim shape, pinned 2026-08-06) against a declared x402 PaymentPayload: amount vs spend cap, network/asset vs allowed set, payee vs merchant allowlist, validity window vs payload timestamp, scope string coverage. Verdict IN_SCOPE | OUT_OF_SCOPE | INDETERMINATE (never guessed when a claim is missing). Verify-only -- no execution, no signature verification.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'verify_kya_x402_scope',
+    description: 'Cross-checks a declared KYA credential\'s scope against a declared x402 payment payload and returns findings plus a verdict of IN_SCOPE, OUT_OF_SCOPE, or INDETERMINATE.',
+    inputSchema: { type: 'object', properties: {
+      kya_credential: {type:'object', description:'Skyfire kya-pay-shaped credential: sub, aud, ssi, iss, iat, exp, env, spend_cap_amt, allowed_networks[], allowed_assets[], payee_allowlist[], scope[]'},
+      x402_payload: {type:'object', description:'x402 PaymentPayload: x402Version, scheme, network, asset, payload.authorization{from,to,value,validAfter,validBefore,nonce}'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-565-kya-x402-scope-verifier.kernel.mjs --- */
+var KYA_CLAIM_BASIS = "Skyfire kya-pay token claims (docs.skyfire.xyz/docs/common-token-claims.md, /docs/token-schemas.md, pinned 2026-08-06): documented sub/aud/ssi/sdm/iss/iat/exp/env/amt/cur/val. allowed_networks/allowed_assets/payee_allowlist/scope are this tool's own scope-representation extension, not documented Skyfire claims -- stated here so the distinction is never implied as pinned.";
+
+function nonEmptyStringOrNull(v){ return typeof v === 'string' && v.length > 0 ? v : null; }
+function stringArrayOrNull(v){ return Array.isArray(v) && v.every(function(x){return typeof x === 'string';}) ? v : null; }
+function unsignedIntStringOrNull(v){ return typeof v === 'string' && /^\d+$/.test(v) ? v : null; }
+function unixSecondsOrNull(v){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v >= 0) return v;
+  if (typeof v === 'string' && /^\d+$/.test(v)) { var n = Number(v); return Number.isSafeInteger(n) ? n : null; }
+  return null;
+}
+function cmpUnsignedIntStrings(a, b){
+  var na = a.replace(/^0+(?=\d)/, ''); var nb = b.replace(/^0+(?=\d)/, '');
+  if (na.length !== nb.length) return na.length < nb.length ? -1 : 1;
+  if (na === nb) return 0;
+  return na < nb ? -1 : 1;
+}
+function caseInsensitiveIncludes(arr, v){
+  if (!Array.isArray(arr) || typeof v !== 'string') return false;
+  var lv = v.toLowerCase();
+  return arr.some(function(x){ return typeof x === 'string' && x.toLowerCase() === lv; });
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var indeterminate_reasons = [];
+  var findings = [];
+
+  var cred = (pp.kya_credential && typeof pp.kya_credential === 'object') ? pp.kya_credential : null;
+  var pay = (pp.x402_payload && typeof pp.x402_payload === 'object') ? pp.x402_payload : null;
+  if (!cred) rejected_inputs.push({ where: 'kya_credential', reason: 'absent or not an object', supplied: pp.kya_credential === undefined ? null : pp.kya_credential });
+  if (!pay) rejected_inputs.push({ where: 'x402_payload', reason: 'absent or not an object', supplied: pp.x402_payload === undefined ? null : pp.x402_payload });
+
+  var inputs_insufficient = rejected_inputs.length > 0;
+
+  var cred_sub = inputs_insufficient ? null : nonEmptyStringOrNull(cred.sub);
+  var cred_aud = inputs_insufficient ? null : nonEmptyStringOrNull(cred.aud);
+  var cred_ssi = inputs_insufficient ? null : nonEmptyStringOrNull(cred.ssi);
+  var cred_iat = inputs_insufficient ? null : unixSecondsOrNull(cred.iat);
+  var cred_exp = inputs_insufficient ? null : unixSecondsOrNull(cred.exp);
+  var cred_spend_cap_amt = inputs_insufficient ? null : unsignedIntStringOrNull(cred.spend_cap_amt);
+  var cred_allowed_networks = inputs_insufficient ? null : stringArrayOrNull(cred.allowed_networks);
+  var cred_allowed_assets = inputs_insufficient ? null : stringArrayOrNull(cred.allowed_assets);
+  var cred_payee_allowlist = inputs_insufficient ? null : stringArrayOrNull(cred.payee_allowlist);
+  var cred_scope = inputs_insufficient ? null : stringArrayOrNull(cred.scope);
+
+  var pay_scheme = inputs_insufficient ? null : nonEmptyStringOrNull(pay.scheme);
+  var pay_network = inputs_insufficient ? null : nonEmptyStringOrNull(pay.network);
+  var auth = inputs_insufficient ? null : (pay.payload && typeof pay.payload === 'object' ? pay.payload.authorization : null);
+  var pay_asset = inputs_insufficient ? null : nonEmptyStringOrNull(pay.asset);
+  var pay_to = inputs_insufficient ? null : (auth && typeof auth === 'object' ? nonEmptyStringOrNull(auth.to) : null);
+  var pay_value = inputs_insufficient ? null : (auth && typeof auth === 'object' ? unsignedIntStringOrNull(auth.value) : null);
+  var pay_valid_after = inputs_insufficient ? null : (auth && typeof auth === 'object' ? unixSecondsOrNull(auth.validAfter) : null);
+  var pay_valid_before = inputs_insufficient ? null : (auth && typeof auth === 'object' ? unixSecondsOrNull(auth.validBefore) : null);
+
+  var out_of_scope = false;
+
+  if (!inputs_insufficient) {
+    if (cred_spend_cap_amt === null) {
+      indeterminate_reasons.push('credential omits spend_cap_amt -- cannot check payload amount against a spend cap.');
+    } else if (pay_value === null) {
+      indeterminate_reasons.push('payload omits payload.authorization.value -- cannot check it against the credential spend cap.');
+    } else {
+      var within = cmpUnsignedIntStrings(pay_value, cred_spend_cap_amt) <= 0;
+      findings.push({ check: 'amount_vs_spend_cap', pass: within, detail: 'payload value ' + pay_value + ' vs credential spend_cap_amt ' + cred_spend_cap_amt });
+      if (!within) out_of_scope = true;
+    }
+
+    if (cred_allowed_networks === null || cred_allowed_assets === null) {
+      indeterminate_reasons.push('credential omits allowed_networks and/or allowed_assets -- cannot check payload network/asset against an allowed set.');
+    } else if (pay_network === null || pay_asset === null) {
+      indeterminate_reasons.push('payload omits network and/or asset -- cannot check against the credential allowed set.');
+    } else {
+      var netOk = caseInsensitiveIncludes(cred_allowed_networks, pay_network);
+      var assetOk = caseInsensitiveIncludes(cred_allowed_assets, pay_asset);
+      findings.push({ check: 'network_vs_allowed_set', pass: netOk, detail: 'payload network "' + pay_network + '" vs credential allowed_networks ' + JSON.stringify(cred_allowed_networks) });
+      findings.push({ check: 'asset_vs_allowed_set', pass: assetOk, detail: 'payload asset "' + pay_asset + '" vs credential allowed_assets ' + JSON.stringify(cred_allowed_assets) });
+      if (!netOk || !assetOk) out_of_scope = true;
+    }
+
+    if (cred_payee_allowlist === null) {
+      indeterminate_reasons.push('credential omits payee_allowlist -- cannot check payload payee against a merchant allowlist.');
+    } else if (pay_to === null) {
+      indeterminate_reasons.push('payload omits payload.authorization.to -- cannot check it against the credential payee allowlist.');
+    } else {
+      var payeeOk = caseInsensitiveIncludes(cred_payee_allowlist, pay_to);
+      findings.push({ check: 'payee_vs_merchant_allowlist', pass: payeeOk, detail: 'payload payee "' + pay_to + '" vs credential payee_allowlist ' + JSON.stringify(cred_payee_allowlist) });
+      if (!payeeOk) out_of_scope = true;
+    }
+
+    if (cred_iat === null || cred_exp === null) {
+      indeterminate_reasons.push('credential omits iat and/or exp -- cannot check the payload timestamps against a validity window.');
+    } else if (pay_valid_after === null || pay_valid_before === null) {
+      indeterminate_reasons.push('payload omits payload.authorization.validAfter and/or validBefore -- cannot check against the credential validity window.');
+    } else {
+      var windowOk = pay_valid_after >= cred_iat && pay_valid_before <= cred_exp;
+      findings.push({ check: 'validity_window_vs_payload_timestamp', pass: windowOk, detail: 'payload window [' + pay_valid_after + ', ' + pay_valid_before + '] vs credential window [' + cred_iat + ', ' + cred_exp + ']' });
+      if (!windowOk) out_of_scope = true;
+    }
+
+    if (cred_scope === null) {
+      indeterminate_reasons.push('credential omits scope -- cannot check scope-string coverage for this payment scheme.');
+    } else if (pay_scheme === null) {
+      indeterminate_reasons.push('payload omits scheme -- cannot check it against the credential scope strings.');
+    } else {
+      var needle = 'payments:x402:' + pay_scheme;
+      var covered = cred_scope.indexOf(needle) !== -1 || cred_scope.indexOf('payments:x402:*') !== -1 || cred_scope.indexOf('payments:*') !== -1;
+      findings.push({ check: 'scope_string_coverage', pass: covered, detail: 'payload scheme "' + pay_scheme + '" needs scope "' + needle + '" (or a wildcard) in credential scope ' + JSON.stringify(cred_scope) });
+      if (!covered) out_of_scope = true;
+    }
+  }
+
+  var verdict;
+  if (inputs_insufficient) verdict = 'INDETERMINATE';
+  else if (out_of_scope) verdict = 'OUT_OF_SCOPE';
+  else if (indeterminate_reasons.length > 0) verdict = 'INDETERMINATE';
+  else verdict = 'IN_SCOPE';
+
+  var compliance_flags = ['KYA_X402_' + verdict];
+
+  var rationale = [];
+  if (inputs_insufficient) {
+    rationale.push('One or both of kya_credential / x402_payload is absent or malformed; see rejected_inputs. No scope cross-check can run without both declared objects.');
+  } else {
+    rationale.push('Ran ' + findings.length + ' evaluable check(s) (amount vs spend cap, network vs allowed set, asset vs allowed set, payee vs merchant allowlist, validity window vs payload timestamp, scope string coverage); ' + indeterminate_reasons.length + ' check(s) could not run because the credential omitted a claim the payload requires.');
+    findings.forEach(function(f){ rationale.push(f.check + ': ' + (f.pass ? 'PASS' : 'FAIL') + ' -- ' + f.detail); });
+    indeterminate_reasons.forEach(function(r){ rationale.push('INDETERMINATE: ' + r); });
+  }
+  rationale.push('Verify-only: this kernel never initiates, signs, or settles an x402 payment (x402 EXECUTION is a KILLED ledger row). It performs no signature verification -- the pinned Skyfire docs (2026-08-06) do not specify a caller-reproducible KYA signing scheme in this context, so this is a scope cross-check only.');
+  rationale.push(KYA_CLAIM_BASIS);
+
+  var output_payload = {
+    verdict: verdict,
+    findings: findings,
+    indeterminate_reasons: indeterminate_reasons,
+    credential_subject: cred_sub,
+    credential_audience: cred_aud,
+    credential_seller_service_id: cred_ssi,
+    payload_scheme: pay_scheme,
+    payload_network: pay_network,
+    kya_claim_basis: KYA_CLAIM_BASIS,
+    rejected_inputs: rejected_inputs,
+    rationale: rationale,
+    note: "Cross-checks a declared KYA-shaped credential's scope (spend cap, allowed networks/assets, payee allowlist, validity window, scope strings) against a declared x402 PaymentPayload. Never fetches either, never contacts Skyfire or a facilitator, never verifies a signature, never initiates or settles a payment.",
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+var IN_SCOPE_DEMO = {
+  kya_credential: {
+    sub: 'buyer-agent-001', aud: 'seller-agent-042', ssi: 'svc-abc123',
+    iss: 'https://issuer.skyfire.xyz', iat: 1754400000, exp: 1754500000, env: 'production',
+    spend_cap_amt: '10000000',
+    allowed_networks: ['base'], allowed_assets: ['0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'],
+    payee_allowlist: ['0xMERCHANT0000000000000000000000000000beef'],
+    scope: ['payments:x402:exact']
+  },
+  x402_payload: {
+    x402Version: 1, scheme: 'exact', network: 'base', asset: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    payload: { signature: '0xsig', authorization: { from: '0xBUYER', to: '0xMERCHANT0000000000000000000000000000beef', value: '5000000', validAfter: 1754400100, validBefore: 1754400400, nonce: '0x01' } }
+  }
+};
+var OUT_OF_SCOPE_DEMO = {
+  kya_credential: IN_SCOPE_DEMO.kya_credential,
+  x402_payload: {
+    x402Version: 1, scheme: 'exact', network: 'base', asset: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    payload: { signature: '0xsig', authorization: { from: '0xBUYER', to: '0xMERCHANT0000000000000000000000000000beef', value: '99000000', validAfter: 1754400100, validBefore: 1754400400, nonce: '0x02' } }
+  }
+};
+var INDETERMINATE_DEMO = {
+  kya_credential: {
+    sub: 'buyer-agent-001', aud: 'seller-agent-042', ssi: 'svc-abc123',
+    iss: 'https://issuer.skyfire.xyz', iat: 1754400000, exp: 1754500000, env: 'production',
+    allowed_networks: ['base'], allowed_assets: ['0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'],
+    payee_allowlist: ['0xMERCHANT0000000000000000000000000000beef'],
+    scope: ['payments:x402:exact']
+  },
+  x402_payload: IN_SCOPE_DEMO.x402_payload
+};
+
+function loadInScopeDemo(){
+  document.getElementById('credInput').value = JSON.stringify(IN_SCOPE_DEMO.kya_credential, null, 2);
+  document.getElementById('payInput').value = JSON.stringify(IN_SCOPE_DEMO.x402_payload, null, 2);
+  runCheck();
+}
+function loadOutOfScopeDemo(){
+  document.getElementById('credInput').value = JSON.stringify(OUT_OF_SCOPE_DEMO.kya_credential, null, 2);
+  document.getElementById('payInput').value = JSON.stringify(OUT_OF_SCOPE_DEMO.x402_payload, null, 2);
+  runCheck();
+}
+function loadIndeterminateDemo(){
+  document.getElementById('credInput').value = JSON.stringify(INDETERMINATE_DEMO.kya_credential, null, 2);
+  document.getElementById('payInput').value = JSON.stringify(INDETERMINATE_DEMO.x402_payload, null, 2);
+  runCheck();
+}
+
+function parseJsonOrUndefined(s){
+  var t = String(s == null ? '' : s).trim();
+  if (t === '') return undefined;
+  try { return JSON.parse(t); } catch (e) { return t; }
+}
+
+async function runCheck(){
+  var pp = {
+    kya_credential: parseJsonOrUndefined(document.getElementById('credInput').value),
+    x402_payload: parseJsonOrUndefined(document.getElementById('payInput').value)
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var ok = op.verdict === 'IN_SCOPE';
+  var bad = op.verdict === 'OUT_OF_SCOPE';
+  vBox.style.color = ok ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)');
+  vBox.style.background = ok ? 'rgba(34,197,94,.08)' : (bad ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)');
+  vBox.style.border = '1px solid ' + (ok ? 'var(--green)' : (bad ? 'var(--red)' : 'var(--warn)'));
+  vBox.textContent = op.verdict;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.findings.length + '</span><span class="stat-key">Checks evaluated</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.findings.filter(function(f){return f.pass;}).length + '</span><span class="stat-key">Passed</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.findings.filter(function(f){return !f.pass;}).length + '</span><span class="stat-key">Failed</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.indeterminate_reasons.length + '</span><span class="stat-key">Not evaluable</span></div>';
+
+  document.getElementById('findDiv').innerHTML = op.findings.length
+    ? op.findings.map(function(f){
+        return '<div class="kv"><span class="kv-k">' + f.check + ' <span class="badge ' + (f.pass ? 'ok' : 'bad') + '">' + (f.pass ? 'PASS' : 'FAIL') + '</span></span><span class="kv-v">' + f.detail + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no check could be evaluated</span></div>';
+
+  document.getElementById('indetDiv').innerHTML = op.indeterminate_reasons.length
+    ? op.indeterminate_reasons.map(function(r){ return '<div class="kv"><span class="kv-k">&#9888;</span><span class="kv-v">' + r + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every check that applies had the claims it needed</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">both top-level inputs were usable objects</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-565-kya-x402-scope-verifier',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-565-kya-x402-scope-verifier.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+
+loadInScopeDemo();
+</script>
+</body>
+</html>
