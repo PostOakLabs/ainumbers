@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Section 16(b) Short-Swing Profit Recomputation &middot; ART-573 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes a Section 16(b) short-swing profit figure from a caller-declared transaction list using the lowest-in/highest-out matching construction, and compares it against a demand letter's claimed profit.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-573-section16b-short-swing-profit-recompute.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.open{background:rgba(58,82,112,.2);color:var(--body);border:1px solid var(--border-2)}
+.ruleset-pin{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.4rem .75rem;display:inline-block;margin:8px 0}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-573 · Section 16(b) Short-Swing Profit Recomputation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-573 &middot; Securities &middot; Insider Short-Swing Verification</div>
+  <h1>Section 16(b) Short-Swing Profit Recomputation</h1>
+  <p class="sub">Runs a caller-declared list of an insider's own purchases and sales through the lowest-in/highest-out matchable-pair construction used to compute Section 16(b) short-swing profit, then compares the result against a demand letter's claimed figure where one is pasted in. The recomputed side is derived here from the transaction list, not copied from the letter, so a comparison is an independent recomputation rather than a re-adding of a published number. Plaintiff firms scan Form 4 filings and send demand letters built on this same lowest-in/highest-out arithmetic; the recipient, whether the insider or the issuer's counsel, can run the identical construction here to check the letter's number.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Caller supplied transaction list</span>
+    <span class="flag info">Lowest-in / highest-out matching</span>
+    <span class="flag">Fixed-point money math</span>
+    <span class="flag">Not legal advice</span>
+  </div>
+  <div class="ruleset-pin" id="rulesetPin">Basis: Exchange Act &sect;16(b) matchable-pair maximal recovery (Smolowe/Gratz) &middot; no loss netting &middot; declared exemptions excluded from matching &middot; HFIAA &sect;16(a)/&sect;16(b) foreign-private-issuer officer/director asymmetry, informational only</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This is not legal advice. The six-month window applied here is a day-count approximation of the statutory calendar-month boundary, and no declared exemption is independently verified: you assert those facts. No computed figure resolves a matchability or exemption dispute, which is counsel's. It does not compute a Rule 144 volume-limitation check, a named follow-on tool. This page computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Insider and issuer</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic. They are not a copy of any real Form 4/5 filing, and they are already loaded so you can press Run without entering anything of your own.</p>
+    <div class="grid2">
+      <div><label class="fld">Insider reference</label><input type="text" id="insiderRef" value="SYNTH-INSIDER-001 (synthetic)"></div>
+      <div><label class="fld">Issuer reference</label><input type="text" id="issuerRef" value="SYNTH-ISSUER-CO (synthetic)"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Currency</label><input type="text" id="currency" value="USD"></div>
+      <div><label class="fld">Demand letter claimed profit (minor units, optional)</label><input type="number" id="claimedProfit" value="140000"></div>
+    </div>
+
+    <div class="section-head">Insider status (Section 16(a)/(b) applicability, informational)</div>
+    <div class="grid2">
+      <div><label class="fld">Officer or director</label>
+        <select id="officerOrDirector"><option value="true">true</option><option value="false">false</option></select></div>
+      <div><label class="fld">10%-owner</label>
+        <select id="tenPctOwner"><option value="false">false</option><option value="true">true</option></select></div>
+    </div>
+    <label class="fld">Foreign private issuer (HFIAA &sect;16(a)-only asymmetry applies to officers/directors)</label>
+    <select id="foreignPrivateIssuer"><option value="false">false</option><option value="true">true</option></select>
+
+    <div class="section-head">Transactions, buys and sells in the issuer's equity security</div>
+    <label class="fld">JSON array: txn_id, type (buy|sell), date (YYYY-MM-DD), price_minor_units, shares, and optionally exemption_flags (e.g. ["rule_16b-3"]) which excludes the transaction from matching</label>
+    <textarea id="transactionsJson" style="min-height:150px">[
+  { "txn_id": "txn-1", "type": "buy", "date": "2026-01-10", "price_minor_units": 1000, "shares": 100 },
+  { "txn_id": "txn-2", "type": "buy", "date": "2026-02-10", "price_minor_units": 1200, "shares": 100 },
+  { "txn_id": "txn-3", "type": "sell", "date": "2026-04-01", "price_minor_units": 2000, "shares": 150 }
+]</textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runSec16bRecompute()">&#9654; Run Section 16(b) Recomputation</button>
+      <button class="ghost" onclick="loadIndeterminateDemo()">Load indeterminate demo</button>
+      <button class="ghost" onclick="loadHfiaaDivergesDemo()">Load HFIAA + exemption + DIVERGES demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Matched pairs (lowest-in / highest-out)</div>
+      <div id="pairsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Excluded transactions</div>
+      <div id="exclDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Section 16(a)/(b) applicability</div>
+      <div id="applicDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Against the demand letter</div>
+      <div id="diffDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not forecast, project or model a scenario. It recomputes a stated transaction list and nothing else. It does not compute a Rule 144 volume-limitation check, a named follow-on tool, not this node. It makes no independent determination that a declared exemption in fact applies, and the six-month window it applies is a day-count approximation of the statutory calendar-month boundary, both named in not_proven. It is not legal advice, and no computed figure resolves a matchability or exemption dispute.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Shares a caller-declared-list, independent-recomputation-vs-a-counterparty-claim shape with <a href="art-572-multi-garnishment-stacking-recompute.html">ART-572 Multi-Garnishment Stacking Recomputation</a> and <a href="art-568-securitization-trustee-report-recompute.html">ART-568 Securitization Trustee-Report Waterfall Recomputation</a>, but is an independent tool with its own vocabulary, matching construction and citations.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-573-section16b-short-swing-profit-recompute',
+  version: '1.0.0',
+  mcp_name: 'recompute_section16b_profit',
+  title: 'Section 16(b) Short-Swing Profit Recomputation',
+  description: 'Recomputes an Exchange Act Section 16(b) short-swing profit figure from a caller declared transaction list using the lowest-in/highest-out matchable-pair construction, and compares it against a demand letter claimed profit where supplied.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_section16b_profit',
+    description: 'Matches a caller declared list of an insider buy/sell transactions in the issuer equity security using the lowest-in/highest-out construction within a day count approximation of the statutory six month window, reporting matched pairs, excluded/exempt transactions, Section 16(a)/(b) applicability including the HFIAA foreign private issuer asymmetry, and a comparison against a demand letter claimed profit.',
+    inputSchema: { type: 'object', properties: {
+      insider_ref: {type:'string'}, issuer_ref: {type:'string'}, currency: {type:'string'},
+      transactions: {type:'array'}, insider_status: {type:'object'},
+      demand_letter_claimed_profit_minor_units: {type:'number'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-573-section16b-short-swing-profit-recompute.kernel.mjs --- */
+var TXN_TYPES = ['buy','sell'];
+var SIX_MONTH_DAY_THRESHOLD = 183;
+var MS_PER_DAY = 86400000;
+var CITATIONS = {
+  section_16b: { source: 'Securities Exchange Act of 1934 Sec. 16(b), 15 U.S.C. Sec. 78p(b)', detail: "Strict-liability disgorgement of any profit realized by a Section 16 insider from any purchase and sale, or sale and purchase, of the issuer's equity security within a period of less than six months." },
+  smolowe_maximal_recovery: { source: 'Smolowe v. Delvag Reinsurance Co., 136 F.2d 231 (2d Cir. 1943); Gratz v. Claughton, 187 F.2d 46 (2d Cir. 1951)', detail: 'The "lowest price in, highest price out" matching construction, maximizing recovery to the corporation rather than measuring the insider actual realized gain; losses on other pairings are never netted against a profitable pairing. Re-verify against primary case text before relying on it (research finding, not fact).' },
+  rule_16b3: { source: '17 CFR 240.16b-3', detail: "Exempts certain transactions between an issuer and its officers/directors under an approved plan (e.g. grants, tax-withholding transactions) from Section 16(b) matching. This kernel excludes a transaction from matching only when the caller declares an exemption_flags entry for it; it makes no independent exemption determination." },
+  section_16a_general: { source: 'Securities Exchange Act of 1934 Sec. 16(a), 15 U.S.C. Sec. 78p(a)', detail: 'Reporting obligation for officers, directors, and beneficial owners of more than 10% of a registered equity security.' },
+  rule_3a12_3: { source: '17 CFR 240.3a12-3(b)', detail: 'Historically exempted a foreign private issuer and its officers, directors, and 10%-owners from Section 16 (both (a) and (b)) entirely.' },
+  hfiaa: { source: 'Holding Foreign Insiders Accountable Act, FY2026 NDAA, signed 2025-12-18', detail: 'Makes officers and directors of a foreign private issuer Section 16(a) reporting filers for the first time. Expressly does NOT extend Section 16(b) short-swing profit-recovery liability to that population, and does not disturb the Rule 3a12-3(b) exemption for a 10%-owner who is not also an officer or director. Re-verify against primary text before relying on it (research finding, not fact).' },
+};
+var NOT_PROVEN = [
+  { item: 'Not legal advice', detail: 'This kernel recomputes a matchable-pair short-swing profit figure from caller-declared transaction facts. It is not a substitute for counsel, and no computed figure resolves a matchability or exemption dispute.' },
+  { item: 'Six-month window is a day-count approximation', detail: 'The statutory "less than six months" boundary is approximated here as strictly less than 183 days apart rather than true calendar-month arithmetic. A pair straddling the 182/183-day boundary needs independent calendar-month verification.' },
+  { item: 'Algorithm re-verification', detail: "The lowest-in/highest-out maximal-recovery construction is the widely cited Smolowe/Gratz heuristic, but this kernel's citation of it was not re-derived from primary case text at build time (research finding, not fact per the build row)." },
+  { item: 'Exemption determinations are caller-declared', detail: 'A transaction is excluded from matching only because the caller declared an exemption_flags entry for it (e.g. Rule 16b-3). This kernel makes no independent determination that any exemption in fact applies.' },
+  { item: 'Rule 144 volume limitation', detail: 'Whether a sale complies with Rule 144 volume limitations is out of scope; it is a named follow-on tool, not computed here.' },
+  { item: 'Input accuracy', detail: "Every transaction's date, price, and share count, and the insider_status flags, are caller-supplied and asserted, not independently verified against EDGAR Form 4/5 filings." },
+];
+var MINOR_UNIT_EXPONENT = 2;
+var MINOR_SCALE = 100;
+
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return 0; }
+  rejected.push({ where: where, reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v), supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function toShares(v, where, rejected){
+  if (typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v >= 0) return v;
+  rejected.push({ where: where, reason: typeof v === 'number' ? 'not a non-negative safe integer share count' : 'expected a non-negative integer share count, got ' + (typeof v), supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return 0;
+}
+function display(minor){
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / MINOR_SCALE); var frac = abs - whole * MINOR_SCALE;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(MINOR_UNIT_EXPONENT, '0');
+}
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function arr(v){ return Array.isArray(v) ? v : []; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+
+function parseDateDaysSinceEpoch(v, where, rejected){
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) {
+    rejected.push({ where: where, reason: 'expected an ISO date string YYYY-MM-DD', supplied: v === undefined || v === null ? null : String(v) });
+    return null;
+  }
+  var t = Date.parse(v.trim() + 'T00:00:00Z');
+  if (!isFinite(t)) { rejected.push({ where: where, reason: 'unparseable ISO date', supplied: v }); return null; }
+  return { date: v.trim(), days: Math.floor(t / MS_PER_DAY) };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var insider_ref = str(pp.insider_ref, 'UNSTATED');
+  var issuer_ref = str(pp.issuer_ref, 'UNSTATED');
+  var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'USD';
+
+  var txnsIn = arr(pp.transactions);
+  var parsed = [];
+  var excluded_transactions = [];
+  var i;
+  for (i = 0; i < txnsIn.length; i++) {
+    var t = obj(txnsIn[i]);
+    var txn_id = str(t.txn_id, 'TXN-' + (i + 1));
+    var typeSupplied = str(t.type, '');
+    var type = TXN_TYPES.indexOf(typeSupplied) !== -1 ? typeSupplied : null;
+    if (type === null) rejected_inputs.push({ where: 'transactions[' + i + '].type', reason: typeSupplied === '' ? 'absent' : 'not one of buy, sell', supplied: typeSupplied === '' ? null : typeSupplied });
+    var parsedDate = parseDateDaysSinceEpoch(t.date, 'transactions[' + i + '].date', rejected_inputs);
+    var price_minor_units = toMinorUnits(t.price_minor_units, 'transactions[' + i + '].price_minor_units', rejected_inputs);
+    var shares = toShares(t.shares, 'transactions[' + i + '].shares', rejected_inputs);
+    var exemption_flags = arr(t.exemption_flags).filter(function(f){ return isNonEmptyString(f); }).map(function(f){ return f.trim(); });
+    var row = { txn_id: txn_id, type: type, date: parsedDate ? parsedDate.date : null, days: parsedDate ? parsedDate.days : null, price_minor_units: price_minor_units, price_display: display(price_minor_units), shares: shares, exemption_flags: exemption_flags };
+    if (type === null || parsedDate === null || shares === 0) {
+      excluded_transactions.push(Object.assign({}, row, { exclusion_reason: 'unusable: ' + (type === null ? 'unrecognised type' : parsedDate === null ? 'unparseable date' : 'zero shares') }));
+      continue;
+    }
+    if (exemption_flags.length > 0) {
+      excluded_transactions.push(Object.assign({}, row, { exclusion_reason: 'declared exemption: ' + exemption_flags.join(', ') }));
+      continue;
+    }
+    parsed.push(Object.assign({}, row, { shares_remaining: shares }));
+  }
+
+  var purchases = parsed.filter(function(t){ return t.type === 'buy'; }).sort(function(a,b){ return a.price_minor_units - b.price_minor_units || a.days - b.days; });
+  var sales = parsed.filter(function(t){ return t.type === 'sell'; }).sort(function(a,b){ return b.price_minor_units - a.price_minor_units || a.days - b.days; });
+
+  var matched_pairs = [];
+  var total_profit_minor_units = 0;
+  for (var si = 0; si < sales.length; si++) {
+    var sale = sales[si];
+    for (var pi = 0; pi < purchases.length; pi++) {
+      var purchase = purchases[pi];
+      if (sale.shares_remaining <= 0) break;
+      if (purchase.shares_remaining <= 0) continue;
+      if (sale.price_minor_units <= purchase.price_minor_units) continue;
+      var day_gap = Math.abs(sale.days - purchase.days);
+      if (day_gap >= SIX_MONTH_DAY_THRESHOLD) continue;
+      var shares_matched = Math.min(sale.shares_remaining, purchase.shares_remaining);
+      var profit_minor_units = (sale.price_minor_units - purchase.price_minor_units) * shares_matched;
+      matched_pairs.push({
+        purchase_txn_id: purchase.txn_id, purchase_date: purchase.date, purchase_price_minor_units: purchase.price_minor_units, purchase_price_display: purchase.price_display,
+        sale_txn_id: sale.txn_id, sale_date: sale.date, sale_price_minor_units: sale.price_minor_units, sale_price_display: sale.price_display,
+        shares_matched: shares_matched, profit_minor_units: profit_minor_units, profit_display: display(profit_minor_units), day_gap: day_gap,
+        window_basis: day_gap + ' day(s) apart, matched against a ' + SIX_MONTH_DAY_THRESHOLD + '-day approximation of the statutory less-than-six-months window (day-count approximation, not calendar-month arithmetic; see not_proven).',
+      });
+      total_profit_minor_units += profit_minor_units;
+      sale.shares_remaining -= shares_matched;
+      purchase.shares_remaining -= shares_matched;
+    }
+  }
+
+  var unmatched_purchase_shares = purchases.reduce(function(s,p){ return s + p.shares_remaining; }, 0);
+  var unmatched_sale_shares = sales.reduce(function(s,p){ return s + p.shares_remaining; }, 0);
+
+  var insider_status = obj(pp.insider_status);
+  var officer_or_director = insider_status.officer_or_director === true;
+  var ten_pct_owner = insider_status.ten_pct_owner === true;
+  var foreign_private_issuer = insider_status.foreign_private_issuer === true;
+
+  var is_16a_filer, is_16b_liable, applicability_basis;
+  if (!foreign_private_issuer) {
+    is_16a_filer = officer_or_director || ten_pct_owner;
+    is_16b_liable = is_16a_filer;
+    applicability_basis = is_16a_filer
+      ? 'Domestic insider: officer/director or 10%-owner status makes this insider both a Section 16(a) filer and subject to Section 16(b) short-swing profit-recovery liability.'
+      : 'No officer/director or 10%-owner status was declared; this insider is not a Section 16(a) filer or Section 16(b)-liable insider on the facts declared.';
+  } else if (officer_or_director) {
+    is_16a_filer = true; is_16b_liable = false;
+    applicability_basis = 'Foreign private issuer officer/director: HFIAA (signed 2025-12-18) makes this insider a Section 16(a) reporting filer for the first time, but expressly does NOT extend Section 16(b) short-swing profit-recovery liability to this population -- the matched-pair figure above is informational only for this insider.';
+  } else if (ten_pct_owner) {
+    is_16a_filer = false; is_16b_liable = false;
+    applicability_basis = 'Foreign private issuer 10%-owner who is not an officer or director: Rule 3a12-3(b) exemption from Section 16 (both (a) and (b)) is undisturbed by HFIAA, which reaches only FPI officers and directors.';
+  } else {
+    is_16a_filer = false; is_16b_liable = false;
+    applicability_basis = 'No officer/director or 10%-owner status was declared for this foreign private issuer insider; not a Section 16 filer on the facts declared.';
+  }
+
+  var claimedSupplied = pp.demand_letter_claimed_profit_minor_units !== undefined && pp.demand_letter_claimed_profit_minor_units !== null && pp.demand_letter_claimed_profit_minor_units !== '';
+  var demand_letter_claimed_profit_minor_units = claimedSupplied ? toMinorUnits(pp.demand_letter_claimed_profit_minor_units, 'demand_letter_claimed_profit_minor_units', rejected_inputs) : null;
+  var difference_minor_units = claimedSupplied ? total_profit_minor_units - demand_letter_claimed_profit_minor_units : null;
+
+  var verdict, indeterminate_reason;
+  if (parsed.length === 0) {
+    verdict = 'INDETERMINATE'; indeterminate_reason = 'No usable, non-exempt transactions were supplied, so no matchable pairs could be computed.';
+  } else if (!claimedSupplied) {
+    verdict = 'INDETERMINATE'; indeterminate_reason = 'No demand-letter claimed profit was supplied, so the recomputed matched-pair total has nothing to compare against.';
+  } else {
+    verdict = difference_minor_units === 0 ? 'MATCHES' : 'DIVERGES'; indeterminate_reason = null;
+  }
+
+  var rationale = [];
+  rationale.push('Section 16(b) matchable-pair recompute for insider reference ' + insider_ref + ' on issuer reference ' + issuer_ref + '.');
+  rationale.push(parsed.length + ' of ' + txnsIn.length + ' declared transaction(s) were usable and non-exempt; ' + excluded_transactions.length + ' were excluded (unusable input or a declared exemption).');
+  rationale.push(purchases.length + ' purchase(s) and ' + sales.length + ' sale(s) were eligible for matching. Matching applied the lowest-in/highest-out construction: the lowest-priced eligible purchase was paired against the highest-priced eligible sale, repeatedly, within a ' + SIX_MONTH_DAY_THRESHOLD + '-day approximation of the statutory less-than-six-months window, and a pairing that would produce a loss was skipped rather than netted.');
+  rationale.push(matched_pairs.length === 0 ? 'No profitable, in-window pairing was found.' : (matched_pairs.length + ' matched pair(s) were found, for a total recomputed profit of ' + display(total_profit_minor_units) + ' ' + currency + '.'));
+  if (unmatched_purchase_shares > 0 || unmatched_sale_shares > 0) rationale.push(unmatched_purchase_shares + ' purchased share(s) and ' + unmatched_sale_shares + ' sold share(s) remained unmatched (no eligible profitable in-window counterparty).');
+  rationale.push(applicability_basis);
+  rationale.push(verdict === 'INDETERMINATE' ? ('Verdict is INDETERMINATE: ' + indeterminate_reason)
+    : verdict === 'MATCHES' ? ("The independently recomputed matched-pair total agrees with the demand letter's claimed profit of " + display(demand_letter_claimed_profit_minor_units) + ' ' + currency + '.')
+    : ('The independently recomputed matched-pair total of ' + display(total_profit_minor_units) + ' ' + currency + " diverges from the demand letter's claimed profit of " + display(demand_letter_claimed_profit_minor_units) + ' ' + currency + ' by ' + display(difference_minor_units) + ' ' + currency + ". This is an arithmetic finding about the transactions supplied here, not a determination of matchability or exemption, which is counsel's."));
+  if (rejected_inputs.length > 0) rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as zero, ignored, or excluded. Each one is named in rejected_inputs rather than silently dropped.');
+  rationale.push('This is not legal advice. The six-month window applied here is a day-count approximation of the statutory calendar-month boundary, and no exemption was independently determined -- both are named in not_proven. No computed figure resolves a matchability or exemption dispute.');
+
+  var compliance_flags = ['SEC16B_MATCHED_PAIRS_COMPUTED'];
+  compliance_flags.push(verdict === 'INDETERMINATE' ? 'SEC16B_INDETERMINATE' : verdict === 'MATCHES' ? 'SEC16B_MATCHES' : 'SEC16B_DIVERGES');
+  if (verdict === 'DIVERGES') compliance_flags.push('ESCALATION_RAISED');
+  if (matched_pairs.length === 0 && parsed.length > 0) compliance_flags.push('SEC16B_NO_MATCHABLE_PAIR');
+  if (excluded_transactions.some(function(t){ return t.exemption_flags && t.exemption_flags.length > 0; })) compliance_flags.push('SEC16B_EXEMPT_TRANSACTIONS_EXCLUDED');
+  if (foreign_private_issuer && officer_or_director) compliance_flags.push('SEC16B_HFIAA_16A_ONLY_NOT_16B_LIABLE');
+  if (rejected_inputs.length > 0) compliance_flags.push('SEC16B_INPUTS_REJECTED');
+
+  var output_payload = {
+    insider_ref: insider_ref, issuer_ref: issuer_ref, currency: currency, minor_unit_exponent: MINOR_UNIT_EXPONENT,
+    transaction_count: txnsIn.length, usable_transaction_count: parsed.length, excluded_transactions: excluded_transactions,
+    purchase_count: purchases.length, sale_count: sales.length, matched_pairs: matched_pairs,
+    unmatched_purchase_shares: unmatched_purchase_shares, unmatched_sale_shares: unmatched_sale_shares,
+    total_profit_minor_units: total_profit_minor_units, total_profit_display: display(total_profit_minor_units),
+    six_month_window_day_threshold: SIX_MONTH_DAY_THRESHOLD,
+    insider_status: { officer_or_director: officer_or_director, ten_pct_owner: ten_pct_owner, foreign_private_issuer: foreign_private_issuer },
+    section_16a_applicability: { is_16a_filer: is_16a_filer, is_16b_liable: is_16b_liable, basis: applicability_basis },
+    demand_letter_supplied: claimedSupplied, demand_letter_claimed_profit_minor_units: demand_letter_claimed_profit_minor_units,
+    demand_letter_claimed_profit_display: claimedSupplied ? display(demand_letter_claimed_profit_minor_units) : null,
+    comparison_basis: 'The recomputed matched-pair total is derived here from the declared transaction list using the lowest-in/highest-out construction; it is not read from the demand letter. A comparison is only meaningful because the two sides have independent provenance.',
+    difference_minor_units: difference_minor_units, difference_display: difference_minor_units === null ? null : display(difference_minor_units),
+    verdict: verdict, indeterminate_reason: indeterminate_reason,
+    rejected_inputs: rejected_inputs, citations: CITATIONS, rationale: rationale, not_proven: NOT_PROVEN,
+    fence: "This is not legal advice. It does not compute a Rule 144 volume-limitation check (a named follow-on tool). Matching uses the lowest-in/highest-out construction over caller-declared transactions and a day-count approximation of the six-month window; a declared exemption excludes a transaction from matching without this kernel independently determining whether that exemption applies. No computed figure resolves a matchability or exemption dispute, which is counsel's.",
+    note: 'Deterministic Section 16(b) matchable-pair short-swing profit recompute over a caller-declared transaction list. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function parseJsonField(id, label){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  try { return JSON.parse(raw); }
+  catch(e){ alert('Invalid JSON in ' + label + ': ' + e.message); throw e; }
+}
+
+function loadIndeterminateDemo(){
+  document.getElementById('claimedProfit').value = '';
+  runSec16bRecompute();
+}
+function loadHfiaaDivergesDemo(){
+  document.getElementById('foreignPrivateIssuer').value = 'true';
+  document.getElementById('officerOrDirector').value = 'true';
+  document.getElementById('transactionsJson').value = '[\n  { "txn_id": "txn-1", "type": "buy", "date": "2026-01-01", "price_minor_units": 500, "shares": 50 },\n  { "txn_id": "txn-2", "type": "buy", "date": "2026-01-05", "price_minor_units": 800, "shares": 50, "exemption_flags": ["rule_16b-3"] },\n  { "txn_id": "txn-3", "type": "sell", "date": "2026-03-01", "price_minor_units": 1500, "shares": 50 }\n]';
+  document.getElementById('claimedProfit').value = '65000';
+  runSec16bRecompute();
+}
+
+async function runSec16bRecompute(){
+  var transactions;
+  try { transactions = parseJsonField('transactionsJson', 'transactions'); }
+  catch(e){ return; }
+
+  var pp = {
+    insider_ref: document.getElementById('insiderRef').value || '',
+    issuer_ref: document.getElementById('issuerRef').value || '',
+    currency: document.getElementById('currency').value || '',
+    transactions: transactions === null ? [] : transactions,
+    insider_status: {
+      officer_or_director: document.getElementById('officerOrDirector').value === 'true',
+      ten_pct_owner: document.getElementById('tenPctOwner').value === 'true',
+      foreign_private_issuer: document.getElementById('foreignPrivateIssuer').value === 'true',
+    },
+  };
+  var claimedRaw = document.getElementById('claimedProfit').value;
+  if (claimedRaw !== '') pp.demand_letter_claimed_profit_minor_units = Number(claimedRaw);
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var good = op.verdict === 'MATCHES';
+  var indet = op.verdict === 'INDETERMINATE';
+  var colour = good ? 'var(--green)' : (indet ? 'var(--teal-lt)' : 'var(--red)');
+  var bg = good ? 'rgba(34,197,94,.08)' : (indet ? 'rgba(20,184,166,.08)' : 'rgba(239,68,68,.08)');
+  vBox.style.color = colour; vBox.style.background = bg; vBox.style.border = '1px solid ' + colour;
+  vBox.textContent = op.verdict + ' · ' + op.insider_ref;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.total_profit_display + '</span><span class="stat-key">Recomputed profit ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.matched_pairs.length + '</span><span class="stat-key">Matched pairs</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.excluded_transactions.length + '</span><span class="stat-key">Excluded transactions</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.demand_letter_claimed_profit_display === null ? 'n/a' : op.demand_letter_claimed_profit_display) + '</span><span class="stat-key">Demand letter claim</span></div>';
+
+  document.getElementById('pairsDiv').innerHTML = op.matched_pairs.length
+    ? op.matched_pairs.map(function(p){
+        return '<div class="kv"><span class="kv-k">' + p.purchase_txn_id + ' @ ' + p.purchase_price_display + ' (' + p.purchase_date + ') &rarr; ' + p.sale_txn_id + ' @ ' + p.sale_price_display + ' (' + p.sale_date + ')</span><span class="kv-v">' + p.shares_matched + ' sh &middot; profit ' + p.profit_display + ' <span class="badge ok">' + p.day_gap + 'd apart</span></span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No matched pairs</span><span class="kv-v">no profitable in-window pairing was found</span></div>';
+
+  document.getElementById('exclDiv').innerHTML = op.excluded_transactions.length
+    ? op.excluded_transactions.map(function(e){ return '<div class="kv"><span class="kv-k">' + e.txn_id + '</span><span class="kv-v">' + e.exclusion_reason + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every declared transaction was usable and non-exempt</span></div>';
+
+  document.getElementById('applicDiv').innerHTML =
+    '<div class="kv"><span class="kv-k">Section 16(a) filer</span><span class="kv-v"><span class="badge ' + (op.section_16a_applicability.is_16a_filer ? 'ok' : 'open') + '">' + op.section_16a_applicability.is_16a_filer + '</span></span></div>' +
+    '<div class="kv"><span class="kv-k">Section 16(b) liable</span><span class="kv-v"><span class="badge ' + (op.section_16a_applicability.is_16b_liable ? 'warn' : 'open') + '">' + op.section_16a_applicability.is_16b_liable + '</span></span></div>' +
+    '<div class="kv"><span class="kv-k">Basis</span><span class="kv-v">' + op.section_16a_applicability.basis + '</span></div>';
+
+  document.getElementById('diffDiv').innerHTML = !op.demand_letter_supplied
+    ? '<div class="kv"><span class="kv-k">No demand letter figure supplied</span><span class="kv-v">verdict is INDETERMINATE, which is not agreement</span></div>'
+    : '<div class="kv"><span class="kv-k">Recomputed vs claimed</span><span class="kv-v"><span class="badge ' + (op.verdict === 'MATCHES' ? 'ok' : 'bad') + '">' + op.verdict + '</span> recomputed ' + op.total_profit_display + ' &middot; claimed ' + op.demand_letter_claimed_profit_display + ' &middot; difference ' + op.difference_display + '</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){ return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-573-section16b-short-swing-profit-recompute',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-573-section16b-short-swing-profit-recompute.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
