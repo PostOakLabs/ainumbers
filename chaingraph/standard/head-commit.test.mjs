@@ -4,6 +4,7 @@
 // Node 18+, zero npm deps.
 // Run:  node chaingraph/standard/head-commit.test.mjs
 import { buildHead, headHash, signHead, verifyHeadProof, verifyChain, detectEquivocation, didKeyToPublicKey, rawPubkeyToDidKey } from '../kernels/_head.mjs';
+import { BINDING_TYPE, buildNoteText, parseNote, signCosignLine, buildBilateralCosignBinding, verifyBilateralCosignBinding } from '../kernels/_bilateral-cosign.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -116,6 +117,129 @@ async function keypair() {
   threw = false;
   try { buildHead({ stream: 's', signer: 'did:key:zAbc', seq: -1, prev_head_hash: null, root: 'sha256:' + '00'.repeat(32), timestamp: '2026-08-05T00:00:00Z' }); } catch (e) { threw = /seq/.test(e.message); }
   ok(threw, 'buildHead() rejects a negative seq');
+}
+
+// ── SPEC.md §HEAD-1.3 `ocg-head-bilateral-cosign@1` — BILAT-COSIGN-BUILD-SPEC.md §5 vectors ──
+// Reference verifier: ../kernels/_bilateral-cosign.mjs. All eight vectors are pure functions
+// over supplied fixtures — no network, no live counterparty (§5's offline-verifiable posture).
+
+async function makeHead(streamSuffix) {
+  const signer = await keypair();
+  const head = await signHead(
+    buildHead({ stream: 'bilat-' + streamSuffix, signer: signer.did, seq: 0, prev_head_hash: null, root: 'sha256:' + '77'.repeat(32), timestamp: '2026-08-07T00:00:00Z' }),
+    { verificationMethod: signer.did, created: '2026-08-07T00:00:00Z', privateKey: signer.privateKey },
+  );
+  return { signer, head };
+}
+
+// ---- §5 vector 1: valid n-of-n bilateral cosign ----
+{
+  const { head } = await makeHead('v1');
+  const cosignerA = await keypair();
+  const cosignerB = await keypair();
+  const binding = await buildBilateralCosignBinding(head, [{ didKey: cosignerA.did, privateKey: cosignerA.privateKey }, { didKey: cosignerB.did, privateKey: cosignerB.privateKey }], { logOrigin: 'orgA<->orgB/stream-v1', timestampMs: 1_770_000_000_000 });
+  ok(binding.type === BINDING_TYPE, 'v1: binding carries the ocg-head-bilateral-cosign@1 type string');
+  const result = await verifyBilateralCosignBinding(binding, head);
+  ok(result.valid, 'v1: valid n-of-n bilateral cosign (2 of 2) verifies: ' + JSON.stringify(result.errors));
+  ok(result.valid_witness_count === 2 && result.threshold === 2, 'v1: n-of-n threshold defaults to cosigner_keys.length when omitted');
+}
+
+// ---- §5 vector 2: valid k-of-n bilateral cosign (explicit threshold, only k of n present) ----
+{
+  const { head } = await makeHead('v2');
+  const cosignerA = await keypair();
+  const cosignerB = await keypair();
+  const cosignerC = await keypair();
+  const binding = await buildBilateralCosignBinding(head, [{ didKey: cosignerA.did, privateKey: cosignerA.privateKey }], { logOrigin: 'orgA<->orgB,orgC/stream-v2', timestampMs: 1_770_000_000_000, threshold: 1 });
+  binding.cosigner_keys = [cosignerA.did, cosignerB.did, cosignerC.did]; // relationship names 3 possible cosigners
+  const result = await verifyBilateralCosignBinding(binding, head);
+  ok(result.valid && result.valid_witness_count === 1 && result.threshold === 1, 'v2: k-of-n (1 of 3) verifies when the explicit threshold is met: ' + JSON.stringify(result.errors));
+}
+
+// ---- §5 vector 3: below-threshold — fewer than k valid lines MUST FAIL ----
+{
+  const { head } = await makeHead('v3');
+  const cosignerA = await keypair();
+  const cosignerB = await keypair();
+  const binding = await buildBilateralCosignBinding(head, [{ didKey: cosignerA.did, privateKey: cosignerA.privateKey }], { logOrigin: 'orgA<->orgB/stream-v3', timestampMs: 1_770_000_000_000, threshold: 2 });
+  binding.cosigner_keys = [cosignerA.did, cosignerB.did]; // threshold 2, but only A actually signed
+  const result = await verifyBilateralCosignBinding(binding, head);
+  ok(!result.valid && result.valid_witness_count === 1 && result.threshold === 2, 'v3: below-threshold (1 of 2 required) MUST FAIL: ' + JSON.stringify(result.errors));
+}
+
+// ---- §5 vector 4: tamper fixture — mutated head_hash post-cosign MUST FAIL ----
+{
+  const { head } = await makeHead('v4');
+  const cosignerA = await keypair();
+  const binding = await buildBilateralCosignBinding(head, [{ didKey: cosignerA.did, privateKey: cosignerA.privateKey }], { logOrigin: 'orgA<->orgB/stream-v4', timestampMs: 1_770_000_000_000 });
+  const goodResult = await verifyBilateralCosignBinding(binding, head);
+  ok(goodResult.valid, 'v4 precondition: the untampered head verifies against its own binding: ' + JSON.stringify(goodResult.errors));
+  const mutatedHead = { ...head, seq: head.seq + 1 }; // a mutated field moves head_hash; OLD proof/binding stays attached
+  const tamperedResult = await verifyBilateralCosignBinding(binding, mutatedHead);
+  ok(!tamperedResult.valid && !tamperedResult.anchored_hash_match, 'v4: a mutated head_hash under an unchanged binding MUST FAIL (anchored_hash no longer matches): ' + JSON.stringify(tamperedResult.errors));
+}
+
+// ---- §5 vector 5: wrong-key fixture — a valid line from a key NOT in cosigner_keys MUST FAIL and MUST NOT silently count ----
+{
+  const { head } = await makeHead('v5');
+  const cosignerA = await keypair();
+  const cosignerB = await keypair(); // named as a required cosigner, but never actually signs
+  const outsider = await keypair(); // signs, but is not named in cosigner_keys at all
+  const anchoredHash = await headHash(head);
+  const noteText = buildNoteText('orgA<->orgB/stream-v5', anchoredHash);
+  const lineA = await signCosignLine(noteText, { didKey: cosignerA.did, privateKey: cosignerA.privateKey, timestampMs: 1_770_000_000_000 });
+  const lineOutsider = await signCosignLine(noteText, { didKey: outsider.did, privateKey: outsider.privateKey, timestampMs: 1_770_000_000_000 });
+  const binding = {
+    type: BINDING_TYPE, anchored_hash: anchoredHash, log_origin: 'orgA<->orgB/stream-v5',
+    proof: noteText + '\n' + lineA + '\n' + lineOutsider + '\n', // outsider's line is syntactically valid but unlisted
+    cosigner_keys: [cosignerA.did, cosignerB.did], threshold: 2,
+  };
+  const result = await verifyBilateralCosignBinding(binding, head);
+  ok(!result.valid && result.valid_witness_count === 1, 'v5: an unlisted-but-valid cosignature line does not count toward the threshold: ' + JSON.stringify(result.errors));
+  ok(result.cosignatures.every((c) => c.name !== outsider.did), 'v5: the outsider key is never even looked up (only cosigner_keys names are checked)');
+}
+
+// ---- §5 vector 6: equivocation fixture, cosigned on both sides ----
+{
+  const signer = await keypair();
+  const cosignerA = await keypair();
+  const cosignerB = await keypair();
+  const headA = await signHead(buildHead({ stream: 'bilat-eq', signer: signer.did, seq: 5, prev_head_hash: 'sha256:' + '55'.repeat(32), root: 'sha256:' + 'aa'.repeat(32), timestamp: '2026-08-07T00:00:00Z' }), { verificationMethod: signer.did, created: '2026-08-07T00:00:00Z', privateKey: signer.privateKey });
+  const headB = await signHead(buildHead({ stream: 'bilat-eq', signer: signer.did, seq: 5, prev_head_hash: 'sha256:' + '55'.repeat(32), root: 'sha256:' + 'bb'.repeat(32), timestamp: '2026-08-07T00:00:01Z' }), { verificationMethod: signer.did, created: '2026-08-07T00:00:01Z', privateKey: signer.privateKey });
+
+  const bindingA = await buildBilateralCosignBinding(headA, [{ didKey: cosignerA.did, privateKey: cosignerA.privateKey }], { logOrigin: 'orgA<->orgB/stream-eq', timestampMs: 1_770_000_000_000 });
+  const bindingB = await buildBilateralCosignBinding(headB, [{ didKey: cosignerB.did, privateKey: cosignerB.privateKey }], { logOrigin: 'orgA<->orgB/stream-eq', timestampMs: 1_770_000_000_100 });
+
+  const resultA = await verifyBilateralCosignBinding(bindingA, headA);
+  const resultB = await verifyBilateralCosignBinding(bindingB, headB);
+  ok(resultA.valid && resultB.valid, 'v6: each conflicting head is independently well-formed and validly cosigned: ' + JSON.stringify([resultA.errors, resultB.errors]));
+
+  const eq = await detectEquivocation(headA, headB);
+  ok(eq.equivocation === true, 'v6: detectEquivocation() still flags the pair — cosigning adds evidentiary weight, not a new check');
+}
+
+// ---- §5 vector 7: non-conflicting repeat — the same head presented twice, cosigned once, is NOT equivocation ----
+{
+  const { head } = await makeHead('v7');
+  const cosignerA = await keypair();
+  const binding = await buildBilateralCosignBinding(head, [{ didKey: cosignerA.did, privateKey: cosignerA.privateKey }], { logOrigin: 'orgA<->orgB/stream-v7', timestampMs: 1_770_000_000_000 });
+  const result = await verifyBilateralCosignBinding(binding, head);
+  ok(result.valid, 'v7 precondition: the single cosigned head verifies: ' + JSON.stringify(result.errors));
+  const eq = await detectEquivocation(head, head);
+  ok(eq.equivocation === false, 'v7: the identical head presented twice (cosigned once) is NOT flagged as equivocation — unchanged §HEAD-1.4 behavior');
+}
+
+// ---- §5 vector 8: unknown-type forward-compat — a verifier without support for this type skips it ----
+{
+  const { signer, head } = await makeHead('v8');
+  const unknownBinding = { type: 'ocg-head-file@1', href: 'https://example.org/heads/whatever.json' };
+  const result = await verifyBilateralCosignBinding(unknownBinding, head);
+  ok(result.skipped === true && result.valid === false, 'v8: an unrecognized anchor_bindings[] type is reported as skipped, not a parse/verification error');
+  // Head-chain verification is entirely unaffected: a binding is never part of the head object's
+  // own hashed shape, so the SAME head still verifies cleanly regardless of what anchor_bindings
+  // (recognized or not) a caller may separately be tracking alongside it.
+  const chainResult = await verifyChain([head], { resolveKey: async (did) => (did === signer.did ? signer.publicKey : null) });
+  ok(chainResult.valid, 'v8: an unrecognized backing-ladder type never surfaces as a head-chain verification failure — bindings sit entirely outside the hashed head shape: ' + JSON.stringify(chainResult.errors));
 }
 
 console.log(fail ? `\n${fail} failure(s).` : '\nAll §HEAD-1 head-commit checks passed.');
