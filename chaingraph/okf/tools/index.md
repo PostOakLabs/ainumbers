@@ -520,6 +520,10 @@ status: stable
 - [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md) — `validate_cross_network_settlement`
 - [15c3-3a Note H Margin-Debit Computation](./art-580-15c3-3a-note-h-margin-debit.md) — `compute_note_h_margin_debit`
 - [EMIR 3 SIMM Approval-Scope Classifier](./art-581-emir3-simm-approval-scope-classifier.md) — `classify_emir3_simm_approval_scope`
+- [GENIUS Act Reserve-Disclosure Conformance Monitor](./art-582-genius-reserve-disclosure-conformance-monitor.md) — `check_genius_reserve_disclosure_conformance`
+- [Beacon-Seeded Fair-Sampling Deriver](./art-583-beacon-seeded-fair-sampling-deriver.md) — `derive_beacon_fair_sample`
+- [Proof-of-Reserves Verifier](./art-584-proof-of-reserves-verifier.md) — `verify_proof_of_reserves_consistency`
+- [Sanctions Screening Evidence Pack](./art-585-sanctions-screening-evidence-pack.md) — `build_sanctions_screening_evidence_pack`
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`

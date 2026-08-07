@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-309"]
+tags: ["compliance_mandate", "count-312"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-309 tool(s) in this mandate-type group:
+312 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -318,6 +318,9 @@ status: stable
 - [KYA Credential x x402 Payload Scope Verifier](../tools/art-565-kya-x402-scope-verifier.md)
 - [EMIR 3.0 Active Account Representativeness Classifier](../tools/art-576-emir3-active-account-representativeness-classifier.md)
 - [EMIR 3 SIMM Approval-Scope Classifier](../tools/art-581-emir3-simm-approval-scope-classifier.md)
+- [GENIUS Act Reserve-Disclosure Conformance Monitor](../tools/art-582-genius-reserve-disclosure-conformance-monitor.md)
+- [Proof-of-Reserves Verifier](../tools/art-584-proof-of-reserves-verifier.md)
+- [Sanctions Screening Evidence Pack](../tools/art-585-sanctions-screening-evidence-pack.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
