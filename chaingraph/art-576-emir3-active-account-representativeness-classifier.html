@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EMIR 3.0 Active Account Representativeness Classifier &middot; ART-576 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Classifies an EU counterparty's EMIR Article 7a active-account and representativeness posture: in-scope product test, EUR 6 billion exemption gate, subcategory bucketing, five-trades annual-average test, and the Article 10 reporting window.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-576-emir3-active-account-representativeness-classifier.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:130px}
+.stat-val{font-size:1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;border-radius:var(--radius-lg);padding:10px 16px;margin:8px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.open{background:rgba(58,82,112,.2);color:var(--body);border:1px solid var(--border-2)}
+.ruleset-pin{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.4rem .75rem;display:inline-block;margin:8px 0}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-576 · EMIR 3.0 Active Account Representativeness Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-576 &middot; Capital Markets &middot; EMIR Article 7a Self-Check</div>
+  <h1>EMIR 3.0 Active Account Representativeness Classifier</h1>
+  <p class="sub">Classifies an EU counterparty's posture against the EMIR Article 7a Active Account Requirement across three obligations: whether an active account is required and held at an Article-14-authorised CCP; whether the Article 7a(4) representativeness obligation applies above the EUR 6 billion notional threshold and is met by clearing at least five trades on an annual average basis in each declared most-relevant subcategory; and whether a reporting submission falls inside the applicable Commission Delegated Regulation (EU) 2026/305 Article 10 window. Existing EMIR coverage on this site validates trade-report fields, lifecycle events, UTIs and UPIs; this is a separate Active Account Requirement self-check.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">In-scope product test</span>
+    <span class="flag info">EUR 6bn exemption gate</span>
+    <span class="flag">Subcategory bucketing</span>
+    <span class="flag">Not legal advice</span>
+  </div>
+  <div class="ruleset-pin" id="rulesetPin">Basis: Article 7a EMIR (Regulation (EU) 2024/2987) &middot; Commission Delegated Regulation (EU) 2026/305 Articles 4-6 and 10, in force 2026-02-26</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This is not legal advice. Which subcategories are ESMA's market-wide "most relevant" designation for a class is not derivable from one counterparty's own trades: you declare it. Whether a trade genuinely cleared, and whether you genuinely exceed the Article 4a clearing threshold, are your own declared facts. This page computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Counterparty and scope</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic. They are not a copy of any real EMIR report, and they are already loaded so you can press Run without entering anything of your own.</p>
+    <div class="grid2">
+      <div><label class="fld">Counterparty reference</label><input type="text" id="counterpartyRef" value="SYNTH-CP-005 (synthetic)"></div>
+      <div><label class="fld">As-of date (your input, never a clock read)</label><input type="text" id="asOfDate" value="2026-08-01"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Exceeds clearing threshold: EUR/PLN interest rate derivatives (Art 7a(6)(a))</label>
+        <select id="threshIrd"><option value="true" selected>true</option><option value="false">false</option></select></div>
+      <div><label class="fld">Exceeds clearing threshold: EUR short-term interest rate derivatives (Art 7a(6)(b))</label>
+        <select id="threshStir"><option value="true">true</option><option value="false" selected>false</option></select></div>
+    </div>
+
+    <div class="section-head">Active account (Article 7a(1))</div>
+    <div class="grid3">
+      <div><label class="fld">Active account established</label><select id="acctEstablished"><option value="true" selected>true</option><option value="false">false</option><option value="unstated">unstated</option></select></div>
+      <div><label class="fld">CCP name</label><input type="text" id="acctCcpName" value="Synthetic EU CCP"></div>
+      <div><label class="fld">CCP is Article-14-authorised</label><select id="acctAuthorised"><option value="true" selected>true</option><option value="false">false</option><option value="unstated">unstated</option></select></div>
+    </div>
+
+    <div class="section-head">Representativeness (Article 7a(4))</div>
+    <div class="grid2">
+      <div><label class="fld">Notional clearing volume outstanding, minor units (EUR 6bn = 600000000000)</label><input type="number" id="notionalVolume" value="900000000000"></div>
+      <div><label class="fld">Reference period, months (for the annual-average test)</label><input type="number" id="refPeriodMonths" value="6"></div>
+    </div>
+    <label class="fld">Trades JSON array: trade_id, class (eur_fixed_float|eur_ois|eur_fra|pln_fixed_float|pln_fra|eur_stir_euribor|eur_stir_ester), trade_notional_minor_units (omit for pln_*/stir any-size classes), maturity_months (omit for pln_* any-maturity classes), cleared</label>
+    <textarea id="tradesJson" style="min-height:110px">[
+  { "trade_id": "T-1", "class": "eur_fixed_float", "trade_notional_minor_units": 3000000000, "maturity_months": 84, "cleared": true },
+  { "trade_id": "T-2", "class": "eur_fixed_float", "trade_notional_minor_units": 3200000000, "maturity_months": 90, "cleared": true },
+  { "trade_id": "T-3", "class": "eur_fixed_float", "trade_notional_minor_units": 2900000000, "maturity_months": 100, "cleared": true },
+  { "trade_id": "T-4", "class": "pln_fixed_float", "cleared": true },
+  { "trade_id": "T-5", "class": "pln_fixed_float", "cleared": true },
+  { "trade_id": "T-6", "class": "pln_fixed_float", "cleared": true }
+]</textarea>
+    <label class="fld">Most-relevant subcategory designations (your declaration, not computed here): class, bucket_id, most_relevant. Run once first to see bucket_id values assigned to your trades above, then paste them here.</label>
+    <textarea id="designationsJson" style="min-height:70px">[
+  { "class": "eur_fixed_float", "bucket_id": "eur_fixed_float:(25-50M]:(60-120mo]", "most_relevant": true },
+  { "class": "pln_fixed_float", "bucket_id": "pln_fixed_float:any:any", "most_relevant": true }
+]</textarea>
+
+    <div class="section-head">Reporting window (RTS Article 10)</div>
+    <label class="fld">Reporting submission date (leave blank for INDETERMINATE)</label>
+    <input type="text" id="reportingDate" value="2026-07-31">
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runEmir3Classifier()">&#9654; Run EMIR 3.0 AAR Classifier</button>
+      <button class="ghost" onclick="loadOutOfScopeDemo()">Load out-of-scope (EXEMPT) demo</button>
+      <button class="ghost" onclick="loadIndeterminateDemo()">Load indeterminate demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Trades classified into RTS Annex I subcategories</div>
+      <div id="tradesDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Representativeness by declared subcategory</div>
+      <div id="subcatDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not determine which subcategories ESMA has designated as "most relevant" for a class in a given reference period, since that is a market-wide volume ranking published externally, and this tool takes it as your declared input. It does not verify that a declared trade actually cleared, or that you genuinely exceed the Article 4a EMIR clearing threshold. It is not legal advice and is not an ESMA or CCP determination.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Existing EMIR coverage on this site validates trade-report fields and lifecycle events rather than the Active Account Requirement: <a href="art-153-emir-trade-report-field-validator.html">ART-153 EMIR Trade Report Field Validator</a>, <a href="art-154-emir-uti-completeness-checker.html">ART-154 EMIR UTI Completeness Checker</a>, <a href="art-155-emir-upi-validator.html">ART-155 EMIR UPI Validator</a>, <a href="art-157-emir-lifecycle-event-validator.html">ART-157 EMIR Lifecycle Event Validator</a>, and <a href="art-158-emir-reporting-readiness-diagnostic.html">ART-158 EMIR Reporting Readiness Diagnostic</a>. This node is a distinct Active Account Requirement self-check, not a duplicate of any of them.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-576-emir3-active-account-representativeness-classifier',
+  version: '1.0.0',
+  mcp_name: 'classify_emir3_active_account_status',
+  title: 'EMIR 3.0 Active Account Representativeness Classifier',
+  description: 'Classifies an EU counterparty EMIR Article 7a active-account and representativeness posture across three obligations, plus the RTS Article 10 reporting window.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'classify_emir3_active_account_status',
+    description: 'Classifies active-account, representativeness, and reporting-window obligations under EMIR Article 7a from caller-declared clearing-threshold exceedance, active-account status, notional volume, trade-level size/maturity, subcategory designations, and a reporting submission date.',
+    inputSchema: { type: 'object', properties: {
+      counterparty_ref: {type:'string'}, as_of_date: {type:'string'}, clearing_threshold_exceeded: {type:'object'},
+      active_account: {type:'object'}, notional_clearing_volume_minor_units: {type:'number'}, reference_period_months: {type:'number'},
+      trades: {type:'array'}, subcategory_designations: {type:'array'}, reporting_submission_date: {type:'string'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-576-emir3-active-account-representativeness-classifier.kernel.mjs --- */
+var SIX_BILLION_EUR_MINOR_UNITS = 6000000000 * 100;
+var FIRST_REPORTING_DEADLINE = '2026-07-31';
+var REPORTING_DEADLINE_ANCHOR_ISO_DATE = '2026-02-26';
+
+var CLASS_DEFS = {
+  eur_fixed_float: { category: 'eur_pln_ird', size_bounds_eur_millions: [25, 50], maturity_bounds_months: [60, 120, 180] },
+  eur_ois:         { category: 'eur_pln_ird', size_bounds_eur_millions: [25, 100], maturity_bounds_months: [12, 24, 60] },
+  eur_fra:         { category: 'eur_pln_ird', size_bounds_eur_millions: [75, 200], maturity_bounds_months: [6, 12, 18] },
+  pln_fixed_float: { category: 'eur_pln_ird', size_bounds_eur_millions: null, maturity_bounds_months: null },
+  pln_fra:         { category: 'eur_pln_ird', size_bounds_eur_millions: null, maturity_bounds_months: null },
+  eur_stir_euribor:{ category: 'eur_stir', size_bounds_eur_millions: null, maturity_bounds_months: [6, 12, 24] },
+  eur_stir_ester:  { category: 'eur_stir', size_bounds_eur_millions: null, maturity_bounds_months: [6, 12, 24] },
+};
+var CLASS_IDS = Object.keys(CLASS_DEFS);
+
+var CITATIONS = {
+  active_account_obligation: { source: 'Article 7a(1) and 7a(6) EMIR (inserted by Regulation (EU) 2024/2987)', detail: 'An in-scope counterparty shall hold at least one active account at an Article-14-authorised CCP for the categories in paragraph 6 (EUR/PLN interest rate derivatives; EUR short-term interest rate derivatives).' },
+  representativeness_threshold: { source: 'Article 7a(4) EMIR', detail: 'The representativeness obligation does not apply to counterparties with a notional clearing volume outstanding below EUR 6 billion in the paragraph-6 derivative contracts.' },
+  representativeness_test: { source: 'Article 7a(4) EMIR', detail: 'Counterparties above the threshold shall clear, on an annual average basis, at least five trades in each of the most relevant subcategories per class of derivative contracts and per reference period.' },
+  subcategory_tables: { source: 'Commission Delegated Regulation (EU) 2026/305, Articles 4-6 and Annex I', detail: 'Defines the size/maturity subcategory bucketing tables per class: EUR fixed-to-float, OIS, FRA (Article 4); PLN fixed-to-float and FRA, single any/any bucket (Article 5); EUR STIR Euribor and euro short-term rate, maturity-only buckets (Article 6).' },
+  reporting_window: { source: 'Commission Delegated Regulation (EU) 2026/305, Article 10', detail: 'Reports are due on the last day of January and the last day of July each year. The first submission falls no earlier than six months from the RTS entry into force of 2026-02-26; the spec states the first report as the dated fact 2026-07-31.' },
+};
+var NOT_PROVEN = [
+  { item: 'Not legal advice', detail: "This kernel classifies an Article 7a active-account and representativeness posture from caller-declared facts. It is not a substitute for counsel, ESMA, or the counterparty's own compliance review." },
+  { item: 'Most-relevant subcategory designation', detail: "Which subcategories are the class's ESMA-designated \"most relevant\" ones for a reference period is a market-wide volume ranking published externally, not derivable from one counterparty's own trades. This kernel takes it as a caller-declared fact (subcategory_designations[].most_relevant) and does not verify it against any external source." },
+  { item: 'Annualization is a linear simplification', detail: 'A trade count over a reference period shorter than 12 months is annualized by simple linear scaling (count * 12 / reference_period_months). This is a documented simplification, not a seasonally-aware estimate.' },
+  { item: 'Trade-level "cleared" status is asserted', detail: 'Whether a declared trade was in fact cleared at an authorised CCP, and its size/maturity/class classification, are caller-supplied and asserted, not independently verified against a CCP or trade repository record.' },
+  { item: 'Clearing-threshold exceedance is asserted', detail: 'Whether the counterparty exceeds the Article 4a EMIR clearing threshold for each category is a caller-declared boolean, not independently recomputed here.' },
+];
+
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function arr(v){ return Array.isArray(v) ? v : []; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function isBool(v){ return typeof v === 'boolean'; }
+function toIntField(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return null; }
+  rejected.push({ where: where, reason: typeof v === 'number' ? 'not a safe integer' : 'expected an integer, got ' + (typeof v), supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return null;
+}
+var ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function parseIsoDate(v, where, rejected){
+  if (typeof v !== 'string' || !ISO_DATE_RE.test(v.trim())) { rejected.push({ where: where, reason: 'not an ISO YYYY-MM-DD date string', supplied: v === undefined || v === null ? null : String(v) }); return null; }
+  var m = ISO_DATE_RE.exec(v.trim());
+  var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) { rejected.push({ where: where, reason: 'month/day out of range', supplied: v }); return null; }
+  return { y: y, m: mo, d: d, iso: m[1] + '-' + m[2] + '-' + m[3] };
+}
+function dateToEpochDay(dt){ return Date.UTC(dt.y, dt.m - 1, dt.d) / 86400000; }
+function cmpDate(a, b){ return dateToEpochDay(a) - dateToEpochDay(b); }
+function lastDayOfJanOrJulOnOrAfter(dt){
+  var candidates = [];
+  [0, 1].forEach(function(yOff){
+    candidates.push({ y: dt.y + yOff, m: 1, d: 31, iso: (dt.y + yOff) + '-01-31' });
+    candidates.push({ y: dt.y + yOff, m: 7, d: 31, iso: (dt.y + yOff) + '-07-31' });
+  });
+  candidates.sort(cmpDate);
+  for (var i = 0; i < candidates.length; i++) { if (cmpDate(candidates[i], dt) >= 0) return candidates[i]; }
+  return candidates[candidates.length - 1];
+}
+function sixMonthsBefore(dt){
+  if (dt.m === 1) return { y: dt.y - 1, m: 7, d: 31, iso: (dt.y - 1) + '-07-31' };
+  return { y: dt.y, m: 1, d: 31, iso: dt.y + '-01-31' };
+}
+function bucketIdForTrade(t){
+  var def = CLASS_DEFS[t.class];
+  if (!def) return null;
+  if (def.size_bounds_eur_millions === null && def.maturity_bounds_months === null) return t.class + ':any:any';
+  var sizeLabel = 'any';
+  if (def.size_bounds_eur_millions !== null) {
+    var b1 = def.size_bounds_eur_millions[0], b2 = def.size_bounds_eur_millions[1];
+    var sizeMn = t.trade_notional_minor_units / 100 / 1000000;
+    sizeLabel = sizeMn <= b1 ? ('[0-' + b1 + 'M]') : sizeMn <= b2 ? ('(' + b1 + '-' + b2 + 'M]') : ('(' + b2 + 'M+)');
+  }
+  var maturityLabel = 'any';
+  if (def.maturity_bounds_months !== null) {
+    var m1 = def.maturity_bounds_months[0], m2 = def.maturity_bounds_months[1], m3 = def.maturity_bounds_months[2];
+    var mo = t.maturity_months;
+    maturityLabel = mo <= m1 ? ('[0-' + m1 + 'mo]') : mo <= m2 ? ('(' + m1 + '-' + m2 + 'mo]') : mo <= m3 ? ('(' + m2 + '-' + m3 + 'mo]') : ('(' + m3 + 'mo+)');
+  }
+  return t.class + ':' + sizeLabel + ':' + maturityLabel;
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var counterparty_ref = str(pp.counterparty_ref, 'UNSTATED');
+  var as_of_date = parseIsoDate(pp.as_of_date, 'as_of_date', rejected_inputs);
+
+  var threshExceeded = obj(pp.clearing_threshold_exceeded);
+  var eurPlnIrdExceeded = threshExceeded.eur_pln_ird === true;
+  var eurStirExceeded = threshExceeded.eur_stir === true;
+  if (!isBool(threshExceeded.eur_pln_ird)) rejected_inputs.push({ where: 'clearing_threshold_exceeded.eur_pln_ird', reason: 'absent or not boolean; treated as not exceeded', supplied: threshExceeded.eur_pln_ird === undefined ? null : String(threshExceeded.eur_pln_ird) });
+  if (!isBool(threshExceeded.eur_stir)) rejected_inputs.push({ where: 'clearing_threshold_exceeded.eur_stir', reason: 'absent or not boolean; treated as not exceeded', supplied: threshExceeded.eur_stir === undefined ? null : String(threshExceeded.eur_stir) });
+
+  var in_scope_eur_pln_ird = eurPlnIrdExceeded;
+  var in_scope_eur_stir = eurStirExceeded;
+  var in_scope_any = in_scope_eur_pln_ird || in_scope_eur_stir;
+
+  var activeAccount = obj(pp.active_account);
+  var active_account_verdict, active_account_reason;
+  if (!in_scope_any) {
+    active_account_verdict = 'EXEMPT';
+    active_account_reason = 'Neither in-scope category (Art 7a(6)(a) EUR/PLN IRD, (b) EUR STIR) is declared as exceeding the clearing threshold, so the Article 7a(1) active-account obligation does not apply.';
+  } else if (!isBool(activeAccount.established)) {
+    active_account_verdict = 'INDETERMINATE';
+    active_account_reason = 'active_account.established was not declared as a boolean, so active-account status cannot be classified.';
+    rejected_inputs.push({ where: 'active_account.established', reason: 'absent or not boolean', supplied: activeAccount.established === undefined ? null : String(activeAccount.established) });
+  } else if (activeAccount.established === false) {
+    active_account_verdict = 'NOT_MET';
+    active_account_reason = 'The counterparty is in scope of Article 7a(1) and no active account is declared as established.';
+  } else if (!isBool(activeAccount.ccp_article14_authorised)) {
+    active_account_verdict = 'INDETERMINATE';
+    active_account_reason = 'An active account is declared established but whether the CCP is Article-14-authorised was not declared as a boolean.';
+    rejected_inputs.push({ where: 'active_account.ccp_article14_authorised', reason: 'absent or not boolean', supplied: activeAccount.ccp_article14_authorised === undefined ? null : String(activeAccount.ccp_article14_authorised) });
+  } else if (activeAccount.ccp_article14_authorised === false) {
+    active_account_verdict = 'NOT_MET';
+    active_account_reason = 'An active account is declared established, but the CCP holding it is declared NOT Article-14-authorised, so Article 7a(1) is not satisfied.';
+  } else {
+    active_account_verdict = 'MET';
+    active_account_reason = 'An active account is declared established at an Article-14-authorised CCP.';
+  }
+
+  var tradesIn = arr(pp.trades);
+  var trades = [];
+  var i;
+  for (i = 0; i < tradesIn.length; i++) {
+    var t = obj(tradesIn[i]);
+    var trade_id = str(t.trade_id, 'TRADE-' + (i + 1));
+    var clsSupplied = str(t.class, '');
+    var cls = CLASS_IDS.indexOf(clsSupplied) !== -1 ? clsSupplied : null;
+    if (cls === null) { rejected_inputs.push({ where: 'trades[' + i + '].class', reason: clsSupplied === '' ? 'absent' : ('not one of ' + CLASS_IDS.join(', ')), supplied: clsSupplied === '' ? null : clsSupplied }); continue; }
+    var def = CLASS_DEFS[cls];
+    var notionalMinor = null;
+    if (def.size_bounds_eur_millions !== null) {
+      notionalMinor = toIntField(t.trade_notional_minor_units, 'trades[' + i + '].trade_notional_minor_units', rejected_inputs);
+      if (notionalMinor === null) continue;
+    }
+    var maturityMonths = null;
+    if (def.maturity_bounds_months !== null) {
+      maturityMonths = toIntField(t.maturity_months, 'trades[' + i + '].maturity_months', rejected_inputs);
+      if (maturityMonths === null) continue;
+    }
+    var cleared = t.cleared === true;
+    var bucket_id = bucketIdForTrade({ class: cls, trade_notional_minor_units: notionalMinor, maturity_months: maturityMonths });
+    trades.push({ trade_id: trade_id, class: cls, category: def.category, trade_notional_minor_units: notionalMinor, maturity_months: maturityMonths, cleared: cleared, bucket_id: bucket_id });
+  }
+
+  var referencePeriodMonthsValid = isSafeIntAmount(pp.reference_period_months) && pp.reference_period_months > 0;
+  if (!referencePeriodMonthsValid) rejected_inputs.push({ where: 'reference_period_months', reason: 'absent or not a positive integer', supplied: pp.reference_period_months === undefined ? null : String(pp.reference_period_months) });
+
+  var bucketCounts = {};
+  for (i = 0; i < trades.length; i++) { if (trades[i].cleared) bucketCounts[trades[i].bucket_id] = (bucketCounts[trades[i].bucket_id] || 0) + 1; }
+
+  var designationsIn = arr(pp.subcategory_designations);
+  var designations = [];
+  for (i = 0; i < designationsIn.length; i++) {
+    var d = obj(designationsIn[i]);
+    var dClsSupplied = str(d.class, '');
+    var dCls = CLASS_IDS.indexOf(dClsSupplied) !== -1 ? dClsSupplied : null;
+    if (dCls === null) { rejected_inputs.push({ where: 'subcategory_designations[' + i + '].class', reason: 'not a recognised class', supplied: dClsSupplied === '' ? null : dClsSupplied }); continue; }
+    var bucket_id2 = str(d.bucket_id, null);
+    if (bucket_id2 === null) { rejected_inputs.push({ where: 'subcategory_designations[' + i + '].bucket_id', reason: 'absent', supplied: null }); continue; }
+    designations.push({ class: dCls, bucket_id: bucket_id2, most_relevant: d.most_relevant === true });
+  }
+
+  var inScopeCategories = [];
+  if (in_scope_eur_pln_ird) inScopeCategories.push('eur_pln_ird');
+  if (in_scope_eur_stir) inScopeCategories.push('eur_stir');
+  var inScopeClasses = CLASS_IDS.filter(function(c){ return inScopeCategories.indexOf(CLASS_DEFS[c].category) !== -1; });
+
+  var notionalVolumeDeclared = isSafeIntAmount(pp.notional_clearing_volume_minor_units);
+  var notional_clearing_volume_minor_units = notionalVolumeDeclared ? pp.notional_clearing_volume_minor_units : null;
+  if (!notionalVolumeDeclared && in_scope_any) rejected_inputs.push({ where: 'notional_clearing_volume_minor_units', reason: 'absent or not a safe integer', supplied: pp.notional_clearing_volume_minor_units === undefined ? null : String(pp.notional_clearing_volume_minor_units) });
+
+  var representativeness_verdict, representativeness_reason;
+  var subcategory_results = [];
+  if (!in_scope_any) {
+    representativeness_verdict = 'EXEMPT';
+    representativeness_reason = 'No in-scope category is declared as exceeding the clearing threshold, so the Article 7a(4) representativeness obligation does not apply.';
+  } else if (!notionalVolumeDeclared) {
+    representativeness_verdict = 'INDETERMINATE';
+    representativeness_reason = 'notional_clearing_volume_minor_units was not declared, so the EUR 6 billion Article 7a(4) threshold gate cannot be evaluated.';
+  } else if (notional_clearing_volume_minor_units < SIX_BILLION_EUR_MINOR_UNITS) {
+    representativeness_verdict = 'EXEMPT';
+    representativeness_reason = 'Declared notional clearing volume outstanding is below the EUR 6 billion Article 7a(4) threshold, so the representativeness obligation does not apply.';
+  } else {
+    var relevantDesignations = designations.filter(function(dd){ return dd.most_relevant && inScopeClasses.indexOf(dd.class) !== -1; });
+    if (relevantDesignations.length === 0) {
+      representativeness_verdict = 'INDETERMINATE';
+      representativeness_reason = 'The counterparty is above the EUR 6 billion threshold and in scope, but no most-relevant subcategory designations were declared for any in-scope class, so representativeness cannot be classified.';
+    } else if (!referencePeriodMonthsValid) {
+      representativeness_verdict = 'INDETERMINATE';
+      representativeness_reason = 'reference_period_months was not declared, so the annual-average trade count cannot be computed.';
+    } else {
+      var allMet = true;
+      for (i = 0; i < relevantDesignations.length; i++) {
+        var dd2 = relevantDesignations[i];
+        var rawCount = bucketCounts[dd2.bucket_id] || 0;
+        var annualizedCount = (rawCount * 12) / pp.reference_period_months;
+        var met = annualizedCount >= 5;
+        if (!met) allMet = false;
+        subcategory_results.push({ class: dd2.class, bucket_id: dd2.bucket_id, raw_trade_count: rawCount, reference_period_months: pp.reference_period_months, annualized_trade_count: annualizedCount, met: met, basis: 'Art 7a(4) EMIR: at least five cleared trades per most-relevant subcategory per class, on an annual average basis, per reference period.' });
+      }
+      representativeness_verdict = allMet ? 'MET' : 'NOT_MET';
+      representativeness_reason = allMet
+        ? ('Every declared most-relevant subcategory across the ' + inScopeClasses.filter(function(c){ return relevantDesignations.some(function(dd3){ return dd3.class === c; }); }).length + ' in-scope class(es) with a designation reaches an annualized average of at least five cleared trades.')
+        : 'At least one declared most-relevant subcategory falls below an annualized average of five cleared trades.';
+    }
+  }
+
+  var reportingSubmissionDate = pp.reporting_submission_date !== undefined && pp.reporting_submission_date !== null && pp.reporting_submission_date !== ''
+    ? parseIsoDate(pp.reporting_submission_date, 'reporting_submission_date', rejected_inputs) : null;
+
+  var reporting_verdict, reporting_reason;
+  var applicable_deadline = null, reference_period_start = null, reference_period_end = null;
+  if (as_of_date === null) {
+    reporting_verdict = 'INDETERMINATE';
+    reporting_reason = 'as_of_date was not a usable ISO date, so the applicable RTS Article 10 reporting deadline cannot be located.';
+  } else {
+    var firstAnchor = parseIsoDate(FIRST_REPORTING_DEADLINE, 'FIRST_REPORTING_DEADLINE', []);
+    var nextDeadline = lastDayOfJanOrJulOnOrAfter(as_of_date);
+    if (cmpDate(nextDeadline, firstAnchor) < 0) nextDeadline = firstAnchor;
+    applicable_deadline = nextDeadline.iso;
+    var priorDeadline = cmpDate(nextDeadline, firstAnchor) === 0 ? null : sixMonthsBefore(nextDeadline);
+    reference_period_start = priorDeadline ? priorDeadline.iso : REPORTING_DEADLINE_ANCHOR_ISO_DATE;
+    reference_period_end = applicable_deadline;
+
+    if (!in_scope_any) {
+      reporting_verdict = 'EXEMPT';
+      reporting_reason = 'No in-scope category is declared as exceeding the clearing threshold, so no RTS Article 10 reporting obligation applies.';
+    } else if (reportingSubmissionDate === null) {
+      reporting_verdict = 'INDETERMINATE';
+      reporting_reason = 'No reporting_submission_date was declared to check against the applicable deadline of ' + applicable_deadline + '.';
+    } else if (cmpDate(reportingSubmissionDate, nextDeadline) <= 0) {
+      reporting_verdict = 'MET';
+      reporting_reason = 'The declared submission date ' + reportingSubmissionDate.iso + ' is on or before the applicable RTS Article 10 deadline of ' + applicable_deadline + '.';
+    } else {
+      reporting_verdict = 'NOT_MET';
+      reporting_reason = 'The declared submission date ' + reportingSubmissionDate.iso + ' is after the applicable RTS Article 10 deadline of ' + applicable_deadline + '.';
+    }
+  }
+
+  var rationale = [];
+  rationale.push('EMIR Article 7a Active Account Requirement posture classified for counterparty reference ' + counterparty_ref + (as_of_date ? (' as of ' + as_of_date.iso) : '') + '.');
+  rationale.push('In-scope categories: EUR/PLN interest rate derivatives = ' + in_scope_eur_pln_ird + ', EUR short-term interest rate derivatives = ' + in_scope_eur_stir + ' (Article 7a(6)).');
+  rationale.push('Active-account obligation (Article 7a(1)): ' + active_account_verdict + '. ' + active_account_reason);
+  rationale.push('Representativeness obligation (Article 7a(4)): ' + representativeness_verdict + '. ' + representativeness_reason);
+  rationale.push('Reporting window (RTS Article 10): ' + reporting_verdict + '. ' + reporting_reason);
+  if (rejected_inputs.length > 0) rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as absent or excluded, never silently guessed toward a MET/EXEMPT verdict. Each one is named in rejected_inputs.');
+  rationale.push('This is not legal advice. The most-relevant subcategory designation per class is a caller-declared fact, not derived from market-wide data this kernel does not have access to; whether a trade genuinely cleared is likewise asserted, not independently verified.');
+
+  var compliance_flags = ['EMIR3_AAR_CLASSIFIED'];
+  compliance_flags.push('EMIR3_ACTIVE_ACCOUNT_' + active_account_verdict);
+  compliance_flags.push('EMIR3_REPRESENTATIVENESS_' + representativeness_verdict);
+  compliance_flags.push('EMIR3_REPORTING_' + reporting_verdict);
+  if ([active_account_verdict, representativeness_verdict, reporting_verdict].indexOf('NOT_MET') !== -1) compliance_flags.push('ESCALATION_RAISED');
+  if (rejected_inputs.length > 0) compliance_flags.push('EMIR3_AAR_INPUTS_REJECTED');
+
+  var output_payload = {
+    counterparty_ref: counterparty_ref, as_of_date: as_of_date ? as_of_date.iso : null,
+    in_scope: { eur_pln_ird: in_scope_eur_pln_ird, eur_stir: in_scope_eur_stir },
+    obligations: {
+      active_account: { verdict: active_account_verdict, reason: active_account_reason },
+      representativeness: { verdict: representativeness_verdict, reason: representativeness_reason, notional_clearing_volume_minor_units: notional_clearing_volume_minor_units, threshold_minor_units: SIX_BILLION_EUR_MINOR_UNITS, subcategory_results: subcategory_results },
+      reporting_window: { verdict: reporting_verdict, reason: reporting_reason, applicable_deadline: applicable_deadline, reference_period_start: reference_period_start, reference_period_end: reference_period_end, reporting_submission_date: reportingSubmissionDate ? reportingSubmissionDate.iso : null },
+    },
+    trades_classified: trades.map(function(t){ return { trade_id: t.trade_id, class: t.class, category: t.category, bucket_id: t.bucket_id, cleared: t.cleared }; }),
+    bucket_counts: bucketCounts,
+    subcategory_designations: designations,
+    rejected_inputs: rejected_inputs, citations: CITATIONS, rationale: rationale, not_proven: NOT_PROVEN,
+    fence: 'This is not legal advice and is not an ESMA or CCP determination. The most-relevant subcategory designation per class is taken as a caller-declared fact; this kernel does not compute it from market-wide data. Whether a declared trade genuinely cleared, and whether the counterparty genuinely exceeds the Article 4a clearing threshold, are asserted by the caller, not independently verified.',
+    note: 'Deterministic EMIR Article 7a Active Account Requirement posture classification for one stated point in time. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function parseJsonField(id, label){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  try { return JSON.parse(raw); }
+  catch(e){ alert('Invalid JSON in ' + label + ': ' + e.message); throw e; }
+}
+function selVal(id){ var v = document.getElementById(id).value; return v === 'unstated' ? undefined : (v === 'true'); }
+
+function loadOutOfScopeDemo(){
+  document.getElementById('threshIrd').value = 'false';
+  document.getElementById('threshStir').value = 'false';
+  document.getElementById('tradesJson').value = '[]';
+  document.getElementById('designationsJson').value = '[]';
+  runEmir3Classifier();
+}
+function loadIndeterminateDemo(){
+  document.getElementById('threshIrd').value = 'true';
+  document.getElementById('threshStir').value = 'false';
+  document.getElementById('acctEstablished').value = 'unstated';
+  document.getElementById('notionalVolume').value = '';
+  document.getElementById('reportingDate').value = '';
+  document.getElementById('tradesJson').value = '[]';
+  document.getElementById('designationsJson').value = '[]';
+  runEmir3Classifier();
+}
+
+async function runEmir3Classifier(){
+  var trades, designations;
+  try {
+    trades = parseJsonField('tradesJson', 'trades');
+    designations = parseJsonField('designationsJson', 'subcategory designations');
+  } catch(e){ return; }
+
+  var pp = {
+    counterparty_ref: document.getElementById('counterpartyRef').value || '',
+    as_of_date: document.getElementById('asOfDate').value || '',
+    clearing_threshold_exceeded: { eur_pln_ird: selVal('threshIrd'), eur_stir: selVal('threshStir') },
+    active_account: { established: selVal('acctEstablished'), ccp_name: document.getElementById('acctCcpName').value || '', ccp_article14_authorised: selVal('acctAuthorised') },
+    trades: trades === null ? [] : trades,
+    subcategory_designations: designations === null ? [] : designations,
+  };
+  var volRaw = document.getElementById('notionalVolume').value;
+  if (volRaw !== '') pp.notional_clearing_volume_minor_units = Number(volRaw);
+  var refRaw = document.getElementById('refPeriodMonths').value;
+  if (refRaw !== '') pp.reference_period_months = Number(refRaw);
+  var reportRaw = document.getElementById('reportingDate').value;
+  if (reportRaw !== '') pp.reporting_submission_date = reportRaw;
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+  var obl = op.obligations;
+
+  function colourFor(v){ return v === 'MET' ? 'var(--green)' : v === 'EXEMPT' ? 'var(--teal-lt)' : v === 'INDETERMINATE' ? 'var(--warn)' : 'var(--red)'; }
+  var vBox = document.getElementById('verdictBox');
+  var overall = [obl.active_account.verdict, obl.representativeness.verdict, obl.reporting_window.verdict].indexOf('NOT_MET') !== -1 ? 'NOT_MET'
+    : [obl.active_account.verdict, obl.representativeness.verdict, obl.reporting_window.verdict].indexOf('INDETERMINATE') !== -1 ? 'INDETERMINATE'
+    : [obl.active_account.verdict, obl.representativeness.verdict, obl.reporting_window.verdict].every(function(v){ return v === 'EXEMPT'; }) ? 'EXEMPT' : 'MET';
+  vBox.style.color = colourFor(overall); vBox.style.background = 'rgba(0,0,0,.15)'; vBox.style.border = '1px solid ' + colourFor(overall);
+  vBox.innerHTML = '<span class="badge ' + (obl.active_account.verdict==='MET'?'ok':obl.active_account.verdict==='NOT_MET'?'bad':obl.active_account.verdict==='EXEMPT'?'open':'warn') + '">ACTIVE ACCOUNT: ' + obl.active_account.verdict + '</span> '
+    + '<span class="badge ' + (obl.representativeness.verdict==='MET'?'ok':obl.representativeness.verdict==='NOT_MET'?'bad':obl.representativeness.verdict==='EXEMPT'?'open':'warn') + '">REPRESENTATIVENESS: ' + obl.representativeness.verdict + '</span> '
+    + '<span class="badge ' + (obl.reporting_window.verdict==='MET'?'ok':obl.reporting_window.verdict==='NOT_MET'?'bad':obl.reporting_window.verdict==='EXEMPT'?'open':'warn') + '">REPORTING: ' + obl.reporting_window.verdict + '</span>';
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.in_scope.eur_pln_ird ? 'yes' : 'no') + '</span><span class="stat-key">In scope EUR/PLN IRD</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.in_scope.eur_stir ? 'yes' : 'no') + '</span><span class="stat-key">In scope EUR STIR</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (obl.representativeness.notional_clearing_volume_minor_units === null ? 'unstated' : obl.representativeness.notional_clearing_volume_minor_units) + '</span><span class="stat-key">Notional volume (minor units)</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (obl.reporting_window.applicable_deadline || 'n/a') + '</span><span class="stat-key">Applicable RTS Art 10 deadline</span></div>';
+
+  document.getElementById('tradesDiv').innerHTML = op.trades_classified.length
+    ? op.trades_classified.map(function(t){ return '<div class="kv"><span class="kv-k">' + t.trade_id + ' &middot; ' + t.class + '</span><span class="kv-v">' + t.bucket_id + (t.cleared ? ' <span class="badge ok">CLEARED</span>' : ' <span class="badge warn">NOT CLEARED</span>') + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">No trades supplied</span><span class="kv-v">nothing to bucket</span></div>';
+
+  document.getElementById('subcatDiv').innerHTML = obl.representativeness.subcategory_results.length
+    ? obl.representativeness.subcategory_results.map(function(s){ return '<div class="kv"><span class="kv-k">' + s.class + ' &middot; ' + s.bucket_id + '</span><span class="kv-v">' + s.raw_trade_count + ' trade(s) / ' + s.reference_period_months + 'mo &rarr; annualized ' + s.annualized_trade_count.toFixed(2) + ' <span class="badge ' + (s.met ? 'ok' : 'bad') + '">' + (s.met ? 'MEETS 5' : 'BELOW 5') + '</span></span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">No designated subcategories evaluated</span><span class="kv-v">' + obl.representativeness.reason + '</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){ return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_mandate',tool_id:'art-576-emir3-active-account-representativeness-classifier',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-576-emir3-active-account-representativeness-classifier.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
