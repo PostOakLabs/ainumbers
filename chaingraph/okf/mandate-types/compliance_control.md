@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-44"]
+tags: ["compliance_control", "count-48"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-44 tool(s) in this mandate-type group:
+48 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -56,3 +56,7 @@ status: stable
 - [QFC Part 371 Recordkeeping File Validator](../tools/art-537-qfc-recordkeeping-file-validator.md)
 - [Custody Segregation Ratio](../tools/art-538-custody-segregation-ratio.md)
 - [Asset/Liability Coverage](../tools/art-539-asset-liability-coverage.md)
+- [IOLTA Three-Way Trust Reconciliation](../tools/art-566-iolta-three-way-reconciliation.md)
+- [Muni Arbitrage Spending-Exception Checker](../tools/art-569-muni-arbitrage-spending-exception-checker.md)
+- [UCP 600 / ISBP 745 Document Examination Assembler](../tools/art-570-ucp600-document-examination-assembler.md)
+- [Lease Schedule Recompute — ASC 842 / IFRS 16](../tools/art-571-lease-schedule-recompute-asc842-ifrs16.md)

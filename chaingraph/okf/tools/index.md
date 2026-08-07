@@ -502,7 +502,16 @@ status: stable
 - [Swift MT9xx to camt Statement Migration Mapper](./art-563-mt9xx-camt-statement-migration-mapper.md) — `map_mt9xx_to_camt`
 - [UCP Checkout Payload Lint](./art-564-ucp-checkout-payload-lint.md) — `lint_ucp_checkout_payload`
 - [KYA Credential x x402 Payload Scope Verifier](./art-565-kya-x402-scope-verifier.md) — `verify_kya_x402_scope`
+- [IOLTA Three-Way Trust Reconciliation](./art-566-iolta-three-way-reconciliation.md) — `check_iolta_three_way_reconciliation`
+- [PE Distribution Waterfall LP-Side Recompute](./art-567-pe-waterfall-lp-recompute.md) — `recompute_pe_waterfall_lp`
+- [Securitization Trustee-Report Waterfall Recomputation](./art-568-securitization-trustee-report-recompute.md) — `recompute_trustee_report_waterfall`
+- [Muni Arbitrage Spending-Exception Checker](./art-569-muni-arbitrage-spending-exception-checker.md) — `check_muni_arbitrage_spending_exception`
 - [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md) — `validate_deposit_token_compliance`
+- [UCP 600 / ISBP 745 Document Examination Assembler](./art-570-ucp600-document-examination-assembler.md) — `examine_lc_document_presentation`
+- [Lease Schedule Recompute — ASC 842 / IFRS 16](./art-571-lease-schedule-recompute-asc842-ifrs16.md) — `recompute_lease_schedule_asc842_ifrs16`
+- [Multi-Garnishment Stacking Recomputation](./art-572-multi-garnishment-stacking-recompute.md) — `recompute_garnishment_stack`
+- [Section 16(b) Short-Swing Profit Recomputation](./art-573-section16b-short-swing-profit-recompute.md) — `recompute_section16b_profit`
+- [Certified Payroll / Prevailing Wage Recomputation](./art-574-certified-payroll-prevailing-wage-recompute.md) — `recompute_certified_payroll_pwa`
 - [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md) — `validate_cross_network_settlement`
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`

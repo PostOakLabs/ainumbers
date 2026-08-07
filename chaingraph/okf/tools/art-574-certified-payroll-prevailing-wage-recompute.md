@@ -1,0 +1,37 @@
+---
+type: DecisionTool
+title: "Certified Payroll / Prevailing Wage Recomputation"
+description: "Recomputes, for one stated certified-payroll week, whether each worker on a caller-declared payroll was paid at or above the wage-determination rate for their classification, with Contract Work Hours and Safety Standards Act overtime applied at time-and-a-half on the basic hourly rate and fringe due straight-time for every hour. A prime contractor verifying a subcontractor's weekly payroll and a Section 6418 credit-transferee or tax-equity investor diligencing a developer's prevailing-wage math before purchasing transferred credits can run the identical arithmetic; neither side is privileged. Where a submitted certified payroll is also supplied, the recomputed required gross for each worker, derived here from the wage determination and declared hours rather than lifted from the submission, is compared against it field by field. In PWA mode, any deficiency found triggers an IRC Section 45(b)(7)-(8) correction-payment and penalty computation re-verified against primary text at build: the wage-differential component of the correction is tripled on a declared intentional disregard, interest accrues at the Section 6621 underpayment rate with six percentage points substituted for three, and the penalty is five thousand dollars per underpaid worker for the stated period, ten thousand on intentional disregard, with annual aggregation across periods left to the caller since this kernel is single-run and stateless. An optional apprentice-ratio check compares a declared permitted ratio against declared journeyman and apprentice counts without a bundled fifty-state or program table and without reassigning excess-apprentice hours to the journeyman rate, both named in the artifact's not_proven list. The verdict is MATCHES, DIVERGES, or INDETERMINATE, and INDETERMINATE covers an empty wage determination, an empty payroll, a payroll row whose classification is not found in the wage determination, and a run where no submitted certified payroll was supplied to compare against; none of these cases is guessed toward agreement. Money is fixed point in integer minor units throughout with two-decimal display. Cites the Davis-Bacon Act at 40 U.S.C. Section 3141 and following, 29 CFR Part 5, the Contract Work Hours and Safety Standards Act at 40 U.S.C. Section 3701 and following, IRC Section 45(b)(7)-(8) and its final regulations, and DOL Form WH-347, each dated for re-verification against primary text; no WH-347 expiration or sunset date is encoded because research turned up conflicting secondary-source dates. Stated boundary: this is not tax or legal advice, and a divergence against a submitted payroll is an arithmetic finding about the wage determination and hours supplied here, never a determination that any classification, hours, or correction figure is legally or factually correct."
+resource: https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html
+tags: ["analytics_mandate", "wave-97", "mcp:recompute_certified_payroll_pwa"]
+timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-574-certified-payroll-prevailing-wage-recompute.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html
+    title: "public tool page"
+---
+
+# Certified Payroll / Prevailing Wage Recomputation
+
+> Exports a decision via MCP `recompute_certified_payroll_pwa` — mandate type `analytics_mandate`.
+
+## Inputs
+
+Typed `inputSchema` — see [tool page](https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html).
+
+## Outputs
+
+A hash-anchored OpenChainGraph artifact (decision, not context).
+
+## Chains
+
+**Consumes:** _none (root node)_
+
+**Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-574-certified-payroll-prevailing-wage-recompute.md) — §10.2.

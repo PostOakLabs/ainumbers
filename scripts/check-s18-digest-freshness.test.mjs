@@ -282,9 +282,21 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // denominator and fresh each move by exactly 3; the stale count does not move.
   // Measured both sides, not assumed: 402/535 fresh + 133 stale before this row's merge base,
   // 405/538 fresh + 133 stale after.
-  assert(total === 538, `expected 538 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 405, `expected 405 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by NEXTSUGG-ASSEMBLE-LAND-1), got ${stale.length}`);
+  // 538 -> 547 post-RECOMP-ASSEMBLE-LAND-1 (2026-08-07): landed the nine RECOMP nodes -- art-566
+  // (iolta-three-way-reconciliation), art-567 (pe-waterfall-lp-recompute), art-568
+  // (securitization-trustee-report-recompute), art-569 (muni-arbitrage-spending-exception-checker),
+  // art-570 (ucp600-document-examination-assembler), art-571 (lease-schedule-recompute-asc842-ifrs16),
+  // art-572 (multi-garnishment-stacking-recompute), art-573 (section16b-short-swing-profit-recompute)
+  // and art-574 (certified-payroll-prevailing-wage-recompute) -- each carrying a groth16 compute_proof
+  // from RECOMP-PROVE-1 (eight via PR #1014, art-567 via PR #988 commit 58eed7e1), every run
+  // VERIFY_PASS with KROOT pinned per node. All nine enter the FRESH set by construction --
+  // compute_proof_ready:'ready' with no prior receipt on main -- so denominator and fresh each move by
+  // exactly 9; the stale count does not move.
+  // Measured both sides, not assumed: 405/538 fresh + 133 stale before this row's merge base,
+  // 414/547 fresh + 133 stale after.
+  assert(total === 547, `expected 547 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 414, `expected 414 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by RECOMP-ASSEMBLE-LAND-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
