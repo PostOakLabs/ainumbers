@@ -1,0 +1,81 @@
+{
+  "tool_id": "art-584-proof-of-reserves-verifier",
+  "version": "1.0.0",
+  "title": "Proof-of-Reserves Verifier",
+  "description": "Independently recomputes an exchange or custodian's published Proof-of-Reserves data: a single-leaf Merkle-sum inclusion path, a liability-side Merkle-sum branch aggregation, and a coverage ratio between the two recomputed sums, with an optional cross-check against a caller-declared published reserve figure. Emits a per-check finding (reserve_inclusion, liability_aggregation, coverage_ratio) plus an overall CONSISTENT, INCONSISTENT, or INDETERMINATE determination. Generic Merkle-sum schema only; named-exchange export formats are a documented field-mapping reference in the page copy, not a standing per-exchange adapter. CONSISTENT never implies solvency, audit assurance, or that the underlying published figures are truthful, only that what was published is internally consistent with itself.",
+  "category": "exchange-custody-and-reserve-assurance",
+  "tags": [
+    "compliance_mandate",
+    "proof-of-reserves",
+    "merkle-sum",
+    "exchange-assurance",
+    "custody"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "reserve_proof": {
+        "type": ["object", "null"],
+        "properties": {
+          "leaf_user_id_hash": { "type": "string" },
+          "leaf_balance": { "type": "number" },
+          "path": { "type": "array", "items": { "type": "object", "properties": { "hash": { "type": "string" }, "sum": { "type": "number" }, "position": { "type": "string", "enum": ["left", "right"] } } } },
+          "root": { "type": "object", "properties": { "hash": { "type": "string" }, "sum": { "type": "number" } } }
+        }
+      },
+      "liability_branch": {
+        "type": ["object", "null"],
+        "properties": {
+          "leaf_label": { "type": "string" },
+          "leaf_sum": { "type": "number" },
+          "path": { "type": "array", "items": { "type": "object", "properties": { "hash": { "type": "string" }, "sum": { "type": "number" }, "position": { "type": "string", "enum": ["left", "right"] } } } },
+          "root": { "type": "object", "properties": { "hash": { "type": "string" }, "sum": { "type": "number" } } }
+        }
+      },
+      "published_reserve_figures": {
+        "type": ["object", "null"],
+        "properties": {
+          "total_reserves_usd": { "type": "number" },
+          "as_of": { "type": "string" },
+          "source": { "type": "string" }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "verify_proof_of_reserves_consistency",
+    "description": "Recompute a single-leaf Merkle-sum reserve inclusion path and a liability-side Merkle-sum branch aggregation from PUBLISHED PoR data, cross-check a coverage ratio against a caller-declared published reserve figure, and return a per-check finding plus an overall CONSISTENT / INCONSISTENT / INDETERMINATE determination. Generic Merkle-sum schema only, never implies solvency.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "reserve_proof": { "type": ["object", "null"] },
+        "liability_branch": { "type": ["object", "null"] },
+        "published_reserve_figures": { "type": ["object", "null"] }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-584-proof-of-reserves-verifier.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "overall_determination": { "type": "string", "enum": ["CONSISTENT", "INCONSISTENT", "INDETERMINATE"] },
+      "findings": { "type": "array", "items": { "type": "object", "properties": { "check": { "type": "string" }, "verdict": { "type": "string" }, "detail": { "type": "string" } } } },
+      "computed_reserve_root": { "type": ["object", "null"] },
+      "declared_reserve_root": { "type": ["object", "null"] },
+      "computed_liability_root": { "type": ["object", "null"] },
+      "declared_liability_root": { "type": ["object", "null"] },
+      "coverage_ratio_pct": { "type": ["number", "null"] },
+      "reserve_figure_cross_check": { "type": ["object", "null"] },
+      "not_proven": { "type": "array", "items": { "type": "object", "properties": { "item": { "type": "string" }, "detail": { "type": "string" } } } },
+      "determination_note": { "type": "string" },
+      "regulatory_framework": { "type": "string" }
+    }
+  },
+  "source": "authored directly against EDGE-WAVE-BUILD-SPEC.md §3 by EDGE-POR-1 (2026-08-07); output_schema derived by running the kernel's own compute() against all 7 fixture vectors in chaingraph/kernels/fixtures/art-584-proof-of-reserves-verifier.fixtures.json -- shape confirmed by inspection of live output. tags/category mirror art-280/art-540's own adjudication (exchange/custody/reserve-assurance family); cross-links art-280-reserve-proof-verifier (single-leaf inclusion only) and art-540-por-liabilities-composer (composes a pre-verified boolean rather than recomputing both sides)."
+}
