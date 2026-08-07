@@ -13,7 +13,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NAV_REQUIRED_TOKENS, FOOTER_REQUIRED_TOKENS, CSS_MARKER } from '../chaingraph/_page-chrome.mjs';
+import { NAV_REQUIRED_TOKENS, FOOTER_REQUIRED_TOKENS, CSS_MARKER, SPEC_VERSION } from '../chaingraph/_page-chrome.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
@@ -74,6 +74,11 @@ for (const filename of files) {
     if (!ftrBlock.includes(tok)) {
       failures.push(`${filename}: footer missing "${tok}"`);
     }
+  }
+
+  // ── footer spec-version label must track chaingraph.json's spec_version (the record) ──
+  if (!ftrBlock.includes(`Spec v${SPEC_VERSION}`)) {
+    failures.push(`${filename}: footer "Spec v" label stale — expected v${SPEC_VERSION}, run normalize-node-chrome.mjs --apply`);
   }
 
   // ── CSS marker ──
