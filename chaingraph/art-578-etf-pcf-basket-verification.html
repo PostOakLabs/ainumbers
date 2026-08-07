@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ETF PCF Create/Redeem Basket Verification &middot; ART-578 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes what an AP's ETF create/redeem basket should contain against the fund's daily Portfolio Composition File and diffs it against the assembled basket, including cash-in-lieu substitution and balancing-amount arithmetic. Verdict MATCHES, DIVERGES, or INDETERMINATE.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-578-etf-pcf-basket-verification.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:120px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-578 · ETF PCF Create/Redeem Basket Verification</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-578 &middot; Capital Markets &amp; Clearing</div>
+  <h1>ETF PCF Create/Redeem Basket Verification</h1>
+  <p class="sub">Recomputes what an authorized participant's assembled create/redeem basket should contain against the fund's daily Portfolio Composition File (PCF), for a declared number of creation units, and diffs it against what was actually assembled: per-line quantity (in kind or via a declared cash-in-lieu substitution), and the total cash balancing amount.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Recompute &middot; caller-declared PCF and basket only</span>
+    <span class="flag info">Cash-in-lieu shortfall must be declared, never assumed</span>
+    <span class="flag">Verdict: MATCHES &middot; DIVERGES &middot; INDETERMINATE</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Not legal, accounting, or investment advice. Performs arithmetic only over the PCF and basket you supply; it does not source, fetch, or independently verify any fund's actual PCF, and does not price securities. DTCC's ETF Processing service (Fund/SERV, over NSCC) settles AP baskets against the daily PCF; no DTCC endorsement of this tool is implied or claimed.</div>
+
+  <div class="card">
+    <div class="section-head">Transaction &amp; creation-unit parameters</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo values below are synthetic and already loaded, so you can press Run without entering anything of your own.</p>
+    <div class="grid3">
+      <div><label class="fld">Transaction type</label><select id="txnType"><option value="create" selected>create</option><option value="redeem">redeem</option></select></div>
+      <div><label class="fld">Units requested</label><input type="number" id="unitsRequested" value="1"></div>
+      <div><label class="fld">Creation unit size (shares)</label><input type="number" id="creationUnitSize" value="50000"></div>
+    </div>
+    <div class="grid3">
+      <div><label class="fld">PCF as-of date</label><input type="text" id="pcfAsOf" value="2026-08-07"></div>
+      <div><label class="fld">PCF balancing amount per unit (minor units)</label><input type="number" id="balancingAmount" value="15000"></div>
+      <div><label class="fld">Cash tolerance (minor units)</label><input type="number" id="cashTolerance" value="100"></div>
+    </div>
+
+    <label class="fld" style="margin-top:14px">PCF lines (JSON array: security_id, name, quantity_per_unit)</label>
+    <textarea id="pcfLinesJson">[
+  { "security_id": "US0378331005", "name": "Issuer A common stock", "quantity_per_unit": 500 },
+  { "security_id": "US5949181045", "name": "Issuer B common stock", "quantity_per_unit": 300 },
+  { "security_id": "US4592001014", "name": "Issuer C common stock", "quantity_per_unit": 200 }
+]</textarea>
+
+    <label class="fld" style="margin-top:14px">Assembled basket lines (JSON array: security_id, quantity)</label>
+    <textarea id="basketLinesJson">[
+  { "security_id": "US0378331005", "quantity": 500 },
+  { "security_id": "US5949181045", "quantity": 300 },
+  { "security_id": "US4592001014", "quantity": 200 }
+]</textarea>
+
+    <label class="fld" style="margin-top:14px">Cash-in-lieu substitutions (JSON array: security_id, shortfall_quantity, substitution_price_minor)</label>
+    <textarea id="cilJson">[]</textarea>
+
+    <div class="grid2" style="margin-top:14px">
+      <div><label class="fld">Cash deposited by AP (minor units)</label><input type="number" id="cashDeposited" value="15000"></div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Verification</button>
+      <button class="ghost" onclick="loadDivergesDemo()">Load cash-in-lieu + mismatch demo</button>
+      <button class="ghost" onclick="loadIndeterminateDemo()">Load missing-tolerance demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Per-line results</div>
+      <div id="linesDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Cash balancing</div>
+      <div id="cashDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Findings</div>
+      <div id="findingsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not source, fetch, or independently verify any fund's actual daily PCF, does not price securities, and does not determine which lines are eligible for cash-in-lieu treatment; the substitution price per line is a declared input, the same way a custodian's basket-composition worksheet already carries it. It is not investment, legal, or accounting advice; a DIVERGES verdict is a citable arithmetic finding for the AP, its custodian, and the fund's transfer agent to reconcile.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">The shipped fund-NAV verification pack recomputes a fund's net asset value per share from its declared holdings and liabilities. This node is distinct: it verifies an authorized participant's in-kind basket (securities plus a cash balancing amount) against the daily Portfolio Composition File, not the fund's NAV; cross-link, do not duplicate.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-578-etf-pcf-basket-verification',
+  version: '1.0.0',
+  mcp_name: 'verify_etf_pcf_basket',
+  title: 'ETF PCF Create/Redeem Basket Verification',
+  description: 'Recomputes what an ETF create/redeem basket should contain against the daily Portfolio Composition File (per-line quantity, cash-in-lieu substitution, balancing-amount arithmetic) and diffs it against the assembled basket. Verdict MATCHES | DIVERGES | INDETERMINATE.',
+  spec_version: '0.8.13',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'verify_etf_pcf_basket',
+    description: 'Recomputes and verifies an ETF authorized-participant create/redeem basket against the daily Portfolio Composition File.',
+    inputSchema: { type: 'object', properties: {
+      cash_tolerance_minor: {type:'integer'}, transaction_type: {type:'string'}, units_requested: {type:'integer'},
+      creation_unit_size: {type:'integer'}, pcf: {type:'object'}, basket: {type:'object'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-578-etf-pcf-basket-verification.kernel.mjs --- */
+var MAX_LINES = 100, MAX_CIL = 50;
+var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function s(v){ return String(v == null ? '' : v).trim(); }
+function safeInt(v){
+  if (typeof v === 'number' && Number.isSafeInteger(v)) return v;
+  if (typeof v === 'string' && v.trim() !== ''){ var n = Number(v); if (Number.isSafeInteger(n)) return n; }
+  return null;
+}
+function posInt(v){ var n = safeInt(v); return n !== null && n > 0 ? n : null; }
+function absN(n){ return n < 0 ? -n : n; }
+function isDate(v){ return typeof v === 'string' && DATE_RE.test(v); }
+
+var SCOPE_NOTE = 'Performs arithmetic only over a caller-declared Portfolio Composition File and a caller-declared assembled basket. Does not source, derive, or independently verify the PCF, does not price securities, and does not determine which lines are cash-in-lieu-eligible.';
+var CLAUSE_NOTE = "DTCC's ETF Processing service (Fund/SERV, over NSCC) settles authorized-participant creation/redemption baskets against the fund's daily Portfolio Composition File. This kernel performs the per-line and balancing-amount reconciliation an AP or its custodian already runs against that PCF. No DTCC endorsement of this tool is implied or claimed.";
+
+function emptyResult(reason, extra, flags){
+  return { output_payload: {
+    decision: { gate_policy: 'review_required', execution_state: 'did_not_run', reason: reason },
+    verdict: 'INDETERMINATE',
+    transaction_type: (extra && extra.transaction_type) || null,
+    units_requested: (extra && extra.units_requested) || null,
+    creation_unit_size: (extra && extra.creation_unit_size) || null,
+    pcf_as_of: (extra && extra.pcf_as_of) || null,
+    cash_tolerance_minor: (extra && typeof extra.cash_tolerance_minor === 'number') ? extra.cash_tolerance_minor : null,
+    line_count: (extra && typeof extra.line_count === 'number') ? extra.line_count : 0,
+    line_results: [], cash_in_lieu_total_minor: null, expected_cash_minor: null,
+    cash_deposited_minor: (extra && typeof extra.cash_deposited_minor === 'number') ? extra.cash_deposited_minor : null,
+    cash_delta_minor: null, cash_matches: null, findings: [],
+    rejected_inputs: (extra && extra.rejected_inputs) || [], scope_note: SCOPE_NOTE, clause_note: CLAUSE_NOTE,
+  }, compliance_flags: flags };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+
+  var tolDeclared = pp.cash_tolerance_minor !== undefined && pp.cash_tolerance_minor !== null && pp.cash_tolerance_minor !== '';
+  var cash_tolerance_minor = tolDeclared ? safeInt(pp.cash_tolerance_minor) : null;
+  if (!tolDeclared){
+    rejected_inputs.push({ where: 'cash_tolerance_minor', reason: 'absent -- a cash tolerance must be declared, never defaulted', supplied: null });
+    return emptyResult('cash_tolerance_not_declared', { rejected_inputs: rejected_inputs }, ['ETFPCF_TOLERANCE_NOT_DECLARED']);
+  }
+  if (cash_tolerance_minor === null || cash_tolerance_minor < 0){
+    rejected_inputs.push({ where: 'cash_tolerance_minor', reason: 'not a non-negative safe integer number of minor units', supplied: typeof pp.cash_tolerance_minor === 'number' ? pp.cash_tolerance_minor : s(pp.cash_tolerance_minor) });
+    return emptyResult('cash_tolerance_not_declared', { rejected_inputs: rejected_inputs }, ['ETFPCF_TOLERANCE_NOT_DECLARED']);
+  }
+
+  var transaction_type = (pp.transaction_type === 'create' || pp.transaction_type === 'redeem') ? pp.transaction_type : null;
+  if (!transaction_type) rejected_inputs.push({ where: 'transaction_type', reason: "must be 'create' or 'redeem'", supplied: pp.transaction_type === undefined ? null : s(pp.transaction_type) });
+
+  var units_requested = posInt(pp.units_requested);
+  if (units_requested === null) rejected_inputs.push({ where: 'units_requested', reason: 'absent or not a positive safe integer', supplied: pp.units_requested === undefined ? null : s(pp.units_requested) });
+
+  var creation_unit_size = posInt(pp.creation_unit_size);
+  if (creation_unit_size === null) rejected_inputs.push({ where: 'creation_unit_size', reason: 'absent or not a positive safe integer', supplied: pp.creation_unit_size === undefined ? null : s(pp.creation_unit_size) });
+
+  var pcfIn = (pp.pcf && typeof pp.pcf === 'object') ? pp.pcf : {};
+  var pcf_as_of = isDate(pcfIn.as_of) ? pcfIn.as_of : null;
+  if (!pcf_as_of) rejected_inputs.push({ where: 'pcf.as_of', reason: 'absent or not YYYY-MM-DD', supplied: pcfIn.as_of === undefined ? null : s(pcfIn.as_of) });
+
+  var balancing_amount_per_unit_minor = safeInt(pcfIn.balancing_amount_per_unit_minor);
+  if (balancing_amount_per_unit_minor === null) rejected_inputs.push({ where: 'pcf.balancing_amount_per_unit_minor', reason: 'absent or not an integer number of minor units', supplied: null });
+
+  var pcfLinesIn = Array.isArray(pcfIn.lines) ? pcfIn.lines.slice(0, MAX_LINES) : [];
+  var pcfLines = [], seenSec = {};
+  for (var i = 0; i < pcfLinesIn.length; i++){
+    var row = pcfLinesIn[i] || {};
+    var security_id = s(row.security_id);
+    var name = s(row.name);
+    var quantity_per_unit = posInt(row.quantity_per_unit);
+    if (!security_id){ rejected_inputs.push({ where: 'pcf.lines[' + i + '].security_id', reason: 'absent', supplied: null }); continue; }
+    if (seenSec[security_id]){ rejected_inputs.push({ where: 'pcf.lines[' + i + '].security_id', reason: 'duplicate security_id', supplied: security_id }); continue; }
+    if (quantity_per_unit === null){ rejected_inputs.push({ where: 'pcf.lines[' + i + '].quantity_per_unit', reason: 'absent or not a positive safe integer', supplied: security_id }); continue; }
+    seenSec[security_id] = true;
+    pcfLines.push({ security_id: security_id, name: name, quantity_per_unit: quantity_per_unit });
+  }
+  if (pcfLinesIn.length > MAX_LINES) rejected_inputs.push({ where: 'pcf.lines', reason: 'more than ' + MAX_LINES + ' PCF lines supplied', supplied: pcfLinesIn.length });
+  if (pcfLines.length === 0) rejected_inputs.push({ where: 'pcf.lines', reason: 'absent or empty -- at least one PCF line is required', supplied: null });
+
+  var basketIn = (pp.basket && typeof pp.basket === 'object') ? pp.basket : {};
+  var cash_deposited_minor = safeInt(basketIn.cash_deposited_minor);
+  if (cash_deposited_minor === null) rejected_inputs.push({ where: 'basket.cash_deposited_minor', reason: 'absent or not an integer number of minor units', supplied: null });
+
+  var basketLinesIn = Array.isArray(basketIn.lines) ? basketIn.lines.slice(0, MAX_LINES) : [];
+  var basketQty = {}, basketExtras = [], basketSeen = {};
+  for (var bi = 0; bi < basketLinesIn.length; bi++){
+    var brow = basketLinesIn[bi] || {};
+    var bsec = s(brow.security_id);
+    var qty = safeInt(brow.quantity);
+    if (!bsec || qty === null || qty < 0){
+      rejected_inputs.push({ where: 'basket.lines[' + bi + ']', reason: 'security_id required, quantity a non-negative integer', supplied: bsec || null });
+      continue;
+    }
+    if (basketSeen[bsec]){ rejected_inputs.push({ where: 'basket.lines[' + bi + '].security_id', reason: 'duplicate security_id', supplied: bsec }); continue; }
+    basketSeen[bsec] = true;
+    basketQty[bsec] = qty;
+    if (!seenSec[bsec]) basketExtras.push(bsec);
+  }
+
+  var cilIn = Array.isArray(basketIn.cash_in_lieu) ? basketIn.cash_in_lieu.slice(0, MAX_CIL) : [];
+  var cilBySecurity = {}, cilRows = [];
+  for (var ci = 0; ci < cilIn.length; ci++){
+    var crow = cilIn[ci] || {};
+    var csec = s(crow.security_id);
+    var shortfall_quantity = safeInt(crow.shortfall_quantity);
+    var substitution_price_minor = safeInt(crow.substitution_price_minor);
+    if (!csec || shortfall_quantity === null || shortfall_quantity <= 0 || substitution_price_minor === null || substitution_price_minor < 0){
+      rejected_inputs.push({ where: 'basket.cash_in_lieu[' + ci + ']', reason: 'security_id required, shortfall_quantity a positive integer, substitution_price_minor a non-negative integer', supplied: csec || null });
+      continue;
+    }
+    if (cilBySecurity[csec]){ rejected_inputs.push({ where: 'basket.cash_in_lieu[' + ci + '].security_id', reason: 'duplicate security_id', supplied: csec }); continue; }
+    var value_minor = shortfall_quantity * substitution_price_minor;
+    cilBySecurity[csec] = { shortfall_quantity: shortfall_quantity, substitution_price_minor: substitution_price_minor, value_minor: value_minor };
+    cilRows.push({ security_id: csec, shortfall_quantity: shortfall_quantity, substitution_price_minor: substitution_price_minor, value_minor: value_minor });
+  }
+  if (cilIn.length > MAX_CIL) rejected_inputs.push({ where: 'basket.cash_in_lieu', reason: 'more than ' + MAX_CIL + ' cash-in-lieu rows supplied', supplied: cilIn.length });
+
+  var requiredMissing = !transaction_type || units_requested === null || creation_unit_size === null
+    || !pcf_as_of || balancing_amount_per_unit_minor === null || pcfLines.length === 0 || cash_deposited_minor === null;
+  if (requiredMissing){
+    return emptyResult('required_inputs_incomplete', {
+      transaction_type: transaction_type, units_requested: units_requested, creation_unit_size: creation_unit_size,
+      pcf_as_of: pcf_as_of, cash_tolerance_minor: cash_tolerance_minor, line_count: pcfLines.length,
+      cash_deposited_minor: cash_deposited_minor, rejected_inputs: rejected_inputs,
+    }, ['ETFPCF_REQUIRED_INPUTS_INCOMPLETE']);
+  }
+
+  var line_results = [], findings = [], cash_in_lieu_total_minor = 0;
+
+  for (var li = 0; li < pcfLines.length; li++){
+    var line = pcfLines[li];
+    var expected_quantity = line.quantity_per_unit * units_requested;
+    var delivered_quantity = basketQty.hasOwnProperty(line.security_id) ? basketQty[line.security_id] : 0;
+    var cil = cilBySecurity[line.security_id] || null;
+    var substituted_quantity = cil ? cil.shortfall_quantity : 0;
+    var covered_quantity = delivered_quantity + substituted_quantity;
+    var line_matches = covered_quantity === expected_quantity;
+    if (cil) cash_in_lieu_total_minor += cil.value_minor;
+
+    if (!line_matches){
+      findings.push({ code: 'LINE_QUANTITY_MISMATCH', severity: 'high', security_id: line.security_id,
+        message: 'Security ' + line.security_id + ' expected ' + expected_quantity + ' (delivered ' + delivered_quantity + ' + cash-in-lieu ' + substituted_quantity + ' = ' + covered_quantity + ').' });
+    } else if (cil && delivered_quantity === expected_quantity){
+      findings.push({ code: 'CASH_IN_LIEU_UNNEEDED', severity: 'warning', security_id: line.security_id, message: 'Security ' + line.security_id + ' was fully delivered in kind; the declared cash-in-lieu substitution was not needed.' });
+    }
+
+    line_results.push({ security_id: line.security_id, name: line.name, expected_quantity: expected_quantity,
+      delivered_quantity: delivered_quantity, substituted_quantity: substituted_quantity, covered_quantity: covered_quantity,
+      matches: line_matches, cash_in_lieu_value_minor: cil ? cil.value_minor : 0 });
+  }
+
+  for (var ei = 0; ei < basketExtras.length; ei++){
+    findings.push({ code: 'LINE_EXTRA_IN_BASKET', severity: 'high', security_id: basketExtras[ei], message: 'Security ' + basketExtras[ei] + ' was delivered in the basket but is not a PCF line.' });
+  }
+  for (var cri = 0; cri < cilRows.length; cri++){
+    if (!seenSec[cilRows[cri].security_id]){
+      findings.push({ code: 'CASH_IN_LIEU_NOT_A_PCF_LINE', severity: 'high', security_id: cilRows[cri].security_id, message: 'Cash-in-lieu declared for ' + cilRows[cri].security_id + ', which is not a PCF line.' });
+    }
+  }
+
+  var expected_balancing_total_minor = balancing_amount_per_unit_minor * units_requested;
+  var expected_cash_minor = expected_balancing_total_minor + cash_in_lieu_total_minor;
+  var cash_delta_minor = cash_deposited_minor - expected_cash_minor;
+  var cash_matches = absN(cash_delta_minor) <= cash_tolerance_minor;
+  if (!cash_matches){
+    findings.push({ code: 'BALANCING_CASH_MISMATCH', severity: 'high',
+      message: 'Expected cash ' + expected_cash_minor + ' minor units (balancing ' + expected_balancing_total_minor + ' + cash-in-lieu ' + cash_in_lieu_total_minor + '); deposited ' + cash_deposited_minor + '; delta ' + cash_delta_minor + '.' });
+  }
+
+  var hasHigh = findings.some(function(f){ return f.severity === 'high'; });
+  var verdict = hasHigh ? 'DIVERGES' : 'MATCHES';
+  var gate_policy = hasHigh ? 'review_required' : 'auto_pass';
+
+  var compliance_flags = ['ETFPCF_BASKET_EVALUATED'];
+  if (findings.some(function(f){ return f.code === 'LINE_QUANTITY_MISMATCH'; })) compliance_flags.push('ETFPCF_LINE_QUANTITY_MISMATCH');
+  if (findings.some(function(f){ return f.code === 'LINE_EXTRA_IN_BASKET'; })) compliance_flags.push('ETFPCF_LINE_EXTRA_IN_BASKET');
+  if (!cash_matches) compliance_flags.push('ETFPCF_BALANCING_CASH_MISMATCH');
+  if (cash_in_lieu_total_minor > 0) compliance_flags.push('ETFPCF_CASH_IN_LIEU_APPLIED');
+  if (rejected_inputs.length > 0) compliance_flags.push('ETFPCF_INPUTS_REJECTED');
+
+  return { output_payload: {
+    decision: { gate_policy: gate_policy, execution_state: 'ran', reason: null },
+    verdict: verdict, transaction_type: transaction_type, units_requested: units_requested, creation_unit_size: creation_unit_size,
+    pcf_as_of: pcf_as_of, cash_tolerance_minor: cash_tolerance_minor, line_count: pcfLines.length, line_results: line_results,
+    cash_in_lieu_total_minor: cash_in_lieu_total_minor, expected_cash_minor: expected_cash_minor, cash_deposited_minor: cash_deposited_minor,
+    cash_delta_minor: cash_delta_minor, cash_matches: cash_matches, findings: findings, rejected_inputs: rejected_inputs,
+    scope_note: SCOPE_NOTE, clause_note: CLAUSE_NOTE,
+  }, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function loadDivergesDemo(){
+  document.getElementById('txnType').value = 'create';
+  document.getElementById('unitsRequested').value = 1;
+  document.getElementById('creationUnitSize').value = 50000;
+  document.getElementById('pcfAsOf').value = '2026-08-06';
+  document.getElementById('balancingAmount').value = 15000;
+  document.getElementById('cashTolerance').value = 100;
+  document.getElementById('pcfLinesJson').value = JSON.stringify([
+    { security_id: 'US0378331005', name: 'Issuer A common stock', quantity_per_unit: 500 },
+    { security_id: 'US5949181045', name: 'Issuer B common stock', quantity_per_unit: 300 },
+    { security_id: 'US4592001014', name: 'Issuer C common stock', quantity_per_unit: 200 }
+  ], null, 2);
+  document.getElementById('basketLinesJson').value = JSON.stringify([
+    { security_id: 'US0378331005', quantity: 500 },
+    { security_id: 'US5949181045', quantity: 250 },
+    { security_id: 'US4592001014', quantity: 200 }
+  ], null, 2);
+  document.getElementById('cilJson').value = JSON.stringify([
+    { security_id: 'US5949181045', shortfall_quantity: 40, substitution_price_minor: 2500 }
+  ], null, 2);
+  document.getElementById('cashDeposited').value = 116000;
+  runCheck();
+}
+function loadIndeterminateDemo(){
+  document.getElementById('cashTolerance').value = '';
+  runCheck();
+}
+
+function runCheck(){
+  var pcfLines, basketLines, cil;
+  try { pcfLines = JSON.parse(document.getElementById('pcfLinesJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in PCF lines: ' + e.message); return; }
+  try { basketLines = JSON.parse(document.getElementById('basketLinesJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in basket lines: ' + e.message); return; }
+  try { cil = JSON.parse(document.getElementById('cilJson').value || '[]'); }
+  catch(e){ alert('Invalid JSON in cash-in-lieu: ' + e.message); return; }
+
+  var tolVal = document.getElementById('cashTolerance').value;
+  var unitsVal = document.getElementById('unitsRequested').value;
+  var cusVal = document.getElementById('creationUnitSize').value;
+  var balVal = document.getElementById('balancingAmount').value;
+  var cashVal = document.getElementById('cashDeposited').value;
+  var pp = {
+    cash_tolerance_minor: tolVal === '' ? undefined : Number(tolVal),
+    transaction_type: document.getElementById('txnType').value,
+    units_requested: unitsVal === '' ? undefined : Number(unitsVal),
+    creation_unit_size: cusVal === '' ? undefined : Number(cusVal),
+    pcf: {
+      as_of: document.getElementById('pcfAsOf').value || undefined,
+      balancing_amount_per_unit_minor: balVal === '' ? undefined : Number(balVal),
+      lines: pcfLines,
+    },
+    basket: {
+      lines: basketLines,
+      cash_in_lieu: cil,
+      cash_deposited_minor: cashVal === '' ? undefined : Number(cashVal),
+    },
+  };
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var color = op.verdict === 'MATCHES' ? 'var(--green)' : op.verdict === 'DIVERGES' ? 'var(--red)' : 'var(--warn)';
+  var bg = op.verdict === 'MATCHES' ? 'rgba(34,197,94,.08)' : op.verdict === 'DIVERGES' ? 'rgba(239,68,68,.08)' : 'rgba(245,158,11,.08)';
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = op.verdict + (op.decision.reason ? (' · ' + op.decision.reason) : '');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.line_count + '</span><span class="stat-key">PCF lines</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.findings ? op.findings.length : 0) + '</span><span class="stat-key">Findings</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.rejected_inputs.length + '</span><span class="stat-key">Rejected inputs</span></div>';
+
+  document.getElementById('linesDiv').innerHTML = (op.line_results && op.line_results.length)
+    ? op.line_results.map(function(l){
+        return '<div class="kv"><span class="kv-k">' + l.security_id + ' &middot; ' + (l.name || '') + '</span><span class="kv-v">expected ' + l.expected_quantity + ', covered ' + l.covered_quantity +
+          (l.matches ? ' <span class="badge ok">match</span>' : ' <span class="badge bad">mismatch</span>') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">Not evaluated</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('cashDiv').innerHTML = (op.expected_cash_minor !== null && op.expected_cash_minor !== undefined)
+    ? '<div class="kv"><span class="kv-k">Cash-in-lieu total</span><span class="kv-v">' + op.cash_in_lieu_total_minor + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Expected cash</span><span class="kv-v">' + op.expected_cash_minor + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Cash deposited</span><span class="kv-v">' + op.cash_deposited_minor + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Delta</span><span class="kv-v">' + op.cash_delta_minor + (op.cash_matches ? ' <span class="badge ok">within tolerance</span>' : ' <span class="badge bad">exceeds tolerance</span>') + '</span></div>'
+    : '<div class="kv"><span class="kv-k">Not evaluated</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('findingsDiv').innerHTML = (op.findings && op.findings.length)
+    ? op.findings.map(function(f){
+        return '<div class="kv"><span class="kv-k">' + f.code + ' <span class="badge ' + (f.severity === 'high' ? 'bad' : 'warn') + '">' + f.severity + '</span></span><span class="kv-v">' + f.message + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no findings raised</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){
+        return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-578-etf-pcf-basket-verification',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-578-etf-pcf-basket-verification.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
