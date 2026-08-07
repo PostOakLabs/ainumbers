@@ -517,6 +517,7 @@ import * as art58     from './art-58-cross-network-settlement-validator.kernel.m
 import * as art58015  from './art-580-15c3-3a-note-h-margin-debit.kernel.mjs';
 import * as art581    from './art-581-emir3-simm-approval-scope-classifier.kernel.mjs';
 import * as art582    from './art-582-genius-reserve-disclosure-conformance-monitor.kernel.mjs';
+import * as art583    from './art-583-beacon-seeded-fair-sampling-deriver.kernel.mjs';
 import * as art585    from './art-585-sanctions-screening-evidence-pack.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
@@ -1092,6 +1093,7 @@ export const KERNELS = {
   'art-580-15c3-3a-note-h-margin-debit':                        art58015,
   'art-581-emir3-simm-approval-scope-classifier':               art581,
   'art-582-genius-reserve-disclosure-conformance-monitor':      art582,
+  'art-583-beacon-seeded-fair-sampling-deriver':                art583,
   'art-585-sanctions-screening-evidence-pack':                  art585,
   'art-59-settlement-asset-finality-classifier':                art59,
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
