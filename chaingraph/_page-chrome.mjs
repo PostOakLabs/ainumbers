@@ -4,6 +4,13 @@
  * Derived verbatim from chaingraph-hub.html — single source of truth.
  * Both normalize-node-chrome.mjs and check-node-page-chrome.mjs import from here.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+/** Canonical OCG spec version, derived from chaingraph.json (the version-of-record) — never hardcode this. */
+export const SPEC_VERSION = JSON.parse(readFileSync(join(__dir, 'chaingraph.json'), 'utf-8')).spec_version;
 
 /** Build the canonical nav for a node page. breadcrumbCurrent = "ART-NN · Title" */
 export function buildNav(breadcrumbCurrent) {
@@ -77,7 +84,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <div class="footer-col-label">Platform</div>
         <a href="${cg}chaingraph-hub.html">ChainGraph Hub</a>
         <a href="${cg}rfp-evidence-desk.html">RFP Evidence Desk</a>
-        <a href="${cg}openchain-graph-spec.html">Spec v0.8.8</a>
+        <a href="${cg}openchain-graph-spec.html">Spec v${SPEC_VERSION}</a>
         <a href="${cg}openchain-graph-explainer.html">OCG Explainer</a>
         <a href="${cg}ain-bridge-explainer.html">AIN Bridge Explainer</a>
         <a href="${cg}aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
