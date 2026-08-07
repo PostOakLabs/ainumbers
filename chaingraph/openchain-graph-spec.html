@@ -171,6 +171,9 @@ footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
         <li><a href="#s27"><span class="toc-sec">§27</span>Human Accountability <span style="color:var(--green)">(new in v0.8.12)</span></a></li>
         <li><a href="#s28"><span class="toc-sec">§28</span>Clause Binding Profile <span style="color:var(--green)">(new in v0.8.14)</span></a></li>
         <li><a href="#shead1"><span class="toc-sec">§HEAD-1</span>Head-Commit Primitive</a></li>
+        <li><a href="#spqc1"><span class="toc-sec">§PQC-1</span>Post-Quantum Hybrid Proofs</a></li>
+        <li><a href="#srevoke1"><span class="toc-sec">§REVOKE-1</span>Receipt and Key Revocation</a></li>
+        <li><a href="#ssidecar"><span class="toc-sec">§SIDECAR</span>Small Conformance Riders</a></li>
         <li><a href="#s15"><span class="toc-sec">§15</span>Conformance Gates</a></li>
         <li><a href="#s14"><span class="toc-sec">§14</span>Changelog</a></li>
       </ul>
@@ -1425,6 +1428,56 @@ proofValue = <span class="v">"z"</span> + base58btc( <span class="v">Ed25519</sp
       <p>Bilateral cosigning does not change <code>detectEquivocation()</code> at all, it is a pure function over heads a verifier already holds, regardless of how they arrived. What it ADDS is evidentiary weight: a cosigned head is harder to have equivocated undetected, because producing it required a counterparty's cooperation, and that counterparty is a second witness who can independently confirm whether it cosigned. Given two conflicting cosigned heads at the same <code>(stream, seq)</code>, a verifier can prove OFFLINE: (1) each head's own cosignature(s) verify against its own <code>cosigner_keys</code>; (2) the two heads conflict (different <code>head_hash</code> at the same <code>seq</code>, the existing, unmodified <code>detectEquivocation()</code> check); (3) if the SAME counterparty key cosigned BOTH conflicting heads, that counterparty has independently corroborated the signer's misbehavior, portable evidence handable to a third party without anyone running anything. A verifier MUST NOT go further. A cosigned head-commit ATTESTS, it is evidence two parties agreed a tip existed at a point in time, it never FINALIZES. Deciding which of two conflicting heads is "the" tip, "accepted," or "final," or arbitrating, sequencing, or picking a winner between them on a counterparty's behalf, is explicitly OUT OF SCOPE and MUST NOT be built on top of this profile: the words "accept" and "finality" are BANNED from any conformant description of <code>ocg-head-bilateral-cosign@1</code> behavior, in this standard and in any product copy built from it. That resolution is either made by the counterparties themselves, off-spec, through whatever business process governs their relationship, or left as a standing, evidenced disagreement, both are legitimate outcomes this profile is silent on by design; building the "pick a winner" function is an ordering-service function, which §HEAD-1 does not specify in any form, including a spec-only one.</p>
     </div>
     <p>Full normative text, including schema references and the machine-checked gate suite for this section, lives in <a href="https://github.com/PostOakLabs/chaingraph/blob/main/SPEC.md">SPEC.md §HEAD-1</a>, the standard's single source of truth.</p>
+  </div>
+</div>
+
+<!-- ═══ §PQC-1 Post-Quantum Hybrid Proofs ═══ -->
+<div class="section" id="spqc1">
+  <div class="wrap">
+    <div class="sec-num">§PQC-1 · Normative · Optional · Additive</div>
+    <h2>Post-Quantum Hybrid Proofs</h2>
+    <p>Extends §16 whole-artifact signing to permit a hybrid dual signature: two W3C Data Integrity proofs over the same RFC 8785 (JCS) secured-document bytes, the existing <code>eddsa-jcs-2022</code> proof (classical) plus a post-quantum ML-DSA cryptosuite proof, so an artifact stays verifiable across the classical to PQ transition. This supersedes and retires the previously-parked PQC-COSE detour (a COSE-envelope second signing path): the second proof rides the existing §16 Data Integrity pipeline and the §16.5 proof-array, not a new envelope.</p>
+    <h3>§PQC-1.0: Shape (Normative)</h3>
+    <p>A hybrid signer uses the §16.5 parallel proof set: <code>audit_signature.proof</code> is an array carrying (a) the <code>eddsa-jcs-2022</code> proof and (b) an ML-DSA-cryptosuite proof, both over the same §16.1 secured document (the full artifact with <code>audit_signature.proof</code> removed, JCS-canonicalized by the same <code>_hash.mjs</code> <code>cgCanon</code>). This is a near-zero schema change, the proof array is already permitted by §16.5, and MUST NOT mint a new <code>execution_hash</code> or move <code>chaingraph_version</code> (stays <code>"0.4.0"</code>).</p>
+    <h3>§PQC-1.1: Cryptosuite identifier (Normative, deferred binding)</h3>
+    <p>The concrete ML-DSA cryptosuite id is TBD-on-registration: an implementation MUST use the W3C Data Integrity WG ML-DSA cryptosuite identifier once registered, and MUST NOT hardcode a provisional string (in particular the placeholder <code>mldsa44-jcs-2026</code> is illustrative only and MUST NOT be emitted as if standardized). Until the WG id registers, PQC-1 is a reserved extension point: the classical <code>eddsa-jcs-2022</code> proof alone remains fully §16-conformant.</p>
+    <h3>§PQC-1.2: Verifier policy modes (Normative)</h3>
+    <p>A verifier declares one of three policies over a hybrid proof set: <code>classical</code> (require the <code>eddsa-jcs-2022</code> proof to verify), <code>pq</code> (require the ML-DSA proof to verify), or <code>both</code> (require both). Each proof is verified independently under §16.1/§16.5 dependency order; a policy is satisfied iff its required proof(s) verify. The §16.2 privacy caveat applies unchanged: a hybrid proof still de-anonymizes the signer and MUST default OFF.</p>
+    <p>Full normative text, including schema references and the machine-checked gate suite for this section, lives in <a href="https://github.com/PostOakLabs/chaingraph/blob/main/SPEC.md">SPEC.md §PQC-1</a>, the standard's single source of truth.</p>
+  </div>
+</div>
+
+<!-- ═══ §REVOKE-1 Receipt and Key Revocation ═══ -->
+<div class="section" id="srevoke1">
+  <div class="wrap">
+    <div class="sec-num">§REVOKE-1 · Normative · Optional · Additive</div>
+    <h2>Receipt and Key Revocation</h2>
+    <p>Adds an OPTIONAL way for a receipt or a signing key to advertise revocation status via the W3C BitstringStatusList mechanism, so a verifier can learn that a previously-valid §16 key or a superseded receipt has been revoked without contacting the signer out-of-band.</p>
+    <h3>§REVOKE-1.0: Home and reference (Normative)</h3>
+    <p>A status reference lives under <code>audit_signature</code> (which tolerates added properties, keeping the frozen v0.4 root schema, a receipt without it is byte-identical and fully conformant) as a <code>credentialStatus</code>-shaped object per W3C BitstringStatusList: a <code>statusListCredential</code> URL, a <code>statusListIndex</code>, and <code>type:"BitstringStatusListEntry"</code>. It is hash-excluded: it does not enter the §4 preimage and does not move <code>chaingraph_version</code> (stays <code>"0.4.0"</code>). The published BitstringStatusList credential is itself a §16-securable artifact.</p>
+    <h3>§REVOKE-1.1: Semantics (Normative)</h3>
+    <p>To check revocation a verifier dereferences <code>statusListCredential</code>, expands the bitstring, and reads the bit at <code>statusListIndex</code>: set means revoked. A receipt referencing a revoked key or index MUST be treated as unverified for the revoked purpose even if its §16 signature is cryptographically valid, revocation overrides signature validity. The three published BitstringStatusList SDK test vectors are reference only (a verifier MUST NOT vendor them as a code path). Absence of a status reference means "no revocation signal published," not "known-good."</p>
+    <p>Full normative text, including schema references and the machine-checked gate suite for this section, lives in <a href="https://github.com/PostOakLabs/chaingraph/blob/main/SPEC.md">SPEC.md §REVOKE-1</a>, the standard's single source of truth.</p>
+  </div>
+</div>
+
+<!-- ═══ §SIDECAR Small Conformance Riders ═══ -->
+<div class="section" id="ssidecar">
+  <div class="wrap">
+    <div class="sec-num">§SIDECAR · Informative · Reserved Invariants · Additive</div>
+    <h2>Small Conformance Riders</h2>
+    <p>Four small riders that clarify existing machinery without adding a new machine-checked obligation.</p>
+    <h3>§SIDECAR.0: Identity Sidecar pattern (Informative)</h3>
+    <p>In every OCG signing path the LLM never touches the private key: an agent decides what to sign, but a deterministic gate (<code>_proof.mjs</code> in the browser, the KMS/HSM-backed §12 compute path on the server) performs the actual signature. The key material and the signing act are isolated in a deterministic sidecar beside the non-deterministic reasoner, which is why a §16 proof attests the artifact, not the model run.</p>
+    <h3>§SIDECAR.1: Tiered conformance labels (Informative, atop §15)</h3>
+    <p>Three human-readable capability labels group the §15 gates by what a verifier can do with an artifact, from weakest to strongest guarantee: <code>OCG-Verify</code>, the §1/§4 gates hold (envelope well-formed, <code>execution_hash</code> recomputes); <code>OCG-Execute</code>, additionally the §21 chain-execution + §22 mandate gates hold (a chain/mandate ran under its declared gates); <code>OCG-Prove</code>, additionally a §18 compute-integrity proof verifies (correct execution proven without re-execution). The labels are a naming atop the existing gate suite; they add no new gate and no normative MUST beyond the gates they group.</p>
+    <h3>§SIDECAR.2: Resource-narrowing invariant (Normative, reserved for future multi-hop mandates)</h3>
+    <p>When delegated / multi-hop mandates are introduced (not shipped in this pass), a delegated mandate MUST only narrow, never broaden, the resource scope it received: the child mandate's resource set MUST be a subset of the parent's. This is stated now as the binding design invariant for that future work; §22 single-hop mandates are unaffected.</p>
+    <h3>§SIDECAR.3: Prior art and acknowledgements (Informative)</h3>
+    <p>The §HASHRES-1 / §PQC-1 / §REVOKE-1 designs draw on the Vouch Protocol (github.com/vouch-protocol/vouch, R. Gaddam; Apache-2.0) as design prior art, acknowledged for the hash-addressing, hybrid-signing, and revocation-status patterns. Vouch is a design reference only, never a runtime dependency or vendored code path. This joins the standard's existing citation set: the W3C WebAssembly 3.0 Deterministic Profile (§24), the RISC-V freeze discipline (§24.2), RFC 9162 (Certificate Transparency), and KERI/vLEI (ISO 17442-3) where applicable.</p>
+    <h3>§SIDECAR.4: Verified-streaming sidecars, gated, not adopted (Informative, new in v0.8.8)</h3>
+    <p>Verified-streaming sidecars (Bao / BLAKE3) are measured-first: adopt only if real sidecar sizes justify it (median &ge; 1 MB). A &lt; 1 MB median means do NOT adopt, a second hash surface fights the one-canonical-hash doctrine. No spec commitment and no gate; this is a measurement note only.</p>
+    <p>Full normative text, including schema references and the machine-checked gate suite for this section, lives in <a href="https://github.com/PostOakLabs/chaingraph/blob/main/SPEC.md">SPEC.md §SIDECAR</a>, the standard's single source of truth.</p>
   </div>
 </div>
 
