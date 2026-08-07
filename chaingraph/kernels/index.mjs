@@ -513,6 +513,7 @@ import * as art576    from './art-576-emir3-active-account-representativeness-cl
 import * as art577    from './art-577-exchange-fee-tier-recompute.kernel.mjs';
 import * as art578    from './art-578-etf-pcf-basket-verification.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
+import * as art582    from './art-582-genius-reserve-disclosure-conformance-monitor.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
@@ -1083,6 +1084,7 @@ export const KERNELS = {
   'art-577-exchange-fee-tier-recompute':                        art577,
   'art-578-etf-pcf-basket-verification':                        art578,
   'art-58-cross-network-settlement-validator':                  art58,
+  'art-582-genius-reserve-disclosure-conformance-monitor':      art582,
   'art-59-settlement-asset-finality-classifier':                art59,
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
   'art-61-x402-batch-settlement-reconciler':                    art61,
