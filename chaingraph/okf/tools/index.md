@@ -512,7 +512,14 @@ status: stable
 - [Multi-Garnishment Stacking Recomputation](./art-572-multi-garnishment-stacking-recompute.md) — `recompute_garnishment_stack`
 - [Section 16(b) Short-Swing Profit Recomputation](./art-573-section16b-short-swing-profit-recompute.md) — `recompute_section16b_profit`
 - [Certified Payroll / Prevailing Wage Recomputation](./art-574-certified-payroll-prevailing-wage-recompute.md) — `recompute_certified_payroll_pwa`
+- [TMPG Fails-Charge Recompute](./art-575-tmpg-fails-charge-recompute.md) — `recompute_tmpg_fails_charge`
+- [EMIR 3.0 Active Account Representativeness Classifier](./art-576-emir3-active-account-representativeness-classifier.md) — `classify_emir3_active_account_status`
+- [Exchange Access-Fee / Maker-Taker Tier Recompute](./art-577-exchange-fee-tier-recompute.md) — `recompute_exchange_fee_tier_invoice`
+- [ETF PCF Create/Redeem Basket Verification](./art-578-etf-pcf-basket-verification.md) — `verify_etf_pcf_basket`
+- [Stock-Loan Rebate/Fee Recompute](./art-579-stock-loan-rebate-recompute.md) — `recompute_stock_loan_rebate_fee`
 - [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md) — `validate_cross_network_settlement`
+- [15c3-3a Note H Margin-Debit Computation](./art-580-15c3-3a-note-h-margin-debit.md) — `compute_note_h_margin_debit`
+- [EMIR 3 SIMM Approval-Scope Classifier](./art-581-emir3-simm-approval-scope-classifier.md) — `classify_emir3_simm_approval_scope`
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`
