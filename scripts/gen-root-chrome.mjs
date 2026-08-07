@@ -23,7 +23,12 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
 const CHECK = process.argv.includes('--check');
 
-const PAGES = ['index.html', 'start.html'];
+const PAGES = [
+  'index.html', 'start.html',
+  'contact.html', 'convert.html', 'credits.html', 'methods.html',
+  'security.html', 'suggest.html',
+  'helm.html', 'sitemap.html', 'tools.html',
+];
 
 // Regions: [openMarker, closeMarker, payload]. Markers matched loosely so the
 // human-readable "do not hand-edit" note on the START line is preserved.
