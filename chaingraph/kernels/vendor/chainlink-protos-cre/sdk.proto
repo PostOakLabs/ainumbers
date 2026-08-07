@@ -1,0 +1,162 @@
+// Vendored verbatim from smartcontractkit/chainlink-protos, path cre/sdk/v1beta/sdk.proto.
+// Source: https://github.com/smartcontractkit/chainlink-protos/blob/c1accce563a86e68ed46f9bed352bf7529c9444b/cre/sdk/v1beta/sdk.proto
+// Pinned commit: c1accce563a86e68ed46f9bed352bf7529c9444b (2026-08-04). License: MIT — see ./LICENSE.
+// Do not hand-edit. See ./PROVENANCE.md.
+syntax = "proto3";
+
+package sdk.v1;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+import "values/v1/values.proto";
+
+enum AggregationType {
+  AGGREGATION_TYPE_UNSPECIFIED = 0;
+  AGGREGATION_TYPE_MEDIAN = 1;
+  AGGREGATION_TYPE_IDENTICAL = 2;
+  AGGREGATION_TYPE_COMMON_PREFIX = 3;
+  AGGREGATION_TYPE_COMMON_SUFFIX = 4;
+  AGGREGATION_TYPE_FREQUENCY_LIST = 5;
+}
+
+message SimpleConsensusInputs {
+  oneof observation {
+    values.v1.Value value = 1;
+    string error = 2;
+  }
+  ConsensusDescriptor descriptors = 3;
+  values.v1.Value default = 4;
+}
+
+message FieldsMap {
+  map<string, ConsensusDescriptor> fields = 1;
+}
+
+message ConsensusDescriptor {
+  oneof descriptor {
+    AggregationType aggregation = 1;
+    FieldsMap fields_map = 2;
+  }
+}
+
+message ReportRequest {
+  bytes encoded_payload = 1;
+  string encoder_name = 2;
+  string signing_algo = 3;
+  string hashing_algo = 4;
+}
+
+message ReportResponse {
+  bytes config_digest = 1;
+  uint64 seq_nr = 2;
+  bytes report_context = 3; // combination of seq_nr and config_digest
+  bytes raw_report = 4;
+  repeated AttributedSignature sigs = 5;
+}
+
+message AttributedSignature {
+  bytes signature = 1;
+  uint32 signer_id = 2;
+}
+
+message CapabilityRequest {
+  string id = 1;
+  google.protobuf.Any payload = 2;
+  string method = 3;
+  int32 callback_id = 4;
+}
+
+message CapabilityResponse {
+  oneof response {
+    google.protobuf.Any payload = 1;
+    string error = 2;
+  }
+}
+
+enum Mode {
+  MODE_UNSPECIFIED = 0;
+  MODE_DON = 1;
+  MODE_NODE = 2;
+}
+
+message TriggerSubscription {
+  string id = 1;
+  google.protobuf.Any payload = 2;
+  string method = 3;
+}
+
+message TriggerSubscriptionRequest {
+  repeated TriggerSubscription subscriptions = 1;
+}
+
+message Trigger {
+  uint64 id = 1;
+  google.protobuf.Any payload = 2;
+}
+
+message AwaitCapabilitiesRequest {
+  repeated int32 ids = 1;
+}
+
+message AwaitCapabilitiesResponse {
+  map<int32, CapabilityResponse> responses = 1;
+}
+message ExecuteRequest {
+  bytes config = 1;
+  oneof request {
+    google.protobuf.Empty subscribe = 2;
+    Trigger trigger = 3;
+  }
+  uint64 max_response_size = 4;
+}
+
+message ExecutionResult {
+  oneof result {
+    values.v1.Value value = 1;
+    string error = 2;
+    TriggerSubscriptionRequest trigger_subscriptions = 3;
+  }
+}
+
+message GetSecretsRequest {
+  repeated SecretRequest requests = 1;
+  int32 callback_id = 2;
+}
+
+message AwaitSecretsRequest {
+  repeated int32 ids = 1;
+}
+
+message AwaitSecretsResponse {
+  map<int32, SecretResponses> responses = 1;
+}
+
+message SecretRequest {
+  string id = 1;
+  string namespace = 2;
+}
+
+message Secret {
+  string id = 1;
+  string namespace = 2;
+  string owner = 3;
+  string value = 4;
+}
+
+message SecretError {
+  string id = 1;
+  string namespace = 2;
+  string owner = 3;
+  string error = 4;
+}
+
+message SecretResponse {
+  oneof response {
+    Secret secret = 1;
+    SecretError error = 2;
+  }
+}
+
+message SecretResponses {
+  repeated SecretResponse responses = 1;
+}
