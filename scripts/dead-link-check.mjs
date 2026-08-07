@@ -45,6 +45,29 @@ function skip(v){
   if(/^(mailto:|tel:|javascript:|data:|#)/i.test(v)) return true;
   return false;
 }
+// HELM-BETA-LABEL-1 (phil, 2026-08-06): a bare loopback anchor is a
+// port-squat/phish class issue (any local process can bind that port and
+// impersonate Helm), so it is NEVER baselineable, unlike the general
+// dead-link check above. Checked on every run, both modes.
+function localhostAnchors(){
+  const bad=[];
+  for(const file of walk(ROOT)){
+    const rel=file.slice(ROOT.length+1).replace(/\\/g,'/');
+    const html=stripCode(readFileSync(file,'utf8'));
+    for(const raw of links(html)){
+      if(/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/i.test(raw)) bad.push(rel+' -> '+raw);
+    }
+  }
+  return [...new Set(bad)].sort();
+}
+const badLocal=localhostAnchors();
+if(badLocal.length){
+  console.error('\nBARE LOOPBACK ANCHOR(S) FOUND ('+badLocal.length+') - never allowed, not baselineable:');
+  for(const b of badLocal)console.error('   X '+b);
+  console.error('\nA live http://127.0.0.1 or http://localhost link is a port-squat/phish risk. Use a section anchor instead.');
+  process.exit(1);
+}
+
 function deadLinks(){
   const dead=[];
   for(const file of walk(ROOT)){
