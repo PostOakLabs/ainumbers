@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1071 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1079 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -66261,6 +66261,326 @@
         "x-ap2-export": true,
         "x-mandate-type": "compliance_mandate",
         "x-ocg-wave": 92
+      }
+    },
+    "/v1/tools/recompute_pe_waterfall_lp": {
+      "post": {
+        "operationId": "recompute_pe_waterfall_lp",
+        "summary": "PE Distribution Waterfall LP-Side Recompute",
+        "description": "Recomputes a standard 4-tier PE distribution waterfall (return of capital, preferred return, GP catch-up, residual carry split) from caller-DECLARED dated contribution/distribution cashflows and a caller-DECLARED waterfall parameterization (pref rate + compounding basis, GP catch-up percentage, carry percentage, European whole-fund or American deal-by-deal tier structure, optional clawback check), then diffs the recomputed per-tier LP/GP allocation against a caller-supplied GP-reported allocation. Verdict MATCHES, DIVERGES with per-tier deltas, or INDETERMINATE whenever a required parameter is absent -- never guessed, never defaulted. ILPA's own reporting-template guidance states it was not designed for verifying any of the GP's calculations, cited here only as dated gap evidence, never as an ILPA endorsement or ILPA-compliance claim. Cross-links recompute_fund_nav (art-373), which recomputes NAV, not distribution waterfalls -- the two do not duplicate each other. Zero network, zero PII, fixed-point BigInt money math throughout.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-567-pe-waterfall-lp-recompute.html\n**Wave:** 93\n**mandate_type:** attestation_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "attestation_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-567-pe-waterfall-lp-recompute.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: attestation_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_pe_waterfall_lp",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-567-pe-waterfall-lp-recompute.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "attestation_mandate",
+        "x-ocg-wave": 93
+      }
+    },
+    "/v1/tools/recompute_trustee_report_waterfall": {
+      "post": {
+        "operationId": "recompute_trustee_report_waterfall",
+        "summary": "Securitization Trustee-Report Waterfall Recomputation",
+        "description": "Recomputes a securitization priority-of-payments waterfall for one stated distribution period from a caller-declared tier list and the period's own collections, then compares the recomputed distribution against what the monthly trustee report states was distributed. The tier list, its priority order, every cap and every trigger reference come from the deal's own indenture, which the caller pins in an indenture reference that is carried into the artifact, so a later amendment dates an old receipt rather than falsifying it. Trigger states are caller-declared booleans only: a tier naming a trigger is skipped exactly when the caller declares that trigger breached, and this tool computes no coverage ratio, delinquency rate, or other market figure to decide a trigger's state. The recomputed side of every comparison is derived here by allocating the period collections down the tier list, never lifted from the trustee report, so a divergence is a genuine arithmetic finding rather than a re-adding of a published column. The verdict is MATCHES, DIVERGES, or INDETERMINATE, and INDETERMINATE covers both an empty tier list and a run where no trustee-reported distribution was supplied to compare against; neither case is guessed toward agreement. Money is fixed point in integer minor units throughout with two-decimal display, and zero collections, an empty tier list, and a tier naming a collection type that was not supplied each resolve to a defined result. Cites the OCC's Comptroller's Handbook on Asset Securitization as a mechanics reference only; the deal's own indenture governs, and this tool says so rather than asserting endorsement by any standard-setter. Stated boundary: a divergence against the trustee report is an arithmetic finding about the tier list and figures supplied here. It is never a compliance determination, never an audit opinion, and never a finding that the deal was administered correctly or incorrectly.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-568-securitization-trustee-report-recompute.html\n**Wave:** 92\n**mandate_type:** analytics_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "analytics_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-568-securitization-trustee-report-recompute.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: analytics_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_trustee_report_waterfall",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-568-securitization-trustee-report-recompute.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "analytics_mandate",
+        "x-ocg-wave": 92
+      }
+    },
+    "/v1/tools/check_muni_arbitrage_spending_exception": {
+      "post": {
+        "operationId": "check_muni_arbitrage_spending_exception",
+        "summary": "Muni Arbitrage Spending-Exception Checker",
+        "description": "Tests whether a tax-exempt bond issue's declared expenditure schedule satisfies one of the three IRC section 148 arbitrage-rebate spending exceptions under Treas. Reg. section 1.148-7: the 6-month exception (100% spent by 6 months, or 95%/12mo with reasonable retainage), the 18-month exception (15%/6mo, 60%/12mo, 100%/18mo, or 95%/18mo plus 100%/30mo with reasonable retainage), or the 24-month construction exception (10%/6mo, 45%/12mo, 75%/18mo, 100%/24mo, or 95%/24mo plus 100%/36mo with reasonable retainage). Whether reasonable retainage is elected is always a caller-declared boolean, never assumed. A caller-declared de minimis amount, capped at the lesser of 3% of gross proceeds or $150,000, may be applied against the required spend at every milestone; an out-of-cap declaration is rejected rather than clamped. Each milestone date is computed calendar-wise from the issue date and receives its own verdict: MET when cumulative spending as of that date reached the required amount, FAILED when the date has passed without reaching it, or PENDING when the milestone date is still in the future relative to the caller-declared evaluation date. Overall exception status is FAILED if any milestone failed, PENDING if none failed but one or more are still pending, and MET only when every milestone has been met. Scope is deliberately narrow: this checks the spending-exception milestone tests only and does not compute the future-value arbitrage rebate itself, which is a separate tool. Clause: IRC section 148; Treas. Reg. section 1.148-7; IRS Pub 5271. Not tax advice.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-569-muni-arbitrage-spending-exception-checker.html\n**Wave:** 93\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-569-muni-arbitrage-spending-exception-checker.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "check_muni_arbitrage_spending_exception",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-569-muni-arbitrage-spending-exception-checker.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 93
+      }
+    },
+    "/v1/tools/examine_lc_document_presentation": {
+      "post": {
+        "operationId": "examine_lc_document_presentation",
+        "summary": "UCP 600 / ISBP 745 Document Examination Assembler",
+        "description": "Recomputes the letter-of-credit document examination a checker already works from a paper checklist inside the 5-banking-day window, from structured fields the checker has transcribed off the presentation -- no OCR, no document upload, no parsing of any document image or free text. Checks presentation timing against the credit's expiry date and the UCP 600 Art. 14(c) 21-calendar-day-after-shipment window (or the credit's own stated period); the Art. 14(b) 5-banking-day examination-window deadline when an examination-completion date is declared; Art. 30 quantity and amount tolerances, +/-5% or +/-10% when the credit qualifies the figure with 'about'; the Art. 28(f)(ii) insurance floor against the declared CIF/CIP value; cross-document consistency under Art. 14(d)/(e), including named-port conflicts and a checker-declared goods-description conformity flag; and draft tenor arithmetic against the credit's stipulated tenor. Every finding cites its article number. Verdict COMPLYING_PRESENTATION when no discrepancy is found, DISCREPANT when at least one is, INDETERMINATE when a required input (the credit amount or quantity, the expiry or latest-shipment date, the presentation date, or the invoice/transport-document fields) is absent. This is the examination side of the LC lifecycle -- the companion tool tools/420-mt700-lc-field-validator.html validates the MT700 issuance message; the two are cross-linked, not duplicated. UCP 600 and ISBP 745 are cited by article/paragraph number only; their text is ICC copyright and is never reproduced, and this tool carries no claim of ICC endorsement.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-570-ucp600-document-examination-assembler.html\n**Wave:** 93\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-570-ucp600-document-examination-assembler.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "examine_lc_document_presentation",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-570-ucp600-document-examination-assembler.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 93
+      }
+    },
+    "/v1/tools/recompute_lease_schedule_asc842_ifrs16": {
+      "post": {
+        "operationId": "recompute_lease_schedule_asc842_ifrs16",
+        "summary": "Lease Schedule Recompute — ASC 842 / IFRS 16",
+        "description": "Recomputes the present value of a declared lease payment schedule and the full effective-interest amortization -- liability and right-of-use asset -- under ASC 842 and IFRS 16 side by side, from a caller-declared discount rate and payment schedule. Runs the ASC 842 five-criterion finance-vs-operating classification test: ownership transfer, a purchase option reasonably certain of exercise, and specialized-asset status are always caller-declared; the major-part-of-economic-life and substantially-all-of-fair-value criteria are computed against the common 75%/90% bright lines only when the caller elects them, and otherwise are caller-declared judgment inputs -- an election is always labeled as such, never silently defaulted. IFRS 16 applies a single on-balance-sheet lessee model with no operating/finance distinction. Optionally diffs the ASC 842 or IFRS 16 closing liability at each payment date against a counterparty-supplied preparer schedule within a declared tolerance, returning MATCHES, DIVERGES, or INDETERMINATE when no preparer schedule is supplied or preparer dates do not appear in the computed schedule. The discount rate is always a declared input, never inferred or derived. Performs arithmetic only over caller-declared terms; does not source a discount rate, does not determine what qualifies as a specialized asset, and reproduces no FASB or IASB standard text -- citations are to paragraph numbers only. Clause: ASC 842 (FASB ASC Topic 842), classification criteria at ASC 842-10-25-2 through 25-3; IFRS 16, effective 2019-01-01.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-571-lease-schedule-recompute-asc842-ifrs16.html\n**Wave:** 93\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-571-lease-schedule-recompute-asc842-ifrs16.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_lease_schedule_asc842_ifrs16",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-571-lease-schedule-recompute-asc842-ifrs16.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 93
+      }
+    },
+    "/v1/tools/recompute_garnishment_stack": {
+      "post": {
+        "operationId": "recompute_garnishment_stack",
+        "summary": "Multi-Garnishment Stacking Recomputation",
+        "description": "Recomputes, for one stated pay period, how much of an employee's disposable earnings each order in a caller-declared garnishment stack may lawfully withhold, then compares the recomputed per-order withholding against a garnishment notice where one is supplied. Both an employer computing what to withhold and an employee or legal-aid clinic recomputing a notice they received can run the same arithmetic; neither side is privileged. Disposable earnings are computed from caller-supplied gross earnings less legally-required deductions. Each order type carries its own statutory cap: child-support orders use the CCPA Title III tiers of 50, 55, 60 or 65 percent keyed on arrears over 12 weeks and a second family; a federal tax levy is exempt from the CCPA percentage limitations and is capped here only at remaining disposable earnings, with the IRS wage-bracket exempt-amount table named as out of scope; a state levy uses a caller-declared percentage where supplied and otherwise defaults to the general CCPA cap, with no fifty-state table bundled; an HEA Administrative Wage Garnishment order is capped at 15 percent of disposable earnings and by the 30-times-federal-minimum-wage floor; and creditor and other orders use the general CCPA cap of 25 percent or the 30-times floor, whichever is less. Orders are withheld in the priority order the caller supplies, subject to each order's own cap and an aggregate ceiling equal to the single highest individual cap present in the stack, a documented simplification named in the artifact's not_proven list. A dated, caller-overridable federal minimum wage prefill feeds the 30-times floor. The verdict is MATCHES, DIVERGES, or INDETERMINATE, and INDETERMINATE covers both an empty order stack and a run where no noticed withholding amounts were supplied to compare against; neither case is guessed toward agreement. Money is fixed point in integer minor units throughout with two-decimal display. Cites the Consumer Credit Protection Act Title III, 29 CFR Part 870, DOL Fact Sheet 30, and 34 CFR Part 34 for the Administrative Wage Garnishment cap, each dated for re-verification against primary text. Stated boundary: this is not legal advice, and a divergence against a supplied notice is an arithmetic finding about the order stack and figures supplied here, never a determination that any order is valid, enforceable, or correctly served.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-572-multi-garnishment-stacking-recompute.html\n**Wave:** 96\n**mandate_type:** analytics_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "analytics_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-572-multi-garnishment-stacking-recompute.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: analytics_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_garnishment_stack",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-572-multi-garnishment-stacking-recompute.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "analytics_mandate",
+        "x-ocg-wave": 96
+      }
+    },
+    "/v1/tools/recompute_section16b_profit": {
+      "post": {
+        "operationId": "recompute_section16b_profit",
+        "summary": "Section 16(b) Short-Swing Profit Recomputation",
+        "description": "Recomputes an Exchange Act Section 16(b) short-swing profit figure from a caller-declared list of an insider's own transactions in the issuer's equity security, then compares the recomputed figure against a number a demand letter claims where one is supplied. Section 16(b) demand letters are typically built by a plaintiff firm scanning Form 4 filings for a lowest-price-in, highest-price-out match; the recipient side, whether the insider or the issuer's counsel, has had no deterministic free tool to independently recompute that number, which this node is. Matching uses the Smolowe v. Delvag Reinsurance / Gratz v. Claughton maximal-recovery construction: the lowest-priced eligible purchase is repeatedly paired against the highest-priced eligible sale within a day-count approximation of the statutory less-than-six-months window, a pairing that would produce a loss is skipped rather than netted against a profitable one, and every matched pair is reported with its own purchase date, sale date, share count and profit. A transaction carrying a caller-declared exemption flag, such as a Rule 16b-3 approved-plan exemption, is excluded from matching and reported separately; this node makes no independent exemption determination. It also carries an informational Section 16(a) and 16(b) applicability check over caller-declared officer, director, and ten-percent-owner status, including the Holding Foreign Insiders Accountable Act asymmetry: a foreign private issuer's officers and directors became Section 16(a) reporting filers under HFIAA without becoming subject to Section 16(b) short-swing profit-recovery liability, which this node flags without gating the arithmetic on it. The verdict is MATCHES, DIVERGES, or INDETERMINATE, and INDETERMINATE covers both an empty transaction list and a run where no demand-letter figure was supplied to compare against; neither case is guessed toward agreement. Money is fixed point in integer minor units throughout with two-decimal display. Cites Exchange Act Section 16(b) and 16(a), Rule 16b-3, Rule 3a12-3, and HFIAA, each dated for re-verification against primary text, and names the matching algorithm and the six-month day-count approximation as research findings needing independent re-verification rather than established facts. Stated boundary: this is not legal advice, no computed figure resolves a matchability or exemption dispute, and a Rule 144 volume-limitation check is a named follow-on tool, not computed here.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-573-section16b-short-swing-profit-recompute.html\n**Wave:** 96\n**mandate_type:** analytics_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "analytics_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-573-section16b-short-swing-profit-recompute.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: analytics_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_section16b_profit",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-573-section16b-short-swing-profit-recompute.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "analytics_mandate",
+        "x-ocg-wave": 96
+      }
+    },
+    "/v1/tools/recompute_certified_payroll_pwa": {
+      "post": {
+        "operationId": "recompute_certified_payroll_pwa",
+        "summary": "Certified Payroll / Prevailing Wage Recomputation",
+        "description": "Recomputes, for one stated certified-payroll week, whether each worker on a caller-declared payroll was paid at or above the wage-determination rate for their classification, with Contract Work Hours and Safety Standards Act overtime applied at time-and-a-half on the basic hourly rate and fringe due straight-time for every hour. A prime contractor verifying a subcontractor's weekly payroll and a Section 6418 credit-transferee or tax-equity investor diligencing a developer's prevailing-wage math before purchasing transferred credits can run the identical arithmetic; neither side is privileged. Where a submitted certified payroll is also supplied, the recomputed required gross for each worker, derived here from the wage determination and declared hours rather than lifted from the submission, is compared against it field by field. In PWA mode, any deficiency found triggers an IRC Section 45(b)(7)-(8) correction-payment and penalty computation re-verified against primary text at build: the wage-differential component of the correction is tripled on a declared intentional disregard, interest accrues at the Section 6621 underpayment rate with six percentage points substituted for three, and the penalty is five thousand dollars per underpaid worker for the stated period, ten thousand on intentional disregard, with annual aggregation across periods left to the caller since this kernel is single-run and stateless. An optional apprentice-ratio check compares a declared permitted ratio against declared journeyman and apprentice counts without a bundled fifty-state or program table and without reassigning excess-apprentice hours to the journeyman rate, both named in the artifact's not_proven list. The verdict is MATCHES, DIVERGES, or INDETERMINATE, and INDETERMINATE covers an empty wage determination, an empty payroll, a payroll row whose classification is not found in the wage determination, and a run where no submitted certified payroll was supplied to compare against; none of these cases is guessed toward agreement. Money is fixed point in integer minor units throughout with two-decimal display. Cites the Davis-Bacon Act at 40 U.S.C. Section 3141 and following, 29 CFR Part 5, the Contract Work Hours and Safety Standards Act at 40 U.S.C. Section 3701 and following, IRC Section 45(b)(7)-(8) and its final regulations, and DOL Form WH-347, each dated for re-verification against primary text; no WH-347 expiration or sunset date is encoded because research turned up conflicting secondary-source dates. Stated boundary: this is not tax or legal advice, and a divergence against a submitted payroll is an arithmetic finding about the wage determination and hours supplied here, never a determination that any classification, hours, or correction figure is legally or factually correct.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html\n**Wave:** 97\n**mandate_type:** analytics_mandate\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "analytics_mandate"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: analytics_mandate. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_certified_payroll_pwa",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "analytics_mandate",
+        "x-ocg-wave": 97
       }
     },
     "/v1/tools/generate_zk_compliance_proof": {

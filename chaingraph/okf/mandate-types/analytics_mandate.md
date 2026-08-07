@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-40"]
+tags: ["analytics_mandate", "count-44"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # analytics_mandate
 
-40 tool(s) in this mandate-type group:
+44 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -52,3 +52,7 @@ status: stable
 - [Recompute Fund Fees](../tools/art-511-recompute-fund-fees.md)
 - [CCP Default Waterfall Recomputation](../tools/art-529-ccp-default-waterfall-recompute.md)
 - [Best-Execution NBBO Recompute](../tools/art-541-best-execution-recompute.md)
+- [Securitization Trustee-Report Waterfall Recomputation](../tools/art-568-securitization-trustee-report-recompute.md)
+- [Multi-Garnishment Stacking Recomputation](../tools/art-572-multi-garnishment-stacking-recompute.md)
+- [Section 16(b) Short-Swing Profit Recomputation](../tools/art-573-section16b-short-swing-profit-recompute.md)
+- [Certified Payroll / Prevailing Wage Recomputation](../tools/art-574-certified-payroll-prevailing-wage-recompute.md)

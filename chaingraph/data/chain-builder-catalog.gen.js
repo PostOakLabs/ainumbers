@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (556 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (565 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5851,6 +5851,46 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-566-iolta-three-way-reconciliation",
+    "display_name": "IOLTA Three-Way Trust Reconciliation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-566-iolta-three-way-reconciliation.html",
+    "description": "Recomputes the monthly IOLTA/client-trust three-way close every small law firm already does by hand in a spreadsheet: the bank statement (ad",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-567-pe-waterfall-lp-recompute",
+    "display_name": "PE Distribution Waterfall LP-Side Recompute",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-567-pe-waterfall-lp-recompute.html",
+    "description": "Recomputes a standard 4-tier PE distribution waterfall (return of capital, preferred return, GP catch-up, residual carry split) from caller-",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-568-securitization-trustee-report-recompute",
+    "display_name": "Securitization Trustee-Report Waterfall Recomputation",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-568-securitization-trustee-report-recompute.html",
+    "description": "Recomputes a securitization priority-of-payments waterfall for one stated distribution period from a caller-declared tier list and the perio",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-569-muni-arbitrage-spending-exception-checker",
+    "display_name": "Muni Arbitrage Spending-Exception Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-569-muni-arbitrage-spending-exception-checker.html",
+    "description": "Tests whether a tax-exempt bond issue's declared expenditure schedule satisfies one of the three IRC section 148 arbitrage-rebate spending e",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-57-deposit-token-compliance-validator",
     "display_name": "Deposit-Token Compliance Validator",
     "mandate_type": "compliance_mandate",
@@ -5864,6 +5904,56 @@ window.CHAINBUILDER_CATALOG = [
       "cry-04-merkle-batch-verifier",
       "art-59-settlement-asset-finality-classifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-570-ucp600-document-examination-assembler",
+    "display_name": "UCP 600 / ISBP 745 Document Examination Assembler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-570-ucp600-document-examination-assembler.html",
+    "description": "Recomputes the letter-of-credit document examination a checker already works from a paper checklist inside the 5-banking-day window, from st",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-571-lease-schedule-recompute-asc842-ifrs16",
+    "display_name": "Lease Schedule Recompute — ASC 842 / IFRS 16",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-571-lease-schedule-recompute-asc842-ifrs16.html",
+    "description": "Recomputes the present value of a declared lease payment schedule and the full effective-interest amortization -- liability and right-of-use",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-572-multi-garnishment-stacking-recompute",
+    "display_name": "Multi-Garnishment Stacking Recomputation",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-572-multi-garnishment-stacking-recompute.html",
+    "description": "Recomputes, for one stated pay period, how much of an employee's disposable earnings each order in a caller-declared garnishment stack may l",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-573-section16b-short-swing-profit-recompute",
+    "display_name": "Section 16(b) Short-Swing Profit Recomputation",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-573-section16b-short-swing-profit-recompute.html",
+    "description": "Recomputes an Exchange Act Section 16(b) short-swing profit figure from a caller-declared list of an insider's own transactions in the issue",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-574-certified-payroll-prevailing-wage-recompute",
+    "display_name": "Certified Payroll / Prevailing Wage Recomputation",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-574-certified-payroll-prevailing-wage-recompute.html",
+    "description": "Recomputes, for one stated certified-payroll week, whether each worker on a caller-declared payroll was paid at or above the wage-determinat",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

@@ -8,8 +8,8 @@ executor:
   receipt: ["type", "system", "receiptFormat", "imageId", "seal", "journal"]
 attester:
   resource: https://ainumbers.co/chaingraph/graph/nodes/art-567-pe-waterfall-lp-recompute.json#compute_images
-timestamp: 2026-08-06
-generated: { by: "ainumbers/generate-okf", at: "2026-08-06" }
+timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
 ---
 
