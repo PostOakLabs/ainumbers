@@ -507,6 +507,7 @@ import * as art570    from './art-570-ucp600-document-examination-assembler.kern
 import * as art571    from './art-571-lease-schedule-recompute-asc842-ifrs16.kernel.mjs';
 import * as art572    from './art-572-multi-garnishment-stacking-recompute.kernel.mjs';
 import * as art573    from './art-573-section16b-short-swing-profit-recompute.kernel.mjs';
+import * as art574    from './art-574-certified-payroll-prevailing-wage-recompute.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
@@ -1072,6 +1073,7 @@ export const KERNELS = {
   'art-571-lease-schedule-recompute-asc842-ifrs16':           art571,
   'art-572-multi-garnishment-stacking-recompute':             art572,
   'art-573-section16b-short-swing-profit-recompute':          art573,
+  'art-574-certified-payroll-prevailing-wage-recompute':      art574,
   'art-58-cross-network-settlement-validator':                art58,
   'art-59-settlement-asset-finality-classifier':              art59,
   'art-60-agent-economy-runtime-fit-diagnostic':              art60,
