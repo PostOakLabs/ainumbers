@@ -1,0 +1,163 @@
+{
+  "tool_id": "art-575-tmpg-fails-charge-recompute",
+  "note": "Vector 1: two fails, reference rates 2.50% and 0.00% against the published 3.00% cap, both claimed amounts equal the recomputed charge within a zero tolerance: overall MATCHES. Vector 2: fail-A's claimed amount is wrong by 611 minor units against a zero tolerance (DIVERGES); fail-B's reference rate meets the 3.00% cap so its charge floors at zero and its claimed amount agrees (MATCHES) -- any per-fail DIVERGES makes the overall verdict DIVERGES. Vector 3 omits diff_tolerance_minor entirely and exercises the did_not_run/INDETERMINATE path. Balances are synthetic, stated in integer minor units and basis points. golden_hash computed at fixture generation time.",
+  "vectors": [
+    {
+      "name": "two-fails-claims-match",
+      "policy_parameters": {
+        "diff_tolerance_minor": 0,
+        "fails": [
+          {
+            "fail_id": "fail-A",
+            "par_amount_minor": 10000000,
+            "days_failed": 10,
+            "reference_rate_bps": 250,
+            "claimed_charge_minor": 1389
+          },
+          {
+            "fail_id": "fail-B",
+            "par_amount_minor": 5000000,
+            "days_failed": 5,
+            "reference_rate_bps": 0,
+            "claimed_charge_minor": 2083
+          }
+        ]
+      },
+      "output_payload": {
+        "decision": {
+          "execution_state": "ran",
+          "reason": null
+        },
+        "diff_tolerance_minor": 0,
+        "verdict": "MATCHES",
+        "fail_count": 2,
+        "determinations": [
+          {
+            "fail_id": "fail-A",
+            "par_amount_minor": 10000000,
+            "days_failed": 10,
+            "reference_rate_bps": 250,
+            "rate_diff_bps": 50,
+            "recomputed_charge_minor": 1389,
+            "claimed_charge_minor": 1389,
+            "delta_minor": 0,
+            "verdict": "MATCHES"
+          },
+          {
+            "fail_id": "fail-B",
+            "par_amount_minor": 5000000,
+            "days_failed": 5,
+            "reference_rate_bps": 0,
+            "rate_diff_bps": 300,
+            "recomputed_charge_minor": 2083,
+            "claimed_charge_minor": 2083,
+            "delta_minor": 0,
+            "verdict": "MATCHES"
+          }
+        ],
+        "total_recomputed_charge_minor": 3472,
+        "total_claimed_charge_minor": 3472,
+        "rejected_inputs": [],
+        "scope_note": "Performs arithmetic only over caller-declared par amounts, reference rates, and fail-day counts. Does not source, derive, or independently verify any fail status, par amount, or reference rate, and makes no TMPG/NY Fed endorsement claim.",
+        "clause_note": "NY Fed Treasury Market Practices Group fails-charge trading practice (2016 revision): charge = max(0, 3% - reference rate) / 360 x par x days failed. Confirm the current practice text at newyorkfed.org before relying on a computed figure for a live claim."
+      },
+      "golden_hash": "422a3c4835171a2cee995ed8bd5df6b1b44276cd870561144f29ad31375bac63"
+    },
+    {
+      "name": "claim-mismatch-diverges",
+      "policy_parameters": {
+        "diff_tolerance_minor": 0,
+        "fails": [
+          {
+            "fail_id": "fail-A",
+            "par_amount_minor": 10000000,
+            "days_failed": 10,
+            "reference_rate_bps": 250,
+            "claimed_charge_minor": 2000
+          },
+          {
+            "fail_id": "fail-B",
+            "par_amount_minor": 5000000,
+            "days_failed": 5,
+            "reference_rate_bps": 300,
+            "claimed_charge_minor": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "decision": {
+          "execution_state": "ran",
+          "reason": null
+        },
+        "diff_tolerance_minor": 0,
+        "verdict": "DIVERGES",
+        "fail_count": 2,
+        "determinations": [
+          {
+            "fail_id": "fail-A",
+            "par_amount_minor": 10000000,
+            "days_failed": 10,
+            "reference_rate_bps": 250,
+            "rate_diff_bps": 50,
+            "recomputed_charge_minor": 1389,
+            "claimed_charge_minor": 2000,
+            "delta_minor": -611,
+            "verdict": "DIVERGES"
+          },
+          {
+            "fail_id": "fail-B",
+            "par_amount_minor": 5000000,
+            "days_failed": 5,
+            "reference_rate_bps": 300,
+            "rate_diff_bps": 0,
+            "recomputed_charge_minor": 0,
+            "claimed_charge_minor": 0,
+            "delta_minor": 0,
+            "verdict": "MATCHES"
+          }
+        ],
+        "total_recomputed_charge_minor": 1389,
+        "total_claimed_charge_minor": 2000,
+        "rejected_inputs": [],
+        "scope_note": "Performs arithmetic only over caller-declared par amounts, reference rates, and fail-day counts. Does not source, derive, or independently verify any fail status, par amount, or reference rate, and makes no TMPG/NY Fed endorsement claim.",
+        "clause_note": "NY Fed Treasury Market Practices Group fails-charge trading practice (2016 revision): charge = max(0, 3% - reference rate) / 360 x par x days failed. Confirm the current practice text at newyorkfed.org before relying on a computed figure for a live claim."
+      },
+      "golden_hash": "38e77c6c41fe6c9193fb3c79fb49abd10ab213225723d7adeff0b665bd0285e4"
+    },
+    {
+      "name": "tolerance-not-declared-indeterminate",
+      "policy_parameters": {
+        "fails": [
+          {
+            "fail_id": "fail-C",
+            "par_amount_minor": 1000000,
+            "days_failed": 3,
+            "reference_rate_bps": 100
+          }
+        ]
+      },
+      "output_payload": {
+        "decision": {
+          "execution_state": "did_not_run",
+          "reason": "diff_tolerance_not_declared"
+        },
+        "diff_tolerance_minor": null,
+        "verdict": "INDETERMINATE",
+        "fail_count": 0,
+        "determinations": [],
+        "total_recomputed_charge_minor": 0,
+        "total_claimed_charge_minor": null,
+        "rejected_inputs": [
+          {
+            "where": "diff_tolerance_minor",
+            "reason": "absent -- a diff tolerance must be declared, never defaulted",
+            "supplied": null
+          }
+        ],
+        "scope_note": "Performs arithmetic only over caller-declared par amounts, reference rates, and fail-day counts. Does not source, derive, or independently verify any fail status, par amount, or reference rate, and makes no TMPG/NY Fed endorsement claim.",
+        "clause_note": "NY Fed Treasury Market Practices Group fails-charge trading practice (2016 revision): charge = max(0, 3% - reference rate) / 360 x par x days failed. Confirm the current practice text at newyorkfed.org before relying on a computed figure for a live claim."
+      },
+      "golden_hash": "c8bce9a5fd18b8b72d2d0759bd149ec8275eee5ea5d255827ee618ca276802ea"
+    }
+  ]
+}
