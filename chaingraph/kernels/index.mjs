@@ -514,6 +514,7 @@ import * as art577    from './art-577-exchange-fee-tier-recompute.kernel.mjs';
 import * as art578    from './art-578-etf-pcf-basket-verification.kernel.mjs';
 import * as art579    from './art-579-stock-loan-rebate-recompute.kernel.mjs';
 import * as art58     from './art-58-cross-network-settlement-validator.kernel.mjs';
+import * as art58015  from './art-580-15c3-3a-note-h-margin-debit.kernel.mjs';
 import * as art581    from './art-581-emir3-simm-approval-scope-classifier.kernel.mjs';
 import * as art582    from './art-582-genius-reserve-disclosure-conformance-monitor.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
@@ -1087,6 +1088,7 @@ export const KERNELS = {
   'art-578-etf-pcf-basket-verification':                        art578,
   'art-579-stock-loan-rebate-recompute':                        art579,
   'art-58-cross-network-settlement-validator':                  art58,
+  'art-580-15c3-3a-note-h-margin-debit':                        art58015,
   'art-581-emir3-simm-approval-scope-classifier':               art581,
   'art-582-genius-reserve-disclosure-conformance-monitor':      art582,
   'art-59-settlement-asset-finality-classifier':                art59,

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>15c3-3a Note H Margin-Debit Computation &middot; ART-580 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes whether a margin debit for customer U.S. Treasury positions delivered to a registered clearing agency qualifies for inclusion under Note H to Rule 15c3-3a, and computes the debit amount.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-580-15c3-3a-note-h-margin-debit.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.open{background:rgba(58,82,112,.2);color:var(--body);border:1px solid var(--border-2)}
+.ruleset-pin{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.25);border-radius:var(--radius);padding:.4rem .75rem;display:inline-block;margin:8px 0}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-580 · 15c3-3a Note H Margin-Debit Computation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-580 &middot; Capital Markets &middot; Broker-Dealer Reserve Formula</div>
+  <h1>15c3-3a Note H Margin-Debit Computation</h1>
+  <p class="sub">Recomputes whether a margin debit tied to a broker-dealer's customer U.S. Treasury positions delivered to a registered clearing agency qualifies for inclusion in the Rule 15c3-3 customer or PAB reserve formula under Note H to Exhibit A (Rule 15c3-3a). Note H permits that one debit line only once the clearing agency's rules satisfy several Commission-approved conditions and the margin itself comes from a permitted source. Each condition is checked here as its own declared boolean, cited to the specific Note H subsection it comes from, and the verdict is INCLUDABLE, NOT_INCLUDABLE or INDETERMINATE. Where INCLUDABLE, the debit is the smaller of the margin required and the margin actually on deposit. This is a narrow sibling to the shipped <a href="art-396-compute-15c3-3-reserve.html">ART-396 15c3-3 reserve tool</a>: it recomputes only the Note H sliver, never the full Items 1-14 formula, and never edits that tool.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Condition-by-condition, cited</span>
+    <span class="flag info">Sibling to ART-396, not a replacement</span>
+    <span class="flag">Fixed-point money math</span>
+    <span class="flag">Not legal or regulatory advice</span>
+  </div>
+  <div class="ruleset-pin" id="rulesetPin">Basis: Exchange Act Rule 15c3-3a Note H(b)(1)-(3) &middot; SEC Treasury-clearing compliance dates: cash by 2026-12-31, repo by 2027-06-30</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; This is not legal or regulatory advice. It recomputes only the Note H margin-debit sliver, not the full Rule 15c3-3a reserve formula (Items 1-14, see ART-396 for that). Whether a clearing agency's rules and Commission notice actually satisfy Note H, and whether the declared facts are accurate, is for the broker-dealer's own compliance and financial-operations review. This page computes once when you press the button, stores nothing, runs on no schedule, and retains nothing.</div>
+
+  <div class="card">
+    <div class="section-head">Broker-dealer and clearing agency</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo figures below are synthetic. They are not a copy of any real firm's reserve computation, and they are already loaded so you can press Run without entering anything of your own.</p>
+    <div class="grid2">
+      <div><label class="fld">Broker-dealer reference</label><input type="text" id="bdRef" value="SYNTH-BD-001 (synthetic)"></div>
+      <div><label class="fld">Computation date (your input, never a clock read)</label><input type="text" id="compDate" value="2026-08-07 weekly reserve computation"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="fld">Currency</label><input type="text" id="currency" value="USD"></div>
+      <div><label class="fld">Clearing agency name</label><input type="text" id="clearingAgency" value="SYNTH-FICC-LIKE-CCA"></div>
+    </div>
+
+    <div class="section-head">Note H clearing-agency conditions (each a declared boolean)</div>
+    <label class="fld">JSON object: commission_notice_published, commission_notice_dated, per_customer_gross_margin_calc, cash_investment_short_term_treasuries_only, special_clearing_account_designated, excess_margin_return_system. Omit a key (or use null) to leave it unstated, which forces INDETERMINATE rather than a guess.</label>
+    <textarea id="conditionsJson" style="min-height:140px">{
+  "commission_notice_published": true,
+  "commission_notice_dated": "2024-11-25",
+  "per_customer_gross_margin_calc": true,
+  "cash_investment_short_term_treasuries_only": true,
+  "special_clearing_account_designated": true,
+  "excess_margin_return_system": true
+}</textarea>
+
+    <div class="section-head">Margin source (Note H(b)(1))</div>
+    <div class="grid2">
+      <div><label class="fld">Source</label>
+        <select id="marginSource">
+          <option value="customer_cash">customer_cash</option>
+          <option value="customer_securities_custody">customer_securities_custody</option>
+          <option value="bd_treasuries_narrow">bd_treasuries_narrow (broker-dealer's own Treasuries, narrow path)</option>
+        </select>
+      </div>
+      <div></div>
+    </div>
+    <div class="grid2" id="narrowFields">
+      <div><label class="fld">Customer lacked sufficient assets (narrow path only)</label>
+        <select id="custInsufficient"><option value="unstated">unstated</option><option value="true">true</option><option value="false">false</option></select>
+      </div>
+      <div><label class="fld">Margin recouped by next business day (narrow path only)</label>
+        <select id="recoupedNextDay"><option value="unstated">unstated</option><option value="true">true</option><option value="false">false</option></select>
+      </div>
+    </div>
+
+    <div class="section-head">Margin amounts</div>
+    <div class="grid2">
+      <div><label class="fld">Margin required, minor units</label><input type="number" id="marginRequired" value="500000000"></div>
+      <div><label class="fld">Margin on deposit, minor units (leave blank for INDETERMINATE)</label><input type="number" id="marginOnDeposit" value="650000000"></div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runNoteH()">&#9654; Run Note H Margin-Debit Computation</button>
+      <button class="ghost" onclick="loadNotIncludableDemo()">Load NOT_INCLUDABLE demo</button>
+      <button class="ghost" onclick="loadIndeterminateDemo()">Load INDETERMINATE demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Note H conditions</div>
+      <div id="condDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rationale</div>
+      <ul class="rat" id="ratDiv"></ul>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not recompute Items 1-14 of the Rule 15c3-3a customer or PAB reserve formula, only the Note H margin-debit sliver (see ART-396 for the full formula). It does not verify a clearing agency's rulebook or a Commission notice against the Federal Register at run time; both are caller-declared facts. It is not legal or regulatory advice, and it makes no assertion about whether any clearing agency's actual rules satisfy Note H.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Sibling to <a href="art-396-compute-15c3-3-reserve.html">ART-396 15c3-3 Reserve Formula Computation</a>, which recomputes the full Items 1-14 customer/PAB reserve formula. This tool is independent and narrower: it covers only the Note H margin-debit condition checks and amount, never the rest of the formula, and it never edits ART-396.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-580-15c3-3a-note-h-margin-debit',
+  version: '1.0.0',
+  mcp_name: 'compute_note_h_margin_debit',
+  title: '15c3-3a Note H Margin-Debit Computation',
+  description: 'Recomputes whether a margin debit for customer U.S. Treasury positions delivered to a registered clearing agency qualifies for inclusion under Note H to Rule 15c3-3a, and if so computes the debit amount.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'compute_note_h_margin_debit',
+    description: 'Checks each Note H condition (cited to its subsection) plus the margin source, returns verdict INCLUDABLE | NOT_INCLUDABLE | INDETERMINATE, and where INCLUDABLE computes the debit as MIN(margin required, margin on deposit).',
+    inputSchema: { type: 'object', properties: {
+      broker_dealer_ref: {type:'string'}, computation_date_label: {type:'string'}, currency: {type:'string'},
+      clearing_agency_name: {type:'string'}, clearing_agency_conditions: {type:'object'},
+      margin_source: {type:'string'}, margin_required_minor_units: {type:'number'}, margin_on_deposit_minor_units: {type:'number'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-580-15c3-3a-note-h-margin-debit.kernel.mjs --- */
+var MARGIN_SOURCES = ['customer_cash','customer_securities_custody','bd_treasuries_narrow'];
+var CITATIONS = {
+  note_h_b1: { source: 'Exchange Act Rule 15c3-3a, Note H(b)(1)', detail: "Permitted sources of the margin on deposit are: cash the customer delivered for that customer's own U.S. Treasury securities positions; that customer's own securities held in custody that qualify as \"qualified customer securities\" under the clearing agency's Note H rules; or, narrowly, the broker-dealer's own qualifying Treasury securities where the customer lacked sufficient margin, the clearing agency called for and received the margin, and the broker-dealer recouped the advance from the customer by the next business day. Re-verify against primary text before relying on it (research finding, not a fact)." },
+  note_h_b2i: { source: 'Exchange Act Rule 15c3-3a, Note H(b)(2)(i)', detail: "The clearing agency's rules must require a SEPARATE margin requirement calculated for each customer of the broker-dealer, with the broker-dealer delivering that customer's margin to the clearing agency on a gross basis." },
+  note_h_b2ii: { source: 'Exchange Act Rule 15c3-3a, Note H(b)(2)(ii)', detail: 'Cash on deposit as margin may be invested by the clearing agency only in short-term U.S. Treasury securities.' },
+  note_h_b2iii_iv: { source: 'Exchange Act Rule 15c3-3a, Note H(b)(2)(iii)-(iv)', detail: 'Margin must be held in a segregated Special Clearing Account for the exclusive benefit of customers, maintained at a Federal Reserve Bank or an FDIC-insured bank.' },
+  note_h_b2v: { source: 'Exchange Act Rule 15c3-3a, Note H(b)(2)(v)', detail: "The clearing agency's rules must provide a system for promptly returning excess margin that is no longer required." },
+  note_h_b3: { source: 'Exchange Act Rule 15c3-3a, Note H(b)(3)', detail: "The clearing agency's Note H rules must have Commission approval, and the Commission must have published notice that the conditions of Note H are satisfied with respect to that clearing agency, before a broker-dealer may include the Note H debit for that clearing agency." },
+  treasury_clearing_compliance_dates: { source: 'SEC Treasury-clearing adopting release and compliance-date extension (Federal Register, 2025 final rule and 2025-03-04 extension notice)', detail: 'Central clearing of eligible U.S. Treasury cash trades is required by 2026-12-31 and of eligible repo transactions by 2027-06-30. Stated here as a dated fact, not a live countdown.' },
+};
+var NOT_PROVEN = [
+  { item: 'Not legal or regulatory advice', detail: "This kernel recomputes the Note H margin-debit condition checks and debit arithmetic from caller-declared facts. It is not a substitute for counsel, FINRA/SEC guidance, or the broker-dealer's own compliance and financial-operations review." },
+  { item: 'Commission notice currency', detail: 'Whether the Commission has in fact published (and not since withdrawn) a Note H(b)(3) notice for the named clearing agency is a caller-declared fact, not independently verified against the Federal Register at run time -- this is an offline, zero-network tool.' },
+  { item: 'Full reserve formula not recomputed', detail: 'This kernel computes only the Note H margin-debit sliver. It does not recompute Items 1-14 of the Rule 15c3-3a customer/PAB reserve formula -- see the sibling art-396 15c3-3 reserve tool for that, a separate and independent tool.' },
+  { item: 'Clearing agency rulebook not verified', detail: "The per-customer gross calculation, cash-investment restriction, Special Clearing Account designation, and excess-margin-return-system conditions are caller-declared facts about the named clearing agency's rules, not independently checked against that clearing agency's actual rulebook filings." },
+  { item: 'Input accuracy', detail: "Margin-required and margin-on-deposit figures are caller-supplied and asserted, not independently verified against the clearing agency's own margin call or the broker-dealer's books and records." },
+];
+var MINOR_UNIT_EXPONENT = 2;
+var MINOR_SCALE = 100;
+
+function isSafeIntAmount(v){ return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v); }
+function toMinorUnits(v, where, rejected){
+  if (isSafeIntAmount(v)) return v;
+  if (v === undefined || v === null || v === '') { rejected.push({ where: where, reason: 'absent', supplied: null }); return null; }
+  rejected.push({ where: where,
+    reason: typeof v === 'number' ? 'not a safe integer number of minor units' : 'expected an integer number of minor units, got ' + (typeof v),
+    supplied: typeof v === 'number' && Number.isFinite(v) ? v : String(v) });
+  return null;
+}
+function display(minor){
+  if (minor === null || minor === undefined) return null;
+  var neg = minor < 0; var abs = neg ? -minor : minor;
+  var whole = Math.trunc(abs / MINOR_SCALE); var frac = abs - whole * MINOR_SCALE;
+  return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(MINOR_UNIT_EXPONENT, '0');
+}
+function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
+function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
+function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+function tri(v){ return v === true ? true : v === false ? false : null; }
+function conditionRow(key, label, citation_key, value){ return { key: key, label: label, citation_key: citation_key, satisfied: value }; }
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var broker_dealer_ref = str(pp.broker_dealer_ref, 'UNSTATED');
+  var computation_date_label = str(pp.computation_date_label, 'UNSTATED');
+  var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'USD';
+  var clearing_agency_name = str(pp.clearing_agency_name, 'UNSTATED');
+
+  var cac = obj(pp.clearing_agency_conditions);
+  var commission_notice_published = tri(cac.commission_notice_published);
+  var commission_notice_dated = str(cac.commission_notice_dated, null);
+  var per_customer_gross_margin_calc = tri(cac.per_customer_gross_margin_calc);
+  var cash_investment_short_term_treasuries_only = tri(cac.cash_investment_short_term_treasuries_only);
+  var special_clearing_account_designated = tri(cac.special_clearing_account_designated);
+  var excess_margin_return_system = tri(cac.excess_margin_return_system);
+
+  var marginSourceSupplied = str(pp.margin_source, '');
+  var margin_source = MARGIN_SOURCES.indexOf(marginSourceSupplied) !== -1 ? marginSourceSupplied : null;
+  if (margin_source === null) {
+    rejected_inputs.push({ where: 'margin_source', reason: marginSourceSupplied === '' ? 'absent' : 'not one of customer_cash, customer_securities_custody, bd_treasuries_narrow', supplied: marginSourceSupplied === '' ? null : marginSourceSupplied });
+  }
+  var customer_insufficient_assets_declared = margin_source === 'bd_treasuries_narrow' ? tri(pp.customer_insufficient_assets_declared) : null;
+  var margin_called_and_received_next_business_day = margin_source === 'bd_treasuries_narrow' ? tri(pp.margin_called_and_received_next_business_day) : null;
+
+  var margin_required_minor_units = toMinorUnits(pp.margin_required_minor_units, 'margin_required_minor_units', rejected_inputs);
+  var margin_on_deposit_minor_units = toMinorUnits(pp.margin_on_deposit_minor_units, 'margin_on_deposit_minor_units', rejected_inputs);
+
+  var conditions = [
+    conditionRow('commission_notice_published', "Commission has approved the clearing agency's Note H rules and published notice that Note H is satisfied for it", 'note_h_b3', commission_notice_published),
+    conditionRow('per_customer_gross_margin_calc', 'Clearing agency calculates a separate, gross, per-customer margin requirement', 'note_h_b2i', per_customer_gross_margin_calc),
+    conditionRow('cash_investment_short_term_treasuries_only', 'Cash margin is invested only in short-term U.S. Treasury securities', 'note_h_b2ii', cash_investment_short_term_treasuries_only),
+    conditionRow('special_clearing_account_designated', 'Margin held in a segregated Special Clearing Account at a Federal Reserve Bank or FDIC-insured bank', 'note_h_b2iii_iv', special_clearing_account_designated),
+    conditionRow('excess_margin_return_system', 'Clearing agency has a system for returning excess margin no longer required', 'note_h_b2v', excess_margin_return_system),
+  ];
+  if (margin_source === 'bd_treasuries_narrow') {
+    conditions.push(conditionRow('customer_insufficient_assets_declared', 'Customer did not have sufficient margin of its own (narrow bd_treasuries_narrow path)', 'note_h_b1', customer_insufficient_assets_declared));
+    conditions.push(conditionRow('margin_called_and_received_next_business_day', 'Broker-dealer recouped the advanced margin from the customer by the next business day (narrow bd_treasuries_narrow path)', 'note_h_b1', margin_called_and_received_next_business_day));
+  }
+
+  var anyUnstated = conditions.some(function(c){return c.satisfied === null;}) || margin_source === null;
+  var anyFalse = conditions.some(function(c){return c.satisfied === false;});
+  var amountsMissing = margin_required_minor_units === null || margin_on_deposit_minor_units === null;
+
+  var verdict, indeterminate_reason;
+  if (amountsMissing) {
+    verdict = 'INDETERMINATE'; indeterminate_reason = 'margin_required_minor_units and/or margin_on_deposit_minor_units were not supplied, so no debit could be computed.';
+  } else if (anyUnstated) {
+    verdict = 'INDETERMINATE'; indeterminate_reason = 'At least one Note H condition (or the margin_source itself) was not declared true or false, so includability cannot be decided.';
+  } else if (anyFalse) {
+    verdict = 'NOT_INCLUDABLE'; indeterminate_reason = null;
+  } else {
+    verdict = 'INCLUDABLE'; indeterminate_reason = null;
+  }
+
+  var debit_minor_units = verdict === 'INCLUDABLE' ? Math.min(margin_required_minor_units, margin_on_deposit_minor_units) : 0;
+
+  var rationale = [];
+  rationale.push('Note H margin-debit includability recomputed for broker-dealer reference ' + broker_dealer_ref + ' as of ' + computation_date_label + ', clearing agency ' + clearing_agency_name + '.');
+  var failed = conditions.filter(function(c){return c.satisfied === false;}).map(function(c){return c.key;});
+  var unstated = conditions.filter(function(c){return c.satisfied === null;}).map(function(c){return c.key;});
+  if (margin_source === null) unstated.push('margin_source');
+  if (failed.length > 0) rationale.push(failed.length + ' Note H condition' + (failed.length === 1 ? ' is' : 's are') + ' declared FALSE: ' + failed.join(', ') + '.');
+  if (unstated.length > 0) rationale.push(unstated.length + ' condition' + (unstated.length === 1 ? ' was' : 's were') + ' not declared true or false: ' + unstated.join(', ') + '.');
+  if (failed.length === 0 && unstated.length === 0 && !amountsMissing) rationale.push('Every declared Note H condition resolved TRUE and a margin_source was declared.');
+  rationale.push(verdict === 'INDETERMINATE' ? ('Verdict is INDETERMINATE: ' + indeterminate_reason)
+    : verdict === 'INCLUDABLE' ? ('Verdict is INCLUDABLE. The debit is MIN(margin required, margin on deposit) = ' + display(debit_minor_units) + ' ' + currency + '.')
+    : 'Verdict is NOT_INCLUDABLE: at least one Note H condition failed, so no Note H debit may be included in the reserve formula for this margin.');
+  if (rejected_inputs.length > 0) rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as absent. Each one is named in rejected_inputs rather than silently dropped.');
+  rationale.push('This is not legal or regulatory advice, and this kernel recomputes only the Note H margin-debit sliver of the Rule 15c3-3a reserve formula, never the full formula (see the sibling art-396 15c3-3 reserve tool for that).');
+
+  var compliance_flags = ['NOTEH_MARGIN_RECOMPUTED'];
+  compliance_flags.push(verdict === 'INDETERMINATE' ? 'NOTEH_INDETERMINATE' : verdict === 'INCLUDABLE' ? 'NOTEH_INCLUDABLE' : 'NOTEH_NOT_INCLUDABLE');
+  if (unstated.length > 0) compliance_flags.push('NOTEH_CONDITION_UNSTATED');
+  if (failed.length > 0) compliance_flags.push('NOTEH_CONDITION_FAILED');
+  if (margin_source === 'bd_treasuries_narrow') compliance_flags.push('NOTEH_BD_TREASURIES_NARROW_PATH');
+  if (verdict === 'NOT_INCLUDABLE') compliance_flags.push('ESCALATION_RAISED');
+  if (rejected_inputs.length > 0) compliance_flags.push('NOTEH_INPUTS_REJECTED');
+
+  var output_payload = {
+    broker_dealer_ref: broker_dealer_ref, computation_date_label: computation_date_label, currency: currency, minor_unit_exponent: MINOR_UNIT_EXPONENT,
+    clearing_agency_name: clearing_agency_name, commission_notice_dated: commission_notice_dated, margin_source: margin_source,
+    margin_required_minor_units: margin_required_minor_units, margin_required_display: display(margin_required_minor_units),
+    margin_on_deposit_minor_units: margin_on_deposit_minor_units, margin_on_deposit_display: display(margin_on_deposit_minor_units),
+    conditions: conditions, debit_minor_units: debit_minor_units, debit_display: display(debit_minor_units),
+    verdict: verdict, indeterminate_reason: indeterminate_reason, rejected_inputs: rejected_inputs,
+    citations: CITATIONS, rationale: rationale, not_proven: NOT_PROVEN,
+    fence: "This is not legal or regulatory advice. This kernel recomputes only whether a margin debit qualifies for inclusion under Note H to Exchange Act Rule 15c3-3a and, if so, its amount -- it does not recompute Items 1-14 of the Rule 15c3-3a reserve formula (see the sibling art-396 15c3-3 reserve tool for that, an independent tool never edited by this one). Whether a clearing agency's rules and Commission notice actually satisfy Note H, and whether the declared facts are accurate, are for the broker-dealer's own compliance and financial-operations review.",
+    note: 'Deterministic Note H margin-debit includability and amount recomputation for one stated computation date. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function parseJsonField(id, label){
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  try { return JSON.parse(raw); }
+  catch(e){ alert('Invalid JSON in ' + label + ': ' + e.message); throw e; }
+}
+function triSelectVal(id){
+  var v = document.getElementById(id).value;
+  return v === 'unstated' ? undefined : (v === 'true');
+}
+
+function loadNotIncludableDemo(){
+  document.getElementById('bdRef').value = 'SYNTH-BD-002 (synthetic)';
+  document.getElementById('compDate').value = '2026-08-14 weekly reserve computation';
+  document.getElementById('clearingAgency').value = 'SYNTH-NETTING-CCA';
+  document.getElementById('conditionsJson').value = '{\n  "commission_notice_published": true,\n  "commission_notice_dated": "2024-11-25",\n  "per_customer_gross_margin_calc": false,\n  "cash_investment_short_term_treasuries_only": true,\n  "special_clearing_account_designated": true,\n  "excess_margin_return_system": true\n}';
+  document.getElementById('marginSource').value = 'customer_securities_custody';
+  document.getElementById('marginRequired').value = '300000000';
+  document.getElementById('marginOnDeposit').value = '300000000';
+  runNoteH();
+}
+function loadIndeterminateDemo(){
+  document.getElementById('bdRef').value = 'SYNTH-BD-003 (synthetic)';
+  document.getElementById('compDate').value = '2026-08-21 weekly reserve computation';
+  document.getElementById('clearingAgency').value = 'SYNTH-NEW-ENTRANT-CCA';
+  document.getElementById('conditionsJson').value = '{\n  "per_customer_gross_margin_calc": true,\n  "cash_investment_short_term_treasuries_only": true,\n  "special_clearing_account_designated": true,\n  "excess_margin_return_system": true\n}';
+  document.getElementById('marginSource').value = 'customer_cash';
+  document.getElementById('marginRequired').value = '100000000';
+  document.getElementById('marginOnDeposit').value = '120000000';
+  runNoteH();
+}
+
+async function runNoteH(){
+  var conditions;
+  try { conditions = parseJsonField('conditionsJson', 'Note H clearing-agency conditions'); }
+  catch(e){ return; }
+
+  var pp = {
+    broker_dealer_ref: document.getElementById('bdRef').value || '',
+    computation_date_label: document.getElementById('compDate').value || '',
+    currency: document.getElementById('currency').value || '',
+    clearing_agency_name: document.getElementById('clearingAgency').value || '',
+    clearing_agency_conditions: conditions === null ? {} : conditions,
+    margin_source: document.getElementById('marginSource').value || '',
+  };
+  var reqRaw = document.getElementById('marginRequired').value;
+  if (reqRaw !== '') pp.margin_required_minor_units = Number(reqRaw);
+  var depRaw = document.getElementById('marginOnDeposit').value;
+  if (depRaw !== '') pp.margin_on_deposit_minor_units = Number(depRaw);
+  if (pp.margin_source === 'bd_treasuries_narrow') {
+    pp.customer_insufficient_assets_declared = triSelectVal('custInsufficient');
+    pp.margin_called_and_received_next_business_day = triSelectVal('recoupedNextDay');
+  }
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var good = op.verdict === 'INCLUDABLE';
+  var indet = op.verdict === 'INDETERMINATE';
+  var colour = good ? 'var(--green)' : (indet ? 'var(--teal-lt)' : 'var(--red)');
+  var bg = good ? 'rgba(34,197,94,.08)' : (indet ? 'rgba(20,184,166,.08)' : 'rgba(239,68,68,.08)');
+  vBox.style.color = colour; vBox.style.background = bg; vBox.style.border = '1px solid ' + colour;
+  vBox.textContent = op.verdict + ' · ' + op.computation_date_label;
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.margin_required_display || '—') + '</span><span class="stat-key">Margin required ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.margin_on_deposit_display || '—') + '</span><span class="stat-key">Margin on deposit ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.debit_display + '</span><span class="stat-key">Note H debit ' + op.currency + '</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.margin_source || 'none') + '</span><span class="stat-key">Margin source</span></div>';
+
+  document.getElementById('condDiv').innerHTML = op.conditions.map(function(c){
+    var badge = c.satisfied === true ? '<span class="badge ok">TRUE</span>' : c.satisfied === false ? '<span class="badge bad">FALSE</span>' : '<span class="badge warn">UNSTATED</span>';
+    return '<div class="kv"><span class="kv-k">' + c.label + ' <span style="color:var(--muted)">(' + c.citation_key + ')</span></span><span class="kv-v">' + badge + '</span></div>';
+  }).join('');
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(r){ return '<div class="kv"><span class="kv-k">' + r.where + '</span><span class="kv-v">' + r.reason + (r.supplied === null ? '' : ' (supplied: ' + r.supplied + ')') + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('ratDiv').innerHTML = op.rationale.map(function(r){ return '<li>' + r + '</li>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:'art-580-15c3-3a-note-h-margin-debit',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-580-15c3-3a-note-h-margin-debit.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
