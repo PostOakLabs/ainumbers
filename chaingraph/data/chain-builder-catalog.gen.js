@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (572 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (576 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6039,6 +6039,46 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-581-emir3-simm-approval-scope-classifier.html",
     "description": "Classifies which EMIR 3 initial-margin model-approval obligations apply to a caller-declared counterparty profile across four items: prior c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-582-genius-reserve-disclosure-conformance-monitor",
+    "display_name": "GENIUS Act Reserve-Disclosure Conformance Monitor",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-582-genius-reserve-disclosure-conformance-monitor.html",
+    "description": "Checks a monthly PPSI reserve disclosure against two statute-derived GENIUS Act S.394 §4 requirements: 1:1 reserve coverage arithmetic and a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-583-beacon-seeded-fair-sampling-deriver",
+    "display_name": "Beacon-Seeded Fair-Sampling Deriver",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-583-beacon-seeded-fair-sampling-deriver.html",
+    "description": "Derives a deterministic, offline-replayable audit sample by HMAC-DRBG (SHA-256) seeded from a caller-pasted public randomness beacon pulse (",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-584-proof-of-reserves-verifier",
+    "display_name": "Proof-of-Reserves Verifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-584-proof-of-reserves-verifier.html",
+    "description": "Independently recomputes an exchange or custodian's published Proof-of-Reserves data: a single-leaf Merkle-sum inclusion path, a liability-s",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-585-sanctions-screening-evidence-pack",
+    "display_name": "Sanctions Screening Evidence Pack",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-585-sanctions-screening-evidence-pack.html",
+    "description": "Binds a caller-declared sanctions-screening decision (query, match count, decision) to the EXACT versioned dataset it was screened against, ",
     "consumes": [],
     "feeds": [],
     "status": "live"

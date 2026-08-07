@@ -305,9 +305,19 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // move by exactly 7; the stale count does not move.
   // Measured both sides, not assumed: 414/547 fresh + 133 stale before this row's merge base,
   // 421/554 fresh + 133 stale after.
-  assert(total === 554, `expected 554 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 421, `expected 421 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by CAPMKT-ASSEMBLE-LAND-1), got ${stale.length}`);
+  // 554 -> 558 post-EDGE-ASSEMBLE-LAND-1 (2026-08-07): landed the four EDGE nodes -- art-582
+  // (genius-reserve-disclosure-conformance-monitor), art-583 (beacon-seeded-fair-sampling-deriver),
+  // art-584 (proof-of-reserves-verifier) and art-585 (sanctions-screening-evidence-pack) -- each
+  // carrying a groth16 compute_proof (art-582/584/585 from draft PR #1026 merged locally into this
+  // land; art-583's receipt recovered by EDGE-583-SHARD-FIX-1/PR #1027, already on main), every run
+  // VERIFY_PASS with KROOT pinned per node. All four enter the FRESH set by construction --
+  // compute_proof_ready:'ready' with no prior receipt on main -- so denominator and fresh each
+  // move by exactly 4; the stale count does not move.
+  // Measured both sides, not assumed: 421/554 fresh + 133 stale before this row's merge base,
+  // 425/558 fresh + 133 stale after.
+  assert(total === 558, `expected 558 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 425, `expected 425 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by EDGE-ASSEMBLE-LAND-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
