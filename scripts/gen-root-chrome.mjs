@@ -27,6 +27,7 @@ const PAGES = [
   'index.html', 'start.html',
   'contact.html', 'convert.html', 'credits.html', 'methods.html',
   'security.html', 'suggest.html',
+  'helm.html', 'sitemap.html', 'tools.html',
 ];
 
 // Regions: [openMarker, closeMarker, payload]. Markers matched loosely so the
