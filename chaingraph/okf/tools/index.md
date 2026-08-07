@@ -499,6 +499,9 @@ status: stable
 - [Record Fund Positions](./art-558-record-fund-positions.md) — `record_fund_positions`
 - [Calculation-Agent Independence Attestation](./art-559-attest-calc-agent-independence.md) — `attest_calc_agent_independence`
 - [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`
+- [Swift MT9xx to camt Statement Migration Mapper](./art-563-mt9xx-camt-statement-migration-mapper.md) — `map_mt9xx_to_camt`
+- [UCP Checkout Payload Lint](./art-564-ucp-checkout-payload-lint.md) — `lint_ucp_checkout_payload`
+- [KYA Credential x x402 Payload Scope Verifier](./art-565-kya-x402-scope-verifier.md) — `verify_kya_x402_scope`
 - [Deposit-Token Compliance Validator](./art-57-deposit-token-compliance-validator.md) — `validate_deposit_token_compliance`
 - [Cross-Network Atomic Settlement Validator](./art-58-cross-network-settlement-validator.md) — `validate_cross_network_settlement`
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`

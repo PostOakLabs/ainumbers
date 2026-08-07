@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (553 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (556 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5818,6 +5818,36 @@ window.CHAINBUILDER_CATALOG = [
       "509-canton-party-allowlist-validator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-563-mt9xx-camt-statement-migration-mapper",
+    "display_name": "Swift MT9xx to camt Statement Migration Mapper",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-563-mt9xx-camt-statement-migration-mapper.html",
+    "description": "Maps a pasted Swift MT900/910/940/942/950 statement or notification message to a camt.052/053/054-shaped JSON mapping object, plus a fidelit",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-564-ucp-checkout-payload-lint",
+    "display_name": "UCP Checkout Payload Lint",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-564-ucp-checkout-payload-lint.html",
+    "description": "Deterministic, verify-only structural lint of a caller-supplied Universal Commerce Protocol (UCP; Google + Shopify, announced NRF 2026-01-11",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-565-kya-x402-scope-verifier",
+    "display_name": "KYA Credential x x402 Payload Scope Verifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-565-kya-x402-scope-verifier.html",
+    "description": "Cross-checks a declared KYA (Know Your Agent) credential's scope against a declared x402 PaymentPayload: amount vs the credential's spend ca",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

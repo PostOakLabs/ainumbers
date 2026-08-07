@@ -274,9 +274,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // exactly 3; the stale count does not move.
   // Measured both sides, not assumed: 397/530 fresh + 133 stale before VERT-RECEIPTS-LAND-3's merge
   // base, 402/535 fresh + 133 stale after.
-  assert(total === 535, `expected 535 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 402, `expected 402 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by VERT-RECEIPTS-LAND-3), got ${stale.length}`);
+  // 535 -> 538 post-NEXTSUGG-ASSEMBLE-LAND-1 (2026-08-07): landed art-563 (mt9xx-camt-statement-
+  // migration-mapper), art-564 (ucp-checkout-payload-lint) and art-565 (kya-x402-scope-verifier) --
+  // the three NEXTSUGG nodes, each carrying a groth16 compute_proof from NEXTSUGG-PROVE-1 (PR #1008,
+  // all three VERIFY_PASS, each kernel_digest confirmed moved to a distinct image_id). All three enter
+  // the FRESH set by construction -- compute_proof_ready:'ready' with no prior receipt on main -- so
+  // denominator and fresh each move by exactly 3; the stale count does not move.
+  // Measured both sides, not assumed: 402/535 fresh + 133 stale before this row's merge base,
+  // 405/538 fresh + 133 stale after.
+  assert(total === 538, `expected 538 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 405, `expected 405 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by NEXTSUGG-ASSEMBLE-LAND-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
