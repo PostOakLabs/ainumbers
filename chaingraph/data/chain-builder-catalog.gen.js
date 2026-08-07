@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (576 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (577 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5818,6 +5818,22 @@ window.CHAINBUILDER_CATALOG = [
       "509-canton-party-allowlist-validator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-562-compile-model-risk-lineage-pack",
+    "display_name": "Compile Model Risk Lineage Pack",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-562-compile-model-risk-lineage-pack.html",
+    "description": "Compiles a model's current model-passport-lifecycle (art-450-model-inventory-entry, art-451-model-outcome-analysis, art-453-model-validation",
+    "consumes": [
+      "art-450-model-inventory-entry",
+      "art-451-model-outcome-analysis",
+      "art-453-model-validation-status",
+      "art-488-model-replication-diff",
+      "art-489-model-test-battery"
+    ],
+    "feeds": [],
     "status": "live"
   },
   {
