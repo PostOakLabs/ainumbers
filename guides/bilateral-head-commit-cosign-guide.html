@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Two Helms, One Cosigned Head: Bilateral Head-Commit Cosigning · AINumbers.co</title>
+<meta name="description" content="A worked example of two organizations' Helms exchanging and verifying a bilateral cosignature on a §HEAD-1 head-commit, using the ocg-head-bilateral-cosign@1 backing-ladder type: no service, no registry, offline verification.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/bilateral-head-commit-cosign-guide.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Two Helms, One Cosigned Head: Bilateral Head-Commit Cosigning · AINumbers.co">
+<meta property="og:description" content="Org A's Helm produces a head-commit, org B's Helm cosigns it out of band, org A attaches the binding: a worked walkthrough of ocg-head-bilateral-cosign@1 against the real reference verifier.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Two Helms, One Cosigned Head: Bilateral Head-Commit Cosigning","url":"https://ainumbers.co/guides/bilateral-head-commit-cosign-guide.html","description":"A worked example of two organizations' Helms exchanging and verifying a bilateral cosignature on a §HEAD-1 head-commit, using the ocg-head-bilateral-cosign@1 backing-ladder type.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.25;color:var(--white)}
+a{color:var(--teal-lt);text-decoration:none}a:hover{text-decoration:underline}
+.container{max-width:820px;margin:0 auto;padding:0 2rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-links{display:flex;gap:1.25rem}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body)}
+.nav-links a:hover{color:var(--teal-lt);text-decoration:none}
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:26px;height:1px;background:var(--purple)}
+h1.doc-title{font-size:clamp(1.7rem,3.2vw,2.4rem);margin-bottom:1rem;max-width:680px}
+.audience{font-size:.85rem;color:var(--body);max-width:680px;margin-bottom:1.25rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.75rem 1rem;font-size:.76rem;color:var(--body);line-height:1.65;border-radius:var(--radius)}
+.tool-links{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.25rem}
+.tool-link-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1.1rem;flex:1;min-width:220px}
+.tool-link-card h4{font-size:.85rem;color:var(--bright);font-family:'Sora',sans-serif;font-weight:500}
+.tool-link-card p{font-size:.72rem;color:var(--body);margin-top:.3rem;line-height:1.6}
+.tool-link-card a{display:inline-block;margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt)}
+article{padding:2rem 0 4rem}
+h2{font-size:1.2rem;margin:2.25rem 0 .9rem}
+h3{font-size:.95rem;font-family:'Sora',sans-serif;font-weight:500;color:var(--bright);margin:1.5rem 0 .6rem}
+p{margin-bottom:1rem;color:var(--text)}
+ol,ul{margin:0 0 1.1rem 1.4rem}
+li{margin-bottom:.6rem;color:var(--text)}
+code{font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--gold)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:.8rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);line-height:1.6;overflow-x:auto;margin:0 0 1.2rem;white-space:pre}
+pre code{color:var(--text);font-size:1em}
+.lead-gold{color:var(--gold)}.lead-teal{color:var(--teal-lt)}.lead-warn{color:var(--warn)}.lead{color:var(--bright)}
+.status-note{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.85rem 1.1rem;font-size:.78rem;color:var(--body);line-height:1.7;margin:1.5rem 0}
+.rule-note{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1.1rem;font-size:.78rem;color:var(--body);line-height:1.7;margin:1.5rem 0}
+table{width:100%;border-collapse:collapse;margin:0 0 1.2rem;font-size:.78rem}
+th,td{border:1px solid var(--border);padding:.5rem .7rem;text-align:left;vertical-align:top}
+th{color:var(--bright);font-weight:500;background:var(--bg-3)}
+td{color:var(--body)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem}
+.footer-inner-ai{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+  </a>
+  <div class="nav-links"><a href="../chaingraph/openchain-graph-spec.html">Spec</a><a href="../tools.html">All Tools</a><a href="../sitemap.html">Sitemap</a></div>
+</div></nav>
+
+<section class="hero"><div class="container">
+  <div class="hero-eyebrow">Worked Example</div>
+  <h1 class="doc-title">Two Helms, one cosigned head</h1>
+  <p class="audience">For engineers wiring a bilateral relationship between two organizations that each run their own Helm and want portable, offline-checkable evidence that a specific head-commit was seen and signed by a named counterparty, with no shared service and no registry in between.</p>
+  <div class="disclaimer"><span class="lead-gold">Scope.</span> This walks the <code>ocg-head-bilateral-cosign@1</code> backing-ladder type defined in <a href="../chaingraph/openchain-graph-spec.html">SPEC.md §HEAD-1.3</a> against the real reference verifier shipped in this repository, <code>chaingraph/kernels/_bilateral-cosign.mjs</code>. Every function name below is the actual exported name. The <code>did:key</code> values and signatures in the walkthrough are illustrative, not real key material; generate your own before using this in production.</div>
+  <div class="tool-links">
+    <div class="tool-link-card"><h4>OpenChainGraph standard</h4><p>§HEAD-1 defines the head-commit primitive; §HEAD-1.3 defines the backing-ladder this profile extends.</p><a href="../chaingraph/openchain-graph-spec.html">Read the spec &#8594;</a></div>
+    <div class="tool-link-card"><h4>Helm</h4><p>The local-first control plane each organization in this walkthrough runs its own copy of.</p><a href="../helm.html">About Helm &#8594;</a></div>
+  </div>
+</div></section>
+
+<article><div class="container">
+
+  <h2>1. What is being cosigned, and by whom</h2>
+  <p>Org A runs a Helm. It produces a stream of head-commits: each one a small signed object naming a <code>stream</code>, a <code>seq</code>, and a <code>head_hash</code> over its own content, per SPEC.md §HEAD-1.1. Org B is a counterparty org A already has a relationship with, a partner, a customer, an auditor. Org A wants a specific head-commit to carry evidence that org B has seen it and agrees it is the head org A claims it is, at that point in time.</p>
+  <p>That evidence is a <code>ocg-head-bilateral-cosign@1</code> entry in the head's <code>anchor_bindings[]</code> array, one more member of the same backing-ladder list §HEAD-1.3 already defines alongside <code>ocg-head-file@1</code> and <code>ocg-head-tlog@1</code>. Nothing about how org A's Helm stores or serves its own heads changes. The binding is additive, computed after the head's own hash, and never enters the hash preimage.</p>
+  <p>Two Helms are involved, and nothing else is. There is no third Helm, no shared server, no lookup a verifier performs at check time beyond the JSON it already has in hand.</p>
+
+  <h2>2. Org A's Helm produces the note</h2>
+  <p>Org A's Helm builds the C2SP signed-note header (origin line plus the head's own <code>head_hash</code>) with <code>buildNoteText()</code>, then hands that text to org B out of band. The transport is unspecified by design: email, an API call between the two Helms, a file dropped in a shared folder. What matters is that the bytes reaching org B are exactly this header, unmodified.</p>
+  <pre><code>import { buildNoteText } from './_bilateral-cosign.mjs';
+import { headHash } from './_head.mjs';
+
+const anchoredHash = await headHash(orgAHead);   // "sha256:..."; org A's own head
+const noteText = buildNoteText('orgA&lt;-&gt;orgB/settlement-stream', anchoredHash);
+
+// noteText is two lines: the origin, then the head_hash. Send exactly this to org B.</code></pre>
+  <p>Org A does not sign anything yet. The note is a claim about a specific hash, nothing more, until a counterparty countersigns it.</p>
+
+  <h2>3. Org B's Helm cosigns, independently</h2>
+  <p>Org B receives the note text, decides for itself whether to cosign it (this is a business decision made entirely on org B's side, off-spec), and if it agrees, signs a cosignature line with its own key using <code>signCosignLine()</code>. Org B never touches org A's Helm, database, or state to do this.</p>
+  <pre><code>import { signCosignLine } from './_bilateral-cosign.mjs';
+
+const cosignLine = await signCosignLine(noteText, {
+  didKey: 'did:key:z6Mk...orgB',
+  privateKey: orgBPrivateKey,       // org B's own Ed25519 key, never shared
+  timestampMs: 1755000000000,        // caller-supplied, never Date.now() inside the kernel
+});
+
+// cosignLine: "&#8212; did:key:z6Mk...orgB &lt;base64 cosignature/v1 blob&gt;"
+// Sent back to org A, out of band, the same way the note arrived.</code></pre>
+  <p>If org A wants an n-of-n binding across several counterparties, each one repeats this step independently against the same <code>noteText</code>. None of them need to see the others' lines to produce their own.</p>
+
+  <h2>4. Org A assembles the binding</h2>
+  <p>Once org A has the cosignature line(s) back, its Helm assembles the full <code>anchor_bindings[]</code> entry with <code>buildBilateralCosignBinding()</code> and attaches it to the head. This is the only step that touches org A's own head object, and it recomputes <code>head_hash</code> from the head itself rather than trusting a caller-supplied value.</p>
+  <pre><code>import { buildBilateralCosignBinding } from './_bilateral-cosign.mjs';
+
+const binding = await buildBilateralCosignBinding(
+  orgAHead,
+  [{ didKey: 'did:key:z6Mk...orgB', privateKey: null }], // keys only, on the verify side
+  { logOrigin: 'orgA&lt;-&gt;orgB/settlement-stream', timestampMs: 1755000000000 }
+);
+
+orgAHead.anchor_bindings ??= [];
+orgAHead.anchor_bindings.push(binding);</code></pre>
+  <div class="rule-note"><span class="lead-teal">What the binding actually is.</span> A JSON object naming a <code>type</code>, the <code>anchored_hash</code> it covers, the <code>proof</code> text (the note plus every cosignature line collected), and <code>cosigner_keys</code>: the specific counterparty keys org A agreed to be cosigned by for this relationship. There is no shared registry mapping org identity to key; <code>cosigner_keys</code> travels with the binding precisely so a verifier never needs one.</div>
+
+  <h2>5. Anyone verifies, offline</h2>
+  <p>A third party, an auditor, org B checking its own cosignature landed correctly, or org A itself before publishing, calls <code>verifyBilateralCosignBinding()</code> with only the head and its binding. No network call, no live counterparty, no service anywhere in the loop.</p>
+  <pre><code>import { verifyBilateralCosignBinding } from './_bilateral-cosign.mjs';
+
+const result = await verifyBilateralCosignBinding(binding, orgAHead);
+// { valid: true, anchored_hash_match: true, origin_match: true,
+//   valid_witness_count: 1, threshold: 1, cosignatures: [...], errors: [] }</code></pre>
+  <p>Three things this check actually proves: the note's <code>anchored_hash</code> matches the head's own recomputed <code>head_hash</code> (so the note cannot be reattached to a mutated head), every claimed cosignature line verifies against the specific key named in <code>cosigner_keys</code> (a line signed by an unlisted key is never counted, even if it is a valid signature from somewhere), and the count of valid cosignatures meets the stated threshold. A verifier that has never heard of <code>ocg-head-bilateral-cosign@1</code> simply skips the binding (<code>{ skipped: true }</code>) without failing the rest of the head chain.</p>
+
+  <h2>6. What this evidence is, and is not</h2>
+  <p>A cosigned head-commit is evidence that org B, using its own key, agreed a specific <code>head_hash</code> existed at the time it signed. That is what <code>valid: true</code> means, and it is all it means. Per SPEC.md's own equivocation-corollary text, a cosignature attests: it does not settle a dispute between org A and org B, and it does not pick a winner if org A later publishes a conflicting head at the same stream and sequence.</p>
+  <p>If that happens, <code>detectEquivocation()</code> in <code>_head.mjs</code> flags the conflict, unmodified by anything in this profile, and if the SAME counterparty key cosigned both conflicting heads, that is portable evidence a verifier can hand to a third party. Deciding which head is the real one, or what happens next, is a question this profile deliberately refuses to answer; that decision belongs to org A and org B's own business process, never to a piece of software either of them runs.</p>
+
+  <h2>7. What never appears in this picture</h2>
+  <ul>
+    <li><span class="lead">No AINumbers-operated Helm anywhere in the signing path.</span> Every role, signer, cosigner, verifier, is filled by org A's own Helm, org B's own Helm, or a third party's own tooling.</li>
+    <li><span class="lead">No registry.</span> <code>cosigner_keys</code> travels inside the binding. How org A learned org B's <code>did:key</code> in the first place is the same out-of-band question any DID trust relationship already answers, and this profile makes no claim about it.</li>
+    <li><span class="lead">No ordering service.</span> Nothing here sequences, arbitrates, or picks a winner between conflicting heads.</li>
+  </ul>
+  <p>If nobody touches either Helm again, the binding already produced keeps verifying exactly the same way, forever, against the same offline function. That is the whole point of shipping a format and a reference verifier instead of a service.</p>
+
+</div></article>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../chaingraph/openchain-graph-spec.html">OCG Spec</a>
+      <a href="../helm.html">Helm</a>
+      <a href="../mcp.html">MCP Overview</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+</body>
+</html>
