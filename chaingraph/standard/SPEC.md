@@ -2433,14 +2433,14 @@ project's public material as of the observation date; the remaining members of e
 mapped** and are deliberately left blank rather than guessed. A blank is an unmapped field, never an
 asserted absence.
 
-| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA | SCITT (RFC 9943 architecture + RFC 9942 COSE Receipts) |
-|---|---|---|---|---|
-| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` | — (unmapped; a SCITT Signed Statement's payload is issuer-chosen claims, not a fixed input-hash field — this exporter carries `execution_hash` there instead, see format notes) |
-| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member | — (unmapped; SCITT is a registration/transparency-log model, not a peer-to-peer hash chain — see format notes) |
-| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) | COSE protected header `cwt-claims` (label 15, RFC 9597) `iss` (claim 1) |
-| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" | COSE_Sign1 (RFC 9052) over the protected header + payload; ES256 or EdDSA |
-| §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles | COSE Receipt (RFC 9942) — transparency-service inclusion proof, RFC 9162 Merkle combine/audit-path algorithm |
-| §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus | — (unmapped) |
+| OCG member | Microsoft AGT receipts (draft) | agent-receipts (VC 2.0 `AgentReceipt`) | Attested Intelligence AGA | SCITT (RFC 9943 architecture + RFC 9942 COSE Receipts) | ToIP ACDC (v1.1, ratified 2026-01-21) |
+|---|---|---|---|---|---|
+| `policy_parameters_hash` | `covenantHash` (bound covenant/input digest) | `credentialSubject.action.parameters_hash` | `arguments_hash` | — (unmapped; a SCITT Signed Statement's payload is issuer-chosen claims, not a fixed input-hash field — this exporter carries `execution_hash` there instead, see format notes) | — (unmapped; an ACDC's own `d` field is a SAID — a self-addressing digest of the WHOLE container, issuer + schema + attributes + edges together — not a parameters-only hash isolable the way this member is; see format notes) |
+| `chain.parent_hashes[]` | `previousReceiptHash` | `credentialSubject.chain.previous_receipt_hash` | previous-hash chain member | — (unmapped; SCITT is a registration/transparency-log model, not a peer-to-peer hash chain — see format notes) | `e` (edges) block — SAID-keyed digest links from one ACDC to the prior ACDCs it derives from or attests over; the closest true isomorphism in this row |
+| party identity (§9 `did:key` keyid / LEI) | `agentDid` | credential `issuer` / `credentialSubject.principal` | — (unmapped) | COSE protected header `cwt-claims` (label 15, RFC 9597) `iss` (claim 1) | issuer AID (Autonomic Identifier, KERI-controlled) in the `i` field |
+| §16 proof (`eddsa-jcs-2022`) | Ed25519 over JCS, bilateral pre/post-execution seals | `Ed25519Signature2020` proof | "Ed25519-SHA256-JCS" | COSE_Sign1 (RFC 9052) over the protected header + payload; ES256 or EdDSA | CESR-Proof signature anchored to a KERI key-event log; cipher-suite-agnostic (commonly Ed25519, but not pinned to it the way `eddsa-jcs-2022` is) |
+| §20.1 Merkle inclusion | — (unmapped) | — (unmapped) | Merkle-rooted evidence bundles | COSE Receipt (RFC 9942) — transparency-service inclusion proof, RFC 9162 Merkle combine/audit-path algorithm | — (unmapped; a KERI key-event log is a hash-chained log with witness receipts, not a Merkle transparency-service proof) |
+| §15 gate suite | — (unmapped) | — (unmapped) | pinned conformance corpus | — (unmapped) | — (unmapped) |
 
 **Format notes.** *SCITT* is architecturally different from the other three: it is a **registration/transparency-log
 model** — an issuer submits a COSE_Sign1 Signed Statement to a transparency service, which returns a COSE Receipt
@@ -2470,6 +2470,37 @@ posture is unclear. Its receipt is a 15-field structure of which the rows above 
 it uses a hash-chaining convention that includes the signature — differing from OCG's, where the §16 proof
 is attached after hashing and is excluded from the preimage. Re-verify this observation against the
 project's current public material before relying on any row of it.
+
+**ToIP ACDC (informative, dated 2026-08-07).** Trust Over IP's Technical Stack Working Group published Authentic
+Chained Data Containers (ACDC) v1.1 — alongside companion specifications KERI (Key Event Receipt Infrastructure)
+and CESR (Composable Event Streaming Representation), also v1.1 — on 2026-01-21, each carrying a Zenodo DOI
+(verified against `trustoverip.org/our-work/deliverables/` and the ACDC specification's own header,
+`trustoverip.github.io/kswg-acdc-specification`, 2026-08-07). ACDC independently converged on the same
+building blocks this standard's §XMAP-1 rows already track: JCS-adjacent canonical form, SHA-256-family digests
+(SAIDs), signature-based proof, and hash-chained linkage between records — which is why "chained data
+container," a phrase this standard's own writing has used informally, now names a ratified external
+specification and is cited here rather than left unacknowledged. **Two isomorphisms are direct** (see table):
+the `e` (edges) block is ACDC's peer-linked hash-chaining primitive, playing the same role `chain.parent_hashes[]`
+plays here; the issuer AID is ACDC's party-identity anchor, playing the same role a §9 `did:key`/LEI identity
+plays here. **The remaining rows do not map cleanly**, and are recorded unmapped rather than forced: ACDC's SAID
+digests the entire container rather than isolating an input-parameters hash the way `policy_parameters_hash`
+does; its proof layer (CESR-Proof over a KERI key-event log) is cipher-suite-agnostic where §16 pins
+`eddsa-jcs-2022`; and neither a Merkle transparency-inclusion proof nor a pinned conformance-gate suite has an
+ACDC counterpart in the material reviewed.
+
+**Divergence, stated as plainly as the isomorphism above.** ACDC is a **data-attestation / credential
+container** — a chain of custody over asserted attribute data, built as an IETF-track variant of the W3C
+Verifiable Credential model — not a **compute receipt**. It defines no member analogous to this standard's
+`{policy_parameters, output_payload}` preimage binding a specific computation's inputs to its outputs, no §16
+whole-artifact hash-then-sign proof over that binding, and no §18-style zero-knowledge proof-of-correct-execution
+layer: ACDC's privacy primitive is selective/graduated disclosure over asserted attributes (blinding/redaction
+within an already-issued container), which answers a different question than a zk proof that a computation ran
+correctly answers. An implementer holding an ACDC should not read this row as ACDC gaining compute-receipt or
+zk-proof semantics, and an implementer holding an OCG artifact should not read it as gaining ACDC's credential
+chain-of-custody semantics — the two formats solve adjacent but distinct problems, and this annex maps the
+vocabulary where it genuinely overlaps without implying it overlaps everywhere. As with the AGT, agent-receipts,
+and SCITT rows above, this is descriptive cross-reference only: no ACDC field name becomes OCG vocabulary, no
+export profile targets ACDC, and this is not a claim of ToIP endorsement or conformance.
 
 **in-toto predicateType (informative, added by §APROV-1).** `https://ainumbers.co/chaingraph/predicates/ocg-artifact/v1`
 is reserved as the in-toto Attestation Framework v1 `predicateType` an in-toto Statement would carry when
