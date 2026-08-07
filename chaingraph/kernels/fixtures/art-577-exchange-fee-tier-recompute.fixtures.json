@@ -1,0 +1,165 @@
+{
+  "tool_id": "art-577-exchange-fee-tier-recompute",
+  "note": "Vector 1 recomputes a clean invoice: prior-period ADV qualifies the top declared tier, the maker/taker share totals against that tier's rates land exactly on the claimed invoice, and every tier's taker rate is at or under the $0.001/share cap: MATCHES/CAP_CONFORMANT. Vector 2 exercises both findings independently in one run: the declared ADV qualifies only the base tier, whose taker rate (1500 micros/share) exceeds the 1000-micro cap (CAP_EXCEEDS), and the recomputed invoice off that tier differs from the claimed amount by more than the declared tolerance (DIVERGES) -- proving the two checks are evaluated independently rather than one gating the other. Vector 3 omits the tolerance entirely and exercises the did_not_run/INDETERMINATE path. All money and rates are integer micro-dollars (1 micro = $0.000001); shares are synthetic. golden_hash computed at fixture generation time via chaingraph/kernels/_hash.mjs executionHash.",
+  "vectors": [
+    {
+      "name": "clean-tier-recompute-matches-cap-conformant",
+      "policy_parameters": {
+        "recompute_tolerance_micros": 1000,
+        "invoice_period": {
+          "start_date": "2026-06-01",
+          "end_date": "2026-06-30"
+        },
+        "prior_period_adv_shares": 6000000,
+        "fee_schedule": {
+          "schedule_id": "demo-exchange-tier-schedule-2026-06",
+          "effective_date": "2026-01-01",
+          "quotes_priced_ge_1usd": true,
+          "tiers": [
+            { "tier_id": "tier-1-base", "min_adv_shares": 0, "maker_rate_micros_per_share": -200, "taker_rate_micros_per_share": 300 },
+            { "tier_id": "tier-2-mid", "min_adv_shares": 1000000, "maker_rate_micros_per_share": -250, "taker_rate_micros_per_share": 300 },
+            { "tier_id": "tier-3-top", "min_adv_shares": 5000000, "maker_rate_micros_per_share": -300, "taker_rate_micros_per_share": 300 }
+          ]
+        },
+        "volume_lines": [
+          { "side": "maker", "shares": 4000000 },
+          { "side": "taker", "shares": 2500000 }
+        ],
+        "claimed_invoice_micros": -450000000
+      },
+      "output_payload": {
+        "decision": { "gate_policy": "auto_pass", "execution_state": "ran", "reason": null },
+        "invoice_verdict": "MATCHES",
+        "cap_verdict": "CAP_CONFORMANT",
+        "invoice_period": { "start_date": "2026-06-01", "end_date": "2026-06-30" },
+        "recompute_tolerance_micros": 1000,
+        "prior_period_adv_shares": 6000000,
+        "fee_schedule_summary": { "schedule_id": "demo-exchange-tier-schedule-2026-06", "effective_date": "2026-01-01", "tier_count": 3, "quotes_priced_ge_1usd": true },
+        "tiers": [
+          { "tier_id": "tier-1-base", "min_adv_shares": 0, "maker_rate_micros_per_share": -200, "taker_rate_micros_per_share": 300 },
+          { "tier_id": "tier-2-mid", "min_adv_shares": 1000000, "maker_rate_micros_per_share": -250, "taker_rate_micros_per_share": 300 },
+          { "tier_id": "tier-3-top", "min_adv_shares": 5000000, "maker_rate_micros_per_share": -300, "taker_rate_micros_per_share": 300 }
+        ],
+        "active_tier": { "tier_id": "tier-3-top", "min_adv_shares": 5000000, "maker_rate_micros_per_share": -300, "taker_rate_micros_per_share": 300 },
+        "volume_summary": { "line_count": 2, "maker_shares_total": 4000000, "taker_shares_total": 2500000 },
+        "recomputed_invoice_micros": -450000000,
+        "claimed_invoice_micros": -450000000,
+        "diff_micros": 0,
+        "cap_check": {
+          "cap_micros_per_share": 1000,
+          "quotes_priced_ge_1usd": true,
+          "tier_findings": [
+            { "tier_id": "tier-1-base", "taker_rate_micros_per_share": 300, "exceeds_cap": false },
+            { "tier_id": "tier-2-mid", "taker_rate_micros_per_share": 300, "exceeds_cap": false },
+            { "tier_id": "tier-3-top", "taker_rate_micros_per_share": 300, "exceeds_cap": false }
+          ]
+        },
+        "findings": [],
+        "rejected_inputs": [],
+        "scope_note": "Fee schedules, ADV, and monthly volume are caller-declared inputs. Does not source, fetch, or maintain any exchange fee schedule; performs arithmetic only over what the caller pastes.",
+        "clause_note": "Regulation NMS Rule 610(c), as amended by the SEC access-fee-cap rule (adopted 2024-09-18), caps the access fee for a protected quotation priced at $1.00/share or more at $0.001/share; compliance date extended by SEC order to 2026-11-02 following the D.C. Circuit's 2025 review, which upheld the cap. Sub-dollar securities are governed by a different formula (0.1% of quotation price) that this kernel does not evaluate."
+      },
+      "golden_hash": "a6599c5a4c3af553b618b5b82d6e7c198c03c2e34e1725a34eed3fe4199b2ca0"
+    },
+    {
+      "name": "diverges-and-cap-exceeds-independent-findings",
+      "policy_parameters": {
+        "recompute_tolerance_micros": 1000,
+        "invoice_period": {
+          "start_date": "2026-07-01",
+          "end_date": "2026-07-31"
+        },
+        "prior_period_adv_shares": 200000,
+        "fee_schedule": {
+          "schedule_id": "aggressive-exchange-tier-schedule-2026-07",
+          "effective_date": "2026-01-01",
+          "quotes_priced_ge_1usd": true,
+          "tiers": [
+            { "tier_id": "tier-1-base", "min_adv_shares": 0, "maker_rate_micros_per_share": -100, "taker_rate_micros_per_share": 1500 },
+            { "tier_id": "tier-2-mid", "min_adv_shares": 1000000, "maker_rate_micros_per_share": -250, "taker_rate_micros_per_share": 300 }
+          ]
+        },
+        "volume_lines": [
+          { "side": "maker", "shares": 800000 },
+          { "side": "taker", "shares": 1200000 }
+        ],
+        "claimed_invoice_micros": 1500000000
+      },
+      "output_payload": {
+        "decision": { "gate_policy": "review_required", "execution_state": "ran", "reason": null },
+        "invoice_verdict": "DIVERGES",
+        "cap_verdict": "CAP_EXCEEDS",
+        "invoice_period": { "start_date": "2026-07-01", "end_date": "2026-07-31" },
+        "recompute_tolerance_micros": 1000,
+        "prior_period_adv_shares": 200000,
+        "fee_schedule_summary": { "schedule_id": "aggressive-exchange-tier-schedule-2026-07", "effective_date": "2026-01-01", "tier_count": 2, "quotes_priced_ge_1usd": true },
+        "tiers": [
+          { "tier_id": "tier-1-base", "min_adv_shares": 0, "maker_rate_micros_per_share": -100, "taker_rate_micros_per_share": 1500 },
+          { "tier_id": "tier-2-mid", "min_adv_shares": 1000000, "maker_rate_micros_per_share": -250, "taker_rate_micros_per_share": 300 }
+        ],
+        "active_tier": { "tier_id": "tier-1-base", "min_adv_shares": 0, "maker_rate_micros_per_share": -100, "taker_rate_micros_per_share": 1500 },
+        "volume_summary": { "line_count": 2, "maker_shares_total": 800000, "taker_shares_total": 1200000 },
+        "recomputed_invoice_micros": 1720000000,
+        "claimed_invoice_micros": 1500000000,
+        "diff_micros": 220000000,
+        "cap_check": {
+          "cap_micros_per_share": 1000,
+          "quotes_priced_ge_1usd": true,
+          "tier_findings": [
+            { "tier_id": "tier-1-base", "taker_rate_micros_per_share": 1500, "exceeds_cap": true },
+            { "tier_id": "tier-2-mid", "taker_rate_micros_per_share": 300, "exceeds_cap": false }
+          ]
+        },
+        "findings": [
+          { "code": "INVOICE_RECOMPUTE_DIVERGES", "severity": "high", "message": "Recomputed invoice (1720000000 micros) differs from the claimed invoice (1500000000 micros) by more than the declared tolerance." },
+          { "code": "ACCESS_FEE_CAP_EXCEEDED", "severity": "high", "message": "Tier(s) tier-1-base declare a taker rate above the $0.001/share Rule 610(c) cap." }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Fee schedules, ADV, and monthly volume are caller-declared inputs. Does not source, fetch, or maintain any exchange fee schedule; performs arithmetic only over what the caller pastes.",
+        "clause_note": "Regulation NMS Rule 610(c), as amended by the SEC access-fee-cap rule (adopted 2024-09-18), caps the access fee for a protected quotation priced at $1.00/share or more at $0.001/share; compliance date extended by SEC order to 2026-11-02 following the D.C. Circuit's 2025 review, which upheld the cap. Sub-dollar securities are governed by a different formula (0.1% of quotation price) that this kernel does not evaluate."
+      },
+      "golden_hash": "9f1bc3260ddb9ecd39df22926d1bcd53e9158e878fbf07aef3229f536d979706"
+    },
+    {
+      "name": "tolerance-not-declared-incomplete",
+      "policy_parameters": {
+        "invoice_period": {
+          "start_date": "2026-06-01",
+          "end_date": "2026-06-30"
+        },
+        "prior_period_adv_shares": 6000000,
+        "fee_schedule": {
+          "schedule_id": "demo-exchange-tier-schedule-2026-06",
+          "effective_date": "2026-01-01",
+          "quotes_priced_ge_1usd": true,
+          "tiers": [
+            { "tier_id": "tier-1-base", "min_adv_shares": 0, "maker_rate_micros_per_share": -200, "taker_rate_micros_per_share": 300 }
+          ]
+        }
+      },
+      "output_payload": {
+        "decision": { "gate_policy": "review_required", "execution_state": "did_not_run", "reason": "recompute_tolerance_not_declared" },
+        "invoice_verdict": "INDETERMINATE",
+        "cap_verdict": "INDETERMINATE",
+        "invoice_period": null,
+        "recompute_tolerance_micros": null,
+        "prior_period_adv_shares": null,
+        "fee_schedule_summary": null,
+        "tiers": [],
+        "active_tier": null,
+        "volume_summary": null,
+        "recomputed_invoice_micros": null,
+        "claimed_invoice_micros": null,
+        "diff_micros": null,
+        "cap_check": null,
+        "findings": [],
+        "rejected_inputs": [
+          { "where": "recompute_tolerance_micros", "reason": "absent -- a tolerance must be declared, never defaulted", "supplied": null }
+        ],
+        "scope_note": "Fee schedules, ADV, and monthly volume are caller-declared inputs. Does not source, fetch, or maintain any exchange fee schedule; performs arithmetic only over what the caller pastes.",
+        "clause_note": "Regulation NMS Rule 610(c), as amended by the SEC access-fee-cap rule (adopted 2024-09-18), caps the access fee for a protected quotation priced at $1.00/share or more at $0.001/share; compliance date extended by SEC order to 2026-11-02 following the D.C. Circuit's 2025 review, which upheld the cap. Sub-dollar securities are governed by a different formula (0.1% of quotation price) that this kernel does not evaluate."
+      },
+      "golden_hash": "ec6f8ce19a2d3af9c9dce0e2dedbee4e2c5d9035876db882c77741beda261b28"
+    }
+  ]
+}
