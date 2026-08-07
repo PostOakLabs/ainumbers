@@ -2108,6 +2108,35 @@ types, all scoped to a `head_hash`:
 - **`ocg-head-contract@1`** — RESERVED: type string and field shape only, NO on-chain deployment.
   Which chain, if any, is unchosen; Post Oak Labs never holds keys or funds on a user's behalf, and
   deployment of an actual contract is its own future Tim-gated work, not part of this section.
+- **`ocg-head-bilateral-cosign@1`** — a counterparty-cosigned `head_hash`, built directly on the
+  EXISTING §20.2 witness-cosignature construction (C2SP tlog-checkpoint + signed-note format) applied
+  to a **named-role** relationship instead of an anonymous witness pool: the counterparty(ies) named in
+  the head's own trust relationship cosign this specific `head_hash`, rather than an anonymous k-of-n
+  witness set cosigning a Merkle batch root. Ships now; reuses §20.2's note-text format byte-for-byte
+  (pinned `signed-note/v1.0.0`, `tlog-cosignature/v1.0.1`) — no second serialization is invented.
+  ```json
+  {
+    "type": "ocg-head-bilateral-cosign@1",
+    "anchored_hash": "sha256:<the head's head_hash, per §HEAD-1.1>",
+    "log_origin": "<origin string identifying this bilateral relationship>",
+    "proof": "<C2SP signed-note text: origin line + head_hash + one cosignature line per counterparty>",
+    "cosigner_keys": ["did:key:<ed25519 of counterparty B>", "did:key:<ed25519 of counterparty C>", "..."]
+  }
+  ```
+  `anchored_hash` is the `head_hash` of the specific head being cosigned — bilateral cosigning is
+  per-head by default; a deployment MAY ALSO batch via §20.1/§20.2 for its own log, a separate,
+  already-specified path. `cosigner_keys` is new relative to §20.2: a bilateral relationship has no
+  shared witness-key registry (§HEAD-1 defines none — see the no-registry note below), so the specific
+  counterparty keys an issuing org has agreed to be cosigned by travel WITH the binding; a verifier
+  checks `proof`'s cosignature lines against `cosigner_keys`, not against a verifier-local pinned set.
+  Threshold is explicit per binding: absent a stated `k`, ALL of `cosigner_keys` MUST have a valid
+  cosignature line (n-of-n); a binding MAY carry an OPTIONAL `threshold: k` member for k-of-n, mirroring
+  §20.2's k-of-n language. **No registry.** This standard defines no directory, discovery service, or
+  registry mapping org identity to cosigner keys — key exchange is left to whatever out-of-band channel
+  already establishes the counterparties' trust relationship, the same non-claim §HEAD-1.0's `stream`
+  field already makes about locating the next head. **Liveness duty:** the format defines bytes on the
+  wire only — no party of ours signs, cosigns, witnesses, or operates anything in this construction; see
+  the equivocation corollary below for the accompanying evidentiary-scope limit.
 
 **§HEAD-1.4 Honesty and equivocation (NORMATIVE).** A bare `ocg-head-file@1` head proves only "the
 signer claimed this tip" — it does NOT by itself prove the signer did not ALSO claim a different tip
@@ -2119,6 +2148,27 @@ design lineage; the BrowserChain network itself stays paused). The `ocg-head-tlo
 equivocation structurally harder to hide (a witness-cosigned log is a natural place to notice two
 heads at one seq) but §HEAD-1 does not require tlog backing — a verifier presented only head files
 still runs the comparison whenever it has more than one candidate for a `(stream, seq)`.
+
+**Equivocation corollary for `ocg-head-bilateral-cosign@1` (NORMATIVE).** Bilateral cosigning does not
+change `detectEquivocation()` at all — it is a pure function over heads a verifier already holds,
+regardless of how they arrived. What it ADDS is evidentiary weight: a cosigned head is harder to have
+equivocated undetected, because producing it required a counterparty's cooperation, and that
+counterparty is a second witness who can independently confirm whether it cosigned. Given two
+conflicting cosigned heads at the same `(stream, seq)`, a verifier can prove OFFLINE: (1) each head's
+own cosignature(s) verify against its own `cosigner_keys`; (2) the two heads conflict (different
+`head_hash` at the same `seq` — the existing, unmodified `detectEquivocation()` check); (3) if the SAME
+counterparty key cosigned BOTH conflicting heads, that counterparty has independently corroborated the
+signer's misbehavior — portable evidence handable to a third party without anyone running anything. A
+verifier MUST NOT go further. **A cosigned head-commit ATTESTS — it is evidence two parties agreed a
+tip existed at a point in time — it never FINALIZES.** Deciding which of two conflicting heads is "the"
+tip, "accepted," or "final," or arbitrating, sequencing, or picking a winner between them on a
+counterparty's behalf, is explicitly OUT OF SCOPE and MUST NOT be built on top of this profile: **the
+words "accept" and "finality" are BANNED from any conformant description of `ocg-head-bilateral-cosign@1`
+behavior**, in this standard and in any product copy built from it. That resolution is either made by
+the counterparties themselves, off-spec, through whatever business process governs their relationship,
+or left as a standing, evidenced disagreement — both are legitimate outcomes this profile is silent on
+by design; building the "pick a winner" function is an ordering-service function, which §HEAD-1 does not
+specify in any form, including a spec-only one.
 
 ## §APROV-1 Agent Provenance Profile — `ocg-agent-provenance@1` (NORMATIVE, OPTIONAL, profile-scoped — additive, lands at the coordinated record bump)
 *OCG is the lineage layer that emits SCITT/RFC 3161-anchorable receipts — existing per-domain standards
