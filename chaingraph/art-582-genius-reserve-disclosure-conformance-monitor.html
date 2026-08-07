@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>GENIUS Act Reserve-Disclosure Conformance Monitor · ART-582 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Checks a monthly PPSI reserve disclosure against two statute-derived GENIUS Act requirements: 1:1 reserve coverage arithmetic and attestation presence/timeliness. Permitted-asset composition is out of scope until final implementing rules exist.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-582-genius-reserve-disclosure-conformance-monitor.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GENIUS Act Reserve-Disclosure Conformance Monitor · ART-582 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Two statute-derived checks against a monthly PPSI reserve disclosure: 1:1 coverage arithmetic, attestation presence/timeliness. Verdict per requirement. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-582-genius-reserve-disclosure-conformance-monitor.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number],input[type=date]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+input[type=checkbox]{width:auto;accent-color:var(--teal)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.met{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.indet{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.notmet{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+.check-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.check-row label{font-size:.82rem;color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-582 · GENIUS Act Reserve-Disclosure Conformance Monitor</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-582 · Verify-Rails · Reserve Verification Family</div>
+  <h1>GENIUS Act Reserve-Disclosure Conformance Monitor</h1>
+  <p class="sub">Checks a monthly reserve disclosure against two statute-derived GENIUS Act S.394 §4 requirements: 1:1 reserve coverage arithmetic and attestation presence/timeliness against the statutory monthly cadence. Verdict per requirement: <code>MET</code> / <code>NOT_MET</code> / <code>INDETERMINATE</code>. Cross-links: pre-issuance <a href="art-06-genius-act-reserve-attestation.html">Reserve Attestation Pre-Check</a> and the fuller <a href="art-275-genius-reserve-disclosure-checker.html">Monthly Reserve Disclosure Checker</a> (asset composition and dual-control certification, statute-restatement pending final rule).</p>
+  <div>
+    <span class="flag">GENIUS Act S.394 §4</span>
+    <span class="flag warn">Narrowed scope</span>
+    <span class="flag red">No final implementing rule (as of 2026-08-07)</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">Scope: two checks only, not a compliance certification</div>
+    This monitor does not check permitted-asset composition. No final GENIUS Act implementing regulation exists as of 2026-08-07 to check the reserve-asset list against (every OCC/FDIC/Treasury/FinCEN/NCUA instrument remains NPRM/ANPRM, and the statutory 2026-07-18 rulemaking deadline was missed). It checks only 1:1 coverage arithmetic and attestation presence/timeliness, both derivable directly from statute. A <code>MET</code> verdict is never "compliance certified" language, and all thresholds should be re-verified against final rule text once one publishes.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('clean')">Clean: coverage met, timely attestation</button>
+    <button class="preset-btn" onclick="loadPreset('shortfall')">Fail: coverage shortfall, late attestation</button>
+    <button class="preset-btn" onclick="loadPreset('missing')">Indeterminate: attestation missing dates</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Report Basics</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>Report Period</label>
+        <input type="text" id="report_period" placeholder="e.g. 2027-02"></div>
+      <div class="q"><label><span class="dim">Field</span>Period End Date</label>
+        <input type="date" id="period_end_date"></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>Outstanding Tokens Reported</label>
+        <input type="number" id="outstanding_tokens_reported" value="0" step="1"></div>
+      <div class="q"><label><span class="dim">Field</span>Token Price (USD par)</label>
+        <input type="number" id="token_price" value="1" step="0.0001"></div>
+    </div>
+    <div class="q"><label><span class="dim">Field</span>Total Reserves, USD (summed from disclosure)</label>
+      <input type="number" id="total_reserves_usd" value="0" step="1"></div>
+
+    <div class="section-head" style="margin-top:18px">Attestation &amp; Examiner</div>
+    <div class="check-row"><input type="checkbox" id="attestation_present"><label for="attestation_present">Monthly reserve report / attestation published for this period</label></div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>Attestation Publish Date</label>
+        <input type="date" id="attestation_date"></div>
+      <div class="q"><label><span class="dim">Field</span>Examiner Name</label>
+        <input type="text" id="examiner_name" placeholder="e.g. Grant Thornton LLP"></div>
+    </div>
+    <div class="check-row"><input type="checkbox" id="examiner_registered"><label for="examiner_registered">Named examiner is a registered public accounting firm</label></div>
+
+    <div class="section-head" style="margin-top:18px">On-Chain Supply Cross-Check (optional, informational)</div>
+    <div class="q"><label><span class="dim">Field</span>Pasted On-Chain Supply Figure</label>
+      <input type="number" id="onchain_supply_check" placeholder="leave blank to skip" step="1"></div>
+
+    <button class="run-btn" onclick="run()">Run Conformance Monitor →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="detVal" style="color:var(--teal-lt)">–</div>
+        <div class="hero-lbl">Overall Determination</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="covVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Coverage Ratio</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="daysVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Days After Period End</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Requirement verdicts</div>
+    <table class="section-table">
+      <thead><tr><th>Requirement</th><th>Verdict</th><th>Detail</th></tr></thead>
+      <tbody id="reqTableBody"></tbody>
+    </table>
+
+    <div id="onchainSect" style="margin:10px 0;font-size:.8rem;color:var(--body)"></div>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="key-dates-box">
+      <div class="kd-title">Key Dates</div>
+      KEY DATES: GENIUS Act signed 18 Jul 2025 · effective date on or before 18 Jan 2027 (earlier if final implementing rules publish first, 120 days after) · statutory rulemaking deadline 18 Jul 2026 was missed, no final rule exists as of 2026-08-07 · monthly reserve reports required for licensed issuers.
+    </div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. Not a filing or legal advice, and never "compliance certified" language. Checks two statute-derived requirements only; permitted-asset composition is out of scope pending final rule text. Re-verify against GENIUS Act S.394 final-rule text once one publishes.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+    <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+    <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<script>
+const MANIFEST = {
+  tool_id: "art-582-genius-reserve-disclosure-conformance-monitor",
+  tool_version: "1.0.0",
+  mcp_name: "check_genius_reserve_disclosure_conformance",
+  mandate_type: "compliance_mandate",
+  wave: 55,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.5.0',
+  compute_capability: "server",
+  export_capability: ["pdf","xlsx"],
+  description: "Checks a monthly PPSI reserve disclosure against two statute-derived GENIUS Act S.394 §4 requirements: 1:1 coverage arithmetic and attestation presence/timeliness. Verdict per requirement (MET/NOT_MET/INDETERMINATE). Permitted-asset composition out of scope pending final implementing rules.",
+  chain: "genius-reserve-disclosure",
+  url: "https://ainumbers.co/chaingraph/art-582-genius-reserve-disclosure-conformance-monitor.html"
+};
+
+const STATUTORY_ATTESTATION_WINDOW_DAYS = 30;
+const COVERAGE_REF = 'GENIUS Act S.394 §4(a) — 1:1 reserve coverage requirement';
+const ATTESTATION_REF = 'GENIUS Act S.394 §4(b) — monthly reserve report, independent examination by a registered public accounting firm';
+
+function daysBetween(isoA, isoB) {
+  const a = Date.parse(isoA);
+  const b = Date.parse(isoB);
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((b - a) / 86400000);
+}
+
+const PRESETS = {
+  clean: {
+    report_period: '2027-02', period_end_date: '2027-02-28', outstanding_tokens_reported: 1000000, token_price: 1,
+    total_reserves_usd: 1000000, attestation_present: true, attestation_date: '2027-03-15',
+    examiner_registered: true, examiner_name: 'Grant Thornton LLP', onchain_supply_check: 1000000
+  },
+  shortfall: {
+    report_period: '2027-03', period_end_date: '2027-03-31', outstanding_tokens_reported: 1500000, token_price: 1,
+    total_reserves_usd: 1000000, attestation_present: true, attestation_date: '2027-07-15',
+    examiner_registered: true, examiner_name: 'Grant Thornton LLP', onchain_supply_check: 1600000
+  },
+  missing: {
+    report_period: '2027-07', period_end_date: '', outstanding_tokens_reported: 500000, token_price: 1,
+    total_reserves_usd: 500000, attestation_present: true, attestation_date: '',
+    examiner_registered: false, examiner_name: '', onchain_supply_check: ''
+  }
+};
+
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+function setChecked(id, val) { const el = document.getElementById(id); if (el) el.checked = !!val; }
+
+function loadPreset(p) {
+  const pr = PRESETS[p];
+  if (!pr) return;
+  setVal('report_period', pr.report_period);
+  setVal('period_end_date', pr.period_end_date);
+  setVal('outstanding_tokens_reported', pr.outstanding_tokens_reported);
+  setVal('token_price', pr.token_price);
+  setVal('total_reserves_usd', pr.total_reserves_usd);
+  setChecked('attestation_present', pr.attestation_present);
+  setVal('attestation_date', pr.attestation_date);
+  setChecked('examiner_registered', pr.examiner_registered);
+  setVal('examiner_name', pr.examiner_name);
+  setVal('onchain_supply_check', pr.onchain_supply_check);
+}
+
+function getPP() {
+  const pp = {
+    report_period: document.getElementById('report_period').value,
+    period_end_date: document.getElementById('period_end_date').value || null,
+    outstanding_tokens_reported: Number(document.getElementById('outstanding_tokens_reported').value || 0),
+    token_price: Number(document.getElementById('token_price').value || 1),
+    total_reserves_usd: Number(document.getElementById('total_reserves_usd').value || 0),
+    attestation_present: document.getElementById('attestation_present').checked,
+    attestation_date: document.getElementById('attestation_date').value || null,
+    examiner_registered: document.getElementById('examiner_registered').checked,
+    examiner_name: document.getElementById('examiner_name').value || null,
+  };
+  const onchainEl = document.getElementById('onchain_supply_check');
+  pp.onchain_supply_check = onchainEl.value !== '' ? Number(onchainEl.value) : null;
+  return pp;
+}
+
+function compute(pp) {
+  const reportPeriod = pp.report_period ?? '';
+  const periodEndDate = pp.period_end_date ?? null;
+  const tokens = Number(pp.outstanding_tokens_reported ?? 0);
+  const price = Number(pp.token_price ?? 1);
+  const totalReserves = Number(pp.total_reserves_usd ?? 0);
+  const attestationPresent = pp.attestation_present === true;
+  const attestationDate = pp.attestation_date ?? null;
+  const examinerRegistered = pp.examiner_registered === true;
+  const examinerName = pp.examiner_name ?? null;
+  const onchainSupply = pp.onchain_supply_check ?? null;
+
+  const totalLiabilities = tokens * price;
+
+  let coverageVerdict, coverageDetail, coverageRatioPct = null, shortfallUsd = null;
+  if (tokens <= 0) {
+    coverageVerdict = 'INDETERMINATE';
+    coverageDetail = 'outstanding_tokens_reported is missing or non-positive — coverage ratio cannot be computed.';
+  } else {
+    const coverageRatio = totalReserves / totalLiabilities;
+    coverageRatioPct = parseFloat((coverageRatio * 100).toFixed(4));
+    shortfallUsd = parseFloat(Math.max(0, totalLiabilities - totalReserves).toFixed(2));
+    if (coverageRatio >= 1) {
+      coverageVerdict = 'MET';
+      coverageDetail = 'Reserves (' + totalReserves.toFixed(2) + ') cover ' + coverageRatioPct.toFixed(2) + '% of outstanding liabilities (' + totalLiabilities.toFixed(2) + ').';
+    } else {
+      coverageVerdict = 'NOT_MET';
+      coverageDetail = 'Reserves (' + totalReserves.toFixed(2) + ') cover only ' + coverageRatioPct.toFixed(2) + '% of outstanding liabilities (' + totalLiabilities.toFixed(2) + '). Shortfall: ' + shortfallUsd.toFixed(2) + '.';
+    }
+  }
+
+  let attestationVerdict, attestationDetail, daysAfterPeriodEnd = null;
+  if (!attestationPresent) {
+    attestationVerdict = 'NOT_MET';
+    attestationDetail = 'No monthly reserve report/attestation has been published for this period.';
+  } else if (!periodEndDate || !attestationDate) {
+    attestationVerdict = 'INDETERMINATE';
+    attestationDetail = 'Attestation is marked present but period_end_date or attestation_date is missing — timeliness cannot be evaluated.';
+  } else {
+    daysAfterPeriodEnd = daysBetween(periodEndDate, attestationDate);
+    if (daysAfterPeriodEnd === null) {
+      attestationVerdict = 'INDETERMINATE';
+      attestationDetail = 'period_end_date or attestation_date could not be parsed as a date.';
+    } else if (daysAfterPeriodEnd < 0) {
+      attestationVerdict = 'INDETERMINATE';
+      attestationDetail = 'attestation_date (' + attestationDate + ') is before period_end_date (' + periodEndDate + ') — check input data.';
+    } else if (!examinerRegistered) {
+      attestationVerdict = 'NOT_MET';
+      attestationDetail = 'Attestation published ' + daysAfterPeriodEnd + ' day(s) after period end, but no registered public accounting firm is named as examiner.';
+    } else if (daysAfterPeriodEnd > STATUTORY_ATTESTATION_WINDOW_DAYS) {
+      attestationVerdict = 'NOT_MET';
+      attestationDetail = 'Attestation published ' + daysAfterPeriodEnd + ' day(s) after period end, exceeding the ' + STATUTORY_ATTESTATION_WINDOW_DAYS + '-day statute-derived monthly window.';
+    } else {
+      attestationVerdict = 'MET';
+      attestationDetail = 'Attestation published ' + daysAfterPeriodEnd + ' day(s) after period end by registered examiner' + (examinerName ? ' (' + examinerName + ')' : '') + ', within the ' + STATUTORY_ATTESTATION_WINDOW_DAYS + '-day statute-derived monthly window.';
+    }
+  }
+
+  const requirement_verdicts = [
+    { requirement: 'coverage_arithmetic_1to1', verdict: coverageVerdict, detail: coverageDetail, ref: COVERAGE_REF },
+    { requirement: 'attestation_presence_timeliness', verdict: attestationVerdict, detail: attestationDetail, ref: ATTESTATION_REF },
+  ];
+
+  const verdicts = requirement_verdicts.map(r => r.verdict);
+  let overall_determination;
+  if (verdicts.includes('NOT_MET')) overall_determination = 'NOT_MET';
+  else if (verdicts.includes('INDETERMINATE')) overall_determination = 'INDETERMINATE';
+  else overall_determination = 'MET';
+
+  const onchain_supply_check = {
+    provided: onchainSupply !== null,
+    onchain_supply: onchainSupply,
+    reported_outstanding_tokens: tokens,
+    match: onchainSupply === null ? null : Math.abs(onchainSupply - tokens) < 0.01,
+    delta: onchainSupply === null ? null : parseFloat((onchainSupply - tokens).toFixed(2)),
+    note: 'User-pasted on-chain supply figure compared numerically against the reported outstanding-tokens field. Informational only, does not feed a requirement verdict. Never performs a network fetch, zero-fetch and zero-PII.',
+  };
+
+  const compliance_flags = [];
+  if (overall_determination === 'NOT_MET') compliance_flags.push('GENIUS_CONFORMANCE_NOT_MET');
+  if (overall_determination === 'INDETERMINATE') compliance_flags.push('GENIUS_CONFORMANCE_INDETERMINATE');
+  if (coverageVerdict === 'NOT_MET') compliance_flags.push('RESERVE_DEFICIENCY');
+  if (attestationVerdict === 'NOT_MET' && !attestationPresent) compliance_flags.push('ATTESTATION_MISSING');
+  if (attestationVerdict === 'NOT_MET' && attestationPresent) compliance_flags.push('ATTESTATION_LATE_OR_UNEXAMINED');
+  if (onchain_supply_check.provided && onchain_supply_check.match === false) compliance_flags.push('ONCHAIN_SUPPLY_MISMATCH');
+  if (overall_determination === 'MET') compliance_flags.push('GENIUS_CONFORMANCE_CLEAN');
+
+  const output_payload = {
+    overall_determination, requirement_verdicts, report_period: reportPeriod, period_end_date: periodEndDate,
+    coverage_ratio_pct: coverageRatioPct, total_reserves_usd: totalReserves, total_liabilities_usd: totalLiabilities,
+    reserve_shortfall_usd: shortfallUsd, attestation_present: attestationPresent, attestation_date: attestationDate,
+    examiner_registered: examinerRegistered, examiner_name: examinerName, days_after_period_end: daysAfterPeriodEnd,
+    statutory_attestation_window_days: STATUTORY_ATTESTATION_WINDOW_DAYS, onchain_supply_check,
+    scope_note: 'NARROWED 2026-08-07: checks 1:1 coverage arithmetic and attestation presence/timeliness only. The permitted-asset composition check is out of scope pending final GENIUS Act implementing regulations (none exist as of 2026-08-07 — research/GENIUS-FINALRULE-CHECK-2026-08-07.md). Never treated as compliance certification.',
+  };
+  return { output_payload, compliance_flags };
+}
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    const keys = Object.keys(v).sort();
+    return '{' + keys.map(k => JSON.stringify(k) + ':' + jcs(v[k])).join(',') + '}';
+  }
+  const text = jcs({policy_parameters: pp, output_payload: op});
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function toggleMfst() {
+  const b = document.getElementById('mfstBody');
+  const show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+let _lastArtifact = null;
+Object.defineProperty(window,'_lastArtifact',{get:function(){return _lastArtifact;},configurable:true});
+let _lastPP = null;
+let _lastOP = null;
+
+const DET_COLOR = { MET:'var(--green)', INDETERMINATE:'var(--warn)', NOT_MET:'var(--red)' };
+const VCLASS = { MET:'met', INDETERMINATE:'indet', NOT_MET:'notmet' };
+const BADGE_CLASS = { MET:'ok', INDETERMINATE:'warn-b', NOT_MET:'err' };
+
+async function run() {
+  const pp = getPP();
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await computeHash(pp, output_payload);
+
+  const __generatedAtCapture = new Date().toISOString();
+  const artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: __generatedAtCapture, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload, compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  const det = output_payload.overall_determination;
+  const detEl = document.getElementById('detVal');
+  detEl.textContent = det;
+  detEl.style.color = DET_COLOR[det] || 'var(--teal-lt)';
+
+  document.getElementById('covVal').textContent = output_payload.coverage_ratio_pct === null ? 'n/a' : output_payload.coverage_ratio_pct.toFixed(2) + '%';
+  document.getElementById('daysVal').textContent = output_payload.days_after_period_end === null ? 'n/a' : output_payload.days_after_period_end;
+
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + (VCLASS[det]||'indet') + '">' + det + ': overall determination across both requirements</div>';
+
+  const tbody = document.getElementById('reqTableBody');
+  tbody.innerHTML = output_payload.requirement_verdicts.map(r =>
+    '<tr><td>' + r.requirement + '</td><td><span class="badge ' + (BADGE_CLASS[r.verdict]||'warn-b') + '">' + r.verdict + '</span></td><td>' + r.detail + '</td></tr>'
+  ).join('');
+
+  const oc = output_payload.onchain_supply_check;
+  document.getElementById('onchainSect').innerHTML = oc.provided
+    ? 'On-chain supply cross-check: <span class="badge ' + (oc.match ? 'ok' : 'err') + '">' + (oc.match ? 'match' : 'mismatch') + '</span> (pasted ' + oc.onchain_supply.toLocaleString() + ' vs reported ' + oc.reported_outstanding_tokens.toLocaleString() + ') — informational only'
+    : 'On-chain supply cross-check: not provided (optional, informational only)';
+
+  document.getElementById('flagsRow').innerHTML = compliance_flags.map(f => '<span class="badge ' + (f.includes('CLEAN') ? 'ok' : f.includes('INDETERMINATE') ? 'warn-b' : 'err') + '">' + f + '</span>').join('');
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  const abtn = document.getElementById('ap2ExportBtn');
+  abtn.disabled = false; abtn.style.background='var(--teal)'; abtn.style.color='#06121f'; abtn.style.border='none';
+  const sbtn = document.getElementById('signArtifactBtn');
+  sbtn.disabled = false; sbtn.style.opacity='1'; sbtn.style.cursor='pointer';
+}
+
+function download(filename, text, mime) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  const mandate = {
+    ap2_version: '1.0', mandate_type: 'compliance_mandate', tool_id: MANIFEST.tool_id,
+    generated_at: _lastArtifact.generated_at, execution_hash: _lastArtifact.execution_hash,
+    determination: _lastOP.overall_determination, requirement_verdicts: _lastOP.requirement_verdicts,
+    policy_parameters: _lastPP, output_payload: _lastOP,
+  };
+  download('art-582-policy-mandate.json', JSON.stringify(mandate, null, 2), 'application/json');
+}
+
+function exportPDF() {
+  if (!_lastArtifact) return;
+  const w = window.open('', '_blank');
+  w.document.write('<pre>' + JSON.stringify(_lastArtifact, null, 2).replace(/</g,'&lt;') + '</pre>');
+  w.document.close(); w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  const rows = [['requirement','verdict','detail','ref']];
+  _lastOP.requirement_verdicts.forEach(r => rows.push([r.requirement, r.verdict, r.detail, r.ref]));
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  download('art-582-conformance-monitor.csv', csv, 'text/csv');
+}
+
+async function signArtifact() {
+  alert('Ed25519 artifact signing is a manual §16 workflow — see chaingraph/standard/SPEC.md §16 for the signing procedure. This button marks the artifact ready to sign.');
+}
+
+async function verifySignature() {
+  if (!_lastArtifact) { alert('Run the monitor first to generate an artifact.'); return; }
+  alert(_lastArtifact.audit_signature && _lastArtifact.audit_signature.signatures && _lastArtifact.audit_signature.signatures.length
+    ? 'Signature present — verify offline per SPEC.md §16.'
+    : 'No signature attached to this artifact yet.');
+}
+</script>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
