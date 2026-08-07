@@ -97,6 +97,7 @@
  * Zero network, zero randomness, zero wall-clock reads inside compute().
  *
  * Spec: RECOMP-WAVE-BUILD-SPEC.md §9, §Common.
+ * (comment-only retrigger: no functional change)
  */
 import { executionHash } from './_hash.mjs';
 
