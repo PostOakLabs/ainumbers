@@ -5500,7 +5500,14 @@ function stripHexPrefix(hex) {
 
 function recomputeHashlistDigest(receipt, hashFn) {
   const concatenated = HASHLIST_FIELD_ORDER.map((f) => fieldToString(receipt, f)).join('');
-  const fieldBytes = new TextEncoder().encode(concatenated);
+  // TextEncoder().encode('') is spec-guaranteed to return an empty Uint8Array (WHATWG Encoding
+  // Standard, TextEncoder.encode) -- returning it directly instead of invoking the guest's
+  // TextEncoder is byte-identical, not a behavior change. The guard matters because with an
+  // empty/absent receipt (all 17 hashlist fields blank) `concatenated` is '', and the zkVM
+  // guest's TextEncoder throws on that specific empty-string call (observed: `error ocg_run,
+  // code -3` at this line) even though it succeeds on every non-empty string this kernel (and
+  // every other proven kernel in this estate) ever encodes with it.
+  const fieldBytes = concatenated.length === 0 ? new Uint8Array(0) : new TextEncoder().encode(concatenated);
   const groupHash = hashFn(fieldBytes); // HG
   const hashListDigest = hashFn(groupHash); // hash(concat(hg1..hgN)) with N=1
   return { groupHash, hashListDigest };
