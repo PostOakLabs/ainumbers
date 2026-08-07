@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-312"]
+tags: ["compliance_mandate", "count-313"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-312 tool(s) in this mandate-type group:
+313 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -313,6 +313,7 @@ status: stable
 - [Corporate Action Entitlement Recompute](../tools/art-547-corporate-action-entitlement-recompute.md)
 - [Reg E Remittance Disclosure Consistency Check](../tools/art-550-reg-e-remittance-disclosure-check.md)
 - [Swift MT101 Coexistence Readiness Diff](../tools/art-551-mt101-coexistence-readiness-diff.md)
+- [Compile Model Risk Lineage Pack](../tools/art-562-compile-model-risk-lineage-pack.md)
 - [Swift MT9xx to camt Statement Migration Mapper](../tools/art-563-mt9xx-camt-statement-migration-mapper.md)
 - [UCP Checkout Payload Lint](../tools/art-564-ucp-checkout-payload-lint.md)
 - [KYA Credential x x402 Payload Scope Verifier](../tools/art-565-kya-x402-scope-verifier.md)
