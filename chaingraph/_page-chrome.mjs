@@ -124,6 +124,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${root}sitemap.xml" target="_blank">sitemap.xml</a>
         <a href="${root}robots.txt" target="_blank">robots.txt</a>
         <a href="${root}sitemap.html">Sitemap</a>
+        <a href="${root}euc-register.html">EUC Register</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Network</div>
