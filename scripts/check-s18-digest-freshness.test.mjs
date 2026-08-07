@@ -294,9 +294,20 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // exactly 9; the stale count does not move.
   // Measured both sides, not assumed: 405/538 fresh + 133 stale before this row's merge base,
   // 414/547 fresh + 133 stale after.
-  assert(total === 547, `expected 547 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 414, `expected 414 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by RECOMP-ASSEMBLE-LAND-1), got ${stale.length}`);
+  // 547 -> 554 post-CAPMKT-ASSEMBLE-LAND-1 (2026-08-07): landed the seven CAPMKT nodes -- art-575
+  // (tmpg-fails-charge-recompute), art-576 (emir3-active-account-representativeness-classifier),
+  // art-577 (exchange-fee-tier-recompute), art-578 (etf-pcf-basket-verification), art-579
+  // (stock-loan-rebate-recompute), art-580 (15c3-3a-note-h-margin-debit) and art-581
+  // (emir3-simm-approval-scope-classifier) -- each carrying a groth16 compute_proof from
+  // CAPMKT-PROVE-1 (draft PR #1024, merged locally into this land), every run VERIFY_PASS with
+  // KROOT pinned per node. All seven enter the FRESH set by construction --
+  // compute_proof_ready:'ready' with no prior receipt on main -- so denominator and fresh each
+  // move by exactly 7; the stale count does not move.
+  // Measured both sides, not assumed: 414/547 fresh + 133 stale before this row's merge base,
+  // 421/554 fresh + 133 stale after.
+  assert(total === 554, `expected 554 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 421, `expected 421 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by CAPMKT-ASSEMBLE-LAND-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

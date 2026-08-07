@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (565 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (572 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5957,6 +5957,56 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-575-tmpg-fails-charge-recompute",
+    "display_name": "TMPG Fails-Charge Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-575-tmpg-fails-charge-recompute.html",
+    "description": "Recomputes the NY Fed Treasury Market Practices Group fails-charge claim a buyer presents to a failing seller on a UST, agency, or agency-MB",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-576-emir3-active-account-representativeness-classifier",
+    "display_name": "EMIR 3.0 Active Account Representativeness Classifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-576-emir3-active-account-representativeness-classifier.html",
+    "description": "Classifies an EU counterparty's posture under EMIR Article 7a (the Active Account Requirement, inserted by Regulation (EU) 2024/2987) across",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-577-exchange-fee-tier-recompute",
+    "display_name": "Exchange Access-Fee / Maker-Taker Tier Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-577-exchange-fee-tier-recompute.html",
+    "description": "Recomputes a monthly exchange maker-taker invoice from a caller-pasted fee schedule: resolves the firm's active tier from its declared prior",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-578-etf-pcf-basket-verification",
+    "display_name": "ETF PCF Create/Redeem Basket Verification",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-578-etf-pcf-basket-verification.html",
+    "description": "Recomputes what an authorized participant's assembled ETF create/redeem basket should contain against the fund's daily Portfolio Composition",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-579-stock-loan-rebate-recompute",
+    "display_name": "Stock-Loan Rebate/Fee Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-579-stock-loan-rebate-recompute.html",
+    "description": "Recomputes the periodic rebate or fee bill on an open securities loan that a borrower or beneficial owner receives from an agent lender or p",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-58-cross-network-settlement-validator",
     "display_name": "Cross-Network Atomic Settlement Validator",
     "mandate_type": "settlement_mandate",
@@ -5971,6 +6021,26 @@ window.CHAINBUILDER_CATALOG = [
       "511-multi-currency-pvp-validator",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-580-15c3-3a-note-h-margin-debit",
+    "display_name": "15c3-3a Note H Margin-Debit Computation",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-580-15c3-3a-note-h-margin-debit.html",
+    "description": "Recomputes whether a margin debit related to a broker-dealer's customer transactions in U.S. Treasury securities qualifies for inclusion in ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-581-emir3-simm-approval-scope-classifier",
+    "display_name": "EMIR 3 SIMM Approval-Scope Classifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-581-emir3-simm-approval-scope-classifier.html",
+    "description": "Classifies which EMIR 3 initial-margin model-approval obligations apply to a caller-declared counterparty profile across four items: prior c",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

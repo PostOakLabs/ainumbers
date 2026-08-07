@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "analytics_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"analytics_mandate\"."
-tags: ["analytics_mandate", "count-44"]
+tags: ["analytics_mandate", "count-45"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # analytics_mandate
 
-44 tool(s) in this mandate-type group:
+45 tool(s) in this mandate-type group:
 
 - [Corridor Cost Comparator (World Bank RPW)](../tools/art-249-compare-corridor-cost.md)
 - [Stablecoin Corridor Economics Model](../tools/art-250-model-stablecoin-corridor-economics.md)
@@ -56,3 +56,4 @@ status: stable
 - [Multi-Garnishment Stacking Recomputation](../tools/art-572-multi-garnishment-stacking-recompute.md)
 - [Section 16(b) Short-Swing Profit Recomputation](../tools/art-573-section16b-short-swing-profit-recompute.md)
 - [Certified Payroll / Prevailing Wage Recomputation](../tools/art-574-certified-payroll-prevailing-wage-recompute.md)
+- [15c3-3a Note H Margin-Debit Computation](../tools/art-580-15c3-3a-note-h-margin-debit.md)
