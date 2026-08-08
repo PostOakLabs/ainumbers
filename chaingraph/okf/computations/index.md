@@ -528,6 +528,8 @@ status: stable
 - [Proof-of-Reserves Verifier](./art-584-proof-of-reserves-verifier.md)
 - [Sanctions Screening Evidence Pack](./art-585-sanctions-screening-evidence-pack.md)
 - [FinP2P Ledger Proof Verifier](./art-587-finp2p-ledger-proof-verifier.md)
+- [Docket Deadline Sweep](./art-588-docket-deadline-sweep.md)
+- [Redline Round Classifier](./art-589-redline-round-classifier.md)
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md)
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md)
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md)
