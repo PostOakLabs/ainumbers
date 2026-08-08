@@ -45068,6 +45068,59 @@
       ]
     },
     {
+      "name": "beacon-sampled-audit-testing",
+      "domain": "Audit & Assurance",
+      "title": "Beacon-Sampled Audit Testing",
+      "description": "The audit-sampling ceremony as one hash-anchored composite: an item manifest is hashed and committed BEFORE a public randomness beacon pulse exists, the pulse then seeds a deterministic HMAC-DRBG selection (art-583), and the selected population is recomputed by the recompute node configured for the regime under test. The ordering is the whole point -- a manifest committed before the pulse round cannot be reshaped to steer which items get drawn, and a pulse nobody controlled cannot be shopped for a friendlier sample. One generic chain, configured per regime: stage 2 is the prevailing-wage certified-payroll recompute (art-574) as the first instance, and stage 3 the multi-garnishment stacking recompute (art-572) as a second configuration of the identical ceremony. GATED (OCG Standard v0.8 §21.4): gate 1 on art-583's own /verdict, so a sample that did not derive stops the automated path rather than sending an unusable selection downstream; gate 2 on art-574's own /verdict, so a run whose declared population is not a certified payroll falls through to the garnishment configuration instead of ending on an empty prevailing-wage stage. Regime instances are configurations of these steps, not new nodes. The beacon pulse and its round are caller-declared throughout: no step fetches a pulse or checks a beacon signature.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/beacon-sampled-audit-testing.html",
+      "regulatory_refs": [
+        "NISTIR 8213 (Draft, May 2019), A Reference for Randomness Beacons: Format and Protocol Version 2 -- public auditability of randomized processes as a named beacon application",
+        "Colorado Election Rule 25.2.2(i), 8 CCR 1505-1 -- risk-limiting-audit random seed established at a public meeting after county ballot manifests are filed",
+        "AICPA AU-C 530 (Audit Sampling) -- selection method giving each sampling unit a chance of selection",
+        "PCAOB AS 2315 (Audit Sampling) -- sample selection expected to be representative of the population"
+      ],
+      "regulatory_basis_status": "not_assessed",
+      "regulatory_basis_decided_by": "PACKS-FAIRAUDIT-1",
+      "regulatory_basis_decided_at": "2026-08-08",
+      "export_capability": ["json"],
+      "steps": [
+        {
+          "tool_id": "art-583-beacon-seeded-fair-sampling-deriver",
+          "handoff": "Derives the selected item indices and the full per-draw HMAC-DRBG transcript from three caller-declared inputs: the item-manifest hash committed before the pulse round, the beacon pulse (drand quicknet or NISTIR-8213) and the algorithm id. Gate: a DERIVED sample continues to the configured recompute; any other verdict means there is no usable selection to test against, and the automated path ends rather than recomputing an arbitrary population.",
+          "gate": {
+            "input": "/verdict",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "DERIVED",
+                "next": "art-574-certified-payroll-prevailing-wage-recompute"
+              }
+            ],
+            "default": "end"
+          }
+        },
+        {
+          "tool_id": "art-574-certified-payroll-prevailing-wage-recompute",
+          "handoff": "Recomputes the sampled certified-payroll rows against the declared wage determination, with CWHSSA overtime and straight-time fringe, and compares the recomputed required gross against a submitted payroll where one is supplied. Gate: an INDETERMINATE verdict means this run declared no certified payroll to test, so the chain falls through to the garnishment configuration of the same ceremony; a MATCHES or DIVERGES verdict is the tested result and the automated path ends there.",
+          "gate": {
+            "input": "/verdict",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "INDETERMINATE",
+                "next": "art-572-multi-garnishment-stacking-recompute"
+              }
+            ],
+            "default": "end"
+          }
+        },
+        {
+          "tool_id": "art-572-multi-garnishment-stacking-recompute",
+          "handoff": "Second configuration of the identical ceremony: recomputes, for the sampled pay periods, how much each order in the declared garnishment stack may lawfully withhold from disposable earnings, and compares that against a garnishment notice where one is supplied. Terminal stage."
+        }
+      ]
+    },
+    {
       "name": "benefits-nondiscrimination-composer",
       "domain": "HR & Benefits Compliance",
       "title": "Benefits Nondiscrimination Composer",
@@ -45230,6 +45283,30 @@
         {
           "tool_id": "art-434-call-report-edit-check-gate",
           "handoff": "emits per-check pass/fail verdicts plus an auto_pass | review_required gate_status for the §27 dual_control/review_required gate ahead of submission-evidence export; terminal check"
+        }
+      ]
+    },
+    {
+      "name": "camt053-parallel-run-recon-pack",
+      "domain": "Corporate Treasury & FX",
+      "title": "camt.053 Parallel-Run Recon Pack",
+      "description": "Evidence pack for a bank-statement parallel run, where a treasury receives the same period twice: once as a Swift MT9xx statement it maps itself, and once as the bank's native camt.053. Stage 1 maps the MT leg to a camt-shaped object with a fidelity report and the 60F + sum(61) = 62F balance check. Stage 2 classifies the native camt.053 leg by BkTxCd and checks the OPBD + sum(movements) = CLBD balance equation. Stage 3 takes declared record counts and control totals for both legs and checks count completeness, value completeness against a declared tolerance, and aggregate-versus-partition consistency. Both legs are DECLARED inputs: the pack reads no bank connection and fetches no statement, so it evidences whether the two legs agree, never that either leg is correct. A run that cannot establish agreement reports that as its own state rather than defaulting to a pass.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/camt053-parallel-run-recon-pack.html",
+      "regulatory_basis_status": "not_assessed",
+      "regulatory_basis_decided_by": "PACKS-CAMT-1",
+      "regulatory_basis_decided_at": "2026-08-08",
+      "steps": [
+        {
+          "tool_id": "art-563-mt9xx-camt-statement-migration-mapper",
+          "handoff": "Stage 1, the MT-derived leg. A pasted MT900/910/940/942/950 statement or notification mapped to a camt.052/053/054-shaped JSON object, with a fidelity report covering truncation findings, unmappable tags, and the 60F + sum(61) = 62F balance-consistency check."
+        },
+        {
+          "tool_id": "art-258-parse-camt053-reconciliation",
+          "handoff": "Stage 2, the bank-native leg. The camt.053 statement the bank sent for the same account and period, classified by Domain, Family and SubFamily per the CGI-MP usage guide, with the OPBD + sum(movements) = CLBD balance equation checked and a structured-remittance match rate scored."
+        },
+        {
+          "tool_id": "art-519-payment-data-migration-completeness",
+          "handoff": "Stage 3, the both-legs agreement check. Declared per-partition record counts and control totals for the two legs, checked for count completeness, value completeness within a declared tolerance, and aggregate-versus-partition consistency, so a grand total that reconciles while a partition underneath does not is reported rather than passed. Final stage."
         }
       ]
     },
@@ -50914,6 +50991,36 @@
         {
           "tool_id": "390-mica-white-paper-builder",
           "handoff": "Exports stablecoin compliance Policy Mandate -- final stage"
+        }
+      ]
+    },
+    {
+      "name": "stablecoin-examiner-pack",
+      "domain": "Digital-Asset Rails",
+      "title": "Stablecoin Examiner Pack",
+      "description": "Examiner-facing composition over three landed nodes: a GENIUS-shaped reserve disclosure conformance check (art-582), an independent Proof-of-Reserves recompute (art-584), and a sanctions-screening decision pinned to the exact versioned dataset it ran against (art-585). On-chain circulating supply enters as a DECLARED caller input, compared numerically against the issuer's reported outstanding-token count; it is informational, reaches no requirement verdict, and involves no network read. Reading that figure directly from a light client is a named follow-on, not part of this pack. Produces the evidence a stablecoin examination asks for; it is not a compliance certification and takes no position on solvency.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/stablecoin-examiner-pack.html",
+      "export_capability": ["pdf"],
+      "regulatory_basis_status": "not_assessed",
+      "regulatory_basis_decided_by": "sonnet",
+      "regulatory_basis_decided_at": "2026-08-08",
+      "regulatory_refs": [
+        "GENIUS Act (S.1582, 119th Congress) statutory reserve and monthly-attestation requirements. Dated observation, checked 2026-08-08: no final implementing regulation exists from any primary regulator; the OCC instrument remains a proposed rule (Federal Register doc 2026-04089, published 2026-03-02, comments closed 2026-05-01).",
+        "OCC comment windows open as of 2026-08-08: PPSI reporting forms and instructions information collection (Federal Register doc 2026-11856, published 2026-06-12, comments close 2026-08-11) and stablecoin licensing/registration application forms (doc 2026-15088, published 2026-07-27, comments close 2026-10-05).",
+        "Statutory effective date is the earlier of 2027-01-18 or 120 days after final implementing regulations publish. As no final rule exists on the date above, the 120-day clock has not started."
+      ],
+      "steps": [
+        {
+          "tool_id": "art-582-genius-reserve-disclosure-conformance-monitor",
+          "handoff": "Stage 1: GENIUS-shaped conformance over an issuer's published monthly reserve disclosure, covering 1:1 coverage arithmetic and attestation presence/timeliness, each with its own verdict of MET, NOT_MET or INDETERMINATE. Permitted-asset composition stays out of scope while no final rule text exists. The on-chain supply figure is a caller-declared number compared against the reported outstanding-token count, informational only, never a requirement verdict."
+        },
+        {
+          "tool_id": "art-584-proof-of-reserves-verifier",
+          "handoff": "Stage 2: independent recompute of the issuer's published Proof-of-Reserves data, covering a bounded Merkle-sum inclusion path, a liability-side branch aggregation, and the coverage ratio between the two recomputed sums, with an optional cross-check against a caller-declared published reserve figure. Consistency here concerns the internal arithmetic of what was published, never solvency and never the truthfulness of the underlying data."
+        },
+        {
+          "tool_id": "art-585-sanctions-screening-evidence-pack",
+          "handoff": "Stage 3, terminal: binds a caller-declared sanctions-screening decision to the exact versioned dataset it ran against, by comparing a caller-computed digest of the artifact actually screened with the caller-declared published digest for that dataset version. Evidence of process reproducibility, never of screening adequacy."
         }
       ]
     },
