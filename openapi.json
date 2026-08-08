@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1093 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1094 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2361,6 +2361,9 @@
       "name": "dlt-pilot"
     },
     {
+      "name": "docket-deadlines"
+    },
+    {
       "name": "documentation"
     },
     {
@@ -3109,6 +3112,9 @@
     },
     {
       "name": "mcp:classify_redline_round_changes"
+    },
+    {
+      "name": "mcp:sweep_docket_deadlines"
     },
     {
       "name": "merchant"
@@ -45638,6 +45644,162 @@
         "x-tool-url": "https://ainumbers.co/chaingraph/art-584-proof-of-reserves-verifier.html",
         "x-source": "manifest",
         "x-ap2-export": true
+      }
+    },
+    "/v1/tools/sweep_docket_deadlines": {
+      "post": {
+        "operationId": "sweep_docket_deadlines",
+        "summary": "Docket Deadline Sweep",
+        "description": "Sweeps a caller-declared docket -- a flat list of {date, action, type, source, done} deadline records, the structured shape practitioners already keep in a spreadsheet, calendar, or practice-management export -- against a caller-declared as-of date, and bands every record OVERDUE, DUE_SOON, SCHEDULED, DONE, or INDETERMINATE. Shows the weekend/holiday roll derivation step by step for each record's actual due date, using roll rules (roll_weekends, roll_direction, holiday_dates) that are always declared caller inputs with labeled defaults, never an encoded jurisdiction rules table -- baking one in would be a standing-data-duty trap and UPL-adjacent. FRCP 6(a)(1)(C) is cited in-page only as a dated, structural EXAMPLE of what a roll rule looks like, never as an encoded ruleset for any jurisdiction. A record marked done:true is retained and reported DONE, never dropped -- the sweep is a receipt over the full declared docket at one as-of moment, not a filtered view of what remains open. Flags any two records that declare the same action on different dates as a conflict worth a human look. The due-soon banding threshold is a declared input with a labeled default (7 days). Gate policy is review_required when any record is OVERDUE or INDETERMINATE or a conflict exists, otherwise auto_pass; did_not_run when the as-of date, the sweep's own anchor, is absent -- it is never defaulted. Not legal advice, not a calendaring system of record, and not a reminder or scheduling service. Attribution: deadline-record shape design borrow from CounselOS's structured deadline tracker (eigenlegal/counsel-os, MIT).\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-588-docket-deadline-sweep.html",
+        "tags": [
+          "compliance_control",
+          "legal-ops",
+          "docket-deadlines",
+          "mcp:sweep_docket_deadlines"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "decision": {
+                      "type": "object",
+                      "properties": {
+                        "gate_policy": {
+                          "type": "string"
+                        },
+                        "execution_state": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "as_of_date": {
+                      "type": "string"
+                    },
+                    "due_soon_days_threshold": {
+                      "type": "integer"
+                    },
+                    "due_soon_days_threshold_is_default": {
+                      "type": "boolean"
+                    },
+                    "roll_rule": {
+                      "type": "object",
+                      "properties": {
+                        "roll_weekends": {
+                          "type": "boolean"
+                        },
+                        "roll_weekends_is_default": {
+                          "type": "boolean"
+                        },
+                        "roll_direction": {
+                          "type": "string"
+                        },
+                        "roll_direction_is_default": {
+                          "type": "boolean"
+                        },
+                        "holiday_dates": {
+                          "type": "array"
+                        }
+                      }
+                    },
+                    "record_count": {
+                      "type": "integer"
+                    },
+                    "records": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "record_id": {
+                            "type": "string"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "done": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "rolled_date": {
+                            "type": "string"
+                          },
+                          "days_remaining": {
+                            "type": "integer"
+                          },
+                          "roll": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "conflicts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "type": "string"
+                          },
+                          "record_ids": {
+                            "type": "array"
+                          },
+                          "dates": {
+                            "type": "array"
+                          }
+                        }
+                      }
+                    },
+                    "sweep_summary": {
+                      "type": "object"
+                    },
+                    "rejected_inputs": {
+                      "type": "array"
+                    },
+                    "scope_note": {
+                      "type": "string"
+                    },
+                    "clause_note": {
+                      "type": "string"
+                    },
+                    "not_legal_advice_note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "sweep_docket_deadlines",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-588-docket-deadline-sweep.html",
+        "x-source": "manifest"
       }
     },
     "/v1/tools/classify_redline_round_changes": {
