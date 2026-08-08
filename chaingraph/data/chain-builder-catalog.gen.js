@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (580 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (582 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -5818,6 +5818,30 @@ window.CHAINBUILDER_CATALOG = [
       "509-canton-party-allowlist-validator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-560-oracle-price-aggregation",
+    "display_name": "Oracle Price Aggregation",
+    "mandate_type": "oracle_price_aggregation",
+    "url": "https://ainumbers.co/chaingraph/art-560-oracle-price-aggregation.html",
+    "description": "Computes the aggregate price a decentralized oracle network would publish from a set of individual submissions, and gives that print its own",
+    "consumes": [],
+    "feeds": [
+      "art-561-currency-basket-index"
+    ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-561-currency-basket-index",
+    "display_name": "Currency Basket Index",
+    "mandate_type": "currency_basket_index",
+    "url": "https://ainumbers.co/chaingraph/art-561-currency-basket-index.html",
+    "description": "Values a currency basket by the fixed-amount method, where currency amounts are fixed at a rebase date and the live weights float daily with",
+    "consumes": [
+      "art-560-oracle-price-aggregation"
+    ],
+    "feeds": [],
     "status": "live"
   },
   {

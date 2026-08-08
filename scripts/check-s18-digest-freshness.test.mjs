@@ -338,9 +338,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // move by exactly 2; the stale count does not move.
   // Measured both sides, not assumed: 427/560 fresh + 133 stale before this row's merge base,
   // 429/562 fresh + 133 stale after.
-  assert(total === 562, `expected 562 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 429, `expected 429 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by LEGALOPS-ASSEMBLE-LAND-1), got ${stale.length}`);
+  // 562 -> 564 post-VERT-ASSEMBLE-LAND-2 (2026-08-08): landed art-560 (oracle-price-aggregation)
+  // and art-561 (currency-basket-index), each carrying a groth16 compute_proof from
+  // DERIV-PROVE-1 (draft PR #1071, merged locally into this land), VERIFY_PASS with
+  // journal.kernel_digest matching the pre-prove pin. Both enter the FRESH set by construction --
+  // compute_proof_ready:'ready' with no prior receipt on main -- so denominator and fresh each
+  // move by exactly 2; the stale count does not move.
+  // Measured both sides, not assumed: 429/562 fresh + 133 stale before this row's merge base,
+  // 431/564 fresh + 133 stale after.
+  assert(total === 564, `expected 564 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 431, `expected 431 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by VERT-ASSEMBLE-LAND-2), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
