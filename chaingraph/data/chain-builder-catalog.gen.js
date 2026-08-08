@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (577 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (578 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6095,6 +6095,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-585-sanctions-screening-evidence-pack.html",
     "description": "Binds a caller-declared sanctions-screening decision (query, match count, decision) to the EXACT versioned dataset it was screened against, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-587-finp2p-ledger-proof-verifier",
+    "display_name": "FinP2P Ledger Proof Verifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-587-finp2p-ledger-proof-verifier.html",
+    "description": "Verifies a FinP2P Ledger Proof in Hashlist mode against a caller-supplied secp256k1 public key. Recomputes the FinP2P Hashlist digest (fixed",
     "consumes": [],
     "feeds": [],
     "status": "live"
