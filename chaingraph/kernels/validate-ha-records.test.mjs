@@ -68,7 +68,7 @@ if (!HAR || !Array.isArray(ROLE) || !Array.isArray(POLICY) || !SHA256REF) {
   if (!sha256re.test(rec.subject_hash)) shapeErrs.push(`subject_hash not a valid sha256ref`);
   if (typeof rec.identity?.id !== 'string' || !rec.identity.id) shapeErrs.push(`identity.id missing`);
   // sanity: the enums are the closed sets §27 specifies (catches an accidental widening in the schema)
-  const wantRoles = ['preparer', 'reviewer', 'approver', 'attestor', 'submitter', 'model_owner', 'compliance_officer', 'examiner'];
+  const wantRoles = ['preparer', 'reviewer', 'approver', 'attestor', 'submitter', 'model_owner', 'compliance_officer', 'examiner', 'checker'];
   const wantPolicy = ['auto_pass', 'review_required', 'dual_control', 'escalate', 'hold', 'reject', 'emergency_override'];
   if (ROLE.slice().sort().join(',') !== wantRoles.slice().sort().join(',')) shapeErrs.push(`haRole enum drifted from the §27.1 closed set`);
   if (POLICY.slice().sort().join(',') !== wantPolicy.slice().sort().join(',')) shapeErrs.push(`haGatePolicy enum drifted from the §27.4 closed set`);
