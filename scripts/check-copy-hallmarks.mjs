@@ -92,6 +92,14 @@ const JARGON = [
 const TWOTONE_HIGHPRECISION = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
 // Advisory only, PERMANENTLY — heuristic, catches legitimate 3-item lists too often for a hard gate.
 const TRIAD = /\b\w+,\s*\w+,\s*(?:and|&)\s*\w+\b/g;
+// Advisory only, WARN-ONLY per Tim's ruling 2026-08-07 (memory
+// feedback-anti-ai-tell-copy-ban item 11, LOADBEARING-SWEEP-1): "load-bearing"
+// used as a metaphor for "important"/"required" is an AI-writing tell, but the
+// word also has legitimate literal-structural and domain-specific uses (e.g.
+// physical load-bearing walls, a genuinely load-bearing field in a schema) that
+// a regex can't tell apart from the metaphor — never a hard block, a reviewer
+// clears each hit. Same shape as the triad/emoji advisories above.
+const LOADBEARING = /\bload[\s-]?bearing\b/gi;
 // Structural UI chrome exempt from the bold count (not prose emphasis) —
 // same precedent as the italics rule's h1-h6 exemption, plus tabular/form
 // labels. <button> is already stripped upstream via BUTTON_TAG.
@@ -245,6 +253,7 @@ for (const file of htmlFiles(REPO)) {
   }
   const twotoneHP = (text.match(TWOTONE_HIGHPRECISION) || []).length;
   const triad = (text.match(TRIAD) || []).length;
+  const loadbearing = (text.match(LOADBEARING) || []).length;
 
   const hallmarks = [];
   // Italic/bold emphasis in HEADINGS (h1-h6) is now a blocking tell too (Tim
@@ -296,8 +305,8 @@ for (const file of htmlFiles(REPO)) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || hallmarks.length || emojiProse || bold || Object.keys(overuse).length) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, hallmarks, emojiProse, bold, overuse };
+  if (emdash || jargon.length || twotoneHP || triad || loadbearing || hallmarks.length || emojiProse || bold || Object.keys(overuse).length) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, hallmarks, emojiProse, bold, overuse };
   }
 }
 
@@ -351,6 +360,7 @@ for (const [rel, f] of Object.entries(findings)) {
   // HIGH-PRECISION twotone: zero-tolerance, no baseline (COPYTELL-SWEEP-1, italics precedent).
   if (f.twotoneHP) failures.push(`${rel}: ${f.twotoneHP} HIGH-PRECISION twotone construction(s) ("It is not X. It is Y." family) — rewrite as a direct statement`);
   if (f.triad) advisories.push(`${rel}: ${f.triad} possible rule-of-three triad(s)`);
+  if (f.loadbearing) advisories.push(`${rel}: ${f.loadbearing} "load-bearing" hit(s) — likely a metaphor for important/required; reviewer clears literal-structural/domain uses (advisory)`);
   if (f.emojiProse) advisories.push(`${rel}: ${f.emojiProse} emoji glyph(s) in body text (advisory — see script header comment)`);
 }
 for (const rel of Object.keys(baseline)) {
