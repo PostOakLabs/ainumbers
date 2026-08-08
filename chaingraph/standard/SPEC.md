@@ -2995,15 +2995,29 @@ counter-sign passing silently: a verifier holding both the receipt and the kerne
 makes possible without asserting it was performed (matching §27.11's separation between "structurally
 present" and "cryptographically or referentially checked").
 
-**Additivity (demonstrated).** §27.12 adds two closed-enum members and one OPTIONAL schema field, all under
-the EXISTING `$defs/humanAccountabilityRecord` shape §27.2 already defines. It introduces no new artifact
-type, no new `$defs/artifact.required` member, and no `execution_hash` preimage change: minting, revising,
-or discarding a `counter_signed_receipt` record — with or without `kernel_pin` — leaves the subject
-artifact's `execution_hash` byte-identical, exactly as §27.0 requires of every §27 construct. A verifier
-that has never heard of `counter_signed_receipt`, `checker`, or `kernel_pin` continues to validate every
-existing artifact and every existing §27 record unchanged; only a NEW record populating these members
-carries its own new §4 hash, computed the one canonical way. `chaingraph_version` stays `"0.4.0"`, and no
-existing hash, gate, or golden vector moves.
+**`replay_verified` — the second OPTIONAL sibling field (v0.8.21).** `$defs/humanAccountabilityRecord` gains
+a second new OPTIONAL member, `replay_verified` (boolean), a sibling of `record_type` exactly as
+`kernel_pin` and §27.10's `subject_run_state` are — not a `record_type` member, not in `required[]`, and
+outside every `execution_hash` preimage. It states one fact about the checker's own conduct: `true` iff the
+checker independently re-ran the subject's computation deterministically and got a matching `subject_hash`
+before signing this record — never a rubber-stamp approval. It is governed by the omit-not-false discipline
+§27.4 already established for this exact term ("Non-node gate subjects", above): where no replay was
+attempted, the field MUST be omitted, never set `false` — `false` would read as a replay that was attempted
+and disagreed. `replay_verified` and `kernel_pin` answer different questions and neither subsumes the
+other: `kernel_pin` names WHICH kernel or tool the checker verified against, without asserting a replay was
+performed; `replay_verified` states WHETHER the checker actually re-ran it. A checker MAY populate one,
+both, or neither.
+
+**Additivity (demonstrated).** §27.12 adds two closed-enum members and two OPTIONAL schema fields
+(`kernel_pin`, `replay_verified`), all under the EXISTING `$defs/humanAccountabilityRecord` shape §27.2
+already defines. It introduces no new artifact type, no new `$defs/artifact.required` member, and no
+`execution_hash` preimage change: minting, revising, or discarding a `counter_signed_receipt` record — with
+or without `kernel_pin` or `replay_verified` — leaves the subject artifact's `execution_hash` byte-identical,
+exactly as §27.0 requires of every §27 construct. A verifier that has never heard of `counter_signed_receipt`,
+`checker`, `kernel_pin`, or `replay_verified` continues to validate every existing artifact and every
+existing §27 record unchanged; only a NEW record populating these members carries its own new §4 hash,
+computed the one canonical way. `chaingraph_version` stays `"0.4.0"`, and no existing hash, gate, or golden
+vector moves.
 
 **Scope note.** §27.12 specifies the SHAPE of a counter-signed receipt only. The exchange format, the
 identity-resolution minimum (a bare `did:key` is sufficient; §9), the offline dispute story, and the four
