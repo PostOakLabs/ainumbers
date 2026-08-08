@@ -275,12 +275,32 @@
       }
     },
     "haRole": {
-      "description": "OCG Standard §27.1 (v0.8.12) — the closed set of human-accountability roles. approver is the legally-effective sign-off (attestor is its alias); examiner is READ-ONLY (grants inspection, never approval authority). A role binding ties one §9 identity to one role for one subject and MUST carry a §16 proof verifiable against that identity.",
-      "enum": ["preparer", "reviewer", "approver", "attestor", "submitter", "model_owner", "compliance_officer", "examiner"]
+      "description": "OCG Standard §27.1 (v0.8.12) — the closed set of human-accountability roles. approver is the legally-effective sign-off (attestor is its alias); examiner is READ-ONLY (grants inspection, never approval authority); checker (§27.12, v0.8.20) attests independent cross-org verification of someone else's already-sealed artifact, never organizational sign-off — distinct from reviewer/approver for that reason. A role binding ties one §9 identity to one role for one subject and MUST carry a §16 proof verifiable against that identity.",
+      "enum": ["preparer", "reviewer", "approver", "attestor", "submitter", "model_owner", "compliance_officer", "examiner", "checker"]
     },
     "haRunState": {
       "description": "OCG Standard §27.10 (v0.8.15) — the closed run-state vocabulary carried by the OPTIONAL humanAccountabilityRecord.subject_run_state sibling. ran = the subject was produced by an execution that completed, on inputs the acting party accepted as current (a positive claim, never a default); did_not_run = the computation, check, or control the subject stands for did NOT execute (the record evidences the absence itself, since an absent artifact cannot carry a field); ran_stale = produced from inputs already past their freshness bound (the accountability-side mirror of §23 freshness_status \"stale\"). ABSENCE MEANS NO CLAIM and MUST NOT be read as \"ran\". Closed: adding a value IS a spec change, because a verifier must not silently accept an unknown run-state and thereby treat it as ran. Closure is enforced by this enum under schema-validate; validate-ha-records.test.mjs asserts closure of record_type/haRole/haGatePolicy.",
       "enum": ["ran", "did_not_run", "ran_stale"]
+    },
+    "haKernelPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OCG Standard §27.12 (v0.8.20) — the OPTIONAL humanAccountabilityRecord.kernel_pin sibling. Pins the producer a checker verified subject_hash against: kernel_digest for a §12 node subject, or tool_ref (the identical {tool_id, tool_version, entry, manifest_digest} shape §27's non-node attested-artifact clause already defines) for a chainless subject. Exactly one applies, matching whichever preimage produced subject_hash. Enters no execution_hash preimage; a verifier holding both the receipt and the kernel/tool source MAY confirm kernel_pin names the SAME producer the subject was actually produced against — a check this field's shape makes possible without asserting it was performed.",
+      "properties": {
+        "kernel_digest": { "$ref": "#/$defs/sha256ref", "description": "§17 kernel identity, for a §12 node subject." },
+        "tool_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The §27 non-node attested-artifact producer pin, for a chainless subject.",
+          "required": ["tool_id", "tool_version", "entry", "manifest_digest"],
+          "properties": {
+            "tool_id": { "type": "string" },
+            "tool_version": { "type": "string" },
+            "entry": { "type": "string" },
+            "manifest_digest": { "$ref": "#/$defs/sha256ref" }
+          }
+        }
+      }
     },
     "humanAccountabilityRecord": {
       "type": "object",
@@ -288,7 +308,7 @@
       "additionalProperties": false,
       "required": ["record_type", "role", "subject_hash", "identity"],
       "properties": {
-        "record_type": { "enum": ["role_binding", "approval", "rejection", "override", "annotation"], "description": "§27.2 — the kind of accountable act this record evidences." },
+        "record_type": { "enum": ["role_binding", "approval", "rejection", "override", "annotation", "counter_signed_receipt"], "description": "§27.2 — the kind of accountable act this record evidences. counter_signed_receipt (§27.12, v0.8.20) is a cross-org peer verification: the checker independently recomputed the subject and signed a receipt of that recomputation — never organizational approval." },
         "role": { "$ref": "#/$defs/haRole" },
         "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "The execution_hash of the artifact being acted upon — the SCITT reference (§27.2). The record never contains the subject's preimage." },
         "identity": {
@@ -299,6 +319,7 @@
         },
         "decision": { "type": "string", "description": "OPTIONAL decision label where applicable (e.g. approve/reject). The record_type is the authoritative act." },
         "subject_run_state": { "$ref": "#/$defs/haRunState", "description": "OPTIONAL §27.10 — whether the SUBJECT actually ran, as observed by the acting party. A SIBLING of record_type, deliberately not a record_type member: record_type names the human act, this names the machine state of the subject at the moment of that act. Additive and reporting-only — it enters NO subject execution_hash preimage, appears in no required[], never invalidates a structural/verifiable/execution_hash verdict, and changes no §21.4 routing math (a gate MAY target a copied-forward value). Absence is fully conformant and means NO CLAIM." },
+        "kernel_pin": { "$ref": "#/$defs/haKernelPin", "description": "OPTIONAL §27.12 (v0.8.20) — which kernel/tool a checker verified subject_hash against, so a receipt signed against the WRONG kernel is structurally detectable. A SIBLING of record_type, mirroring how §27.10 added subject_run_state: not required[], enters no execution_hash preimage, absence is fully conformant and means NO CLAIM (not merely that no pin was checked)." },
         "gate_policy": { "$ref": "#/$defs/haGatePolicy", "description": "OPTIONAL §27.4 gate policy this record satisfies or overrides." },
         "reason_code": { "type": "string", "description": "OPTIONAL machine-stable rationale token (REQUIRED by §27.5 for an override)." },
         "override": {

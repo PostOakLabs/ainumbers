@@ -2665,8 +2665,10 @@ limit).
 **§27.1 Roles (NORMATIVE).** §27 defines a closed set of accountability roles: `preparer` (assembles the
 reporting artifact), `reviewer` (checks it), `approver`/`attestor` (accepts responsibility — the
 legally-effective sign-off), `submitter` (transmits it), and the OPTIONAL `model_owner` (owns a model whose
-output fed the artifact), `compliance_officer`, and `examiner` (READ-ONLY — an examiner role binding grants
-inspection, never approval authority). A **role binding** is a signed record that ties one §9 identity
+output fed the artifact), `compliance_officer`, `examiner` (READ-ONLY — an examiner role binding grants
+inspection, never approval authority), and `checker` (§27.12, v0.8.20 — attests independent cross-org
+verification of someone else's already-sealed artifact, never organizational sign-off; distinct from
+`reviewer`/`approver` for that reason). A **role binding** is a signed record that ties one §9 identity
 (`did:key` or LEI) to one role for one subject; the binding's §16 `eddsa-jcs-2022` proof MUST verify against
 that identity. Roles are the vocabulary the gate policy (§27.4) and thresholds (§27.3) count over. An
 identity MAY hold more than one role, but §27.3 distinctness is by identity, so one human cannot satisfy a
@@ -2675,7 +2677,8 @@ dual-control threshold alone by wearing two role hats.
 **§27.2 Approval records (NORMATIVE — SCITT-style statements about statements).** An **approval record** is
 a conformant OCG artifact whose `mandate_type` is the accepted envelope value `"human_accountability_record"`
 and whose `output_payload` matches `$defs/humanAccountabilityRecord`. Its authority payload carries:
-`record_type` (`role_binding` | `approval` | `rejection` | `override` | `annotation`), `role` (§27.1),
+`record_type` (`role_binding` | `approval` | `rejection` | `override` | `annotation` | `counter_signed_receipt`
+— the last, §27.12, v0.8.20), `role` (§27.1),
 `subject_hash` (the `sha256:`-prefixed `execution_hash` of the artifact being acted upon — the SCITT
 reference), the acting `identity: { id }` (§9), a `decision` where applicable, a `reason_code`, and a
 `timestamp`. The approval record is **itself a first-class artifact**: it has its own §4 `execution_hash`
@@ -2951,6 +2954,62 @@ content; design pattern only). The integer `threshold` follows **in-toto** (the 
 concept only). The statement-about-statement framing follows **IETF SCITT** (a receipt about a receipt).
 **ZCAP-LD** is cited as the anti-pattern the scope discipline (§27.0) deliberately avoids. No text or code
 is copied from any of them.
+
+**§27.12 Counter-signed receipts — cross-org peer verification (NORMATIVE, OPTIONAL — new in v0.8.20).**
+§27.1–§27.11 model accountability WITHIN one organization: preparer, reviewer, approver, submitter act on
+one org's own filing. A **counter-signed receipt** is a different fact — a counterparty attests its own
+independent re-verification of someone else's already-sealed artifact, peer-to-peer, with no shared
+organization, registry, or relay. §27.12 adds the closed-enum members and the OPTIONAL field this needs,
+reusing every existing §27.2 mechanic unchanged.
+
+**The record.** `record_type` gains a sixth closed member, **`counter_signed_receipt`** (joining
+`role_binding | approval | rejection | override | annotation`, §27.2): a §27.2 approval-record artifact
+whose `record_type` is this value asserts exactly one fact — **the checker independently recomputed the
+subject and signed a receipt of that recomputation at the recorded `timestamp`.** `role` gains a sixth
+closed member, **`checker`** (joining §27.1's set): a checker attests independent verification, never
+organizational sign-off, and is distinct from `reviewer`/`approver` for that reason — an identity holding
+`checker` for one subject grants no approval authority over it. `subject_hash` (§27.2, unchanged) is the
+SCITT reference to the artifact being counter-signed — a §4 `execution_hash` for a §12 node subject, or the
+non-node three-member preimage ("Non-node gate subjects", above) for a chainless one; `identity` (§9,
+unchanged) and `timestamp` (unchanged) carry the checker's identity and the "at time T" fact — no new field
+is needed for either.
+
+**⛔ Vocabulary ban (binding, NORMATIVE).** The one permitted claim is the one stated above. Neither this
+artifact, nor any schema description, gate-policy prose, or product copy describing it, may use "accept",
+"acceptance", "settled", "final", or "finality" (or a synonym implying legal or economic settlement) to
+describe a `counter_signed_receipt`. A counter-signed receipt is **evidence that both parties independently
+recomputed and signed the same result** — never a claim that either party is bound, that the underlying
+transition is accepted, or that a dispute is foreclosed. (Corda tripwires, checked: the record attests, it
+does not finalise; it is a liveness duty on the checker to run its own verification, never operatorship of
+the subject; no ordering service is implied, spec-only or otherwise.)
+
+**`kernel_pin` — the new OPTIONAL sibling field.** `$defs/humanAccountabilityRecord` gains one new OPTIONAL
+member, `kernel_pin` (`$defs/haKernelPin`), a sibling of `record_type` exactly as §27.10's
+`subject_run_state` is — not a `record_type` member, not in `required[]`, and outside every `execution_hash`
+preimage. It pins **which** kernel or tool the checker verified `subject_hash` against: `kernel_digest`
+(§17) for a §12 node subject, or `tool_ref` — the identical `{tool_id, tool_version, entry,
+manifest_digest}` shape the non-node clause already defines — for a chainless attested-artifact subject.
+Its absence is exactly as conformant as its presence; what it prevents, when present, is a wrong-kernel
+counter-sign passing silently: a verifier holding both the receipt and the kernel/tool source can confirm
+`kernel_pin` names the SAME producer the subject was actually produced against, a check the field's shape
+makes possible without asserting it was performed (matching §27.11's separation between "structurally
+present" and "cryptographically or referentially checked").
+
+**Additivity (demonstrated).** §27.12 adds two closed-enum members and one OPTIONAL schema field, all under
+the EXISTING `$defs/humanAccountabilityRecord` shape §27.2 already defines. It introduces no new artifact
+type, no new `$defs/artifact.required` member, and no `execution_hash` preimage change: minting, revising,
+or discarding a `counter_signed_receipt` record — with or without `kernel_pin` — leaves the subject
+artifact's `execution_hash` byte-identical, exactly as §27.0 requires of every §27 construct. A verifier
+that has never heard of `counter_signed_receipt`, `checker`, or `kernel_pin` continues to validate every
+existing artifact and every existing §27 record unchanged; only a NEW record populating these members
+carries its own new §4 hash, computed the one canonical way. `chaingraph_version` stays `"0.4.0"`, and no
+existing hash, gate, or golden vector moves.
+
+**Scope note.** §27.12 specifies the SHAPE of a counter-signed receipt only. The exchange format, the
+identity-resolution minimum (a bare `did:key` is sufficient; §9), the offline dispute story, and the four
+flagship instances (TMPG fails-charge claims, PE waterfall true-ups, trustee-report recomputes, UCP 600
+document exams) are specified in `BILAT-CSR-BUILD-SPEC.md` and are NOT restated here; conformance-vector
+coverage (`validate-ha-records.test.mjs`) is a separate WU's scope, not this subsection's.
 
 ## §28 Clause Binding Profile — `ocg-clause-binding@1` (NORMATIVE, OPTIONAL, profile-scoped — new in v0.8.14)
 A citation like `"MiCA"` or `"17 CFR 240.15c3-3"` sitting in a tool's `regulatory_frameworks` /
