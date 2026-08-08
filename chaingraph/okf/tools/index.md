@@ -499,6 +499,8 @@ status: stable
 - [Record Fund Positions](./art-558-record-fund-positions.md) — `record_fund_positions`
 - [Calculation-Agent Independence Attestation](./art-559-attest-calc-agent-independence.md) — `attest_calc_agent_independence`
 - [Wholesale Tokenized Settlement Fit Diagnostic](./art-56-tokenized-settlement-fit-diagnostic.md) — `run_tokenized_settlement_fit`
+- [Oracle Price Aggregation](./art-560-oracle-price-aggregation.md) — `oracle_price_aggregation`
+- [Currency Basket Index](./art-561-currency-basket-index.md) — `currency_basket_index`
 - [Compile Model Risk Lineage Pack](./art-562-compile-model-risk-lineage-pack.md) — `compile_model_risk_lineage_pack`
 - [Swift MT9xx to camt Statement Migration Mapper](./art-563-mt9xx-camt-statement-migration-mapper.md) — `map_mt9xx_to_camt`
 - [UCP Checkout Payload Lint](./art-564-ucp-checkout-payload-lint.md) — `lint_ucp_checkout_payload`
