@@ -95,6 +95,7 @@ const EVIDENCE_CARDS = [
   ['sec16b-early-warning-pack.html', 'Guide', 'Section 16(b) Early-Warning Pack', 'What an independent short-swing recompute proves for issuer general counsel and insider counsel.'],
   ['trust-audit-closeout-pack.html', 'Guide', 'Trust-Audit Closeout Pack', 'What a three-way trust reconciliation and docket sweep receipt prove for a client-trust closeout period.'],
   ['tmpg-fails-charge-claim-pack.html', 'Guide', 'TMPG Fails-Charge Claim Pack', 'What a bilateral countersigned recompute receipt proves during a monthly TMPG fails-charge claim.'],
+  ['pe-waterfall-true-up-pack.html', 'Guide', 'PE Waterfall True-Up Pack', 'What a bilateral countersigned recompute receipt proves during a private equity fund distribution true-up.'],
   ['vop-liability-evidence.html', 'Guide', 'VoP Liability Evidence', 'What a Verification of Payee session receipt proves for PSPs and reimbursement reviewers.'],
   ['idv-session-evidence-guide.html', 'Guide', 'IDV / KYC Session Evidence', 'How camera-provenance checks and session receipt hash-chaining fit together.'],
   ['collections-compliance-pack.html', 'Guide', 'Collections Compliance Pack', 'What a collections compliance receipt proves for debt collectors and compliance teams.'],
