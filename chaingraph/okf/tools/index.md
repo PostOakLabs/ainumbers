@@ -525,6 +525,7 @@ status: stable
 - [Beacon-Seeded Fair-Sampling Deriver](./art-583-beacon-seeded-fair-sampling-deriver.md) — `derive_beacon_fair_sample`
 - [Proof-of-Reserves Verifier](./art-584-proof-of-reserves-verifier.md) — `verify_proof_of_reserves_consistency`
 - [Sanctions Screening Evidence Pack](./art-585-sanctions-screening-evidence-pack.md) — `build_sanctions_screening_evidence_pack`
+- [FinP2P Ledger Proof Verifier](./art-587-finp2p-ledger-proof-verifier.md) — `verify_finp2p_ledger_proof`
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`

@@ -322,9 +322,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // move by exactly 1; the stale count does not move.
   // Measured both sides, not assumed: 425/558 fresh + 133 stale before this row's merge base,
   // 426/559 fresh + 133 stale after.
-  assert(total === 559, `expected 559 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 426, `expected 426 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by ASSEMBLE-LAND-30), got ${stale.length}`);
+  // 559 -> 560 post-ASSEMBLE-LAND-31 (2026-08-08): landed art-587 (finp2p-ledger-proof-verifier),
+  // carrying a groth16 compute_proof from FINP2P-PROVE-1 (draft PR #1049, merged locally into this
+  // land), VERIFY_PASS with triple-identity binding closed (kernel on disk == journal.kernel_digest
+  // == shard sha256-source). It enters the FRESH set by construction --
+  // compute_proof_ready:'ready' with no prior receipt on main -- so denominator and fresh each
+  // move by exactly 1; the stale count does not move.
+  // Measured both sides, not assumed: 426/559 fresh + 133 stale before this row's merge base,
+  // 427/560 fresh + 133 stale after.
+  assert(total === 560, `expected 560 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 427, `expected 427 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by ASSEMBLE-LAND-31), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
