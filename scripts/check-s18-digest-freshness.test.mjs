@@ -330,9 +330,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // move by exactly 1; the stale count does not move.
   // Measured both sides, not assumed: 426/559 fresh + 133 stale before this row's merge base,
   // 427/560 fresh + 133 stale after.
-  assert(total === 560, `expected 560 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 427, `expected 427 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by ASSEMBLE-LAND-31), got ${stale.length}`);
+  // 560 -> 562 post-LEGALOPS-ASSEMBLE-LAND-1 (2026-08-08): landed art-588 (docket-deadline-sweep)
+  // and art-589 (redline-round-classifier), each carrying a groth16 compute_proof from
+  // LEGALOPS-PROVE-1 (draft PR #1069, merged locally into this land), VERIFY_PASS with
+  // journal.kernel_digest matching the pre-prove pin. Both enter the FRESH set by construction --
+  // compute_proof_ready:'ready' with no prior receipt on main -- so denominator and fresh each
+  // move by exactly 2; the stale count does not move.
+  // Measured both sides, not assumed: 427/560 fresh + 133 stale before this row's merge base,
+  // 429/562 fresh + 133 stale after.
+  assert(total === 562, `expected 562 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 429, `expected 429 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by LEGALOPS-ASSEMBLE-LAND-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

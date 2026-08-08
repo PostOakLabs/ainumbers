@@ -526,6 +526,8 @@ status: stable
 - [Proof-of-Reserves Verifier](./art-584-proof-of-reserves-verifier.md) — `verify_proof_of_reserves_consistency`
 - [Sanctions Screening Evidence Pack](./art-585-sanctions-screening-evidence-pack.md) — `build_sanctions_screening_evidence_pack`
 - [FinP2P Ledger Proof Verifier](./art-587-finp2p-ledger-proof-verifier.md) — `verify_finp2p_ledger_proof`
+- [Docket Deadline Sweep](./art-588-docket-deadline-sweep.md) — `sweep_docket_deadlines`
+- [Redline Round Classifier](./art-589-redline-round-classifier.md) — `classify_redline_round_changes`
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`

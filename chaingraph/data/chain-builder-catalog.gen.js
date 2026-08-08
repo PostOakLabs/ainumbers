@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (578 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (580 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6105,6 +6105,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-587-finp2p-ledger-proof-verifier.html",
     "description": "Verifies a FinP2P Ledger Proof in Hashlist mode against a caller-supplied secp256k1 public key. Recomputes the FinP2P Hashlist digest (fixed",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-588-docket-deadline-sweep",
+    "display_name": "Docket Deadline Sweep",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-588-docket-deadline-sweep.html",
+    "description": "Sweeps a caller-declared docket -- a flat list of {date, action, type, source, done} deadline records, the structured shape practitioners al",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-589-redline-round-classifier",
+    "display_name": "Redline Round Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-589-redline-round-classifier.html",
+    "description": "Classifies per-segment changes between two negotiation rounds of the same document (paragraph or clause-segmented structured text, pasted or",
     "consumes": [],
     "feeds": [],
     "status": "live"
