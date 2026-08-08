@@ -93,6 +93,7 @@ const EVIDENCE_CARDS = [
   ['camt053-parallel-run-recon-pack.html', 'Guide', 'camt.053 Parallel-Run Recon Pack', 'What a both-legs-agree receipt proves during a bank-statement parallel run.'],
   ['muni-spending-exception-tracker-pack.html', 'Guide', 'Muni Spending-Exception Tracker Pack', 'What a per-milestone spending-exception receipt proves for bond issuers and their advisers.'],
   ['sec16b-early-warning-pack.html', 'Guide', 'Section 16(b) Early-Warning Pack', 'What an independent short-swing recompute proves for issuer general counsel and insider counsel.'],
+  ['trust-audit-closeout-pack.html', 'Guide', 'Trust-Audit Closeout Pack', 'What a three-way trust reconciliation and docket sweep receipt prove for a client-trust closeout period.'],
   ['vop-liability-evidence.html', 'Guide', 'VoP Liability Evidence', 'What a Verification of Payee session receipt proves for PSPs and reimbursement reviewers.'],
   ['idv-session-evidence-guide.html', 'Guide', 'IDV / KYC Session Evidence', 'How camera-provenance checks and session receipt hash-chaining fit together.'],
   ['collections-compliance-pack.html', 'Guide', 'Collections Compliance Pack', 'What a collections compliance receipt proves for debt collectors and compliance teams.'],
