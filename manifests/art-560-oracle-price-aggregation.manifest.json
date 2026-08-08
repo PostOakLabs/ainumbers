@@ -1,0 +1,99 @@
+{
+  "tool_id": "art-560-oracle-price-aggregation",
+  "version": "1.0.0",
+  "title": "Oracle Price Aggregation",
+  "description": "Computes the aggregate price a decentralized oracle network would publish from a set of individual submissions, under four mechanism-named aggregation rules: median-filtered confidence-weighted mean, stake-weighted median on the frequency convention, three-vote confidence median, and plain median with an f-of-n readout. Supports an optional prev_print_hash citing the prior print of the same pair, which turns a series of same-pair prints into a walkable chain; omitting it reproduces the unlinked-print output byte for byte. Every price, weight, confidence, timestamp and submitter id is supplied and asserted, never fetched (zero-egress). Simulates the aggregation step only, does not model the commit-reveal phase, and never claims any real network did or would publish this number. A submitter id may be supplied as a sha256-salted@1 commitment (SPEC.md §25) to withhold the identifier while keeping the aggregation bound to it. Not a price feed and not a market-data source.",
+  "category": "derivatives-and-oracle-infrastructure",
+  "tags": [
+    "oracle",
+    "price-aggregation",
+    "derivatives",
+    "mark-price",
+    "print-lineage"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "median_filtered_confidence_weighted_mean",
+          "stake_weighted_median_frequency",
+          "three_vote_confidence_median",
+          "plain_median"
+        ]
+      },
+      "currency_pair": { "type": "string" },
+      "submissions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "price": { "type": "number" },
+            "weight_pct": { "type": "number" },
+            "confidence": { "type": "number" },
+            "timestamp": { "type": "string" },
+            "submitter_id_commitment_scheme": { "type": "string", "enum": ["sha256-salted@1"] }
+          }
+        }
+      },
+      "outlier_threshold_pct": { "type": "number" },
+      "stale_after_seconds": { "type": "number" },
+      "epoch": { "type": "number" },
+      "prev_print_hash": { "type": "string" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "oracle_price_aggregation",
+    "description": "Computes an oracle aggregate price from supplied submissions under a named aggregation mechanism, optionally citing the prior print of the same pair. Aggregation step only, zero egress, every submission supplied and asserted.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string" },
+        "currency_pair": { "type": "string" },
+        "submissions": { "type": "array" },
+        "outlier_threshold_pct": { "type": "number" },
+        "stale_after_seconds": { "type": "number" },
+        "epoch": { "type": "number" },
+        "prev_print_hash": { "type": "string" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-560-oracle-price-aggregation.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "currency_pair": { "type": ["string", "null"] },
+      "epoch": { "type": ["number", "null"] },
+      "structural_error": { "type": ["string", "null"] },
+      "aggregated_price": { "type": ["number", "null"] },
+      "aggregation_method": { "type": ["string", "null"] },
+      "aggregate_confidence": { "type": ["number", "null"] },
+      "submission_count": { "type": "number" },
+      "priced_submission_count": { "type": "number" },
+      "surviving_count": { "type": ["number", "null"] },
+      "outlier_count": { "type": "number" },
+      "outliers_flagged": { "type": "array" },
+      "outlier_detail": { "type": "array" },
+      "outlier_threshold_pct": { "type": ["number", "null"] },
+      "price_spread_pct": { "type": ["number", "null"] },
+      "min_submitted": { "type": ["number", "null"] },
+      "max_submitted": { "type": ["number", "null"] },
+      "stale_submissions": { "type": "array" },
+      "fault_tolerance": { "type": ["object", "null"] },
+      "rejected_inputs": { "type": "array" },
+      "not_proven": { "type": "array" },
+      "fence": { "type": "string" },
+      "prev_print_hash": { "type": "string" },
+      "chain_position": { "type": "string" }
+    }
+  },
+  "source": "DERIV-WF-ORACLE-1, WU-authored (D-class new-node shard) -- builds DERIV-WORKFLOWS-BUILD-SPEC.md §6 (AT-06) including the §4 prev_print_hash wiring. output_schema derived by running the kernel's own compute() directly against the 7 vectors in chaingraph/kernels/fixtures/art-560-oracle-price-aggregation.fixtures.json (no compute_proof exists yet, proving deferred to the async GPU queue). prev_print_hash and chain_position are emitted CONDITIONALLY, present only when the optional lineage field is supplied, which is what keeps an omitting call byte-identical to a no-wiring artifact. Not run through scripts/generate-node-manifest.mjs -- that generator reads the assembled chaingraph.json and this is a shard-only D-class WU that never touches the monolith (board/RIDER-KERNEL.md)."
+}

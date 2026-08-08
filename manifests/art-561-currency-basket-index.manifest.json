@@ -1,0 +1,103 @@
+{
+  "tool_id": "art-561-currency-basket-index",
+  "version": "1.0.0",
+  "title": "Currency Basket Index",
+  "description": "Values a currency basket by the fixed-amount method, where currency amounts are fixed at a rebase date and the live weights float daily with FX. Two modes: valuation from amounts already fixed, returning the index value, each component's live weight and its drift from any stated target; and derivation, which turns target weights, a rebase-date index value and the rebase-date FX rates into the fixed amounts those weights imply, so amounts are an output of the rebase rather than an input to it. Target weights that do not sum to one are refused rather than silently normalized. Integer-quantity baskets are supported through an amount scale. Per-pair rates may cite the upstream oracle prints they came from. Every FX rate, fixed amount and target weight is supplied and asserted, never fetched (zero-egress); this computes what the stated method yields on the stated numbers, never that those numbers are the correct rates for the stated date.",
+  "category": "derivatives-and-oracle-infrastructure",
+  "tags": [
+    "currency-basket",
+    "index",
+    "fx",
+    "fixed-amount-method",
+    "rebase"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": ["fixed_amount_valuation", "derive_amounts_from_target_weights"]
+      },
+      "basket_id": { "type": "string" },
+      "as_of_date": { "type": "string" },
+      "components": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "currency": { "type": "string" },
+            "usd_rate": { "type": "number" },
+            "fixed_amount": { "type": "number" },
+            "target_weight": { "type": "number" },
+            "rebase_usd_rate": { "type": "number" }
+          }
+        }
+      },
+      "index_value_at_rebase": { "type": "number" },
+      "amount_scale": { "type": "number" },
+      "prior_index_value": { "type": "number" },
+      "parent_print_hashes": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "currency_basket_index",
+    "description": "Values a fixed-amount currency basket, or derives its fixed amounts from target weights and rebase-date rates. Every rate supplied and asserted, zero egress.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string" },
+        "basket_id": { "type": "string" },
+        "as_of_date": { "type": "string" },
+        "components": { "type": "array" },
+        "index_value_at_rebase": { "type": "number" },
+        "amount_scale": { "type": "number" },
+        "prior_index_value": { "type": "number" },
+        "parent_print_hashes": { "type": "array" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-561-currency-basket-index.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "basket_id": { "type": ["string", "null"] },
+      "as_of_date": { "type": ["string", "null"] },
+      "mode": { "type": ["string", "null"] },
+      "structural_error": { "type": ["string", "null"] },
+      "index_value": { "type": ["number", "null"] },
+      "components": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "currency": { "type": ["string", "null"] },
+            "fixed_amount": { "type": ["number", "null"] },
+            "usd_rate": { "type": ["number", "null"] },
+            "usd_contribution": { "type": ["number", "null"] },
+            "live_weight_pct": { "type": ["number", "null"] },
+            "target_weight_pct": { "type": ["number", "null"] },
+            "drift_from_target_pct": { "type": ["number", "null"] }
+          }
+        }
+      },
+      "component_count": { "type": "number" },
+      "dominant_contributor": { "type": ["string", "null"] },
+      "dominant_contribution_pct": { "type": ["number", "null"] },
+      "max_drift_from_target_pct": { "type": ["number", "null"] },
+      "basket_shift_pct": { "type": ["number", "null"] },
+      "target_weight_sum": { "type": ["number", "null"] },
+      "amount_scale": { "type": "number" },
+      "parent_print_hashes": { "type": "array" },
+      "rejected_inputs": { "type": "array" },
+      "not_proven": { "type": "array" },
+      "fence": { "type": "string" }
+    }
+  },
+  "source": "DERIV-WF-ORACLE-1, WU-authored (D-class new-node shard) -- builds DERIV-WORKFLOWS-BUILD-SPEC.md §6 (AT-10). output_schema derived by running the kernel's own compute() directly against the 6 vectors in chaingraph/kernels/fixtures/art-561-currency-basket-index.fixtures.json (no compute_proof exists yet, proving deferred to the async GPU queue). Not run through scripts/generate-node-manifest.mjs -- that generator reads the assembled chaingraph.json and this is a shard-only D-class WU that never touches the monolith (board/RIDER-KERNEL.md)."
+}

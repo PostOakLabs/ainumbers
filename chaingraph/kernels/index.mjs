@@ -496,6 +496,8 @@ import * as art557    from './art-557-record-index-constituents.kernel.mjs';
 import * as art558    from './art-558-record-fund-positions.kernel.mjs';
 import * as art559    from './art-559-attest-calc-agent-independence.kernel.mjs';
 import * as art56     from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
+import * as art560    from './art-560-oracle-price-aggregation.kernel.mjs';
+import * as art561    from './art-561-currency-basket-index.kernel.mjs';
 import * as art562    from './art-562-compile-model-risk-lineage-pack.kernel.mjs';
 import * as art563    from './art-563-mt9xx-camt-statement-migration-mapper.kernel.mjs';
 import * as art564    from './art-564-ucp-checkout-payload-lint.kernel.mjs';
@@ -1078,6 +1080,8 @@ export const KERNELS = {
   'art-558-record-fund-positions':                              art558,
   'art-559-attest-calc-agent-independence':                     art559,
   'art-56-tokenized-settlement-fit-diagnostic':                 art56,
+  'art-560-oracle-price-aggregation':                           art560,
+  'art-561-currency-basket-index':                              art561,
   'art-562-compile-model-risk-lineage-pack':                    art562,
   'art-563-mt9xx-camt-statement-migration-mapper':              art563,
   'art-564-ucp-checkout-payload-lint':                          art564,
