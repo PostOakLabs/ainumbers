@@ -90,6 +90,7 @@ const extraCards = [...composerCards, ...workflowCards];
 // Kept as a static list here (not derived from disk) — see script header.
 const EVIDENCE_CARDS = [
   ['nav-verification-pack.html', 'Guide', 'NAV Verification Pack', 'What a NAV recompute receipt proves for fund administrators and auditors.'],
+  ['camt053-parallel-run-recon-pack.html', 'Guide', 'camt.053 Parallel-Run Recon Pack', 'What a both-legs-agree receipt proves during a bank-statement parallel run.'],
   ['vop-liability-evidence.html', 'Guide', 'VoP Liability Evidence', 'What a Verification of Payee session receipt proves for PSPs and reimbursement reviewers.'],
   ['idv-session-evidence-guide.html', 'Guide', 'IDV / KYC Session Evidence', 'How camera-provenance checks and session receipt hash-chaining fit together.'],
   ['collections-compliance-pack.html', 'Guide', 'Collections Compliance Pack', 'What a collections compliance receipt proves for debt collectors and compliance teams.'],
@@ -103,6 +104,9 @@ const EVIDENCE_CARDS = [
   ['recomputation-evidence-pack-guide.html', 'Guide', 'Recomputation Evidence Pack: CPA-in-Loop Specialist Input', 'How a recompute evidence pack fits into a CPA’s AU-C 500/620 specialist workflow, and what it deliberately does not claim to be.'],
   ['benchmark-series-methodology.html', 'Guide', 'Benchmark Series Methodology', 'Source corpus, derivation formula, and receipt format for the CCP Margin Monitor and Stablecoin Reserve Scorecard.'],
   ['benchmark-series-reserve-scorecard-issue-2026-06.html', 'Issue', 'Reserve Scorecard, Issue #1: EURC, June 2026', 'EURC’s June 2026 reserve disclosure, recomputed and receipted against declared MiCA coverage, composition, segregation and cadence terms.'],
+  // Hand-added to guides/index.html without a list entry here; restored so a
+  // regenerate stops dropping it (surfaced by PACKS-CAMT-1's nav-reachability run).
+  ['bilateral-head-commit-cosign-guide.html', 'Guide', 'Two Helms, One Cosigned Head', 'A worked walkthrough of two organizations\' Helms exchanging and verifying a bilateral head-commit cosignature, offline.'],
 ];
 
 const REFERENCE_CARDS = [
