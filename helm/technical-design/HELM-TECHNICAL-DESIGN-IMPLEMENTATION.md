@@ -229,13 +229,13 @@ There is a ruling on record that **bulk evidence export does not belong inside a
 
 **Status: the ruling exists, the surface it constrains does not.** There is no MCP endpoint in this repository today. The Agents and MCP navigation slot ships disabled, with no route reachable. The point of recording the ruling here is that the constraint is on the record before the surface is built, not after.
 
-The general principle it expresses is already load-bearing elsewhere in the design: a capability name is a promise about blast radius, and "read" implies bounded, targeted access. An operation that hands over the entire evidence corpus in one call is not a read, whatever the verb in its name.
+The general principle it expresses already holds elsewhere in the design: a capability name is a promise about blast radius, and "read" implies bounded, targeted access. An operation that hands over the entire evidence corpus in one call is not a read, whatever the verb in its name.
 
 ---
 
 ## 6. Evidence and offline verification
 
-This is the load-bearing claim of the product, so it is sourced precisely.
+This is the central claim of the product, so it is sourced precisely.
 
 ### What gets signed
 
