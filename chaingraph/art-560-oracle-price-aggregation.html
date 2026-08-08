@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Oracle Price Aggregation &middot; ART-560 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Computes the aggregate price a decentralized oracle network would publish from a set of individual submissions, under four named aggregation mechanisms, and gives that print its own citable execution_hash. Aggregation step only, zero egress, every submission supplied and asserted.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-560-oracle-price-aggregation.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+.formula{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--teal-lt);background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin:8px 0;white-space:pre-wrap}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-560 · Oracle Price Aggregation</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-560 &middot; Derivatives &amp; Oracle Infrastructure</div>
+  <h1>Oracle Price Aggregation</h1>
+  <p class="sub">Computes the aggregate price a decentralized oracle network would publish from a set of individual submissions, and gives that print its own citable <code>execution_hash</code>. Four aggregation mechanisms are supported, each named by how it works rather than by any venue that runs it. Supply an optional <code>prev_print_hash</code> and a series of same-pair prints becomes a walkable chain; omit it and the output is byte-for-byte the unlinked print.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Aggregation step only, commit-reveal not modelled</span>
+    <span class="flag info">Every submission supplied and asserted, zero egress</span>
+    <span class="flag">Optional per-print lineage</span>
+    <span class="flag">submitter id private-input option (SPEC.md &sect;25)</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Not a price feed and not a market-data source. This computes what the selected mechanism yields on the submissions you supply. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch.</div>
+
+  <div class="card">
+    <div class="section-head">Aggregation</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo values below are synthetic and already loaded, so you can press Run without entering anything of your own.</p>
+    <div class="grid2">
+      <div><label class="fld">Aggregation mechanism</label>
+        <select id="mode">
+          <option value="median_filtered_confidence_weighted_mean" selected>median_filtered_confidence_weighted_mean</option>
+          <option value="stake_weighted_median_frequency">stake_weighted_median_frequency</option>
+          <option value="three_vote_confidence_median">three_vote_confidence_median</option>
+          <option value="plain_median">plain_median</option>
+        </select>
+      </div>
+      <div><label class="fld">Currency pair</label><input type="text" id="pair" value="EUR_USD"></div>
+    </div>
+    <div class="grid3" style="margin-top:12px">
+      <div><label class="fld">Outlier threshold (percent from median)</label><input type="number" id="thr" value="3.0" step="0.1"></div>
+      <div><label class="fld">Staleness window (seconds)</label><input type="number" id="stale" value="30" step="1"></div>
+      <div><label class="fld">Epoch</label><input type="number" id="epoch" value="14200" step="1"></div>
+    </div>
+
+    <label class="fld" style="margin-top:14px">Submissions (JSON array: id, price, weight_pct, confidence, timestamp; optional submitter_id_commitment_scheme "sha256-salted@1" when id is a commitment rather than plaintext)</label>
+    <textarea id="subs">[
+  { "id": "sub-01", "price": 1.0823, "weight_pct": 4.2, "confidence": 0.0050, "timestamp": "2026-08-08T12:00:00Z" },
+  { "id": "sub-02", "price": 1.0819, "weight_pct": 3.8, "confidence": 0.0045, "timestamp": "2026-08-08T12:00:00Z" },
+  { "id": "sub-03", "price": 1.1200, "weight_pct": 5.1, "confidence": 0.0060, "timestamp": "2026-08-08T12:00:00Z" }
+]</textarea>
+
+    <label class="fld" style="margin-top:14px">Previous print execution_hash (optional, chains this print to the prior print of the same pair; leave blank for an unlinked print)</label>
+    <input type="text" id="prev" value="">
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Run Aggregation</button>
+      <button class="ghost" onclick="loadChainedDemo()">Load chained-print demo</button>
+      <button class="ghost" onclick="loadThreeVoteDemo()">Load three-vote demo</button>
+      <button class="ghost" onclick="loadPrivateDemo()">Load &sect;25 private submitter demo</button>
+      <button class="ghost" onclick="loadRejectedDemo()">Load rejected-inputs demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Submissions</div>
+      <div id="subsDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Outliers</div>
+      <div id="outDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Lineage</div>
+      <div id="lineDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">The four mechanisms</div>
+    <div class="formula">median_filtered_confidence_weighted_mean
+  1. median over ALL submissions (unweighted)
+  2. flag any submission deviating beyond the threshold from that median
+  3. aggregate = sum(price_i * confidence_i) / sum(confidence_i) over survivors</div>
+    <div class="formula">stake_weighted_median_frequency
+  sort by price, accumulate weight, take the price at which
+  cumulative weight first reaches 50% of total
+  (a heavier submitter appears MORE OFTEN, it does not pull an average)</div>
+    <div class="formula">three_vote_confidence_median
+  each publisher votes p, p+c, p-c
+  aggregate = median of all votes
+  aggregate confidence = max(dist to 25th pct, dist to 75th pct)</div>
+    <div class="formula">plain_median
+  median of observations, plus an f-of-n readout:
+  n >= 3f+1 tolerable faults, 2f+1 signatures required</div>
+    <p class="sub" style="margin-bottom:0;font-size:.72rem">Two implementations that disagree on the stake-weighted median convention produce different <code>execution_hash</code> values on identical inputs. This node pins the frequency convention explicitly and rounds every emitted number to a fixed decimal count, so the artifact is reproducible rather than merely plausible.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Per-print lineage</div>
+    <p class="sub" style="margin-bottom:0">A mark-price history is only citable if the prints are linked. Supply the previous print's <code>execution_hash</code> and this print cites it: the artifact's <code>chain.parent_hashes</code> and <code>chain.parent_tool_ids</code> populate, and the print reports itself as chained. Leave it blank and the wiring contributes nothing at all, so the artifact is byte-identical to one produced with no lineage support. The citation lives in <code>policy_parameters</code>, so it is inside the hash; the chain fields sit outside the hash preimage, so populating them never moves the number.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not fetch, verify, or attest any price. Every submission, weight, confidence, timestamp and submitter identifier is supplied by you and merely asserted. It models the aggregation step only: the commit-reveal phase that precedes aggregation in most real networks is not represented, so nothing here shows whether a submission was validly committed before it was revealed. The outlier penalty rate is an informative readout computed from the stated formula, not an assertion that any penalty was applied or by whom.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0"><a href="art-561-currency-basket-index.html">ART-561</a> consumes prints from this node: a basket valuation needs one rate per pair, and citing the print each rate came from is what makes the basket value auditable rather than merely stated. Cite this node's <code>execution_hash</code>, <code>aggregated_price</code> and <code>aggregation_method</code> when composing a basket or mark-price evidence pack.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-560-oracle-price-aggregation',
+  version: '1.0.0',
+  mcp_name: 'oracle_price_aggregation',
+  title: 'Oracle Price Aggregation',
+  description: 'Computes the aggregate price a decentralized oracle network would publish from a set of individual submissions, under four mechanism-named aggregation rules, with an optional prev_print_hash that chains same-pair prints. Aggregation step only, zero egress, every submission supplied and asserted.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'oracle_price_aggregation',
+    description: 'Computes an oracle aggregate price from supplied submissions under a named aggregation mechanism, optionally citing the prior print of the same pair.',
+    inputSchema: { type: 'object', properties: {
+      mode: {type:'string'}, currency_pair: {type:'string'}, submissions: {type:'array'},
+      outlier_threshold_pct: {type:'number'}, stale_after_seconds: {type:'number'},
+      epoch: {type:'number'}, prev_print_hash: {type:'string'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-560-oracle-price-aggregation.kernel.mjs --- */
+var MODES = ['median_filtered_confidence_weighted_mean','stake_weighted_median_frequency','three_vote_confidence_median','plain_median'];
+var SHA256_SALTED_SCHEME = 'sha256-salted@1';
+var SHA256_COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
+var SHA256_HASH_RE = /^sha256:[0-9a-f]{64}$/;
+var PRICE_DP = 10, PCT_DP = 6;
+
+var NOT_PROVEN = [
+  { item: 'Submission authenticity', detail: 'Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source.' },
+  { item: 'Commit-reveal phase', detail: 'This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed.' },
+  { item: 'Real-network publication', detail: 'The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch.' },
+  { item: 'Outlier-penalty enforcement', detail: 'The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook.' }
+];
+
+function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
+function nonEmpty(v){ var s = safeStr(v); return s.length > 0 ? s : null; }
+function numv(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; }
+function rr(x, dp){ return (typeof x === 'number' && isFinite(x)) ? Number(x.toFixed(dp)) : null; }
+
+function medianOf(sorted){
+  var n = sorted.length; if (n === 0) return null;
+  var mid = n >> 1;
+  return n % 2 === 1 ? sorted[mid] : (sorted[mid-1] + sorted[mid]) / 2;
+}
+function percentileOf(sorted, p){
+  var n = sorted.length; if (n === 0) return null; if (n === 1) return sorted[0];
+  var idx = (n-1) * p, lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+function stakeWeightedMedian(rows){
+  var usable = rows.filter(function(s){ return s.price != null && s.weight_pct != null && s.weight_pct > 0; });
+  if (usable.length === 0) return null;
+  var sorted = usable.slice().sort(function(a,b){ return (a.price - b.price) || (a.idx - b.idx); });
+  var total = sorted.reduce(function(acc,s){ return acc + s.weight_pct; }, 0);
+  if (!(total > 0)) return null;
+  var half = total / 2, cum = 0;
+  for (var i = 0; i < sorted.length; i++){
+    cum += sorted[i].weight_pct;
+    if (cum > half) return sorted[i].price;
+    if (cum === half){ var next = sorted[i+1]; if (!next) return sorted[i].price; return (sorted[i].price + next.price) / 2; }
+  }
+  return sorted[sorted.length-1].price;
+}
+function outlierPenaltyRate(diffPct, confidence){
+  var c = (typeof confidence === 'number' && isFinite(confidence)) ? confidence : 0;
+  var raw = Math.max(0, diffPct*diffPct - 225) * c * 0.001 / 1e4;
+  return rr(Math.min(raw, 0.5), 8);
+}
+function normalizeSubmission(raw, i, rejected){
+  var s = (raw && typeof raw === 'object') ? raw : {};
+  var declaredScheme = nonEmpty(s.submitter_id_commitment_scheme);
+  var id = nonEmpty(s.id), id_is_commitment = false;
+  if (id && declaredScheme !== null){
+    if (declaredScheme !== SHA256_SALTED_SCHEME){
+      rejected.push({ where: 'submissions['+i+'].submitter_id_commitment_scheme', reason: 'unknown commitment scheme -- "'+SHA256_SALTED_SCHEME+'" is the sole scheme accepted (SPEC.md §25.1); the declared id is excluded rather than trusted as opaque', supplied: declaredScheme });
+      id = null;
+    } else if (!SHA256_COMMITMENT_RE.test(id)){
+      rejected.push({ where: 'submissions['+i+'].id', reason: 'declared commitment_scheme "'+SHA256_SALTED_SCHEME+'" but the value is not a well-formed sha256: commitment (^sha256:[0-9a-f]{64}$)', supplied: id });
+      id = null;
+    } else { id_is_commitment = true; }
+  }
+  var price = numv(s.price);
+  if (price === null) rejected.push({ where: 'submissions['+i+'].price', reason: 'absent or not a finite number', supplied: s.price === undefined ? null : s.price });
+  else if (price <= 0) rejected.push({ where: 'submissions['+i+'].price', reason: 'must be greater than zero', supplied: s.price });
+  var entry = {
+    id: id,
+    price: (price !== null && price > 0) ? price : null,
+    weight_pct: numv(s.weight_pct),
+    confidence: numv(s.confidence),
+    timestamp: nonEmpty(s.timestamp),
+    label: id_is_commitment ? 'private-commitment' : 'asserted',
+    idx: i
+  };
+  if (declaredScheme !== null) entry.submitter_id_commitment_scheme = declaredScheme;
+  return entry;
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var modeRaw = nonEmpty(pp.mode);
+  var mode = (modeRaw && MODES.indexOf(modeRaw) !== -1) ? modeRaw : null;
+  if (!mode) rejected_inputs.push({ where: 'mode', reason: modeRaw ? 'not one of the supported aggregation mechanisms: '+MODES.join(', ') : 'absent -- must name the aggregation mechanism explicitly, never assumed; one of: '+MODES.join(', '), supplied: modeRaw });
+
+  var currency_pair = nonEmpty(pp.currency_pair);
+  if (!currency_pair) rejected_inputs.push({ where: 'currency_pair', reason: 'absent -- the pair this aggregation prints is required', supplied: null });
+
+  var outlier_threshold_pct = (typeof pp.outlier_threshold_pct === 'number' && isFinite(pp.outlier_threshold_pct) && pp.outlier_threshold_pct >= 0) ? pp.outlier_threshold_pct : 3.0;
+  var stale_after_seconds = (typeof pp.stale_after_seconds === 'number' && isFinite(pp.stale_after_seconds) && pp.stale_after_seconds > 0) ? pp.stale_after_seconds : 30;
+  var epoch = (typeof pp.epoch === 'number' && isFinite(pp.epoch)) ? pp.epoch : null;
+
+  var submissionsRaw = Array.isArray(pp.submissions) ? pp.submissions : [];
+  var submissions = submissionsRaw.map(function(s,i){ return normalizeSubmission(s,i,rejected_inputs); });
+  var priced = submissions.filter(function(s){ return s.price != null; });
+
+  var prevPrintRaw = nonEmpty(pp.prev_print_hash);
+  var prev_print_hash = null;
+  if (prevPrintRaw !== null){
+    if (SHA256_HASH_RE.test(prevPrintRaw)) prev_print_hash = prevPrintRaw;
+    else rejected_inputs.push({ where: 'prev_print_hash', reason: 'supplied but not a well-formed sha256: execution_hash (^sha256:[0-9a-f]{64}$); the prior print is not cited rather than cited wrongly', supplied: prevPrintRaw });
+  }
+
+  var structural_error = null;
+  if (!mode) structural_error = 'mode is required.';
+  else if (!currency_pair) structural_error = 'currency_pair is required.';
+  else if (priced.length === 0) structural_error = 'submissions must contain at least one entry with a usable price.';
+  else if (mode === 'stake_weighted_median_frequency' && priced.every(function(s){ return s.weight_pct == null || !(s.weight_pct > 0); })) structural_error = 'stake_weighted_median_frequency requires at least one submission with a positive weight_pct.';
+  else if (mode === 'three_vote_confidence_median' && priced.every(function(s){ return s.confidence == null; })) structural_error = 'three_vote_confidence_median requires at least one submission with a confidence.';
+
+  var aggregated_price = null, aggregate_confidence = null, outliers_flagged = [], outlier_detail = [], surviving_count = null, fault_tolerance = null;
+
+  if (!structural_error){
+    var prices = priced.map(function(s){ return s.price; }).slice().sort(function(a,b){ return a-b; });
+    if (mode === 'median_filtered_confidence_weighted_mean'){
+      var med = medianOf(prices);
+      var survivors = [];
+      priced.forEach(function(s){
+        var diffPct = med > 0 ? Math.abs(s.price - med) / med * 100 : 0;
+        if (diffPct > outlier_threshold_pct){
+          outliers_flagged.push(s.id);
+          outlier_detail.push({ id: s.id, deviation_pct: rr(diffPct, PCT_DP), outlier_penalty_rate_pct: outlierPenaltyRate(diffPct, s.confidence == null ? 0 : s.confidence) });
+        } else { survivors.push(s); }
+      });
+      var withConf = survivors.filter(function(s){ return s.confidence != null && s.confidence > 0; });
+      if (withConf.length > 0){
+        var wsum = withConf.reduce(function(a,s){ return a + s.confidence; }, 0);
+        var psum = withConf.reduce(function(a,s){ return a + s.price * s.confidence; }, 0);
+        aggregated_price = rr(psum / wsum, PRICE_DP);
+        aggregate_confidence = rr(wsum / withConf.length, PRICE_DP);
+      } else if (survivors.length > 0){
+        var psum2 = survivors.reduce(function(a,s){ return a + s.price; }, 0);
+        aggregated_price = rr(psum2 / survivors.length, PRICE_DP);
+        aggregate_confidence = null;
+      }
+      surviving_count = survivors.length;
+    } else if (mode === 'stake_weighted_median_frequency'){
+      aggregated_price = rr(stakeWeightedMedian(priced), PRICE_DP);
+      surviving_count = priced.length;
+    } else if (mode === 'three_vote_confidence_median'){
+      var votes = [];
+      priced.forEach(function(s){ var c = s.confidence != null ? s.confidence : 0; votes.push(s.price, s.price + c, s.price - c); });
+      votes.sort(function(a,b){ return a-b; });
+      var agg = medianOf(votes);
+      aggregated_price = rr(agg, PRICE_DP);
+      var p25 = percentileOf(votes, 0.25), p75 = percentileOf(votes, 0.75);
+      aggregate_confidence = rr(Math.max(Math.abs(agg - p25), Math.abs(p75 - agg)), PRICE_DP);
+      surviving_count = priced.length;
+    } else if (mode === 'plain_median'){
+      aggregated_price = rr(medianOf(prices), PRICE_DP);
+      surviving_count = priced.length;
+      var n = priced.length, f = Math.floor((n-1)/3);
+      fault_tolerance = { report_count: n, tolerable_faults: f, signatures_required: 2*f+1 };
+    }
+  }
+
+  var pricesArr = priced.map(function(s){ return s.price; });
+  var min_submitted = priced.length ? rr(Math.min.apply(null, pricesArr), PRICE_DP) : null;
+  var max_submitted = priced.length ? rr(Math.max.apply(null, pricesArr), PRICE_DP) : null;
+  var price_spread_pct = (min_submitted != null && min_submitted > 0 && max_submitted != null) ? rr((max_submitted - min_submitted) / min_submitted * 100, PCT_DP) : null;
+
+  var stamps = submissions.map(function(s){ return s.timestamp ? Date.parse(s.timestamp) : NaN; }).filter(function(t){ return isFinite(t); });
+  var newest = stamps.length ? Math.max.apply(null, stamps) : null;
+  var stale_submissions = [];
+  if (newest !== null){
+    submissions.forEach(function(s){
+      if (!s.timestamp) return;
+      var t = Date.parse(s.timestamp);
+      if (!isFinite(t)) return;
+      if ((newest - t) / 1000 > stale_after_seconds) stale_submissions.push(s.id);
+    });
+  }
+
+  var private_input_candidates = submissions.map(function(s,i){
+    return s.label === 'private-commitment' ? { pointer: '/input_parameters/submissions/'+i+'/id', commitment: s.id, commitment_scheme: SHA256_SALTED_SCHEME } : null;
+  }).filter(Boolean);
+
+  var compliance_flags = [];
+  if (structural_error){ compliance_flags.push('ORACLE_AGGREGATION_STRUCTURAL_ERROR'); }
+  else {
+    compliance_flags.push('ORACLE_AGGREGATION_COMPUTED');
+    if (outliers_flagged.length > 0) compliance_flags.push('OUTLIER_DETECTED');
+    if (priced.length < 15) compliance_flags.push('LOW_SUBMISSION_COUNT');
+    if (price_spread_pct != null && price_spread_pct > 1) compliance_flags.push('HIGH_SPREAD');
+    if (stale_submissions.length > 0) compliance_flags.push('STALE_SUBMISSION');
+    if (prev_print_hash) compliance_flags.push('ORACLE_PRINT_CHAIN_REFERENCED');
+  }
+  if (private_input_candidates.length > 0) compliance_flags.push('ORACLE_SUBMITTER_ID_PRIVATE_INPUT');
+  if (rejected_inputs.length > 0) compliance_flags.push('ORACLE_AGGREGATION_INPUTS_REJECTED');
+  compliance_flags.push('ORACLE_AGGREGATION_INPUTS_SUPPLIED_NOT_VERIFIED');
+
+  var output_payload = {
+    currency_pair: currency_pair,
+    epoch: epoch,
+    structural_error: structural_error,
+    aggregated_price: aggregated_price,
+    aggregation_method: mode,
+    aggregate_confidence: aggregate_confidence,
+    submission_count: submissions.length,
+    priced_submission_count: priced.length,
+    surviving_count: surviving_count,
+    outlier_count: outliers_flagged.length,
+    outliers_flagged: outliers_flagged,
+    outlier_detail: outlier_detail,
+    outlier_threshold_pct: rr(outlier_threshold_pct, PCT_DP),
+    price_spread_pct: price_spread_pct,
+    min_submitted: min_submitted,
+    max_submitted: max_submitted,
+    stale_submissions: stale_submissions,
+    fault_tolerance: fault_tolerance,
+    rejected_inputs: rejected_inputs,
+    not_proven: NOT_PROVEN,
+    fence: 'Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number.'
+  };
+  if (prev_print_hash){
+    output_payload.prev_print_hash = prev_print_hash;
+    output_payload.chain_position = 'chained';
+  }
+  return { output_payload: output_payload, compliance_flags: compliance_flags, private_input_candidates: private_input_candidates };
+}
+/* --- end mirror --- */
+
+function loadChainedDemo(){
+  document.getElementById('mode').value = 'plain_median';
+  document.getElementById('pair').value = 'GBP_USD';
+  document.getElementById('epoch').value = '14201';
+  document.getElementById('subs').value = '[\n  { "id": "sub-01", "price": 1.2701, "weight_pct": 10, "confidence": 0.002, "timestamp": "2026-08-08T12:00:00Z" },\n  { "id": "sub-02", "price": 1.2705, "weight_pct": 10, "confidence": 0.002, "timestamp": "2026-08-08T12:00:00Z" },\n  { "id": "sub-03", "price": 1.2709, "weight_pct": 10, "confidence": 0.002, "timestamp": "2026-08-08T12:00:00Z" }\n]';
+  document.getElementById('prev').value = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  runCheck();
+}
+function loadThreeVoteDemo(){
+  document.getElementById('mode').value = 'three_vote_confidence_median';
+  document.getElementById('pair').value = 'BTC_USD';
+  document.getElementById('epoch').value = '14203';
+  document.getElementById('prev').value = '';
+  document.getElementById('subs').value = '[\n  { "id": "sub-01", "price": 64100.50, "weight_pct": 20, "confidence": 12.50, "timestamp": "2026-08-08T12:00:00Z" },\n  { "id": "sub-02", "price": 64150.25, "weight_pct": 20, "confidence": 18.00, "timestamp": "2026-08-08T12:00:00Z" },\n  { "id": "sub-03", "price": 64090.75, "weight_pct": 20, "confidence": 9.25, "timestamp": "2026-08-08T12:00:00Z" },\n  { "id": "sub-04", "price": 64180.00, "weight_pct": 20, "confidence": 22.00, "timestamp": "2026-08-08T12:00:00Z" }\n]';
+  runCheck();
+}
+function loadPrivateDemo(){
+  document.getElementById('mode').value = 'plain_median';
+  document.getElementById('pair').value = 'EUR_USD';
+  document.getElementById('epoch').value = '14204';
+  document.getElementById('prev').value = '';
+  document.getElementById('subs').value = '[\n  { "id": "sha256:cd5e29fe0b0d8c451c23e571275fd97975c21a7cede5c8c0223ffb9c8daafc55", "price": 1.0822, "weight_pct": 12, "confidence": 0.004, "timestamp": "2026-08-08T12:00:00Z", "submitter_id_commitment_scheme": "sha256-salted@1" },\n  { "id": "sub-02", "price": 1.0826, "weight_pct": 12, "confidence": 0.004, "timestamp": "2026-08-08T12:00:00Z" },\n  { "id": "sub-03", "price": 1.0824, "weight_pct": 12, "confidence": 0.004, "timestamp": "2026-08-08T11:58:00Z" }\n]';
+  runCheck();
+}
+function loadRejectedDemo(){
+  document.getElementById('mode').value = 'plain_median';
+  document.getElementById('pair').value = 'EUR_USD';
+  document.getElementById('epoch').value = '14205';
+  document.getElementById('prev').value = 'not-a-hash';
+  document.getElementById('subs').value = '[\n  { "id": "sub-01", "price": "not-a-number", "weight_pct": 10, "confidence": 0.004, "timestamp": "2026-08-08T12:00:00Z" },\n  { "id": "plaintext-id", "price": 1.0822, "weight_pct": 10, "confidence": 0.004, "timestamp": "2026-08-08T12:00:00Z", "submitter_id_commitment_scheme": "md5-plain" }\n]';
+  runCheck();
+}
+
+async function runCheck(){
+  var subs;
+  try { subs = JSON.parse(document.getElementById('subs').value || '[]'); }
+  catch(e){ alert('Invalid JSON in submissions: ' + e.message); return; }
+
+  var thr = parseFloat(document.getElementById('thr').value);
+  var stale = parseFloat(document.getElementById('stale').value);
+  var ep = parseFloat(document.getElementById('epoch').value);
+  var prev = document.getElementById('prev').value.trim();
+
+  var pp = {
+    mode: document.getElementById('mode').value || undefined,
+    currency_pair: document.getElementById('pair').value || undefined,
+    submissions: subs,
+    outlier_threshold_pct: isFinite(thr) ? thr : undefined,
+    stale_after_seconds: isFinite(stale) ? stale : undefined,
+    epoch: isFinite(ep) ? ep : undefined
+  };
+  // The lineage field is added ONLY when supplied: an always-present key, even
+  // holding null, would move the execution_hash on every unlinked print.
+  if (prev) pp.prev_print_hash = prev;
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var bad = !!op.structural_error;
+  var warn = !bad && (op.outlier_count > 0 || op.rejected_inputs.length > 0);
+  var color = bad ? 'var(--red)' : (warn ? 'var(--warn)' : 'var(--green)');
+  var bg = bad ? 'rgba(239,68,68,.08)' : (warn ? 'rgba(245,158,11,.08)' : 'rgba(34,197,94,.08)');
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = bad ? ('NOT COMPUTED: ' + op.structural_error) : ('AGGREGATE ' + op.aggregated_price + ' · ' + op.aggregation_method);
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.aggregated_price === null ? '&mdash;' : op.aggregated_price) + '</span><span class="stat-key">Aggregate price</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.aggregate_confidence === null ? '&mdash;' : op.aggregate_confidence) + '</span><span class="stat-key">Aggregate confidence</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.priced_submission_count + '</span><span class="stat-key">Priced submissions</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.outlier_count + '</span><span class="stat-key">Outliers</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.price_spread_pct === null ? '&mdash;' : op.price_spread_pct + '%') + '</span><span class="stat-key">Spread</span></div>';
+
+  document.getElementById('subsDiv').innerHTML = op.submission_count
+    ? subs.map(function(s, i){
+        var norm = null;
+        try { norm = s; } catch(e){}
+        var isPriv = s && s.submitter_id_commitment_scheme === 'sha256-salted@1';
+        var isOut = op.outliers_flagged.indexOf(s && s.id) !== -1;
+        var isStale = op.stale_submissions.indexOf(s && s.id) !== -1;
+        return '<div class="kv"><span class="kv-k">' + ((s && s.id) || ('submissions[' + i + ']')) + '</span><span class="kv-v">' +
+          ((s && s.price) === undefined ? 'no price' : s.price) +
+          (isPriv ? ' <span class="badge ok">private commitment</span>' : '') +
+          (isOut ? ' <span class="badge bad">outlier</span>' : '') +
+          (isStale ? ' <span class="badge warn">stale</span>' : '') +
+          '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">No submissions supplied</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('outDiv').innerHTML = op.outlier_detail.length
+    ? op.outlier_detail.map(function(o){
+        return '<div class="kv"><span class="kv-k">' + (o.id || 'unnamed') + '</span><span class="kv-v">deviation ' + o.deviation_pct + '% &middot; penalty readout ' + o.outlier_penalty_rate_pct + '%</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">no submission deviated beyond the threshold</span></div>';
+
+  document.getElementById('lineDiv').innerHTML = op.prev_print_hash
+    ? '<div class="kv"><span class="kv-k">chain_position</span><span class="kv-v">' + op.chain_position + '</span></div>' +
+      '<div class="kv"><span class="kv-k">prev_print_hash</span><span class="kv-v">' + op.prev_print_hash + '</span></div>'
+    : '<div class="kv"><span class="kv-k">Unlinked print</span><span class="kv-v">no prior print cited; the lineage wiring contributes nothing to this artifact</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(rj){
+        return '<div class="kv"><span class="kv-k">' + rj.where + '</span><span class="kv-v">' + rj.reason + (rj.supplied === null ? '' : ' (supplied: ' + rj.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var prev = _lastResult.output_payload.prev_print_hash;
+  var parent_hashes = prev ? [prev] : [];
+  var parent_tool_ids = prev ? ['art-560-oracle-price-aggregation'] : [];
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'oracle_price_aggregation',tool_id:'art-560-oracle-price-aggregation',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:parent_hashes,parent_tool_ids:parent_tool_ids,chain_depth:parent_hashes.length?1:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-560-oracle-price-aggregation.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

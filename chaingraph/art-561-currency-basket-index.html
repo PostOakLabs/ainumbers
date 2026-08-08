@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Currency Basket Index &middot; ART-561 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Values a currency basket by the fixed-amount method, where amounts are fixed at a rebase date and live weights float with FX, and derives those fixed amounts from target weights on a transition date. Every rate supplied and asserted, zero egress.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-561-currency-basket-index.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+label.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin:10px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem}
+textarea{min-height:170px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:120px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body);flex-shrink:0;min-width:220px}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.bad{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.rat li{margin:6px 0 6px 18px;font-size:.72rem;color:var(--body)}
+.formula{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--teal-lt);background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin:8px 0;white-space:pre-wrap}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{text-align:right;padding:5px 8px;font-family:'JetBrains Mono',monospace;font-size:.68rem;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;font-weight:400}
+td:first-child,th:first-child{text-align:left;color:var(--bright)}
+.tbl-wrap{overflow-x:auto}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-561 · Currency Basket Index</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-561 &middot; Derivatives &amp; Oracle Infrastructure</div>
+  <h1>Currency Basket Index</h1>
+  <p class="sub">Values a currency basket by the fixed-amount method: the currency amounts are fixed at a rebase date and the live weights float daily with FX. The arithmetic this node owns is the derivation, turning target weights and rebase-date rates into the fixed amounts those weights imply, so that amounts are an output of the rebase rather than an input to it.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Amounts fixed, weights float</span>
+    <span class="flag info">Every rate supplied and asserted, zero egress</span>
+    <span class="flag">Cites upstream oracle prints</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Not an FX source and not a basket publication. This computes what the fixed-amount method yields on the rates you supply. It does not verify those rates against any published fixing for the stated date.</div>
+
+  <div class="card">
+    <div class="section-head">Basket</div>
+    <p class="sub" style="font-size:.72rem;margin-bottom:4px">The demo values below are synthetic and already loaded, so you can press Run without entering anything of your own.</p>
+    <div class="grid3">
+      <div><label class="fld">Mode</label>
+        <select id="mode">
+          <option value="fixed_amount_valuation" selected>fixed_amount_valuation</option>
+          <option value="derive_amounts_from_target_weights">derive_amounts_from_target_weights</option>
+        </select>
+      </div>
+      <div><label class="fld">Basket id</label><input type="text" id="basketId" value="BASKET-DEMO-5"></div>
+      <div><label class="fld">As-of date</label><input type="text" id="asOf" value="2026-08-08"></div>
+    </div>
+    <div class="grid3" style="margin-top:12px">
+      <div><label class="fld">Amount scale (integer quantities: divide by 10^scale)</label><input type="number" id="scale" value="0" step="1"></div>
+      <div><label class="fld">Index value at rebase (derive mode)</label><input type="number" id="rebaseVal" value="1.0" step="0.0001"></div>
+      <div><label class="fld">Prior index value (for the shift readout)</label><input type="number" id="prior" value="1.3305" step="0.0001"></div>
+    </div>
+
+    <label class="fld" style="margin-top:14px">Components (JSON array: currency, usd_rate; plus fixed_amount for valuation, or target_weight and rebase_usd_rate for derivation)</label>
+    <textarea id="comps">[
+  { "currency": "USD", "fixed_amount": 0.57813, "usd_rate": 1.0000, "target_weight": 0.4338 },
+  { "currency": "EUR", "fixed_amount": 0.37379, "usd_rate": 1.0823, "target_weight": 0.2931 },
+  { "currency": "CNY", "fixed_amount": 1.09930, "usd_rate": 0.1392, "target_weight": 0.1228 },
+  { "currency": "JPY", "fixed_amount": 13.45200, "usd_rate": 0.00675, "target_weight": 0.0759 },
+  { "currency": "GBP", "fixed_amount": 0.08087, "usd_rate": 1.2705, "target_weight": 0.0744 }
+]</textarea>
+
+    <label class="fld" style="margin-top:14px">Parent oracle print hashes (optional, one per line: the ART-560 prints these rates came from)</label>
+    <textarea id="parents" style="min-height:70px"></textarea>
+
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="runCheck()">&#9654; Value Basket</button>
+      <button class="ghost" onclick="loadDeriveDemo()">Load derivation demo</button>
+      <button class="ghost" onclick="loadScaledDemo()">Load integer-quantity demo</button>
+      <button class="ghost" onclick="loadBadWeightsDemo()">Load bad-weights demo</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="section-head" style="margin-top:14px">Components</div>
+      <div class="tbl-wrap"><table id="compTable"></table></div>
+
+      <div class="section-head" style="margin-top:14px">Cited oracle prints</div>
+      <div id="parentDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Rejected inputs</div>
+      <div id="rejDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">The method</div>
+    <div class="formula">Valuation:   index_in_USD = sum( fixed_amount_i * usd_rate_i )
+Live weight: w_i(t)       = fixed_amount_i * usd_rate_i / index_in_USD
+Derivation:  fixed_amount_i = target_w_i * index_value_at_rebase / usd_rate_i(rebase)</div>
+    <p class="sub" style="margin-bottom:0;font-size:.72rem">Fixed amounts are the basket's invariant. Weights are not declared, they are derived from what each component contributes today, which is why a basket can drift far from its target weights without anything having been changed. Target weights that do not sum to one are refused rather than silently normalized: a basket derived from them is not a basket.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">What this does not do</div>
+    <p class="sub" style="margin-bottom:0">It does not fetch or verify any FX rate. Every rate, fixed amount and target weight is supplied by you and merely asserted. It does not verify that a stated composition matches any published basket, nor that a preset remains current, since a basket reviewed on a periodic cycle changes on its own schedule. Where per-pair rates cite upstream oracle prints, the citation is recorded but the prints are not checked for freshness or for coming from the same observation window.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0"><a href="art-560-oracle-price-aggregation.html">ART-560</a> produces the per-pair prints this node consumes. A basket value is only as auditable as the rates behind it, so citing each print by <code>execution_hash</code> is what turns a stated index level into one a reader can walk back to its inputs.</p>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-561-currency-basket-index',
+  version: '1.0.0',
+  mcp_name: 'currency_basket_index',
+  title: 'Currency Basket Index',
+  description: 'Values a currency basket by the fixed-amount method (amounts fixed at a rebase date, weights floating with FX) and derives those fixed amounts from target weights on a transition date. Every rate supplied and asserted, zero egress.',
+  spec_version: '0.8.8',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'currency_basket_index',
+    description: 'Values a fixed-amount currency basket, or derives its fixed amounts from target weights and rebase-date rates.',
+    inputSchema: { type: 'object', properties: {
+      mode: {type:'string'}, basket_id: {type:'string'}, as_of_date: {type:'string'},
+      components: {type:'array'}, index_value_at_rebase: {type:'number'},
+      amount_scale: {type:'number'}, prior_index_value: {type:'number'},
+      parent_print_hashes: {type:'array'},
+    } },
+  },
+};
+
+var _lastResult = null;
+
+function cgCanon(v){
+  return Array.isArray(v) ? v.map(cgCanon) :
+    (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v;
+}
+async function sha256Hex(v){
+  var bytes = new TextEncoder().encode(JSON.stringify(cgCanon(v)));
+  var buf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
+
+/* --- Mirror of chaingraph/kernels/art-561-currency-basket-index.kernel.mjs --- */
+var MODES = ['fixed_amount_valuation','derive_amounts_from_target_weights'];
+var AMOUNT_DP = 10, RATE_DP = 10, PCT_DP = 6, INDEX_DP = 8;
+
+var NOT_PROVEN = [
+  { item: 'FX-rate accuracy', detail: 'Every usd_rate is caller-supplied and asserted. This kernel performs no FX, reference-rate or market-data lookups (zero-egress) and does not verify any rate against a published fixing for the stated date.' },
+  { item: 'Basket-composition authority', detail: 'Fixed amounts and target weights are caller-supplied. This kernel does not verify that a stated composition matches any published basket, nor that a preset remains current -- a basket reviewed on a periodic cycle changes on its own schedule.' },
+  { item: 'Live index publication', detail: 'The index value computed here is what the fixed-amount method yields on the supplied rates. It is not a claim that any basket administrator did, or would, publish this value for this date.' },
+  { item: 'Parent-print freshness', detail: 'Where per-pair rates are cited from upstream oracle prints, this kernel records the citation but does not verify that those prints are current, in-epoch, or drawn from the same observation window.' }
+];
+
+function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
+function nonEmpty(v){ var s = safeStr(v); return s.length > 0 ? s : null; }
+function numv(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; }
+function rr(x, dp){ return (typeof x === 'number' && isFinite(x)) ? Number(x.toFixed(dp)) : null; }
+// Integer power of ten by repeated multiplication -- Math.pow is a transcendental
+// whose last bit is not pinned across runtimes; amount_scale is a small integer.
+function pow10(n){ var out = 1; for (var i = 0; i < n; i++) out *= 10; return out; }
+
+function normalizeComponent(raw, i, mode, rejected){
+  var c = (raw && typeof raw === 'object') ? raw : {};
+  var currency = nonEmpty(c.currency);
+  if (!currency) rejected.push({ where: 'components['+i+'].currency', reason: 'absent -- each component must name its currency', supplied: null });
+  var usd_rate = numv(c.usd_rate);
+  if (usd_rate === null) rejected.push({ where: 'components['+i+'].usd_rate', reason: 'absent or not a finite number -- the USD value of one unit of this currency is required', supplied: c.usd_rate === undefined ? null : c.usd_rate });
+  else if (usd_rate <= 0) rejected.push({ where: 'components['+i+'].usd_rate', reason: 'must be greater than zero', supplied: c.usd_rate });
+  var fixed_amount = numv(c.fixed_amount);
+  var target_weight = numv(c.target_weight);
+  var rebase_usd_rate = numv(c.rebase_usd_rate);
+  if (mode === 'fixed_amount_valuation' && fixed_amount === null) rejected.push({ where: 'components['+i+'].fixed_amount', reason: 'absent -- fixed_amount_valuation requires the amount fixed at the rebase date', supplied: c.fixed_amount === undefined ? null : c.fixed_amount });
+  if (mode === 'derive_amounts_from_target_weights'){
+    if (target_weight === null) rejected.push({ where: 'components['+i+'].target_weight', reason: 'absent -- deriving amounts requires each component target weight (as a fraction, not a percentage)', supplied: c.target_weight === undefined ? null : c.target_weight });
+    if (rebase_usd_rate === null) rejected.push({ where: 'components['+i+'].rebase_usd_rate', reason: 'absent -- deriving amounts requires the USD rate observed on the rebase date', supplied: c.rebase_usd_rate === undefined ? null : c.rebase_usd_rate });
+    else if (rebase_usd_rate <= 0) rejected.push({ where: 'components['+i+'].rebase_usd_rate', reason: 'must be greater than zero', supplied: c.rebase_usd_rate });
+  }
+  return {
+    currency: currency,
+    usd_rate: (usd_rate !== null && usd_rate > 0) ? usd_rate : null,
+    fixed_amount: fixed_amount,
+    target_weight: target_weight,
+    rebase_usd_rate: (rebase_usd_rate !== null && rebase_usd_rate > 0) ? rebase_usd_rate : null,
+    idx: i
+  };
+}
+
+function compute(pp){
+  pp = pp || {};
+  var rejected_inputs = [];
+  var modeRaw = nonEmpty(pp.mode);
+  var mode = (modeRaw && MODES.indexOf(modeRaw) !== -1) ? modeRaw : null;
+  if (!mode) rejected_inputs.push({ where: 'mode', reason: modeRaw ? 'not one of the supported modes: '+MODES.join(', ') : 'absent -- must be stated explicitly, never assumed; one of: '+MODES.join(', '), supplied: modeRaw });
+
+  var basket_id = nonEmpty(pp.basket_id);
+  if (!basket_id) rejected_inputs.push({ where: 'basket_id', reason: 'absent -- an identifier for the basket being valued is required', supplied: null });
+  var as_of_date = nonEmpty(pp.as_of_date);
+  if (!as_of_date) rejected_inputs.push({ where: 'as_of_date', reason: 'absent -- the valuation date is required', supplied: null });
+
+  var amount_scale = (typeof pp.amount_scale === 'number' && isFinite(pp.amount_scale) && pp.amount_scale >= 0) ? Math.floor(pp.amount_scale) : 0;
+  var scaleDiv = pow10(amount_scale);
+  var index_value_at_rebase = (typeof pp.index_value_at_rebase === 'number' && isFinite(pp.index_value_at_rebase) && pp.index_value_at_rebase > 0) ? pp.index_value_at_rebase : 1.0;
+  var prior_index_value = (typeof pp.prior_index_value === 'number' && isFinite(pp.prior_index_value) && pp.prior_index_value > 0) ? pp.prior_index_value : null;
+
+  var parentHashesRaw = Array.isArray(pp.parent_print_hashes) ? pp.parent_print_hashes : [];
+  var parent_print_hashes = parentHashesRaw.map(function(h){ return nonEmpty(h); }).filter(Boolean);
+
+  var componentsRaw = Array.isArray(pp.components) ? pp.components : [];
+  var components = componentsRaw.map(function(c,i){ return normalizeComponent(c,i,mode,rejected_inputs); });
+
+  var structural_error = null;
+  if (!mode) structural_error = 'mode is required.';
+  else if (!basket_id) structural_error = 'basket_id is required.';
+  else if (!as_of_date) structural_error = 'as_of_date is required.';
+  else if (components.length === 0) structural_error = 'components must be a non-empty array.';
+  else if (components.some(function(c){ return !c.currency || c.usd_rate === null; })) structural_error = 'every component requires a currency and a positive usd_rate.';
+  else if (mode === 'fixed_amount_valuation' && components.some(function(c){ return c.fixed_amount === null; })) structural_error = 'fixed_amount_valuation requires a fixed_amount on every component.';
+  else if (mode === 'derive_amounts_from_target_weights' && components.some(function(c){ return c.target_weight === null || c.rebase_usd_rate === null; })) structural_error = 'derive_amounts_from_target_weights requires target_weight and rebase_usd_rate on every component.';
+
+  var target_weight_sum = null;
+  if (!structural_error && mode === 'derive_amounts_from_target_weights'){
+    target_weight_sum = rr(components.reduce(function(a,c){ return a + c.target_weight; }, 0), PCT_DP);
+    if (Math.abs(target_weight_sum - 1) > 0.001) structural_error = 'target weights must sum to 1 within 0.001; supplied sum is ' + target_weight_sum + '.';
+  }
+
+  var index_value = null, rows = [], dominant_contributor = null, dominant_contribution_pct = null, basket_shift_pct = null, max_drift_pct = null;
+
+  if (!structural_error){
+    var resolved = components.map(function(c){
+      var amount = (mode === 'derive_amounts_from_target_weights')
+        ? (c.target_weight * index_value_at_rebase) / c.rebase_usd_rate
+        : c.fixed_amount / scaleDiv;
+      return { currency: c.currency, usd_rate: c.usd_rate, target_weight: c.target_weight, amount: amount };
+    });
+    index_value = resolved.reduce(function(a,c){ return a + c.amount * c.usd_rate; }, 0);
+    rows = resolved.map(function(c){
+      var contribution = c.amount * c.usd_rate;
+      var live_weight = index_value > 0 ? contribution / index_value : null;
+      var drift = (c.target_weight != null && live_weight != null) ? (live_weight - c.target_weight) * 100 : null;
+      return {
+        currency: c.currency,
+        fixed_amount: rr(c.amount, AMOUNT_DP),
+        usd_rate: rr(c.usd_rate, RATE_DP),
+        usd_contribution: rr(contribution, INDEX_DP),
+        live_weight_pct: live_weight != null ? rr(live_weight * 100, PCT_DP) : null,
+        target_weight_pct: c.target_weight != null ? rr(c.target_weight * 100, PCT_DP) : null,
+        drift_from_target_pct: drift != null ? rr(drift, PCT_DP) : null
+      };
+    });
+    var top = rows.reduce(function(best,row){ return (best === null || row.usd_contribution > best.usd_contribution) ? row : best; }, null);
+    if (top){ dominant_contributor = top.currency; dominant_contribution_pct = top.live_weight_pct; }
+    var drifts = rows.map(function(row){ return row.drift_from_target_pct; }).filter(function(d){ return d != null; }).map(Math.abs);
+    if (drifts.length) max_drift_pct = rr(Math.max.apply(null, drifts), PCT_DP);
+    if (prior_index_value != null) basket_shift_pct = rr((index_value - prior_index_value) / prior_index_value * 100, PCT_DP);
+    index_value = rr(index_value, INDEX_DP);
+  }
+
+  var compliance_flags = [];
+  if (structural_error){
+    compliance_flags.push('CURRENCY_BASKET_STRUCTURAL_ERROR');
+    if (target_weight_sum != null && Math.abs(target_weight_sum - 1) > 0.001) compliance_flags.push('WEIGHTS_DO_NOT_SUM_TO_ONE');
+  } else {
+    compliance_flags.push('CURRENCY_BASKET_VALUED');
+    if (basket_shift_pct != null && Math.abs(basket_shift_pct) > 5) compliance_flags.push('EXTREME_MOVEMENT');
+    if (parent_print_hashes.length > 0) compliance_flags.push('CURRENCY_BASKET_PARENT_PRINTS_CITED');
+  }
+  if (rejected_inputs.length > 0) compliance_flags.push('CURRENCY_BASKET_INPUTS_REJECTED');
+  compliance_flags.push('CURRENCY_BASKET_INPUTS_SUPPLIED_NOT_VERIFIED');
+
+  var output_payload = {
+    basket_id: basket_id,
+    as_of_date: as_of_date,
+    mode: mode,
+    structural_error: structural_error,
+    index_value: index_value,
+    components: rows,
+    component_count: rows.length,
+    dominant_contributor: dominant_contributor,
+    dominant_contribution_pct: dominant_contribution_pct,
+    max_drift_from_target_pct: max_drift_pct,
+    basket_shift_pct: basket_shift_pct,
+    target_weight_sum: target_weight_sum,
+    amount_scale: amount_scale,
+    parent_print_hashes: parent_print_hashes,
+    rejected_inputs: rejected_inputs,
+    not_proven: NOT_PROVEN,
+    fence: 'Every FX rate, fixed amount and target weight is SUPPLIED, asserted, and digested into this receipt. This kernel computes what the fixed-amount basket method yields on the stated numbers: it performs no FX or reference-rate lookups (zero-egress by contract), does not verify any rate against a published fixing, and makes no claim that any administrator did or would publish this value.'
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+/* --- end mirror --- */
+
+function loadDeriveDemo(){
+  document.getElementById('mode').value = 'derive_amounts_from_target_weights';
+  document.getElementById('basketId').value = 'BASKET-CUSTOM-3';
+  document.getElementById('scale').value = '0';
+  document.getElementById('rebaseVal').value = '1.0';
+  document.getElementById('prior').value = '1.0';
+  document.getElementById('comps').value = '[\n  { "currency": "USD", "target_weight": 0.5, "rebase_usd_rate": 1.0, "usd_rate": 1.0 },\n  { "currency": "EUR", "target_weight": 0.3, "rebase_usd_rate": 1.08, "usd_rate": 1.0823 },\n  { "currency": "GBP", "target_weight": 0.2, "rebase_usd_rate": 1.265, "usd_rate": 1.2705 }\n]';
+  runCheck();
+}
+function loadScaledDemo(){
+  document.getElementById('mode').value = 'fixed_amount_valuation';
+  document.getElementById('basketId').value = 'BASKET-HIST-7';
+  document.getElementById('scale').value = '5';
+  document.getElementById('prior').value = '';
+  document.getElementById('comps').value = '[\n  { "currency": "AUD", "fixed_amount": 21300, "usd_rate": 0.6612 },\n  { "currency": "CAD", "fixed_amount": 18700, "usd_rate": 0.7318 },\n  { "currency": "EUR", "fixed_amount": 14300, "usd_rate": 1.0823 },\n  { "currency": "GBP", "fixed_amount": 10400, "usd_rate": 1.2705 },\n  { "currency": "JPY", "fixed_amount": 1760000, "usd_rate": 0.00675 },\n  { "currency": "USD", "fixed_amount": 18000, "usd_rate": 1.0 },\n  { "currency": "SEK", "fixed_amount": 141000, "usd_rate": 0.0951 }\n]';
+  runCheck();
+}
+function loadBadWeightsDemo(){
+  document.getElementById('mode').value = 'derive_amounts_from_target_weights';
+  document.getElementById('basketId').value = 'BASKET-BAD-WEIGHTS';
+  document.getElementById('scale').value = '0';
+  document.getElementById('rebaseVal').value = '1.0';
+  document.getElementById('prior').value = '';
+  document.getElementById('comps').value = '[\n  { "currency": "USD", "target_weight": 0.5, "rebase_usd_rate": 1.0, "usd_rate": 1.0 },\n  { "currency": "EUR", "target_weight": 0.4, "rebase_usd_rate": 1.08, "usd_rate": 1.0823 }\n]';
+  runCheck();
+}
+
+async function runCheck(){
+  var comps;
+  try { comps = JSON.parse(document.getElementById('comps').value || '[]'); }
+  catch(e){ alert('Invalid JSON in components: ' + e.message); return; }
+
+  var scale = parseFloat(document.getElementById('scale').value);
+  var rebaseVal = parseFloat(document.getElementById('rebaseVal').value);
+  var prior = parseFloat(document.getElementById('prior').value);
+  var parents = (document.getElementById('parents').value || '').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+
+  var pp = {
+    mode: document.getElementById('mode').value || undefined,
+    basket_id: document.getElementById('basketId').value || undefined,
+    as_of_date: document.getElementById('asOf').value || undefined,
+    components: comps
+  };
+  if (isFinite(scale) && scale > 0) pp.amount_scale = scale;
+  if (isFinite(rebaseVal) && rebaseVal > 0) pp.index_value_at_rebase = rebaseVal;
+  if (isFinite(prior) && prior > 0) pp.prior_index_value = prior;
+  if (parents.length) pp.parent_print_hashes = parents;
+
+  var res = compute(pp);
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  var op = res.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  var bad = !!op.structural_error;
+  var warn = !bad && op.rejected_inputs.length > 0;
+  var color = bad ? 'var(--red)' : (warn ? 'var(--warn)' : 'var(--green)');
+  var bg = bad ? 'rgba(239,68,68,.08)' : (warn ? 'rgba(245,158,11,.08)' : 'rgba(34,197,94,.08)');
+  vBox.style.color = color; vBox.style.background = bg; vBox.style.border = '1px solid ' + color;
+  vBox.textContent = bad ? ('NOT VALUED: ' + op.structural_error) : ('INDEX ' + op.index_value + ' · ' + op.component_count + ' components');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.index_value === null ? '&mdash;' : op.index_value) + '</span><span class="stat-key">Index value (USD)</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.dominant_contributor || '&mdash;') + '</span><span class="stat-key">Dominant</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.dominant_contribution_pct === null ? '&mdash;' : op.dominant_contribution_pct + '%') + '</span><span class="stat-key">Its live weight</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.max_drift_from_target_pct === null ? '&mdash;' : op.max_drift_from_target_pct + '%') + '</span><span class="stat-key">Max drift</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.basket_shift_pct === null ? '&mdash;' : op.basket_shift_pct + '%') + '</span><span class="stat-key">Shift vs prior</span></div>';
+
+  var t = document.getElementById('compTable');
+  if (op.components.length){
+    t.innerHTML = '<tr><th>Currency</th><th>Fixed amount</th><th>USD rate</th><th>USD contribution</th><th>Live weight</th><th>Target</th><th>Drift</th></tr>' +
+      op.components.map(function(c){
+        return '<tr><td>' + c.currency + '</td><td>' + c.fixed_amount + '</td><td>' + c.usd_rate + '</td><td>' + c.usd_contribution + '</td><td>' +
+          (c.live_weight_pct === null ? '&mdash;' : c.live_weight_pct + '%') + '</td><td>' +
+          (c.target_weight_pct === null ? '&mdash;' : c.target_weight_pct + '%') + '</td><td>' +
+          (c.drift_from_target_pct === null ? '&mdash;' : c.drift_from_target_pct + '%') + '</td></tr>';
+      }).join('');
+  } else {
+    t.innerHTML = '<tr><th>Components</th></tr><tr><td>Not valued: ' + (op.structural_error || 'no components') + '</td></tr>';
+  }
+
+  document.getElementById('parentDiv').innerHTML = op.parent_print_hashes.length
+    ? op.parent_print_hashes.map(function(h){ return '<div class="kv"><span class="kv-k">art-560 print</span><span class="kv-v">' + h + '</span></div>'; }).join('')
+    : '<div class="kv"><span class="kv-k">None cited</span><span class="kv-v">rates are asserted directly, with no upstream print cited</span></div>';
+
+  document.getElementById('rejDiv').innerHTML = op.rejected_inputs.length
+    ? op.rejected_inputs.map(function(rj){
+        return '<div class="kv"><span class="kv-k">' + rj.where + '</span><span class="kv-v">' + rj.reason + (rj.supplied === null ? '' : ' (supplied: ' + rj.supplied + ')') + '</span></div>';
+      }).join('')
+    : '<div class="kv"><span class="kv-k">None</span><span class="kv-v">every supplied value was usable</span></div>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp, op).then(function(h){ document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash(){
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h){
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact(){
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const generatedAt = new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  var parents = _lastResult.output_payload.parent_print_hashes || [];
+  var parent_tool_ids = parents.map(function(){ return 'art-560-oracle-price-aggregation'; });
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'currency_basket_index',tool_id:'art-561-currency-basket-index',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:parents,parent_tool_ids:parent_tool_ids,chain_depth:parents.length?1:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-561-currency-basket-index.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display){ b.style.display = 'block'; document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2); }
+  else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

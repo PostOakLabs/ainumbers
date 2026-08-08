@@ -1,0 +1,587 @@
+{
+  "tool_id": "art-561-currency-basket-index",
+  "note": "golden_hash and output_payload filled by `node golden-parity.test.mjs --update`. Vectors cover both modes -- valuing a basket from amounts already fixed at a rebase date, and deriving those amounts from target weights on a transition date -- plus the integer-quantity scale path, the parent-print citation path, and the two error paths (weights that do not sum to one, and missing rates).",
+  "vectors": [
+    {
+      "name": "fixed-amount-valuation-five-currency",
+      "description": "Five-currency basket valued from amounts fixed at a rebase date. Weights float with FX, so each component's live weight is derived from its USD contribution rather than declared.",
+      "policy_parameters": {
+        "mode": "fixed_amount_valuation",
+        "basket_id": "BASKET-DEMO-5",
+        "as_of_date": "2026-08-08",
+        "components": [
+          {
+            "currency": "USD",
+            "fixed_amount": 0.57813,
+            "usd_rate": 1,
+            "target_weight": 0.4338
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 0.37379,
+            "usd_rate": 1.0823,
+            "target_weight": 0.2931
+          },
+          {
+            "currency": "CNY",
+            "fixed_amount": 1.0993,
+            "usd_rate": 0.1392,
+            "target_weight": 0.1228
+          },
+          {
+            "currency": "JPY",
+            "fixed_amount": 13.452,
+            "usd_rate": 0.00675,
+            "target_weight": 0.0759
+          },
+          {
+            "currency": "GBP",
+            "fixed_amount": 0.08087,
+            "usd_rate": 1.2705,
+            "target_weight": 0.0744
+          }
+        ],
+        "prior_index_value": 1.3305
+      },
+      "output_payload": {
+        "basket_id": "BASKET-DEMO-5",
+        "as_of_date": "2026-08-08",
+        "mode": "fixed_amount_valuation",
+        "structural_error": null,
+        "index_value": 1.32925181,
+        "components": [
+          {
+            "currency": "USD",
+            "fixed_amount": 0.57813,
+            "usd_rate": 1,
+            "usd_contribution": 0.57813,
+            "live_weight_pct": 43.492888,
+            "target_weight_pct": 43.38,
+            "drift_from_target_pct": 0.112888
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 0.37379,
+            "usd_rate": 1.0823,
+            "usd_contribution": 0.40455292,
+            "live_weight_pct": 30.434633,
+            "target_weight_pct": 29.31,
+            "drift_from_target_pct": 1.124633
+          },
+          {
+            "currency": "CNY",
+            "fixed_amount": 1.0993,
+            "usd_rate": 0.1392,
+            "usd_contribution": 0.15302256,
+            "live_weight_pct": 11.511932,
+            "target_weight_pct": 12.28,
+            "drift_from_target_pct": -0.768068
+          },
+          {
+            "currency": "JPY",
+            "fixed_amount": 13.452,
+            "usd_rate": 0.00675,
+            "usd_contribution": 0.090801,
+            "live_weight_pct": 6.830986,
+            "target_weight_pct": 7.59,
+            "drift_from_target_pct": -0.759014
+          },
+          {
+            "currency": "GBP",
+            "fixed_amount": 0.08087,
+            "usd_rate": 1.2705,
+            "usd_contribution": 0.10274533,
+            "live_weight_pct": 7.729561,
+            "target_weight_pct": 7.44,
+            "drift_from_target_pct": 0.289561
+          }
+        ],
+        "component_count": 5,
+        "dominant_contributor": "USD",
+        "dominant_contribution_pct": 43.492888,
+        "max_drift_from_target_pct": 1.124633,
+        "basket_shift_pct": -0.093813,
+        "target_weight_sum": null,
+        "amount_scale": 0,
+        "parent_print_hashes": [],
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "FX-rate accuracy",
+            "detail": "Every usd_rate is caller-supplied and asserted. This kernel performs no FX, reference-rate or market-data lookups (zero-egress) and does not verify any rate against a published fixing for the stated date."
+          },
+          {
+            "item": "Basket-composition authority",
+            "detail": "Fixed amounts and target weights are caller-supplied. This kernel does not verify that a stated composition matches any published basket, nor that a preset remains current -- a basket reviewed on a periodic cycle changes on its own schedule."
+          },
+          {
+            "item": "Live index publication",
+            "detail": "The index value computed here is what the fixed-amount method yields on the supplied rates. It is not a claim that any basket administrator did, or would, publish this value for this date."
+          },
+          {
+            "item": "Parent-print freshness",
+            "detail": "Where per-pair rates are cited from upstream oracle prints, this kernel records the citation but does not verify that those prints are current, in-epoch, or drawn from the same observation window."
+          }
+        ],
+        "fence": "Every FX rate, fixed amount and target weight is SUPPLIED, asserted, and digested into this receipt. This kernel computes what the fixed-amount basket method yields on the stated numbers: it performs no FX or reference-rate lookups (zero-egress by contract), does not verify any rate against a published fixing, and makes no claim that any administrator did or would publish this value."
+      },
+      "golden_hash": "b1423441391a5559abf648dccff1baac5360e601ca298ec89e533be83f5080d3"
+    },
+    {
+      "name": "derive-amounts-from-target-weights",
+      "description": "Transition-date derivation: target weights plus the rebase-date FX rates yield the fixed amounts, which are then valued at today's rates. This is the non-obvious arithmetic the node owns -- amounts are an output of the rebase, not an input to it.",
+      "policy_parameters": {
+        "mode": "derive_amounts_from_target_weights",
+        "basket_id": "BASKET-CUSTOM-3",
+        "as_of_date": "2026-08-08",
+        "index_value_at_rebase": 1,
+        "components": [
+          {
+            "currency": "USD",
+            "target_weight": 0.5,
+            "rebase_usd_rate": 1,
+            "usd_rate": 1
+          },
+          {
+            "currency": "EUR",
+            "target_weight": 0.3,
+            "rebase_usd_rate": 1.08,
+            "usd_rate": 1.0823
+          },
+          {
+            "currency": "GBP",
+            "target_weight": 0.2,
+            "rebase_usd_rate": 1.265,
+            "usd_rate": 1.2705
+          }
+        ],
+        "prior_index_value": 1
+      },
+      "output_payload": {
+        "basket_id": "BASKET-CUSTOM-3",
+        "as_of_date": "2026-08-08",
+        "mode": "derive_amounts_from_target_weights",
+        "structural_error": null,
+        "index_value": 1.00150845,
+        "components": [
+          {
+            "currency": "USD",
+            "fixed_amount": 0.5,
+            "usd_rate": 1,
+            "usd_contribution": 0.5,
+            "live_weight_pct": 49.924691,
+            "target_weight_pct": 50,
+            "drift_from_target_pct": -0.075309
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 0.2777777778,
+            "usd_rate": 1.0823,
+            "usd_contribution": 0.30063889,
+            "live_weight_pct": 30.018607,
+            "target_weight_pct": 30,
+            "drift_from_target_pct": 0.018607
+          },
+          {
+            "currency": "GBP",
+            "fixed_amount": 0.1581027668,
+            "usd_rate": 1.2705,
+            "usd_contribution": 0.20086957,
+            "live_weight_pct": 20.056702,
+            "target_weight_pct": 20,
+            "drift_from_target_pct": 0.056702
+          }
+        ],
+        "component_count": 3,
+        "dominant_contributor": "USD",
+        "dominant_contribution_pct": 49.924691,
+        "max_drift_from_target_pct": 0.075309,
+        "basket_shift_pct": 0.150845,
+        "target_weight_sum": 1,
+        "amount_scale": 0,
+        "parent_print_hashes": [],
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "FX-rate accuracy",
+            "detail": "Every usd_rate is caller-supplied and asserted. This kernel performs no FX, reference-rate or market-data lookups (zero-egress) and does not verify any rate against a published fixing for the stated date."
+          },
+          {
+            "item": "Basket-composition authority",
+            "detail": "Fixed amounts and target weights are caller-supplied. This kernel does not verify that a stated composition matches any published basket, nor that a preset remains current -- a basket reviewed on a periodic cycle changes on its own schedule."
+          },
+          {
+            "item": "Live index publication",
+            "detail": "The index value computed here is what the fixed-amount method yields on the supplied rates. It is not a claim that any basket administrator did, or would, publish this value for this date."
+          },
+          {
+            "item": "Parent-print freshness",
+            "detail": "Where per-pair rates are cited from upstream oracle prints, this kernel records the citation but does not verify that those prints are current, in-epoch, or drawn from the same observation window."
+          }
+        ],
+        "fence": "Every FX rate, fixed amount and target weight is SUPPLIED, asserted, and digested into this receipt. This kernel computes what the fixed-amount basket method yields on the stated numbers: it performs no FX or reference-rate lookups (zero-egress by contract), does not verify any rate against a published fixing, and makes no claim that any administrator did or would publish this value."
+      },
+      "golden_hash": "056c2b9acdce839da6648a0d864ae11b80c3c2856a6dd28a1e5aed04e1584823"
+    },
+    {
+      "name": "integer-quantity-basket-with-scale",
+      "description": "Seven-currency basket whose quantities are carried as scaled integers, divided by 10^amount_scale to reach human-readable amounts. Fixed quantities are the basket's invariant; nothing here re-derives them.",
+      "policy_parameters": {
+        "mode": "fixed_amount_valuation",
+        "basket_id": "BASKET-HIST-7",
+        "as_of_date": "2026-08-08",
+        "amount_scale": 5,
+        "components": [
+          {
+            "currency": "AUD",
+            "fixed_amount": 21300,
+            "usd_rate": 0.6612
+          },
+          {
+            "currency": "CAD",
+            "fixed_amount": 18700,
+            "usd_rate": 0.7318
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 14300,
+            "usd_rate": 1.0823
+          },
+          {
+            "currency": "GBP",
+            "fixed_amount": 10400,
+            "usd_rate": 1.2705
+          },
+          {
+            "currency": "JPY",
+            "fixed_amount": 1760000,
+            "usd_rate": 0.00675
+          },
+          {
+            "currency": "USD",
+            "fixed_amount": 18000,
+            "usd_rate": 1
+          },
+          {
+            "currency": "SEK",
+            "fixed_amount": 141000,
+            "usd_rate": 0.0951
+          }
+        ]
+      },
+      "output_payload": {
+        "basket_id": "BASKET-HIST-7",
+        "as_of_date": "2026-08-08",
+        "mode": "fixed_amount_valuation",
+        "structural_error": null,
+        "index_value": 0.9974741,
+        "components": [
+          {
+            "currency": "AUD",
+            "fixed_amount": 0.213,
+            "usd_rate": 0.6612,
+            "usd_contribution": 0.1408356,
+            "live_weight_pct": 14.119224,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          },
+          {
+            "currency": "CAD",
+            "fixed_amount": 0.187,
+            "usd_rate": 0.7318,
+            "usd_contribution": 0.1368466,
+            "live_weight_pct": 13.719314,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 0.143,
+            "usd_rate": 1.0823,
+            "usd_contribution": 0.1547689,
+            "live_weight_pct": 15.516082,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          },
+          {
+            "currency": "GBP",
+            "fixed_amount": 0.104,
+            "usd_rate": 1.2705,
+            "usd_contribution": 0.132132,
+            "live_weight_pct": 13.24666,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          },
+          {
+            "currency": "JPY",
+            "fixed_amount": 17.6,
+            "usd_rate": 0.00675,
+            "usd_contribution": 0.1188,
+            "live_weight_pct": 11.910084,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          },
+          {
+            "currency": "USD",
+            "fixed_amount": 0.18,
+            "usd_rate": 1,
+            "usd_contribution": 0.18,
+            "live_weight_pct": 18.045581,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          },
+          {
+            "currency": "SEK",
+            "fixed_amount": 1.41,
+            "usd_rate": 0.0951,
+            "usd_contribution": 0.134091,
+            "live_weight_pct": 13.443056,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          }
+        ],
+        "component_count": 7,
+        "dominant_contributor": "USD",
+        "dominant_contribution_pct": 18.045581,
+        "max_drift_from_target_pct": null,
+        "basket_shift_pct": null,
+        "target_weight_sum": null,
+        "amount_scale": 5,
+        "parent_print_hashes": [],
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "FX-rate accuracy",
+            "detail": "Every usd_rate is caller-supplied and asserted. This kernel performs no FX, reference-rate or market-data lookups (zero-egress) and does not verify any rate against a published fixing for the stated date."
+          },
+          {
+            "item": "Basket-composition authority",
+            "detail": "Fixed amounts and target weights are caller-supplied. This kernel does not verify that a stated composition matches any published basket, nor that a preset remains current -- a basket reviewed on a periodic cycle changes on its own schedule."
+          },
+          {
+            "item": "Live index publication",
+            "detail": "The index value computed here is what the fixed-amount method yields on the supplied rates. It is not a claim that any basket administrator did, or would, publish this value for this date."
+          },
+          {
+            "item": "Parent-print freshness",
+            "detail": "Where per-pair rates are cited from upstream oracle prints, this kernel records the citation but does not verify that those prints are current, in-epoch, or drawn from the same observation window."
+          }
+        ],
+        "fence": "Every FX rate, fixed amount and target weight is SUPPLIED, asserted, and digested into this receipt. This kernel computes what the fixed-amount basket method yields on the stated numbers: it performs no FX or reference-rate lookups (zero-egress by contract), does not verify any rate against a published fixing, and makes no claim that any administrator did or would publish this value."
+      },
+      "golden_hash": "6c526c9ce472c07811927f2cccc60aecdc3d8a60a39319c9468066cc4d80f007"
+    },
+    {
+      "name": "parent-oracle-prints-cited",
+      "description": "Per-pair rates cited back to the upstream oracle prints they came from. buildArtifact copies these into chain.parent_hashes, which sits outside the §4 preimage; the citation itself lives in policy_parameters and so is hashed.",
+      "policy_parameters": {
+        "mode": "fixed_amount_valuation",
+        "basket_id": "BASKET-DEMO-2",
+        "as_of_date": "2026-08-08",
+        "components": [
+          {
+            "currency": "USD",
+            "fixed_amount": 0.6,
+            "usd_rate": 1
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 0.4,
+            "usd_rate": 1.0823
+          }
+        ],
+        "parent_print_hashes": [
+          "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ]
+      },
+      "output_payload": {
+        "basket_id": "BASKET-DEMO-2",
+        "as_of_date": "2026-08-08",
+        "mode": "fixed_amount_valuation",
+        "structural_error": null,
+        "index_value": 1.03292,
+        "components": [
+          {
+            "currency": "USD",
+            "fixed_amount": 0.6,
+            "usd_rate": 1,
+            "usd_contribution": 0.6,
+            "live_weight_pct": 58.087751,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 0.4,
+            "usd_rate": 1.0823,
+            "usd_contribution": 0.43292,
+            "live_weight_pct": 41.912249,
+            "target_weight_pct": null,
+            "drift_from_target_pct": null
+          }
+        ],
+        "component_count": 2,
+        "dominant_contributor": "USD",
+        "dominant_contribution_pct": 58.087751,
+        "max_drift_from_target_pct": null,
+        "basket_shift_pct": null,
+        "target_weight_sum": null,
+        "amount_scale": 0,
+        "parent_print_hashes": [
+          "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "FX-rate accuracy",
+            "detail": "Every usd_rate is caller-supplied and asserted. This kernel performs no FX, reference-rate or market-data lookups (zero-egress) and does not verify any rate against a published fixing for the stated date."
+          },
+          {
+            "item": "Basket-composition authority",
+            "detail": "Fixed amounts and target weights are caller-supplied. This kernel does not verify that a stated composition matches any published basket, nor that a preset remains current -- a basket reviewed on a periodic cycle changes on its own schedule."
+          },
+          {
+            "item": "Live index publication",
+            "detail": "The index value computed here is what the fixed-amount method yields on the supplied rates. It is not a claim that any basket administrator did, or would, publish this value for this date."
+          },
+          {
+            "item": "Parent-print freshness",
+            "detail": "Where per-pair rates are cited from upstream oracle prints, this kernel records the citation but does not verify that those prints are current, in-epoch, or drawn from the same observation window."
+          }
+        ],
+        "fence": "Every FX rate, fixed amount and target weight is SUPPLIED, asserted, and digested into this receipt. This kernel computes what the fixed-amount basket method yields on the stated numbers: it performs no FX or reference-rate lookups (zero-egress by contract), does not verify any rate against a published fixing, and makes no claim that any administrator did or would publish this value."
+      },
+      "golden_hash": "3987c7986a1cf1aacac0db730d86c27f7f13753703f55a95ee9d7cf8acc05990"
+    },
+    {
+      "name": "weights-do-not-sum-to-one",
+      "description": "Error path: target weights sum to 0.9 rather than 1, so the derivation is refused rather than silently normalized. A basket derived from weights that do not sum to one is not a basket.",
+      "policy_parameters": {
+        "mode": "derive_amounts_from_target_weights",
+        "basket_id": "BASKET-BAD-WEIGHTS",
+        "as_of_date": "2026-08-08",
+        "components": [
+          {
+            "currency": "USD",
+            "target_weight": 0.5,
+            "rebase_usd_rate": 1,
+            "usd_rate": 1
+          },
+          {
+            "currency": "EUR",
+            "target_weight": 0.4,
+            "rebase_usd_rate": 1.08,
+            "usd_rate": 1.0823
+          }
+        ]
+      },
+      "output_payload": {
+        "basket_id": "BASKET-BAD-WEIGHTS",
+        "as_of_date": "2026-08-08",
+        "mode": "derive_amounts_from_target_weights",
+        "structural_error": "target weights must sum to 1 within 0.001; supplied sum is 0.9.",
+        "index_value": null,
+        "components": [],
+        "component_count": 0,
+        "dominant_contributor": null,
+        "dominant_contribution_pct": null,
+        "max_drift_from_target_pct": null,
+        "basket_shift_pct": null,
+        "target_weight_sum": 0.9,
+        "amount_scale": 0,
+        "parent_print_hashes": [],
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "FX-rate accuracy",
+            "detail": "Every usd_rate is caller-supplied and asserted. This kernel performs no FX, reference-rate or market-data lookups (zero-egress) and does not verify any rate against a published fixing for the stated date."
+          },
+          {
+            "item": "Basket-composition authority",
+            "detail": "Fixed amounts and target weights are caller-supplied. This kernel does not verify that a stated composition matches any published basket, nor that a preset remains current -- a basket reviewed on a periodic cycle changes on its own schedule."
+          },
+          {
+            "item": "Live index publication",
+            "detail": "The index value computed here is what the fixed-amount method yields on the supplied rates. It is not a claim that any basket administrator did, or would, publish this value for this date."
+          },
+          {
+            "item": "Parent-print freshness",
+            "detail": "Where per-pair rates are cited from upstream oracle prints, this kernel records the citation but does not verify that those prints are current, in-epoch, or drawn from the same observation window."
+          }
+        ],
+        "fence": "Every FX rate, fixed amount and target weight is SUPPLIED, asserted, and digested into this receipt. This kernel computes what the fixed-amount basket method yields on the stated numbers: it performs no FX or reference-rate lookups (zero-egress by contract), does not verify any rate against a published fixing, and makes no claim that any administrator did or would publish this value."
+      },
+      "golden_hash": "95d308f9de695cf8dd8667ee5bf7605ce617eaa50424c05ddcdead113bf4dfeb"
+    },
+    {
+      "name": "structural-error-missing-rates",
+      "description": "Error path: a component is missing its usd_rate and another supplies a non-positive rate, so every rejection is recorded with its pointer and the supplied value rather than being coerced to a default.",
+      "policy_parameters": {
+        "mode": "fixed_amount_valuation",
+        "basket_id": "BASKET-BAD-RATES",
+        "as_of_date": "2026-08-08",
+        "components": [
+          {
+            "currency": "USD",
+            "fixed_amount": 0.6
+          },
+          {
+            "currency": "EUR",
+            "fixed_amount": 0.4,
+            "usd_rate": -1.2
+          }
+        ]
+      },
+      "output_payload": {
+        "basket_id": "BASKET-BAD-RATES",
+        "as_of_date": "2026-08-08",
+        "mode": "fixed_amount_valuation",
+        "structural_error": "every component requires a currency and a positive usd_rate.",
+        "index_value": null,
+        "components": [],
+        "component_count": 0,
+        "dominant_contributor": null,
+        "dominant_contribution_pct": null,
+        "max_drift_from_target_pct": null,
+        "basket_shift_pct": null,
+        "target_weight_sum": null,
+        "amount_scale": 0,
+        "parent_print_hashes": [],
+        "rejected_inputs": [
+          {
+            "where": "components[0].usd_rate",
+            "reason": "absent or not a finite number -- the USD value of one unit of this currency is required",
+            "supplied": null
+          },
+          {
+            "where": "components[1].usd_rate",
+            "reason": "must be greater than zero",
+            "supplied": -1.2
+          }
+        ],
+        "not_proven": [
+          {
+            "item": "FX-rate accuracy",
+            "detail": "Every usd_rate is caller-supplied and asserted. This kernel performs no FX, reference-rate or market-data lookups (zero-egress) and does not verify any rate against a published fixing for the stated date."
+          },
+          {
+            "item": "Basket-composition authority",
+            "detail": "Fixed amounts and target weights are caller-supplied. This kernel does not verify that a stated composition matches any published basket, nor that a preset remains current -- a basket reviewed on a periodic cycle changes on its own schedule."
+          },
+          {
+            "item": "Live index publication",
+            "detail": "The index value computed here is what the fixed-amount method yields on the supplied rates. It is not a claim that any basket administrator did, or would, publish this value for this date."
+          },
+          {
+            "item": "Parent-print freshness",
+            "detail": "Where per-pair rates are cited from upstream oracle prints, this kernel records the citation but does not verify that those prints are current, in-epoch, or drawn from the same observation window."
+          }
+        ],
+        "fence": "Every FX rate, fixed amount and target weight is SUPPLIED, asserted, and digested into this receipt. This kernel computes what the fixed-amount basket method yields on the stated numbers: it performs no FX or reference-rate lookups (zero-egress by contract), does not verify any rate against a published fixing, and makes no claim that any administrator did or would publish this value."
+      },
+      "golden_hash": "7abbf69b5cf8caf924d05e9a91117a0e98d1b8237d1bfd7322f348741d4d3b69"
+    }
+  ]
+}
