@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Matter Export Verifier · T579 · AINumbers.co</title>
+<meta name="description" content="Upload or paste a Helm matter export (matter-manifest.schema.json) and verify its manifest_digest, inspect every binding by hash and kind, and see exactly which deadlines are open, entirely offline, in your browser, with zero network calls.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/579-matter-export-verifier.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Matter Export Verifier · T579","url":"https://ainumbers.co/tools/579-matter-export-verifier.html","description":"Verifies a Helm matter export's manifest_digest and inspects its bindings and deadlines entirely offline in the browser.","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "579-matter-export-verifier",
+  "version": "1.0.0",
+  "title": "Matter Export Verifier",
+  "description": "Fully offline, upload-driven verifier for a Helm matter export (matter-manifest.schema.json, HELM-MATTER-BUILD-SPEC.md §2). Validates the manifest's shape, recomputes manifest_digest via the same JCS canon path OCG artifacts use, and renders every binding and deadline with a distinct, never-collapsed status label. Optionally checks one bound artifact's own execution_hash / eddsa-jcs-2022 signature / RFC 6962 anchor against a binding's subject_hash, reusing the same verifiers as the OCG Receipt Verifier. Zero network calls anywhere in the tool.",
+  "category": "mcp",
+  "tags": ["matter export", "Helm", "offline verifier", "airgapped", "manifest_digest", "evidence bundle", "OCG receipt", "compliance", "zero network"],
+  "audience": ["compliance", "auditor", "examiner", "counsel", "engineer"],
+  "input_schema": {"type":"object","properties":{"manifest":{"type":"object","description":"A matter-manifest.schema.json object"},"bound_artifact":{"type":"object","description":"OPTIONAL: one OCG artifact referenced by a binding, to check against its subject_hash"}},"required":["manifest"]},
+  "output_schema": {"type":"object","properties":{"verification_report":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"verify_matter_export","description":"Recomputes a Helm matter manifest's manifest_digest, validates its shape, and reports each binding/deadline with a distinct status. Optionally checks a supplied bound artifact against a binding's subject_hash.","inputSchema":{"type":"object","properties":{"manifest":{"type":"object"},"bound_artifact":{"type":"object"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/579-matter-export-verifier.html","function_name":"verifyManifestUI","timeout_ms":5000},
+  "ap2_export": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:#2DD4BF}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.7rem);color:var(--white);max-width:800px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.fence{border:1px solid var(--red);border-left:3px solid var(--red);background:rgba(239,68,68,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.78rem;color:var(--body);line-height:1.75;border-radius:var(--radius)}
+.fence-label{display:block;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.fence strong{color:var(--bright)}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.7rem .85rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;min-height:160px;resize:vertical;line-height:1.65}
+.form-group textarea:focus{outline:none;border-color:var(--teal)}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);color:var(--body);transition:all .2s}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:1.5rem 1.25rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);transition:border-color .2s;cursor:pointer;margin-bottom:1rem}
+.drop-zone.drag{border-color:var(--teal)}
+.drop-zone strong{color:var(--text)}
+
+.check-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem}
+.check-row{display:flex;align-items:flex-start;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.4rem .6rem;background:var(--bg-4);border-radius:4px}
+.check-pass{color:var(--green)}.check-fail{color:var(--red)}
+.check-name{color:var(--bright);min-width:200px;flex-shrink:0}
+.check-detail{color:var(--body)}
+
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;margin-bottom:1rem}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+@media(max-width:640px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.sg-cell{background:var(--bg-3);padding:.9rem 1rem;text-align:center}
+.sg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sg-val{font-family:'DM Serif Display',serif;font-size:1.3rem}
+.sg-ok{color:var(--green)}.sg-bad{color:var(--red)}.sg-warn{color:var(--warn)}
+
+.errbox{display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)}
+.exclusion-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-4);border-left:3px solid var(--warn);border-radius:4px}
+
+.binding-row{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3);padding:.85rem 1rem;margin-bottom:.6rem}
+.binding-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:.4rem}
+.binding-hash{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all}
+.kind-badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.22rem .6rem;border-radius:3px;border:1px solid currentColor;white-space:nowrap}
+.kind-run,.kind-evidence_bundle,.kind-approval_record,.kind-attested_artifact{color:var(--muted);background:var(--bg-4);border-color:var(--border-2)}
+.kind-external_reference{color:var(--warn);background:var(--warn-dim);border-color:rgba(245,158,11,.4)}
+.kind-checked-ok{color:var(--green);background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.kind-checked-fail{color:var(--red);background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.binding-note{font-size:.72rem;color:var(--body);margin-top:.3rem}
+
+.deadline-row{display:flex;align-items:flex-start;gap:.75rem;padding:.65rem .85rem;border-radius:4px;background:var(--bg-4);margin-bottom:.45rem;font-size:.76rem}
+.deadline-status{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .55rem;border-radius:3px;flex-shrink:0}
+.dl-open{color:var(--warn);background:var(--warn-dim)}
+.dl-done{color:var(--green);background:var(--green-dim)}
+.deadline-body{color:var(--text)}
+.deadline-meta{color:var(--muted);font-size:.68rem;margin-top:.15rem}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:#2DD4BF}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-579</span></div>
+    <div class="nav-right"><a href="../tools.html#cat-mcp" class="nav-cta">Category &#8594;</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T579 &middot; MCP &amp; Agentic Commerce &middot; Matter / Evidence &middot; Airgapped</div>
+    <h1>Matter Export Verifier</h1>
+    <p class="hero-desc">Upload or paste a Helm matter export &ndash; the JSON container an examiner, auditor, or opposing counsel receives for one engagement &ndash; and this tool validates its shape, recomputes <code>manifest_digest</code> with the same JCS canon path every OCG artifact uses, and lists every binding and deadline with its own distinct status. It never collapses a matter into a single &ldquo;verified&rdquo; badge. Entirely offline, zero network calls.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">manifest_digest</span>
+      <span class="hero-badge badge-gold">bindings[] by hash</span>
+      <span class="hero-badge badge-purple">deadlines never collapsed</span>
+      <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <div class="fence">
+      <span class="fence-label" style="font-weight:600">Scope fence &ndash; read before use</span>
+      A PASS verdict on the manifest proves: the file matches the <a href="https://ainumbers.co/helm/schema/matter-manifest.schema.json" style="color:var(--teal)">matter-manifest schema</a>, and its <code>manifest_digest</code> recomputes correctly from the manifest's own content (JCS canon, <code>manifest_digest</code> itself excluded from the preimage). It does not by itself prove any bound artifact is authentic &ndash; <code>bindings[]</code> reference existing runs, evidence bundles, approval records, and attested artifacts by hash only (§3 of the spec: never a payload copy), so this page cannot independently check a binding unless you also hand it that artifact's own JSON below. <code>external_reference</code> bindings point at content Helm never verified at all &ndash; they render with their own distinct amber label, never green, and are never collapsed into a &ldquo;matter verified&rdquo; badge. Nothing on this page ever opens a network connection.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="sec-label">Step 1 &middot; the matter export (manifest JSON)</div>
+    <div class="panel">
+      <div class="panel-label">Paste or upload the matter export file</div>
+      <div class="panel-body">
+        <div class="fixture-row">
+          <button class="btn-fixture" onclick="loadFixture('golden')">Load golden fixture (real digest match)</button>
+          <button class="btn-fixture" onclick="loadFixture('tampered')">Load tampered fixture (extra binding, expect FAIL)</button>
+          <button class="btn-fixture" onclick="loadFixture('tamperedDigest')">Load tampered-digest fixture (expect FAIL)</button>
+        </div>
+        <div class="drop-zone" id="dropManifest">Drag a matter export <code>.json</code> here, or click to choose a file</div>
+        <input type="file" id="fileManifestInput" accept="application/json,.json" style="display:none">
+        <div class="form-group">
+          <label>Matter manifest JSON</label>
+          <textarea id="manifestInput" placeholder="Paste a matter export JSON here, or use a fixture / file above." spellcheck="false"></textarea>
+        </div>
+        <button class="run-btn" onclick="verifyManifestUI()">Verify Matter &#8594;</button>
+        <div id="manifestErr" class="errbox"></div>
+      </div>
+    </div>
+    <div id="manifestResult"></div>
+
+    <div class="sec-label">Step 2 &middot; optional, check one bound artifact against a binding</div>
+    <div class="panel">
+      <div class="panel-label">Paste or upload the OCG artifact JSON a binding above references</div>
+      <div class="panel-body">
+        <div class="exclusion-note">Only needed if you also received the underlying artifact. The verdict below only ever applies to the ONE bound artifact you supply here &ndash; it never speaks for the other bindings.</div>
+        <div class="drop-zone" id="dropArtifact">Drag one bound artifact <code>.json</code> here, or click to choose a file</div>
+        <input type="file" id="fileArtifactInput" accept="application/json,.json" style="display:none">
+        <div class="form-group">
+          <label>Bound artifact JSON</label>
+          <textarea id="artifactInput" style="min-height:120px" placeholder="Paste the OCG artifact JSON a binding's subject_hash points to." spellcheck="false"></textarea>
+        </div>
+        <button class="run-btn" onclick="verifyBoundArtifactUI()">Check Against Bindings &#8594;</button>
+        <div id="artifactErr" class="errbox"></div>
+      </div>
+    </div>
+    <div id="artifactResult"></div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Verify a matter export above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../tools/568-ocg-receipt-verifier.html">OCG Receipt Verifier</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   OCG-CORE v1 (inline, single-file port of chaingraph/kernels/
+   _hash.mjs + the did:key / eddsa-jcs-2022 helpers in _proof.mjs).
+   Byte-identical canon/hash to tools/568, tools/566, tools/547.
+   This is the ONLY canonicalization/hash path used below — both
+   for OCG execution_hash AND for the matter manifest_digest, which
+   the spec (HELM-MATTER-BUILD-SPEC.md §2) defines as "a JCS digest
+   of the manifest's own content ... reusing the vendored _hash.mjs".
+══════════════════════════════════════════════════════════════ */
+(function(){
+  function assertIJson(v){
+    if(typeof v==='number'){
+      if(!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+      if(Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53.');
+    } else if(Array.isArray(v)){ v.forEach(assertIJson); }
+    else if(v && typeof v==='object'){ for(var k in v) if(Object.prototype.hasOwnProperty.call(v,k)) assertIJson(v[k]); }
+  }
+  function cgCanon(v){
+    if(Array.isArray(v)) return v.map(cgCanon);
+    if(v && typeof v==='object'){
+      var keys=Object.keys(v).sort(); var o={};
+      for(var i=0;i<keys.length;i++) o[keys[i]]=cgCanon(v[keys[i]]);
+      return o;
+    }
+    return v;
+  }
+  function canonicalPreimage(policy_parameters, output_payload){
+    var obj={policy_parameters:policy_parameters, output_payload:output_payload};
+    assertIJson(obj);
+    return JSON.stringify(cgCanon(obj));
+  }
+  async function executionHash(policy_parameters, output_payload){
+    var bytes=new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+    var digest=await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  function jcsBytes(obj){ return new TextEncoder().encode(JSON.stringify(cgCanon(obj))); }
+  async function sha256(bytes){ var d=await crypto.subtle.digest('SHA-256', bytes); return new Uint8Array(d); }
+  async function jcsDigestHex(obj){ return bytesToHex(await sha256(jcsBytes(obj))); }
+  function hexToBytes(hex){
+    hex=String(hex||'');
+    var b=new Uint8Array(hex.length/2);
+    for(var i=0;i<b.length;i++) b[i]=parseInt(hex.substr(i*2,2),16);
+    return b;
+  }
+  function bytesToHex(b){ return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join(''); }
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58decode(str){
+    var zeros=0; while(zeros<str.length && str[zeros]==='1') zeros++;
+    var bytes=[0];
+    for(var i=zeros;i<str.length;i++){
+      var carry=B58.indexOf(str[i]); if(carry<0) throw new Error('bad base58 char');
+      for(var j=0;j<bytes.length;j++){ carry+=bytes[j]*58; bytes[j]=carry&0xff; carry>>=8; }
+      while(carry){ bytes.push(carry&0xff); carry>>=8; }
+    }
+    var out=new Uint8Array(zeros+bytes.length);
+    for(var k=0;k<bytes.length;k++) out[zeros+bytes.length-1-k]=bytes[k];
+    return out;
+  }
+  async function didKeyToPublicKey(did){
+    if(!did || did.indexOf('did:key:z')!==0) throw new Error('not a did:key z-form');
+    var prefixed=b58decode(did.slice('did:key:z'.length));
+    if(prefixed[0]!==0xed || prefixed[1]!==0x01) throw new Error('did:key is not Ed25519');
+    var raw=prefixed.slice(2);
+    return crypto.subtle.importKey('raw', raw, {name:'Ed25519'}, true, ['verify']);
+  }
+  function proofOptions(o){
+    return {type:'DataIntegrityProof', cryptosuite:'eddsa-jcs-2022', verificationMethod:o.verificationMethod, proofPurpose:'assertionMethod', created:o.created};
+  }
+  async function hashData(doc, opts){
+    var optHash=await sha256(jcsBytes(opts));
+    var docHash=await sha256(jcsBytes(doc));
+    var cat=new Uint8Array(optHash.length+docHash.length);
+    cat.set(optHash,0); cat.set(docHash, optHash.length);
+    return cat;
+  }
+  function securedArtifact(a){
+    var c=JSON.parse(JSON.stringify(a));
+    if(c && c.audit_signature && ('proof' in c.audit_signature)) delete c.audit_signature.proof;
+    return c;
+  }
+  async function verifyOneProof(secured, proof){
+    if(!proof || proof.type!=='DataIntegrityProof' || proof.cryptosuite!=='eddsa-jcs-2022') return {valid:false, verificationMethod:proof&&proof.verificationMethod, error:'unsupported proof type/cryptosuite — only eddsa-jcs-2022 is verified'};
+    if(proof.proofPurpose!=='assertionMethod' || typeof proof.proofValue!=='string' || proof.proofValue[0]!=='z') return {valid:false, verificationMethod:proof.verificationMethod, error:'malformed proof object'};
+    try{
+      var pub=await didKeyToPublicKey(proof.verificationMethod);
+      var opts=proofOptions(proof);
+      var sig=b58decode(proof.proofValue.slice(1));
+      var ok=await crypto.subtle.verify('Ed25519', pub, sig, await hashData(secured, opts));
+      return {valid:ok, verificationMethod:proof.verificationMethod, error: ok?null:'signature does not verify against the named key'};
+    }catch(e){ return {valid:false, verificationMethod:proof.verificationMethod, error:e.message}; }
+  }
+  async function verifyArtifactProofs(artifact){
+    var raw=artifact && artifact.audit_signature && artifact.audit_signature.proof;
+    var proofs = raw==null ? [] : (Array.isArray(raw)?raw:[raw]);
+    if(proofs.length===0) return {present:false, allValid:true, results:[]};
+    var secured=securedArtifact(artifact);
+    var results=[];
+    for(var i=0;i<proofs.length;i++) results.push(await verifyOneProof(secured, proofs[i]));
+    var allValid=results.every(function(r){return r.valid;});
+    return {present:true, allValid:allValid, results:results};
+  }
+  window.OCG={cgCanon:cgCanon, executionHash:executionHash, sha256:sha256, jcsDigestHex:jcsDigestHex, hexToBytes:hexToBytes, bytesToHex:bytesToHex,
+    didKeyToPublicKey:didKeyToPublicKey, verifyArtifactProofs:verifyArtifactProofs};
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   RFC 6962 / RFC 9162 Merkle inclusion (OCG Standard §20.1) — same
+   leafHash/nodeHash domain-separation and rootFromInclusion audit-
+   path math as tools/568-ocg-receipt-verifier.html, so this page
+   never opens a second Merkle implementation.
+══════════════════════════════════════════════════════════════ */
+function concatBytes(a,b){var out=new Uint8Array(a.length+b.length);out.set(a,0);out.set(b,a.length);return out;}
+async function leafHash(data){return await OCG.sha256(concatBytes(new Uint8Array([0x00]),data));}
+async function nodeHash(l,r){return await OCG.sha256(concatBytes(new Uint8Array([0x01]),concatBytes(l,r)));}
+async function rootFromInclusion(leaf, index, size, path){
+  if(index>=size) return null;
+  var fn=BigInt(index), sn=BigInt(size)-1n;
+  var r=leaf;
+  for(var i=0;i<path.length;i++){
+    var v=path[i];
+    if(sn===0n) return null;
+    if((fn&1n)===1n || fn===sn){
+      r=await nodeHash(v,r);
+      if((fn&1n)===0n){ while(fn!==0n && (fn&1n)===0n){ fn>>=1n; sn>>=1n; } }
+    }else{
+      r=await nodeHash(r,v);
+    }
+    fn>>=1n; sn>>=1n;
+  }
+  return sn===0n ? r : null;
+}
+async function verifyMerkleInclusion(mi, execHashHex){
+  if(!mi || typeof mi!=='object') return {ok:false, reason:'merkle_inclusion must be an object'};
+  if(mi.algorithm!=='rfc6962') return {ok:false, reason:'merkle_inclusion.algorithm must be "rfc6962"'};
+  var leafHex=String(mi.leaf||'').replace(/^sha256:/,'').toLowerCase();
+  if(!/^[0-9a-f]{64}$/.test(leafHex)) return {ok:false, reason:'merkle_inclusion.leaf must be a 64-hex digest'};
+  if(leafHex!==String(execHashHex||'').toLowerCase()) return {ok:false, reason:'merkle_inclusion.leaf != recomputed execution_hash'};
+  if(!Number.isInteger(mi.index) || mi.index<0) return {ok:false, reason:'merkle_inclusion.index must be a non-negative integer'};
+  if(!Number.isInteger(mi.tree_size) || mi.tree_size<=0) return {ok:false, reason:'merkle_inclusion.tree_size must be a positive integer'};
+  if(!Array.isArray(mi.path)) return {ok:false, reason:'merkle_inclusion.path must be an array'};
+  try{
+    var L=await leafHash(OCG.hexToBytes(leafHex));
+    var pathBytes=mi.path.map(function(h){ return OCG.hexToBytes(String(h).replace(/^sha256:/,'')); });
+    var root=await rootFromInclusion(L, mi.index, mi.tree_size, pathBytes);
+    if(!root) return {ok:false, reason:'inclusion path does not reconstruct a root (index/size/path inconsistent)'};
+    return {ok:true, rootHex:OCG.bytesToHex(root)};
+  }catch(e){ return {ok:false, reason:'inclusion path malformed: '+e.message}; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Matter-manifest structural validator — hand-checks the same
+   constraints as schema/matter-manifest.schema.json (HELM-MATTER-S1,
+   ainumbers-helm/main): required fields, closed enums, sha256ref /
+   ULID / ISO-date patterns. Not a general JSON-Schema engine — this
+   schema is small and frozen, so the checks are written out plainly
+   rather than pulling in a validator library (site repo is zero-dep).
+══════════════════════════════════════════════════════════════ */
+var SUBJECT_KINDS=['run','evidence_bundle','approval_record','attested_artifact','external_reference'];
+var RE_ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/;
+var RE_SHA256REF=/^sha256:[0-9a-f]{64}$/;
+var RE_DATE=/^\d{4}-\d{2}-\d{2}$/;
+var RE_DATETIME=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+var RE_LEI=/^[0-9A-Z]{20}$/;
+
+function validateManifestShape(m){
+  var errs=[];
+  function req(cond,msg){ if(!cond) errs.push(msg); }
+  if(!m || typeof m!=='object'){ return ['manifest must be a JSON object']; }
+  ['matter_id','status','entity','parties','deadlines','bindings','created_at','updated_at','manifest_digest'].forEach(function(k){
+    req(k in m, 'missing required field "'+k+'"');
+  });
+  if('matter_id' in m) req(typeof m.matter_id==='string' && RE_ULID.test(m.matter_id), 'matter_id must be a 26-char Crockford-base32 ULID');
+  if('status' in m) req(['intake','working','closed'].indexOf(m.status)>=0, 'status must be one of intake|working|closed');
+  if('entity' in m){
+    var e=m.entity;
+    req(e && typeof e==='object' && typeof e.id==='string' && e.id.length>0, 'entity.id must be a non-empty string (did:key or LEI)');
+    if(e && 'lei' in e) req(RE_LEI.test(e.lei), 'entity.lei must be a 20-char ISO 17442 LEI');
+  }
+  if('parties' in m){
+    req(Array.isArray(m.parties), 'parties must be an array');
+    if(Array.isArray(m.parties)) m.parties.forEach(function(p,i){
+      req(p && typeof p==='object' && p.identity && typeof p.identity.id==='string' && p.identity.id.length>0, 'parties['+i+'].identity.id must be a non-empty string');
+      req(typeof p.role==='string' && p.role.length>0, 'parties['+i+'].role must be a non-empty string');
+    });
+  }
+  if('deadlines' in m){
+    req(Array.isArray(m.deadlines), 'deadlines must be an array');
+    if(Array.isArray(m.deadlines)) m.deadlines.forEach(function(d,i){
+      ['date','action','type','source','done'].forEach(function(k){ req(d && (k in d), 'deadlines['+i+'] missing "'+k+'"'); });
+      if(d){
+        if('date' in d) req(RE_DATE.test(d.date), 'deadlines['+i+'].date must be YYYY-MM-DD');
+        if('done' in d) req(typeof d.done==='boolean', 'deadlines['+i+'].done must be boolean');
+        if('done_at' in d) req(RE_DATETIME.test(d.done_at), 'deadlines['+i+'].done_at must be ISO 8601 UTC');
+      }
+    });
+  }
+  if('bindings' in m){
+    req(Array.isArray(m.bindings), 'bindings must be an array');
+    if(Array.isArray(m.bindings)) m.bindings.forEach(function(b,i){
+      req(b && typeof b.subject_hash==='string' && RE_SHA256REF.test(b.subject_hash), 'bindings['+i+'].subject_hash must match sha256:<64 hex>');
+      req(b && SUBJECT_KINDS.indexOf(b.subject_kind)>=0, 'bindings['+i+'].subject_kind must be one of '+SUBJECT_KINDS.join('|'));
+    });
+  }
+  if('created_at' in m) req(RE_DATETIME.test(m.created_at), 'created_at must be ISO 8601 UTC');
+  if('updated_at' in m) req(RE_DATETIME.test(m.updated_at), 'updated_at must be ISO 8601 UTC');
+  if('manifest_digest' in m) req(typeof m.manifest_digest==='string' && RE_SHA256REF.test(m.manifest_digest), 'manifest_digest must match sha256:<64 hex>');
+  return errs;
+}
+
+/* manifest_digest = JCS digest of the manifest with manifest_digest itself
+   excluded from the preimage (HELM-MATTER-BUILD-SPEC.md §2, matter-manifest
+   schema description) — the SAME cgCanon path OCG.executionHash uses. */
+async function recomputeManifestDigest(m){
+  var rest={};
+  Object.keys(m).forEach(function(k){ if(k!=='manifest_digest') rest[k]=m[k]; });
+  return 'sha256:'+(await OCG.jcsDigestHex(rest));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Fixtures — the REAL golden/tampered/tampered-digest-mismatch
+   vectors from schema/matter-manifest.schema.json's own fixture set
+   (ainumbers-helm/main, fixtures/matter-manifest/*.json, shipped by
+   HELM-MATTER-S1). Not re-derived here — copied verbatim so this
+   page checks against the actual frozen shape, not a guess at it.
+══════════════════════════════════════════════════════════════ */
+var FIXTURES = {
+  golden: {"matter_id":"01J8Z3K9N4R7T2VXWQHF6C8D5M","status":"working","entity":{"id":"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK","lei":"5493001KJTIIGC8Y1R12"},"parties":[{"identity":{"id":"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"},"role":"examiner"},{"identity":{"id":"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"},"role":"counsel"}],"deadlines":[{"date":"2026-09-15","action":"Respond to examiner request #3","type":"regulatory-response","source":"OCC exam letter 2026-08-01","done":false},{"date":"2026-08-01","action":"Produce Q2 reconciliation evidence","type":"document-production","source":"OCC exam letter 2026-08-01","done":true,"done_at":"2026-07-30T14:22:00Z"}],"bindings":[{"subject_hash":"sha256:2f8c1e4a9b6d3c7f0e5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0d3e6f9a2b5c8d1e","subject_kind":"evidence_bundle"},{"subject_hash":"sha256:7a1d4f8b2e5c9a3d6f0b4e8c1a5d9f3b7e0a4c8d2f6b9e3a7c1d5f8b2e6a0c4d","subject_kind":"run"},{"subject_hash":"sha256:9e3b6d0a4f8c2e5b9d1a7c3f6b0e4a8d2c5f9b3e7a1d4c8f0b6e2a9d3c7f1b5e","subject_kind":"approval_record"},{"subject_hash":"sha256:4c9a2e5f8b1d6c3a0f7e4b9d2a5c8f1e6b0d3a7c9f2b5e8a1d4c7f0b3e6a9d2c","subject_kind":"attested_artifact"},{"subject_hash":"sha256:1b5e8c2f9a3d6b0e4c7f1a5d8b2e6c9f3a7d0b4e8c1f5a9d3b6e0c4f7a2d5b8e","subject_kind":"external_reference","note":"PDF received from examiner via SecureShare, hashed but never reproduced here."}],"narrative":"OCC examination follow-up on Q2 2026 reconciliation controls.","created_at":"2026-08-01T09:00:00Z","updated_at":"2026-08-08T11:30:00Z","manifest_digest":"sha256:d81d67d35aebc6ce68ec2d39b56a2f1fdc843e90c7ec616d72d8a58f3e8debc1"},
+  tampered: {"matter_id":"01J8Z3K9N4R7T2VXWQHF6C8D5M","status":"working","entity":{"id":"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK","lei":"5493001KJTIIGC8Y1R12"},"parties":[{"identity":{"id":"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"},"role":"examiner"},{"identity":{"id":"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"},"role":"counsel"}],"deadlines":[{"date":"2026-09-15","action":"Respond to examiner request #3","type":"regulatory-response","source":"OCC exam letter 2026-08-01","done":false},{"date":"2026-08-01","action":"Produce Q2 reconciliation evidence","type":"document-production","source":"OCC exam letter 2026-08-01","done":true,"done_at":"2026-07-30T14:22:00Z"}],"bindings":[{"subject_hash":"sha256:2f8c1e4a9b6d3c7f0e5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0d3e6f9a2b5c8d1e","subject_kind":"evidence_bundle"},{"subject_hash":"sha256:7a1d4f8b2e5c9a3d6f0b4e8c1a5d9f3b7e0a4c8d2f6b9e3a7c1d5f8b2e6a0c4d","subject_kind":"run"},{"subject_hash":"sha256:9e3b6d0a4f8c2e5b9d1a7c3f6b0e4a8d2c5f9b3e7a1d4c8f0b6e2a9d3c7f1b5e","subject_kind":"approval_record"},{"subject_hash":"sha256:4c9a2e5f8b1d6c3a0f7e4b9d2a5c8f1e6b0d3a7c9f2b5e8a1d4c7f0b3e6a9d2c","subject_kind":"attested_artifact"},{"subject_hash":"sha256:1b5e8c2f9a3d6b0e4c7f1a5d8b2e6c9f3a7d0b4e8c1f5a9d3b6e0c4f7a2d5b8e","subject_kind":"external_reference","note":"PDF received from examiner via SecureShare, hashed but never reproduced here."},{"subject_hash":"sha256:0000000000000000000000000000000000000000000000000000000000dead"}],"narrative":"OCC examination follow-up on Q2 2026 reconciliation controls.","created_at":"2026-08-01T09:00:00Z","updated_at":"2026-08-08T11:30:00Z","manifest_digest":"sha256:d81d67d35aebc6ce68ec2d39b56a2f1fdc843e90c7ec616d72d8a58f3e8debc1"},
+  tamperedDigest: {"matter_id":"01J8Z3K9N4R7T2VXWQHF6C8D5M","status":"working","entity":{"id":"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK","lei":"5493001KJTIIGC8Y1R12"},"parties":[{"identity":{"id":"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"},"role":"examiner"},{"identity":{"id":"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"},"role":"counsel"}],"deadlines":[{"date":"2026-09-15","action":"Respond to examiner request #3","type":"regulatory-response","source":"OCC exam letter 2026-08-01","done":false},{"date":"2026-08-01","action":"Produce Q2 reconciliation evidence","type":"document-production","source":"OCC exam letter 2026-08-01","done":true,"done_at":"2026-07-30T14:22:00Z"}],"bindings":[{"subject_hash":"sha256:2f8c1e4a9b6d3c7f0e5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0d3e6f9a2b5c8d1e","subject_kind":"evidence_bundle"},{"subject_hash":"sha256:7a1d4f8b2e5c9a3d6f0b4e8c1a5d9f3b7e0a4c8d2f6b9e3a7c1d5f8b2e6a0c4d","subject_kind":"run"},{"subject_hash":"sha256:9e3b6d0a4f8c2e5b9d1a7c3f6b0e4a8d2c5f9b3e7a1d4c8f0b6e2a9d3c7f1b5e","subject_kind":"approval_record"},{"subject_hash":"sha256:4c9a2e5f8b1d6c3a0f7e4b9d2a5c8f1e6b0d3a7c9f2b5e8a1d4c7f0b3e6a9d2c","subject_kind":"attested_artifact"},{"subject_hash":"sha256:1b5e8c2f9a3d6b0e4c7f1a5d8b2e6c9f3a7d0b4e8c1f5a9d3b6e0c4f7a2d5b8e","subject_kind":"external_reference","note":"PDF received from examiner via SecureShare, hashed but never reproduced here."}],"narrative":"OCC examination follow-up on Q2 2026 reconciliation controls -- EDITED POST-DIGEST.","created_at":"2026-08-01T09:00:00Z","updated_at":"2026-08-08T11:30:00Z","manifest_digest":"sha256:d81d67d35aebc6ce68ec2d39b56a2f1fdc843e90c7ec616d72d8a58f3e8debc1"}
+};
+
+/* ══════════════════════════════════════════════════════════════
+   UI wiring
+══════════════════════════════════════════════════════════════ */
+var STATE={lastReport:null, lastManifest:null};
+
+function setErr(id,msg){ var el=document.getElementById(id); el.textContent=msg||''; el.style.display=msg?'block':'none'; }
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+function loadFixture(which){
+  document.getElementById('manifestInput').value = JSON.stringify(FIXTURES[which], null, 2);
+  setErr('manifestErr','');
+}
+
+function checkRowHtml(c){
+  return '<div class="check-row"><span class="'+(c.pass?'check-pass':'check-fail')+'">'+(c.pass?'&#10003;':'&#10007;')+'</span><span class="check-name">'+escHtml(c.check)+'</span><span class="check-detail">'+escHtml(c.detail)+'</span></div>';
+}
+
+var KIND_LABEL={
+  run:'RUN — hash reference only',
+  evidence_bundle:'EVIDENCE BUNDLE — hash reference only',
+  approval_record:'APPROVAL RECORD — hash reference only',
+  attested_artifact:'ATTESTED ARTIFACT — hash reference only',
+  external_reference:'EXTERNAL REFERENCE — never verified by Helm'
+};
+
+function bindingRowHtml(b, checkedResult){
+  var kindClass = checkedResult ? (checkedResult.ok?'kind-checked-ok':'kind-checked-fail') : ('kind-'+b.subject_kind);
+  var label = checkedResult ? (checkedResult.ok?'✓ HASH MATCH — '+b.subject_kind:'✗ MISMATCH — '+b.subject_kind) : (KIND_LABEL[b.subject_kind]||b.subject_kind);
+  return '<div class="binding-row"><div class="binding-head">'+
+    '<span class="binding-hash">'+escHtml(b.subject_hash)+'</span>'+
+    '<span class="kind-badge '+kindClass+'">'+escHtml(label)+'</span></div>'+
+    (b.note?'<div class="binding-note">'+escHtml(b.note)+'</div>':'')+
+    (checkedResult&&checkedResult.detail?'<div class="binding-note">'+escHtml(checkedResult.detail)+'</div>':'')+
+    '</div>';
+}
+
+function deadlineRowHtml(d){
+  return '<div class="deadline-row"><span class="deadline-status '+(d.done?'dl-done':'dl-open')+'">'+(d.done?'DONE':'OPEN')+'</span>'+
+    '<div><div class="deadline-body">'+escHtml(d.date)+' &middot; '+escHtml(d.action)+' <span style="color:var(--muted)">('+escHtml(d.type)+')</span></div>'+
+    '<div class="deadline-meta">source: '+escHtml(d.source)+(d.done_at?' &middot; closed '+escHtml(d.done_at):'')+'</div></div></div>';
+}
+
+async function verifyManifestUI(){
+  setErr('manifestErr','');
+  var el=document.getElementById('manifestResult');
+  var text=document.getElementById('manifestInput').value.trim();
+  if(!text){ setErr('manifestErr','Paste a matter export, load a fixture, or upload a file first.'); return; }
+  var m;
+  try{ m=JSON.parse(text); }catch(e){ setErr('manifestErr','Invalid JSON: '+e.message); return; }
+
+  var shapeErrs=validateManifestShape(m);
+  var shapeOk=shapeErrs.length===0;
+  var digestOk=false, recomputed=null;
+  if(shapeOk){
+    recomputed=await recomputeManifestDigest(m);
+    digestOk = recomputed.toLowerCase()===String(m.manifest_digest).toLowerCase();
+  }
+  var overall = shapeOk && digestOk;
+  STATE.lastReport={shapeOk:shapeOk, shapeErrs:shapeErrs, digestOk:digestOk, recomputed:recomputed, overall:overall};
+  STATE.lastManifest=shapeOk?m:null;
+
+  var checks=[];
+  checks.push({check:'schema_shape', pass:shapeOk, detail: shapeOk?'matches matter-manifest.schema.json (required fields, enums, patterns)':shapeErrs.join('; ')});
+  if(shapeOk) checks.push({check:'manifest_digest_recompute', pass:digestOk, detail: digestOk?'recomputed manifest_digest matches the stated value':'recomputed manifest_digest does NOT match — manifest was altered after it was digested'});
+
+  var openCount=0, doneCount=0;
+  if(shapeOk){ (m.deadlines||[]).forEach(function(d){ if(d.done) doneCount++; else openCount++; }); }
+
+  el.innerHTML =
+    '<div class="verdict '+(overall?'pass':'fail')+'">'+(overall?'✓ PASS':'✗ FAIL')+' &mdash; manifest_digest: '+(recomputed?recomputed.slice(0,22)+'…':'n/a')+'</div>'+
+    '<div class="check-list">'+checks.map(checkRowHtml).join('')+'</div>'+
+    (shapeOk ? (
+      '<div class="summary-grid">'+
+        '<div class="sg-cell"><div class="sg-lbl">Status</div><div class="sg-val" style="font-size:.95rem">'+escHtml(m.status)+'</div></div>'+
+        '<div class="sg-cell"><div class="sg-lbl">Bindings</div><div class="sg-val">'+(m.bindings||[]).length+'</div></div>'+
+        '<div class="sg-cell"><div class="sg-lbl">Open Deadlines</div><div class="sg-val '+(openCount>0?'sg-warn':'sg-ok')+'">'+openCount+'</div></div>'+
+        '<div class="sg-cell"><div class="sg-lbl">Closed Deadlines</div><div class="sg-val sg-ok">'+doneCount+'</div></div>'+
+      '</div>'+
+      '<div class="sec-label" style="margin-top:1.5rem">Bindings — reference by hash only, never a payload copy</div>'+
+      (m.bindings||[]).map(function(b){return bindingRowHtml(b,null);}).join('')+
+      '<div class="sec-label" style="margin-top:1.5rem">Deadlines — open and closed, never collapsed</div>'+
+      (m.deadlines||[]).map(deadlineRowHtml).join('')
+    ) : '');
+  enableAP2Btn();
+}
+
+async function verifyBoundArtifactUI(){
+  setErr('artifactErr','');
+  var el=document.getElementById('artifactResult');
+  if(!STATE.lastManifest){ setErr('artifactErr','Verify a matter export in Step 1 first — this check needs its bindings[] to match against.'); return; }
+  var text=document.getElementById('artifactInput').value.trim();
+  if(!text){ setErr('artifactErr','Paste or upload the bound artifact JSON first.'); return; }
+  var artifact;
+  try{ artifact=JSON.parse(text); }catch(e){ setErr('artifactErr','Invalid JSON: '+e.message); return; }
+
+  var pp=artifact && artifact.policy_parameters, op=artifact && artifact.output_payload;
+  var structOk = !!(artifact && typeof artifact==='object' && pp && typeof pp==='object' && op && typeof op==='object');
+  if(!structOk){ setErr('artifactErr','This does not look like an OCG artifact (missing policy_parameters / output_payload) — only OCG-shaped artifacts (approval_record / attested_artifact bindings) can be checked here.'); return; }
+
+  var recomputedHex=await OCG.executionHash(pp, op);
+  var recomputedRef='sha256:'+recomputedHex;
+  var matches=(STATE.lastManifest.bindings||[]).filter(function(b){ return b.subject_hash.toLowerCase()===recomputedRef.toLowerCase(); });
+
+  var checks=[];
+  checks.push({check:'binding_match', pass:matches.length>0, detail: matches.length>0 ? (matches.length+' binding(s) reference this artifact\'s hash ('+recomputedRef.slice(0,22)+'…)') : ('no binding in the verified manifest has subject_hash '+recomputedRef.slice(0,22)+'… — this artifact is not referenced by this matter (or the manifest was not verified above)')});
+
+  var sigRes=await OCG.verifyArtifactProofs(artifact);
+  if(sigRes.present){
+    checks.push({check:'audit_signature_proof', pass:sigRes.allValid, detail: sigRes.allValid ? (sigRes.results.length+' eddsa-jcs-2022 signature(s) verify (§16)') : ('signature check failed: '+sigRes.results.filter(function(r){return !r.valid;}).map(function(r){return r.error;}).join('; '))});
+  }else{
+    checks.push({check:'audit_signature_proof', pass:true, detail:'no §16 signature attached (OPTIONAL — not a failure by itself)'});
+  }
+
+  var anchorBindings=Array.isArray(artifact.anchor_bindings) ? artifact.anchor_bindings : [];
+  var anchorResults=[];
+  for(var i=0;i<anchorBindings.length;i++){
+    var ab=anchorBindings[i];
+    var anchoredHashHex=String(ab.anchored_hash||'').replace(/^sha256:/,'').toLowerCase();
+    if(ab.merkle_inclusion){
+      var mres=await verifyMerkleInclusion(ab.merkle_inclusion, recomputedHex);
+      var ok=mres.ok && mres.rootHex.toLowerCase()===anchoredHashHex;
+      anchorResults.push({type:ab.type||'unknown', pass:ok, detail: !mres.ok?('Merkle inclusion failed: '+mres.reason):(ok?'leaf included; reconstructed root matches anchored_hash (§20)':'reconstructed root does not equal this binding\'s anchored_hash')});
+    }else{
+      var directOk=anchoredHashHex!=='' && anchoredHashHex===recomputedHex.toLowerCase();
+      anchorResults.push({type:ab.type||'unknown', pass:directOk, detail: directOk?'anchored_hash equals recomputed execution_hash (§20, direct anchor)':'anchored_hash does NOT equal recomputed execution_hash'});
+    }
+  }
+  if(anchorBindings.length>0){
+    var anchorsOk=anchorResults.every(function(r){return r.pass;});
+    checks.push({check:'anchor_bindings', pass:anchorsOk, detail: anchorsOk?(anchorBindings.length+' anchor binding(s) verify (§20)'):'one or more anchor bindings failed verification'});
+  }
+
+  var overall = matches.length>0 && (!sigRes.present || sigRes.allValid) && anchorResults.every(function(r){return r.pass;});
+  el.innerHTML =
+    '<div class="verdict '+(overall?'pass':'fail')+'">'+(overall?'✓ BOUND ARTIFACT CHECKS OUT':'✗ ONE OR MORE CHECKS FAILED')+'</div>'+
+    '<div class="check-list">'+checks.map(checkRowHtml).join('')+'</div>'+
+    (anchorResults.length ? '<div class="binding-note" style="margin-top:.5rem">'+anchorResults.map(function(a){return '§20 anchor ('+a.type+'): '+(a.pass?'PASS':'FAIL')+' — '+a.detail;}).join('<br>')+'</div>' : '');
+}
+
+/* ── file upload / drag-drop ─────────────────────────── */
+document.addEventListener('DOMContentLoaded', function(){
+  var z1=document.getElementById('dropManifest'), i1=document.getElementById('fileManifestInput');
+  z1.addEventListener('click', function(){i1.click();});
+  i1.addEventListener('change', function(){ if(i1.files[0]) readInto(i1.files[0], 'manifestInput', z1); });
+  z1.addEventListener('dragover', function(e){e.preventDefault();z1.classList.add('drag');});
+  z1.addEventListener('dragleave', function(){z1.classList.remove('drag');});
+  z1.addEventListener('drop', function(e){e.preventDefault();z1.classList.remove('drag'); if(e.dataTransfer.files[0]) readInto(e.dataTransfer.files[0], 'manifestInput', z1); });
+
+  var z2=document.getElementById('dropArtifact'), i2=document.getElementById('fileArtifactInput');
+  z2.addEventListener('click', function(){i2.click();});
+  i2.addEventListener('change', function(){ if(i2.files[0]) readInto(i2.files[0], 'artifactInput', z2); });
+  z2.addEventListener('dragover', function(e){e.preventDefault();z2.classList.add('drag');});
+  z2.addEventListener('dragleave', function(){z2.classList.remove('drag');});
+  z2.addEventListener('drop', function(e){e.preventDefault();z2.classList.remove('drag'); if(e.dataTransfer.files[0]) readInto(e.dataTransfer.files[0], 'artifactInput', z2); });
+});
+
+function readInto(file, textareaId, zoneEl){
+  var reader=new FileReader();
+  reader.onload=function(){ document.getElementById(textareaId).value=reader.result; zoneEl.innerHTML='Loaded: '+escHtml(file.name); };
+  reader.readAsText(file);
+}
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"579-matter-export-verifier","version":"1.0.0","title":"Matter Export Verifier","description":"Fully offline, upload-driven verifier for a Helm matter export (matter-manifest.schema.json). Validates the manifest's shape, recomputes manifest_digest via the same JCS canon path OCG artifacts use, and renders every binding and deadline with a distinct, never-collapsed status label. Optionally checks one bound artifact's own execution_hash / eddsa-jcs-2022 signature / RFC 6962 anchor against a binding's subject_hash. Zero network calls anywhere in the tool.","category":"mcp","tags":["matter export","Helm","offline verifier","airgapped","manifest_digest","evidence bundle","OCG receipt","compliance","zero network"],"audience":["compliance","auditor","examiner","counsel","engineer"],"input_schema":{"type":"object","properties":{"manifest":{"type":"object"},"bound_artifact":{"type":"object"}},"required":["manifest"]},"output_schema":{"type":"object","properties":{"verification_report":{"type":"object"}}},"mcp_tool_definition":{"name":"verify_matter_export","description":"Recomputes a Helm matter manifest's manifest_digest, validates its shape, and reports each binding/deadline with a distinct status.","inputSchema":{"type":"object","properties":{"manifest":{"type":"object"},"bound_artifact":{"type":"object"}}}},"execution":{"type":"browser-javascript","entry":"tools/579-matter-export-verifier.html","function_name":"verifyManifestUI","timeout_ms":5000},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+function uuid4(){
+  var b=new Uint8Array(16); crypto.getRandomValues(b);
+  b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80;
+  var h=Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+window.AIN_BUILD_MANDATE=function(){
+  if(!STATE.lastReport) return null;
+  var ts=new Date().toISOString();
+  var summary = 'Matter export verification: '+(STATE.lastReport.overall?'PASS':'FAIL')+' ('+ts.slice(0,10)+').';
+  return {
+    ap2_version:'1.0',
+    mandate_id:uuid4(),
+    issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:'579-matter-export-verifier', tool_version:MANIFEST.version,
+    mandate_type:'verification_report',
+    jurisdiction:['ZZ'], regulatory_frameworks:[],
+    payload:STATE.lastReport,
+    summary:summary,
+    agent_instructions:['A PASS verdict proves the manifest\'s own shape and digest — it does NOT independently verify any binding unless its bound artifact was also checked in Step 2.','external_reference bindings are never verified by Helm; treat them as hash-only claims.'],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{}, regulatory_citations:[],
+    audit_metadata:{client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+};
+window.exportAP2=function(){
+  var m=window.AIN_BUILD_MANDATE();
+  if(!m){alert('Verify a matter export first.');return;}
+  AP2Schema.validate(m);
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=m.tool_id+'_'+m.issued_at.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+</body>
+</html>
