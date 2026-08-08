@@ -59,6 +59,11 @@ const DOMAIN_ENUM = new Set([
   'Public Finance & Government Payments',
   'SME & Commercial Finance',
   'Sanctions',
+  // PACKS-ASSEMBLE-LAND-2 (2026-08-08): the sec16b-early-warning-pack chain is an insider's
+  // own Section 16(b) short-swing-profit demand-letter recompute — corporate-insider trading
+  // compliance, not a post-trade settlement flow. 'Securities Settlement' would mis-tag it, so
+  // a genuinely new category is added here first, per this file's own convention above.
+  'Securities Compliance & Corporate Governance',
   'Securities Settlement',
   'SOX 404 / ICFR',
   'Settlement Discipline',
