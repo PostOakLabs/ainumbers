@@ -1,0 +1,83 @@
+{
+  "tool_id": "art-588-docket-deadline-sweep",
+  "version": "1.0.0",
+  "title": "Docket Deadline Sweep",
+  "description": "Sweeps a caller-declared docket -- a flat list of {date, action, type, source, done} deadline records, the structured shape practitioners already keep in a spreadsheet, calendar, or practice-management export -- against a caller-declared as-of date, and bands every record OVERDUE, DUE_SOON, SCHEDULED, DONE, or INDETERMINATE. Shows the weekend/holiday roll derivation step by step for each record's actual due date, using roll rules (roll_weekends, roll_direction, holiday_dates) that are always declared caller inputs with labeled defaults, never an encoded jurisdiction rules table -- baking one in would be a standing-data-duty trap and UPL-adjacent. FRCP 6(a)(1)(C) is cited in-page only as a dated, structural EXAMPLE of what a roll rule looks like, never as an encoded ruleset for any jurisdiction. A record marked done:true is retained and reported DONE, never dropped -- the sweep is a receipt over the full declared docket at one as-of moment, not a filtered view of what remains open. Flags any two records that declare the same action on different dates as a conflict worth a human look. The due-soon banding threshold is a declared input with a labeled default (7 days). Gate policy is review_required when any record is OVERDUE or INDETERMINATE or a conflict exists, otherwise auto_pass; did_not_run when the as-of date, the sweep's own anchor, is absent -- it is never defaulted. Not legal advice, not a calendaring system of record, and not a reminder or scheduling service. Attribution: deadline-record shape design borrow from CounselOS's structured deadline tracker (eigenlegal/counsel-os, MIT).",
+  "category": "reporting-reconciliation-and-source-data-quality",
+  "tags": ["compliance_control", "legal-ops", "docket-deadlines", "mcp:sweep_docket_deadlines"],
+  "input_schema": { "type": "object" },
+  "mcp_tool_definition": {
+    "name": "sweep_docket_deadlines",
+    "description": "Sweeps a caller-declared docket of deadline records against an as-of date, banding each OVERDUE | DUE_SOON | SCHEDULED | DONE | INDETERMINATE with a step-shown weekend/holiday roll derivation and duplicate-action conflict detection.",
+    "inputSchema": { "type": "object" }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-588-docket-deadline-sweep.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "decision": {
+        "type": "object",
+        "properties": {
+          "gate_policy": { "type": "string" },
+          "execution_state": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      },
+      "as_of_date": { "type": "string" },
+      "due_soon_days_threshold": { "type": "integer" },
+      "due_soon_days_threshold_is_default": { "type": "boolean" },
+      "roll_rule": {
+        "type": "object",
+        "properties": {
+          "roll_weekends": { "type": "boolean" },
+          "roll_weekends_is_default": { "type": "boolean" },
+          "roll_direction": { "type": "string" },
+          "roll_direction_is_default": { "type": "boolean" },
+          "holiday_dates": { "type": "array" }
+        }
+      },
+      "record_count": { "type": "integer" },
+      "records": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "record_id": { "type": "string" },
+            "date": { "type": "string" },
+            "action": { "type": "string" },
+            "type": { "type": "string" },
+            "source": { "type": "string" },
+            "done": { "type": "boolean" },
+            "status": { "type": "string" },
+            "rolled_date": { "type": "string" },
+            "days_remaining": { "type": "integer" },
+            "roll": { "type": "object" }
+          }
+        }
+      },
+      "conflicts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string" },
+            "record_ids": { "type": "array" },
+            "dates": { "type": "array" }
+          }
+        }
+      },
+      "sweep_summary": { "type": "object" },
+      "rejected_inputs": { "type": "array" },
+      "scope_note": { "type": "string" },
+      "clause_note": { "type": "string" },
+      "not_legal_advice_note": { "type": "string" }
+    }
+  },
+  "source": "authored by LEGALOPS-DOCKET-1, output_schema derived by running the kernel's own compute() directly against all 3 vectors in chaingraph/kernels/fixtures/art-588-docket-deadline-sweep.fixtures.json; category/tags follow the pattern of the closest sibling shape, art-566-iolta-three-way-reconciliation.manifest.json (reporting-reconciliation-and-source-data-quality)"
+}

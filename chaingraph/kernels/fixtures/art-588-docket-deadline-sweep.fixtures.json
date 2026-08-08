@@ -1,0 +1,157 @@
+{
+  "tool_id": "art-588-docket-deadline-sweep",
+  "note": "Vector 1 sweeps four records with a declared weekend-roll + holiday-roll rule (roll_weekends true, one declared holiday): a Saturday-falling filing deadline rolls through the declared holiday to the next business day, exercising the step-shown roll transcript, and a done:true record is retained and reported DONE rather than dropped -- auto_pass, no conflicts. Vector 2 is a GENUINE conflict + overdue case: two records declare the same action ('Response to motion to compel') on different dates, which the conflict detector flags, alongside two independently overdue records -- review_required. Vector 3 omits as_of_date entirely and exercises the did_not_run execution state (the sweep's own anchor is never defaulted). Dates are synthetic. golden_hash computed at fixture generation time via executionHash(policy_parameters, output_payload).",
+  "vectors": [
+    {
+      "name": "weekend-and-holiday-roll-with-done-record-auto-pass",
+      "policy_parameters": {
+        "as_of_date": "2026-08-08",
+        "due_soon_days_threshold": 7,
+        "roll_rule": { "roll_weekends": true, "roll_direction": "forward", "holiday_dates": ["2026-08-10"] },
+        "records": [
+          { "date": "2026-08-08", "action": "File answer", "type": "filing", "source": "court order", "done": false },
+          { "date": "2026-08-09", "action": "Serve discovery responses", "type": "discovery", "source": "FRCP 26", "done": false },
+          { "date": "2026-07-01", "action": "Initial disclosures", "type": "discovery", "source": "FRCP 26(a)", "done": true },
+          { "date": "2026-09-15", "action": "Pretrial conference", "type": "hearing", "source": "scheduling order", "done": false }
+        ]
+      },
+      "output_payload": {
+        "decision": { "gate_policy": "auto_pass", "execution_state": "ran", "reason": null },
+        "as_of_date": "2026-08-08",
+        "due_soon_days_threshold": 7,
+        "due_soon_days_threshold_is_default": false,
+        "roll_rule": {
+          "roll_weekends": true,
+          "roll_weekends_is_default": false,
+          "roll_direction": "forward",
+          "roll_direction_is_default": false,
+          "holiday_dates": ["2026-08-10"]
+        },
+        "record_count": 4,
+        "records": [
+          {
+            "record_id": "rec-0", "date": "2026-08-08", "action": "File answer", "type": "filing", "source": "court order", "done": false,
+            "status": "DUE_SOON", "rolled_date": "2026-08-11", "days_remaining": 3,
+            "roll": { "rolled": true, "steps": [
+              { "checked_date": "2026-08-08", "is_weekend": true, "is_holiday": false, "rolled": true },
+              { "checked_date": "2026-08-09", "is_weekend": true, "is_holiday": false, "rolled": true },
+              { "checked_date": "2026-08-10", "is_weekend": false, "is_holiday": true, "rolled": true },
+              { "checked_date": "2026-08-11", "is_weekend": false, "is_holiday": false, "rolled": false }
+            ] }
+          },
+          {
+            "record_id": "rec-1", "date": "2026-08-09", "action": "Serve discovery responses", "type": "discovery", "source": "FRCP 26", "done": false,
+            "status": "DUE_SOON", "rolled_date": "2026-08-11", "days_remaining": 3,
+            "roll": { "rolled": true, "steps": [
+              { "checked_date": "2026-08-09", "is_weekend": true, "is_holiday": false, "rolled": true },
+              { "checked_date": "2026-08-10", "is_weekend": false, "is_holiday": true, "rolled": true },
+              { "checked_date": "2026-08-11", "is_weekend": false, "is_holiday": false, "rolled": false }
+            ] }
+          },
+          {
+            "record_id": "rec-2", "date": "2026-07-01", "action": "Initial disclosures", "type": "discovery", "source": "FRCP 26(a)", "done": true,
+            "status": "DONE", "rolled_date": "2026-07-01", "days_remaining": -38,
+            "roll": { "rolled": false, "steps": [
+              { "checked_date": "2026-07-01", "is_weekend": false, "is_holiday": false, "rolled": false }
+            ] }
+          },
+          {
+            "record_id": "rec-3", "date": "2026-09-15", "action": "Pretrial conference", "type": "hearing", "source": "scheduling order", "done": false,
+            "status": "SCHEDULED", "rolled_date": "2026-09-15", "days_remaining": 38,
+            "roll": { "rolled": false, "steps": [
+              { "checked_date": "2026-09-15", "is_weekend": false, "is_holiday": false, "rolled": false }
+            ] }
+          }
+        ],
+        "conflicts": [],
+        "sweep_summary": {
+          "as_of_date": "2026-08-08", "record_count": 4, "overdue_count": 0, "due_soon_count": 2,
+          "scheduled_count": 1, "done_count": 1, "indeterminate_count": 0, "conflict_count": 0
+        },
+        "rejected_inputs": [],
+        "scope_note": "Recomputes bands and roll derivations over a caller-declared snapshot of deadline records at one as-of moment. Does not source, generate, or independently verify a deadline; every record and the as-of date are caller-declared inputs. Not a calendaring system of record and not a reminder or scheduling service.",
+        "clause_note": "FRCP 6(a)(1)(C) (computing time: if the last day is a Saturday, Sunday, or legal holiday, the period continues to run until the next day that is not one) is cited here as a dated, structural EXAMPLE of what a roll rule looks like. This kernel does not encode FRCP 6 or any jurisdiction’s current computation-of-time rule -- roll_weekends, roll_direction, and holiday_dates are declared inputs every time.",
+        "not_legal_advice_note": "Not legal advice. Not a calendaring system of record. Does not send reminders or perform scheduling."
+      },
+      "golden_hash": "4a06f89fbce443b369d6d013132f4b24be73d98e544e4c19830f51f669348463"
+    },
+    {
+      "name": "duplicate-action-conflict-plus-overdue-review-required",
+      "policy_parameters": {
+        "as_of_date": "2026-08-08",
+        "due_soon_days_threshold": 5,
+        "roll_rule": { "roll_weekends": false, "roll_direction": "forward", "holiday_dates": [] },
+        "records": [
+          { "date": "2026-08-01", "action": "Response to motion to compel", "type": "filing", "source": "local rule 7.1", "done": false },
+          { "date": "2026-08-20", "action": "Response to motion to compel", "type": "filing", "source": "opposing counsel email", "done": false },
+          { "date": "2026-07-15", "action": "Expert disclosure", "type": "discovery", "source": "scheduling order", "done": false }
+        ]
+      },
+      "output_payload": {
+        "decision": { "gate_policy": "review_required", "execution_state": "ran", "reason": null },
+        "as_of_date": "2026-08-08",
+        "due_soon_days_threshold": 5,
+        "due_soon_days_threshold_is_default": false,
+        "roll_rule": {
+          "roll_weekends": false,
+          "roll_weekends_is_default": false,
+          "roll_direction": "forward",
+          "roll_direction_is_default": false,
+          "holiday_dates": []
+        },
+        "record_count": 3,
+        "records": [
+          {
+            "record_id": "rec-0", "date": "2026-08-01", "action": "Response to motion to compel", "type": "filing", "source": "local rule 7.1", "done": false,
+            "status": "OVERDUE", "rolled_date": "2026-08-01", "days_remaining": -7,
+            "roll": { "rolled": false, "steps": [ { "checked_date": "2026-08-01", "is_weekend": true, "is_holiday": false, "rolled": false } ] }
+          },
+          {
+            "record_id": "rec-1", "date": "2026-08-20", "action": "Response to motion to compel", "type": "filing", "source": "opposing counsel email", "done": false,
+            "status": "SCHEDULED", "rolled_date": "2026-08-20", "days_remaining": 12,
+            "roll": { "rolled": false, "steps": [ { "checked_date": "2026-08-20", "is_weekend": false, "is_holiday": false, "rolled": false } ] }
+          },
+          {
+            "record_id": "rec-2", "date": "2026-07-15", "action": "Expert disclosure", "type": "discovery", "source": "scheduling order", "done": false,
+            "status": "OVERDUE", "rolled_date": "2026-07-15", "days_remaining": -24,
+            "roll": { "rolled": false, "steps": [ { "checked_date": "2026-07-15", "is_weekend": false, "is_holiday": false, "rolled": false } ] }
+          }
+        ],
+        "conflicts": [
+          { "action": "response to motion to compel", "record_ids": ["rec-0", "rec-1"], "dates": ["2026-08-01", "2026-08-20"] }
+        ],
+        "sweep_summary": {
+          "as_of_date": "2026-08-08", "record_count": 3, "overdue_count": 2, "due_soon_count": 0,
+          "scheduled_count": 1, "done_count": 0, "indeterminate_count": 0, "conflict_count": 1
+        },
+        "rejected_inputs": [],
+        "scope_note": "Recomputes bands and roll derivations over a caller-declared snapshot of deadline records at one as-of moment. Does not source, generate, or independently verify a deadline; every record and the as-of date are caller-declared inputs. Not a calendaring system of record and not a reminder or scheduling service.",
+        "clause_note": "FRCP 6(a)(1)(C) (computing time: if the last day is a Saturday, Sunday, or legal holiday, the period continues to run until the next day that is not one) is cited here as a dated, structural EXAMPLE of what a roll rule looks like. This kernel does not encode FRCP 6 or any jurisdiction’s current computation-of-time rule -- roll_weekends, roll_direction, and holiday_dates are declared inputs every time.",
+        "not_legal_advice_note": "Not legal advice. Not a calendaring system of record. Does not send reminders or perform scheduling."
+      },
+      "golden_hash": "d5fd33d957150081edc901c1cdd41bd3d9f74888c693a39fc88b097e0201a44f"
+    },
+    {
+      "name": "as-of-date-not-declared-did-not-run",
+      "policy_parameters": {
+        "records": [ { "date": "2026-08-08", "action": "x" } ]
+      },
+      "output_payload": {
+        "decision": { "gate_policy": "review_required", "execution_state": "did_not_run", "reason": "as_of_date_not_declared" },
+        "as_of_date": null,
+        "due_soon_days_threshold": null,
+        "due_soon_days_threshold_is_default": null,
+        "roll_rule": null,
+        "record_count": 0,
+        "records": [],
+        "conflicts": [],
+        "sweep_summary": null,
+        "rejected_inputs": [ { "where": "as_of_date", "reason": "absent or not YYYY-MM-DD", "supplied": null } ],
+        "scope_note": "Recomputes bands and roll derivations over a caller-declared snapshot of deadline records at one as-of moment. Does not source, generate, or independently verify a deadline; every record and the as-of date are caller-declared inputs. Not a calendaring system of record and not a reminder or scheduling service.",
+        "clause_note": "FRCP 6(a)(1)(C) (computing time: if the last day is a Saturday, Sunday, or legal holiday, the period continues to run until the next day that is not one) is cited here as a dated, structural EXAMPLE of what a roll rule looks like. This kernel does not encode FRCP 6 or any jurisdiction’s current computation-of-time rule -- roll_weekends, roll_direction, and holiday_dates are declared inputs every time.",
+        "not_legal_advice_note": "Not legal advice. Not a calendaring system of record. Does not send reminders or perform scheduling."
+      },
+      "golden_hash": "5ec5b18ea07722077ab1ce0530862dc8691e6a5d8023bbc4731a3010f39aceb7"
+    }
+  ]
+}
