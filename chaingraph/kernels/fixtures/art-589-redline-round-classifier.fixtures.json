@@ -1,0 +1,851 @@
+{
+  "tool_id": "art-589-redline-round-classifier",
+  "note": "golden_hash filled by golden-parity.test.mjs --update; output_payload verified against kernel compute() directly. base_2round_all_five_states exercises all five classification states (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) in one round. round1_root/round2_linked/round3_reverted_to_baseline are a genuine 3-round hash chain (round2_linked declares round1_root's real execution_hash as prior_round_digest; round3 declares round2's) -- see art-589's own kernel test harness output for the tamper-detection proof (a tampered round2 output_payload recomputes to a different hash than round3 declared, and verifyRoundChain() reports valid:false, break_at_index:1). The remaining vectors cover the INDETERMINATE guard paths: no segments declared, round number missing, round>1 with no/malformed prior digest declared, round 1 wrongly declaring a prior digest, and a segment missing its required segment_id (rejected, not silently dropped).",
+  "vectors": [
+    {
+      "name": "base_2round_all_five_states",
+      "description": "One round comparison exercising ACCEPTED (S1, prior text carried forward unchanged), REVERTED (S2, current text matches baseline after having been modified in the prior round), MODIFIED (S3, a further edit beyond both baseline and prior), NEW (S4, no prior text declared), and DELETED (S5, no current text declared).",
+      "policy_parameters": {
+        "document_id": "msa-2026-acme",
+        "round": {
+          "number": 2,
+          "label": "Round 2"
+        },
+        "prior_round_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "segments": [
+          {
+            "segment_id": "S1-payment-terms",
+            "baseline_text": "Payment is due within 30 days of invoice.",
+            "prior_text": "Payment is due within 45 days of invoice.",
+            "current_text": "Payment is due within 45 days of invoice."
+          },
+          {
+            "segment_id": "S2-liability-cap",
+            "baseline_text": "Liability is capped at fees paid in the prior 12 months.",
+            "prior_text": "Liability is capped at 2x fees paid in the prior 12 months.",
+            "current_text": "Liability is capped at fees paid in the prior 12 months."
+          },
+          {
+            "segment_id": "S3-termination",
+            "baseline_text": "Either party may terminate for convenience on 30 days notice.",
+            "prior_text": "Either party may terminate for convenience on 60 days notice.",
+            "current_text": "Either party may terminate for convenience on 90 days notice with written approval."
+          },
+          {
+            "segment_id": "S4-data-processing",
+            "baseline_text": null,
+            "prior_text": null,
+            "current_text": "Vendor will process personal data only as instructed by Customer."
+          },
+          {
+            "segment_id": "S5-arbitration",
+            "baseline_text": "Disputes are resolved by binding arbitration in Delaware.",
+            "prior_text": "Disputes are resolved by binding arbitration in Delaware.",
+            "current_text": null
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "CLASSIFIED",
+        "reason": null,
+        "round_summary": {
+          "document_id": "msa-2026-acme",
+          "round_number": 2,
+          "round_label": "Round 2",
+          "total_segments": 5,
+          "changed_count": 4,
+          "accepted_count": 1,
+          "reverted_count": 1,
+          "modified_count": 1,
+          "new_count": 1,
+          "deleted_count": 1
+        },
+        "round_chain": {
+          "round_number": 2,
+          "prior_round_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "status": "LINKED"
+        },
+        "classifications": [
+          {
+            "segment_id": "S1-payment-terms",
+            "classification": "ACCEPTED",
+            "baseline_text": "Payment is due within 30 days of invoice.",
+            "prior_text": "Payment is due within 45 days of invoice.",
+            "current_text": "Payment is due within 45 days of invoice.",
+            "changed": false
+          },
+          {
+            "segment_id": "S2-liability-cap",
+            "classification": "REVERTED",
+            "baseline_text": "Liability is capped at fees paid in the prior 12 months.",
+            "prior_text": "Liability is capped at 2x fees paid in the prior 12 months.",
+            "current_text": "Liability is capped at fees paid in the prior 12 months.",
+            "changed": true,
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Liability is capped at "
+              },
+              {
+                "op": "delete",
+                "text": "2x "
+              },
+              {
+                "op": "equal",
+                "text": "fees paid in the prior 12 months."
+              }
+            ]
+          },
+          {
+            "segment_id": "S3-termination",
+            "classification": "MODIFIED",
+            "baseline_text": "Either party may terminate for convenience on 30 days notice.",
+            "prior_text": "Either party may terminate for convenience on 60 days notice.",
+            "current_text": "Either party may terminate for convenience on 90 days notice with written approval.",
+            "changed": true,
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Either party may terminate for convenience on "
+              },
+              {
+                "op": "delete",
+                "text": "60"
+              },
+              {
+                "op": "insert",
+                "text": "90"
+              },
+              {
+                "op": "equal",
+                "text": " days "
+              },
+              {
+                "op": "delete",
+                "text": "notice."
+              },
+              {
+                "op": "insert",
+                "text": "notice with written approval."
+              }
+            ]
+          },
+          {
+            "segment_id": "S4-data-processing",
+            "classification": "NEW",
+            "baseline_text": null,
+            "prior_text": null,
+            "current_text": "Vendor will process personal data only as instructed by Customer.",
+            "changed": true,
+            "diff": [
+              {
+                "op": "insert",
+                "text": "Vendor will process personal data only as instructed by Customer."
+              }
+            ]
+          },
+          {
+            "segment_id": "S5-arbitration",
+            "classification": "DELETED",
+            "baseline_text": "Disputes are resolved by binding arbitration in Delaware.",
+            "prior_text": "Disputes are resolved by binding arbitration in Delaware.",
+            "current_text": null,
+            "changed": true,
+            "diff": [
+              {
+                "op": "delete",
+                "text": "Disputes are resolved by binding arbitration in Delaware."
+              }
+            ]
+          }
+        ],
+        "diff_transcript": [
+          {
+            "segment_id": "S2-liability-cap",
+            "classification": "REVERTED",
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Liability is capped at "
+              },
+              {
+                "op": "delete",
+                "text": "2x "
+              },
+              {
+                "op": "equal",
+                "text": "fees paid in the prior 12 months."
+              }
+            ]
+          },
+          {
+            "segment_id": "S3-termination",
+            "classification": "MODIFIED",
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Either party may terminate for convenience on "
+              },
+              {
+                "op": "delete",
+                "text": "60"
+              },
+              {
+                "op": "insert",
+                "text": "90"
+              },
+              {
+                "op": "equal",
+                "text": " days "
+              },
+              {
+                "op": "delete",
+                "text": "notice."
+              },
+              {
+                "op": "insert",
+                "text": "notice with written approval."
+              }
+            ]
+          },
+          {
+            "segment_id": "S4-data-processing",
+            "classification": "NEW",
+            "diff": [
+              {
+                "op": "insert",
+                "text": "Vendor will process personal data only as instructed by Customer."
+              }
+            ]
+          },
+          {
+            "segment_id": "S5-arbitration",
+            "classification": "DELETED",
+            "diff": [
+              {
+                "op": "delete",
+                "text": "Disputes are resolved by binding arbitration in Delaware."
+              }
+            ]
+          }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "b5afce38311206264cfb00f63369b3879a6f9dad0a9bd2826df6e98640aa24b2"
+    },
+    {
+      "name": "round1_root",
+      "description": "First round of a 3-round hash chain, both segments NEW (no baseline document exists yet). No prior_round_digest declared, chain root. This artifact's own execution_hash is what round2_linked declares as its prior_round_digest.",
+      "policy_parameters": {
+        "document_id": "nda-2026-globex",
+        "round": {
+          "number": 1,
+          "label": "Round 1"
+        },
+        "prior_round_digest": null,
+        "segments": [
+          {
+            "segment_id": "C1-confidentiality",
+            "baseline_text": null,
+            "prior_text": null,
+            "current_text": "Confidential information may be retained for 3 years after termination."
+          },
+          {
+            "segment_id": "C2-governing-law",
+            "baseline_text": null,
+            "prior_text": null,
+            "current_text": "This agreement is governed by the laws of New York."
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "CLASSIFIED",
+        "reason": null,
+        "round_summary": {
+          "document_id": "nda-2026-globex",
+          "round_number": 1,
+          "round_label": "Round 1",
+          "total_segments": 2,
+          "changed_count": 2,
+          "accepted_count": 0,
+          "reverted_count": 0,
+          "modified_count": 0,
+          "new_count": 2,
+          "deleted_count": 0
+        },
+        "round_chain": {
+          "round_number": 1,
+          "prior_round_digest": null,
+          "status": "ROOT"
+        },
+        "classifications": [
+          {
+            "segment_id": "C1-confidentiality",
+            "classification": "NEW",
+            "baseline_text": null,
+            "prior_text": null,
+            "current_text": "Confidential information may be retained for 3 years after termination.",
+            "changed": true,
+            "diff": [
+              {
+                "op": "insert",
+                "text": "Confidential information may be retained for 3 years after termination."
+              }
+            ]
+          },
+          {
+            "segment_id": "C2-governing-law",
+            "classification": "NEW",
+            "baseline_text": null,
+            "prior_text": null,
+            "current_text": "This agreement is governed by the laws of New York.",
+            "changed": true,
+            "diff": [
+              {
+                "op": "insert",
+                "text": "This agreement is governed by the laws of New York."
+              }
+            ]
+          }
+        ],
+        "diff_transcript": [
+          {
+            "segment_id": "C1-confidentiality",
+            "classification": "NEW",
+            "diff": [
+              {
+                "op": "insert",
+                "text": "Confidential information may be retained for 3 years after termination."
+              }
+            ]
+          },
+          {
+            "segment_id": "C2-governing-law",
+            "classification": "NEW",
+            "diff": [
+              {
+                "op": "insert",
+                "text": "This agreement is governed by the laws of New York."
+              }
+            ]
+          }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "971b3b5d7eb1a26454f69526eb6f9383e1341f5bc355db9e662d45bd78a11ad1"
+    },
+    {
+      "name": "round2_linked",
+      "description": "Second round of the chain. prior_round_digest is the REAL execution_hash of round1_root's own {policy_parameters, output_payload} above -- verifiable by recomputing executionHash() over round1_root's vector and comparing to this vector's policy_parameters.prior_round_digest.",
+      "policy_parameters": {
+        "document_id": "nda-2026-globex",
+        "round": {
+          "number": 2,
+          "label": "Round 2"
+        },
+        "prior_round_digest": "971b3b5d7eb1a26454f69526eb6f9383e1341f5bc355db9e662d45bd78a11ad1",
+        "segments": [
+          {
+            "segment_id": "C1-confidentiality",
+            "baseline_text": "Confidential information may be retained for 3 years after termination.",
+            "prior_text": "Confidential information may be retained for 3 years after termination.",
+            "current_text": "Confidential information may be retained for 1 year after termination."
+          },
+          {
+            "segment_id": "C2-governing-law",
+            "baseline_text": "This agreement is governed by the laws of New York.",
+            "prior_text": "This agreement is governed by the laws of New York.",
+            "current_text": "This agreement is governed by the laws of New York."
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "CLASSIFIED",
+        "reason": null,
+        "round_summary": {
+          "document_id": "nda-2026-globex",
+          "round_number": 2,
+          "round_label": "Round 2",
+          "total_segments": 2,
+          "changed_count": 1,
+          "accepted_count": 1,
+          "reverted_count": 0,
+          "modified_count": 1,
+          "new_count": 0,
+          "deleted_count": 0
+        },
+        "round_chain": {
+          "round_number": 2,
+          "prior_round_digest": "971b3b5d7eb1a26454f69526eb6f9383e1341f5bc355db9e662d45bd78a11ad1",
+          "status": "LINKED"
+        },
+        "classifications": [
+          {
+            "segment_id": "C1-confidentiality",
+            "classification": "MODIFIED",
+            "baseline_text": "Confidential information may be retained for 3 years after termination.",
+            "prior_text": "Confidential information may be retained for 3 years after termination.",
+            "current_text": "Confidential information may be retained for 1 year after termination.",
+            "changed": true,
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Confidential information may be retained for "
+              },
+              {
+                "op": "delete",
+                "text": "3"
+              },
+              {
+                "op": "insert",
+                "text": "1"
+              },
+              {
+                "op": "equal",
+                "text": " "
+              },
+              {
+                "op": "delete",
+                "text": "years"
+              },
+              {
+                "op": "insert",
+                "text": "year"
+              },
+              {
+                "op": "equal",
+                "text": " after termination."
+              }
+            ]
+          },
+          {
+            "segment_id": "C2-governing-law",
+            "classification": "ACCEPTED",
+            "baseline_text": "This agreement is governed by the laws of New York.",
+            "prior_text": "This agreement is governed by the laws of New York.",
+            "current_text": "This agreement is governed by the laws of New York.",
+            "changed": false
+          }
+        ],
+        "diff_transcript": [
+          {
+            "segment_id": "C1-confidentiality",
+            "classification": "MODIFIED",
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Confidential information may be retained for "
+              },
+              {
+                "op": "delete",
+                "text": "3"
+              },
+              {
+                "op": "insert",
+                "text": "1"
+              },
+              {
+                "op": "equal",
+                "text": " "
+              },
+              {
+                "op": "delete",
+                "text": "years"
+              },
+              {
+                "op": "insert",
+                "text": "year"
+              },
+              {
+                "op": "equal",
+                "text": " after termination."
+              }
+            ]
+          }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "4eb830eda1bd494769ce08fb992412242af72ee3f6cd09dbde3b3dd23cd25d8a"
+    },
+    {
+      "name": "round3_reverted_to_baseline",
+      "description": "Third round of the chain, prior_round_digest is round2_linked's REAL execution_hash. C1 goes back to the original baseline text after having been modified in round 2, so classifies REVERTED. Demonstrates the full chain a verifier walks: round3's declared prior_round_digest must equal executionHash(round2_linked.policy_parameters, round2_linked.output_payload) recomputed from round2's OWN content -- see verifyRoundChain() in the kernel, and its tamper test in the WU report (round2's output_payload mutated post-hoc no longer reproduces the hash round3 committed to, so the chain check FAILS at round2 with valid:false, break_at_index:1).",
+      "policy_parameters": {
+        "document_id": "nda-2026-globex",
+        "round": {
+          "number": 3,
+          "label": "Round 3"
+        },
+        "prior_round_digest": "4eb830eda1bd494769ce08fb992412242af72ee3f6cd09dbde3b3dd23cd25d8a",
+        "segments": [
+          {
+            "segment_id": "C1-confidentiality",
+            "baseline_text": "Confidential information may be retained for 3 years after termination.",
+            "prior_text": "Confidential information may be retained for 1 year after termination.",
+            "current_text": "Confidential information may be retained for 3 years after termination."
+          },
+          {
+            "segment_id": "C2-governing-law",
+            "baseline_text": "This agreement is governed by the laws of New York.",
+            "prior_text": "This agreement is governed by the laws of New York.",
+            "current_text": "This agreement is governed by the laws of New York."
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "CLASSIFIED",
+        "reason": null,
+        "round_summary": {
+          "document_id": "nda-2026-globex",
+          "round_number": 3,
+          "round_label": "Round 3",
+          "total_segments": 2,
+          "changed_count": 1,
+          "accepted_count": 1,
+          "reverted_count": 1,
+          "modified_count": 0,
+          "new_count": 0,
+          "deleted_count": 0
+        },
+        "round_chain": {
+          "round_number": 3,
+          "prior_round_digest": "4eb830eda1bd494769ce08fb992412242af72ee3f6cd09dbde3b3dd23cd25d8a",
+          "status": "LINKED"
+        },
+        "classifications": [
+          {
+            "segment_id": "C1-confidentiality",
+            "classification": "REVERTED",
+            "baseline_text": "Confidential information may be retained for 3 years after termination.",
+            "prior_text": "Confidential information may be retained for 1 year after termination.",
+            "current_text": "Confidential information may be retained for 3 years after termination.",
+            "changed": true,
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Confidential information may be retained for "
+              },
+              {
+                "op": "delete",
+                "text": "1"
+              },
+              {
+                "op": "insert",
+                "text": "3"
+              },
+              {
+                "op": "equal",
+                "text": " "
+              },
+              {
+                "op": "delete",
+                "text": "year"
+              },
+              {
+                "op": "insert",
+                "text": "years"
+              },
+              {
+                "op": "equal",
+                "text": " after termination."
+              }
+            ]
+          },
+          {
+            "segment_id": "C2-governing-law",
+            "classification": "ACCEPTED",
+            "baseline_text": "This agreement is governed by the laws of New York.",
+            "prior_text": "This agreement is governed by the laws of New York.",
+            "current_text": "This agreement is governed by the laws of New York.",
+            "changed": false
+          }
+        ],
+        "diff_transcript": [
+          {
+            "segment_id": "C1-confidentiality",
+            "classification": "REVERTED",
+            "diff": [
+              {
+                "op": "equal",
+                "text": "Confidential information may be retained for "
+              },
+              {
+                "op": "delete",
+                "text": "1"
+              },
+              {
+                "op": "insert",
+                "text": "3"
+              },
+              {
+                "op": "equal",
+                "text": " "
+              },
+              {
+                "op": "delete",
+                "text": "year"
+              },
+              {
+                "op": "insert",
+                "text": "years"
+              },
+              {
+                "op": "equal",
+                "text": " after termination."
+              }
+            ]
+          }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "ad76037dc93a4564a63d42967260b50f0b44ef57e97bb8b8a3abf65a3c9c9036"
+    },
+    {
+      "name": "indeterminate_no_segments",
+      "description": "Round declared but zero segments -- cannot classify anything, INDETERMINATE rather than a silent empty pass.",
+      "policy_parameters": {
+        "document_id": "msa-2026-acme",
+        "round": {
+          "number": 1
+        },
+        "segments": []
+      },
+      "output_payload": {
+        "verdict": "INDETERMINATE",
+        "reason": "no_segments_declared",
+        "round_summary": {
+          "document_id": "msa-2026-acme",
+          "round_number": 1,
+          "round_label": null,
+          "total_segments": 0,
+          "changed_count": 0,
+          "accepted_count": 0,
+          "reverted_count": 0,
+          "modified_count": 0,
+          "new_count": 0,
+          "deleted_count": 0
+        },
+        "round_chain": {
+          "round_number": 1,
+          "prior_round_digest": null,
+          "status": "ROOT"
+        },
+        "classifications": [],
+        "diff_transcript": [],
+        "rejected_inputs": [],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "6a5bee4a64759303fdbd7dc090aec7886d20d2992235c3eedf596e95faf70cf2"
+    },
+    {
+      "name": "indeterminate_missing_prior_digest",
+      "description": "Round 2 declared with no prior_round_digest at all -- the chain has a gap, so the round is refused rather than silently treated as a root.",
+      "policy_parameters": {
+        "document_id": "x",
+        "round": {
+          "number": 2
+        },
+        "segments": [
+          {
+            "segment_id": "A",
+            "prior_text": "x",
+            "current_text": "y"
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "INDETERMINATE",
+        "reason": "prior_round_digest_required_for_round_gt_1",
+        "round_summary": {
+          "document_id": "x",
+          "round_number": 2,
+          "round_label": null,
+          "total_segments": 1,
+          "changed_count": 1,
+          "accepted_count": 0,
+          "reverted_count": 0,
+          "modified_count": 1,
+          "new_count": 0,
+          "deleted_count": 0
+        },
+        "round_chain": {
+          "round_number": 2,
+          "prior_round_digest": null,
+          "status": "REJECTED"
+        },
+        "classifications": [
+          {
+            "segment_id": "A",
+            "classification": "MODIFIED",
+            "baseline_text": null,
+            "prior_text": "x",
+            "current_text": "y",
+            "changed": true,
+            "diff": [
+              {
+                "op": "delete",
+                "text": "x"
+              },
+              {
+                "op": "insert",
+                "text": "y"
+              }
+            ]
+          }
+        ],
+        "diff_transcript": [
+          {
+            "segment_id": "A",
+            "classification": "MODIFIED",
+            "diff": [
+              {
+                "op": "delete",
+                "text": "x"
+              },
+              {
+                "op": "insert",
+                "text": "y"
+              }
+            ]
+          }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "7390d19b036c1b8b7874b9ef7ddef5e0ccdbafe3f289636e3d57689907f8db8c"
+    },
+    {
+      "name": "indeterminate_round1_unexpected_digest",
+      "description": "Round 1 (the chain root) wrongly declares a prior_round_digest -- rejected, since a root round has no predecessor to chain to.",
+      "policy_parameters": {
+        "document_id": "x",
+        "round": {
+          "number": 1
+        },
+        "prior_round_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "segments": [
+          {
+            "segment_id": "A",
+            "prior_text": null,
+            "current_text": "y"
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "INDETERMINATE",
+        "reason": "round_1_must_not_declare_prior_round_digest",
+        "round_summary": {
+          "document_id": "x",
+          "round_number": 1,
+          "round_label": null,
+          "total_segments": 1,
+          "changed_count": 1,
+          "accepted_count": 0,
+          "reverted_count": 0,
+          "modified_count": 0,
+          "new_count": 1,
+          "deleted_count": 0
+        },
+        "round_chain": {
+          "round_number": 1,
+          "prior_round_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "status": "REJECTED"
+        },
+        "classifications": [
+          {
+            "segment_id": "A",
+            "classification": "NEW",
+            "baseline_text": null,
+            "prior_text": null,
+            "current_text": "y",
+            "changed": true,
+            "diff": [
+              {
+                "op": "insert",
+                "text": "y"
+              }
+            ]
+          }
+        ],
+        "diff_transcript": [
+          {
+            "segment_id": "A",
+            "classification": "NEW",
+            "diff": [
+              {
+                "op": "insert",
+                "text": "y"
+              }
+            ]
+          }
+        ],
+        "rejected_inputs": [],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "4b778bf72dfe805505c535740852f4f9401b67feab82dc23dde1f979e3d4ac39"
+    },
+    {
+      "name": "rejected_segment_missing_id",
+      "description": "A segment entry with no segment_id -- rejected and reported in rejected_inputs rather than silently skipped or guessed at.",
+      "policy_parameters": {
+        "document_id": "x",
+        "round": {
+          "number": 1
+        },
+        "segments": [
+          {
+            "prior_text": "x",
+            "current_text": "y"
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "INDETERMINATE",
+        "reason": "no_segments_declared",
+        "round_summary": {
+          "document_id": "x",
+          "round_number": 1,
+          "round_label": null,
+          "total_segments": 0,
+          "changed_count": 0,
+          "accepted_count": 0,
+          "reverted_count": 0,
+          "modified_count": 0,
+          "new_count": 0,
+          "deleted_count": 0
+        },
+        "round_chain": {
+          "round_number": 1,
+          "prior_round_digest": null,
+          "status": "ROOT"
+        },
+        "classifications": [],
+        "diff_transcript": [],
+        "rejected_inputs": [
+          {
+            "rejected": true,
+            "reason": "missing_segment_id",
+            "entry": {
+              "prior_text": "x",
+              "current_text": "y"
+            }
+          }
+        ],
+        "scope_note": "Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.",
+        "attribution_note": "Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it."
+      },
+      "golden_hash": "04cbcfa0602d8eb9fb15676d3f4ed388f966496e822c9a64f7acf85d0d5a6587"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1092 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1093 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3108,6 +3108,9 @@
       "name": "mcp:check_iolta_three_way_reconciliation"
     },
     {
+      "name": "mcp:classify_redline_round_changes"
+    },
+    {
       "name": "merchant"
     },
     {
@@ -3721,6 +3724,9 @@
     },
     {
       "name": "redline"
+    },
+    {
+      "name": "redline-diffing"
     },
     {
       "name": "reference"
@@ -45632,6 +45638,194 @@
         "x-tool-url": "https://ainumbers.co/chaingraph/art-584-proof-of-reserves-verifier.html",
         "x-source": "manifest",
         "x-ap2-export": true
+      }
+    },
+    "/v1/tools/classify_redline_round_changes": {
+      "post": {
+        "operationId": "classify_redline_round_changes",
+        "summary": "Redline Round Classifier",
+        "description": "Classifies per-segment changes between two negotiation rounds of the same document (paragraph or clause-segmented structured text, pasted or pre-extracted; never parses DOCX or any other binary format). Each declared segment carries a baseline text (the clause as it stood in round 1), a prior text (as it stood in the immediately preceding round), and a current text, and is classified ACCEPTED when current equals prior, REVERTED when current equals baseline after having diverged from it, MODIFIED when current differs from both, NEW when no prior text was declared, or DELETED when no current text was declared. Produces a word-level diff transcript for every changed segment. Round-over-round history is a hash chain: each round after the first declares the execution_hash the node produced for the immediately preceding round's own artifact as prior_round_digest, and a separate chain-verification pass recomputes each prior round's hash from its own content and confirms the next round committed to exactly that value, so a tampered middle round fails the chain check even though its own classification output still looks well-formed. Classifies the type of change only; never scores or evaluates which side a change favors, and is not legal advice. Five-state enum (adds DELETED) is a design borrow from eigenlegal/counsel-os diff_rounds.py (MIT), not a code port; that file has not been read by this node's author.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-589-redline-round-classifier.html",
+        "tags": [
+          "compliance_control",
+          "legal-ops",
+          "redline-diffing",
+          "mcp:classify_redline_round_changes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verdict": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "round_summary": {
+                      "type": "object",
+                      "properties": {
+                        "document_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "round_number": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "round_label": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "total_segments": {
+                          "type": "integer"
+                        },
+                        "changed_count": {
+                          "type": "integer"
+                        },
+                        "accepted_count": {
+                          "type": "integer"
+                        },
+                        "reverted_count": {
+                          "type": "integer"
+                        },
+                        "modified_count": {
+                          "type": "integer"
+                        },
+                        "new_count": {
+                          "type": "integer"
+                        },
+                        "deleted_count": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "round_chain": {
+                      "type": "object",
+                      "properties": {
+                        "round_number": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "prior_round_digest": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "classifications": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "segment_id": {
+                            "type": "string"
+                          },
+                          "classification": {
+                            "type": "string"
+                          },
+                          "baseline_text": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prior_text": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "current_text": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "changed": {
+                            "type": "boolean"
+                          },
+                          "diff": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "op": {
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "diff_transcript": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "segment_id": {
+                            "type": "string"
+                          },
+                          "classification": {
+                            "type": "string"
+                          },
+                          "diff": {
+                            "type": "array"
+                          }
+                        }
+                      }
+                    },
+                    "rejected_inputs": {
+                      "type": "array"
+                    },
+                    "scope_note": {
+                      "type": "string"
+                    },
+                    "attribution_note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "classify_redline_round_changes",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-589-redline-round-classifier.html",
+        "x-source": "manifest"
       }
     },
     "/v1/tools/batch_payment_file_validator": {
