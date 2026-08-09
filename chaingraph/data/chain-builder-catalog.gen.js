@@ -1921,7 +1921,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Reg Z Appendix J APR Solver",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-215-reg-z-appendix-j-apr.html",
-    "description": "Reg Z Appendix J actuarial APR solver. Newton-Raphson iteration over the general actuarial equation (12 CFR 1026 Appendix J). Handles regula",
+    "description": "Reg Z Appendix J actuarial APR solver. Bracketed bisection on the general actuarial equation (12 CFR 1026 Appendix J), with the odd-days fra",
     "consumes": [
       "art-332-build-amortization-schedule"
     ],
