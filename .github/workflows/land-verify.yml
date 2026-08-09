@@ -40,6 +40,8 @@ on:
       - 'chaingraph/kernels/**'
       - 'chaingraph/graph/nodes/**'
       - 'scripts/run-proptests.mjs'
+      - 'scripts/check-fv-floor-coverage.mjs'
+      - 'scripts/fv-floor-coverage-baseline.json'
       - '.github/workflows/land-verify.yml'
   pull_request:
     # ready_for_review added (DRAFTCI-1, 2026-07-20): draft PRs are skipped
@@ -55,6 +57,8 @@ on:
       - 'chaingraph/kernels/**'
       - 'chaingraph/graph/nodes/**'
       - 'scripts/run-proptests.mjs'
+      - 'scripts/check-fv-floor-coverage.mjs'
+      - 'scripts/fv-floor-coverage-baseline.json'
       - '.github/workflows/land-verify.yml'
 
 permissions:
@@ -144,3 +148,14 @@ jobs:
         # npm dependency). An empty __proptests__/ directory is a no-op PASS —
         # this is the gate every FV-PROPFLOOR-SHARD-* rollout row depends on.
         run: node scripts/run-proptests.mjs
+
+      - name: FV floor coverage ratchet
+        # Coverage/freshness ratchet on top of run-proptests.mjs above: every live
+        # kernel must carry a __proptests__/<tool_id>.proptest.mjs floor file whose
+        # header kernel_digest_at_authoring matches the kernel as it stands now.
+        # Honest ratchet — baseline may only shrink; a brand-new unfloored kernel
+        # or a regression (was floored, now isn't) fails unconditionally, never
+        # absorbed by --update-baseline. PBT-floor tier only, not Dafny.
+        run: |
+          node scripts/check-fv-floor-coverage.mjs
+          node scripts/check-fv-floor-coverage.test.mjs
