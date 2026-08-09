@@ -78,6 +78,16 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE_PATH = resolve(REPO, 'scripts', 'copy-hallmarks-baseline.json');
 const UPDATE = process.argv.includes('--update');
 
+// Double-escaped HTML entities (ENTITY-DOUBLE-ESCAPE-1, 2026-08-09): a source
+// value that already carries an entity (e.g. "&amp;" for a literal "&") gets
+// escaped a SECOND time by a generator's esc()/escHtml(), rendering literal
+// "&amp;" text on the page instead of "&". Scanned over raw HTML (not just
+// tag-stripped visible text) because the bug also hits attributes like
+// data-name/aria-label that visibleText() strips before this point. Zero-
+// tolerance, no baseline — the sweep that added this found and fixed every
+// pre-existing hit first, so there is no legacy debt to shield.
+const DOUBLE_ESCAPED_ENTITY = /&amp;(?:amp|lt|gt|quot|#39|nbsp);/g;
+
 const EMDASH = /—/g;
 // Blocking, zero-tolerance, no baseline (DASHSWEEP-1, 2026-08-03 — CONTRACT §1.4
 // bans the em-dash and prescribes rewrites; sessions removing em-dashes were
@@ -286,6 +296,7 @@ for (const file of htmlFiles(REPO)) {
   const prose = proseHtml(raw); // tags intact, badges/script/style/pre/code/comments gone
   const text = visibleText(raw); // fully tag-stripped
 
+  const doubleEscaped = (raw.match(DOUBLE_ESCAPED_ENTITY) || []).length;
   const emdash = (text.match(EMDASH) || []).length;
   const doubledashText = proseHtml(raw).replace(OPTION_TAG, ' ').replace(/<[^>]+>/g, ' ');
   const doubledash = (doubledashText.match(DOUBLEDASH) || []).length;
@@ -349,8 +360,8 @@ for (const file of htmlFiles(REPO)) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || Object.keys(overuse).length) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, overuse };
+  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse };
   }
 }
 
@@ -399,6 +410,8 @@ for (const [rel, f] of Object.entries(findings)) {
     if (v > allowed) failures.push(`${rel}: "${k}" ×${v} in visible text — overused (max ${allowed})`);
     else if (bOver[k] != null && v < bOver[k]) improvements.push(`${rel}: "${k}" ${bOver[k]} -> ${v}`);
   }
+  // Double-escaped HTML entities: zero-tolerance, no baseline (ENTITY-DOUBLE-ESCAPE-1).
+  if (f.doubleEscaped) failures.push(`${rel}: ${f.doubleEscaped} double-escaped HTML entity/entities (e.g. "&amp;amp;") — a generator is escaping an already-escaped source value`);
   // ANTI-AI-TELL categories: zero-tolerance, no baseline, always fail if present.
   if (f.hallmarks.length) failures.push(`${rel}: ANTI-AI-TELL hit(s): ${f.hallmarks.join('; ')}`);
   // HIGH-PRECISION twotone: zero-tolerance, no baseline (COPYTELL-SWEEP-1, italics precedent).

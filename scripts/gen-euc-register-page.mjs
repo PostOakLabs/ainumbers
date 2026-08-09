@@ -107,7 +107,7 @@ ${cards}
 function render() {
   const index = JSON.parse(readFileSync(join(REGISTER_DIR, "index.json"), "utf8"));
   const bankingSection = renderSection(
-    "Banking &amp; capital reporting",
+    "Banking & capital reporting",
     "The BANKING-OCG program kernels: FR Y-14 roll-forward, IRRBB shock calculators, collateral haircut, credit concentration, counterparty limits, and securitization risk retention.",
     BANKING_SET
   );
