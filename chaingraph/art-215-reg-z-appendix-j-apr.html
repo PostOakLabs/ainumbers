@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Reg Z Appendix J APR Solver &middot; ART-215 &middot; OpenChainGraph &middot; AINumbers.co</title>
-<meta name="description" content="Reg Z Appendix J actuarial APR solver. Newton-Raphson iteration over the general actuarial equation (12 CFR 1026 Appendix J). Handles regular and irregular payment schedules with odd-days fractional first period.">
+<meta name="description" content="Reg Z Appendix J actuarial APR solver. Bracketed bisection on the general actuarial equation (12 CFR 1026 Appendix J), with the odd-days fraction priced at simple interest per (b)(6) and only full unit-periods compounded. Handles regular and irregular payment schedules with an odd-days fractional first period.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-215-reg-z-appendix-j-apr.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -136,11 +136,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-215 &middot; US Mortgage Compliance</div>
   <h1>Reg Z Appendix J APR Solver</h1>
-  <p class="sub">Actuarial APR computation per 12 CFR 1026 Appendix J. Newton-Raphson iteration over the general actuarial equation. Handles regular and irregular payment schedules with odd-days fractional first period. Input for TRID APR accuracy and QM spread tests.</p>
+  <p class="sub">Actuarial APR computation per 12 CFR 1026 Appendix J. Bracketed bisection on the general actuarial equation, with the odd-days fraction priced at simple interest per (b)(6) and only full unit-periods compounded. A rate is reported only when a sign-change bracket was established. Input for TRID APR accuracy and QM spread tests.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">Reg Z Appendix J</span>
     <span class="flag info">TRID APR Disclosure</span>
-    <span class="flag">Newton-Raphson</span>
+    <span class="flag">Bracketed Bisection</span>
     <span class="flag">Odd Days Support</span>
   </div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
@@ -299,16 +299,16 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 var MANIFEST = {
   tool_id: 'art-215-reg-z-appendix-j-apr',
-  version: '1.0.0',
+  version: '1.1.0',
   mcp_name: 'compute_reg_z_appendix_j_apr',
   title: 'Reg Z Appendix J APR Solver',
-  description: 'Reg Z Appendix J actuarial APR solver. Newton-Raphson iteration over the general actuarial equation (12 CFR 1026 Appendix J). Handles regular and irregular payment schedules with odd-days fractional first period.',
+  description: 'Reg Z Appendix J actuarial APR solver. Bracketed bisection on the general actuarial equation (12 CFR 1026 Appendix J), with the odd-days fraction priced at simple interest per (b)(6) and only full unit-periods compounded. Handles regular and irregular payment schedules with an odd-days fractional first period.',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
   regulation: 'Reg Z Appendix J, 12 CFR 1026 Appendix J',
   mcp_tool_definition: {
     name: 'compute_reg_z_appendix_j_apr',
-    description: 'Compute actuarial APR per Reg Z Appendix J general equation. Newton-Raphson iteration. Handles odd-days irregular first period.',
+    description: 'Compute actuarial APR per the Reg Z Appendix J general equation by bracketed bisection, with the odd-days fraction priced at simple interest per (b)(6). Handles an odd-days irregular first period.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -335,39 +335,72 @@ async function computeExecHash(pp, op) {
 }
 
 function r4(v) { return isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+function r6(v) { return isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
 function r2(v) { return isFinite(v) ? Math.round(v * 100) / 100 : 0; }
 function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 
-// Appendix J actuarial equation: sum of discounted payments = advance total
-// For odd days: first payment at time (1 + u) where u = odd_days / unit_period_days
-function solveAPR(advances, payments, periodsPerYear, aprGuess) {
-  var r = aprGuess / 100 / periodsPerYear; // periodic rate initial guess
-  var MAX_ITER = 300;
-  var TOL = 1e-12;
-  for (var iter = 0; iter < MAX_ITER; iter++) {
-    // f(r) = sum of discounted payments - sum of advances
-    var f = 0, fp = 0;
-    for (var j = 0; j < payments.length; j++) {
-      var t = payments[j].t; // time in periods from consummation
-      var pmt = payments[j].amount;
-      var disc = Math.pow(1 + r, -t);
-      f += pmt * disc;
-      fp += -t * pmt * disc / (1 + r);
-    }
-    for (var k = 0; k < advances.length; k++) {
-      var ta = advances[k].t;
-      var adv = advances[k].amount;
-      var ddisc = Math.pow(1 + r, -ta);
-      f -= adv * ddisc;
-      fp -= -ta * adv * ddisc / (1 + r);
-    }
-    if (Math.abs(fp) < 1e-20) break;
-    var rNew = r - f / fp;
-    if (rNew < 0) rNew = r / 2; // clamp negative rates
-    if (Math.abs(rNew - r) < TOL) { r = rNew; return { r: r, iterations: iter + 1, converged: true }; }
-    r = rNew;
+// Appendix J general equation, (b)(8):
+//   sum A_k / [(1 + e_k*i)(1+i)^q_k]  =  sum P_j / [(1 + f_j*i)(1+i)^t_j]
+// The odd-days fraction is priced at SIMPLE interest, (1 + f*i), per (b)(6);
+// only the integer count of full unit-periods is compounded. Compounding
+// across the fraction overstates the APR, so every exponent here is an
+// integer and no fractional power is taken anywhere.
+function powInt(base, n) {
+  var e = Math.round(n); if (!(e > 0)) return 1;
+  var r = 1, b = base;
+  while (e > 0) { if (e % 2 === 1) r *= b; b *= b; e = Math.floor(e / 2); }
+  return r;
+}
+
+// Present value of the flow list at periodic rate i.
+function pvSum(flows, i) {
+  var s = 0;
+  for (var n = 0; n < flows.length; n++) {
+    var den = (1 + flows[n].f * i) * powInt(1 + i, flows[n].q);
+    if (!isFinite(den) || den === 0) return NaN;
+    s += flows[n].amount / den;
   }
-  return { r: r, iterations: MAX_ITER, converged: false };
+  return s;
+}
+function residual(advances, payments, i) { return pvSum(payments, i) - pvSum(advances, i); }
+
+// Bracketed bisection. A rate is reported ONLY when a sign-change bracket
+// [lo, hi] with G(lo) >= 0 >= G(hi) was actually established and narrowed;
+// otherwise the solver reports no rate rather than a number it never solved.
+function solveAPR(advances, payments, periodsPerYear) {
+  var widthTarget = 1e-6 / (periodsPerYear * 100);
+  var NO_RATE = { r: null, iterations: 0, converged: false, bracketed: false };
+
+  var dependent = false;
+  for (var d = 0; d < payments.length; d++) {
+    if (payments[d].amount !== 0 && (payments[d].q > 0 || payments[d].f > 0)) { dependent = true; break; }
+  }
+  if (!dependent) return NO_RATE;
+
+  var g0 = residual(advances, payments, 0);
+  if (!isFinite(g0) || g0 < 0) return NO_RATE;
+
+  var lo = 0, hi = 1e-9, found = false;
+  if (g0 === 0) { found = true; hi = 0; }
+  while (!found && hi <= 100) {
+    var ghi = residual(advances, payments, hi);
+    if (!isFinite(ghi)) break;
+    if (ghi <= 0) { found = true; break; }
+    lo = hi; hi *= 2;
+  }
+  if (!found) return NO_RATE;
+
+  var iters = 0;
+  while (iters < 200 && (hi - lo) > widthTarget) {
+    var mid = lo + (hi - lo) / 2;
+    if (mid <= lo || mid >= hi) break;
+    var gm = residual(advances, payments, mid);
+    if (!isFinite(gm)) break;
+    if (gm >= 0) lo = mid; else hi = mid;
+    iters++;
+  }
+  if ((hi - lo) > widthTarget) return { r: null, iterations: iters, converged: false, bracketed: true };
+  return { r: lo + (hi - lo) / 2, iterations: iters, converged: true, bracketed: true };
 }
 
 function runAPR() {
@@ -378,19 +411,20 @@ function runAPR() {
   var oddDays = Math.max(0, Math.round(safe(document.getElementById('oddDays').value, 0)));
   var unitPeriodDays = Math.max(1, Math.round(safe(document.getElementById('unitPeriodDays').value, 30)));
 
-  var u = oddDays > 0 ? oddDays / unitPeriodDays : 0; // fractional period
+  var u = oddDays > 0 ? oddDays / unitPeriodDays : 0; // fractional period f, priced simple
 
-  // Build advances and payments arrays
-  var advances = [{ t: 0, amount: loanAmount }];
+  // Build advances and payments in Appendix J (b)(7) form: an integer count of
+  // FULL unit-periods q, plus a fraction f in [0,1).
+  var advances = [{ q: 0, f: 0, amount: loanAmount }];
   var payments = [];
   for (var i = 1; i <= numPayments; i++) {
-    payments.push({ t: i + u, amount: paymentAmount });
+    payments.push({ q: i, f: u, amount: paymentAmount });
   }
 
-  var result = solveAPR(advances, payments, periodsPerYear, 6.0); // guess 6% APR
-  var periodicRate = r4(result.r * 4) / 4; // will use actual value
-  periodicRate = result.r;
-  var aprPct = r4(result.r * periodsPerYear * 100);
+  var result = solveAPR(advances, payments, periodsPerYear);
+  var solved = result.converged && result.bracketed;
+  var periodicRate = solved ? r6(result.r) : null;
+  var aprPct = solved ? r4(result.r * periodsPerYear * 100) : null;
   var paymentTotal = r2(paymentAmount * numPayments);
   var financeCharge = r2(paymentTotal - loanAmount);
 
@@ -404,7 +438,7 @@ function runAPR() {
 
   var op = {
     apr_pct: aprPct,
-    periodic_rate: r4(result.r * 1e6) / 1e6,
+    periodic_rate: periodicRate,
     periods_per_year: periodsPerYear,
     num_payments: numPayments,
     advance_total: loanAmount,
@@ -412,17 +446,25 @@ function runAPR() {
     finance_charge: financeCharge,
     iterations: result.iterations,
     converged: result.converged,
+    bracketed: result.bracketed,
     regulatory_basis: 'Reg Z Appendix J, 12 CFR 1026 Appendix J (general actuarial equation)',
-    note: 'APR computed via Appendix J actuarial method. Odd-days fraction included when advances/payments supplied with fractional periods_from_consummation. Input APOR separately for QM spread test.'
+    note: 'APR solved by bracketed bisection on the Appendix J (b)(8) general equation. The odd-days fraction is priced at simple interest, (1 + f*i), per (b)(6); only the integer count of full unit-periods is compounded. A rate is reported only when a sign-change bracket was established; otherwise apr_pct is null and APR_NOT_BRACKETED or APR_DID_NOT_CONVERGE is raised. Input APOR separately for QM spread test.'
   };
 
-  _lastResult = { pp: pp, output_payload: op, compliance_flags: [] };
+  var flags = [];
+  if (!result.converged) flags.push('APR_DID_NOT_CONVERGE');
+  if (!result.bracketed) flags.push('APR_NOT_BRACKETED');
+  if (solved && aprPct <= 0) flags.push('APR_NON_POSITIVE');
+  if (solved && aprPct > 40) flags.push('APR_EXCEEDS_40_PCT_VERIFY');
 
-  var aprColor = result.converged ? 'var(--teal-lt)' : 'var(--warn)';
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var aprColor = solved ? 'var(--teal-lt)' : 'var(--warn)';
+  var aprText = solved ? aprPct + '%' : 'no rate';
   document.getElementById('statRow').innerHTML =
-    '<div class="stat"><span class="stat-val" style="color:'+aprColor+'">'+aprPct+'%</span><span class="stat-key">APR</span></div>'+
+    '<div class="stat"><span class="stat-val" style="color:'+aprColor+'">'+aprText+'</span><span class="stat-key">APR</span></div>'+
     '<div class="stat"><span class="stat-val">'+result.iterations+'</span><span class="stat-key">Iterations</span></div>'+
-    '<div class="stat"><span class="stat-val" style="color:'+aprColor+'">'+r4(result.r * 1e6) / 1e6+'</span><span class="stat-key">Periodic Rate</span></div>'+
+    '<div class="stat"><span class="stat-val" style="color:'+aprColor+'">'+(solved ? periodicRate : 'n/a')+'</span><span class="stat-key">Periodic Rate</span></div>'+
     '<div class="stat"><span class="stat-val">$'+financeCharge.toLocaleString()+'</span><span class="stat-key">Finance Charge</span></div>';
 
   document.getElementById('kvDiv').innerHTML = [
@@ -431,17 +473,18 @@ function runAPR() {
     ['Number of payments', numPayments],
     ['Periods per year', periodsPerYear],
     ['Odd days / unit period days', oddDays > 0 ? oddDays + ' / ' + unitPeriodDays : 'none'],
-    ['Fractional period u', r4(u)],
-    ['Periodic rate', r4(result.r * 1e6) / 1e6],
-    ['APR', aprPct + '%'],
+    ['Fractional period f (simple interest)', r4(u)],
+    ['Periodic rate', solved ? periodicRate : 'n/a'],
+    ['APR', solved ? aprPct + '%' : 'not reported'],
     ['Payment total', '$'+paymentTotal.toLocaleString()],
     ['Finance charge', '$'+financeCharge.toLocaleString()],
+    ['Bracketed', result.bracketed ? 'Yes' : 'No (no non-negative rate exists for these inputs)'],
     ['Converged', result.converged ? 'Yes' : 'No (check inputs)'],
   ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+x[1]+'</span></div>';}).join('');
 
-  document.getElementById('flagRow').innerHTML = result.converged
+  document.getElementById('flagRow').innerHTML = flags.length === 0
     ? '<span class="badge ok">CONVERGED</span>'
-    : '<span class="badge warn">NOT_CONVERGED</span>';
+    : flags.map(function(fl){ return '<span class="badge warn">'+fl+'</span>'; }).join(' ');
 
   document.getElementById('resultsPanel').classList.add('show');
   document.getElementById('execHashBox').textContent = 'computing...';
@@ -472,7 +515,7 @@ function exportArtifact() {
     chaingraph_version: '0.4.0',
     mandate_type: 'compliance_mandate',
     tool_id: 'art-215-reg-z-appendix-j-apr',
-    tool_version: '1.0.0',
+    tool_version: '1.1.0',
     generated_at: __generatedAtCapture,
     execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
