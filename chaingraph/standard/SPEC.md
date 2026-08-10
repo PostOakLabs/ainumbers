@@ -3147,8 +3147,89 @@ the same artifact with `clause_bindings` stripped produce byte-identical `execut
 §25, the profile **defaults OFF**: no node is required to adopt it, and its absence is never itself a
 finding.
 
+## §29 Twin Execution Record — `audit_signature.twin_execution` (NORMATIVE, OPTIONAL — new in v0.8.20)
+A kernel's hand-written implementation and a formally-modeled twin of the same specification can be
+executed against the same inputs and compared. Agreement between the two is evidence the hand-written
+kernel matches the formal model of the specification it was built against — **it is not evidence that
+either implementation matches the underlying regulation**, which remains the human-signed spec's job
+(`FORMALVERIF-BUILD-SPEC.md` §5 step 3, unchanged by this section). §29 records the result of that
+comparison as a first-class `audit_signature` sub-object, following the exact placement precedent §18's
+`compute_proof` already established.
+
+**§29.0 Home + object (NORMATIVE).** The record lives at `audit_signature.twin_execution`
+(hash-excluded — see §29.3; keeps the frozen v0.4 root schema). It MUST carry:
+- `twin_digest` — `sha256:`-prefixed identity of the compiled twin module, the same construction as
+  §17's `kernel_digest`;
+- `kernel_digest` — `sha256:`-prefixed; MUST equal `audit_signature.build_identity.kernel_digest`,
+  restated here so this object is independently checkable without cross-referencing another field;
+- `agreement` — boolean; whether the twin's output matched the hand-written kernel's output within
+  `tolerance` across `cases_checked`;
+- `max_divergence` — the largest measured divergence across the comparison, or `null` when the
+  comparison is exact/boolean-only;
+- `tolerance` — the tolerance the comparison was run against (e.g. `"1/8pp §1026.22(a)(2)"`);
+- `method` — `"differential" | "property-based"`;
+- `cases_checked` — integer count of cases the comparison covered;
+- `checked_at` — ISO 8601 timestamp of when the comparison ran.
+
+**§29.1 What agreement proves, and what it does not (NORMATIVE, informative derivation).**
+`agreement:true` is evidence the hand-written kernel matches its formal twin — a continuous version of
+the differential-test snapshot precedent (`FV-C1-DIFFTEST-REFRESH-1`). It is **not** evidence that
+either side correctly implements the cited regulation: the twin itself can be a mistranslation of the
+specification, so neither side is presumed correct by construction. **`agreement:false` is a finding
+that requires human adjudication — it MUST NOT be read as an automatic verdict that the hand-written
+kernel is wrong.** A verifier or gate that treats `agreement:false` as a refusal or auto-hold, rather
+than a recorded finding for a human to adjudicate, misreads this section.
+
+**§29.2 Execution location (NORMATIVE).** The twin executes **offline, worker/CI-side, at
+proof-generation time** — the same location §18's `compute_proof` is generated — and is never shipped
+to the browser. The browser verifier that recomputes `execution_hash` (§4) reads `twin_execution` as
+asserted evidence and never re-executes the twin itself, exactly as it already reads `compute_proof`'s
+seal without re-running the zkVM guest, and never requires any arbitrary-precision runtime dependency
+the twin's toolchain may emit. Twin agreement is therefore **build-time provenance, not runtime
+verification** — the same trust model as every other `audit_signature` sub-object.
+
+**§29.3 Frozen-envelope invariance (NORMATIVE).** `twin_execution` is declared as an OPTIONAL,
+hash-excluded member of `audit_signature`, exactly as §18 `compute_proof` was. `$defs/artifact.required`
+is UNCHANGED, the §4 preimage members (`policy_parameters`, `output_payload`) are UNCHANGED, and
+`chaingraph_version` stays `"0.4.0"`. Measured against §0.4-FREEZE's three-condition bar: this addition
+(a) moves no existing artifact's `execution_hash` — `twin_execution` sits outside the hashed preimage,
+so `execution_hash` is byte-identical with and without it for every existing artifact; (b) changes no
+`required[]` — every member of this section is optional; (c) imposes no MUST-emit — absence of
+`twin_execution` is fully conformant and means NO CLAIM. All three conditions clear, so this is an
+additive change under §0.4-FREEZE, not a breaking one. A verifier correct for v0.8.19 computes an
+identical `execution_hash` for a v0.8.20 artifact and MAY ignore `twin_execution` entirely.
+
+**§29.4 Relationship to `compute_proof_ready` (NORMATIVE).** `compute_proof_ready` is per-artifact,
+never a per-kernel literal (§18). `twin_execution` is a sibling object to `compute_proof`, not a
+modifier of it, and this section imposes no requirement on `compute_proof_ready`: a kernel MAY carry
+`twin_execution` with no `compute_proof` at all (twin-checked but not zk-proved), or `compute_proof`
+with no `twin_execution`, or both, or neither.
+
+**§29.5 Conformance (NORMATIVE).** An implementation MAY populate `audit_signature.twin_execution` for
+an artifact whose kernel has a twin comparison on record. Conformance requires: all §29.0 members
+present when the object is present; `kernel_digest` equal to `audit_signature.build_identity.kernel_digest`;
+`checked_at` a valid ISO 8601 timestamp; and the no-hash-move guarantee of §29.3 (an artifact with
+`twin_execution` and the same artifact with it stripped produce byte-identical `execution_hash`). Like
+§18, this section **defaults OFF**: no node is required to adopt it, and its absence is never itself a
+finding.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.19 (2026-08-04 — SPEC-TEXT PASS drafting the STP forward decision-outcome
+See `standard/CHANGELOG.md`. **v0.8.20 (2026-08-10 — SPEC-TEXT PASS adding §29 Twin Execution Record,
+staged by `FV-RUNTIME-TWIN-SPEC-1.md` §1/§6 WU 1 carrying Tim's 2026-08-10 models-allowed/proofs-frozen
+ruling; the record `spec_version` stays at whatever `chaingraph.json` carries until the next coordinated
+K landing bumps it, same separation as every prior text pass):** §29 defines `audit_signature.twin_execution`
+— OPTIONAL, hash-excluded, sibling to §18 `compute_proof`, recording agreement/divergence between a
+hand-written kernel and a Dafny-compiled twin of the same specification. Purely additive: no schema
+`required[]` change, `chaingraph_version` stays `0.4.0`, every existing `execution_hash` byte-identical
+with and without the member (§29.3). The JSON Schema's `audit_signature` object carries no
+`additionalProperties:false`, so it already accepts this member without a schema-file edit — confirmed
+by inspection of `openchain-graph-v0.4.schema.json`, no `$defs` entry added by this pass. States plainly
+that agreement is evidence the kernel matches its formal twin, not evidence either matches the
+regulation (§29.1), that disagreement is a human-adjudicated finding, never an automatic verdict
+(§29.1), that the twin executes offline/worker/CI-side only and the browser never re-executes it
+(§29.2), and that `compute_proof_ready` is untouched — `twin_execution` is a sibling to `compute_proof`,
+not a modifier (§29.4). No `dafny verify` invocation, no proof discharge, and no kernel/page/schema code
+touched by this pass — documentation only. **v0.8.19 (2026-08-04 — SPEC-TEXT PASS drafting the STP forward decision-outcome
 mandate carved out by `STP-BRANCHABILITY-BUILD-SPEC.md` §3; the record `spec_version` stays at whatever
 `chaingraph.json` carries until the next coordinated K landing bumps it, exactly as the v0.8.18/v0.8.17/v0.8.16
 text passes were separated from their record bumps):** §STPFWD-1 requires a node first published
