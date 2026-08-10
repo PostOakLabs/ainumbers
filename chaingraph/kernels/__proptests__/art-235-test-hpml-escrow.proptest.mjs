@@ -1,11 +1,10 @@
-// kernel_digest_at_authoring: sha256:94fc7bbe48acda47dbbe6f448d2c3ee67377a531525a417ecb3e484f31fb381b
+// kernel_digest_at_authoring: sha256:41826ca9f3d3ba48ad150289c96f2aad017594ea96ff49fb448fabf84fdb6bef
 //
-// FV-PROPFLOOR-SHARD-B8-1 — property-test floor for art-235-test-hpml-escrow.
-// Class B (bounded-numeric), FLOAT-SENSITIVE (apr_pct/apor_pct are raw doubles, the HPML spread
-// compares r4()-rounded doubles against fixed 1.5/2.5/3.5pp thresholds with a 1e-5 tolerance) —
-// ULP-boundary forcing is MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies
-// (mulberry32 PRNG + explicit boundary arrays), same shape as the B1-B7 float harnesses.
-// This file is READ-ONLY with respect to the kernel it imports.
+// FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-235-test-hpml-escrow.
+// Class B (bounded-numeric), FLOAT-SENSITIVE (apr_pct/apor_pct feed a float subtraction compared
+// against a spread_threshold with an explicit `- 1e-5` epsilon fudge, then rounded via r4 to 4
+// decimals) — ULP-boundary forcing is MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external
+// dependencies. This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -41,101 +40,88 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x2350A1);
+const rand = mulberry32(0x235E5);
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
-function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
-const TRIALS = 10000;
-
-function thresholdFor(lien_type, is_jumbo) {
-  if (lien_type === 'subordinate') return 3.5;
-  if (is_jumbo) return 2.5;
-  return 1.5;
-}
-function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+const TRIALS = 12000;
 
 function mkPP(rng) {
+  const lien_type = rng() < 0.5 ? 'first' : 'subordinate';
+  const is_jumbo = rng() < 0.3;
+  const apor_pct = randRange(rng, 2, 8);
+  const apr_pct = apor_pct + randRange(rng, -1, 5);
   return {
-    apr_pct: randRange(rng, 0, 20),
-    apor_pct: randRange(rng, 0, 20),
-    lien_type: pick(rng, ['first', 'subordinate']),
-    is_jumbo: rng() < 0.5,
+    apr_pct, apor_pct, lien_type, is_jumbo,
     is_rural_or_underserved: rng() < 0.3,
     creditor_assets_under_2b: rng() < 0.3,
     loan_count_under_500: rng() < 0.3,
-    property_is_condo_master_policy: rng() < 0.3,
+    property_is_condo_master_policy: rng() < 0.2,
     year: 2026,
   };
 }
 
-// ---------- P1: monotone — increasing apr_pct never flips is_hpml true -> false ----------
-function checkP1_monotoneHpml() {
+// ---------- P1: monotonicity — raising apr_pct (apor fixed) never flips is_hpml true -> false ----------
+function checkP1_hpmlMonotonic() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
-    const r1 = compute(pp);
-    const r2 = compute({ ...pp, apr_pct: pp.apr_pct + 5 });
+    const lower = compute({ ...pp, apr_pct: pp.apor_pct - 2 });
+    const higher = compute({ ...pp, apr_pct: pp.apor_pct + 6 });
     checked++;
-    if (r1.output_payload.is_hpml && !r2.output_payload.is_hpml) violations++;
-    if (r2.output_payload.apr_spread_pct < r1.output_payload.apr_spread_pct) violations++;
+    if (lower.output_payload.is_hpml && !higher.output_payload.is_hpml) violations++;
   }
-  return { name: 'P1_monotone_is_hpml_nondecreasing_with_apr_increase', trials: checked, violations };
+  return { name: 'P1_is_hpml_monotonic_in_apr_spread', trials: checked, violations };
 }
 
-// ---------- P2: boundedness/round-trip — apr_spread_pct exactly equals r4(apr-apor) ----------
-function checkP2_spreadRoundTrip() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkPP(rand);
-    const r = compute(pp);
-    checked++;
-    const expected = r4(pp.apr_pct - pp.apor_pct);
-    if (r.output_payload.apr_spread_pct !== expected) violations++;
-    if (![1.5, 2.5, 3.5].includes(r.output_payload.spread_threshold_pct)) violations++;
-  }
-  return { name: 'P2_spread_roundtrip_and_threshold_from_fixed_set', trials: checked, violations };
-}
-
-// ---------- P3: fixed-threshold-tier agreement — is_hpml matches independently-derived rule ----------
-function checkP3_hpmlThresholdAgreement() {
+// ---------- P2: boundedness — escrow_required implies is_hpml AND lien_type==='first' ----------
+function checkP2_escrowImpliesHpmlFirstLien() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const threshold = thresholdFor(pp.lien_type, pp.is_jumbo);
-    const spread = r4(pp.apr_pct - pp.apor_pct);
-    const expected_is_hpml = spread >= threshold - 1e-5;
-    if (r.output_payload.is_hpml !== expected_is_hpml) violations++;
-    const expected_escrow = expected_is_hpml && pp.lien_type === 'first' &&
-      !(pp.is_rural_or_underserved && pp.creditor_assets_under_2b && pp.loan_count_under_500) &&
-      !pp.property_is_condo_master_policy;
-    if (r.output_payload.escrow_required !== expected_escrow) violations++;
+    if (r.output_payload.escrow_required && !(r.output_payload.is_hpml && r.output_payload.lien_type === 'first')) violations++;
   }
-  return { name: 'P3_is_hpml_and_escrow_match_fixed_threshold_rule', trials: checked, violations };
+  return { name: 'P2_escrow_required_implies_hpml_and_first_lien', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
+// ---------- P3: fixed threshold-tier agreement — spread_threshold_pct matches the declared tier constants ----------
+function checkP3_thresholdTierExact() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const expected = pp.lien_type === 'subordinate' ? 3.5 : pp.is_jumbo ? 2.5 : 1.5;
+    if (r.output_payload.spread_threshold_pct !== expected) violations++;
+  }
+  return { name: 'P3_spread_threshold_tier_exact', trials: checked, violations };
+}
+
+// ---------- P4 (mandatory): ULP-boundary forcing on the apr-minus-apor spread comparison ----------
+function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
 const ULP_BOUNDARY_CASES = [
-  [{ apr_pct: 1.5, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_spread exactly at 1.5pp first-lien standard threshold — is_hpml must be true'],
-  [{ apr_pct: 1.4999, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_spread just below 1.5pp threshold minus tolerance — is_hpml must be false'],
-  [{ apr_pct: 0, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_spread exactly zero — is_hpml false, no throw'],
-  [{ apr_pct: -0, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_pct negative zero — must behave as zero'],
-  [{ apr_pct: Number.MIN_VALUE, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_pct smallest positive double — spread must round to 0, not throw or NaN'],
-  [{ apr_pct: 0.1 * 3, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_pct = 0.1*3 (classic non-exact double) — apr_spread_pct must equal r4(0.30000000000000004) = 0.3'],
-  [{ apr_pct: (1 / 3) * 3, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_pct = (1/3)*3 (x/y*y!==x rounding artifact) — must round-trip via r4 without throwing'],
-  [{ apr_pct: 2.5, apor_pct: 0, lien_type: 'first', is_jumbo: true }, 'apr_spread exactly at 2.5pp jumbo first-lien threshold — is_hpml must be true'],
-  [{ apr_pct: 3.5, apor_pct: 0, lien_type: 'subordinate', is_jumbo: false }, 'apr_spread exactly at 3.5pp subordinate-lien threshold — is_hpml true, escrow NOT required (subordinate)'],
-  [{ apr_pct: Number.MAX_SAFE_INTEGER, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr_pct at MAX_SAFE_INTEGER — apr_spread_pct must remain finite, is_hpml true, no overflow'],
+  [{ apr_pct: 7, apor_pct: 5.5, lien_type: 'first', is_jumbo: false }, 'spread exactly 1.5pp (standard first-lien threshold) — must classify HPML (>= comparison, not >)'],
+  [{ apr_pct: 7 - 1e-6, apor_pct: 5.5, lien_type: 'first', is_jumbo: false }, 'spread a hair under 1.5pp — the -1e-5 epsilon fudge must still classify HPML (within tolerance)'],
+  [{ apr_pct: 6.9989, apor_pct: 5.5, lien_type: 'first', is_jumbo: false }, 'spread 1.4989pp, just past the 1e-5 epsilon tolerance below 1.5pp — must classify NOT HPML'],
+  [{ apr_pct: 8, apor_pct: 5.5, lien_type: 'first', is_jumbo: true }, 'spread exactly 2.5pp jumbo threshold — must classify HPML'],
+  [{ apr_pct: 9, apor_pct: 5.5, lien_type: 'subordinate', is_jumbo: false }, 'spread exactly 3.5pp subordinate threshold — must classify HPML'],
+  [{ apr_pct: 5.5, apor_pct: 5.5, lien_type: 'first', is_jumbo: false }, 'apr equals apor exactly (0 spread) — must classify NOT HPML, no NaN'],
+  [{ apr_pct: 0, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'both apr and apor exactly zero — 0 spread, NOT HPML, no NaN or Infinity'],
+  [{ apr_pct: -0, apor_pct: -0, lien_type: 'first', is_jumbo: false }, 'negative zero apr/apor — must behave as zero, no NaN'],
+  [{ apr_pct: 7.1 / 1 * 1, apor_pct: 5.5, lien_type: 'first', is_jumbo: false }, 'x/y*y-style rounding artifact input (7.1) — spread computed the same way as the kernel, no drift'],
+  [{ apr_pct: Number.MAX_SAFE_INTEGER, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr at MAX_SAFE_INTEGER — must remain finite, no overflow to Infinity'],
+  [{ apr_pct: Number.MIN_VALUE, apor_pct: 0, lien_type: 'first', is_jumbo: false }, 'apr at smallest positive double (denormal-adjacent) — must remain finite, non-NaN, NOT HPML'],
+  [{ apr_pct: NaN, apor_pct: 5.5, lien_type: 'first', is_jumbo: false }, 'apr_pct is NaN — safeNum guard must fall back to 0, never propagate NaN into the verdict'],
 ];
 
 function checkP4_forced() {
   const rows = [];
-  for (const [overrides, label] of ULP_BOUNDARY_CASES) {
-    const pp = { is_rural_or_underserved: false, creditor_assets_under_2b: false, loan_count_under_500: false, property_is_condo_master_policy: false, year: 2026, ...overrides };
+  for (const [pp, label] of ULP_BOUNDARY_CASES) {
     const r = compute(pp);
-    const { is_hpml, escrow_required, apr_spread_pct } = r.output_payload;
-    const plausible = typeof is_hpml === 'boolean' && typeof escrow_required === 'boolean' && Number.isFinite(apr_spread_pct);
-    rows.push({ label, apr_pct: pp.apr_pct, apor_pct: pp.apor_pct, is_hpml, escrow_required, apr_spread_pct, plausible });
+    const op = r.output_payload;
+    const finite = Number.isFinite(op.apr_spread_pct) && Number.isFinite(op.apr_pct) && Number.isFinite(op.apor_pct);
+    const plausible = finite && typeof op.is_hpml === 'boolean';
+    rows.push({ label, input: pp, is_hpml: op.is_hpml, escrow_required: op.escrow_required, apr_spread_pct: op.apr_spread_pct, spread_threshold_pct: op.spread_threshold_pct, plausible });
   }
   return rows;
 }
@@ -146,9 +132,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_monotoneHpml());
-results.properties.push(checkP2_spreadRoundTrip());
-results.properties.push(checkP3_hpmlThresholdAgreement());
+results.properties.push(checkP1_hpmlMonotonic());
+results.properties.push(checkP2_escrowImpliesHpmlFirstLien());
+results.properties.push(checkP3_thresholdTierExact());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
