@@ -1,0 +1,83 @@
+{
+  "tool_id": "art-590-x402-eip712-digest-recomputer",
+  "version": "1.0.0",
+  "title": "x402 EIP-712 Digest Recomputer",
+  "description": "Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct (the x402 payments rail's underlying authorization primitive): domain separator, struct hash, and the final keccak256(0x19 || 0x01 || domainSeparator || structHash) digest. All four EIP-712 domain fields (name, version, chainId, verifyingContract) are mandatory caller inputs and are never defaulted or guessed -- a guessed verifyingContract would defeat the entire point of domain separation. keccak256 comes from the already-vendored, pinned noble-curves/noble-hashes bundle; the EIP-712/EIP-3009 ABI encoding scheme is implemented directly as public-spec arithmetic on top of it, not hand-rolled crypto. Performs no signature recovery and no domain/nonce/window checks (see the sibling x402-signer-recovery-verifier and x402-domain-nonce-window-checker nodes) -- makes no claim about signature validity, on-chain settlement, or spend. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["compliance_control", "x402", "eip-712", "eip-3009", "crypto-primitive", "mcp:recompute_x402_eip712_digest"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "EIP-712 domain field: the token/verifier's human-readable name. Mandatory, never defaulted." },
+      "version": { "type": "string", "description": "EIP-712 domain field: the domain version string. Mandatory, never defaulted." },
+      "chainId": { "type": ["string", "number"], "description": "EIP-712 domain field: the chain id the signature was computed against. Mandatory, never defaulted." },
+      "verifyingContract": { "type": "string", "description": "EIP-712 domain field: 20-byte hex address of the verifying contract. Mandatory, never defaulted or guessed." },
+      "from": { "type": "string", "description": "TransferWithAuthorization.from -- 20-byte hex address." },
+      "to": { "type": "string", "description": "TransferWithAuthorization.to -- 20-byte hex address." },
+      "value": { "type": ["string", "number"], "description": "TransferWithAuthorization.value -- uint256, decimal or 0x-hex string." },
+      "validAfter": { "type": ["string", "number"], "description": "TransferWithAuthorization.validAfter -- uint256 unix timestamp." },
+      "validBefore": { "type": ["string", "number"], "description": "TransferWithAuthorization.validBefore -- uint256 unix timestamp." },
+      "nonce": { "type": "string", "description": "TransferWithAuthorization.nonce -- 32-byte hex value (bytes32)." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "recompute_x402_eip712_digest",
+    "description": "Recomputes the EIP-712 digest (domain separator, struct hash, final digest) for an EIP-3009 TransferWithAuthorization struct from caller-supplied domain and authorization fields. All domain fields mandatory, never defaulted. No signature recovery, no settlement claim.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "chainId": { "type": ["string", "number"] },
+        "verifyingContract": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "value": { "type": ["string", "number"] },
+        "validAfter": { "type": ["string", "number"] },
+        "validBefore": { "type": ["string", "number"] },
+        "nonce": { "type": "string" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-590-x402-eip712-digest-recomputer.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } },
+      "domain": {
+        "type": "object",
+        "properties": {
+          "name": { "type": ["string", "null"] },
+          "version": { "type": ["string", "null"] },
+          "chain_id": { "type": ["string", "null"] },
+          "verifying_contract": { "type": ["string", "null"] }
+        }
+      },
+      "authorization": {
+        "type": "object",
+        "properties": {
+          "from": { "type": ["string", "null"] },
+          "to": { "type": ["string", "null"] },
+          "value": { "type": ["string", "null"] },
+          "valid_after": { "type": ["string", "null"] },
+          "valid_before": { "type": ["string", "null"] },
+          "nonce": { "type": ["string", "null"] }
+        }
+      },
+      "domain_separator": { "type": ["string", "null"] },
+      "struct_hash": { "type": ["string", "null"] },
+      "digest": { "type": ["string", "null"] },
+      "domain_typehash": { "type": "string" },
+      "transfer_with_authorization_typehash": { "type": "string" },
+      "scope_note": { "type": "string" }
+    }
+  },
+  "source": "authored by BUILD-X402-DIGEST-1 per research/SPEC-X402-CRYPTO-CORE-1-2026-08-09.md sections 3/4; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-590-x402-eip712-digest-recomputer.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest sibling: art-565-kya-x402-scope-verifier)."
+}
