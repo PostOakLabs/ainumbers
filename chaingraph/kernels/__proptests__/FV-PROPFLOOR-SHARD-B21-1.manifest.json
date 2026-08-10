@@ -1,0 +1,136 @@
+{
+  "shard_id": "FV-PROPFLOOR-SHARD-B21-1",
+  "spec_anchor": "FV-PBT-FLOOR-BUILD-SPEC.md §2/§3/§4",
+  "population_definition": "all kernels in shard FV-PROPFLOOR-SHARD-B21-1, enumerated below by kernel id and spec digest",
+  "human_sign_off": {
+    "status": "PENDING",
+    "name": null,
+    "date": null
+  },
+  "independence_sentence": "Each item listed was reviewed and attested independently; the single signature is a mechanical convenience over the enumerated digests, not a bulk review.",
+  "per_item_basis_of_review": "Every row ran the same two mechanical checks unconditionally: (1) the fixture-oracle gate — compute() output diffed against the kernel's own existing golden fixtures before any property was trusted, and (2) run-proptests.mjs green (process exit 0, confirmed at 343/343 across the full tree with this shard's 10 files included, no regression in prior shards). ⭐ FIX-2 CARRY APPLIED: the WU row's own triage table named 9 of the 10 kernels float-sensitive (all but cry-01) and required ULP-boundary forcing for those 9. Direct read of each kernel's source (not the triage table) found two of those nine misclassified: art-348-score-credit-model-quantized performs ZERO floating-point arithmetic in compute() (every operand is an integer, every operator integer add/multiply/compare/truncate — the `scale` constant is recorded only for the parity declaration and is never read inside compute()), and art-359-idv-session-receipt-builder performs NO arithmetic on any numeric field (confidence/score/risk_score are type-checked via safeNum() and passed through unmodified, never added, multiplied, or rounded). Both are corrected to float:no in this manifest and carry forced CATEGORICAL/integer boundary cases in place of ULP forcing, matching the B12 shard's precedent for a WU-table misclassification. The remaining 7 (art-344, qfa-01, art-362, art-363, art-366, art-367, art-370) are confirmed float-sensitive by direct read and carry mandatory ULP-boundary forcing (0, negative zero, denormals, guard-clause boundaries, x/y*y!==x-shaped cases). cry-01-zk-compliance-proof-generator is confirmed the WU's stated float:no exception — its only float division (an LCG PRNG feeding a proof-commitment string and a noise gate) never drives a financial calculation — and carries forced categorical boundary cases instead. No row beyond these mechanical checks received a separate in-depth human review in this pass — that is exactly the gap human_sign_off.status=PENDING names.",
+  "items": [
+    {
+      "kernel_id": "art-344-compute-mlr-rebate",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "kernel_digest": "sha256:cbfd7b14ca5eea94ba5e2f06b9b61ae2e75e52cb321068fd05eaad7b4969ee28",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-344-compute-mlr-rebate.proptest.mjs",
+      "properties_tested": ["credibility_adjustment_bounded_0_to_8", "rebate_owed_exact_boolean_of_rebate_amount_positive", "de_minimis_implies_rebate_owed", "raw_mlr_pct_nondecreasing_in_incurred_claims", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (4/4 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-348-score-credit-model-quantized",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "⭐ FIX-2 CARRY CORRECTION — the WU row's triage table listed this kernel float:yes, but compute() performs zero floating-point arithmetic (pure int8-weight / int32-fixed-point dot product, Math.trunc + Number.isSafeInteger guards only). Corrected to float:no here; forced CATEGORICAL/integer boundary cases (all-zero input, max-magnitude legal accumulator, non-integer/non-finite raw-input coercion, short input array) used instead of ULP forcing.",
+      "kernel_digest": "sha256:dc6397d80f24256dca54268da76455d52adbc30581facc329dbec8aa51fbefeb",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-348-score-credit-model-quantized.proptest.mjs",
+      "properties_tested": ["accumulator_fixp_matches_independent_reference_dot_product", "decision_exact_strict_greater_than_zero_threshold", "accumulator_nondecreasing_when_raising_a_positive_weight_feature"],
+      "fixture_oracle_result": "PASS (3/3 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "cry-01-zk-compliance-proof-generator",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "confirmed the WU's stated float:no exception — predicate.check() comparisons are plain numeric thresholds and the only float division (LCG PRNG) feeds a proof-commitment string / noise gate, never a financial calculation. Forced CATEGORICAL boundary cases (unrecognized predicate, exact-threshold amount/kyc_level/tx_count boundaries, empty policy_parameters) used instead of ULP forcing.",
+      "kernel_digest": "sha256:c5d758f79de7b13d3b76a0c77f4a5922703386c1dc80db64fb81a1829465a800",
+      "proptest_file": "chaingraph/kernels/__proptests__/cry-01-zk-compliance-proof-generator.proptest.mjs",
+      "properties_tested": ["deterministic_replay_same_seed_same_commitment", "proof_result_bounded_to_valid_invalid_and_matches_first_check", "constraint_count_and_checks_length_match_fixed_predicate_table"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "qfa-01-options-greeks",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "ulp_forcing_note": "Black-Scholes price + Greeks over the kernel's own inlined deterministic fdlibm (det.exp/det.log) — ULP-forcing cases include spot/strike/vol at 0, negative zero, denormal-scale vol, NaN spot, and long-dated (5yr) expiry.",
+      "kernel_digest": "sha256:4c530398ab42ff734dd6db698e15fbea8f6eaaede6646e324af8e79d514dfa44",
+      "proptest_file": "chaingraph/kernels/__proptests__/qfa-01-options-greeks.proptest.mjs",
+      "properties_tested": ["price_non_negative", "delta_bounded_to_declared_range_per_type", "gamma_non_negative", "put_call_parity_within_tolerance", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-359-idv-session-receipt-builder",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "⭐ FIX-2 CARRY CORRECTION — the WU row's triage table listed this kernel float:yes, but compute() performs NO arithmetic on any numeric field (confidence/score/risk_score are safeNum()-checked and passed through unmodified). Corrected to float:no here; forced CATEGORICAL boundary cases (PII-shape rejection, commitment-scheme validation, all-required-fields-empty) used instead of ULP forcing.",
+      "kernel_digest": "sha256:7536fd33a1939b2ccca8c639a235de97b52d53a4897d621ce3a6af1218aae4a5",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-359-idv-session-receipt-builder.proptest.mjs",
+      "properties_tested": ["session_complete_exact_conjunction_of_required_fields", "every_verifier_sourced_field_labeled_asserted", "confidence_score_risk_score_passthrough_exact_no_arithmetic"],
+      "fixture_oracle_result": "PASS (5/5 vectors, session_receipt masked — compute() alone never fills it, only async buildArtifact() does)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-362-compute-raroc-loan-price",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "ulp_forcing_note": "Basel/Vasicek economic-capital float math (normCDF, normInv, Math.exp, Math.log, Math.pow) — ULP-forcing cases include ead_musd at 0 and denormal scale, pd_pct at its safeNum floor, both SA risk-weight bucket boundaries, and tenor_years at its safeNum floor.",
+      "kernel_digest": "sha256:924bffad0e3ca899065de2ce2e30a9339ed8b16a215ac8a5bf606f8fc0a9cc0b",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-362-compute-raroc-loan-price.proptest.mjs",
+      "properties_tested": ["raroc_pct_capped_at_999", "value_creating_exact_boolean_of_raroc_vs_hurdle", "economic_capital_non_negative_and_never_exceeds_drawn", "drawn_plus_undrawn_roundtrips_to_ead", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (3/3 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-363-compute-dscr",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "ulp_forcing_note": "DSCR/ICR/leverage ratio division with r2 rounding — ULP-forcing cases include debt-service denominator at 0 and denormal scale, ebitda at 0 and negative zero, total_debt exactly equal to cash.",
+      "kernel_digest": "sha256:72672db356155cb674c7b09b6e09d78072704a9700fd99f431fead87a6816ac9",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-363-compute-dscr.proptest.mjs",
+      "properties_tested": ["all_ratios_finite_or_null_never_nan_or_infinity", "basic_dscr_null_exactly_when_debt_service_non_positive", "zero_debt_service_flag_matches_null_basic_dscr", "basic_dscr_nondecreasing_in_ebitda", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (3/3 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-366-price-embedded-insurance",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "ulp_forcing_note": "premium/GWP/NWP/loss/expense multiplicative chain with r2 rounding — ULP-forcing cases include all-zero input, reins_pct exactly 100 and at denormal scale, item_value negative zero and denormal scale.",
+      "kernel_digest": "sha256:922020678b293aa6eb63c4a37bcb255584dbba538057ff12e804602c901705fe",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-366-price-embedded-insurance.proptest.mjs",
+      "properties_tested": ["annual_gwp_exactly_12x_monthly_gwp", "net_written_premium_never_exceeds_annual_gwp", "combined_ratio_pct_exact_sum_of_component_pcts", "underwriting_loss_flag_matches_negative_profit", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (3/3 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-367-compute-cross-border-fees",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "ulp_forcing_note": "FX/VAT/method-fee cost-stack sum with r2/r4 rounding — ULP-forcing cases include invoice_amount at 0, negative zero, and denormal scale, vat_rate exactly 1.",
+      "kernel_digest": "sha256:ab7cc7c6345a21988fca592f503a6b89a4ddc3fe97267f8996170f1021619817",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-367-compute-cross-border-fees.proptest.mjs",
+      "properties_tested": ["total_cost_exact_sum_of_five_components", "country_codes_always_uppercased", "total_cost_nondecreasing_in_fx_spread_bps", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (3/3 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-370-supervisory-scenario-replay",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "ulp_forcing_note": "cents-integer fixed-point discipline is a house convention (Math.round after every dollar<->cents conversion), not proof of no float arithmetic — evalCoefficientFnCents multiplies floating coefficients by floating macro variables before rounding. ULP-forcing cases include rwa_mn at 0 and tiny-but-representable scale, starting_capital_mn negative zero, tax_rate at its declared ceiling, loss_function intercept at Number.EPSILON scale.",
+      "kernel_digest": "sha256:1e4fce8fd6091dfe615782e95fda6b777a3c36d0fe5d65cf211f2957d69a64cd",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-370-supervisory-scenario-replay.proptest.mjs",
+      "properties_tested": ["quarters_array_always_exactly_13_entries", "ending_capital_mn_matches_last_quarter_exactly", "trough_capital_mn_is_actual_minimum_across_path", "loss_mn_never_negative_across_all_quarters", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (2/2 vectors)",
+      "run_proptests_result": "PASS"
+    }
+  ],
+  "ulp_forcing_summary": "Corrected from the WU row's stated 9/1 split to 7/3 after FIX-2 CARRY verification against the actual kernel source. 7 of 10 kernels are float-sensitive and carry mandatory ULP-boundary forcing (art-344, qfa-01-options-greeks, art-362, art-363, art-366, art-367, art-370). 3 of 10 are float:no — cry-01 (the WU's stated exception) plus two corrections found on direct read: art-348-score-credit-model-quantized (pure integer inference, zero float arithmetic in compute()) and art-359-idv-session-receipt-builder (no arithmetic performed on any numeric field, pure passthrough). All 3 carry forced categorical/integer boundary cases in place of ULP forcing.",
+  "run_proptests_aggregate": "343/343 across the full tree (node scripts/run-proptests.mjs), no regression in prior shards, this shard's 10 files included",
+  "fv_floor_coverage": "all 10 shard kernels confirmed absent from check-fv-floor-coverage.mjs --list-unfloored (grepped by exact mcp_name); coverage gate reports 313/582 live kernels floored, clean ratchet"
+}
