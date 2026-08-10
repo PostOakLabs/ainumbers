@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (582 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (585 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6167,6 +6167,36 @@ window.CHAINBUILDER_CATALOG = [
       "506-onchain-cash-leg-finality-checker",
       "510-digital-asset-regulatory-classifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-590-x402-eip712-digest-recomputer",
+    "display_name": "x402 EIP-712 Digest Recomputer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-590-x402-eip712-digest-recomputer.html",
+    "description": "Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct (the x402 payments rail's underlying authorization",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-591-x402-signer-recovery-verifier",
+    "display_name": "x402 Signer Recovery Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-591-x402-signer-recovery-verifier.html",
+    "description": "Recovers the ECDSA signer address from a caller-supplied EIP-712 digest (the sibling art-590-x402-eip712-digest-recomputer's output) and a s",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-592-x402-domain-nonce-window-checker",
+    "display_name": "x402 Domain & Nonce Window Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-592-x402-domain-nonce-window-checker.html",
+    "description": "Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defense-adjacent fields against caller-supplied expectations. Ta",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
