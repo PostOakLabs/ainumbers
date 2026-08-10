@@ -975,6 +975,13 @@ composite_output = { chain, steps: [ { tool_id, mandate_type, execution_hash, ou
 Per-step timestamps and `mandate_id`s are EXCLUDED from the preimage, so the composite hash is
 reproducible. If no step ran, `composite_execution_hash` is `null` and no composite artifact is emitted.
 
+> **NOTE (non-normative).** `composite_policy.compute_mode` above is written as the literal
+> `"server"` — this composite preimage is defined for `compute_mode: "server"` only. No browser-leg
+> or other-backend composite preimage is defined anywhere in this standard; this is deliberate as of
+> the current version, not an oversight. See `research/CHAIN-DIFF-HASHTARGET-ADJUDICATION-2026-08-10.md`
+> for the reasoning. A non-server composite is parked, not specced, pending the first genuine
+> consumer that needs one.
+
 ### §21.3 Composite artifact
 The composite artifact carries `chaingraph_version:"0.4.0"`, `compute_mode:"server"`,
 `tool_id:"chaingraph/chains/<name>"`, `chain.parent_hashes = [<each RAN step execution_hash>]`,
