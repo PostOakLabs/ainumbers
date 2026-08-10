@@ -5549,7 +5549,7 @@ function _normalizeRecoveryId(pp, embeddedV) {
 
 var SCOPE_NOTE = 'Recovers the ECDSA signer address from a caller-supplied EIP-712 digest and signature. Proves that a given address\'s private key produced a valid signature over the exact digest bytes supplied -- it does not prove the recovered address is who the payload claims signed it (beyond the recovered_signer_matches_claimed_from comparison this node itself performs), that funds moved, that a transfer settled, or that the authorization was ever submitted on-chain. An authorization is not a settlement. Zero network calls; never a facilitator, proxy, or settlement relay.';
 
-function compute(pp) {
+export function compute(pp) {
   pp = (pp !== null && typeof pp === 'object') ? pp : {};
   var reasons = [];
 
@@ -5661,8 +5661,6 @@ export const meta = {
  *   claimedFrom?,                               -- optional address to compare recovery against
  * }
  */
-export { compute };
-
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
