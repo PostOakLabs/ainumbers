@@ -534,7 +534,10 @@ status: stable
 - [x402 EIP-712 Digest Recomputer](./art-590-x402-eip712-digest-recomputer.md) — `recompute_x402_eip712_digest`
 - [x402 Signer Recovery Verifier](./art-591-x402-signer-recovery-verifier.md) — `verify_x402_signer_recovery`
 - [x402 Domain & Nonce Window Checker](./art-592-x402-domain-nonce-window-checker.md) — `check_x402_domain_nonce_window`
+- [Web Bot Auth Nonce & Replay-Window Checker](./art-593-webbotauth-nonce-replay-check.md) — `check_webbotauth_nonce_replay`
+- [Tempo MPP Voucher & Receipt Verifier](./art-594-tempo-mpp-voucher-receipt-verifier.md) — `verify_tempo_mpp_voucher`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
+- [ERC-8004 Registry Entry Verifier](./art-604-erc8004-registry-entry-verifier.md) — `verify_erc8004_registry_entry`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`

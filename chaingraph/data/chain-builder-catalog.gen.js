@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (585 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (588 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6200,6 +6200,28 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-593-webbotauth-nonce-replay-check",
+    "display_name": "Web Bot Auth Nonce & Replay-Window Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.html",
+    "description": "Checks a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshness against a caller-supplied now_unix (created/expires spread",
+    "consumes": [],
+    "feeds": [
+      "art-130-signature-directory-validator"
+    ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-594-tempo-mpp-voucher-receipt-verifier",
+    "display_name": "Tempo MPP Voucher & Receipt Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-594-tempo-mpp-voucher-receipt-verifier.html",
+    "description": "Verifies a Tempo Machine Payments Protocol cumulative EIP-712 session voucher offline (ecrecover, no RPC or database lookup), validates a TI",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-60-agent-economy-runtime-fit-diagnostic",
     "display_name": "Agent Economy Runtime Fit Diagnostic",
     "mandate_type": "agent_guardrail_mandate",
@@ -6214,6 +6236,16 @@ window.CHAINBUILDER_CATALOG = [
       "mms-03-app-fraud-graph",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-604-erc8004-registry-entry-verifier",
+    "display_name": "ERC-8004 Registry Entry Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-604-erc8004-registry-entry-verifier.html",
+    "description": "Checks whether a caller-supplied claimed ERC-8004 agent registry entry (Identity, Reputation, or Validation registry) and a caller-supplied ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

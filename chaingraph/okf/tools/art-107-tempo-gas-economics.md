@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Tempo Fee-Sponsorship & Gas-AMM Economics"
-description: "Model Tempo enshrined-AMM gas cost paid in any major stablecoin, server-paid fee sponsorship, and net per-tx saving vs card/SWIFT/ACH baselines. Tempo has no native gas token and uses an enshrined protocol AMM, not ERC-4337/Paymaster (art-46). Outputs blended gas cost, sponsorship break-even volume, annual saving, and CFO memo."
+description: "Model Tempo enshrined-AMM gas cost paid in any major stablecoin, server-paid fee sponsorship, and net per-tx saving vs card/SWIFT/ACH baselines. Tempo has no native gas token and uses an enshrined protocol AMM, not ERC-4337/Paymaster (art-46). Outputs blended gas cost, sponsorship break-even volume, annual saving, and CFO memo. Its flat per-tx gas constant predates Tempo's mainnet launch and is not TIP-1010 verified: TIP-1010's published mainnet base fee targets close to $0.001 for a standard TIP-20 transfer, over three times this model's constant. For a mainnet-accurate, TIP-1010-cited fee calculation, see art-389-tempo-mainnet-fee-capacity, the successor node."
 resource: https://ainumbers.co/chaingraph/art-107-tempo-gas-economics.html
 tags: ["treasury_mandate", "wave-21", "mcp:model_tempo_gas_economics"]
 timestamp: 2026-07-14
