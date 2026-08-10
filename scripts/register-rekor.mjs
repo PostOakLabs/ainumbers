@@ -190,7 +190,36 @@ async function submitHashedRekord({ anchoredHash, privateKey, publicKey }) {
   if (res.status !== 201) throw new Error(`rekor submit failed: HTTP ${res.status}: ${text}`);
   const json = JSON.parse(text);
   const uuid = Object.keys(json)[0];
-  return { uuid, entry: json[uuid] };
+  const entry = json[uuid];
+
+  // SHARD-ROTATION GUARD (REKOR-SHARD-1, 2026-08-10): rekor.sigstore.dev's
+  // ACTIVE tree (treeID + signing key) rotates over time -- confirmed live
+  // via GET /api/v1/log, which returns the current active treeID plus a
+  // growing inactiveShards[] history of retired ones. The server accepts a
+  // submission and returns HTTP 201 regardless of which shard/key it landed
+  // on, so a rotation would otherwise be a SILENT no-op here: register would
+  // write a record.json that looks fine and only fail much later, when
+  // someone happens to run `verify` and hits "pinned Rekor key mismatch".
+  // Catch it HERE instead, at registration time, before anything is written.
+  // If this throws: re-derive REKOR_PUBLIC_KEY_PEM/REKOR_LOG_ID above from
+  // GET https://rekor.sigstore.dev/api/v1/log/publicKey, and cross-check the
+  // active shard against the TUF SigningConfig (fetch the TUF root at
+  // https://tuf-repo-cdn.sigstore.dev/, walk timestamp.json -> snapshot.json
+  // -> targets.json, then fetch the hash-addressed
+  // "signing_config_rekor_v2.v0.2.json" target and read its
+  // rekorTlogUrls[]) before trusting the new key.
+  if (entry.logID !== REKOR_LOG_ID) {
+    throw new Error(
+      `rekor active shard has rotated: submitted entry logID ${entry.logID} `
+      + `does not match the pinned logID ${REKOR_LOG_ID}. The pinned key in `
+      + `this script is stale -- re-derive it from GET ${REKOR_URL}/api/v1/log/publicKey `
+      + `and cross-check against the TUF SigningConfig at `
+      + `https://tuf-repo-cdn.sigstore.dev before registering anything else. `
+      + `No record was written.`,
+    );
+  }
+
+  return { uuid, entry };
 }
 
 // ---------------------------------------------------------------------------
