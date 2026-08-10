@@ -1,0 +1,48 @@
+name: fv-gate
+description: Run the property-test floor + coverage/freshness ratchet gate; emit a schema'd receipt and a SARIF log.
+inputs:
+  kernels-dir:
+    description: Directory containing <tool_id>.kernel.mjs files.
+    required: false
+    default: chaingraph/kernels
+  proptests-dir:
+    description: Directory containing <tool_id>.proptest.mjs floor files.
+    required: false
+    default: chaingraph/kernels/__proptests__
+  meta-path:
+    description: Path to the node-graph meta file (order.nodes). Omit/missing => proptests-only mode.
+    required: false
+    default: chaingraph/chaingraph.meta.json
+  nodes-dir:
+    description: Directory of per-node shard JSON files.
+    required: false
+    default: chaingraph/graph/nodes
+  baseline:
+    description: Path to the ratchet baseline JSON.
+    required: false
+    default: fv-gate-baseline.json
+  out-json:
+    description: Where to write the receipt JSON.
+    required: false
+    default: fv-gate-receipt.json
+  out-sarif:
+    description: Where to write the SARIF log.
+    required: false
+    default: fv-gate.sarif
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        node "${{ github.action_path }}/bin/fv-gate.mjs" \
+          --kernels-dir "${{ inputs.kernels-dir }}" \
+          --proptests-dir "${{ inputs.proptests-dir }}" \
+          --meta-path "${{ inputs.meta-path }}" \
+          --nodes-dir "${{ inputs.nodes-dir }}" \
+          --baseline "${{ inputs.baseline }}" \
+          --out-json "${{ inputs.out-json }}" \
+          --out-sarif "${{ inputs.out-sarif }}"
+    - shell: bash
+      if: always()
+      run: |
+        if [ -f "${{ inputs.out-json }}" ]; then cat "${{ inputs.out-json }}"; fi
