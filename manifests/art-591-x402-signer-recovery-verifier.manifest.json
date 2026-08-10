@@ -1,0 +1,60 @@
+{
+  "tool_id": "art-591-x402-signer-recovery-verifier",
+  "version": "1.0.0",
+  "title": "x402 Signer Recovery Verifier",
+  "description": "Recovers the ECDSA signer address from a caller-supplied EIP-712 digest and signature in (r,s,v) or (r,s,yParity) form. Normalizes the recovery-id across the raw bit (0/1), legacy Ethereum v (27/28), and EIP-155 v (chainId*2+35/36) conventions, each a well-known transcription trap. Reports the recovered address plus a separate boolean comparison against any caller-claimed from address (never silently failing when no claim is supplied). Signature recovery comes from the already-vendored, pinned noble-curves bundle (@noble/curves secp256k1 Signature.recoverPublicKey); malformed or invalid-recovery-id signatures produce a clean INDETERMINATE/RECOVERY_FAILED finding, never a thrown exception. Proves that an address's private key signed the exact digest supplied; does not prove settlement, spend, that funds moved, or that the authorization was ever submitted on-chain. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["compliance_control", "x402", "eip-712", "eip-3009", "ecdsa-recovery", "crypto-primitive", "mcp:verify_x402_signer_recovery"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "digest": { "type": "string", "description": "The 32-byte EIP-712 digest to recover a signer against (e.g. the art-590-x402-eip712-digest-recomputer output). Mandatory." },
+      "signature": { "type": "string", "description": "Full signature hex: 64 bytes (r||s, recovery id supplied separately via v/yParity) or 65 bytes (r||s||v, recovery marker embedded). Alternative to r/s." },
+      "r": { "type": "string", "description": "32-byte hex signature r value. Used with s when signature is not supplied." },
+      "s": { "type": "string", "description": "32-byte hex signature s value. Used with r when signature is not supplied." },
+      "v": { "type": ["string", "number"], "description": "Recovery marker: raw bit (0/1), legacy Ethereum (27/28), or EIP-155 (chainId*2+35/36). EIP-155 form requires chainId." },
+      "yParity": { "type": ["string", "number"], "description": "Recovery marker as a raw bit (0/1). Takes precedence over v/embedded signature byte if supplied." },
+      "chainId": { "type": ["string", "number"], "description": "Required only when v is an EIP-155 value, to decode it back to the recovery bit." },
+      "claimedFrom": { "type": "string", "description": "Optional 20-byte hex address to compare the recovered signer against. Omit for a standalone recovery-only call." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "verify_x402_signer_recovery",
+    "description": "Recovers the ECDSA signer address from an EIP-712 digest and a signature (r,s,v or r,s,yParity, with v/EIP-155 normalization), and compares it against an optional claimed from address. No hand-rolled crypto; recovery via the vendored, pinned noble-curves bundle. Malformed signatures produce a structured refusal, never a thrown error. No settlement or spend claim.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "digest": { "type": "string" },
+        "signature": { "type": "string" },
+        "r": { "type": "string" },
+        "s": { "type": "string" },
+        "v": { "type": ["string", "number"] },
+        "yParity": { "type": ["string", "number"] },
+        "chainId": { "type": ["string", "number"] },
+        "claimedFrom": { "type": "string" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-591-x402-signer-recovery-verifier.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } },
+      "digest": { "type": ["string", "null"] },
+      "recovered_signer": { "type": ["string", "null"] },
+      "claimed_from": { "type": ["string", "null"] },
+      "recovered_signer_matches_claimed_from": { "type": ["boolean", "null"] },
+      "recovery_id": { "type": ["number", "null"] },
+      "recovery_id_source": { "type": ["string", "null"] },
+      "scope_note": { "type": "string" }
+    }
+  },
+  "source": "authored by BUILD-X402-RECOVER-1 per research/SPEC-X402-CRYPTO-CORE-1-2026-08-09.md sections 3/5; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-591-x402-signer-recovery-verifier.fixtures.json (privkey=1 test key, address independently checkable); category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value, matching sibling art-590."
+}
