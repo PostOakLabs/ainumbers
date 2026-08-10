@@ -528,6 +528,7 @@ import * as art587    from './art-587-finp2p-ledger-proof-verifier.kernel.mjs';
 import * as art588    from './art-588-docket-deadline-sweep.kernel.mjs';
 import * as art589    from './art-589-redline-round-classifier.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
+import * as art590    from './art-590-x402-eip712-digest-recomputer.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
@@ -1112,6 +1113,7 @@ export const KERNELS = {
   'art-588-docket-deadline-sweep':                              art588,
   'art-589-redline-round-classifier':                           art589,
   'art-59-settlement-asset-finality-classifier':                art59,
+  'art-590-x402-eip712-digest-recomputer':                      art590,
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-62-ap2-payment-receipt-verifier':                        art62,
