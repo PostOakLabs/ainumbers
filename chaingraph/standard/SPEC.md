@@ -3032,6 +3032,50 @@ flagship instances (TMPG fails-charge claims, PE waterfall true-ups, trustee-rep
 document exams) are specified in `BILAT-CSR-BUILD-SPEC.md` and are NOT restated here; conformance-vector
 coverage (`validate-ha-records.test.mjs`) is a separate WU's scope, not this subsection's.
 
+**§27.13 Party role — a per-party fact about the underlying agreement (NORMATIVE, OPTIONAL — new in
+v0.8.22).** §27.1's `role` records what accountability ACT an identity performed (prepared, reviewed,
+approved, submitted, or — §27.12 — independently verified); it says nothing about that identity's standing
+under the agreement the subject artifact reports on. A `counter_signed_receipt` (§27.12) routinely crosses
+an org boundary where the parties' own governing agreement already assigns each of them a standing —
+signatory to the agreement, an observer with visibility but no signing authority, or the controlling party
+for the matter at hand. §27.13 adds `party_role` (`$defs/haPartyRole`), a THIRD OPTIONAL sibling field of
+`record_type` — alongside `kernel_pin` and `replay_verified` (§27.12) — not in `required[]`, reusing the
+exact extension mechanism those two established.
+
+**The vocabulary (NORMATIVE, closed).** `party_role` is one of exactly three values: `signatory` (the
+identity is a signatory to the agreement the subject artifact reports on), `observer` (the identity has
+visibility into the agreement but no signing authority under it), `controlling_party` (the identity holds
+controlling standing over the matter at hand under the agreement). **⛔⛔ NEVER "controller"** — that word
+reads as authority THIS RECORD grants; `party_role` records authority the parties' own prior agreement
+already assigned, and §27 grants none. Closed: adding a value IS a spec change, same footing as
+`record_type` / `role` / `haGatePolicy`.
+
+**What it is not (NORMATIVE, binding — Corda tripwires).** `party_role` records a FACT ABOUT THE PARTIES'
+OWN PRE-EXISTING AGREEMENT — never an authorization this record confers, an act this record performs, or a
+duty this record enforces. It is INERT BY CONSTRUCTION: no gate reads it, no §27.4 policy counts over it,
+no §27.3 threshold treats it as a role for dual-control purposes, and nothing in this spec branches on its
+value. Its absence means NO CLAIM about standing, never "no standing" — a record MAY populate `role` alone,
+`party_role` alone, both, or neither, since §27.1's accountability role and §27.13's party standing answer
+independent questions (a `checker` MAY be a `signatory`, an `observer`, or hold no party role at all). The
+line is LIVENESS DUTY, never operatorship: "accept", "acceptance", "settled", "final", or "finality" (or a
+synonym implying legal or economic settlement) MUST NOT be used to describe `party_role`, exactly as
+§27.12's vocabulary ban already requires of `counter_signed_receipt`.
+
+**Additivity and hash impact (NORMATIVE, demonstrated).** `party_role` is a sibling OPTIONAL member of
+`$defs/humanAccountabilityRecord`, exactly as `kernel_pin` and `replay_verified` are: it is part of the
+approval record's OWN `{policy_parameters, output_payload}` preimage (so a NEW record populating it gets
+its own new §4 hash, as any populated field would), and it has ZERO impact on any OTHER artifact's hash —
+the subject artifact's `execution_hash` stays byte-identical per §27.0, and every EXISTING approval record
+(minted before this pass, lacking the field) stays byte-identical since absence was already conformant.
+No `$defs/artifact.required` change, no `chaingraph_version` change (stays `"0.4.0"`). **Schema-file change
+required, stated explicitly:** unlike §29's `audit_signature` object, `$defs/humanAccountabilityRecord`
+carries `additionalProperties: false` (confirmed by inspection of
+`openchain-graph-v0.4.schema.json`), so `party_role` cannot validate without a `$defs` entry
+(`haPartyRole`, the closed three-value enum) and a new `properties.party_role` reference — the same schema
+edit shape `kernel_pin` and `replay_verified` each required. No existing hash, gate, or golden vector
+moves; a verifier ignorant of `party_role` continues to validate every existing artifact and every existing
+§27 record unchanged.
+
 ## §28 Clause Binding Profile — `ocg-clause-binding@1` (NORMATIVE, OPTIONAL, profile-scoped — new in v0.8.14)
 A citation like `"MiCA"` or `"17 CFR 240.15c3-3"` sitting in a tool's `regulatory_frameworks` /
 `regulatory_citations` prose is **unpinned**: it reads present-tense forever, is never bound to any
@@ -3214,7 +3258,20 @@ present when the object is present; `kernel_digest` equal to `audit_signature.bu
 finding.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.20 (2026-08-10 — SPEC-TEXT PASS adding §29 Twin Execution Record,
+See `standard/CHANGELOG.md`. **v0.8.22 (2026-08-10 — SPEC-TEXT PASS adding §27.13 Party role, staged by
+`RECEIPT-ROLES-1` carrying Tim's 2026-08-10 robert-adjudication approval; the record `spec_version` stays
+at whatever `chaingraph.json` carries until the next coordinated K landing bumps it, same separation as
+every prior text pass):** §27.13 adds `party_role` (`$defs/haPartyRole`) — OPTIONAL, closed three-value
+enum (`signatory` | `observer` | `controlling_party`), a THIRD sibling of `record_type` alongside
+`kernel_pin`/`replay_verified` (§27.12). Records a FACT about a party's standing under the agreement the
+subject artifact reports on — never an authorization this spec grants, never something a gate reads, never
+something anything branches on. `additionalProperties: false` on `$defs/humanAccountabilityRecord` means
+this DOES require a schema-file edit (new `$defs/haPartyRole` + new `properties.party_role`), stated
+explicitly — same shape as the `kernel_pin`/`replay_verified` edits. Purely additive: no
+`$defs/artifact.required` change, `chaingraph_version` stays `"0.4.0"`, every existing artifact and every
+existing §27 record (lacking the field) stays byte-identical. Corda tripwires respected: no accept/
+finality/settlement language, no operatorship, liveness-duty framing only. No kernel, page, or
+`chaingraph.json` touched by this pass — documentation only. **v0.8.20 (2026-08-10 — SPEC-TEXT PASS adding §29 Twin Execution Record,
 staged by `FV-RUNTIME-TWIN-SPEC-1.md` §1/§6 WU 1 carrying Tim's 2026-08-10 models-allowed/proofs-frozen
 ruling; the record `spec_version` stays at whatever `chaingraph.json` carries until the next coordinated
 K landing bumps it, same separation as every prior text pass):** §29 defines `audit_signature.twin_execution`
