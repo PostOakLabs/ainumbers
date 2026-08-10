@@ -531,6 +531,9 @@ status: stable
 - [Docket Deadline Sweep](./art-588-docket-deadline-sweep.md) — `sweep_docket_deadlines`
 - [Redline Round Classifier](./art-589-redline-round-classifier.md) — `classify_redline_round_changes`
 - [Settlement-Asset & Legal-Finality Classifier](./art-59-settlement-asset-finality-classifier.md) — `classify_settlement_asset_finality`
+- [x402 EIP-712 Digest Recomputer](./art-590-x402-eip712-digest-recomputer.md) — `recompute_x402_eip712_digest`
+- [x402 Signer Recovery Verifier](./art-591-x402-signer-recovery-verifier.md) — `verify_x402_signer_recovery`
+- [x402 Domain & Nonce Window Checker](./art-592-x402-domain-nonce-window-checker.md) — `check_x402_domain_nonce_window`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`

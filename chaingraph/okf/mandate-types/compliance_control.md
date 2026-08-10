@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-55"]
+tags: ["compliance_control", "count-58"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-55 tool(s) in this mandate-type group:
+58 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -67,3 +67,6 @@ status: stable
 - [Beacon-Seeded Fair-Sampling Deriver](../tools/art-583-beacon-seeded-fair-sampling-deriver.md)
 - [Docket Deadline Sweep](../tools/art-588-docket-deadline-sweep.md)
 - [Redline Round Classifier](../tools/art-589-redline-round-classifier.md)
+- [x402 EIP-712 Digest Recomputer](../tools/art-590-x402-eip712-digest-recomputer.md)
+- [x402 Signer Recovery Verifier](../tools/art-591-x402-signer-recovery-verifier.md)
+- [x402 Domain & Nonce Window Checker](../tools/art-592-x402-domain-nonce-window-checker.md)
