@@ -11,6 +11,20 @@ name: JSDoc CheckJS
 # No `${{ }}` expansion appears inside any `run:` body: the touched-file list is
 # author-controlled data and is carried by file, not by script text. See the
 # comment above the listing step.
+#
+# SCOPE (2026-08-10): `--checkJs` type-checks the whole
+# program tsc builds to resolve a touched file's types, and reports
+# diagnostics for every file in that program — including a touched file's
+# IMPORTED, completely untouched sibling (e.g. a new `__proptests__` floor
+# file dragging in its already-merged `.kernel.mjs`, which may carry
+# pre-existing type debt no diff here ever introduced). The type-check step
+# below now runs through `scripts/jsdoc-checkjs-gate.mjs`, which scopes
+# failure to diagnostics reported against a touched file itself, plus one
+# narrow, named allowlist for the deliberate, permanent absence of
+# `@types/node` in `__proptests__/*.proptest.mjs` harnesses (see that
+# script's header for the exact rules). It does not change which files are
+# selected as touched — only which of tsc's diagnostics are allowed to fail
+# the job.
 
 on:
   push:
@@ -96,11 +110,12 @@ jobs:
           FILES=("${FILES[@]/#/./}")
           printf 'Checking %s kernel file(s):\n' "${#FILES[@]}"
           printf '  %q\n' "${FILES[@]}"
-          npx --yes --package=typescript@5.7.2 tsc \
-            --noEmit --checkJs --allowJs \
-            --target ES2022 --module ESNext --moduleResolution bundler \
-            --skipLibCheck \
-            "${FILES[@]}"
+          # jsdoc-checkjs-gate.mjs runs the same npx-fetched tsc with the same
+          # flags (see its own header) and applies the scope fix described
+          # above. FILES stays an argv array the whole way through — never
+          # re-joined into a string — so this is exactly as safe against
+          # metacharacter-bearing filenames as the direct tsc call it replaces.
+          node scripts/jsdoc-checkjs-gate.mjs "${FILES[@]}"
 
       - name: No touched kernels
         if: steps.files.outputs.count == '0'
