@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1100 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1101 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3294,6 +3294,9 @@
       "name": "nonbank"
     },
     {
+      "name": "nonce"
+    },
+    {
       "name": "nonce-check"
     },
     {
@@ -3862,6 +3865,9 @@
     },
     {
       "name": "remediation"
+    },
+    {
+      "name": "replay-defense"
     },
     {
       "name": "repo"
@@ -46997,6 +47003,109 @@
         "x-mcp-tool-name": "check_x402_domain_nonce_window",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-592-x402-domain-nonce-window-checker.html",
         "x-source": "manifest"
+      }
+    },
+    "/v1/tools/check_webbotauth_nonce_replay": {
+      "post": {
+        "operationId": "check_webbotauth_nonce_replay",
+        "summary": "Web Bot Auth Nonce & Replay-Window Checker",
+        "description": "Check a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshness against the created/expires window (capped at TAP's 8-minute spread), and an optional caller-supplied seen-nonce record. Zero network, caller-supplied inputs only. Emits ACCEPT or REFUSE. Replay prevention depends on the caller supplying an accurate seen-nonce record from its own storage — this verifier is stateless and cannot detect replay on its own.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "visa-tap",
+          "rfc9421",
+          "web-bot-auth",
+          "nonce",
+          "replay-defense",
+          "agent-identity"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nonce": {
+                    "type": "string"
+                  },
+                  "created": {
+                    "type": "number"
+                  },
+                  "expires": {
+                    "type": "number"
+                  },
+                  "now_unix": {
+                    "type": "number"
+                  },
+                  "max_age_s": {
+                    "type": "number"
+                  },
+                  "seen_nonces": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "nonce_already_used": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "nonce",
+                  "created",
+                  "expires",
+                  "now_unix"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "format_ok": {
+                      "type": "boolean"
+                    },
+                    "spread_ok": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "fresh": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "already_used": {
+                      "type": "boolean"
+                    },
+                    "nonce_valid": {
+                      "type": "boolean"
+                    },
+                    "verdict": {
+                      "type": "string",
+                      "enum": [
+                        "ACCEPT",
+                        "REFUSE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "check_webbotauth_nonce_replay",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
       }
     },
     "/v1/tools/batch_payment_file_validator": {
