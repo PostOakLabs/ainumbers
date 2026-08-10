@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 // jsdoc-checkjs-gate.mjs — scope-corrected wrapper for the incremental
-// `tsc --checkJs` CI gate (.github/workflows/jsdoc-checkjs.yml, JSDOC-CHECKJS-1
-// / SEC-ACTIONS-INJECTION-1 / JSDOC-GATE-SCOPE-1).
+// `tsc --checkJs` CI gate (.github/workflows/jsdoc-checkjs.yml).
 //
-// PROBLEM THIS FIXES (measured, JSDOC-GATE-SCOPE-1, 2026-08-10):
+// PROBLEM THIS FIXES (measured 2026-08-10):
 //   The workflow already scopes its own INPUT correctly — it diffs the base/head
 //   commit range and passes only new/touched `chaingraph/kernels/**/*.mjs` files
 //   to tsc as root files. But `--checkJs` type-checks the whole PROGRAM tsc
@@ -16,8 +15,8 @@
 //   OLD (unfiltered) tsc invocation against `art-590`'s floor file — already
 //   merged, completely untouched by any pending diff — reproduces the identical
 //   failure shape, which is what proves the defect is pre-existing and systemic,
-//   not caused by any one diff. PR #1160 (ADJACENT-HOOKS-ASSEMBLE-LAND-2) hit
-//   this for real: its only touched files were 3 new `__proptests__/*.proptest.mjs`
+//   not caused by any one diff. PR #1160 (a chaingraph assembly PR) hit this
+//   for real: its only touched files were 3 new `__proptests__/*.proptest.mjs`
 //   floor files, yet the gate failed on diagnostics inside their sibling
 //   `.kernel.mjs` files, none of which the diff touched.
 //
