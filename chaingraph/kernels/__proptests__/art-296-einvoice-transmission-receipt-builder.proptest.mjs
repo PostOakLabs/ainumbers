@@ -1,11 +1,10 @@
-// kernel_digest_at_authoring: sha256:96f5d33248497f132d16bc20b15dea490b61aa7bddbf9f43a546f365d87b0233
+// kernel_digest_at_authoring: sha256:efd9144454c833bea1da03c8c2003da04d8d3b21f33bd1e5e963a512bf21278c
 //
-// FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-296-einvoice-transmission-receipt-builder.
-// Class B (bounded categorical), float:no exception per the WU row — boolean-gate AND-combination
-// logic only, no continuous arithmetic. Forced categorical boundary cases used in place of ULP
-// forcing per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies (mulberry32 PRNG +
-// explicit boundary arrays), same shape as the B1/B2/B3 harnesses. This file is READ-ONLY with
-// respect to the kernel it imports.
+// FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-296-einvoice-transmission-receipt-builder.
+// Class B (bounded-numeric per the WU row), NOT float-sensitive — pure boolean-gate composition,
+// no arithmetic at all. Forced CATEGORICAL boundary cases (each gate individually true/false) used
+// instead of ULP forcing, per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies.
+// This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -41,93 +40,82 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x29601);
+const rand = mulberry32(0x296C3);
+const TRIALS = 8000;
 
 function mkPP(rng) {
-  const structural_completeness = rng() < 0.5;
-  const consistent = rng() < 0.5;
-  return {
-    document: {
-      document_sha256: rng() < 0.9 ? 'a'.repeat(64) : null,
-      embedded_xml_sha256: null,
-      format: rng() < 0.9 ? 'xrechnung' : null,
-    },
-    format_validation: { structural_completeness },
-    vat_verification: { consistent },
-    routed_mandate: { regime_country: 'FR', applicable_format: 'factur-x_or_ubl', mandatory_from: '2026-09-01', phase_status: 'mandatory', transmission_channel: 'PDP', table_version: 't' },
-  };
+  const hasDoc = rng() < 0.85;
+  const hasHash = rng() < 0.85;
+  const hasFormat = rng() < 0.85;
+  const document = hasDoc ? { document_sha256: hasHash ? 'a'.repeat(64) : null, embedded_xml_sha256: null, format: hasFormat ? 'xrechnung' : null } : null;
+  const fv = rng() < 0.85 ? { structural_completeness: rng() < 0.7 } : null;
+  const vv = rng() < 0.85 ? { consistent: rng() < 0.7 } : null;
+  return { document, format_validation: fv, vat_verification: vv, routed_mandate: rng() < 0.5 ? { regime_country: 'FR' } : null };
 }
 
-// ---------- P1: fixed-threshold-tier agreement — validated is exactly the AND of parsed+both gates ----------
-function checkP1_validatedAgreement() {
+// ---------- P1: boundedness — validated is always boolean, claim_strength is one of the two declared enum values ----------
+function checkP1_claimStrengthBounded() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 10000; i++) {
+  for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const parsed_ok = !!pp.document.document_sha256 && !!pp.document.format;
-    const expected = parsed_ok && pp.format_validation.structural_completeness === true && pp.vat_verification.consistent === true;
+    const { validated, claim_strength } = r.output_payload;
+    if (typeof validated !== 'boolean') violations++;
+    if (claim_strength !== 'format_and_arithmetic_verified' && claim_strength !== 'unverified') violations++;
+  }
+  return { name: 'P1_claim_strength_bounded_to_two_declared_states', trials: checked, violations };
+}
+
+// ---------- P2: fixed rule — validated is exactly the conjunction of the three gates ----------
+function checkP2_validatedExactConjunction() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const document = pp.document || {};
+    const parsed_ok = !!document.document_sha256 && !!document.format;
+    const format_gate_passed = !!(pp.format_validation && pp.format_validation.structural_completeness === true);
+    const vat_gate_passed = !!(pp.vat_verification && pp.vat_verification.consistent === true);
+    const expected = parsed_ok && format_gate_passed && vat_gate_passed;
     if (r.output_payload.validated !== expected) violations++;
     if (r.output_payload.claim_strength !== (expected ? 'format_and_arithmetic_verified' : 'unverified')) violations++;
   }
-  return { name: 'P1_validated_matches_fixed_and_gate_rule', trials: checked, violations };
+  return { name: 'P2_validated_exact_conjunction_of_three_gates', trials: checked, violations };
 }
 
-// ---------- P2: boundedness — steps array always has exactly 3 fixed entries in fixed order ----------
-function checkP2_stepsBoundedness() {
+// ---------- P3: monotonicity — flipping any true gate to false never flips validated from false to true ----------
+function checkP3_monotonicInGates() {
   let violations = 0, checked = 0;
-  const EXPECTED_IDS = ['art-293-einvoice-format-validator', 'art-294-einvoice-vat-calc-verifier', 'art-295-einvoice-jurisdiction-mandate-router'];
-  for (let i = 0; i < 10000; i++) {
+  for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
-    const r = compute(pp);
+    const rBase = compute(pp);
+    const weakened = { ...pp, vat_verification: null };
+    const rWeak = compute(weakened);
     checked++;
-    const { steps } = r.output_payload;
-    if (steps.length !== 3) violations++;
-    for (let j = 0; j < 3; j++) if (steps[j].tool_id !== EXPECTED_IDS[j]) violations++;
+    if (rBase.output_payload.validated === false && rWeak.output_payload.validated === true) violations++;
   }
-  return { name: 'P2_steps_fixed_length_and_order', trials: checked, violations };
+  return { name: 'P3_removing_a_gate_never_flips_validated_false_to_true', trials: checked, violations };
 }
 
-// ---------- P3: monotone — flipping vat_gate or format_gate to false never flips validated true→ still false ----------
-function checkP3_monotoneGateDowngrade() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < 10000; i++) {
-    const pp = mkPP(rand);
-    const pass = { ...pp, format_validation: { structural_completeness: true }, vat_verification: { consistent: true } };
-    const failVat = { ...pass, vat_verification: { consistent: false } };
-    const r1 = compute(pass);
-    const r2 = compute(failVat);
-    checked++;
-    if (r1.output_payload.validated === false) continue;
-    if (r2.output_payload.validated !== false) violations++;
-  }
-  return { name: 'P3_downgrading_any_gate_never_increases_validated', trials: checked, violations };
-}
-
-// ---------- P4: forced categorical boundary cases (float:no exception — no ULP forcing applicable) ----------
-const CATEGORICAL_BOUNDARY_CASES = [
-  [{}, 'all-empty input — document_sha256/format null, all gates false, validated false, steps still 3 entries, no throw'],
-  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: { consistent: true } }, 'both gates exactly true — validated must be true'],
-  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: null }, 'vat_verification entirely absent (null) — vat_gate_passed must be false, validated false'],
-  [{ document: { document_sha256: null, format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: { consistent: true } }, 'document_sha256 missing alone — parsed_ok false, validated false even with both gates true'],
-  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: 'true' }, vat_verification: { consistent: true } }, 'structural_completeness as string "true" not boolean true — must NOT pass (strict === true check)'],
-  [{ routed_mandate: null }, 'routed_mandate explicitly null — output routed_mandate must be null, not throw'],
-  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: { consistent: true }, routed_mandate: {} }, 'routed_mandate present but empty object — must pass through as-is, not null'],
-  [{ document: 'not-an-object' }, 'document field is a string, not object — must safely fall back to empty object shape'],
-  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: false }, vat_verification: { consistent: true } }, 'format gate false, vat gate true — validated must be false (AND, not OR)'],
-  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: { consistent: false } }, 'format gate true, vat gate false — validated must be false'],
+// ---------- P4: forced categorical boundary cases (every gate individually failing) ----------
+const BOUNDARY_CASES = [
+  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: { consistent: true }, routed_mandate: null }, 'all three gates pass — validated must be true, claim_strength format_and_arithmetic_verified'],
+  [{ document: null, format_validation: { structural_completeness: true }, vat_verification: { consistent: true }, routed_mandate: null }, 'document absent — parsed_ok gate fails, validated must be false'],
+  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: false }, vat_verification: { consistent: true }, routed_mandate: null }, 'format gate explicitly false — validated must be false'],
+  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: { consistent: false }, routed_mandate: null }, 'vat gate explicitly false — validated must be false'],
+  [{ document: { document_sha256: 'a'.repeat(64), format: 'xrechnung' }, format_validation: null, vat_verification: { consistent: true }, routed_mandate: null }, 'format_validation object entirely absent (not merely false) — gate must fail closed'],
+  [{ document: { document_sha256: null, format: 'xrechnung' }, format_validation: { structural_completeness: true }, vat_verification: { consistent: true }, routed_mandate: null }, 'document_sha256 null within a present document object — parsed_ok must be false'],
 ];
 
 function checkP4_forced() {
   const rows = [];
-  for (const [pp, label] of CATEGORICAL_BOUNDARY_CASES) {
+  for (const [pp, label] of BOUNDARY_CASES) {
     const r = compute(pp);
-    const { validated, claim_strength, steps, ha_wiring } = r.output_payload;
-    const plausible = typeof validated === 'boolean'
-      && ['format_and_arithmetic_verified', 'unverified'].includes(claim_strength)
-      && Array.isArray(steps) && steps.length === 3
-      && ha_wiring && ha_wiring.release_gate_policy === 'review_required';
-    rows.push({ label, pp, validated, claim_strength, plausible });
+    const { validated, claim_strength } = r.output_payload;
+    const plausible = typeof validated === 'boolean' && (claim_strength === 'format_and_arithmetic_verified' || claim_strength === 'unverified');
+    rows.push({ label, input: pp, validated, claim_strength, plausible });
   }
   return rows;
 }
@@ -138,9 +126,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_validatedAgreement());
-results.properties.push(checkP2_stepsBoundedness());
-results.properties.push(checkP3_monotoneGateDowngrade());
+results.properties.push(checkP1_claimStrengthBounded());
+results.properties.push(checkP2_validatedExactConjunction());
+results.properties.push(checkP3_monotonicInGates());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

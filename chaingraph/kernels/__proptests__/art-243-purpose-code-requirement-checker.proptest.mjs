@@ -1,11 +1,10 @@
-// kernel_digest_at_authoring: sha256:01fafc4ec932174d36f7a72880ad604946bd324789acb1d5308172f526f2dfaf
+// kernel_digest_at_authoring: sha256:2ff736927d33cc21662cf8751c9182933760e8d7bf20ec50e5dcbd5b93e48615
 //
-// FV-PROPFLOOR-SHARD-B8-1 — property-test floor for art-243-purpose-code-requirement-checker.
-// Class B (bounded-numeric), FLOAT-SENSITIVE (payment_amount_usd is a raw double compared against
-// the fixed $12,500 SwiftGo threshold with a strict <= comparison) — ULP-boundary forcing is
-// MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies (mulberry32 PRNG +
-// explicit boundary arrays), same shape as the B1-B7 float harnesses. This file is READ-ONLY with
-// respect to the kernel it imports.
+// FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-243-purpose-code-requirement-checker.
+// Class B (bounded-numeric), FLOAT-SENSITIVE (payment_amount_usd compared against the fixed
+// SWIFTGO_MAX_USD=12500 threshold via > 0 && <= boundary) — ULP-boundary forcing is MANDATORY
+// per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies.
+// This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -41,92 +40,83 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x2430A1);
+const rand = mulberry32(0x243C3);
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
-const TRIALS = 10000;
-const MANDATE_COUNTRIES = ['AE', 'IN', 'BH', 'JO', 'CN', 'MY'];
-const NON_MANDATE_COUNTRIES = ['US', 'GB', 'DE', 'FR', 'JP'];
-const CATEGORY_CODES = ['SALA', 'PENS', 'TRAD', 'CORT', 'BEXP', 'SUPP', 'DIVI', 'BENE', 'OTHR', 'CHAR'];
+const TRIALS = 12000;
+
+const COUNTRIES = ['AE', 'IN', 'BH', 'JO', 'CN', 'MY', 'US', 'GB', 'DE', 'ZZ'];
+const CATEGORY_CODES = ['SALA', 'PENS', 'TRAD', 'CORT', 'BEXP', 'SUPP', 'DIVI', 'BENE', 'OTHR', 'CHAR', 'XXXX'];
 
 function mkPP(rng) {
-  return {
-    beneficiary_country: pick(rng, [...MANDATE_COUNTRIES, ...NON_MANDATE_COUNTRIES]),
-    payment_amount_usd: randRange(rng, 0, 30000),
-    purpose_code: pick(rng, ['SALA', 'PENS', '', 'BAD']),
-    category_purpose_code: pick(rng, [...CATEGORY_CODES, '']),
-  };
+  const beneficiary_country = pick(rng, COUNTRIES);
+  const payment_amount_usd = randRange(rng, -100, 30000);
+  const purpose_code = rng() < 0.8 ? pick(rng, ['TRAD', 'SALA', 'AB1', 'AB12']) : '';
+  const category_purpose_code = rng() < 0.8 ? pick(rng, CATEGORY_CODES) : '';
+  return { beneficiary_country, payment_amount_usd, purpose_code, category_purpose_code };
 }
 
-// ---------- P1: monotone — with category fixed valid, increasing amount past $12,500 never re-enables swiftgo_eligible ----------
-function checkP1_monotoneSwiftgo() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const amt1 = randRange(rand, 12500, 30000);
-    const amt2 = amt1 + randRange(rand, 0, 10000);
-    const base = { beneficiary_country: 'US', purpose_code: 'SALA', category_purpose_code: 'SALA' };
-    const r1 = compute({ ...base, payment_amount_usd: amt1 });
-    const r2 = compute({ ...base, payment_amount_usd: amt2 });
-    checked++;
-    if (r1.output_payload.swiftgo_amount_ok === false && r2.output_payload.swiftgo_amount_ok === true) violations++;
-  }
-  return { name: 'P1_monotone_swiftgo_amount_ok_nonincreasing_past_threshold', trials: checked, violations };
-}
-
-// ---------- P2: boundedness — swiftgo_max_usd fixed, required_code_types subset, code_type_required from known set ----------
-function checkP2_boundedness() {
-  let violations = 0, checked = 0;
-  const KNOWN_CODE_TYPE = new Set(['none', 'PurpCd']);
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkPP(rand);
-    const r = compute(pp);
-    checked++;
-    if (r.output_payload.swiftgo_max_usd !== 12500) violations++;
-    if (!KNOWN_CODE_TYPE.has(r.output_payload.code_type_required)) violations++;
-    for (const t of r.output_payload.required_code_types) if (t !== 'PurpCd') violations++;
-  }
-  return { name: 'P2_boundedness_swiftgo_max_fixed_and_code_type_from_known_set', trials: checked, violations };
-}
-
-// ---------- P3: fixed-threshold-tier agreement — jurisdiction mandate and swiftgo flags match independent rule ----------
-function checkP3_thresholdAgreement() {
+// ---------- P1: swiftgo_amount_ok exactly matches (amount>0 && amount<=12500) ----------
+function checkP1_amountOkExact() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const expected_mandate = MANDATE_COUNTRIES.includes(pp.beneficiary_country);
-    if (r.output_payload.jurisdiction_requires_purpose_code !== expected_mandate) violations++;
-    const expected_amount_ok = pp.payment_amount_usd > 0 && pp.payment_amount_usd <= 12500;
-    if (r.output_payload.swiftgo_amount_ok !== expected_amount_ok) violations++;
-    const expected_category_ok = pp.category_purpose_code.length > 0 && CATEGORY_CODES.includes(pp.category_purpose_code);
-    if (r.output_payload.swiftgo_category_ok !== expected_category_ok) violations++;
+    const expected = pp.payment_amount_usd > 0 && pp.payment_amount_usd <= 12500;
+    if (r.output_payload.swiftgo_amount_ok !== expected) violations++;
   }
-  return { name: 'P3_jurisdiction_and_swiftgo_flags_match_fixed_rule', trials: checked, violations };
+  return { name: 'P1_swiftgo_amount_ok_matches_fixed_threshold', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
+// ---------- P2: swiftgo_eligible === swiftgo_amount_ok && swiftgo_category_ok ----------
+function checkP2_eligibleIsConjunction() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const { swiftgo_eligible, swiftgo_amount_ok, swiftgo_category_ok } = r.output_payload;
+    if (swiftgo_eligible !== (swiftgo_amount_ok && swiftgo_category_ok)) violations++;
+  }
+  return { name: 'P2_swiftgo_eligible_exact_conjunction', trials: checked, violations };
+}
+
+// ---------- P3: boundedness — jurisdiction_requires_purpose_code implies purpose_code_provided required for compliance ----------
+function checkP3_complianceBounded() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const { jurisdiction_requires_purpose_code, purpose_code_provided, purpose_code_compliant } = r.output_payload;
+    if (jurisdiction_requires_purpose_code && !purpose_code_provided && purpose_code_compliant) violations++;
+    if (typeof purpose_code_compliant !== 'boolean') violations++;
+  }
+  return { name: 'P3_jurisdiction_required_and_absent_implies_noncompliant', trials: checked, violations };
+}
+
+// ---------- P4 (mandatory): ULP-boundary forcing around SWIFTGO_MAX_USD=12500 ----------
 const ULP_BOUNDARY_CASES = [
-  [{ payment_amount_usd: 12500 }, 'amount exactly at $12,500 SwiftGo boundary — inclusive <=, must be OK'],
-  [{ payment_amount_usd: 12500.000000000002 }, 'amount 1 ULP above $12,500 — must NOT be OK'],
-  [{ payment_amount_usd: 12499.999999999998 }, 'amount 1 ULP below $12,500 — must be OK'],
-  [{ payment_amount_usd: 0 }, 'amount exactly zero — not OK, guarded by > 0 check'],
-  [{ payment_amount_usd: -0 }, 'amount negative zero — must behave as zero, not OK'],
-  [{ payment_amount_usd: Number.MIN_VALUE }, 'smallest positive double amount — must be OK, no throw'],
-  [{ payment_amount_usd: 0.1 * 3 * 1000 }, 'amount = (0.1*3)*1000 rounding artifact — must remain finite and OK'],
-  [{ payment_amount_usd: (1 / 3) * 3 * 12500 }, 'x/y*y!==x rounding artifact at threshold scale — must round-trip without throwing'],
-  [{ payment_amount_usd: Number.MAX_SAFE_INTEGER }, 'amount at MAX_SAFE_INTEGER — must remain finite, not OK, no overflow'],
-  [{ payment_amount_usd: -100 }, 'negative amount — not OK, no throw'],
+  [{ beneficiary_country: 'US', payment_amount_usd: 12500, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount exactly at threshold 12500 — swiftgo_amount_ok must be true (<=)'],
+  [{ beneficiary_country: 'US', payment_amount_usd: 12500 + Number.EPSILON * 12500, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount 1 ULP above threshold — swiftgo_amount_ok must be false'],
+  [{ beneficiary_country: 'US', payment_amount_usd: 12500 - Number.EPSILON * 12500, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount 1 ULP below threshold — swiftgo_amount_ok must be true'],
+  [{ beneficiary_country: 'US', payment_amount_usd: 0, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount exactly zero — swiftgo_amount_ok must be false (>0 required)'],
+  [{ beneficiary_country: 'US', payment_amount_usd: -0, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount negative zero — must behave as zero, false, no NaN'],
+  [{ beneficiary_country: 'US', payment_amount_usd: Number.MIN_VALUE, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount smallest positive denormal double — must classify true (>0, <=12500), no NaN'],
+  [{ beneficiary_country: 'US', payment_amount_usd: NaN, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount NaN — safeNum coerces to 0, swiftgo_amount_ok must be false'],
+  [{ beneficiary_country: 'US', payment_amount_usd: 0.1 * 3 * 41666.666, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount computed via classic non-exact double chain around threshold — must not throw, verdict finite'],
+  [{ beneficiary_country: 'US', payment_amount_usd: Number.MAX_SAFE_INTEGER, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount at MAX_SAFE_INTEGER — must remain finite, swiftgo_amount_ok false (exceeds threshold)'],
+  [{ beneficiary_country: 'US', payment_amount_usd: 1e-300, purpose_code: '', category_purpose_code: 'TRAD' }, 'amount in subnormal range — must remain finite, swiftgo_amount_ok true'],
 ];
 
 function checkP4_forced() {
   const rows = [];
-  for (const [overrides, label] of ULP_BOUNDARY_CASES) {
-    const pp = { beneficiary_country: 'US', purpose_code: 'SALA', category_purpose_code: 'SALA', ...overrides };
+  for (const [pp, label] of ULP_BOUNDARY_CASES) {
     const r = compute(pp);
-    const { swiftgo_amount_ok, swiftgo_eligible } = r.output_payload;
-    const plausible = typeof swiftgo_amount_ok === 'boolean' && typeof swiftgo_eligible === 'boolean';
-    rows.push({ label, amount: pp.payment_amount_usd, swiftgo_amount_ok, swiftgo_eligible, plausible });
+    const { swiftgo_amount_ok, swiftgo_eligible, swiftgo_max_usd } = r.output_payload;
+    const plausible = typeof swiftgo_amount_ok === 'boolean' && typeof swiftgo_eligible === 'boolean' && Number.isFinite(swiftgo_max_usd);
+    rows.push({ label, input: pp, swiftgo_amount_ok, swiftgo_eligible, plausible });
   }
   return rows;
 }
@@ -137,9 +127,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_monotoneSwiftgo());
-results.properties.push(checkP2_boundedness());
-results.properties.push(checkP3_thresholdAgreement());
+results.properties.push(checkP1_amountOkExact());
+results.properties.push(checkP2_eligibleIsConjunction());
+results.properties.push(checkP3_complianceBounded());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

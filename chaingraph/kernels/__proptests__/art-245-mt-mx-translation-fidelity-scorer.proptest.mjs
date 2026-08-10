@@ -1,11 +1,12 @@
-// kernel_digest_at_authoring: sha256:ebef0432ad60665737531af12b4d2c3a3d971ac8b5d25ae7bc59dfc2707c515b
+// kernel_digest_at_authoring: sha256:df068aac811711ab2100e95147d96ce76694c32836ca079e405fbd586fbe351a
 //
-// FV-PROPFLOOR-SHARD-B8-1 — property-test floor for art-245-mt-mx-translation-fidelity-scorer.
-// Class B (bounded categorical), float:no exception per the WU row — field presence/mapping and
-// length checks only, no continuous arithmetic beyond a fixed-denominator fidelity score. Forced
-// categorical boundary cases used in place of ULP forcing per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero
-// external dependencies (mulberry32 PRNG + explicit boundary arrays), same shape as the B1-B7
-// harnesses. This file is READ-ONLY with respect to the kernel it imports.
+// FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-245-mt-mx-translation-fidelity-scorer.
+// Class B (bounded-numeric), NOT float-sensitive per the WU row's classification (fidelity_score
+// is Math.round(ratio*100) over presence counts, and length checks are exact string .length
+// comparisons against fixed integer thresholds — no unrounded float division feeds a comparison).
+// Forced CATEGORICAL boundary cases (string length exactly at threshold) used instead of ULP
+// forcing, per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies.
+// This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -41,88 +42,94 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x2450A1);
-const TRIALS = 10000;
+const rand = mulberry32(0x245C3);
+function randInt(rng, lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); }
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+function randStr(rng, len) { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '; let s = ''; for (let i = 0; i < len; i++) s += chars[Math.floor(rng() * chars.length)]; return s; }
+const TRIALS = 8000;
+const CHRG_KEYS = ['OUR', 'SHA', 'BEN', ''];
+const CHRG_VALS = ['DEBT', 'SHAR', 'CRED', 'XXXX', ''];
 
-function mkFullValidPP() {
+function mkPP(rng) {
   return {
-    mt_f20: 'REF001', mt_f23b: 'CRED', mt_f32a: '260101EUR1000,00',
-    mt_f50: 'John Doe', mt_f52a: 'DEUTDEFF', mt_f57a: 'CHASUS33', mt_f59: 'Jane Roe',
-    mt_f70: 'invoice payment', mt_f71a: 'SHA',
-    mx_uetr: 'a1b2c3d4-e5f6-4789-8abc-def012345678',
-    mx_dbtr_nm: 'John Doe', mx_cdtr_nm: 'Jane Roe',
-    mx_cdtr_agt: 'CHASUS33', mx_dbtr_agt: 'DEUTDEFF',
-    mx_rmt_ustrd: 'invoice payment', mx_chrg_br: 'SHAR',
+    mt_f20: rng() < 0.8 ? randStr(rng, randInt(rng, 1, 20)) : '',
+    mt_f50: rng() < 0.8 ? randStr(rng, randInt(rng, 1, 40)) : '',
+    mt_f59: rng() < 0.8 ? randStr(rng, randInt(rng, 1, 40)) : '',
+    mt_f52a: rng() < 0.6 ? randStr(rng, 11) : '',
+    mt_f57a: rng() < 0.6 ? randStr(rng, 11) : '',
+    mt_f70: rng() < 0.8 ? randStr(rng, randInt(rng, 1, 145)) : '',
+    mt_f71a: pick(rng, CHRG_KEYS),
+    mx_uetr: rng() < 0.8 ? randStr(rng, 36) : '',
+    mx_dbtr_nm: rng() < 0.8 ? randStr(rng, randInt(rng, 1, 145)) : '',
+    mx_cdtr_nm: rng() < 0.8 ? randStr(rng, randInt(rng, 1, 145)) : '',
+    mx_dbtr_agt: rng() < 0.6 ? randStr(rng, 11) : '',
+    mx_cdtr_agt: rng() < 0.6 ? randStr(rng, 11) : '',
+    mx_rmt_ustrd: rng() < 0.8 ? randStr(rng, randInt(rng, 1, 145)) : '',
+    mx_chrg_br: pick(rng, CHRG_VALS),
   };
 }
 
-// ---------- P1: monotone — filling all mapped mx fields correctly never decreases fidelity_score / increases error_count ----------
-function checkP1_monotoneFidelity() {
+// ---------- P1: boundedness — fidelity_score always in [0,100], integer ----------
+function checkP1_scoreBounded() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
-    const worse = { mt_f20: 'REF001', mt_f50: 'John Doe', mt_f59: 'Jane Roe', mt_f70: 'x', mt_f71a: 'SHA' };
-    const better = mkFullValidPP();
-    const r1 = compute(worse);
-    const r2 = compute(better);
-    checked++;
-    if (r2.output_payload.fidelity_score < r1.output_payload.fidelity_score) violations++;
-    if (r2.output_payload.error_count > r1.output_payload.error_count) violations++;
-    if (r2.output_payload.fidelity_score !== 100) violations++;
-  }
-  return { name: 'P1_monotone_fidelity_nondecreasing_toward_full_mapping', trials: checked, violations };
-}
-
-// ---------- P2: boundedness — fidelity_score in [0,100], fidelity_tier from known set ----------
-function checkP2_boundedness() {
-  let violations = 0, checked = 0;
-  const KNOWN_TIERS = new Set(['HIGH', 'MEDIUM', 'LOW']);
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = rand() < 0.5 ? mkFullValidPP() : { mt_f20: 'x' };
+    const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const { fidelity_score, fidelity_tier, error_count } = r.output_payload;
-    if (fidelity_score < 0 || fidelity_score > 100) violations++;
-    if (!KNOWN_TIERS.has(fidelity_tier)) violations++;
-    if (error_count < 0) violations++;
+    const s = r.output_payload.fidelity_score;
+    if (!(Number.isInteger(s) && s >= 0 && s <= 100)) violations++;
   }
-  return { name: 'P2_boundedness_fidelity_score_and_tier_from_known_set', trials: checked, violations };
+  return { name: 'P1_fidelity_score_bounded_0_to_100_integer', trials: checked, violations };
 }
 
-// ---------- P3: fixed-tier agreement — fidelity_tier matches independently-recomputed score bands ----------
-function checkP3_tierAgreement() {
+// ---------- P2: fixed-threshold-tier agreement — fidelity_tier matches score tiers exactly ----------
+function checkP2_tierMatchesScore() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
-    const pp = rand() < 0.5 ? mkFullValidPP() : { mt_f20: 'x', mt_f50: 'y' };
+    const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
     const { fidelity_score, fidelity_tier } = r.output_payload;
-    const expected_tier = fidelity_score >= 90 ? 'HIGH' : fidelity_score >= 70 ? 'MEDIUM' : 'LOW';
-    if (fidelity_tier !== expected_tier) violations++;
+    const expected = fidelity_score >= 90 ? 'HIGH' : fidelity_score >= 70 ? 'MEDIUM' : 'LOW';
+    if (fidelity_tier !== expected) violations++;
   }
-  return { name: 'P3_fidelity_tier_matches_fixed_score_bands', trials: checked, violations };
+  return { name: 'P2_fidelity_tier_matches_fixed_score_tiers', trials: checked, violations };
 }
 
-// ---------- P4: forced categorical boundary cases (float:no exception — no ULP forcing applicable) ----------
-const CATEGORICAL_BOUNDARY_CASES = [
-  [{}, 'fully empty input — UETR_ABSENT error, no throw, fidelity_score 0 (no scored fields), LOW tier'],
-  [mkFullValidPP(), 'fully valid mapping — fidelity_score 100, HIGH tier, compliant'],
-  [{ ...mkFullValidPP(), mt_f71a: 'OUR', mx_chrg_br: 'SHAR' }, 'charge bearer mismatch — OUR should map to DEBT, not SHAR — CHARGE_BEARER_MISMATCH error'],
-  [{ ...mkFullValidPP(), mt_f71a: 'XXX' }, 'unknown MT charge bearer code — warning only, not error'],
-  [{ ...mkFullValidPP(), mx_rmt_ustrd: 'x'.repeat(141) }, 'RmtInf/Ustrd exceeding 140 chars — REMITTANCE_INFO_TRUNCATION error'],
-  [{ ...mkFullValidPP(), mx_uetr: '' }, 'missing UETR in pacs.008 output — UETR_ABSENT error even with full MT fields'],
-  [{ mt_f50: 'John Doe' }, 'MT field present, mx counterpart absent — DBTR_NM_MISSING_FROM_MT50 error'],
-  [{ ...mkFullValidPP(), mx_dbtr_nm: 'x'.repeat(141) }, 'Dbtr/Nm exceeding 140 chars — truncation risk warning'],
-  [{ mt_f52a: 'DEUTDEFF' }, 'MT :52A present, DbtrAgt/BICFI absent — DBTR_AGT_MISSING warning'],
-  [{}, 'repeat empty-input check for determinism — no throw'],
+// ---------- P3: round-trip — correctly_mapped never exceeds scored_fields length; score is exact ratio*100 rounded ----------
+function checkP3_scoreExactRatio() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const scored = r.output_payload.mapping_results.filter((m) => m.mt_present);
+    const correct = scored.filter((m) => m.mx_present).length;
+    const expected = scored.length > 0 ? Math.round((correct / scored.length) * 100) : 0;
+    if (r.output_payload.fidelity_score !== expected) violations++;
+  }
+  return { name: 'P3_fidelity_score_exact_rounded_ratio', trials: checked, violations };
+}
+
+// ---------- P4: forced categorical boundary cases (length thresholds 140/70/35, empty presence) ----------
+const BOUNDARY_CASES = [
+  [{ mt_f50: 'A', mx_dbtr_nm: 'X'.repeat(140), mt_f20: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f70: '', mt_f71a: '', mx_uetr: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_rmt_ustrd: '', mx_chrg_br: '' }, 'Dbtr/Nm exactly at 140-char boundary — must NOT be flagged as truncation risk (> is strict)'],
+  [{ mt_f50: 'A', mx_dbtr_nm: 'X'.repeat(141), mt_f20: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f70: '', mt_f71a: '', mx_uetr: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_rmt_ustrd: '', mx_chrg_br: '' }, 'Dbtr/Nm 1 char over 140-char boundary — must be flagged as truncation risk'],
+  [{ mt_f70: 'A', mx_rmt_ustrd: 'X'.repeat(140), mt_f20: '', mt_f50: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f71a: '', mx_uetr: '', mx_dbtr_nm: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_chrg_br: '' }, 'RmtInf/Ustrd exactly at 140-char boundary — must NOT be flagged truncation'],
+  [{ mt_f70: 'A', mx_rmt_ustrd: 'X'.repeat(141), mt_f20: '', mt_f50: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f71a: '', mx_uetr: '', mx_dbtr_nm: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_chrg_br: '' }, 'RmtInf/Ustrd 1 char over 140-char boundary — must be flagged truncation ERROR, non-compliant'],
+  [{ mt_f71a: 'OUR', mx_chrg_br: 'DEBT', mt_f20: '', mt_f50: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f70: '', mx_uetr: '', mx_dbtr_nm: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_rmt_ustrd: '' }, 'OUR correctly maps to DEBT — no charge-bearer mismatch issue'],
+  [{ mt_f71a: 'OUR', mx_chrg_br: 'SHAR', mt_f20: '', mt_f50: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f70: '', mx_uetr: '', mx_dbtr_nm: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_rmt_ustrd: '' }, 'OUR incorrectly mapped to SHAR — must flag CHARGE_BEARER_MISMATCH ERROR'],
+  [{ mt_f71a: 'ZZZ', mx_chrg_br: '', mt_f20: '', mt_f50: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f70: '', mx_uetr: '', mx_dbtr_nm: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_rmt_ustrd: '' }, 'unknown MT charge-bearer code — must flag CHARGE_BEARER_MT_UNKNOWN WARNING, no mismatch'],
+  [{ mt_f20: '', mt_f50: '', mt_f59: '', mt_f52a: '', mt_f57a: '', mt_f70: '', mt_f71a: '', mx_uetr: '', mx_dbtr_nm: '', mx_cdtr_nm: '', mx_dbtr_agt: '', mx_cdtr_agt: '', mx_rmt_ustrd: '', mx_chrg_br: '' }, 'all fields absent — no MT fields present, fidelity_score must be exactly 0 (empty-scored-set branch)'],
 ];
 
 function checkP4_forced() {
   const rows = [];
-  for (const [pp, label] of CATEGORICAL_BOUNDARY_CASES) {
+  for (const [pp, label] of BOUNDARY_CASES) {
     const r = compute(pp);
-    const { fidelity_score, fidelity_tier, compliant } = r.output_payload;
-    const plausible = Number.isFinite(fidelity_score) && typeof fidelity_tier === 'string' && typeof compliant === 'boolean';
-    rows.push({ label, fidelity_score, fidelity_tier, compliant, plausible });
+    const { fidelity_score, fidelity_tier, truncation_risks } = r.output_payload;
+    const plausible = Number.isInteger(fidelity_score) && fidelity_score >= 0 && fidelity_score <= 100 && typeof fidelity_tier === 'string' && Array.isArray(truncation_risks);
+    rows.push({ label, input: pp, fidelity_score, fidelity_tier, truncation_risks, plausible });
   }
   return rows;
 }
@@ -133,9 +140,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_monotoneFidelity());
-results.properties.push(checkP2_boundedness());
-results.properties.push(checkP3_tierAgreement());
+results.properties.push(checkP1_scoreBounded());
+results.properties.push(checkP2_tierMatchesScore());
+results.properties.push(checkP3_scoreExactRatio());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
