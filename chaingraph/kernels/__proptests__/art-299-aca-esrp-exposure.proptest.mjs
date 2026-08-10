@@ -1,11 +1,10 @@
-// kernel_digest_at_authoring: sha256:63c47665ca6ea5d115ee195ae212be51bd97cc85a5eca9abc193cc762918aea9
+// kernel_digest_at_authoring: sha256:d07a15cc7c7b3da43db92b15595249dcb3e8a81ca73d2e0144172de35b6e410e
 //
-// FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-299-aca-esrp-exposure.
-// Class B (bounded-numeric), FLOAT-SENSITIVE (coverage_offer_rate is a raw-double division,
-// compared against a fixed 0.95 threshold; exposure amounts are raw-double products) —
-// ULP-boundary forcing is MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external
-// dependencies (mulberry32 PRNG + explicit boundary arrays), same shape as the B1/B2/B3 float
-// harness (art-107/art-15). This file is READ-ONLY with respect to the kernel it imports.
+// FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-299-aca-esrp-exposure.
+// Class B (bounded-numeric), FLOAT-SENSITIVE (coverage_offer_rate is an unrounded float division
+// offeredMecCount/fulltimeCount compared against the fixed OFFER_RATE_THRESHOLD=0.95 with `<`) —
+// ULP-boundary forcing is MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies.
+// This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -41,90 +40,91 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x29901);
-function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
-const TRIALS = 10000;
-const A_ANNUAL = 3340, B_ANNUAL = 5010;
+const rand = mulberry32(0x299C3);
+function randInt(rng, lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); }
+const TRIALS = 12000;
+const OFFER_RATE_THRESHOLD = 0.95;
+const A_EXCLUSION_COUNT = 30;
+const A_ANNUAL = 3340;
+const B_ANNUAL = 5010;
 
 function mkPP(rng) {
-  const fulltime_count = Math.floor(randRange(rng, 1, 1000));
+  const fulltime = randInt(rng, 0, 500);
   return {
-    tax_year: '2026',
-    fulltime_count,
-    offered_mec_count: Math.floor(randRange(rng, 0, fulltime_count + 1)),
-    ptc_employee_count: Math.floor(randRange(rng, 0, 50)),
+    tax_year: rng() < 0.9 ? '2026' : 'BOGUS',
+    fulltime_count: fulltime,
+    offered_mec_count: randInt(rng, 0, fulltime + 10),
+    ptc_employee_count: randInt(rng, 0, 20),
   };
 }
 
-// ---------- P1: monotone — raising offered_mec_count never increases a_exposure_annual ----------
-function checkP1_monotoneOfferRate() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkPP(rand);
-    const low = { ...pp, offered_mec_count: 0 };
-    const high = { ...pp, offered_mec_count: pp.fulltime_count };
-    const r1 = compute(low);
-    const r2 = compute(high);
-    checked++;
-    if (r2.output_payload.a_exposure_annual > r1.output_payload.a_exposure_annual) violations++;
-  }
-  return { name: 'P1_monotone_a_exposure_nonincreasing_as_offer_rate_rises', trials: checked, violations };
-}
-
-// ---------- P2: boundedness — exposure amounts always finite and non-negative ----------
-function checkP2_boundedness() {
+// ---------- P1: fixed rule — a_applicable exactly matches coverage_offer_rate < 0.95 threshold ----------
+function checkP1_aApplicableExact() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
+    if (pp.tax_year !== '2026' || pp.fulltime_count === 0) continue;
     checked++;
-    const { a_exposure_annual, b_exposure_annual, controlling_exposure_annual } = r.output_payload;
-    if (!Number.isFinite(a_exposure_annual) || a_exposure_annual < 0) violations++;
-    if (!Number.isFinite(b_exposure_annual) || b_exposure_annual < 0) violations++;
-    if (!Number.isFinite(controlling_exposure_annual) || controlling_exposure_annual < 0) violations++;
+    const rate = pp.offered_mec_count / pp.fulltime_count;
+    const expected = rate < OFFER_RATE_THRESHOLD;
+    if (r.output_payload.a_applicable !== expected) violations++;
   }
-  return { name: 'P2_boundedness_exposures_finite_nonnegative', trials: checked, violations };
+  return { name: 'P1_a_applicable_exact_lt_0.95_threshold', trials: checked, violations };
 }
 
-// ---------- P3: fixed-threshold-tier agreement — a_applicable matches exact 0.95 threshold comparison ----------
-function checkP3_aApplicableAgreement() {
+// ---------- P2: boundedness — a_exposure_annual and b_exposure_annual are always non-negative ----------
+function checkP2_exposureNonNegative() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
+    if (pp.tax_year !== '2026') continue;
     checked++;
-    const expectedRate = pp.fulltime_count > 0 ? pp.offered_mec_count / pp.fulltime_count : null;
-    const expectedApplicable = expectedRate !== null && expectedRate < 0.95;
-    if (r.output_payload.a_applicable !== expectedApplicable) violations++;
-    const expectedB = B_ANNUAL * pp.ptc_employee_count;
+    if (r.output_payload.a_exposure_annual < 0 || r.output_payload.b_exposure_annual < 0) violations++;
+  }
+  return { name: 'P2_exposure_amounts_never_negative', trials: checked, violations };
+}
+
+// ---------- P3: fixed rule — a_exposure_annual exact formula, b_exposure_annual exact product ----------
+function checkP3_exposureExactFormula() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    if (pp.tax_year !== '2026') continue;
+    checked++;
+    const rate = pp.fulltime_count > 0 ? pp.offered_mec_count / pp.fulltime_count : null;
+    const aApplicable = rate !== null && rate < OFFER_RATE_THRESHOLD;
+    const expectedA = aApplicable ? Math.max(0, pp.fulltime_count - A_EXCLUSION_COUNT) * A_ANNUAL : 0;
+    const expectedB = pp.ptc_employee_count * B_ANNUAL;
+    if (r.output_payload.a_exposure_annual !== expectedA) violations++;
     if (r.output_payload.b_exposure_annual !== expectedB) violations++;
   }
-  return { name: 'P3_a_applicable_matches_exact_offer_rate_threshold', trials: checked, violations };
+  return { name: 'P3_exposure_amounts_exact_fixed_formula', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
+// ---------- P4 (mandatory): ULP-boundary forcing around OFFER_RATE_THRESHOLD=0.95 ----------
 const ULP_BOUNDARY_CASES = [
-  [{ tax_year: '2026', fulltime_count: 200, offered_mec_count: 190, ptc_employee_count: 0 }, 'coverage_offer_rate exactly 0.95 (190/200) — a_applicable must be FALSE (< not <=)'],
-  [{ tax_year: '2026', fulltime_count: 200, offered_mec_count: 189, ptc_employee_count: 0 }, 'coverage_offer_rate 0.945, 1-ULP-shaped below 0.95 — a_applicable must be true'],
-  [{ tax_year: '2026', fulltime_count: 0, offered_mec_count: 0, ptc_employee_count: 5 }, 'fulltime_count exactly zero — coverage_offer_rate null (0/0 guarded), a_applicable false, b_exposure still computed'],
-  [{ tax_year: '2026', fulltime_count: 30, offered_mec_count: 0, ptc_employee_count: 0 }, 'fulltime_count exactly at the 30-employee A-exclusion boundary — a_exposure_annual must be exactly 0'],
-  [{ tax_year: '2026', fulltime_count: 31, offered_mec_count: 0, ptc_employee_count: 0 }, 'fulltime_count 1 above the 30-exclusion boundary — a_exposure_annual must be exactly 1*3340'],
-  [{ tax_year: '2026', fulltime_count: 3, offered_mec_count: 3, ptc_employee_count: 0 }, 'coverage_offer_rate exactly 1 (3/3, a classic 0.1*3-shaped division result) — a_applicable must be false'],
-  [{ tax_year: '2026', fulltime_count: 100000000, offered_mec_count: 0, ptc_employee_count: 0 }, 'very large fulltime_count — a_exposure_annual must stay finite, no overflow'],
-  [{ tax_year: '2026', fulltime_count: 200, offered_mec_count: -0, ptc_employee_count: 0 }, 'negative-zero offered_mec_count normalizes via Math.round — must behave as zero, not throw'],
-  [{ tax_year: '2026', fulltime_count: 3, offered_mec_count: 1, ptc_employee_count: 0 }, 'coverage_offer_rate = 1/3 (0.333...) — a_applicable true, exact double division result must reproduce identically'],
-  [{ tax_year: '2026', fulltime_count: 200, offered_mec_count: 200, ptc_employee_count: 0 }, 'coverage_offer_rate exactly 1 — a_applicable must be false, b_applicable false, controlling_penalty none'],
+  [{ tax_year: '2026', fulltime_count: 100, offered_mec_count: 95, ptc_employee_count: 0 }, 'coverage_offer_rate exactly 0.95 — a_applicable must be false (< is strict, not <=)'],
+  [{ tax_year: '2026', fulltime_count: 1000, offered_mec_count: 949, ptc_employee_count: 0 }, 'coverage_offer_rate = 0.949, just under threshold — a_applicable must be true'],
+  [{ tax_year: '2026', fulltime_count: 20, offered_mec_count: 19, ptc_employee_count: 0 }, '19/20=0.95 exact double, small denominator — a_applicable must be false'],
+  [{ tax_year: '2026', fulltime_count: 0, offered_mec_count: 0, ptc_employee_count: 0 }, 'fulltime_count exactly zero — coverage_offer_rate null (no divide-by-zero), a_applicable must be false'],
+  [{ tax_year: '2026', fulltime_count: 3, offered_mec_count: 1, ptc_employee_count: 0 }, '1/3 non-exact repeating double, well below threshold — a_applicable true, no NaN'],
+  [{ tax_year: '2026', fulltime_count: 30, offered_mec_count: 0, ptc_employee_count: 0 }, 'fulltime_count exactly at A_EXCLUSION_COUNT=30 — a_exposure_annual must be exactly 0 (max(0, 30-30)*3340)'],
+  [{ tax_year: '2026', fulltime_count: 31, offered_mec_count: 0, ptc_employee_count: 0 }, 'fulltime_count 1 above exclusion boundary — a_exposure_annual must be exactly 1*3340=3340'],
+  [{ tax_year: '2026', fulltime_count: 29, offered_mec_count: 0, ptc_employee_count: 0 }, 'fulltime_count 1 below exclusion boundary — max(0, 29-30) clamps to 0, exposure must be exactly 0, not negative'],
+  [{ tax_year: '2026', fulltime_count: 500, offered_mec_count: 500 * OFFER_RATE_THRESHOLD, ptc_employee_count: 0 }, 'offered_mec_count computed as exact threshold product (500*0.95=475) — must classify not-applicable (rate==threshold)'],
+  [{ tax_year: '2026', fulltime_count: 100, offered_mec_count: Math.round(100 * OFFER_RATE_THRESHOLD) - 1, ptc_employee_count: 0 }, 'offered_mec_count 1 below the rounded threshold count — a_applicable must be true'],
 ];
 
 function checkP4_forced() {
   const rows = [];
   for (const [pp, label] of ULP_BOUNDARY_CASES) {
     const r = compute(pp);
-    const { a_exposure_annual, b_exposure_annual, coverage_offer_rate, a_applicable } = r.output_payload;
-    const finite = Number.isFinite(a_exposure_annual) && Number.isFinite(b_exposure_annual)
-      && (coverage_offer_rate === null || Number.isFinite(coverage_offer_rate));
-    const plausible = finite && (a_applicable === null || typeof a_applicable === 'boolean');
-    rows.push({ label, pp, a_exposure_annual, b_exposure_annual, coverage_offer_rate, a_applicable, plausible });
+    const { a_applicable, a_exposure_annual, b_exposure_annual, coverage_offer_rate } = r.output_payload;
+    const plausible = typeof a_applicable === 'boolean' && Number.isFinite(a_exposure_annual) && Number.isFinite(b_exposure_annual) && (coverage_offer_rate === null || Number.isFinite(coverage_offer_rate));
+    rows.push({ label, input: pp, a_applicable, a_exposure_annual, coverage_offer_rate, plausible });
   }
   return rows;
 }
@@ -135,9 +135,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_monotoneOfferRate());
-results.properties.push(checkP2_boundedness());
-results.properties.push(checkP3_aApplicableAgreement());
+results.properties.push(checkP1_aApplicableExact());
+results.properties.push(checkP2_exposureNonNegative());
+results.properties.push(checkP3_exposureExactFormula());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

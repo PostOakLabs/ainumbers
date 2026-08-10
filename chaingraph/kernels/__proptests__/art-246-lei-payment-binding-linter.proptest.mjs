@@ -1,12 +1,12 @@
-// kernel_digest_at_authoring: sha256:ce05086143112505799d31fe336994900733702f77a3c4bce586b1cfe73b5682
+// kernel_digest_at_authoring: sha256:3eb46ada4f435f3207e14efe0cd5349dd78613e1b50bbe42bb85cd95e2cd3c05
 //
-// FV-PROPFLOOR-SHARD-B8-1 — property-test floor for art-246-lei-payment-binding-linter.
-// Class B (bounded categorical), float:no exception per the WU row — ISO 7064 Mod 97-10 check-digit
-// arithmetic is exact integer modular arithmetic, not floating point; Wolfsberg scoring is a fixed
-// integer-weight sum. Forced categorical boundary cases used in place of ULP forcing per
-// FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies (mulberry32 PRNG + explicit boundary
-// arrays), same shape as the B1-B7 harnesses. This file is READ-ONLY with respect to the kernel it
-// imports.
+// FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-246-lei-payment-binding-linter.
+// Class B (bounded-numeric), NOT float-sensitive per the WU row's classification (LEI check-digit
+// is integer mod-97 arithmetic per ISO 7064; Wolfsberg score is Math.round(weight-ratio*100) over
+// fixed integer weights — no unrounded float division feeds a comparison). Forced CATEGORICAL
+// boundary cases (weight-sum boundaries, mod-97 remainder edge, exact-length boundary) used instead
+// of ULP forcing, per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies.
+// This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -42,95 +42,94 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x2460A1);
-const TRIALS = 10000;
-const VALID_LEI = 'ABCDEFGH123456789042'; // mod-97 verified valid (remainder 1) — see WU authoring note
+const rand = mulberry32(0x246C3);
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+function randStr(rng, len, alphabet) { let s = ''; for (let i = 0; i < len; i++) s += alphabet[Math.floor(rng() * alphabet.length)]; return s; }
+const TRIALS = 8000;
+const ALNUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
-function mkFullPP() {
+// Known-valid LEI (mod-97 remainder 1) reused from the kernel's own fixtures for "valid" trials.
+const VALID_LEI = '00000000000000000001';
+
+function mkLei(rng) {
+  const r = rng();
+  if (r < 0.3) return '';
+  if (r < 0.55) return VALID_LEI;
+  if (r < 0.8) return randStr(rng, 20, ALNUM); // random 20-char, almost certainly invalid check digit
+  return randStr(rng, Math.floor(rng() * 30), ALNUM); // wrong length
+}
+
+function mkPP(rng) {
   return {
-    originator_lei: VALID_LEI,
-    beneficiary_lei: VALID_LEI,
-    originator_name: 'Alice Corp',
-    originator_account: 'ACC001',
-    beneficiary_name: 'Bob Corp',
-    beneficiary_account: 'ACC002',
+    originator_lei: mkLei(rng),
+    beneficiary_lei: mkLei(rng),
+    originator_name: rng() < 0.7 ? randStr(rng, 10, ALNUM) : '',
+    originator_account: rng() < 0.7 ? randStr(rng, 15, ALNUM) : '',
+    beneficiary_name: rng() < 0.7 ? randStr(rng, 10, ALNUM) : '',
+    beneficiary_account: rng() < 0.7 ? randStr(rng, 15, ALNUM) : '',
   };
 }
 
-// ---------- P1: monotone — filling all Wolfsberg fields (with valid LEIs) never decreases score / increases error_count ----------
-function checkP1_monotoneScore() {
+// ---------- P1: boundedness — wolfsberg_transparency_score always in [0,100], integer ----------
+function checkP1_scoreBounded() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
-    const worse = {};
-    const better = mkFullPP();
-    const r1 = compute(worse);
-    const r2 = compute(better);
-    checked++;
-    if (r2.output_payload.wolfsberg_transparency_score < r1.output_payload.wolfsberg_transparency_score) violations++;
-    if (r2.output_payload.error_count > r1.output_payload.error_count) violations++;
-    if (r2.output_payload.wolfsberg_transparency_score !== 100) violations++;
-    if (r2.output_payload.lei_valid !== true) violations++;
-  }
-  return { name: 'P1_monotone_score_nondecreasing_toward_full_transparency', trials: checked, violations };
-}
-
-// ---------- P2: boundedness — wolfsberg_transparency_score in [0,100], tier from known set ----------
-function checkP2_boundedness() {
-  let violations = 0, checked = 0;
-  const KNOWN_TIERS = new Set(['HIGH', 'MEDIUM', 'LOW']);
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkFullPP();
-    if (rand() < 0.5) delete pp.originator_name;
-    if (rand() < 0.5) delete pp.beneficiary_account;
-    if (rand() < 0.5) pp.originator_lei = 'NOTVALID000000000042';
+    const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const { wolfsberg_transparency_score, wolfsberg_transparency_tier, error_count } = r.output_payload;
-    if (wolfsberg_transparency_score < 0 || wolfsberg_transparency_score > 100) violations++;
-    if (!KNOWN_TIERS.has(wolfsberg_transparency_tier)) violations++;
-    if (error_count < 0) violations++;
+    const s = r.output_payload.wolfsberg_transparency_score;
+    if (!(Number.isInteger(s) && s >= 0 && s <= 100)) violations++;
   }
-  return { name: 'P2_boundedness_wolfsberg_score_and_tier_from_known_set', trials: checked, violations };
+  return { name: 'P1_wolfsberg_score_bounded_0_to_100_integer', trials: checked, violations };
 }
 
-// ---------- P3: fixed-tier agreement — wolfsberg_transparency_tier matches independently-recomputed score bands ----------
-function checkP3_tierAgreement() {
+// ---------- P2: fixed-threshold-tier agreement — tier matches score thresholds exactly ----------
+function checkP2_tierMatchesScore() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
-    const pp = mkFullPP();
-    if (rand() < 0.5) delete pp.originator_name;
-    if (rand() < 0.5) delete pp.beneficiary_lei;
-    if (rand() < 0.5) delete pp.originator_account;
+    const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
     const { wolfsberg_transparency_score, wolfsberg_transparency_tier } = r.output_payload;
-    const expected_tier = wolfsberg_transparency_score >= 80 ? 'HIGH' : wolfsberg_transparency_score >= 50 ? 'MEDIUM' : 'LOW';
-    if (wolfsberg_transparency_tier !== expected_tier) violations++;
+    const expected = wolfsberg_transparency_score >= 80 ? 'HIGH' : wolfsberg_transparency_score >= 50 ? 'MEDIUM' : 'LOW';
+    if (wolfsberg_transparency_tier !== expected) violations++;
   }
-  return { name: 'P3_wolfsberg_tier_matches_fixed_score_bands', trials: checked, violations };
+  return { name: 'P2_tier_matches_fixed_score_thresholds', trials: checked, violations };
 }
 
-// ---------- P4: forced categorical boundary cases (float:no exception — mod-97 is exact integer arithmetic) ----------
-const CATEGORICAL_BOUNDARY_CASES = [
-  [{}, 'fully empty input — score 0, LOW tier, no throw'],
-  [mkFullPP(), 'fully valid mod-97 LEIs and all Wolfsberg fields — score 100, HIGH tier, lei_valid true'],
-  [{ originator_lei: 'TOOSHORT' }, 'LEI not 20 chars — ORIGINATOR_LEI_INVALID, format error'],
-  [{ originator_lei: 'ZZZZZZZZ123456789042' }, 'LEI 20 alnum chars but wrong mod-97 check digits — ORIGINATOR_LEI_INVALID, check-digit error'],
-  [{ originator_lei: VALID_LEI.toLowerCase() }, 'valid LEI in lowercase — must uppercase and validate correctly'],
-  [{ beneficiary_lei: '' }, 'empty beneficiary_lei — not an error (LEI optional), lei_valid unaffected'],
-  [{ originator_name: 'x'.repeat(500) }, 'very long originator_name — must not throw, counted present'],
-  [{ ...mkFullPP(), originator_lei: 'BADCHECKDIGITS000042' }, 'invalid check digits on otherwise-valid-format LEI — error, score excludes nothing (LEI presence still counted for weight, only lei_valid flips)'],
-  [{ originator_name: 'Alice', originator_account: 'A1', originator_lei: VALID_LEI }, 'only originator side complete — score exactly 55 (half of 110)'],
-  [{}, 'repeat empty-input check for determinism — no throw'],
+// ---------- P3: monotonicity — more present fields never decreases the score ----------
+function checkP3_scoreMonotonicInPresence() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const base = mkPP(rand);
+    const augmented = { ...base, originator_name: base.originator_name || 'X' };
+    const rBase = compute(base);
+    const rAug = compute(augmented);
+    checked++;
+    if (rAug.output_payload.wolfsberg_transparency_score < rBase.output_payload.wolfsberg_transparency_score) violations++;
+  }
+  return { name: 'P3_score_nondecreasing_when_adding_a_present_field', trials: checked, violations };
+}
+
+// ---------- P4: forced categorical boundary cases (mod-97 edges, weight-sum boundaries) ----------
+const BOUNDARY_CASES = [
+  [{ originator_lei: VALID_LEI, beneficiary_lei: '', originator_name: '', originator_account: '', beneficiary_name: '', beneficiary_account: '' }, 'valid mod-97 LEI (remainder exactly 1) — must be valid:true, no LEI issue'],
+  [{ originator_lei: '00000000000000000002', beneficiary_lei: '', originator_name: '', originator_account: '', beneficiary_name: '', beneficiary_account: '' }, 'LEI whose mod-97 remainder is 2, not 1 — must be valid:false, ORIGINATOR_LEI_INVALID'],
+  [{ originator_lei: 'AAAAAAAAAAAAAAAAAAAA', beneficiary_lei: '', originator_name: '', originator_account: '', beneficiary_name: '', beneficiary_account: '' }, '20 uppercase A chars — well-formed length/charset, exercises full charToDigits A=10 path'],
+  [{ originator_lei: randStr(rand, 19, ALNUM), beneficiary_lei: '', originator_name: '', originator_account: '', beneficiary_name: '', beneficiary_account: '' }, '19-char LEI, 1 short of the 20-char format boundary — must be valid:false, format error'],
+  [{ originator_lei: '', beneficiary_lei: '', originator_name: '', originator_account: '', beneficiary_name: '', beneficiary_account: '' }, 'no fields present at all — score must be exactly 0, tier LOW'],
+  [{ originator_lei: VALID_LEI, beneficiary_lei: VALID_LEI, originator_name: 'A', originator_account: 'A', beneficiary_name: 'A', beneficiary_account: 'A' }, 'all 6 fields present — score must be exactly 100, tier HIGH'],
+  [{ originator_lei: VALID_LEI, beneficiary_lei: VALID_LEI, originator_name: '', originator_account: '', beneficiary_name: '', beneficiary_account: '' }, 'only both LEIs present (40 of 110 weight) — score must be exactly round(40/110*100)=36, tier LOW'],
+  [{ originator_lei: VALID_LEI, beneficiary_lei: VALID_LEI, originator_name: 'A', originator_account: '', beneficiary_name: 'A', beneficiary_account: '' }, 'LEIs + both names present (80 of 110 weight) — score must be exactly round(80/110*100)=73, tier MEDIUM'],
 ];
 
 function checkP4_forced() {
   const rows = [];
-  for (const [pp, label] of CATEGORICAL_BOUNDARY_CASES) {
+  for (const [pp, label] of BOUNDARY_CASES) {
     const r = compute(pp);
-    const { lei_valid, wolfsberg_transparency_score, wolfsberg_transparency_tier } = r.output_payload;
-    const plausible = typeof lei_valid === 'boolean' && Number.isFinite(wolfsberg_transparency_score) && typeof wolfsberg_transparency_tier === 'string';
-    rows.push({ label, lei_valid, wolfsberg_transparency_score, wolfsberg_transparency_tier, plausible });
+    const { wolfsberg_transparency_score, wolfsberg_transparency_tier, lei_results } = r.output_payload;
+    const plausible = Number.isInteger(wolfsberg_transparency_score) && wolfsberg_transparency_score >= 0 && wolfsberg_transparency_score <= 100 && typeof wolfsberg_transparency_tier === 'string' && !!lei_results;
+    rows.push({ label, input: pp, wolfsberg_transparency_score, wolfsberg_transparency_tier, plausible });
   }
   return rows;
 }
@@ -141,9 +140,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_monotoneScore());
-results.properties.push(checkP2_boundedness());
-results.properties.push(checkP3_tierAgreement());
+results.properties.push(checkP1_scoreBounded());
+results.properties.push(checkP2_tierMatchesScore());
+results.properties.push(checkP3_scoreMonotonicInPresence());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

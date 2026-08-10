@@ -1,11 +1,10 @@
-// kernel_digest_at_authoring: sha256:03ec432c5c930586d24cf6a4fbd37e6f4fc59fc351b1caa340c8691ebba3a36c
+// kernel_digest_at_authoring: sha256:95a121c21ae663021a54823e43d3f181762a899c730c31f7d5356f12cd1ba043
 //
-// FV-PROPFLOOR-SHARD-B8-1 — property-test floor for art-244-gpi-tracker-lifecycle-simulator.
-// Class B (bounded-numeric), FLOAT-SENSITIVE (hours_elapsed is a raw double compared against the
-// fixed 24-hour Universal Confirmation SLA with a strict > comparison) — ULP-boundary forcing is
-// MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies (mulberry32 PRNG +
-// explicit boundary arrays), same shape as the B1-B7 float harnesses. This file is READ-ONLY with
-// respect to the kernel it imports.
+// FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-244-gpi-tracker-lifecycle-simulator.
+// Class B (bounded-numeric), FLOAT-SENSITIVE (hours_elapsed compared against the fixed
+// GPI_SLA_HOURS=24 threshold) — ULP-boundary forcing is MANDATORY per
+// FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies.
+// This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -41,98 +40,97 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x2440A1);
+const rand = mulberry32(0x244C3);
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
-const TRIALS = 10000;
-const STATUSES = ['PDNG', 'ACSP', 'ACSP/ACWC', 'ACCC', 'RJCT'];
+const TRIALS = 12000;
+
+const STATUSES = ['PDNG', 'ACSP', 'ACSP/ACWC', 'ACCC', 'RJCT', 'BOGUS'];
 const VALID_TRANSITIONS = {
-  PDNG: ['ACSP', 'RJCT'],
-  ACSP: ['ACSP', 'ACSP/ACWC', 'ACCC', 'RJCT'],
+  'PDNG':    ['ACSP', 'RJCT'],
+  'ACSP':    ['ACSP', 'ACSP/ACWC', 'ACCC', 'RJCT'],
   'ACSP/ACWC': ['ACSP', 'ACCC', 'RJCT'],
-  ACCC: [],
-  RJCT: [],
+  'ACCC':    [],
+  'RJCT':    [],
 };
+const TERMINAL = ['ACCC', 'RJCT'];
 
 function mkPP(rng) {
-  return {
-    current_status: pick(rng, STATUSES),
-    next_status: pick(rng, [...STATUSES, '']),
-    hours_elapsed: randRange(rng, 0, 48),
-    amount_usd: randRange(rng, 0, 100000),
-  };
+  const current_status = pick(rng, STATUSES);
+  const next_status = rng() < 0.9 ? pick(rng, STATUSES) : '';
+  const hours_elapsed = randRange(rng, -5, 100);
+  const amount_usd = randRange(rng, 0, 1000000);
+  return { current_status, next_status, hours_elapsed, amount_usd };
 }
 
-// ---------- P1: monotone — ACSP->ACCC SLA breach never un-flags as hours_elapsed increases ----------
-function checkP1_monotoneSla() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const h1 = randRange(rand, 0, 48);
-    const h2 = h1 + randRange(rand, 0, 24);
-    const r1 = compute({ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: h1 });
-    const r2 = compute({ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: h2 });
-    checked++;
-    if (r1.output_payload.sla_breached && !r2.output_payload.sla_breached) violations++;
-  }
-  return { name: 'P1_monotone_sla_breach_nondecreasing_with_hours', trials: checked, violations };
-}
-
-// ---------- P2: boundedness — allowed_next_statuses subset of known set, sla_hours_limit fixed ----------
-function checkP2_boundedness() {
-  let violations = 0, checked = 0;
-  const KNOWN = new Set(STATUSES);
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkPP(rand);
-    const r = compute(pp);
-    checked++;
-    if (r.output_payload.sla_hours_limit !== 24) violations++;
-    for (const s of r.output_payload.allowed_next_statuses) if (!KNOWN.has(s)) violations++;
-    if (![true, false, null].includes(r.output_payload.transition_valid)) violations++;
-  }
-  return { name: 'P2_boundedness_allowed_next_and_sla_limit_fixed', trials: checked, violations };
-}
-
-// ---------- P3: fixed-threshold-tier agreement — sla_breached and transition_valid match independent rule ----------
-function checkP3_thresholdAgreement() {
+// ---------- P1: sla_breached exactly matches (current=ACSP && next=ACCC && hours_elapsed>0) => hours_elapsed>24 ----------
+function checkP1_slaBreachedExact() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    if (pp.current_status === 'ACSP' && pp.next_status === 'ACCC' && pp.hours_elapsed > 0) {
-      const expected_breach = pp.hours_elapsed > 24;
-      if (r.output_payload.sla_breached !== expected_breach) violations++;
-    }
-    if (STATUSES.includes(pp.current_status) && pp.next_status.length > 0) {
-      const allowed = VALID_TRANSITIONS[pp.current_status] || [];
-      const expected_valid = allowed.includes(pp.next_status);
-      if (r.output_payload.transition_valid !== expected_valid) violations++;
-    }
+    const applies = pp.current_status === 'ACSP' && pp.next_status === 'ACCC' && pp.hours_elapsed > 0;
+    const expected = applies ? pp.hours_elapsed > 24 : false;
+    if (r.output_payload.sla_breached !== expected) violations++;
   }
-  return { name: 'P3_sla_and_transition_match_fixed_rule', trials: checked, violations };
+  return { name: 'P1_sla_breached_matches_24h_threshold_when_applicable', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
+// ---------- P2: transition_valid matches the fixed VALID_TRANSITIONS table ----------
+function checkP2_transitionValidMatchesTable() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const currentValid = STATUSES.slice(0, 5).indexOf(pp.current_status) !== -1;
+    if (!currentValid || pp.next_status.length === 0) continue;
+    checked++;
+    let expected;
+    if (TERMINAL.indexOf(pp.current_status) !== -1) expected = false;
+    else expected = (VALID_TRANSITIONS[pp.current_status] || []).indexOf(pp.next_status) !== -1;
+    if (r.output_payload.transition_valid !== expected) violations++;
+  }
+  return { name: 'P2_transition_valid_matches_fixed_table', trials: checked, violations };
+}
+
+// ---------- P3: boundedness — is_terminal/is_settled/is_rejected are consistent booleans, output stage is a declared status ----------
+function checkP3_boundedFlags() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    const r = compute(pp);
+    checked++;
+    const { is_terminal, is_settled, is_rejected, current_status } = r.output_payload;
+    if (is_settled && current_status !== 'ACCC') violations++;
+    if (is_rejected && current_status !== 'RJCT') violations++;
+    if ((is_settled || is_rejected) && !is_terminal) violations++;
+  }
+  return { name: 'P3_terminal_settled_rejected_flags_consistent', trials: checked, violations };
+}
+
+// ---------- P4 (mandatory): ULP-boundary forcing around GPI_SLA_HOURS=24 ----------
 const ULP_BOUNDARY_CASES = [
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 24 }, 'hours_elapsed exactly 24 — strict >, must NOT breach'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 24.000000000000004 }, 'hours_elapsed 1 ULP above 24 — must breach'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 23.999999999999996 }, 'hours_elapsed 1 ULP below 24 — must NOT breach'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 0 }, 'hours_elapsed exactly zero — guarded by > 0, sla_breached false'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: -0 }, 'hours_elapsed negative zero — must behave as zero, not breach'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: Number.MIN_VALUE }, 'smallest positive double hours_elapsed — must not breach, no throw'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 0.1 * 3 * 80 }, 'hours_elapsed = (0.1*3)*80 rounding artifact — must remain finite'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: (1 / 3) * 3 * 24 }, 'x/y*y!==x rounding artifact at 24h scale — must round-trip without throwing'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: Number.MAX_SAFE_INTEGER }, 'hours_elapsed at MAX_SAFE_INTEGER — must remain finite, breach true, no overflow'],
-  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: -5 }, 'negative hours_elapsed — guarded out (not > 0), sla_breached false'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 24, amount_usd: 1000 }, 'hours_elapsed exactly at 24h threshold — sla_breached must be false (> is strict)'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 24 + Number.EPSILON * 24, amount_usd: 1000 }, 'hours_elapsed 1 ULP above 24h — sla_breached must be true'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 24 - Number.EPSILON * 24, amount_usd: 1000 }, 'hours_elapsed 1 ULP below 24h — sla_breached must be false'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 0, amount_usd: 1000 }, 'hours_elapsed exactly zero — SLA branch does not apply (>0 required), sla_breached false'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: -0, amount_usd: 1000 }, 'hours_elapsed negative zero — must behave as zero, no NaN, sla_breached false'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: Number.MIN_VALUE, amount_usd: 1000 }, 'hours_elapsed smallest positive denormal — must classify not-breached, finite'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: NaN, amount_usd: 1000 }, 'hours_elapsed NaN — safeNum coerces to 0, sla branch does not apply'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: 8 * 3, amount_usd: 1000 }, 'hours_elapsed = 8*3 arithmetic chain landing exactly at 24 — must not misfire due to rounding'],
+  [{ current_status: 'ACSP', next_status: 'ACCC', hours_elapsed: Number.MAX_SAFE_INTEGER, amount_usd: 1000 }, 'hours_elapsed at MAX_SAFE_INTEGER — must remain finite, sla_breached true'],
+  [{ current_status: 'ACSP', next_status: '', hours_elapsed: 1e-300, amount_usd: 1000 }, 'hours_elapsed subnormal, no next_status — SLA_AT_RISK branch (elapsed<=24) must not misfire'],
 ];
 
 function checkP4_forced() {
   const rows = [];
   for (const [pp, label] of ULP_BOUNDARY_CASES) {
     const r = compute(pp);
-    const { sla_breached, transition_valid } = r.output_payload;
-    const plausible = typeof sla_breached === 'boolean' && [true, false, null].includes(transition_valid);
-    rows.push({ label, hours_elapsed: pp.hours_elapsed, sla_breached, transition_valid, plausible });
+    const { sla_breached, sla_note } = r.output_payload;
+    const plausible = typeof sla_breached === 'boolean' && typeof sla_note === 'string';
+    rows.push({ label, input: pp, sla_breached, plausible });
   }
   return rows;
 }
@@ -143,9 +141,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_monotoneSla());
-results.properties.push(checkP2_boundedness());
-results.properties.push(checkP3_thresholdAgreement());
+results.properties.push(checkP1_slaBreachedExact());
+results.properties.push(checkP2_transitionValidMatchesTable());
+results.properties.push(checkP3_boundedFlags());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

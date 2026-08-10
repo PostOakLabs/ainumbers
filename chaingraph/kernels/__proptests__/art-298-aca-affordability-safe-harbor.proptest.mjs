@@ -1,12 +1,10 @@
-// kernel_digest_at_authoring: sha256:ea58be48cb6952b060bc4497ac31e719068b753ea96017c4fdfbeaffc872868c
+// kernel_digest_at_authoring: sha256:517e7ad37c5723b7df461c5830be597d989342422f3c60cad22e15cdcd8d7695
 //
-// FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-298-aca-affordability-safe-harbor.
-// Class B (bounded-numeric), FLOAT-SENSITIVE (w2/rate-of-pay/fpl harbor maxima are all raw-double
-// products/quotients of annual wages, hourly rate, and FPL against a fixed affordability_pct,
-// compared directly to a raw-double premium) — ULP-boundary forcing is MANDATORY per
-// FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external dependencies (mulberry32 PRNG + explicit boundary
-// arrays), same shape as the B1/B2/B3 float harness (art-107/art-15). This file is READ-ONLY with
-// respect to the kernel it imports.
+// FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-298-aca-affordability-safe-harbor.
+// Class B (bounded-numeric), FLOAT-SENSITIVE (w2/rate-of-pay/FPL harbor maxima are computed via
+// unrounded float division by 12 and multiplication by affordability_pct, then compared to
+// premium with <=) — ULP-boundary forcing is MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero
+// external dependencies. This file is READ-ONLY with respect to the kernel it imports.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -42,82 +40,83 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x29801);
+const rand = mulberry32(0x298C3);
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
-const TRIALS = 10000;
+const TRIALS = 12000;
 const AFFORDABILITY_PCT = 0.0996;
+const RATE_OF_PAY_MONTHLY_HOURS = 130;
 
 function mkPP(rng) {
+  const hasW2 = rng() < 0.7;
+  const hasRate = rng() < 0.7;
   return {
-    tax_year: '2026',
+    tax_year: rng() < 0.9 ? '2026' : 'BOGUS',
     lowest_cost_self_only_monthly_premium: randRange(rng, 0, 1000),
-    w2_box1_wages_annual: randRange(rng, 0, 200000),
-    hourly_rate: randRange(rng, 5, 100),
-    fpl_mainland_annual: randRange(rng, 10000, 30000),
+    w2_box1_wages_annual: hasW2 ? randRange(rng, 5000, 200000) : undefined,
+    hourly_rate: hasRate ? randRange(rng, 7, 100) : undefined,
+    fpl_mainland_annual: rng() < 0.3 ? randRange(rng, 10000, 20000) : undefined,
   };
 }
 
-// ---------- P1: monotone — raising the premium never flips affordable false→true for any computed harbor ----------
-function checkP1_monotonePremium() {
-  let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const pp = mkPP(rand);
-    const low = { ...pp, lowest_cost_self_only_monthly_premium: 0 };
-    const high = { ...pp, lowest_cost_self_only_monthly_premium: 999999 };
-    const r1 = compute(low);
-    const r2 = compute(high);
-    checked++;
-    for (const k of ['w2', 'rate_of_pay', 'fpl']) {
-      if (r1.output_payload.harbors[k].affordable === true && r2.output_payload.harbors[k].affordable === false) continue;
-      if (r1.output_payload.harbors[k].affordable === false && r2.output_payload.harbors[k].affordable === true) violations++;
-    }
-  }
-  return { name: 'P1_monotone_affordable_nonincreasing_as_premium_rises', trials: checked, violations };
-}
-
-// ---------- P2: boundedness — computed harbor maxima are always finite non-negative doubles ----------
-function checkP2_boundedness() {
+// ---------- P1: fixed rule — w2 harbor max is exactly w2Wages*pct/12 when w2 supplied ----------
+function checkP1_w2MaxExact() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
+    if (pp.tax_year !== '2026' || typeof pp.w2_box1_wages_annual !== 'number') continue;
     checked++;
-    for (const k of ['w2', 'rate_of_pay', 'fpl']) {
-      const h = r.output_payload.harbors[k];
-      if (h.computed && (!Number.isFinite(h.monthly_max_employee_contribution) || h.monthly_max_employee_contribution < 0)) violations++;
-    }
+    const expected = (pp.w2_box1_wages_annual * AFFORDABILITY_PCT) / 12;
+    if (r.output_payload.harbors.w2.monthly_max_employee_contribution !== expected) violations++;
   }
-  return { name: 'P2_boundedness_harbor_maxima_finite_nonnegative', trials: checked, violations };
+  return { name: 'P1_w2_harbor_max_exact_unrounded_product', trials: checked, violations };
 }
 
-// ---------- P3: fixed-threshold-tier agreement — harbor affordable flag is exact premium<=max comparison ----------
-function checkP3_affordableAgreement() {
+// ---------- P2: boundedness — affordable exactly matches premium <= harbor max, for every computed harbor ----------
+function checkP2_affordableMatchesComparison() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
+    if (pp.tax_year !== '2026' || typeof pp.lowest_cost_self_only_monthly_premium !== 'number') continue;
     checked++;
-    const premium = pp.lowest_cost_self_only_monthly_premium;
-    const expectedW2Max = (pp.w2_box1_wages_annual * AFFORDABILITY_PCT) / 12;
-    if (r.output_payload.harbors.w2.affordable !== (premium <= expectedW2Max)) violations++;
-    const expectedFplMax = (pp.fpl_mainland_annual * AFFORDABILITY_PCT) / 12;
-    if (r.output_payload.harbors.fpl.affordable !== (premium <= expectedFplMax)) violations++;
+    for (const key of ['w2', 'rate_of_pay', 'fpl']) {
+      const h = r.output_payload.harbors[key];
+      if (!h.computed) continue;
+      const expected = pp.lowest_cost_self_only_monthly_premium <= h.monthly_max_employee_contribution;
+      if (h.affordable !== expected) violations++;
+    }
   }
-  return { name: 'P3_affordable_matches_exact_premium_le_max_comparison', trials: checked, violations };
+  return { name: 'P2_affordable_exact_le_comparison_per_harbor', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
+// ---------- P3: monotonicity — raising w2 wages never turns an affordable w2 harbor unaffordable ----------
+function checkP3_w2MonotonicInWages() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = mkPP(rand);
+    if (pp.tax_year !== '2026' || typeof pp.w2_box1_wages_annual !== 'number') continue;
+    const higher = { ...pp, w2_box1_wages_annual: pp.w2_box1_wages_annual * 2 };
+    const rBase = compute(pp);
+    const rHigher = compute(higher);
+    checked++;
+    if (rBase.output_payload.harbors.w2.affordable === true && rHigher.output_payload.harbors.w2.affordable === false) violations++;
+  }
+  return { name: 'P3_w2_affordable_nondecreasing_in_wages', trials: checked, violations };
+}
+
+// ---------- P4 (mandatory): ULP-boundary forcing on the w2/rate-of-pay/FPL harbor comparisons ----------
 const ULP_BOUNDARY_CASES = [
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 129.895, fpl_mainland_annual: 15650 }, 'premium set to the EXACT computed fpl monthly_max — affordable must be true (<=, not <)'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 129.89500000000001, fpl_mainland_annual: 15650 }, 'premium 1 ULP above the exact fpl max — affordable must be false'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 0, w2_box1_wages_annual: 0 }, 'zero premium and zero wages — w2 monthly_max exactly 0, affordable true (0<=0)'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: -0, w2_box1_wages_annual: 12000 }, 'negative-zero premium — must behave as zero, not throw or misclassify'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: Number.MIN_VALUE, w2_box1_wages_annual: 12000 }, 'smallest positive double premium — must remain finite and affordable true'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 100, w2_box1_wages_annual: 0.1 * 3 * 12 / AFFORDABILITY_PCT }, 'w2 wages chosen so premium equals a classic non-exact double product — monthly_max must equal the EXACT double, not a rounded value'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 90, hourly_rate: 90 / (130 * AFFORDABILITY_PCT) }, 'rate_of_pay hourly_rate chosen so its max exactly equals premium via (1/3)*3-style rounding artifact — affordable boundary must be exact'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: Number.MAX_SAFE_INTEGER, w2_box1_wages_annual: 12000 }, 'premium at MAX_SAFE_INTEGER — must remain finite, affordable false, no overflow'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 1e-300, fpl_mainland_annual: 15650 }, 'near-subnormal premium — must remain finite, affordable true'],
-  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 99.99999999999999, w2_box1_wages_annual: 12000 }, 'premium 1 ULP below the w2 max boundary — affordable must be true'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: (12000 * AFFORDABILITY_PCT) / 12, w2_box1_wages_annual: 12000 }, 'premium exactly equal to computed w2 max — affordable must be true (<= inclusive)'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: ((12000 * AFFORDABILITY_PCT) / 12) + Number.EPSILON * 100, w2_box1_wages_annual: 12000 }, 'premium 1 ULP above computed w2 max — affordable must be false'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 0, w2_box1_wages_annual: 12000 }, 'premium exactly zero — always affordable under any positive harbor max'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: -0, w2_box1_wages_annual: 12000 }, 'premium negative zero — must behave as zero, no NaN'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 90, w2_box1_wages_annual: 0 }, 'w2 wages exactly zero — harbor max must be exactly 0, affordable false unless premium is also 0'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: Number.MIN_VALUE, w2_box1_wages_annual: Number.MIN_VALUE }, 'both premium and wages at smallest positive denormal — must remain finite, no NaN'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: NaN, w2_box1_wages_annual: 12000 }, 'premium NaN — num() coercion returns null, harbor must report computed:false, missing_lowest_cost error'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 90, hourly_rate: 90 / (RATE_OF_PAY_MONTHLY_HOURS * AFFORDABILITY_PCT) }, 'hourly_rate chosen so rate_of_pay max exactly equals premium via a non-exact double chain — affordable must be true'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: 90, fpl_mainland_annual: (90 * 12) / AFFORDABILITY_PCT }, 'fpl_mainland_annual chosen so fpl max exactly equals premium — affordable must be true'],
+  [{ tax_year: '2026', lowest_cost_self_only_monthly_premium: Number.MAX_SAFE_INTEGER, w2_box1_wages_annual: Number.MAX_SAFE_INTEGER }, 'both at MAX_SAFE_INTEGER — must not overflow to Infinity, must remain finite'],
 ];
 
 function checkP4_forced() {
@@ -125,9 +124,12 @@ function checkP4_forced() {
   for (const [pp, label] of ULP_BOUNDARY_CASES) {
     const r = compute(pp);
     const { harbors, satisfies_any_harbor } = r.output_payload;
-    const finite = Object.values(harbors).every((h) => !h.computed || Number.isFinite(h.monthly_max_employee_contribution));
+    const finite = Object.keys(harbors).every((k) => {
+      const h = harbors[k];
+      return !h.computed || Number.isFinite(h.monthly_max_employee_contribution);
+    });
     const plausible = finite && (satisfies_any_harbor === null || typeof satisfies_any_harbor === 'boolean');
-    rows.push({ label, pp, harbors, satisfies_any_harbor, finite, plausible });
+    rows.push({ label, input: pp, harbors, satisfies_any_harbor, plausible });
   }
   return rows;
 }
@@ -138,9 +140,9 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_monotonePremium());
-results.properties.push(checkP2_boundedness());
-results.properties.push(checkP3_affordableAgreement());
+results.properties.push(checkP1_w2MaxExact());
+results.properties.push(checkP2_affordableMatchesComparison());
+results.properties.push(checkP3_w2MonotonicInWages());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
