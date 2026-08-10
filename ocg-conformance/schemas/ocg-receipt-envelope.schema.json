@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/ocg-conformance/schemas/ocg-receipt-envelope.schema.json",
+  "title": "OpenChainGraph receipt envelope (public, language-agnostic)",
+  "description": "Extracted from the NORMATIVE artifact envelope in OpenChainGraph SPEC.md section 1 and openchain-graph-v0.4.schema.json. This file republishes the receipt shape standalone, with zero dependence on any AINumbers code: a consumer needs only this schema, the vectors in ../vectors/, and a standard SHA-256 + JSON implementation to verify conformance. It does not define a new envelope; it is a generalized restatement of an existing normative shape for external, cross-language consumption. Fields not needed to verify a receipt's execution_hash (spec-internal profile extensions such as clause_bindings, private_inputs, anchor_bindings) are omitted here; consult SPEC.md directly for the full internal schema.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "chaingraph_version",
+    "tool_id",
+    "tool_version",
+    "generated_at",
+    "execution_hash",
+    "policy_parameters",
+    "output_payload"
+  ],
+  "properties": {
+    "@context": {
+      "description": "JSON-LD context URL, or an array of them.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "chaingraph_version": {
+      "type": "string",
+      "description": "Envelope version this receipt was minted under, e.g. \"0.4.0\"."
+    },
+    "compute_mode": {
+      "type": "string",
+      "enum": ["server", "browser"],
+      "description": "Where the computation ran. Excluded from the execution_hash preimage."
+    },
+    "mandate_type": {
+      "type": "string",
+      "description": "Free-text classification of what kind of decision this receipt records. Not a closed enum."
+    },
+    "tool_id": { "type": "string", "minLength": 1 },
+    "tool_version": { "type": "string" },
+    "generated_at": { "type": "string", "description": "ISO 8601 timestamp." },
+    "execution_hash": {
+      "$ref": "#/$defs/sha256ref",
+      "description": "SHA-256 over the canonicalized JSON of exactly { policy_parameters, output_payload } and nothing else. See ../README.md for the canonicalization algorithm and the accompanying vector corpus."
+    },
+    "chain": {
+      "type": "object",
+      "description": "Provenance edges to parent receipts in a multi-step chain. Excluded from the execution_hash preimage.",
+      "properties": {
+        "parent_hashes": { "type": "array", "items": { "$ref": "#/$defs/sha256ref" } },
+        "parent_tool_ids": { "type": "array", "items": { "type": "string" } },
+        "chain_depth": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "policy_parameters": {
+      "type": "object",
+      "description": "Half of the execution_hash preimage. All decision inputs live here."
+    },
+    "output_payload": {
+      "type": "object",
+      "description": "Half of the execution_hash preimage. The computed result."
+    },
+    "compliance_flags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Free-text labels. Excluded from the execution_hash preimage."
+    },
+    "audit_signature": {
+      "type": "object",
+      "description": "Container for optional post-hash attachments: a W3C Data Integrity proof (proof), a kernel-source content digest (build_identity), and/or a zkVM compute-integrity receipt (compute_proof). None of these members can alter execution_hash by construction — they are attached after hashing.",
+      "properties": {
+        "proof": { "$ref": "#/$defs/proofSetOrChain" },
+        "build_identity": { "$ref": "#/$defs/buildIdentity" },
+        "compute_proof": { "$ref": "#/$defs/computeProof" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256ref": {
+      "type": "string",
+      "description": "A bare 64-hex-char SHA-256 digest, or the same digest with a \"sha256:\" prefix.",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "dataIntegrityProof": {
+      "type": "object",
+      "description": "A W3C Data Integrity proof (cryptosuite eddsa-jcs-2022) over the receipt minus this proof member. OPTIONAL.",
+      "required": ["type", "cryptosuite", "verificationMethod", "proofPurpose", "created", "proofValue"],
+      "properties": {
+        "type": { "const": "DataIntegrityProof" },
+        "cryptosuite": { "const": "eddsa-jcs-2022" },
+        "verificationMethod": { "type": "string", "description": "A did:key resolving to the signing Ed25519 public key." },
+        "proofPurpose": { "const": "assertionMethod" },
+        "created": { "type": "string", "format": "date-time" },
+        "proofValue": { "type": "string", "description": "Multibase-z base58btc Ed25519 signature." },
+        "id": { "type": "string" },
+        "previousProof": {
+          "description": "For an endorsement (countersignature): the id(s) of the proof(s) this one endorses.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        }
+      }
+    },
+    "proofSetOrChain": {
+      "description": "A single proof, or an array (parallel proof set and/or endorsement chain).",
+      "oneOf": [
+        { "$ref": "#/$defs/dataIntegrityProof" },
+        { "type": "array", "items": { "$ref": "#/$defs/dataIntegrityProof" } }
+      ]
+    },
+    "buildIdentity": {
+      "type": "object",
+      "description": "Content digest of the exact kernel source that produced this receipt. Advisory publication, not a proof of execution.",
+      "required": ["kernel_digest", "buildType"],
+      "properties": {
+        "kernel_digest": { "$ref": "#/$defs/sha256ref" },
+        "buildType": { "type": "string", "description": "Algorithm URI that produced the digest." },
+        "source_ref": { "type": "string", "description": "Optional dereferenceable URL or commit pinning the source." }
+      }
+    },
+    "computeProof": {
+      "type": "object",
+      "description": "A zkVM receipt proving a named guest program produced output_payload, verifiable without re-execution.",
+      "required": ["type", "system", "receiptFormat", "imageId", "seal", "journal"],
+      "properties": {
+        "type": { "const": "ZkVmReceipt" },
+        "system": { "type": "string", "description": "zkVM identifier, e.g. risc0, sp1, jolt." },
+        "receiptFormat": { "type": "string", "enum": ["groth16-bn254", "stark"] },
+        "imageId": { "$ref": "#/$defs/sha256ref" },
+        "seal": { "type": "string", "description": "Standard-base64 proof bytes." },
+        "journal": { "type": "object", "description": "Public outputs committed by the guest program." }
+      }
+    }
+  }
+}
