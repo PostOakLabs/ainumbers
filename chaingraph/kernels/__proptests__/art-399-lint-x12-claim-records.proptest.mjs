@@ -71,9 +71,13 @@ function checkP1_termination_linear_scaling() {
     const claims = Array.from({ length: n }, (_, i) => randomClaim(rand, i));
     const start = Date.now();
     const { output_payload } = compute({ message_type: '837', envelope: VALID_ENVELOPE, claims });
+    // compute()'s return type is a union of the 837/835 output shapes — claim_count only
+    // exists on the 837 branch, which message_type:'837' guarantees at runtime; cast past
+    // the union for the checkJs gate (SO #10-shaped, not a real narrowing gap).
+    const out837 = /** @type {any} */ (output_payload);
     checked++;
     if (Date.now() - start > 3000) violations++;
-    if (output_payload.claim_count !== n) violations++;
+    if (out837.claim_count !== n) violations++;
   }
   return { name: 'P1_termination_linear_scaling_never_hangs', trials: checked, violations };
 }
@@ -85,7 +89,7 @@ function checkP2_error_count_and_claim_count_boundedness() {
     const n = Math.floor(rand() * 20);
     const claims = Array.from({ length: n }, (_, idx) => (rand() > 0.2 ? randomClaim(rand, idx) : { claim_id: '', charge_amount: -1 })); // some invalid
     const envelope = rand() > 0.3 ? VALID_ENVELOPE : { ...VALID_ENVELOPE, iea02: 'MISMATCH' };
-    const out = compute({ message_type: '837', envelope, claims }).output_payload;
+    const out = /** @type {any} */ (compute({ message_type: '837', envelope, claims }).output_payload);
     checked++;
     if (!Number.isInteger(out.error_count) || out.error_count < 0) violations++;
     if (out.error_count !== out.issues.filter((x) => x.severity === 'ERROR').length) violations++;
@@ -103,8 +107,8 @@ function checkP3_metamorphic_permutation_invariance() {
     const claims = Array.from({ length: n }, (_, idx) => randomClaim(rand, idx));
     const shuffled = [...claims];
     for (let j = shuffled.length - 1; j > 0; j--) { const k = Math.floor(rand() * (j + 1)); [shuffled[j], shuffled[k]] = [shuffled[k], shuffled[j]]; }
-    const outA = compute({ message_type: '837', envelope: VALID_ENVELOPE, claims }).output_payload;
-    const outB = compute({ message_type: '837', envelope: VALID_ENVELOPE, claims: shuffled }).output_payload;
+    const outA = /** @type {any} */ (compute({ message_type: '837', envelope: VALID_ENVELOPE, claims }).output_payload);
+    const outB = /** @type {any} */ (compute({ message_type: '837', envelope: VALID_ENVELOPE, claims: shuffled }).output_payload);
     checked++;
     if (Math.abs(outA.total_charge_amount - outB.total_charge_amount) > 1e-6) violations++;
     if (outA.error_count !== outB.error_count) violations++;
