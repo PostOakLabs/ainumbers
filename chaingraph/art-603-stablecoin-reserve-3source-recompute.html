@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Stablecoin Reserve 3-Source Recompute &middot; ART-603 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes stablecoin reserve ratio, weighted-average maturity, and per-holding GENIUS eligible-asset match from three independently-sourced legs (issuer disclosure, EDGAR N-MFP summary, on-chain supply), then reconciles them. A recompute only, never a third-party sign-off. Zero network.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-603-stablecoin-reserve-3source-recompute.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.row3,.row2{grid-template-columns:1fr}}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem;line-height:1.4}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:180px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--body);border:1px solid var(--border-2);font-weight:400}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:110px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right;max-width:70%}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center;line-height:1.6}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table.dt{width:100%;border-collapse:collapse;font-size:.68rem;margin-top:6px}
+table.dt th{text-align:left;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);padding:5px 6px}
+table.dt td{padding:5px 6px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+table.dt tr:last-child td{border-bottom:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-603 · Stablecoin Reserve 3-Source Recompute</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-603 &middot; Stablecoin Reserves</div>
+  <h1>Stablecoin Reserve 3-Source Recompute</h1>
+  <p class="sub">Recomputes reserve ratio, weighted-average maturity (WAM), and per-holding GENIUS eligible-asset match from three independently-sourced legs: the issuer's own published reserve report (with a per-asset-class breakdown), the EDGAR N-MFP Part 1 series summary for the government money-market fund holding reserves, and a declared on-chain token supply figure. It then reconciles the three legs against each other, gated on how far apart their as-of dates are. This is a RECOMPUTE, never a solvency claim, never an audit, never a third-party sign-off, and never "satisfies GENIUS" &mdash; it recalculates arithmetic on figures you supply and reports whether independently-sourced numbers agree.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Three independently-sourced legs, never blended</span><span class="flag info">Skew-gated reconcile, never same-date assumed</span><span class="flag info">Paste-in only, zero lookups</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">What This Does and Does Not Prove</div>
+    <p class="sub" style="margin-bottom:8px">A MET/RECONCILED reading proves that the figures you supplied are arithmetically and cross-sourcedly consistent with each other. It does not prove the underlying figures are true, that the reserve composition is complete, or that the issuer is solvent — whether Leg A, Leg B, or Leg C's declared numbers are accurate is the declaring party's responsibility, not something this recompute can determine. Each leg is measured at its own declared as-of date; nothing here is compared against "today", because this tool has no clock.</p>
+    <p class="sub" style="margin-bottom:0">Per-holding GENIUS eligible-asset flags report criteria-match only — never a compliance opinion, never an "overall eligibility" boolean. The catch-all statutory item 7 always reads INDETERMINATE, a human judgment call, never auto-matched.</p>
+  </div>
+
+  <div class="card">
+    <div class="section-head">The Three Legs, Pasted as JSON</div>
+    <p class="q-hint" style="margin-bottom:10px">Each leg is optional. A missing leg drives every check that depends on it to INDETERMINATE, never a fabricated pass. Load a sample below to see the expected shape.</p>
+    <div class="q">
+      <label class="q-label" for="maxSkewDays">max_as_of_skew_days (design-choice threshold)</label>
+      <input type="text" id="maxSkewDays" value="10">
+      <div class="q-hint">A reconcile check whose relevant leg-pair skew exceeds this reads INDETERMINATE rather than comparing as if same-date. Default 10 — one-third of the GENIUS monthly cadence, a design choice, not a statutory number.</div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="legAInput">leg_a &mdash; issuer's published reserve report + per-asset-class breakdown</label>
+      <textarea id="legAInput" spellcheck="false"></textarea>
+      <div class="q-hint">JSON: as_of, source_digest, report_period, period_end_date, total_reserves_usd, outstanding_tokens_reported, token_price, reserves_in_fund_fraction, asset_breakdown: [{asset_class, amount_usd, maturity_bucket_days, institution?}].</div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="legBInput">leg_b &mdash; EDGAR N-MFP Part 1 series-level summary (never Part 3)</label>
+      <textarea id="legBInput" spellcheck="false"></textarea>
+      <div class="q-hint">JSON: as_of, source_digest, accession_number, total_net_assets, nav_per_share, shares_outstanding, wam_days, wal_days, filing_date.</div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="legCInput">leg_c &mdash; declared on-chain supply</label>
+      <textarea id="legCInput" spellcheck="false" style="min-height:90px"></textarea>
+      <div class="q-hint">JSON: as_of, source_digest, onchain_supply. Declared input only &mdash; no RPC call, no light-client read.</div>
+    </div>
+
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button onclick="runRecompute()">&#9654; Recompute &amp; Reconcile</button>
+      <button class="ghost" onclick="loadSample('clean')">Load sample (all reconciled)</button>
+      <button class="ghost" onclick="loadSample('skew')">Load sample (skew &gt; threshold)</button>
+      <button class="ghost" onclick="loadSample('empty')">Load sample (no legs)</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="subsection">Reserve Ratio Recompute (§4)</div>
+      <div id="reserveRatioBox" style="font-size:.72rem"></div>
+
+      <div class="subsection">WAM &mdash; Weighted-Average Maturity Recompute (§5)</div>
+      <div id="wamBox" style="font-size:.72rem"></div>
+
+      <div class="subsection">Three-Source Reconcile (§7)</div>
+      <table class="dt" id="reconcileTable"><thead><tr><th>check</th><th>verdict</th><th>detail</th></tr></thead><tbody id="reconcileBody"></tbody></table>
+
+      <div class="subsection">GENIUS Eligible-Asset Flags (§6, statutory 8-item enumeration, criteria-match only)</div>
+      <table class="dt" id="giTable"><thead><tr><th>asset_class</th><th>amount_usd</th><th>verdict</th><th>statutory item</th><th>detail</th></tr></thead><tbody id="giBody"></tbody></table>
+
+      <div class="subsection">OCC NPRM Concentration Detail (separate array &mdash; proposed-rule, not statute)</div>
+      <table class="dt" id="nprmTable"><thead><tr><th>institution</th><th>amount_usd</th><th>% of recomputed reserves</th><th>&gt;40% ceiling</th></tr></thead><tbody id="nprmBody"></tbody></table>
+
+      <div class="subsection">Not Proven</div>
+      <div id="notProvenBox" style="font-size:.7rem;color:var(--body)"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button id="ap2ExportBtn" onclick="AP2Schema.export()" style="background:var(--gold);color:#06121f">↓ AP2 Policy Mandate</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Where This Sits Beside the Other Stablecoin Surfaces</div>
+    <div class="kv"><span class="kv-k"><a href="art-582-genius-reserve-disclosure-conformance-monitor.html">art-582</a> GENIUS Reserve-Disclosure Conformance Monitor</span><span class="kv-v">1:1 top-line coverage arithmetic + report-timeliness only, no per-asset-class granularity</span></div>
+    <div class="kv"><span class="kv-k"><a href="art-584-proof-of-reserves-verifier.html">art-584</a> Proof-of-Reserves Verifier</span><span class="kv-v">Merkle-sum inclusion/aggregation consistency, a different data shape entirely</span></div>
+    <div class="kv"><span class="kv-k"><a href="chains/stablecoin-examiner-pack.html">stablecoin-examiner-pack</a></span><span class="kv-v">this node composed as a 4th step alongside art-582 → art-584 → art-585</span></div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-603-stablecoin-reserve-3source-recompute',
+  version: '1.0.0',
+  mcp_name: 'recompute_stablecoin_reserve_3source',
+  title: 'Stablecoin Reserve 3-Source Recompute',
+  description: 'Recomputes reserve ratio, weighted-average maturity, and per-holding GENIUS eligible-asset match from three independently-sourced legs (issuer disclosure, EDGAR N-MFP Part 1 summary, declared on-chain supply), then reconciles them against each other, skew-gated on as-of date. A RECOMPUTE, never a solvency claim, never an audit, never a third-party sign-off.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_stablecoin_reserve_3source',
+    description: 'Recomputes stablecoin reserve ratio, WAM, and per-holding GENIUS eligible-asset match from three independently-sourced legs, then reconciles them, skew-gated on as-of date.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        max_as_of_skew_days: { type: 'number' },
+        leg_a: { type: ['object', 'null'] },
+        leg_b: { type: ['object', 'null'] },
+        leg_c: { type: ['object', 'null'] }
+      },
+      required: []
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+// ── daysBetween: parses two CALLER-SUPPLIED ISO date strings, never a machine
+// clock. Byte-identical logic to the kernel's daysBetween. ──────────────────
+function daysBetween(isoA, isoB) {
+  var a = Date.parse(isoA);
+  var b = Date.parse(isoB);
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.round((b - a) / 86400000);
+}
+
+var MAX_ASSET_LINES = 64;
+var MAX_AS_OF_SKEW_DAYS = 10;
+var WAM_CEILING_DAYS = 20;
+var NPRM_CONCENTRATION_CEILING_PCT = 40;
+var RESERVE_TOTAL_TOLERANCE_PCT = 0.5;
+var RECONCILE_TOLERANCE_PCT = 0.5;
+var WAM_CROSSCHECK_TOLERANCE_DAYS = 2;
+
+var ELIGIBLE_ASSET_ITEMS = {
+  us_coin_and_currency:                      { item: 1, label: 'U.S. coins and currency' },
+  federal_reserve_account_balance:           { item: 2, label: 'Federal Reserve account balances' },
+  insured_demand_deposit:                    { item: 3, label: 'Demand deposits / insured shares at insured depository institutions' },
+  treasury_bill_93d_or_less:                 { item: 4, label: 'Treasury bills with 93 days or less remaining maturity' },
+  short_term_repo_collateralized_treasuries: { item: 5, label: 'Short-term repurchase/reverse-repurchase agreements collateralized by Treasuries' },
+  government_mmf_solely_foregoing:           { item: 6, label: 'Government money market funds invested solely in the foregoing' },
+  other_occ_approved:                        { item: 7, label: 'Other similarly liquid, federal-government-issued assets as approved by the OCC (catch-all)' },
+  tokenized_foregoing:                       { item: 8, label: 'Tokenized forms of the foregoing' }
+};
+var NPRM_ELIGIBLE_ASSET_REF = 'GENIUS Act statutory eligible-asset enumeration (8 items) — sourced from statute text, pre-final-rule disclosure per GENIUS-FINALRULE-CHECK-1; catch-all item 7 always INDETERMINATE, never auto-matched.';
+
+function flagAssetClass(assetClass) {
+  if (assetClass === 'non_eligible') {
+    return { verdict: 'DOES_NOT_MATCH', item: null, label: null, detail: 'Caller explicitly declared this line outside the statutory eligible-asset enumeration.' };
+  }
+  var known = ELIGIBLE_ASSET_ITEMS[assetClass];
+  if (!known) {
+    return { verdict: 'INDETERMINATE', item: null, label: null, detail: 'asset_class "' + (assetClass || '') + '" does not match a recognized statutory enumeration key or "non_eligible" — ambiguous, never guessed.' };
+  }
+  if (known.item === 7) {
+    return { verdict: 'INDETERMINATE', item: 7, label: known.label, detail: 'Item 7 is the catch-all ("other similarly liquid, federal-government-issued assets as approved by the OCC") — a human judgment call, always INDETERMINATE, never auto-matched.' };
+  }
+  return { verdict: 'MATCHES_CRITERION', item: known.item, label: known.label, detail: 'Matches statutory eligible-asset item ' + known.item + ': ' + known.label + '.' };
+}
+
+var NOT_PROVEN = [
+  { item: 'Figure truthfulness', detail: 'This tool recomputes arithmetic on disclosed figures; it does not verify the underlying figures are true. Whether Leg A, Leg B, or Leg C\'s declared numbers are accurate is the declaring party\'s responsibility, not something this recomputation can determine.' },
+  { item: 'Reserve composition completeness', detail: 'A per-asset-class breakdown that sums correctly to the stated total does not prove the breakdown lists every holding — an omitted line and an inflated line on another can cancel out undetected.' },
+  { item: 'Snapshot currency', detail: 'Each leg is a point-in-time figure at its own declared as_of date. No leg is compared against "today" — this tool has no clock.' },
+  { item: 'GENIUS compliance opinion', detail: 'Per-holding eligible-asset flags report criteria-match only. This tool produces no compliance opinion, no audit, and no examination — a reader wanting one is told this explicitly, never given a merged eligibility boolean.' },
+  { item: 'PCAOB audit opinion', detail: 'This tool performs no audit and carries no PCAOB or other audit-firm opinion; it is a recompute-and-reconcile check only.' }
+];
+
+// ── art-603 recompute logic (same algorithm as .kernel.mjs compute(), browser copy) ──
+function compute(pp) {
+  var params = (pp !== null && typeof pp === 'object') ? pp : {};
+  var maxSkew = isFinite(Number(params.max_as_of_skew_days)) ? Number(params.max_as_of_skew_days) : MAX_AS_OF_SKEW_DAYS;
+
+  var legARaw = params.leg_a === undefined ? null : params.leg_a;
+  var legBRaw = params.leg_b === undefined ? null : params.leg_b;
+  var legCRaw = params.leg_c === undefined ? null : params.leg_c;
+
+  var legAPresent = legARaw !== null && typeof legARaw === 'object';
+  var legBPresent = legBRaw !== null && typeof legBRaw === 'object';
+  var legCPresent = legCRaw !== null && typeof legCRaw === 'object';
+
+  var legA = legAPresent ? legARaw : {};
+  var legB = legBPresent ? legBRaw : {};
+  var legC = legCPresent ? legCRaw : {};
+
+  var leg_a_echo = { as_of: legA.as_of == null ? null : legA.as_of, source_digest: legA.source_digest == null ? null : legA.source_digest, report_period: legA.report_period == null ? null : legA.report_period, period_end_date: legA.period_end_date == null ? null : legA.period_end_date };
+  var leg_b_echo = { as_of: legB.as_of == null ? null : legB.as_of, source_digest: legB.source_digest == null ? null : legB.source_digest, accession_number: legB.accession_number == null ? null : legB.accession_number, filing_date: legB.filing_date == null ? null : legB.filing_date };
+  var leg_c_echo = { as_of: legC.as_of == null ? null : legC.as_of, source_digest: legC.source_digest == null ? null : legC.source_digest };
+
+  var skewAB = (legAPresent && legBPresent && legA.as_of && legB.as_of) ? Math.abs(daysBetween(legA.as_of, legB.as_of)) : null;
+  var skewAC = (legAPresent && legCPresent && legA.as_of && legC.as_of) ? Math.abs(daysBetween(legA.as_of, legC.as_of)) : null;
+  var skewBC = (legBPresent && legCPresent && legB.as_of && legC.as_of) ? Math.abs(daysBetween(legB.as_of, legC.as_of)) : null;
+  var validSkews = [skewAB, skewAC, skewBC].filter(function(s){ return s !== null && !isNaN(s); });
+  var max_as_of_skew_days_global = validSkews.length > 0 ? Math.max.apply(null, validSkews) : null;
+
+  function skewGate(skew, legPairLabel) {
+    if (skew === null || isNaN(skew)) return { gated: false, verdict: null, detail: legPairLabel + ' as_of skew unavailable (one or both dates missing) — not silently compared.' };
+    if (skew > maxSkew) return { gated: true, verdict: 'INDETERMINATE', detail: legPairLabel + ' as_of skew is ' + skew + ' day(s), exceeding the ' + maxSkew + '-day threshold. Not compared as if same-date.' };
+    return { gated: false, verdict: null, detail: legPairLabel + ' as_of skew is ' + skew + ' day(s), within the ' + maxSkew + '-day threshold.' };
+  }
+
+  var compliance_flags = [];
+
+  var breakdownRaw = Array.isArray(legA.asset_breakdown) ? legA.asset_breakdown : [];
+  var breakdownTooLarge = breakdownRaw.length > MAX_ASSET_LINES;
+  var breakdown = breakdownTooLarge ? [] : breakdownRaw.slice(0, MAX_ASSET_LINES);
+  if (breakdownTooLarge) compliance_flags.push('ASSET_BREAKDOWN_TOO_LARGE');
+
+  var reserveRatio = { verdict: 'INDETERMINATE', detail: 'Leg A not supplied. Reserve ratio cannot be recomputed.' };
+  var total_reserves_usd_recomputed = null;
+  var breakdown_sum_consistency = null;
+  var total_liabilities_usd = null;
+  var coverage_ratio_pct = null;
+
+  if (legAPresent) {
+    if (breakdownTooLarge) {
+      reserveRatio = { verdict: 'INDETERMINATE', detail: 'asset_breakdown has more than ' + MAX_ASSET_LINES + ' lines and was refused rather than summed in part.' };
+    } else if (breakdown.length === 0) {
+      reserveRatio = { verdict: 'INDETERMINATE', detail: 'Leg A supplied no per-asset-class breakdown. Reserve ratio recompute requires it (this is a recompute of the breakdown, not a restatement of a single top-line figure).' };
+    } else {
+      total_reserves_usd_recomputed = breakdown.reduce(function(sum, line){ return sum + Number((line && line.amount_usd) || 0); }, 0);
+      total_reserves_usd_recomputed = parseFloat(total_reserves_usd_recomputed.toFixed(2));
+
+      var statedTotal = legA.total_reserves_usd != null ? Number(legA.total_reserves_usd) : null;
+      if (statedTotal !== null) {
+        var deltaPct0 = total_reserves_usd_recomputed > 0 ? Math.abs(statedTotal - total_reserves_usd_recomputed) / total_reserves_usd_recomputed * 100 : (statedTotal === 0 ? 0 : null);
+        var withinTolerance0 = deltaPct0 !== null && deltaPct0 <= RESERVE_TOTAL_TOLERANCE_PCT;
+        breakdown_sum_consistency = { stated_total_reserves_usd: statedTotal, recomputed_from_breakdown_usd: total_reserves_usd_recomputed, delta_pct: deltaPct0 === null ? null : parseFloat(deltaPct0.toFixed(4)), within_tolerance: withinTolerance0 };
+        if (!withinTolerance0) compliance_flags.push('RESERVE_BREAKDOWN_SUM_MISMATCH');
+      }
+
+      var tokens = Number(legA.outstanding_tokens_reported || 0);
+      var price = legA.token_price == null ? 1 : Number(legA.token_price);
+      total_liabilities_usd = parseFloat((tokens * price).toFixed(2));
+
+      if (tokens <= 0) {
+        reserveRatio = { verdict: 'INDETERMINATE', detail: 'outstanding_tokens_reported is missing or non-positive — coverage ratio cannot be computed.' };
+      } else {
+        coverage_ratio_pct = parseFloat(((total_reserves_usd_recomputed / total_liabilities_usd) * 100).toFixed(4));
+        if (coverage_ratio_pct >= 100) {
+          reserveRatio = { verdict: 'MET', detail: 'Recomputed reserves (' + total_reserves_usd_recomputed + ') cover ' + coverage_ratio_pct.toFixed(2) + '% of liabilities (' + total_liabilities_usd + '), computed from the per-asset-class breakdown, not the stated top-line figure.' };
+        } else {
+          reserveRatio = { verdict: 'NOT_MET', detail: 'Recomputed reserves (' + total_reserves_usd_recomputed + ') cover only ' + coverage_ratio_pct.toFixed(2) + '% of liabilities (' + total_liabilities_usd + '), computed from the per-asset-class breakdown.' };
+        }
+      }
+    }
+  }
+
+  var wamFromDisclosure = { value_days: null, verdict: 'INDETERMINATE', detail: 'Leg A not supplied. WAM-from-disclosure cannot be computed.' };
+  if (legAPresent && breakdown.length > 0 && !breakdownTooLarge) {
+    var allHaveMaturity = breakdown.every(function(line){ return line && line.maturity_bucket_days !== undefined && line.maturity_bucket_days !== null && isFinite(Number(line.maturity_bucket_days)); });
+    if (!allHaveMaturity) {
+      wamFromDisclosure = { value_days: null, verdict: 'INDETERMINATE', detail: 'At least one asset_breakdown line lacks maturity_bucket_days. WAM-from-disclosure is not computed by dropping the line and rescaling — that manufactures a number.' };
+    } else {
+      var totalAmount = breakdown.reduce(function(s, l){ return s + Number(l.amount_usd || 0); }, 0);
+      if (totalAmount <= 0) {
+        wamFromDisclosure = { value_days: null, verdict: 'INDETERMINATE', detail: 'asset_breakdown amounts sum to zero or less. WAM-from-disclosure is undefined.' };
+      } else {
+        var weighted = breakdown.reduce(function(s, l){ return s + Number(l.amount_usd || 0) * Number(l.maturity_bucket_days || 0); }, 0);
+        var wamDays = parseFloat((weighted / totalAmount).toFixed(4));
+        wamFromDisclosure = { value_days: wamDays, verdict: null, detail: 'Weighted-average maturity recomputed from the per-asset-class breakdown: ' + wamDays.toFixed(2) + ' days.' };
+      }
+    }
+  }
+
+  var wamFromEdgar = { value_days: null, wam_source: 'edgar_nmfp_reported', detail: 'Leg B not supplied. wam_days extraction unavailable.' };
+  if (legBPresent && legB.wam_days != null && isFinite(Number(legB.wam_days))) {
+    wamFromEdgar = { value_days: Number(legB.wam_days), wam_source: 'edgar_nmfp_reported', detail: 'wam_days extracted directly from the N-MFP Part 1 series summary (accession ' + (legB.accession_number || 'unknown') + '). Extraction, not a recompute.' };
+  } else if (legBPresent) {
+    wamFromEdgar = { value_days: null, wam_source: 'edgar_nmfp_reported', detail: 'Leg B supplied but wam_days field is missing or non-numeric.' };
+  }
+
+  var skewABGate = skewGate(skewAB, 'Leg A vs Leg B');
+  var wamCrossCheck = { verdict: 'INDETERMINATE', detail: 'WAM cross-check requires both wam_from_disclosure and wam_from_edgar to be numeric.' };
+  if (skewABGate.gated) {
+    wamCrossCheck = { verdict: 'INDETERMINATE', detail: skewABGate.detail };
+  } else if (wamFromDisclosure.value_days !== null && wamFromEdgar.value_days !== null) {
+    var deltaDays = Math.abs(wamFromDisclosure.value_days - wamFromEdgar.value_days);
+    if (deltaDays <= WAM_CROSSCHECK_TOLERANCE_DAYS) {
+      wamCrossCheck = { verdict: 'RECONCILED', detail: 'Disclosure-recomputed WAM (' + wamFromDisclosure.value_days.toFixed(2) + 'd) and EDGAR-reported WAM (' + wamFromEdgar.value_days.toFixed(2) + 'd) are within the ' + WAM_CROSSCHECK_TOLERANCE_DAYS + '-day tolerance. This comparison is directional, not exact, when the named fund holds only part of the issuer\'s reserves.' };
+    } else {
+      wamCrossCheck = { verdict: 'DISCREPANT', detail: 'Disclosure-recomputed WAM (' + wamFromDisclosure.value_days.toFixed(2) + 'd) and EDGAR-reported WAM (' + wamFromEdgar.value_days.toFixed(2) + 'd) diverge by ' + deltaDays.toFixed(2) + 'd, exceeding the ' + WAM_CROSSCHECK_TOLERANCE_DAYS + '-day tolerance. Directional caveat applies here too.' };
+    }
+  }
+
+  var bestWam = wamFromDisclosure.value_days !== null ? { value: wamFromDisclosure.value_days, wam_source: 'disclosure_recomputed' } : (wamFromEdgar.value_days !== null ? { value: wamFromEdgar.value_days, wam_source: 'edgar_nmfp_reported' } : null);
+  var wamCeiling;
+  var ceilingRef = 'OCC NPRM detail (research/GENIUS-FINALRULE-CHECK-2026-08-07.md) — NPRM, not final rule, re-verify at build time.';
+  if (bestWam === null) {
+    wamCeiling = { verdict: 'INDETERMINATE', wam_source: null, detail: 'Neither WAM source is usable — ceiling check cannot be evaluated.', ceiling_days: WAM_CEILING_DAYS, ceiling_ref: ceilingRef };
+  } else if (bestWam.value <= WAM_CEILING_DAYS) {
+    wamCeiling = { verdict: 'MET', wam_source: bestWam.wam_source, detail: 'Best-available WAM (' + bestWam.value.toFixed(2) + 'd, source: ' + bestWam.wam_source + ') is at or below the ' + WAM_CEILING_DAYS + '-day ceiling.', ceiling_days: WAM_CEILING_DAYS, ceiling_ref: ceilingRef };
+  } else {
+    wamCeiling = { verdict: 'NOT_MET', wam_source: bestWam.wam_source, detail: 'Best-available WAM (' + bestWam.value.toFixed(2) + 'd, source: ' + bestWam.wam_source + ') exceeds the ' + WAM_CEILING_DAYS + '-day ceiling.', ceiling_days: WAM_CEILING_DAYS, ceiling_ref: ceilingRef };
+  }
+
+  var genius_eligible_holdings = breakdown.map(function(line, idx) {
+    var flag = flagAssetClass(line && line.asset_class);
+    return { line_index: idx, asset_class: (line && line.asset_class) == null ? null : line.asset_class, amount_usd: isFinite(Number(line && line.amount_usd)) ? Number(line.amount_usd) : null, verdict: flag.verdict, statutory_item: flag.item, statutory_item_label: flag.label, detail: flag.detail, ref: NPRM_ELIGIBLE_ASSET_REF };
+  });
+
+  var provisional_nprm_detail = [];
+  if (legAPresent && breakdown.length > 0 && total_reserves_usd_recomputed !== null && total_reserves_usd_recomputed > 0) {
+    var byInstitution = {};
+    var order = [];
+    for (var bi = 0; bi < breakdown.length; bi++) {
+      var line2 = breakdown[bi];
+      var key = (line2 && (line2.institution || line2.asset_class)) || 'unspecified';
+      if (!(key in byInstitution)) { byInstitution[key] = 0; order.push(key); }
+      byInstitution[key] += Number((line2 && line2.amount_usd) || 0);
+    }
+    for (var oi = 0; oi < order.length; oi++) {
+      var institution = order[oi];
+      var amount = byInstitution[institution];
+      var pctOfTotal = parseFloat(((amount / total_reserves_usd_recomputed) * 100).toFixed(4));
+      provisional_nprm_detail.push({ institution: institution, amount_usd: parseFloat(amount.toFixed(2)), pct_of_recomputed_reserves: pctOfTotal, exceeds_concentration_ceiling: pctOfTotal > NPRM_CONCENTRATION_CEILING_PCT, provisional_nprm_detail: true, ceiling_pct: NPRM_CONCENTRATION_CEILING_PCT, ref: 'OCC NPRM concentration detail (≤40% at any one eligible institution) — proposed-rule detail, not statute, kept visibly separate from the statutory eligible-asset list.' });
+    }
+  }
+
+  var skewACGate = skewGate(skewAC, 'Leg A vs Leg C');
+
+  var reconcile1;
+  var fraction = legA.reserves_in_fund_fraction;
+  if (skewABGate.gated) {
+    reconcile1 = { check: 'reserves_vs_mmf_assets', verdict: 'INDETERMINATE', detail: skewABGate.detail };
+  } else if (!legAPresent || !legBPresent || total_reserves_usd_recomputed === null || legB.total_net_assets == null) {
+    reconcile1 = { check: 'reserves_vs_mmf_assets', verdict: 'INDETERMINATE', detail: 'Requires both a recomputed reserve total (Leg A) and total_net_assets (Leg B).' };
+  } else if (fraction === undefined || fraction === null) {
+    reconcile1 = { check: 'reserves_vs_mmf_assets', verdict: 'INDETERMINATE', detail: 'Issuer does not disclose what fraction of reserves sit in the named fund (reserves_in_fund_fraction). Not assumed to be 100%.' };
+  } else {
+    var expectedInFund = total_reserves_usd_recomputed * Number(fraction);
+    var netAssets = Number(legB.total_net_assets);
+    var deltaPct1 = netAssets > 0 ? Math.abs(expectedInFund - netAssets) / netAssets * 100 : null;
+    var within1 = deltaPct1 !== null && deltaPct1 <= RECONCILE_TOLERANCE_PCT;
+    reconcile1 = { check: 'reserves_vs_mmf_assets', verdict: within1 ? 'RECONCILED' : 'DISCREPANT', detail: 'Reserves attributed to the fund (' + expectedInFund.toFixed(2) + ', ' + (Number(fraction) * 100).toFixed(2) + '% of recomputed reserves) vs Leg B total_net_assets (' + netAssets + '): delta ' + (deltaPct1 === null ? 'n/a' : deltaPct1.toFixed(4) + '%') + ', tolerance ' + RECONCILE_TOLERANCE_PCT + '%.', as_of_skew_days: skewAB };
+  }
+
+  var reconcile2;
+  if (skewACGate.gated) {
+    reconcile2 = { check: 'liabilities_vs_onchain_supply', verdict: 'INDETERMINATE', detail: skewACGate.detail };
+  } else if (!legAPresent || !legCPresent || legC.onchain_supply == null) {
+    reconcile2 = { check: 'liabilities_vs_onchain_supply', verdict: 'INDETERMINATE', detail: 'Requires both outstanding_tokens_reported (Leg A) and onchain_supply (Leg C).' };
+  } else {
+    var reported = Number(legA.outstanding_tokens_reported || 0);
+    var onchain = Number(legC.onchain_supply);
+    var deltaPct2 = reported > 0 ? Math.abs(onchain - reported) / reported * 100 : (onchain === 0 ? 0 : null);
+    var within2 = deltaPct2 !== null && deltaPct2 <= RECONCILE_TOLERANCE_PCT;
+    reconcile2 = { check: 'liabilities_vs_onchain_supply', verdict: within2 ? 'RECONCILED' : 'DISCREPANT', detail: 'Reported outstanding tokens (' + reported + ') vs declared on-chain supply (' + onchain + '): delta ' + (deltaPct2 === null ? 'n/a' : deltaPct2.toFixed(4) + '%') + ', tolerance ' + RECONCILE_TOLERANCE_PCT + '%.', as_of_skew_days: skewAC };
+  }
+
+  var reconcile3 = { check: 'wam_cross_check', verdict: wamCrossCheck.verdict, detail: wamCrossCheck.detail, as_of_skew_days: skewAB };
+
+  var reconciles = [reconcile1, reconcile2, reconcile3];
+
+  var BAD = { NOT_MET: true, DISCREPANT: true, DOES_NOT_MATCH: true };
+  var allVerdicts = [reserveRatio.verdict, wamCeiling.verdict].concat(genius_eligible_holdings.map(function(h){return h.verdict;})).concat(reconciles.map(function(r){return r.verdict;}));
+  var overall_determination;
+  if (allVerdicts.some(function(v){return BAD[v];})) overall_determination = 'NOT_MET';
+  else if (allVerdicts.some(function(v){return v === 'INDETERMINATE';})) overall_determination = 'INDETERMINATE';
+  else overall_determination = 'MET';
+
+  if (overall_determination === 'NOT_MET') compliance_flags.push('STABLECOIN_3SRC_NOT_MET');
+  if (overall_determination === 'INDETERMINATE') compliance_flags.push('STABLECOIN_3SRC_INDETERMINATE');
+  if (overall_determination === 'MET') compliance_flags.push('STABLECOIN_3SRC_MET');
+  if (reserveRatio.verdict === 'NOT_MET') compliance_flags.push('RESERVE_RATIO_DEFICIENCY');
+  if (reconciles.some(function(r){return r.verdict === 'DISCREPANT';})) compliance_flags.push('CROSS_SOURCE_DISCREPANCY');
+  if (genius_eligible_holdings.some(function(h){return h.verdict === 'DOES_NOT_MATCH';})) compliance_flags.push('GENIUS_NON_ELIGIBLE_HOLDING_DECLARED');
+  if (provisional_nprm_detail.some(function(d){return d.exceeds_concentration_ceiling;})) compliance_flags.push('NPRM_CONCENTRATION_CEILING_EXCEEDED');
+
+  var output_payload = {
+    overall_determination: overall_determination,
+    leg_a: leg_a_echo, leg_b: leg_b_echo, leg_c: leg_c_echo,
+    max_as_of_skew_days_global: max_as_of_skew_days_global,
+    as_of_skew_pairs: { leg_a_vs_leg_b: skewAB, leg_a_vs_leg_c: skewAC, leg_b_vs_leg_c: skewBC },
+    as_of_skew_threshold_days: maxSkew,
+    reserve_ratio: { verdict: reserveRatio.verdict, detail: reserveRatio.detail, total_reserves_usd_recomputed: total_reserves_usd_recomputed, breakdown_sum_consistency: breakdown_sum_consistency, total_liabilities_usd: total_liabilities_usd, coverage_ratio_pct: coverage_ratio_pct },
+    wam: { wam_from_disclosure: wamFromDisclosure, wam_from_edgar: wamFromEdgar, wam_cross_check: wamCrossCheck, wam_ceiling_check: wamCeiling },
+    genius_eligible_holdings: genius_eligible_holdings,
+    provisional_nprm_detail: provisional_nprm_detail,
+    reconciles: reconciles,
+    not_proven: NOT_PROVEN,
+    determination_note: 'overall_determination is a worst-of rollup of independent recompute-and-reconcile checks on disclosed figures. It is never a solvency claim, never an audit opinion, and never "satisfies GENIUS" — it states whether recomputed arithmetic, WAM, and three independently-sourced figures are internally consistent with each other, and nothing about whether the declared figures are themselves true.',
+    regulatory_framework: 'GENIUS Act reserve-composition recompute (statute-derived eligible-asset enumeration + OCC NPRM concentration/WAM detail, see art-582/art-06/art-275 for the pre-issuance/statutory-restatement/report-timeliness siblings); SEC EDGAR N-MFP Part 1 series summary (U.S. government work, freely usable); not a PCAOB audit, not a third-party sign-off, not an examination.'
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+var SAMPLES = {
+  clean: {
+    max_as_of_skew_days: 10,
+    leg_a: { report_period: '2027-02', period_end_date: '2027-02-28', as_of: '2027-02-28', source_digest: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', total_reserves_usd: 1050000000, outstanding_tokens_reported: 1000000000, token_price: 1.0, reserves_in_fund_fraction: 0.8, asset_breakdown: [ { asset_class: 'us_coin_and_currency', amount_usd: 50000000, maturity_bucket_days: 0 }, { asset_class: 'treasury_bill_93d_or_less', amount_usd: 800000000, maturity_bucket_days: 20, institution: 'US Treasury' }, { asset_class: 'government_mmf_solely_foregoing', amount_usd: 200000000, maturity_bucket_days: 25, institution: 'Fund X' } ] },
+    leg_b: { as_of: '2027-02-28', source_digest: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', accession_number: '0001234567-27-000123', total_net_assets: 840000000, nav_per_share: 1.0, shares_outstanding: 840000000, wam_days: 21, wal_days: 40, filing_date: '2027-03-05' },
+    leg_c: { as_of: '2027-02-28', source_digest: 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', onchain_supply: 1000200000 }
+  },
+  skew: {
+    max_as_of_skew_days: 10,
+    leg_a: { report_period: '2027-02', period_end_date: '2027-02-28', as_of: '2027-02-28', source_digest: 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', total_reserves_usd: 500000000, outstanding_tokens_reported: 500000000, token_price: 1.0, asset_breakdown: [ { asset_class: 'other_occ_approved', amount_usd: 500000000, maturity_bucket_days: 5 } ] },
+    leg_b: { as_of: '2027-01-01', source_digest: 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', accession_number: '0009999999-27-000001', total_net_assets: 400000000, wam_days: 25, filing_date: '2027-01-10' },
+    leg_c: { as_of: '2027-02-15', source_digest: 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', onchain_supply: 700000000 }
+  },
+  empty: { max_as_of_skew_days: 10, leg_a: null, leg_b: null, leg_c: null }
+};
+
+function loadSample(which) {
+  var s = SAMPLES[which];
+  if (!s) return;
+  document.getElementById('maxSkewDays').value = String(s.max_as_of_skew_days);
+  document.getElementById('legAInput').value = s.leg_a === null ? '' : JSON.stringify(s.leg_a, null, 2);
+  document.getElementById('legBInput').value = s.leg_b === null ? '' : JSON.stringify(s.leg_b, null, 2);
+  document.getElementById('legCInput').value = s.leg_c === null ? '' : JSON.stringify(s.leg_c, null, 2);
+  runRecompute();
+}
+
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function parseLegField(id) {
+  var raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  try { return JSON.parse(raw); } catch (e) { return { _parse_error: e.message }; }
+}
+
+var VCOLOR = { MET: 'var(--green)', RECONCILED: 'var(--green)', MATCHES_CRITERION: 'var(--green)', NOT_MET: 'var(--red)', DISCREPANT: 'var(--red)', DOES_NOT_MATCH: 'var(--red)', INDETERMINATE: 'var(--warn)' };
+var VBADGE = { MET: 'ok', RECONCILED: 'ok', MATCHES_CRITERION: 'ok', NOT_MET: 'fail', DISCREPANT: 'fail', DOES_NOT_MATCH: 'fail', INDETERMINATE: 'warn' };
+
+function runRecompute() {
+  var legA = parseLegField('legAInput');
+  var legB = parseLegField('legBInput');
+  var legC = parseLegField('legCInput');
+  if ((legA && legA._parse_error) || (legB && legB._parse_error) || (legC && legC._parse_error)) {
+    document.getElementById('resultsPanel').classList.add('show');
+    document.getElementById('verdictBox').style.color = 'var(--red)';
+    document.getElementById('verdictBox').style.background = 'rgba(239,68,68,.08)';
+    document.getElementById('verdictBox').style.border = '1px solid var(--red)';
+    document.getElementById('verdictBox').textContent = 'JSON parse error in a leg field — fix the pasted JSON and re-run.';
+    return;
+  }
+
+  var pp = { max_as_of_skew_days: Number(document.getElementById('maxSkewDays').value) || MAX_AS_OF_SKEW_DAYS, leg_a: legA, leg_b: legB, leg_c: legC };
+
+  var result = compute(pp);
+  var op = result.output_payload, flags = result.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var vBox = document.getElementById('verdictBox');
+  var vColor = VCOLOR[op.overall_determination] || 'var(--warn)';
+  vBox.style.color = vColor;
+  vBox.style.background = 'rgba(20,184,166,.08)';
+  vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = op.overall_determination + ': worst-of rollup across reserve ratio, WAM, GENIUS flags, and the three-source reconcile — never a solvency claim.';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) {
+    var cls = f.indexOf('MET') >= 0 && f.indexOf('NOT_MET') < 0 ? 'ok' : (f.indexOf('NOT_MET') >= 0 || f.indexOf('DEFICIENCY') >= 0 || f.indexOf('DISCREPANCY') >= 0 ? 'fail' : 'warn');
+    return '<span class="badge ' + cls + '">' + esc(f) + '</span>';
+  }).join('');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.reserve_ratio.coverage_ratio_pct === null ? '—' : op.reserve_ratio.coverage_ratio_pct.toFixed(2) + '%') + '</span><span class="stat-key">coverage</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.wam.wam_from_disclosure.value_days === null ? '—' : op.wam.wam_from_disclosure.value_days.toFixed(1) + 'd') + '</span><span class="stat-key">WAM disclosure</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.wam.wam_from_edgar.value_days === null ? '—' : op.wam.wam_from_edgar.value_days.toFixed(1) + 'd') + '</span><span class="stat-key">WAM EDGAR</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.max_as_of_skew_days_global === null ? '—' : op.max_as_of_skew_days_global + 'd') + '</span><span class="stat-key">max skew</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.genius_eligible_holdings.length + '</span><span class="stat-key">holdings flagged</span></div>';
+
+  document.getElementById('reserveRatioBox').innerHTML =
+    '<span class="badge ' + (VBADGE[op.reserve_ratio.verdict] || 'warn') + '">' + op.reserve_ratio.verdict + '</span> ' + esc(op.reserve_ratio.detail) +
+    (op.reserve_ratio.breakdown_sum_consistency ? '<div class="q-hint" style="margin-top:4px">breakdown-vs-stated-total consistency: ' + (op.reserve_ratio.breakdown_sum_consistency.within_tolerance ? 'within tolerance' : 'MISMATCH') + ' (delta ' + op.reserve_ratio.breakdown_sum_consistency.delta_pct + '%)</div>' : '');
+
+  document.getElementById('wamBox').innerHTML =
+    '<div style="margin-bottom:4px"><span class="badge info" style="background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)">disclosure_recomputed</span> ' + esc(op.wam.wam_from_disclosure.detail) + '</div>' +
+    '<div style="margin-bottom:4px"><span class="badge info" style="background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)">edgar_nmfp_reported</span> ' + esc(op.wam.wam_from_edgar.detail) + '</div>' +
+    '<div style="margin-bottom:4px"><span class="badge ' + (VBADGE[op.wam.wam_cross_check.verdict] || 'warn') + '">cross-check: ' + op.wam.wam_cross_check.verdict + '</span> ' + esc(op.wam.wam_cross_check.detail) + '</div>' +
+    '<div><span class="badge ' + (VBADGE[op.wam.wam_ceiling_check.verdict] || 'warn') + '">ceiling: ' + op.wam.wam_ceiling_check.verdict + '</span> ' + esc(op.wam.wam_ceiling_check.detail) + '</div>';
+
+  document.getElementById('reconcileBody').innerHTML = op.reconciles.map(function(r) {
+    return '<tr><td>' + esc(r.check) + '</td><td><span class="badge ' + (VBADGE[r.verdict] || 'warn') + '">' + r.verdict + '</span></td><td>' + esc(r.detail) + '</td></tr>';
+  }).join('');
+
+  document.getElementById('giBody').innerHTML = op.genius_eligible_holdings.length > 0
+    ? op.genius_eligible_holdings.map(function(h) {
+        return '<tr><td>' + esc(h.asset_class) + '</td><td>' + (h.amount_usd === null ? '—' : h.amount_usd.toLocaleString()) + '</td><td><span class="badge ' + (VBADGE[h.verdict] || 'warn') + '">' + h.verdict + '</span></td><td>' + (h.statutory_item === null ? '—' : h.statutory_item) + '</td><td>' + esc(h.detail) + '</td></tr>';
+      }).join('')
+    : '<tr><td colspan="5">No asset_breakdown lines to flag.</td></tr>';
+
+  document.getElementById('nprmBody').innerHTML = op.provisional_nprm_detail.length > 0
+    ? op.provisional_nprm_detail.map(function(d) {
+        return '<tr><td>' + esc(d.institution) + '</td><td>' + d.amount_usd.toLocaleString() + '</td><td>' + d.pct_of_recomputed_reserves.toFixed(2) + '%</td><td><span class="badge ' + (d.exceeds_concentration_ceiling ? 'fail' : 'ok') + '">' + (d.exceeds_concentration_ceiling ? 'exceeds' : 'within') + '</span></td></tr>';
+      }).join('')
+    : '<tr><td colspan="4">No breakdown to compute concentration against.</td></tr>';
+
+  document.getElementById('notProvenBox').innerHTML = op.not_proven.map(function(n) {
+    return '<div style="margin-bottom:6px"><b>' + esc(n.item) + ':</b> ' + esc(n.detail) + '</div>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'compliance_mandate',
+    tool_id: 'art-603-stablecoin-reserve-3source-recompute', tool_version: '1.0.0',
+    generated_at: __generatedAtCapture, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-603-stablecoin-reserve-3source-recompute.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ── AP2Schema — retained legacy identifier (CONTRACT §3.1). This is the
+// AINumbers Policy Mandate export, NOT Google's AP2 payments protocol. ─────
+var AP2Schema = {
+  validate: function(mandate) {
+    return !!(mandate && mandate.ap2_version && mandate.tool_id && mandate.determination !== undefined);
+  },
+  export: function() {
+    if (!_lastResult) return;
+    var mandate = {
+      ap2_version: '1.0', mandate_type: 'compliance_mandate', tool_id: MANIFEST.tool_id,
+      generated_at: new Date().toISOString(),
+      determination: _lastResult.output_payload.overall_determination,
+      reserve_ratio: _lastResult.output_payload.reserve_ratio,
+      wam: _lastResult.output_payload.wam,
+      reconciles: _lastResult.output_payload.reconciles,
+      genius_eligible_holdings: _lastResult.output_payload.genius_eligible_holdings,
+      policy_parameters: _lastResult.pp,
+      output_payload: _lastResult.output_payload
+    };
+    if (!AP2Schema.validate(mandate)) return;
+    var json = JSON.stringify(mandate, null, 2);
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+    a.download = 'art-603-policy-mandate.json';
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+};
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+
+// Preload the clean sample into the textareas so the page has a working
+// example on first paint (not auto-run — the reader clicks Recompute).
+document.getElementById('legAInput').value = JSON.stringify(SAMPLES.clean.leg_a, null, 2);
+document.getElementById('legBInput').value = JSON.stringify(SAMPLES.clean.leg_b, null, 2);
+document.getElementById('legCInput').value = JSON.stringify(SAMPLES.clean.leg_c, null, 2);
+</script>
+</body>
+</html>
