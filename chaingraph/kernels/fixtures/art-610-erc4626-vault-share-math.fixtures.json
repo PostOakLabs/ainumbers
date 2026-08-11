@@ -1,0 +1,663 @@
+{
+  "tool_id": "art-610-erc4626-vault-share-math",
+  "note": "golden_hash filled by `node golden-parity.test.mjs --update`. Every output_payload was produced by executing compute() directly, never hand-typed. The rounding directions asserted across these vectors are ERC-4626's own (Final, Created 2021-12-22, CC0-1.0): convertToShares/convertToAssets/previewDeposit/previewRedeem round down, previewMint/previewWithdraw round up. The two inflation-attack vectors are the same declared donation state run with and without the OpenZeppelin virtual-amounts mitigation, and the difference between them (a total loss versus a bounded one) is the point of the pair.",
+  "vectors": [
+    {
+      "name": "eip-rounding-table-all-six-directions",
+      "policy_parameters": {
+        "total_assets": "1000000000000000000000",
+        "total_supply": "333000000000000000000",
+        "chain_id": "1",
+        "network_label": "declared label, not a selector",
+        "operations": [
+          {
+            "op": "convertToShares",
+            "amount": "1000"
+          },
+          {
+            "op": "convertToAssets",
+            "amount": "1000"
+          },
+          {
+            "op": "previewDeposit",
+            "amount": "1000"
+          },
+          {
+            "op": "previewMint",
+            "amount": "1000"
+          },
+          {
+            "op": "previewWithdraw",
+            "amount": "1000"
+          },
+          {
+            "op": "previewRedeem",
+            "amount": "1000"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": "1",
+          "network_label": "declared label, not a selector"
+        },
+        "vault_state": {
+          "total_assets": "1000000000000000000000",
+          "total_supply": "333000000000000000000",
+          "virtual_amounts_used": true,
+          "decimals_offset_used": "0",
+          "virtual_shares": "1",
+          "virtual_assets": "1"
+        },
+        "conversions": [
+          {
+            "op": "convertToShares",
+            "side": "assets_to_shares",
+            "input": "1000",
+            "output": "333",
+            "rounding_direction": "down",
+            "eip_rule": "MUST round down towards 0",
+            "output_if_rounded_other_way": "334",
+            "rounding_changes_result": true
+          },
+          {
+            "op": "convertToAssets",
+            "side": "shares_to_assets",
+            "input": "1000",
+            "output": "3003",
+            "rounding_direction": "down",
+            "eip_rule": "MUST round down towards 0",
+            "output_if_rounded_other_way": "3004",
+            "rounding_changes_result": true
+          },
+          {
+            "op": "previewDeposit",
+            "side": "assets_to_shares",
+            "input": "1000",
+            "output": "333",
+            "rounding_direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call",
+            "output_if_rounded_other_way": "334",
+            "rounding_changes_result": true
+          },
+          {
+            "op": "previewMint",
+            "side": "shares_to_assets",
+            "input": "1000",
+            "output": "3004",
+            "rounding_direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call",
+            "output_if_rounded_other_way": "3003",
+            "rounding_changes_result": true
+          },
+          {
+            "op": "previewWithdraw",
+            "side": "assets_to_shares",
+            "input": "1000",
+            "output": "334",
+            "rounding_direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call",
+            "output_if_rounded_other_way": "333",
+            "rounding_changes_result": true
+          },
+          {
+            "op": "previewRedeem",
+            "side": "shares_to_assets",
+            "input": "1000",
+            "output": "3003",
+            "rounding_direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call",
+            "output_if_rounded_other_way": "3004",
+            "rounding_changes_result": true
+          }
+        ],
+        "fee": null,
+        "round_trip": null,
+        "rate_drift": null,
+        "rounding_table": [
+          {
+            "op": "convertToAssets",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "convertToShares",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "previewDeposit",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+          },
+          {
+            "op": "previewMint",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+          },
+          {
+            "op": "previewRedeem",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+          },
+          {
+            "op": "previewWithdraw",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+          }
+        ],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": []
+      },
+      "golden_hash": "e7e8bd3e7d667c4a67f37606f42ad3b9b091dbe4e74bef9b8ffbfb8a84e38c98"
+    },
+    {
+      "name": "inflation-attack-naive-formula-zero-share-mint",
+      "policy_parameters": {
+        "total_assets": "10000000000000000000000",
+        "total_supply": "1",
+        "virtual_amounts": false,
+        "round_trip_assets": "9999000000000000000000"
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": {
+          "total_assets": "10000000000000000000000",
+          "total_supply": "1",
+          "virtual_amounts_used": false,
+          "decimals_offset_used": "0",
+          "virtual_shares": "0",
+          "virtual_assets": "0"
+        },
+        "conversions": [],
+        "fee": null,
+        "round_trip": {
+          "assets_in": "9999000000000000000000",
+          "shares_minted": "0",
+          "assets_out": "0",
+          "loss_assets": "9999000000000000000000",
+          "loss_bps": "10000",
+          "post_deposit_state": {
+            "total_assets": "19999000000000000000000",
+            "total_supply": "1"
+          },
+          "zero_share_mint": true,
+          "note": "Deposit uses previewDeposit (round down), redeem uses previewRedeem (round down) against the post-deposit state. loss_bps rounds up, so a non-zero loss never reports as 0 bps. A zero_share_mint means the deposit bought no shares at all -- the first-depositor/inflation-attack outcome."
+        },
+        "rate_drift": null,
+        "rounding_table": [
+          {
+            "op": "convertToAssets",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "convertToShares",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "previewDeposit",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+          },
+          {
+            "op": "previewMint",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+          },
+          {
+            "op": "previewRedeem",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+          },
+          {
+            "op": "previewWithdraw",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+          }
+        ],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": []
+      },
+      "golden_hash": "e09e9a7e22b790d2a3db870610fbcbcfaf6f557f88530cbc092de20b5eb595e0"
+    },
+    {
+      "name": "inflation-attack-mitigated-by-decimals-offset-6",
+      "policy_parameters": {
+        "total_assets": "10000000000000000000000",
+        "total_supply": "1",
+        "decimals_offset": "6",
+        "round_trip_assets": "9999000000000000000000"
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": {
+          "total_assets": "10000000000000000000000",
+          "total_supply": "1",
+          "virtual_amounts_used": true,
+          "decimals_offset_used": "6",
+          "virtual_shares": "1000000",
+          "virtual_assets": "1"
+        },
+        "conversions": [],
+        "fee": null,
+        "round_trip": {
+          "assets_in": "9999000000000000000000",
+          "shares_minted": "999900",
+          "assets_out": "9998995000252512499369",
+          "loss_assets": "4999747487500631",
+          "loss_bps": "1",
+          "post_deposit_state": {
+            "total_assets": "19999000000000000000000",
+            "total_supply": "999901"
+          },
+          "zero_share_mint": false,
+          "note": "Deposit uses previewDeposit (round down), redeem uses previewRedeem (round down) against the post-deposit state. loss_bps rounds up, so a non-zero loss never reports as 0 bps. A zero_share_mint means the deposit bought no shares at all -- the first-depositor/inflation-attack outcome."
+        },
+        "rate_drift": null,
+        "rounding_table": [
+          {
+            "op": "convertToAssets",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "convertToShares",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "previewDeposit",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+          },
+          {
+            "op": "previewMint",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+          },
+          {
+            "op": "previewRedeem",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+          },
+          {
+            "op": "previewWithdraw",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+          }
+        ],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": []
+      },
+      "golden_hash": "6247d5ccb51d5e0f0c768a43bea5389d95f432ccda21253289d9aa1cbdd45cca"
+    },
+    {
+      "name": "empty-vault-first-deposit-round-trip-lossless",
+      "policy_parameters": {
+        "total_assets": "0",
+        "total_supply": "0",
+        "decimals_offset": "3",
+        "round_trip_assets": "1000000000000000000"
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": {
+          "total_assets": "0",
+          "total_supply": "0",
+          "virtual_amounts_used": true,
+          "decimals_offset_used": "3",
+          "virtual_shares": "1000",
+          "virtual_assets": "1"
+        },
+        "conversions": [],
+        "fee": null,
+        "round_trip": {
+          "assets_in": "1000000000000000000",
+          "shares_minted": "1000000000000000000000",
+          "assets_out": "1000000000000000000",
+          "loss_assets": "0",
+          "loss_bps": "0",
+          "post_deposit_state": {
+            "total_assets": "1000000000000000000",
+            "total_supply": "1000000000000000000000"
+          },
+          "zero_share_mint": false,
+          "note": "Deposit uses previewDeposit (round down), redeem uses previewRedeem (round down) against the post-deposit state. loss_bps rounds up, so a non-zero loss never reports as 0 bps. A zero_share_mint means the deposit bought no shares at all -- the first-depositor/inflation-attack outcome."
+        },
+        "rate_drift": null,
+        "rounding_table": [
+          {
+            "op": "convertToAssets",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "convertToShares",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "previewDeposit",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+          },
+          {
+            "op": "previewMint",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+          },
+          {
+            "op": "previewRedeem",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+          },
+          {
+            "op": "previewWithdraw",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+          }
+        ],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": []
+      },
+      "golden_hash": "dd11dcdc47c059f970068ebbed8ca6b54e168461e0227f8715a2da2dfec05b9d"
+    },
+    {
+      "name": "exchange-rate-drift-between-two-snapshots",
+      "policy_parameters": {
+        "total_assets": "1000000000000000000000",
+        "total_supply": "1000000000000000000000",
+        "snapshot_b": {
+          "total_assets": "1050000000000000000000",
+          "total_supply": "1000000000000000000000"
+        }
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": {
+          "total_assets": "1000000000000000000000",
+          "total_supply": "1000000000000000000000",
+          "virtual_amounts_used": true,
+          "decimals_offset_used": "0",
+          "virtual_shares": "1",
+          "virtual_assets": "1"
+        },
+        "conversions": [],
+        "fee": null,
+        "round_trip": null,
+        "rate_drift": {
+          "rate_a_scaled": "1000000000000000000",
+          "rate_b_scaled": "1049999999999999999",
+          "rate_scale": "1000000000000000000",
+          "direction": "up",
+          "drift_bps": "499",
+          "note": "Rate is assets per 1e18 shares, floored. drift_bps is signed and floored toward zero in magnitude. This kernel cannot know whether a drift came from yield, loss, a donation, or an attack."
+        },
+        "rounding_table": [
+          {
+            "op": "convertToAssets",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "convertToShares",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "previewDeposit",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+          },
+          {
+            "op": "previewMint",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+          },
+          {
+            "op": "previewRedeem",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+          },
+          {
+            "op": "previewWithdraw",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+          }
+        ],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": []
+      },
+      "golden_hash": "de8f6a8d0c2a293481620f4f591210afaeba952b34f9fb10e74333ede855c41e"
+    },
+    {
+      "name": "fee-on-raw-and-fee-on-total-rounding-up",
+      "policy_parameters": {
+        "total_assets": "5000000000000000000000",
+        "total_supply": "4000000000000000000000",
+        "fee_bps": "37",
+        "fee_basis": "total",
+        "round_trip_assets": "1000000000000000001"
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": {
+          "total_assets": "5000000000000000000000",
+          "total_supply": "4000000000000000000000",
+          "virtual_amounts_used": true,
+          "decimals_offset_used": "0",
+          "virtual_shares": "1",
+          "virtual_assets": "1"
+        },
+        "conversions": [],
+        "fee": {
+          "fee_bps": "37",
+          "fee_basis": "total",
+          "basis_amount": "1000000000000000001",
+          "fee_amount": "3686360466274784",
+          "net_amount": "996313639533725217",
+          "rounding_direction": "up",
+          "note": "ERC-4626 mandates no fee formula. This applies the OpenZeppelin ERC4626Fees shapes (_feeOnRaw / _feeOnTotal), both rounding up, over the declared fee_bps."
+        },
+        "round_trip": {
+          "assets_in": "1000000000000000001",
+          "shares_minted": "800000000000000000",
+          "assets_out": "1000000000000000000",
+          "loss_assets": "1",
+          "loss_bps": "1",
+          "post_deposit_state": {
+            "total_assets": "5001000000000000000001",
+            "total_supply": "4000800000000000000000"
+          },
+          "zero_share_mint": false,
+          "note": "Deposit uses previewDeposit (round down), redeem uses previewRedeem (round down) against the post-deposit state. loss_bps rounds up, so a non-zero loss never reports as 0 bps. A zero_share_mint means the deposit bought no shares at all -- the first-depositor/inflation-attack outcome."
+        },
+        "rate_drift": null,
+        "rounding_table": [
+          {
+            "op": "convertToAssets",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "convertToShares",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "previewDeposit",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+          },
+          {
+            "op": "previewMint",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+          },
+          {
+            "op": "previewRedeem",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+          },
+          {
+            "op": "previewWithdraw",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+          }
+        ],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": []
+      },
+      "golden_hash": "4a61884410d919182a9994fd9831ca4f15b946d451fd82604efd3d35962541cb"
+    },
+    {
+      "name": "negative-malformed-total-supply-indeterminate",
+      "policy_parameters": {
+        "total_assets": "100",
+        "total_supply": "-5"
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": null,
+        "conversions": [],
+        "fee": null,
+        "round_trip": null,
+        "rate_drift": null,
+        "rounding_table": [],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": [
+          "total_supply is required and must be a non-negative uint256, as a decimal or 0x-hex string"
+        ]
+      },
+      "golden_hash": "3e27d71fd68e6b11e59dea21e51aea36903d94ef9c0ce47f2689d74e99ddb96c"
+    },
+    {
+      "name": "negative-unknown-op-name-rejected",
+      "policy_parameters": {
+        "total_assets": "100",
+        "total_supply": "100",
+        "operations": [
+          {
+            "op": "previewSwap",
+            "amount": "1"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": null,
+        "conversions": [],
+        "fee": null,
+        "round_trip": null,
+        "rate_drift": null,
+        "rounding_table": [],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": [
+          "operations[0].op must be one of convertToShares, convertToAssets, previewDeposit, previewMint, previewWithdraw, previewRedeem"
+        ]
+      },
+      "golden_hash": "8382e2b67737980491e4ef8c317eb0f27bab1d35ccf285fc23e7aeea07041796"
+    },
+    {
+      "name": "negative-conversion-undefined-no-virtual-empty-vault",
+      "policy_parameters": {
+        "total_assets": "0",
+        "total_supply": "0",
+        "virtual_amounts": false,
+        "operations": [
+          {
+            "op": "previewDeposit",
+            "amount": "100"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "vault_state": {
+          "total_assets": "0",
+          "total_supply": "0",
+          "virtual_amounts_used": false,
+          "decimals_offset_used": "0",
+          "virtual_shares": "0",
+          "virtual_assets": "0"
+        },
+        "conversions": [
+          {
+            "op": "previewDeposit",
+            "side": "assets_to_shares",
+            "input": "100",
+            "output": null,
+            "rounding_direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call",
+            "output_if_rounded_other_way": null,
+            "rounding_changes_result": false
+          }
+        ],
+        "fee": null,
+        "round_trip": null,
+        "rate_drift": null,
+        "rounding_table": [
+          {
+            "op": "convertToAssets",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "convertToShares",
+            "direction": "down",
+            "eip_rule": "MUST round down towards 0"
+          },
+          {
+            "op": "previewDeposit",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call"
+          },
+          {
+            "op": "previewMint",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call"
+          },
+          {
+            "op": "previewRedeem",
+            "direction": "down",
+            "eip_rule": "MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call"
+          },
+          {
+            "op": "previewWithdraw",
+            "direction": "up",
+            "eip_rule": "MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call"
+          }
+        ],
+        "note": "Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault's own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard's arithmetic, not an audit of any deployment.",
+        "reasons": []
+      },
+      "golden_hash": "e49de833fcb401568e422a694efb442c28be65a6614d13cabaae1ea86bf330a7"
+    }
+  ]
+}

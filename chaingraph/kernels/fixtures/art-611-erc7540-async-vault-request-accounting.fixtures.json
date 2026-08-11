@@ -1,0 +1,769 @@
+{
+  "tool_id": "art-611-erc7540-async-vault-request-accounting",
+  "note": "golden_hash filled by `node golden-parity.test.mjs --update`. Every output_payload was produced by executing compute() directly, never hand-typed. ERC-7540 (Final, Created 2023-10-18, CC0-1.0) mandates no rounding direction for a partial claim, which is why two vectors run the same claim sequence under both declared directions and differ.",
+  "vectors": [
+    {
+      "name": "aggregate-request-id-zero-two-partial-claims-leaves-dust",
+      "policy_parameters": {
+        "request_id": "0",
+        "deposit": {
+          "pending_assets": "500",
+          "claimable_assets": "1000",
+          "claimable_shares": "333"
+        },
+        "claims": [
+          {
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "300"
+          },
+          {
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "700"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "request_id": "0",
+        "aggregate_by_controller": true,
+        "claim_rounding_used": "down",
+        "opening": {
+          "deposit": {
+            "pending_assets": "500",
+            "claimable_assets": "1000",
+            "claimable_shares": "333",
+            "max_deposit_implied": "1000",
+            "max_mint_implied": "333"
+          },
+          "redeem": {
+            "pending_shares": "0",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "max_redeem_implied": "0",
+            "max_withdraw_implied": "0"
+          }
+        },
+        "claims": [
+          {
+            "index": 0,
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "300",
+            "consumed_requested": "300",
+            "received": "99",
+            "rounding_direction": "down",
+            "received_if_rounded_other_way": "100",
+            "rounding_changes_result": true,
+            "settled_rate_scaled": "330000000000000000",
+            "opening_rate_scaled": "333000000000000000",
+            "rate_scale": "1000000000000000000",
+            "rejected": false,
+            "rejection_reason": null
+          },
+          {
+            "index": 1,
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "700",
+            "consumed_requested": "700",
+            "received": "233",
+            "rounding_direction": "down",
+            "received_if_rounded_other_way": "234",
+            "rounding_changes_result": true,
+            "settled_rate_scaled": "332857142857142857",
+            "opening_rate_scaled": "333000000000000000",
+            "rate_scale": "1000000000000000000",
+            "rejected": false,
+            "rejection_reason": null
+          }
+        ],
+        "closing": {
+          "deposit": {
+            "pending_assets": "500",
+            "claimable_assets": "0",
+            "claimable_shares": "1",
+            "claimed_assets": "1000",
+            "claimed_shares": "332"
+          },
+          "redeem": {
+            "pending_shares": "0",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "claimed_shares": "0",
+            "claimed_assets": "0"
+          }
+        },
+        "dust": {
+          "deposit_shares_stranded": "1",
+          "deposit_assets_stranded": "0",
+          "redeem_assets_stranded": "0",
+          "redeem_shares_stranded": "0",
+          "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate."
+        },
+        "invariants": [
+          {
+            "name": "pending_and_claimable_disjoint",
+            "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount.",
+            "holds": true,
+            "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket."
+          },
+          {
+            "name": "claim_never_skips_claimable_state",
+            "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\"",
+            "holds": true,
+            "detail": "Every claim drew only from an amount already in the Claimable state."
+          },
+          {
+            "name": "claim_within_claimable_bounds",
+            "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest).",
+            "holds": true,
+            "detail": "No claim exceeded its leg's remaining claimable amount."
+          },
+          {
+            "name": "single_prorata_rate_for_nonzero_request_id",
+            "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\"",
+            "holds": true,
+            "applicable": false,
+            "detail": "Not applicable: request_id is 0, the aggregate-by-controller convention, where amounts from separate requests are fungible and no single per-request rate is asserted."
+          },
+          {
+            "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+            "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims.",
+            "holds": true,
+            "detail": "Direction \"down\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced."
+          }
+        ],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": []
+      },
+      "golden_hash": "4ef0eb590904a4d68ad9cbfe0410139d46862520ded4d787ca598a18337fd236"
+    },
+    {
+      "name": "same-claims-rounded-up-changes-payout",
+      "policy_parameters": {
+        "request_id": "0",
+        "deposit": {
+          "pending_assets": "500",
+          "claimable_assets": "1000",
+          "claimable_shares": "333"
+        },
+        "claim_rounding": "up",
+        "claims": [
+          {
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "300"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "request_id": "0",
+        "aggregate_by_controller": true,
+        "claim_rounding_used": "up",
+        "opening": {
+          "deposit": {
+            "pending_assets": "500",
+            "claimable_assets": "1000",
+            "claimable_shares": "333",
+            "max_deposit_implied": "1000",
+            "max_mint_implied": "333"
+          },
+          "redeem": {
+            "pending_shares": "0",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "max_redeem_implied": "0",
+            "max_withdraw_implied": "0"
+          }
+        },
+        "claims": [
+          {
+            "index": 0,
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "300",
+            "consumed_requested": "300",
+            "received": "100",
+            "rounding_direction": "up",
+            "received_if_rounded_other_way": "99",
+            "rounding_changes_result": true,
+            "settled_rate_scaled": "333333333333333333",
+            "opening_rate_scaled": "333000000000000000",
+            "rate_scale": "1000000000000000000",
+            "rejected": false,
+            "rejection_reason": null
+          }
+        ],
+        "closing": {
+          "deposit": {
+            "pending_assets": "500",
+            "claimable_assets": "700",
+            "claimable_shares": "233",
+            "claimed_assets": "300",
+            "claimed_shares": "100"
+          },
+          "redeem": {
+            "pending_shares": "0",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "claimed_shares": "0",
+            "claimed_assets": "0"
+          }
+        },
+        "dust": {
+          "deposit_shares_stranded": "0",
+          "deposit_assets_stranded": "0",
+          "redeem_assets_stranded": "0",
+          "redeem_shares_stranded": "0",
+          "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate."
+        },
+        "invariants": [
+          {
+            "name": "pending_and_claimable_disjoint",
+            "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount.",
+            "holds": true,
+            "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket."
+          },
+          {
+            "name": "claim_never_skips_claimable_state",
+            "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\"",
+            "holds": true,
+            "detail": "Every claim drew only from an amount already in the Claimable state."
+          },
+          {
+            "name": "claim_within_claimable_bounds",
+            "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest).",
+            "holds": true,
+            "detail": "No claim exceeded its leg's remaining claimable amount."
+          },
+          {
+            "name": "single_prorata_rate_for_nonzero_request_id",
+            "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\"",
+            "holds": true,
+            "applicable": false,
+            "detail": "Not applicable: request_id is 0, the aggregate-by-controller convention, where amounts from separate requests are fungible and no single per-request rate is asserted."
+          },
+          {
+            "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+            "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims.",
+            "holds": true,
+            "detail": "Direction \"up\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced."
+          }
+        ],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": []
+      },
+      "golden_hash": "f44f36964c3eca52766c0547f0a6ce07d084867a393196a2aa7b1b78bfadcb85"
+    },
+    {
+      "name": "redeem-leg-claim-by-received-unit",
+      "policy_parameters": {
+        "request_id": "7",
+        "redeem": {
+          "pending_shares": "100",
+          "claimable_shares": "400",
+          "claimable_assets": "1200"
+        },
+        "chain_id": "8453",
+        "network_label": "declared label, not a selector",
+        "claims": [
+          {
+            "leg": "redeem",
+            "unit": "received",
+            "amount": "600"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": "8453",
+          "network_label": "declared label, not a selector"
+        },
+        "request_id": "7",
+        "aggregate_by_controller": false,
+        "claim_rounding_used": "down",
+        "opening": {
+          "deposit": {
+            "pending_assets": "0",
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "max_deposit_implied": "0",
+            "max_mint_implied": "0"
+          },
+          "redeem": {
+            "pending_shares": "100",
+            "claimable_shares": "400",
+            "claimable_assets": "1200",
+            "max_redeem_implied": "400",
+            "max_withdraw_implied": "1200"
+          }
+        },
+        "claims": [
+          {
+            "index": 0,
+            "leg": "redeem",
+            "unit": "received",
+            "amount": "600",
+            "consumed_requested": "200",
+            "received": "600",
+            "rounding_direction": "down",
+            "received_if_rounded_other_way": "600",
+            "rounding_changes_result": false,
+            "settled_rate_scaled": "3000000000000000000",
+            "opening_rate_scaled": "3000000000000000000",
+            "rate_scale": "1000000000000000000",
+            "rejected": false,
+            "rejection_reason": null
+          }
+        ],
+        "closing": {
+          "deposit": {
+            "pending_assets": "0",
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "claimed_assets": "0",
+            "claimed_shares": "0"
+          },
+          "redeem": {
+            "pending_shares": "100",
+            "claimable_shares": "200",
+            "claimable_assets": "600",
+            "claimed_shares": "200",
+            "claimed_assets": "600"
+          }
+        },
+        "dust": {
+          "deposit_shares_stranded": "0",
+          "deposit_assets_stranded": "0",
+          "redeem_assets_stranded": "0",
+          "redeem_shares_stranded": "0",
+          "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate."
+        },
+        "invariants": [
+          {
+            "name": "pending_and_claimable_disjoint",
+            "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount.",
+            "holds": true,
+            "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket."
+          },
+          {
+            "name": "claim_never_skips_claimable_state",
+            "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\"",
+            "holds": true,
+            "detail": "Every claim drew only from an amount already in the Claimable state."
+          },
+          {
+            "name": "claim_within_claimable_bounds",
+            "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest).",
+            "holds": true,
+            "detail": "No claim exceeded its leg's remaining claimable amount."
+          },
+          {
+            "name": "single_prorata_rate_for_nonzero_request_id",
+            "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\"",
+            "holds": true,
+            "applicable": true,
+            "detail": "Every claim settled at its bucket's opening pro-rata rate, within one unit of the requested side."
+          },
+          {
+            "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+            "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims.",
+            "holds": true,
+            "detail": "Direction \"down\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced."
+          }
+        ],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": []
+      },
+      "golden_hash": "2901defb7fbbf3215ff31cedaaed7f388eb27e93d9f330176ebb2fd18e66157d"
+    },
+    {
+      "name": "negative-claim-with-nothing-claimable-skips-claim-state",
+      "policy_parameters": {
+        "redeem": {
+          "pending_shares": "900"
+        },
+        "claims": [
+          {
+            "leg": "redeem",
+            "unit": "requested",
+            "amount": "1"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "request_id": "0",
+        "aggregate_by_controller": true,
+        "claim_rounding_used": "down",
+        "opening": {
+          "deposit": {
+            "pending_assets": "0",
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "max_deposit_implied": "0",
+            "max_mint_implied": "0"
+          },
+          "redeem": {
+            "pending_shares": "900",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "max_redeem_implied": "0",
+            "max_withdraw_implied": "0"
+          }
+        },
+        "claims": [
+          {
+            "index": 0,
+            "leg": "redeem",
+            "unit": "requested",
+            "amount": "1",
+            "consumed_requested": null,
+            "received": null,
+            "rounding_direction": "down",
+            "received_if_rounded_other_way": null,
+            "rejected": true,
+            "rejection_reason": "Nothing is in the Claimable state for this leg. ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state\" -- a pending amount cannot be claimed until the vault has made it claimable."
+          }
+        ],
+        "closing": {
+          "deposit": {
+            "pending_assets": "0",
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "claimed_assets": "0",
+            "claimed_shares": "0"
+          },
+          "redeem": {
+            "pending_shares": "900",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "claimed_shares": "0",
+            "claimed_assets": "0"
+          }
+        },
+        "dust": {
+          "deposit_shares_stranded": "0",
+          "deposit_assets_stranded": "0",
+          "redeem_assets_stranded": "0",
+          "redeem_shares_stranded": "0",
+          "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate."
+        },
+        "invariants": [
+          {
+            "name": "pending_and_claimable_disjoint",
+            "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount.",
+            "holds": true,
+            "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket."
+          },
+          {
+            "name": "claim_never_skips_claimable_state",
+            "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\"",
+            "holds": false,
+            "detail": "At least one claim was attempted against a leg with nothing in the Claimable state; it was rejected rather than drawn from pending."
+          },
+          {
+            "name": "claim_within_claimable_bounds",
+            "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest).",
+            "holds": true,
+            "detail": "No claim exceeded its leg's remaining claimable amount."
+          },
+          {
+            "name": "single_prorata_rate_for_nonzero_request_id",
+            "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\"",
+            "holds": true,
+            "applicable": false,
+            "detail": "Not applicable: request_id is 0, the aggregate-by-controller convention, where amounts from separate requests are fungible and no single per-request rate is asserted."
+          },
+          {
+            "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+            "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims.",
+            "holds": true,
+            "detail": "Direction \"down\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced."
+          }
+        ],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": []
+      },
+      "golden_hash": "50baca2fd0b9ebab316c0ec4e85482c8eb37319a8f2e25768c0478d5e5c8409e"
+    },
+    {
+      "name": "negative-overclaim-beyond-claimable-rejected",
+      "policy_parameters": {
+        "deposit": {
+          "claimable_assets": "1000",
+          "claimable_shares": "333"
+        },
+        "claims": [
+          {
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "2000"
+          }
+        ]
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "request_id": "0",
+        "aggregate_by_controller": true,
+        "claim_rounding_used": "down",
+        "opening": {
+          "deposit": {
+            "pending_assets": "0",
+            "claimable_assets": "1000",
+            "claimable_shares": "333",
+            "max_deposit_implied": "1000",
+            "max_mint_implied": "333"
+          },
+          "redeem": {
+            "pending_shares": "0",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "max_redeem_implied": "0",
+            "max_withdraw_implied": "0"
+          }
+        },
+        "claims": [
+          {
+            "index": 0,
+            "leg": "deposit",
+            "unit": "requested",
+            "amount": "2000",
+            "consumed_requested": "2000",
+            "received": "666",
+            "rounding_direction": "down",
+            "received_if_rounded_other_way": "666",
+            "rejected": true,
+            "rejection_reason": "Claim exceeds what remains claimable on the deposit leg (would consume 2000 of 1000 and pay out 666 of 333)."
+          }
+        ],
+        "closing": {
+          "deposit": {
+            "pending_assets": "0",
+            "claimable_assets": "1000",
+            "claimable_shares": "333",
+            "claimed_assets": "0",
+            "claimed_shares": "0"
+          },
+          "redeem": {
+            "pending_shares": "0",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "claimed_shares": "0",
+            "claimed_assets": "0"
+          }
+        },
+        "dust": {
+          "deposit_shares_stranded": "0",
+          "deposit_assets_stranded": "0",
+          "redeem_assets_stranded": "0",
+          "redeem_shares_stranded": "0",
+          "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate."
+        },
+        "invariants": [
+          {
+            "name": "pending_and_claimable_disjoint",
+            "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount.",
+            "holds": true,
+            "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket."
+          },
+          {
+            "name": "claim_never_skips_claimable_state",
+            "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\"",
+            "holds": true,
+            "detail": "Every claim drew only from an amount already in the Claimable state."
+          },
+          {
+            "name": "claim_within_claimable_bounds",
+            "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest).",
+            "holds": false,
+            "detail": "At least one claim exceeded the remaining claimable amount on its leg and was rejected."
+          },
+          {
+            "name": "single_prorata_rate_for_nonzero_request_id",
+            "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\"",
+            "holds": true,
+            "applicable": false,
+            "detail": "Not applicable: request_id is 0, the aggregate-by-controller convention, where amounts from separate requests are fungible and no single per-request rate is asserted."
+          },
+          {
+            "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+            "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims.",
+            "holds": true,
+            "detail": "Direction \"down\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced."
+          }
+        ],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": []
+      },
+      "golden_hash": "0ca095d431cd6ef77198cdbe4c696616e59d1347f10f4363874922ae35f0ecb5"
+    },
+    {
+      "name": "negative-half-declared-claimable-bucket-has-no-rate",
+      "policy_parameters": {
+        "deposit": {
+          "claimable_assets": "1000",
+          "claimable_shares": "0"
+        }
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "request_id": null,
+        "aggregate_by_controller": null,
+        "claim_rounding_used": null,
+        "opening": null,
+        "claims": [],
+        "closing": null,
+        "invariants": [],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": [
+          "deposit: claimable_assets and claimable_shares must be both zero or both non-zero -- a claimable bucket with only one side declared has no pro-rata rate"
+        ]
+      },
+      "golden_hash": "e7246007a15b85ad5126072cdcd7144eb601f3652ff16a55451fd712c25010b3"
+    },
+    {
+      "name": "negative-bad-claim-rounding-value",
+      "policy_parameters": {
+        "deposit": {
+          "claimable_assets": "10",
+          "claimable_shares": "10"
+        },
+        "claim_rounding": "nearest"
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "request_id": null,
+        "aggregate_by_controller": null,
+        "claim_rounding_used": null,
+        "opening": null,
+        "claims": [],
+        "closing": null,
+        "invariants": [],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": [
+          "claim_rounding, if supplied, must be \"down\" or \"up\" -- ERC-7540 mandates no direction for a partial claim, so one must be declared"
+        ]
+      },
+      "golden_hash": "5f90c711c04049311deeb627aa38691adf07410a2c168a33f7358e3c4ae7d7a4"
+    },
+    {
+      "name": "both-legs-pending-only-no-claims",
+      "policy_parameters": {
+        "request_id": "3",
+        "deposit": {
+          "pending_assets": "1000"
+        },
+        "redeem": {
+          "pending_shares": "250"
+        }
+      },
+      "output_payload": {
+        "declared_context": {
+          "chain_id": null,
+          "network_label": null
+        },
+        "request_id": "3",
+        "aggregate_by_controller": false,
+        "claim_rounding_used": "down",
+        "opening": {
+          "deposit": {
+            "pending_assets": "1000",
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "max_deposit_implied": "0",
+            "max_mint_implied": "0"
+          },
+          "redeem": {
+            "pending_shares": "250",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "max_redeem_implied": "0",
+            "max_withdraw_implied": "0"
+          }
+        },
+        "claims": [],
+        "closing": {
+          "deposit": {
+            "pending_assets": "1000",
+            "claimable_assets": "0",
+            "claimable_shares": "0",
+            "claimed_assets": "0",
+            "claimed_shares": "0"
+          },
+          "redeem": {
+            "pending_shares": "250",
+            "claimable_shares": "0",
+            "claimable_assets": "0",
+            "claimed_shares": "0",
+            "claimed_assets": "0"
+          }
+        },
+        "dust": {
+          "deposit_shares_stranded": "0",
+          "deposit_assets_stranded": "0",
+          "redeem_assets_stranded": "0",
+          "redeem_shares_stranded": "0",
+          "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate."
+        },
+        "invariants": [
+          {
+            "name": "pending_and_claimable_disjoint",
+            "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount.",
+            "holds": true,
+            "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket."
+          },
+          {
+            "name": "claim_never_skips_claimable_state",
+            "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\"",
+            "holds": true,
+            "detail": "Every claim drew only from an amount already in the Claimable state."
+          },
+          {
+            "name": "claim_within_claimable_bounds",
+            "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest).",
+            "holds": true,
+            "detail": "No claim exceeded its leg's remaining claimable amount."
+          },
+          {
+            "name": "single_prorata_rate_for_nonzero_request_id",
+            "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\"",
+            "holds": true,
+            "applicable": true,
+            "detail": "Every claim settled at its bucket's opening pro-rata rate, within one unit of the requested side."
+          },
+          {
+            "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+            "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims.",
+            "holds": true,
+            "detail": "Direction \"down\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced."
+          }
+        ],
+        "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+        "reasons": []
+      },
+      "golden_hash": "538c3879d15df6879bfc12c82768c22669d084dc16969eb9781a14858a87e711"
+    }
+  ]
+}
