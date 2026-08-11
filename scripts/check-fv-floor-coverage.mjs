@@ -26,7 +26,16 @@
 //                 exactly like absence, per the "gate on the artifact AND its digest, never on presence
 //                 alone" instruction).
 //     - stale   : floor file present with a header digest, but it does not match the kernel as it stands
-//                 now (the kernel moved after the floor was authored, and nobody re-verified it).
+//                 now. TWO DISTINCT ROOT CAUSES produce this state and a mismatch alone cannot tell them
+//                 apart (FV-FLOOR-DIGEST-STALE-1, 2026-08-11 — found by diffing 16 specimens' recorded
+//                 digests against every git blob their kernel file has ever held, across 5 shards on 2
+//                 days): (a) the kernel genuinely changed after the floor was authored, and nobody
+//                 re-verified it — the only cause this reason string used to name; (b) the recorded
+//                 digest was never correct in the first place — for all 16 measured specimens it matched
+//                 neither the kernel's current source, any prior git revision of that file, any other
+//                 live kernel's source, nor any CRLF/BOM/trailing-newline variant of the correct bytes.
+//                 Do not infer (a) from this state alone — treat "stale" as "does not match", and verify
+//                 which cause applies before assuming the kernel moved.
 //     - floored : header digest matches the current kernel source.
 //   unfloored = missing ∪ stale.
 //
@@ -89,7 +98,7 @@ export async function classifyFloor(kernelSource, floorSource, sourceDigestFn) {
   const recorded = m[1];
   const current = await sourceDigestFn(kernelSource);
   if (recorded !== current) {
-    return { state: 'stale', reason: `floor file's recorded digest (${recorded}) does not match the kernel as it stands now (${current}) — the kernel moved since the floor was authored`, recorded, current };
+    return { state: 'stale', reason: `floor file's recorded digest (${recorded}) does not match the kernel as it stands now (${current}) — either the kernel moved since the floor was authored, or the recorded digest was never correct (FV-FLOOR-DIGEST-STALE-1, 2026-08-11); this gate cannot distinguish the two from a mismatch alone`, recorded, current };
   }
   return { state: 'floored', reason: 'floor file digest matches current kernel source', recorded, current };
 }
