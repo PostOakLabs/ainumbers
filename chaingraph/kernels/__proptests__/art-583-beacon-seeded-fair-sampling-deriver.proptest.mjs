@@ -81,7 +81,10 @@ function randomPP(rng) {
 // check (P4). Same construction the kernel documents: seed = HMAC(key=item_manifest_hash,
 // msg=randomness:round:alg); each draw = HMAC(key=seed, msg="draw:<i>"), first 8 hex chars mod
 // item_count, rejection sampling with no replacement.
-function hmacHex(keyStr, msgStr) { return createHmac('sha256', Buffer.from(keyStr, 'utf8')).update(Buffer.from(msgStr, 'utf8')).digest('hex'); }
+// Pass strings directly with an explicit 'utf8' encoding -- node:crypto accepts this without
+// constructing a Buffer, which keeps this file inside the "no @types/node" allowlist (the Buffer
+// global itself is not allowlisted the way node:* module specifiers and process are).
+function hmacHex(keyStr, msgStr) { return createHmac('sha256', keyStr).update(msgStr, 'utf8').digest('hex'); }
 function reimplement(pp) {
   const seed_hex = hmacHex(pp.item_manifest_hash, `${pp.beacon_randomness}:${pp.beacon_round}:${pp.algorithm_id}`);
   const selected = [];
