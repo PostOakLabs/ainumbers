@@ -346,9 +346,18 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // move by exactly 2; the stale count does not move.
   // Measured both sides, not assumed: 429/562 fresh + 133 stale before this row's merge base,
   // 431/564 fresh + 133 stale after.
-  assert(total === 564, `expected 564 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 431, `expected 431 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by VERT-ASSEMBLE-LAND-2), got ${stale.length}`);
+  // 564 -> 567 post-S18-CLEAR-DEFERRALS-1 (2026-08-11): proved three of the nine deferred gpu:false
+  // nodes -- art-524 (source-arrival-freshness-register), art-525 (nway-balance-closure-check) and
+  // art-526 (report-gl-reconciliation) -- in one supervised GPU session, each attaching a groth16
+  // compute_proof, every run VERIFY_PASS with journal.kernel_digest matching the pre-prove pin. All
+  // three enter the FRESH set by construction -- compute_proof_ready flips deferred->ready with no
+  // prior receipt on main -- so denominator and fresh each move by exactly 3; the stale count does
+  // not move.
+  // Measured both sides, not assumed: 431/564 fresh + 133 stale before this row's commit,
+  // 434/567 fresh + 133 stale after.
+  assert(total === 567, `expected 567 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 434, `expected 434 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 133, `expected 133 stale (unchanged by S18-CLEAR-DEFERRALS-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
