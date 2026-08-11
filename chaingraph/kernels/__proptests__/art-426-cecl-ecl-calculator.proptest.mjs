@@ -1,5 +1,5 @@
 // art-426-cecl-ecl-calculator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:9a98c77973cb3285c9bdfc463a55813e7c81982d27ba8f46b0ade1ff92962b75
+// kernel_digest_at_authoring: sha256:3a945610238be19cfb66bb261bdb544507d2eb0d978c45a98d4f4570da40e6f8
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

@@ -1,5 +1,5 @@
 // art-444-collateral-haircut-engine.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:df45ee6bf180aaff93ab11fb4ecc6a162319842bc3a73ca432dc90d14c931a67
+// kernel_digest_at_authoring: sha256:1d708d8172b54b003ff2da60df4711a8999f6e0d8f327a28ef3538e1eae84cb7
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

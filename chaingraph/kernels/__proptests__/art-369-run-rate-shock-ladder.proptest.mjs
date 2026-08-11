@@ -1,5 +1,5 @@
 // art-369-run-rate-shock-ladder.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:de868c58a20dd6f595ff271e2b5eb0aef3b83b50ba4c011b4cb0cbd7adf2e5a8
+// kernel_digest_at_authoring: sha256:225cfd55e3d840c397a4282c89669257f774926ce11c8062c5dbe6d249cc730e
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

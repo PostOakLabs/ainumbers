@@ -1,5 +1,5 @@
 // art-427-discount-window-capacity.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:b7fb2d160f36179a5229300a2a696fd22589ca237f2ab5083b3c816b61e48e16
+// kernel_digest_at_authoring: sha256:9229d3650b52b9385576c8f0c878c174906804fb4ccca5ae197016f655fa4aea
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

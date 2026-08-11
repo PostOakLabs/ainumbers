@@ -1,5 +1,5 @@
 // art-429-var-backtest-traffic-light.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:765f96e73a152b3b54b409f6389b9a7d6e0ec513b97865360a1c824db24a8fd3
+// kernel_digest_at_authoring: sha256:25b20c0e87bf44b54d5c7f92e3ac4994db2af88a5fcb98ee3755972234fafe6b
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

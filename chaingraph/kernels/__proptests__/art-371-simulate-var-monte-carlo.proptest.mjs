@@ -1,5 +1,5 @@
 // art-371-simulate-var-monte-carlo.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:a17b594a1ac141b237872b6bfe650a14016c9345d353a15e811ee5fd929c7d40
+// kernel_digest_at_authoring: sha256:e43e90202b192f7f8a4b0d8f5da090c81db5ea4e4d492e6c8a398ce189ac8736
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

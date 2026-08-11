@@ -1,5 +1,5 @@
 // art-443-irrbb-basis-risk-nii-shock-calculator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:701a0152c59e366809bea8593b240c652e7c3c3986993f5d2c0c185ed03e621e
+// kernel_digest_at_authoring: sha256:6a53b2b9e42a854d9801a6759fcc8e62fbd7ee5f0585ea83b9c43165bf2d9bcc
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

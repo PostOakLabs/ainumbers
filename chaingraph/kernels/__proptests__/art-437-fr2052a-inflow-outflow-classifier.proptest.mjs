@@ -1,5 +1,5 @@
 // art-437-fr2052a-inflow-outflow-classifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:1b70870b6e84023dbc3139967374e5aeede9b27bf5de515017554704d04a17e5
+// kernel_digest_at_authoring: sha256:e6b15395a2f44a43b2968b7f10f6d7ef12137cd68b1a0ff292e5031b775f4f97
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

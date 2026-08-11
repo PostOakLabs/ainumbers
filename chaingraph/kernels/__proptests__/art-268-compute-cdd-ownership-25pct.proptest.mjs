@@ -1,5 +1,5 @@
 // art-268-compute-cdd-ownership-25pct.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C9-1).
-// kernel_digest_at_authoring: sha256:72d31eade30d2b17b71e7c4f70b150a51b2415b2950b8b4a5240eb92f8bec23a
+// kernel_digest_at_authoring: sha256:642fc536fb114413087309fee7485f146927deeabb3ad8e9eac8e3bf98f5d36a
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

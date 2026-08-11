@@ -1,5 +1,5 @@
 // art-431-fdic-assessment-rate-calculator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:89a1737e3b746125d8176caaca4b49f654b15ce9bb4aa31d36623864a5faf5b7
+// kernel_digest_at_authoring: sha256:b1df1b03484fa6c52ac635f0e59f3d0c3f8d2fade923f4ad223a7d39202d1e26
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

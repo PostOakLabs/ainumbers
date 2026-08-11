@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:86493cfc7915be8a6df372c7edb3a176d651228f7cbebc3b983bec803ed8efa7
+// kernel_digest_at_authoring: sha256:88e54dc6a5136721213a32c5acbcb0563bf120ad2af4e3f8e9f58caadc9665da
 //
 // FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-301-section125-ndt.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (eligibility/benefits/concentration ratios are all

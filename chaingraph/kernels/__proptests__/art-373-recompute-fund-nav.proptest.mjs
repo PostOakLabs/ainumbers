@@ -1,5 +1,5 @@
 // art-373-recompute-fund-nav.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:dd168befbc8f209ebaaead9384463b9db7403081df5a4d6573fa140e27518edf
+// kernel_digest_at_authoring: sha256:3814c169b6e2757ca9d93f31022a7c6234d75676d9a66c7d253f672a4a4ae8ac
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

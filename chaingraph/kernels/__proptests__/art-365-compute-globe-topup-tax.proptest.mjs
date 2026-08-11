@@ -1,5 +1,5 @@
 // art-365-compute-globe-topup-tax.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:61005e8a2c5064428596c27408e9e130d086857f783b8cee8cead6c131883589
+// kernel_digest_at_authoring: sha256:3a481b0f96d38911bf043f4c07e950e134cffdf35d28f76599693f41d753e22f
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

@@ -1,5 +1,5 @@
 // art-376-score-payee-name-match.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:716f7830e5536a578ce53985898933e973e43e8cd13d2250c51fbf1b47a9ef7d
+// kernel_digest_at_authoring: sha256:de422d2d169f590fa61cfe8f37060bd7af2944def5730c83f77b88c6ed538871
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

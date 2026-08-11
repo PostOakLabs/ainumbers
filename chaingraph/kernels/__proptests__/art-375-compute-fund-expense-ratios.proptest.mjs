@@ -1,5 +1,5 @@
 // art-375-compute-fund-expense-ratios.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:d484127d5ba4c00d555525dc57dce0c6ca46b9b3858cac4067d8f34f6a408353
+// kernel_digest_at_authoring: sha256:21e7330a4b9eb3f27ddcd9bbe5fb4dcf6e3143f9aa9c05faea150bb6c5a2c1c1
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
