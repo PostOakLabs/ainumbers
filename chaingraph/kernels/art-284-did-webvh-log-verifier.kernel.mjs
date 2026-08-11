@@ -19,6 +19,13 @@
 // conformance. JSON-serialized log entries only.
 
 import { executionHash } from './_hash.mjs';
+// Entry hashing and Ed25519 proof verification both run through the vendored noble bundle, NOT
+// crypto.subtle. The QuickJS guest inside the zkVM has no WebCrypto at all, so the old
+// `await crypto.subtle.{digest,importKey,verify}` path could never execute in-guest and the
+// receipt sealed an empty journal. noble's sha256 and ed25519.verify are synchronous pure JS,
+// so compute() is synchronous and the proof attests the real verification. Ed25519 mode is
+// strict RFC 8032 (`zip215: false`) — see the equivalence test for why.
+import { ed25519, sha256 } from './_noble-ed25519.bundle.mjs';
 // RISC0 guest loader stub for _hash.mjs exports only executionHash, not cgCanon.
 // Byte-identical to _hash.mjs cgCanon — inlined so this kernel runs unmodified in-guest.
 const cgCanon = (v) => Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {}) : v;
@@ -38,10 +45,8 @@ function bytesToHex(bytes) {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function sha256Hex(text) {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
-  return bytesToHex(new Uint8Array(digest));
+function sha256Hex(text) {
+  return bytesToHex(sha256(new TextEncoder().encode(text)));
 }
 
 function canonJson(v) {
@@ -64,23 +69,17 @@ function b58decodeCorrect(str) {
   return new Uint8Array([...Array(z).fill(0), ...bytes]);
 }
 
-// base64url, no padding (RFC 7515 §2) — for the Ed25519 JWK 'x' coordinate.
-function bytesToBase64Url(bytes) {
-  const bin = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
-  const b64 = globalThis.btoa ? globalThis.btoa(bin) : Buffer.from(bytes).toString('base64');
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-// JWK import, not 'raw': the §24.5 VM WebCrypto bridge's importKey stub is JWK-shaped
-// (host callback carries the JWK across the guest boundary, matching art-129's pattern);
-// 'raw' format is a browser/worker-only path and silently diverges inside the zkVM guest.
-async function didKeyToPublicKey(did) {
+// did:key (z-form, multicodec 0xed01) -> raw 32-byte Ed25519 public key. The old version
+// re-encoded these bytes as a JWK only because crypto.subtle.importKey needed one; noble takes
+// the raw key directly, so the base64url round-trip is gone. Length is enforced here because
+// importKey used to reject a wrong-length key for us.
+function didKeyToPublicKey(did) {
   if (!did || did.indexOf('did:key:z') !== 0) throw new Error('not a did:key (z-form)');
   const prefixed = b58decodeCorrect(did.slice('did:key:z'.length));
   if (prefixed[0] !== 0xed || prefixed[1] !== 0x01) throw new Error('did:key is not Ed25519');
   const raw = prefixed.slice(2);
-  const jwk = { kty: 'OKP', crv: 'Ed25519', x: bytesToBase64Url(raw) };
-  return globalThis.crypto.subtle.importKey('jwk', jwk, { name: 'Ed25519' }, true, ['verify']);
+  if (raw.length !== 32) throw new Error('Ed25519 public key must be 32 bytes');
+  return raw;
 }
 
 function b64ToBytes(b64) {
@@ -90,16 +89,16 @@ function b64ToBytes(b64) {
   return out;
 }
 
-async function verifyEntrySignature(entryInput, proof, did) {
+function verifyEntrySignature(entryInput, proof, did) {
   try {
-    const key = await didKeyToPublicKey(did);
+    const pub = didKeyToPublicKey(did);
     const sigBytes = b64ToBytes(proof.proofValue);
     const msgBytes = new TextEncoder().encode(canonJson(entryInput));
-    return await globalThis.crypto.subtle.verify({ name: 'Ed25519' }, key, sigBytes, msgBytes);
+    return ed25519.verify(sigBytes, msgBytes, pub, { zip215: false }) === true;
   } catch { return false; }
 }
 
-export async function compute(pp) {
+export function compute(pp) {
   const did = pp.did ?? '';
   const rawLog = Array.isArray(pp.did_log) ? pp.did_log : null;
   const maxEntries = Math.min(Number(pp.max_entries ?? DEFAULT_MAX_ENTRIES) || DEFAULT_MAX_ENTRIES, HARD_MAX_ENTRIES);
@@ -157,7 +156,7 @@ export async function compute(pp) {
       failures.push({ entry_index: idx, code: 'SCID_MISSING', detail: 'first entry must declare parameters.scid' });
     }
     const entryInput = { versionId: priorRef, versionTime: entry.versionTime ?? null, parameters, state };
-    const computedHash = await sha256Hex(canonJson(entryInput));
+    const computedHash = sha256Hex(canonJson(entryInput));
     if (computedHash !== hashPart) {
       failures.push({ entry_index: idx, code: 'ENTRY_HASH_MISMATCH', detail: `expected ${hashPart}, computed ${computedHash}` });
     }
@@ -177,7 +176,7 @@ export async function compute(pp) {
       for (const proof of proofs) {
         const vm = typeof proof.verificationMethod === 'string' ? proof.verificationMethod.split('#')[0] : proof.verificationMethod;
         if (!activeUpdateKeys.includes(vm)) continue;
-        const ok = await verifyEntrySignature(entryInput, proof, vm);
+        const ok = verifyEntrySignature(entryInput, proof, vm);
         if (ok) { anyAuthorized = true; break; }
       }
       if (!anyAuthorized) {
@@ -210,7 +209,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

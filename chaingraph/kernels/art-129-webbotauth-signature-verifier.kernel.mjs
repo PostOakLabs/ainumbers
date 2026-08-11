@@ -1,4 +1,10 @@
 import { executionHash } from './_hash.mjs';
+// Ed25519 verification runs through the vendored noble bundle, NOT crypto.subtle. The QuickJS
+// guest inside the zkVM has no WebCrypto at all, so the old `await crypto.subtle.verify(...)`
+// path could never execute in-guest and the receipt sealed an empty journal. noble's verify is
+// synchronous pure JS, so compute() is synchronous and the proof attests the real verification.
+// Mode is strict RFC 8032 (`zip215: false`) — see the equivalence test for why.
+import { ed25519 } from './_noble-ed25519.bundle.mjs';
 
 const TOOL_ID = 'art-129-webbotauth-signature-verifier';
 const TOOL_VERSION = '1.0.0';
@@ -16,6 +22,27 @@ function b64ToBytes(b64) {
   return out;
 }
 
+// base64url -> bytes, no atob dependency on padding (RFC 7515 §2).
+function b64uToBytes(s) {
+  let t = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  while (t.length % 4) t += '=';
+  return b64ToBytes(t);
+}
+
+// JWK -> raw 32-byte Ed25519 public key. Mirrors what crypto.subtle.importKey enforced:
+// a non-OKP / non-Ed25519 / wrong-length key is a THROW, which the caller turns into
+// signature_cryptographically_valid = false. Callers may or may not carry the non-standard
+// 'alg' member (RFC 8037 wants 'EdDSA', C2PA tooling often writes 'Ed25519'); it is ignored
+// either way, which is what the old `delete jwk.alg` workaround achieved.
+function ed25519PublicKeyFromJwk(jwk) {
+  if (!jwk || typeof jwk !== 'object') throw new Error('jwk missing');
+  if (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519') throw new Error('jwk is not an Ed25519 OKP key');
+  if (typeof jwk.x !== 'string') throw new Error('jwk.x missing');
+  const raw = b64uToBytes(jwk.x);
+  if (raw.length !== 32) throw new Error('Ed25519 public key must be 32 bytes');
+  return raw;
+}
+
 // RFC 9421 §2.5 signature base: one line per covered component
 //   "<lowercased-name>": <value>
 // then the final line  "@signature-params": <signature-params-inner-list>
@@ -26,7 +53,7 @@ function buildSignatureBase(covered_components, signature_params) {
   return lines.join('\n');
 }
 
-export async function compute(pp) {
+export function compute(pp) {
   const {
     covered_components = [], signature_params, signature_b64, public_key_jwk,
     expected_tag = 'web-bot-auth', alg, created, now_unix, max_age_s = 3600,
@@ -42,12 +69,9 @@ export async function compute(pp) {
   if (alg_ok && public_key_jwk && signature_b64 && Array.isArray(covered_components) && signature_params) {
     try {
       const base = buildSignatureBase(covered_components, signature_params);
-      // Strip 'alg' from JWK — CF Workers requires OKP alg='EdDSA', callers may supply 'Ed25519'
-      const jwk = Object.assign({}, public_key_jwk);
-      delete jwk.alg;
-      const key = await globalThis.crypto.subtle.importKey('jwk', jwk, { name: 'Ed25519' }, false, ['verify']);
-      signature_cryptographically_valid = await globalThis.crypto.subtle.verify(
-        { name: 'Ed25519' }, key, b64ToBytes(signature_b64), new TextEncoder().encode(base));
+      const pub = ed25519PublicKeyFromJwk(public_key_jwk);
+      signature_cryptographically_valid = ed25519.verify(
+        b64ToBytes(signature_b64), new TextEncoder().encode(base), pub, { zip215: false }) === true;
     } catch { signature_cryptographically_valid = false; }
   }
 
@@ -63,7 +87,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
