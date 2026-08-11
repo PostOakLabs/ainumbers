@@ -320,6 +320,62 @@
         }
       }
     },
+    "haReceiptTransitionType": {
+      "description": "OCG Standard §27.15 (v0.8.24) — the closed vocabulary carried by the OPTIONAL humanAccountabilityRecord.receipt_transition.type field. Describes this record's relationship to a PRIOR counter_signed_receipt (§27.12), named via the record's own subject_hash. countersign = the acting identity independently reproduced the prior receipt's own recomputation and reached the same result; challenge = the acting identity disputes the prior receipt (descriptive only, never opens or decides any dispute-resolution process); supersede = the acting identity treats this record as the operative one for the subject going forward, from its own point of view (the prior receipt is never deleted or invalidated); attest = the acting identity attests the prior receipt still holds as of a given instant, without re-performing the recomputation; extend = the acting identity extends how long IT will treat the prior receipt as current. Closed: adding, renaming, or letting a caller define a transition type IS a spec change, the same discipline record_type / haRole / haGatePolicy already carry. A verifier MUST reject an unrecognized value rather than silently accept it.",
+      "enum": ["countersign", "challenge", "supersede", "attest", "extend"]
+    },
+    "haReceiptTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OCG Standard §27.15 (v0.8.24) — the OPTIONAL humanAccountabilityRecord.receipt_transition sibling. MAY be present only when record_type is counter_signed_receipt, with subject_hash naming the PRIOR receipt's own execution_hash (§27.12's own reference mechanism, reused unchanged — no second extension path). Exactly the typed payload sub-object matching `type` MAY be populated; the other four MUST be absent. `consuming` is a property of the RECORD, never a lock: the acting identity's own claim about whether it now treats the prior receipt as no longer operative, governed by the same omit-not-false discipline as replay_verified (§27.12) — MUST be omitted where no claim is made, never set false. Inert by construction: no gate reads consuming or type, nothing executes a transition, no ordering is enforced between transitions on a receipt chain, and no valid-next-transition machinery exists. Vocabulary ban (binding, NORMATIVE): no field, description, or product copy describing a receipt_transition may use \"accept\", \"acceptance\", \"settled\", \"final\", or \"finality\" (or a settlement-implying synonym) — the same ban §27.12 and §27.13 already state.",
+      "required": ["type"],
+      "properties": {
+        "type": { "$ref": "#/$defs/haReceiptTransitionType" },
+        "consuming": { "type": "boolean", "description": "OMIT-NOT-FALSE: absence means NO CLAIM, never set false to mean 'not consuming'." },
+        "countersign": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Payload for type=countersign. Empty by design — the fact of independent reproduction is the whole payload, no field to add.",
+          "properties": {}
+        },
+        "challenge": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Payload for type=challenge.",
+          "required": ["reason_code"],
+          "properties": {
+            "reason_code": { "type": "string", "minLength": 1, "description": "Machine-stable token naming why the prior receipt is disputed. Never opens or routes any resolution process." }
+          }
+        },
+        "supersede": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Payload for type=supersede.",
+          "required": ["replacement_subject_hash"],
+          "properties": {
+            "replacement_subject_hash": { "$ref": "#/$defs/sha256ref", "description": "execution_hash of the artifact this record newly recomputed, which the acting identity treats as operative going forward. Recording this never deletes or invalidates the prior receipt." }
+          }
+        },
+        "attest": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Payload for type=attest.",
+          "required": ["as_of"],
+          "properties": {
+            "as_of": { "type": "string", "format": "date-time", "description": "ISO 8601 instant as of which the acting identity attests the prior receipt still holds, without independently recomputing it." }
+          }
+        },
+        "extend": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Payload for type=extend.",
+          "required": ["new_valid_until"],
+          "properties": {
+            "new_valid_until": { "type": "string", "format": "date-time", "description": "ISO 8601 instant to which the acting identity extends its own treatment of the prior receipt as current. States the acting party's own future conduct, not a claim binding any other party." }
+          }
+        }
+      }
+    },
     "humanAccountabilityRecord": {
       "type": "object",
       "description": "OCG Standard §27.2 (v0.8.12) — the output_payload of a Human Accountability record artifact (mandate_type:\"human_accountability_record\"). SEPARATE from the frozen v0.4 artifact envelope ($defs/artifact) and NOT referenced by the top-level oneOf — additive, so it never alters existing artifact/catalog validation. A conformant approval record is an $defs/artifact whose mandate_type is \"human_accountability_record\", whose output_payload matches this shape, and which carries a §16 eddsa-jcs-2022 whole-artifact proof bound to the named human (§27.2 — an unsigned approval record is NOT conformant §27 evidence). It is a SCITT-style STATEMENT ABOUT A STATEMENT: it only REFERENCES the subject via subject_hash and never contains the subject's preimage, so it has ZERO impact on the subject artifact's execution_hash or canonicalization (§27.0 additivity). Shape only is validated here; additivity, threshold distinctness (§27.3), override expiry (§27.5), and the signed-named-human requirement are enforced by validate-ha-records.test.mjs (with the §16 pairing check in proof-binding.test.mjs).",
@@ -341,6 +397,7 @@
         "replay_verified": { "type": "boolean", "description": "OPTIONAL §27.12 (v0.8.21) — true iff the checker independently re-ran the subject's computation deterministically and got a matching subject_hash before signing this record, never a rubber-stamp approval. A SIBLING of record_type, mirroring kernel_pin and subject_run_state: not required[], enters no execution_hash preimage. Governed by §27.4's existing omit-not-false discipline: where no replay was attempted, the field MUST be omitted, never set false — false would read as an attempted replay that disagreed. Absence is fully conformant and means NO CLAIM." },
         "party_role": { "$ref": "#/$defs/haPartyRole", "description": "OPTIONAL §27.13 (v0.8.22) — the acting identity's standing under the agreement the subject artifact reports on (signatory/observer/controlling_party), a FACT about the parties' own prior agreement, never an authorization this record grants. A THIRD sibling of record_type, mirroring kernel_pin and replay_verified: not required[], inert by construction — no gate reads it. Independent of role (§27.1): a checker MAY hold any party_role or none. Absence means NO CLAIM about standing." },
         "delta": { "$ref": "#/$defs/haDelta", "description": "OPTIONAL §27.14 (v0.8.23) — an itemized array of field-level changes, digests only, that a cure or override record claims. A FOURTH sibling of record_type, mirroring kernel_pin, replay_verified, and party_role: not required[], enters no execution_hash preimage of the subject artifact. Available to both cure and override records. A delta claiming a new value is a bare assertion unless a new sealed artifact carrying it exists and is cited via subject_hash / chain.parent_hashes (§21.6 ancestry pattern). Absence means NO CLAIM about what changed." },
+        "receipt_transition": { "$ref": "#/$defs/haReceiptTransition", "description": "OPTIONAL §27.15 (v0.8.24) — a FIFTH sibling of record_type, mirroring kernel_pin/replay_verified/party_role/delta: not required[], enters no execution_hash preimage beyond the record's own. MAY be present only when record_type is counter_signed_receipt, with subject_hash naming the PRIOR receipt (§27.12's reference mechanism reused, no second extension path). Closed 5-value type vocabulary (countersign/challenge/supersede/attest/extend) with a typed payload per type; consuming is a property of the record's own claim, never an enforced lock. Absence means NO CLAIM." },
         "gate_policy": { "$ref": "#/$defs/haGatePolicy", "description": "OPTIONAL §27.4 gate policy this record satisfies or overrides." },
         "reason_code": { "type": "string", "description": "OPTIONAL machine-stable rationale token (REQUIRED by §27.5 for an override)." },
         "override": {
