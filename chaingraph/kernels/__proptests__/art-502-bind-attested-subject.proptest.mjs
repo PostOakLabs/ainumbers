@@ -125,8 +125,8 @@ function checkP3_subject_hash_differential() {
     const pp = randomPP(rand);
     const { output_payload } = compute(pp);
     checked++;
-    const tr = pp.tool_ref || {};
-    const af = pp.artifact || {};
+    const tr = pp.tool_ref;
+    const af = pp.artifact;
     const tool_ref = { tool_id: strOrNull(tr.tool_id), tool_version: strOrNull(tr.tool_version), entry: strOrNull(tr.entry), manifest_digest: strOrNull(tr.manifest_digest) };
     const artifact = { content_type: strOrNull(af.content_type), content_digest: strOrNull(af.content_digest) };
     const hasInputs = pp.producer_inputs !== undefined && pp.producer_inputs !== null;

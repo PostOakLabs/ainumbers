@@ -109,7 +109,7 @@ function checkP2_closure_status_differential() {
     const evalMs = pp.evaluated_at ? Date.parse(pp.evaluated_at) : null;
     const pastCutoff = Number.isFinite(cutoffMs) && Number.isFinite(evalMs) && evalMs > cutoffMs;
     for (let j = 0; j < pp.notifications.length; j++) {
-      const n = pp.notifications[j] || {};
+      const n = pp.notifications[j];
       const notification_id = typeof n.notification_id === 'string' && n.notification_id.trim().length > 0 ? n.notification_id : '';
       const matches = pp.remediation_records
         .filter((r) => r && r.notification_id === notification_id && Number.isFinite(Date.parse(r.resubmitted_at)))

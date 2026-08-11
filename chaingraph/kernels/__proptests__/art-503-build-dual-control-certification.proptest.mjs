@@ -71,7 +71,7 @@ function randomRecords(rng, n) {
     const identity_id = `id-${Math.floor(rng() * 5)}`;
     const rec_type = pick(rng, ['approval', 'approval', 'approval', 'rejection', 'override']);
     if (conformant) out.push(conformantRecord(identity_id, 'approver', rec_type));
-    else out.push({ identity_id, role: 'approver', record_type: rec_type, subject_hash: SUBJ });
+    else out.push({ identity_id, role: 'approver', record_type: rec_type, subject_hash: SUBJ, audit_signature: undefined });
   }
   return out;
 }
