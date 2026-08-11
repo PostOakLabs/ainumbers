@@ -355,8 +355,14 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // not move.
   // Measured both sides, not assumed: 431/564 fresh + 133 stale before this row's commit,
   // 434/567 fresh + 133 stale after.
-  assert(total === 567, `expected 567 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 434, `expected 434 fresh (calibration set), got ${fresh.length}`);
+  // 567 -> 570 later the same session (S18-CLEAR-DEFERRALS-1, second half): art-591
+  // (x402-signer-recovery-verifier), art-592 (x402-domain-nonce-window-checker) and art-604
+  // (erc8004-registry-entry-verifier) finished proving in the same GPU session and attach their
+  // groth16 receipts, each VERIFY_PASS with journal.kernel_digest matching the pre-prove pin. Same
+  // shape as above -- denominator and fresh each move by exactly 3, stale does not move.
+  // Measured both sides, not assumed: 434/567 fresh + 133 stale before, 437/570 + 133 after.
+  assert(total === 570, `expected 570 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 437, `expected 437 fresh (calibration set), got ${fresh.length}`);
   assert(stale.length === 133, `expected 133 stale (unchanged by S18-CLEAR-DEFERRALS-1), got ${stale.length}`);
 });
 
