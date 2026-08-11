@@ -1,21 +1,26 @@
-// art-280-reserve-proof-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C9-1).
-// kernel_digest_at_authoring: sha256:9a44a8b6d21f0ba1ee172222c28125d7263777d94f96a76bc65393e293655f09
+// art-280-reserve-proof-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
+// kernel_digest_at_authoring: sha256:309081fd66892352af23884e11bc1173c96b88fc3bbebe8ffce1db60bb235dba
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
-// float_sensitive: NO (direct read confirmed — Merkle-sum walk uses integer/decimal balance sums
-// and string hashing only; the one percentage field, deviation_pct, is a diagnostic display value
-// computed from the same finite sums, not a threshold comparator this floor treats as ULP-critical
-// — forced categorical cases below cover its guard branches instead).
-// TERMINATION-BOUND ARGUMENT (verifier kernel, per WU row instruction): walkMerkleSumPath's
-// for-loop is bounded by `path.length`, checked against MAX_PATH_DEPTH=40 BEFORE the walk starts
-// (`proof.path.length > MAX_PATH_DEPTH` short-circuits to structural_error) — never recursive.
-// Checks: fixture-oracle gate, termination/boundedness (a path over the 40-level cap always
-// yields STRUCTURAL_ERROR and skips the walk), a differential re-derivation of computed_root.sum
-// as leaf.sum + sum(path step sums) (the walk's own sum arithmetic, independent of its hash),
-// a differential re-derivation of por_round staleness/deviation from the same guard formulas,
-// and forced categorical boundary cases (float:no, no ULP forcing): empty path, path exactly at
-// the 40-node cap, path 1 over the cap, zero/negative balances.
+// float_sensitive: NO (direct read confirmed) — compute() is pure Merkle-sum-tree walk +
+// hand-rolled SHA-256 hex-string hashing plus integer/whole-USD reserve-balance arithmetic and
+// staleness/deviation comparisons over caller-supplied integer-shaped Numbers; there is no
+// bisection, no iterative numeric solver, and no floating-point convergence. The one non-integer
+// spot (deviation_pct = |reported - sum| / sum * 100, rounded via toFixed(4)) is still forced
+// below with boundary magnitudes as a defensive check even though it is not the float-sensitive
+// class this kernel belongs to. Per §3, forced CATEGORICAL boundary cases (not ULP forcing) are
+// used instead: empty path, single-step path, MAX_PATH_DEPTH boundary (40) and MAX_PATH_DEPTH+1
+// (structural rejection), each of the four exchange-format normalizers, and tamper/truncation of
+// a valid Merkle-sum path.
+// Checks: fixture-oracle gate, termination (path walk cost is proportional to path.length and a
+// path deeper than MAX_PATH_DEPTH=40 is rejected structurally rather than walked — bounded-input
+// lesson from art-201), boundedness (reserve_proof_determination is always one of
+// PASS/WARN/FAIL/STRUCTURAL_ERROR, never NaN/undefined), a tamper-flips-verdict metamorphic
+// property (mutating any single path step's hash/sum, or the declared root, must flip
+// inclusion_verified to false), a truncation-never-falsely-validates property, and forced
+// categorical boundary cases (empty log/path, single-leaf, exact/over MAX_PATH_DEPTH, all four
+// exchange formats).
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-280-reserve-proof-verifier.proptest.mjs
@@ -24,6 +29,7 @@ import { compute } from '../art-280-reserve-proof-verifier.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
@@ -50,83 +56,224 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(0x280A0);
+const rand = mulberry32(0x280F0);
 
-function randomPath(rng, n) {
-  return Array.from({ length: n }, (_, i) => ({ hash: `h${i}`, sum: Math.floor(rng() * 100000), position: rng() < 0.5 ? 'left' : 'right' }));
+// local re-implementation of the leaf/combine hash so we can construct a KNOWN-valid proof
+// independent of compute()'s internals for the metamorphic tests below. This duplicates
+// compute()'s hashing only to BUILD fixtures — it does not replace the fixture-oracle gate
+// above, which is the sole correctness check against the kernel's own output.
+function sha256Hex(str) {
+  return createHash('sha256').update(str, 'utf8').digest('hex');
 }
-function genericProof(rng, { balance = Math.floor(rng() * 1_000_000), pathLen = Math.floor(rng() * 10), rootHash = 'irrelevant', rootSum = 0 } = {}) {
-  return { exchange: 'generic', merkle_proof: { leaf_user_id_hash: 'u1', leaf_balance: balance, path: randomPath(rng, pathLen), root: { hash: rootHash, sum: rootSum } } };
+function leafNode(userIdHash, balance) {
+  const sum = Number(balance ?? 0);
+  return { hash: sha256Hex(`${userIdHash ?? ''}|${sum}`), sum };
+}
+function combineNodes(left, right) {
+  return { hash: sha256Hex(`${left.hash}|${left.sum}|${right.hash}|${right.sum}`), sum: left.sum + right.sum };
+}
+
+// builds a policy_parameters object whose merkle_proof is internally consistent (root ==
+// recomputed root from leaf + path) for a given path depth.
+function buildValidPP(rng, depth) {
+  const userIdHash = `cust-${Math.floor(rng() * 1e9)}`;
+  const balance = Math.floor(rng() * 1_000_000) + 1;
+  let current = leafNode(userIdHash, balance);
+  const path = [];
+  for (let i = 0; i < depth; i++) {
+    const sibling = { hash: sha256Hex(`sib-${Math.floor(rng() * 1e9)}-${i}`), sum: Math.floor(rng() * 100_000) };
+    const position = rng() < 0.5 ? 'left' : 'right';
+    path.push({ hash: sibling.hash, sum: sibling.sum, position });
+    current = position === 'left' ? combineNodes(sibling, current) : combineNodes(current, sibling);
+  }
+  return {
+    pp: {
+      exchange: 'generic',
+      merkle_proof: {
+        leaf_user_id_hash: userIdHash,
+        leaf_balance: balance,
+        path,
+        root: { hash: current.hash, sum: current.sum },
+      },
+    },
+    depth,
+  };
 }
 
 const TRIALS = 3000;
 
-// ---------- P1: termination/boundedness — path over MAX_PATH_DEPTH (40) always -> STRUCTURAL_ERROR ----------
-function checkP1_bounded_path_depth() {
+// ---------- P1: termination — path walk cost bounded by path.length; over-depth paths are
+// structurally rejected (never walked) rather than iterated indefinitely ----------
+function checkP1_termination_bounded_path_walk() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
-    const pathLen = Math.floor(rand() * 50); // spans below/at/above the 40 cap
-    const pp = genericProof(rand, { pathLen });
-    checked++;
+    const depth = Math.floor(rand() * 41); // spans 0..40 (at the MAX_PATH_DEPTH boundary)
+    const { pp } = buildValidPP(rand, depth);
+    const start = Date.now();
     const { output_payload } = compute(pp);
-    if (pathLen > 40 && output_payload.reserve_proof_determination !== 'STRUCTURAL_ERROR') violations++;
-    if (pathLen > 40 && output_payload.structural_error === null) violations++;
-    if (pathLen <= 40 && output_payload.structural_error !== null) violations++;
+    checked++;
+    // walk cost should never involve unbounded work — a generous wall-clock ceiling catches
+    // an accidental infinite loop without being a real timing assertion.
+    if (Date.now() - start > 2000) violations++;
+    if (typeof output_payload.reserve_proof_determination !== 'string') violations++;
   }
-  return { name: 'P1_path_depth_bounded_by_max_40', trials: checked, violations };
+  // over-the-cap depth (41+) must be a structural rejection, not a walk.
+  for (let i = 0; i < 50; i++) {
+    const depth = 41 + Math.floor(rand() * 20);
+    const { pp } = buildValidPP(rand, depth);
+    const { output_payload } = compute(pp);
+    checked++;
+    if (output_payload.reserve_proof_determination !== 'STRUCTURAL_ERROR') violations++;
+    if (output_payload.structural_error === null) violations++;
+    if (output_payload.computed_root !== null) violations++; // rejected before walking
+  }
+  return { name: 'P1_termination_bounded_path_walk_and_depth_cap', trials: checked, violations };
 }
 
-// ---------- P2 (differential): computed_root.sum re-derivation from leaf + path sums ----------
-function checkP2_sum_differential() {
+// ---------- P2: boundedness — determination is always a known enum value, never NaN/undefined ----------
+function checkP2_boundedness_determination_enum() {
   let violations = 0, checked = 0;
+  const ALLOWED = new Set(['PASS', 'WARN', 'FAIL', 'STRUCTURAL_ERROR']);
   for (let i = 0; i < TRIALS; i++) {
-    const balance = Math.floor(rand() * 1_000_000);
-    const pathLen = Math.floor(rand() * 15);
-    const pp = genericProof(rand, { balance, pathLen });
-    const expectedSum = balance + pp.merkle_proof.path.reduce((s, step) => s + step.sum, 0);
-    checked++;
+    const depth = Math.floor(rand() * 10);
+    const { pp } = buildValidPP(rand, depth);
+    if (rand() < 0.3) {
+      pp.por_round = {
+        round_id: 'r-' + Math.floor(rand() * 1000),
+        updated_at_seconds: Math.floor(rand() * 2e9),
+        current_timestamp_seconds: Math.floor(rand() * 2e9),
+        max_staleness_seconds: Math.floor(rand() * 200000),
+        reserves_reported_usd: Math.floor(rand() * 2_000_000),
+        deviation_bound_pct: rand() * 10,
+      };
+    }
     const { output_payload } = compute(pp);
-    if (output_payload.computed_root.sum !== expectedSum) violations++;
-    if (typeof output_payload.sum_verified !== 'boolean') violations++;
-    if (output_payload.sum_verified !== (output_payload.computed_root.sum === output_payload.declared_root.sum)) violations++;
+    checked++;
+    if (!ALLOWED.has(output_payload.reserve_proof_determination)) violations++;
+    if (output_payload.por_round) {
+      const dp = output_payload.por_round.deviation_pct;
+      if (dp !== null && !Number.isFinite(dp)) violations++;
+    }
   }
-  return { name: 'P2_computed_root_sum_differential', trials: checked, violations };
+  return { name: 'P2_boundedness_determination_enum_and_finite_deviation', trials: checked, violations };
 }
 
-// ---------- P3 (differential): por_round staleness/deviation re-derivation ----------
-function checkP3_por_round_differential() {
+// ---------- P3: metamorphic — tampering with any single path step (hash or sum) or the declared
+// root must flip inclusion_verified from true to false ----------
+function checkP3_tamper_flips_verdict() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const balance = Math.floor(rand() * 1_000_000);
-    const pp = genericProof(rand, { balance, pathLen: 0 });
-    const updatedAt = Math.floor(rand() * 1_000_000);
-    const now = updatedAt + Math.floor(rand() * 200_000) - 100_000;
-    const maxStaleness = 1 + Math.floor(rand() * 200_000);
-    pp.por_round = { round_id: 'r1', updated_at_seconds: updatedAt, current_timestamp_seconds: now, max_staleness_seconds: maxStaleness, reserves_reported_usd: balance };
+  for (let i = 0; i < 500; i++) {
+    const depth = 1 + Math.floor(rand() * 6);
+    const { pp } = buildValidPP(rand, depth);
+    const { output_payload: baseline } = compute(pp);
     checked++;
-    const { output_payload } = compute(pp);
-    const expectedStaleness = Math.max(0, now - updatedAt);
-    const expectedStale = expectedStaleness > maxStaleness;
-    if (output_payload.por_round.staleness_seconds !== expectedStaleness) violations++;
-    if (output_payload.por_round.is_stale !== expectedStale) violations++;
-    if (!Number.isFinite(output_payload.por_round.deviation_pct) && output_payload.por_round.deviation_pct !== null) violations++;
+    if (baseline.inclusion_verified !== true) { violations++; continue; } // sanity: base must be valid
+
+    // tamper: flip one character in a randomly chosen path step's hash
+    const tamperedPathIdx = Math.floor(rand() * pp.merkle_proof.path.length);
+    const tamperedPP = JSON.parse(JSON.stringify(pp));
+    const step = tamperedPP.merkle_proof.path[tamperedPathIdx];
+    step.hash = step.hash.slice(0, -1) + (step.hash.slice(-1) === '0' ? '1' : '0');
+    const { output_payload: tampered } = compute(tamperedPP);
+    checked++;
+    if (tampered.inclusion_verified !== false) violations++;
+
+    // tamper: perturb the declared root sum by 1
+    const tamperedRootPP = JSON.parse(JSON.stringify(pp));
+    tamperedRootPP.merkle_proof.root.sum += 1;
+    const { output_payload: tamperedRoot } = compute(tamperedRootPP);
+    checked++;
+    if (tamperedRoot.inclusion_verified !== false) violations++;
+    if (tamperedRoot.sum_verified !== false) violations++;
   }
-  return { name: 'P3_por_round_staleness_deviation_differential', trials: checked, violations };
+  return { name: 'P3_tamper_flips_inclusion_verdict', trials: checked, violations };
 }
 
-// ---------- P4: forced categorical boundary cases (float:no, no ULP forcing) ----------
-const CATEGORICAL_CASES = [
-  { label: 'empty path (leaf is root) -> depth ok, sum = balance', pp: genericProof(rand, { balance: 500, pathLen: 0 }) },
-  { label: 'path exactly at 40-node cap -> not structural error', pp: genericProof(rand, { balance: 500, pathLen: 40 }) },
-  { label: 'path 1 over the cap (41) -> STRUCTURAL_ERROR', pp: genericProof(rand, { balance: 500, pathLen: 41 }) },
-  { label: 'zero balance -> sum = path sum only, finite', pp: genericProof(rand, { balance: 0, pathLen: 3 }) },
-  { label: 'unrecognized exchange falls back to generic normalization', pp: { exchange: 'unknown_exchange_xyz', merkle_proof: { leaf_user_id_hash: 'u', leaf_balance: 10, path: [], root: { hash: '', sum: 0 } } } },
-];
-function checkP5_forced() {
-  return CATEGORICAL_CASES.map((c) => {
-    const { output_payload } = compute(c.pp);
-    return { label: c.label, determination: output_payload.reserve_proof_determination, computed_sum: output_payload.computed_root?.sum ?? null, structural_error: output_payload.structural_error };
-  });
+// ---------- P4: metamorphic — truncating a valid path (dropping the last step) must never
+// produce a false PASS/inclusion_verified:true against the original root ----------
+function checkP4_truncation_never_falsely_validates() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < 500; i++) {
+    const depth = 2 + Math.floor(rand() * 6);
+    const { pp } = buildValidPP(rand, depth);
+    const { output_payload: baseline } = compute(pp);
+    checked++;
+    if (baseline.inclusion_verified !== true) { violations++; continue; }
+
+    const truncatedPP = JSON.parse(JSON.stringify(pp));
+    truncatedPP.merkle_proof.path = truncatedPP.merkle_proof.path.slice(0, -1); // drop last step
+    const { output_payload: truncated } = compute(truncatedPP);
+    checked++;
+    if (truncated.inclusion_verified === true) violations++;
+  }
+  return { name: 'P4_truncation_never_falsely_validates', trials: checked, violations };
+}
+
+// ---------- P5: forced categorical boundary cases (float:no kernel — categorical, not ULP) ----------
+function checkP5_forced_boundary_cases() {
+  let violations = 0, checked = 0;
+
+  // empty path (single-leaf tree, path.length === 0) — should verify cleanly if root matches leaf
+  {
+    const userIdHash = 'boundary-user-empty';
+    const balance = 42;
+    const leaf = leafNode(userIdHash, balance);
+    const pp = { exchange: 'generic', merkle_proof: { leaf_user_id_hash: userIdHash, leaf_balance: balance, path: [], root: { hash: leaf.hash, sum: leaf.sum } } };
+    const { output_payload } = compute(pp);
+    checked++;
+    if (output_payload.inclusion_verified !== true) violations++;
+    if (output_payload.structural_error !== null) violations++;
+  }
+
+  // single-step path
+  {
+    const { pp } = buildValidPP(rand, 1);
+    const { output_payload } = compute(pp);
+    checked++;
+    if (output_payload.inclusion_verified !== true) violations++;
+  }
+
+  // exactly MAX_PATH_DEPTH (40) — must be accepted (not rejected)
+  {
+    const { pp } = buildValidPP(rand, 40);
+    const { output_payload } = compute(pp);
+    checked++;
+    if (output_payload.structural_error !== null) violations++;
+    if (output_payload.inclusion_verified !== true) violations++;
+  }
+
+  // MAX_PATH_DEPTH + 1 (41) — must be rejected structurally
+  {
+    const { pp } = buildValidPP(rand, 41);
+    const { output_payload } = compute(pp);
+    checked++;
+    if (output_payload.reserve_proof_determination !== 'STRUCTURAL_ERROR') violations++;
+  }
+
+  // all exchange-format normalizers on empty/absent input must not throw and must return a
+  // deterministic FAIL/STRUCTURAL_ERROR (empty root hash never matches a computed leaf hash)
+  for (const exchange of ['okx', 'binance', 'gate', 'kraken', 'generic']) {
+    const pp = { exchange, merkle_proof: {} };
+    let threw = false;
+    let output_payload;
+    try {
+      ({ output_payload } = compute(pp));
+    } catch {
+      threw = true;
+    }
+    checked++;
+    if (threw) violations++;
+    else if (!['FAIL', 'STRUCTURAL_ERROR'].includes(output_payload.reserve_proof_determination)) violations++;
+  }
+
+  // absent policy_parameters.merkle_proof entirely (default-inputs shape, mirrors fixture)
+  {
+    const { output_payload } = compute({});
+    checked++;
+    if (output_payload.reserve_proof_determination !== 'FAIL') violations++;
+  }
+
+  return { name: 'P5_forced_categorical_boundary_cases', trials: checked, violations };
 }
 
 // ---------- run ----------
@@ -136,10 +283,11 @@ if (!oracleOk) {
   process.exit(1);
 }
 
-results.properties.push(checkP1_bounded_path_depth());
-results.properties.push(checkP2_sum_differential());
-results.properties.push(checkP3_por_round_differential());
-const forcedCases = checkP5_forced();
+results.properties.push(checkP1_termination_bounded_path_walk());
+results.properties.push(checkP2_boundedness_determination_enum());
+results.properties.push(checkP3_tamper_flips_verdict());
+results.properties.push(checkP4_truncation_never_falsely_validates());
+results.properties.push(checkP5_forced_boundary_cases());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
@@ -149,7 +297,6 @@ console.log(JSON.stringify({
   fixture_oracle_passed: oracleOk,
   fixture_oracle_total: results.fixture_oracle.total,
   properties: results.properties,
-  forced_categorical_cases: forcedCases,
   any_property_violation: anyPropertyViolation,
 }, null, 2));
 

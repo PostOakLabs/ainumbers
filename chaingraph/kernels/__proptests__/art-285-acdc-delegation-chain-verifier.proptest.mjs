@@ -1,5 +1,5 @@
-// art-285-acdc-delegation-chain-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C9-1).
-// kernel_digest_at_authoring: sha256:58fc9897fea15f5879a213626ec451bbb0cff2e91ceb475bd0f833684244bbcb
+// art-285-acdc-delegation-chain-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
+// kernel_digest_at_authoring: sha256:c2e7514896d7266effdbb7716fefc7f39377a555f3f45bb847ec9250a184c7db
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -63,6 +63,7 @@ function buildChain(rng, n, { brokenEdgeAt = -1, mismatchIssuerAt = -1 } = {}) {
     d: `D${i}${'0'.repeat(60)}`,
     i: i < n - 1 ? `agent${i + 1}` : 'root_issuer',
     a: { i: `agent${i}` },
+    e: /** @type {{ auth: { n: string, s: string } } | undefined} */ (undefined),
   }));
   for (let i = 0; i < n - 1; i++) {
     const parent = creds[i + 1];
