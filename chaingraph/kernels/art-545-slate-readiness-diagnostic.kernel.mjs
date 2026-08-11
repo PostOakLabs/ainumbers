@@ -18,8 +18,8 @@ export const meta = {
 // actual report record. Validate-never-transmit: never calls fetch, never calls an RNSA,
 // never simulates submission -- readiness is not submission.
 //
-// Compliance-date context (verify against a then-current SEC.gov release before treating
-// as load-bearing): the SEC's 2025-12-03 exemptive order, issued after the Fifth Circuit's
+// Compliance-date context (verify against a then-current SEC.gov release before
+// relying on it): the SEC's 2025-12-03 exemptive order, issued after the Fifth Circuit's
 // 2025-08-25 remand-without-vacatur in NAPFM v. SEC, sets the Rule 10c-1a reporting
 // compliance date at 2028-09-28.
 //

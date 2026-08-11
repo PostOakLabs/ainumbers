@@ -1,5 +1,5 @@
 // art-544-slate-report-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C28-1).
-// kernel_digest_at_authoring: sha256:62a0805b1e19ada6de9e583b0d1b97f761057c012d23f8073335a419a2ddfd6f
+// kernel_digest_at_authoring: sha256:c5c25fd2786de8c58de81203d0b98ca4ebf1060401e29d6cd9594067d49c30c1
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

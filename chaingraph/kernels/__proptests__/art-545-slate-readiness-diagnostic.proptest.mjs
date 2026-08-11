@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:1ac0df3090b69985342acb2574a7f0c9db61bee1255568a68b92959672a0e39c
+// kernel_digest_at_authoring: sha256:4b87c5c2bfd4fe2fd1af9582a401b4cc75061a9f49df2e5204901721740ce94b
 //
 // FV-PROPFLOOR-SHARD-B26-1 — property-test floor for art-545-slate-readiness-diagnostic.
 // Class B (bounded-categorical), FLOAT:NO per the WU row — a pure boolean checklist tally
