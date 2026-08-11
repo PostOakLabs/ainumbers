@@ -503,7 +503,7 @@ export function compute(pp) {
     judgment_required,
     rationale,
     not_proven: NOT_PROVEN,
-    fence: 'The register extract, the entity identifier, the register type and the retrieval date are every one of them a caller input. This kernel performs no lookup of any kind (zero-egress by contract), ships no copy of either ESMA register, and has no clock: retrieval_date is the date the reader captured the extract, never Date.now(). register_snapshot_digest pins the exact pasted bytes the verdict was reached against, so a later register update makes an old receipt dated rather than wrong. Presence in a snapshot is never authorisation and never a statement about today.',
+    fence: 'The register extract, the entity identifier, the register type and the retrieval date are every one of them a caller input. This kernel performs no lookup of any kind (zero-egress by contract), ships no copy of either ESMA register, and has no clock: retrieval_date is the date the reader captured the extract, never a machine clock read. register_snapshot_digest pins the exact pasted bytes the verdict was reached against, so a later register update makes an old receipt dated rather than wrong. Presence in a snapshot is never authorisation and never a statement about today.',
   };
 
   return { output_payload, compliance_flags };
