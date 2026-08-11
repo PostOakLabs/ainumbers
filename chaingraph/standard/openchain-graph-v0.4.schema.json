@@ -306,13 +306,27 @@
         }
       }
     },
+    "haDelta": {
+      "type": "array",
+      "description": "OCG Standard §27.14 (v0.8.23) — the OPTIONAL humanAccountabilityRecord.delta sibling. An itemized list of the field-level changes a cure or override record claims, DIGESTS ONLY, never raw values, so this field never re-opens what belongs in a preimage. Each entry names one changed field by RFC 6901 JSON Pointer plus the sha256 digest of its old and new value. A delta claiming a new value is a bare assertion unless a NEW sealed artifact carrying that value exists and is the thing this record's subject_hash cites via chain.parent_hashes, reusing the §21.6 ancestry-commitment pattern (this recompute supersedes that one). Enters no execution_hash preimage of the SUBJECT artifact; it is part of the approval record's own preimage like every other populated field on this object.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field_pointer", "old_value_digest", "new_value_digest"],
+        "properties": {
+          "field_pointer": { "type": "string", "description": "RFC 6901 JSON Pointer to the changed field within the subject artifact's output_payload." },
+          "old_value_digest": { "$ref": "#/$defs/sha256ref", "description": "sha256 digest of the field's value before the change. A digest, never the raw value." },
+          "new_value_digest": { "$ref": "#/$defs/sha256ref", "description": "sha256 digest of the field's value after the change. A digest, never the raw value." }
+        }
+      }
+    },
     "humanAccountabilityRecord": {
       "type": "object",
       "description": "OCG Standard §27.2 (v0.8.12) — the output_payload of a Human Accountability record artifact (mandate_type:\"human_accountability_record\"). SEPARATE from the frozen v0.4 artifact envelope ($defs/artifact) and NOT referenced by the top-level oneOf — additive, so it never alters existing artifact/catalog validation. A conformant approval record is an $defs/artifact whose mandate_type is \"human_accountability_record\", whose output_payload matches this shape, and which carries a §16 eddsa-jcs-2022 whole-artifact proof bound to the named human (§27.2 — an unsigned approval record is NOT conformant §27 evidence). It is a SCITT-style STATEMENT ABOUT A STATEMENT: it only REFERENCES the subject via subject_hash and never contains the subject's preimage, so it has ZERO impact on the subject artifact's execution_hash or canonicalization (§27.0 additivity). Shape only is validated here; additivity, threshold distinctness (§27.3), override expiry (§27.5), and the signed-named-human requirement are enforced by validate-ha-records.test.mjs (with the §16 pairing check in proof-binding.test.mjs).",
       "additionalProperties": false,
       "required": ["record_type", "role", "subject_hash", "identity"],
       "properties": {
-        "record_type": { "enum": ["role_binding", "approval", "rejection", "override", "annotation", "counter_signed_receipt"], "description": "§27.2 — the kind of accountable act this record evidences. counter_signed_receipt (§27.12, v0.8.20) is a cross-org peer verification: the checker independently recomputed the subject and signed a receipt of that recomputation — never organizational approval." },
+        "record_type": { "enum": ["role_binding", "approval", "rejection", "override", "annotation", "counter_signed_receipt", "cure"], "description": "§27.2 — the kind of accountable act this record evidences. counter_signed_receipt (§27.12, v0.8.20) is a cross-org peer verification: the checker independently recomputed the subject and signed a receipt of that recomputation — never organizational approval. cure (§27.14, v0.8.23) is a DISTINCT member from override: it evidences a regulatory cure-of-error correcting a prior artifact's value(s), never a time-boxed policy attenuation — do not conflate the two." },
         "role": { "$ref": "#/$defs/haRole" },
         "subject_hash": { "$ref": "#/$defs/sha256ref", "description": "The execution_hash of the artifact being acted upon — the SCITT reference (§27.2). The record never contains the subject's preimage." },
         "identity": {
@@ -326,6 +340,7 @@
         "kernel_pin": { "$ref": "#/$defs/haKernelPin", "description": "OPTIONAL §27.12 (v0.8.20) — which kernel/tool a checker verified subject_hash against, so a receipt signed against the WRONG kernel is structurally detectable. A SIBLING of record_type, mirroring how §27.10 added subject_run_state: not required[], enters no execution_hash preimage, absence is fully conformant and means NO CLAIM (not merely that no pin was checked)." },
         "replay_verified": { "type": "boolean", "description": "OPTIONAL §27.12 (v0.8.21) — true iff the checker independently re-ran the subject's computation deterministically and got a matching subject_hash before signing this record, never a rubber-stamp approval. A SIBLING of record_type, mirroring kernel_pin and subject_run_state: not required[], enters no execution_hash preimage. Governed by §27.4's existing omit-not-false discipline: where no replay was attempted, the field MUST be omitted, never set false — false would read as an attempted replay that disagreed. Absence is fully conformant and means NO CLAIM." },
         "party_role": { "$ref": "#/$defs/haPartyRole", "description": "OPTIONAL §27.13 (v0.8.22) — the acting identity's standing under the agreement the subject artifact reports on (signatory/observer/controlling_party), a FACT about the parties' own prior agreement, never an authorization this record grants. A THIRD sibling of record_type, mirroring kernel_pin and replay_verified: not required[], inert by construction — no gate reads it. Independent of role (§27.1): a checker MAY hold any party_role or none. Absence means NO CLAIM about standing." },
+        "delta": { "$ref": "#/$defs/haDelta", "description": "OPTIONAL §27.14 (v0.8.23) — an itemized array of field-level changes, digests only, that a cure or override record claims. A FOURTH sibling of record_type, mirroring kernel_pin, replay_verified, and party_role: not required[], enters no execution_hash preimage of the subject artifact. Available to both cure and override records. A delta claiming a new value is a bare assertion unless a new sealed artifact carrying it exists and is cited via subject_hash / chain.parent_hashes (§21.6 ancestry pattern). Absence means NO CLAIM about what changed." },
         "gate_policy": { "$ref": "#/$defs/haGatePolicy", "description": "OPTIONAL §27.4 gate policy this record satisfies or overrides." },
         "reason_code": { "type": "string", "description": "OPTIONAL machine-stable rationale token (REQUIRED by §27.5 for an override)." },
         "override": {
