@@ -9,7 +9,7 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-export async function compute(pp) {
+export function compute(pp) {
   const { well_known_path_ok, jwks_reachable, card_complete, rotation_posture_ok, alg_ed25519 } = pp;
   const checks = { well_known_path_ok, jwks_reachable, card_complete, rotation_posture_ok, alg_ed25519 };
   const gaps = Object.entries(checks).filter(([, v]) => v !== true).map(([k]) => k);
@@ -21,7 +21,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

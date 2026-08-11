@@ -9,7 +9,7 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-export async function compute(pp) {
+export function compute(pp) {
   const { alg, directory_published, card_present, signature_verified } = pp;
   const ed = alg === 'ed25519', dir = directory_published === true, card = card_present === true, sig = signature_verified === true;
   const rail = (reqs) => { const gaps = Object.entries(reqs).filter(([, ok]) => !ok).map(([k]) => k); return { accepted: gaps.length === 0, gaps }; };
@@ -26,7 +26,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

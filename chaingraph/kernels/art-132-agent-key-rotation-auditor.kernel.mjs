@@ -9,7 +9,7 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-export async function compute(pp) {
+export function compute(pp) {
   const { key_created_unix, now_unix, max_key_age_s = 7776000, next_key_present, algorithm } = pp; // 90d default
   const key_age_s = (typeof key_created_unix === 'number' && typeof now_unix === 'number') ? (now_unix - key_created_unix) : null;
   const rotation_due = key_age_s !== null && key_age_s >= max_key_age_s;
@@ -24,7 +24,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
