@@ -36,7 +36,7 @@ async function runFixtureOracle() {
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const artifact = await buildArtifact(vec.policy_parameters, { now: null });
+    const artifact = await buildArtifact(vec.policy_parameters, {});
     const { output_payload } = artifact;
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
@@ -118,12 +118,12 @@ async function checkP3_tamper_evidence() {
   for (let i = 0; i < 200; i++) {
     const n = 3 + Math.floor(rand() * 5);
     const pp = randomPP(rand, n);
-    const base = await buildArtifact(pp, { now: '2026-01-01T00:00:00Z' });
+    const base = await buildArtifact(pp, {});
     // tamper with a single middle attempt's warning text
     const tamperIdx = 1 + Math.floor(rand() * (n - 2));
     const tampered = JSON.parse(JSON.stringify(pp));
     tampered.attempts[tamperIdx].warning_shown.text = 'TAMPERED';
-    const tamperedArtifact = await buildArtifact(tampered, { now: '2026-01-01T00:00:00Z' });
+    const tamperedArtifact = await buildArtifact(tampered, {});
     checked++;
     const baseReceipts = base.output_payload.session_receipts;
     const tamperedReceipts = tamperedArtifact.output_payload.session_receipts;
@@ -137,7 +137,7 @@ async function checkP3_tamper_evidence() {
     if (base.output_payload.final_receipt_hash === tamperedArtifact.output_payload.final_receipt_hash) violations++;
     // two sessions with byte-identical first attempts but different session_id diverge from receipt #0
     const otherSession = { ...pp, session_id: pp.session_id + '-X' };
-    const otherArtifact = await buildArtifact(otherSession, { now: '2026-01-01T00:00:00Z' });
+    const otherArtifact = await buildArtifact(otherSession, {});
     if (n > 0 && base.output_payload.session_receipts[0].receipt_hash === otherArtifact.output_payload.session_receipts[0].receipt_hash) violations++;
   }
   return { name: 'P3_tamper_evidence_hash_chain_via_buildArtifact', trials: checked, violations };
