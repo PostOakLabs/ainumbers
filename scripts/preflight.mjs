@@ -61,6 +61,34 @@ function helmPathsTouched() {
 }
 const HELM_SCOPE_TOUCHED = helmPathsTouched();
 
+// FV-FLOOR-DIGEST-GATE-1: which __proptests__/*.proptest.mjs floor files this push touches, for the
+// --verify-authoring scoped check below. Same union-of-diffs shape as helmPathsTouched() above (working
+// tree + staged + committed-vs-upstream, deduped via a Set) — reused, not reinvented. UNLIKE
+// helmPathsTouched(), an undeterminable diff fails CLOSED (empty list, gate no-ops) rather than open: this
+// check's entire design is "scoped to the diff, never the full estate" (a floor file legitimately goes
+// stale later when its kernel moves — see check-fv-floor-coverage.mjs's header comment), so falling back to
+// "examine everything" on an undeterminable diff would be exactly the widening that design forbids.
+function touchedFloorFiles() {
+  const isFloorFile = (f) => /^chaingraph\/kernels\/__proptests__\/[^/]+\.proptest\.mjs$/.test(f);
+  try {
+    const touched = new Set();
+    execSync('git diff --name-only --diff-filter=ACM HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    execSync('git diff --name-only --diff-filter=ACM --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    try {
+      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      execSync(`git diff --name-only --diff-filter=ACM ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().split('\n').forEach(f => f && touched.add(f));
+    } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
+    return [...touched].filter(isFloorFile);
+  } catch {
+    return []; // undeterminable — fail CLOSED (empty, not a full-estate fallback); see comment above
+  }
+}
+const TOUCHED_FLOOR_FILES = touchedFloorFiles();
+
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
   ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
@@ -169,6 +197,13 @@ const GATES = [
   ['Property-testing floor',       'node scripts/run-proptests.mjs'],
   ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
   ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
+  // FV-FLOOR-DIGEST-GATE-1: enforces the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4,
+  // amended by PR #1176) on ONLY the floor files THIS push touches (TOUCHED_FLOOR_FILES above) — never the
+  // full floor estate, which would false-fail on legitimate later staleness. No-ops when nothing touched.
+  ['FV floor digest authoring — touched files only (FV-FLOOR-DIGEST-GATE-1)',
+    TOUCHED_FLOOR_FILES.length
+      ? `node scripts/check-fv-floor-coverage.mjs --verify-authoring ${TOUCHED_FLOOR_FILES.map((f) => `"${f}"`).join(' ')}`
+      : 'node -e "1"'],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],

@@ -9,7 +9,7 @@
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { classifyFloor, evaluateCoverage } from './check-fv-floor-coverage.mjs';
+import { classifyFloor, evaluateCoverage, verifyAuthoringFiles, toolIdFromFloorPath } from './check-fv-floor-coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -91,6 +91,77 @@ await test('evaluateCoverage separates floored from unfloored over a fixture ker
   assert(unfloored.length === 2, `expected 2 unfloored (fx-missing, fx-stale), got ${unfloored.length}`);
   assert(unfloored.some((r) => r.tool_id === 'fx-missing' && r.state === 'missing'), 'fx-missing should be state missing');
   assert(unfloored.some((r) => r.tool_id === 'fx-stale' && r.state === 'stale'), 'fx-stale should be state stale');
+});
+
+// ── FV-FLOOR-DIGEST-GATE-1: --verify-authoring, scoped to the PR's own diff ─────────────────────────
+// These tests exercise verifyAuthoringFiles() directly — the pure function the CLI's --verify-authoring
+// branch calls — via injected in-memory readers, never touching disk, mirroring the injection shape of
+// classifyFloor/evaluateCoverage above.
+
+await test('toolIdFromFloorPath extracts the tool_id from a *.proptest.mjs path (either slash style)', () => {
+  assert(toolIdFromFloorPath('chaingraph/kernels/__proptests__/art-999-fake.proptest.mjs') === 'art-999-fake');
+  assert(toolIdFromFloorPath('chaingraph\\kernels\\__proptests__\\art-999-fake.proptest.mjs') === 'art-999-fake', 'must handle backslash paths from a Windows git-diff listing');
+  assert(toolIdFromFloorPath('chaingraph/kernels/_buildid.mjs') === null, 'a non-floor-file path must not yield a tool_id');
+});
+
+function fakeIO({ floorFiles, kernelFiles }) {
+  return {
+    floorExists: (p) => Object.prototype.hasOwnProperty.call(floorFiles, p),
+    kernelExists: (id) => Object.prototype.hasOwnProperty.call(kernelFiles, id),
+    readFloorSource: (p) => floorFiles[p],
+    readKernelSource: (id) => kernelFiles[id],
+    sourceDigestFn: sourceDigest,
+  };
+}
+
+await test('OBSERVED RED — verifyAuthoringFiles FAILS a floor file whose header digest is fabricated (does not match the real kernel it floors, in the SAME diff)', async () => {
+  const goodDigest = await sourceDigest(KERNEL_SOURCE);
+  const fabricated = 'sha256:' + 'deadbeef'.repeat(8);
+  const io = fakeIO({
+    floorFiles: { 'chaingraph/kernels/__proptests__/fx-good.proptest.mjs': floorFileFor(fabricated) },
+    kernelFiles: { 'fx-good': KERNEL_SOURCE },
+  });
+  const results = await verifyAuthoringFiles(['chaingraph/kernels/__proptests__/fx-good.proptest.mjs'], io);
+  assert(results.length === 1, `expected 1 result, got ${results.length}`);
+  assert(results[0].verdict === 'fail', `expected fail, got ${results[0].verdict}`);
+  assert(results[0].recorded === fabricated, 'recorded value should be the fabricated header, unchanged');
+  assert(results[0].current === goodDigest, 'current should be the real sourceDigest() of the kernel');
+});
+
+await test('calibration — verifyAuthoringFiles PASSES a floor file whose header digest is the executed sourceDigest() of the kernel it floors', async () => {
+  const goodDigest = await sourceDigest(KERNEL_SOURCE);
+  const io = fakeIO({
+    floorFiles: { 'chaingraph/kernels/__proptests__/fx-good.proptest.mjs': floorFileFor(goodDigest) },
+    kernelFiles: { 'fx-good': KERNEL_SOURCE },
+  });
+  const results = await verifyAuthoringFiles(['chaingraph/kernels/__proptests__/fx-good.proptest.mjs'], io);
+  assert(results.length === 1 && results[0].verdict === 'pass', `expected pass, got ${JSON.stringify(results)}`);
+});
+
+await test('verifyAuthoringFiles SKIPS a non-floor-file path and a deleted-in-diff floor file, never counting either as a failure', async () => {
+  const io = fakeIO({
+    floorFiles: {}, // nothing exists on disk — simulates a file deleted later in the same diff
+    kernelFiles: { 'fx-good': KERNEL_SOURCE },
+  });
+  const results = await verifyAuthoringFiles(
+    ['chaingraph/kernels/_buildid.mjs', 'chaingraph/kernels/__proptests__/fx-deleted.proptest.mjs'],
+    io,
+  );
+  assert(results.every((r) => r.verdict === 'skip'), `expected both skipped, got ${JSON.stringify(results.map((r) => r.verdict))}`);
+});
+
+await test('verifyAuthoringFiles FAILS (not skips) a floor file whose kernel does not exist — cannot verify against a missing kernel', async () => {
+  const io = fakeIO({
+    floorFiles: { 'chaingraph/kernels/__proptests__/fx-orphan.proptest.mjs': floorFileFor(await sourceDigest(KERNEL_SOURCE)) },
+    kernelFiles: {}, // kernel absent
+  });
+  const results = await verifyAuthoringFiles(['chaingraph/kernels/__proptests__/fx-orphan.proptest.mjs'], io);
+  assert(results.length === 1 && results[0].verdict === 'fail', `expected fail, got ${JSON.stringify(results)}`);
+});
+
+await test('SCOPE PROOF — verifyAuthoringFiles is a no-op given zero paths, never a vacuous full-estate check', async () => {
+  const results = await verifyAuthoringFiles([], fakeIO({ floorFiles: {}, kernelFiles: {} }));
+  assert(results.length === 0, `expected 0 results for 0 given paths, got ${results.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

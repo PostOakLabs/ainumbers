@@ -66,9 +66,37 @@
 //   node scripts/check-fv-floor-coverage.mjs --summary         counts only, exit 0
 //   node scripts/check-fv-floor-coverage.mjs --list-unfloored  print every unfloored node + reason, exit 0
 //   node scripts/check-fv-floor-coverage.mjs --update-baseline rewrite the baseline to the current state
+//   node scripts/check-fv-floor-coverage.mjs --verify-authoring <floor-file-path>...
+//                                              FV-FLOOR-DIGEST-GATE-1: enforce the EXECUTED-DIGEST authoring
+//                                              rule (FV-PBT-FLOOR-BUILD-SPEC.md §4, as amended by PR #1176)
+//                                              on ONLY the floor files given — never the whole estate. Given
+//                                              paths are exactly a PR/push's own touched-file set (see the CI
+//                                              workflow's git-diff step). ⛔ SCOPE IS THE WHOLE TRICK: a floor
+//                                              file's digest legitimately goes stale later when its kernel
+//                                              moves (see the STALE-state comment above) — that is honest
+//                                              drift, not fabrication, and this mode must never be run against
+//                                              the full floor set or it would false-fail on exactly that. For
+//                                              a file newly added/modified IN THIS DIFF, "at authoring" IS
+//                                              "now": its header digest MUST equal sourceDigest() of the
+//                                              kernel it floors, recomputed by THIS mode's own import of
+//                                              _buildid.mjs — the SAME function classifyFloor() already calls
+//                                              above, never a reimplementation of the hash (verified against a
+//                                              genuinely merged floor file, FV-PROPFLOOR-SHARD-C23-1 / PR
+//                                              #1177 / commit 0bb5e999, before this mode was written — the
+//                                              recorded header and sourceDigest()'s recompute agreed exactly).
+//                                              A mismatch means the header was fabricated/mistyped, not that
+//                                              the kernel moved (there is no "moved since" for a file authored
+//                                              in this same diff). Exit 1 on any fabricated/stale header among
+//                                              the given files, printing both digests + the fix command. A
+//                                              file missing from disk (deleted/renamed in this diff) or not a
+//                                              *.proptest.mjs path is SKIPPED, not failed, and does not count
+//                                              toward the examined total. Prints the examined count explicitly
+//                                              — a run given zero files exits 0 (nothing in the diff touched a
+//                                              floor file), a legitimate no-op, not a vacuous pass mistaken
+//                                              for coverage.
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -101,6 +129,46 @@ export async function classifyFloor(kernelSource, floorSource, sourceDigestFn) {
     return { state: 'stale', reason: `floor file's recorded digest (${recorded}) does not match the kernel as it stands now (${current}) — either the kernel moved since the floor was authored, or the recorded digest was never correct (FV-FLOOR-DIGEST-STALE-1, 2026-08-11); this gate cannot distinguish the two from a mismatch alone`, recorded, current };
   }
   return { state: 'floored', reason: 'floor file digest matches current kernel source', recorded, current };
+}
+
+// ── toolIdFromFloorPath ──────────────────────────────────────────────────────────────────────────
+// Extract a tool_id from a *.proptest.mjs path (any leading directories, either slash style — a git-diff
+// listing on Windows checkouts can carry either). Returns null for anything that isn't a floor file, so
+// callers can SKIP non-floor paths (e.g. a workflow's pathspec is a little wider than the exact glob)
+// rather than misreport them as failures.
+const PROPTEST_SUFFIX = '.proptest.mjs';
+export function toolIdFromFloorPath(rawPath) {
+  const base = String(rawPath).replace(/\\/g, '/').split('/').pop() ?? '';
+  if (!base.endsWith(PROPTEST_SUFFIX)) return null;
+  return base.slice(0, -PROPTEST_SUFFIX.length);
+}
+
+// ── verifyAuthoringFiles ─────────────────────────────────────────────────────────────────────────
+// FV-FLOOR-DIGEST-GATE-1. Pure function over an explicit, CALLER-SUPPLIED path list — this function never
+// walks the floor directory itself, which is what keeps the scope narrow: it verifies exactly the files a
+// PR's own diff touched, never the full estate (see the header comment's ⛔ SCOPE note — a floor file is
+// legitimately allowed to go stale later, and this check must never be widened to run on all floor files
+// or it would false-fail on that honest drift). Injectable readers so the unit test can feed fixtures
+// without touching disk, same shape as classifyFloor/evaluateCoverage above. For each path:
+//   skip  — not a *.proptest.mjs name, or the file no longer exists (deleted/renamed in this diff)
+//   fail  — the floor file's kernel doesn't exist, OR classifyFloor() returns anything but 'floored'
+//           (missing header / mismatched digest — both mean the recorded value was never a real digest
+//           of the kernel as authored, since "at authoring" and "now" are the same instant for a file in
+//           this diff)
+//   pass  — classifyFloor() returns 'floored'
+export async function verifyAuthoringFiles(paths, { floorExists, kernelExists, readFloorSource, readKernelSource, sourceDigestFn }) {
+  const results = [];
+  for (const rawPath of paths) {
+    const tool_id = toolIdFromFloorPath(rawPath);
+    if (tool_id == null) { results.push({ path: rawPath, tool_id: null, verdict: 'skip', reason: 'not a *.proptest.mjs floor file path' }); continue; }
+    if (!floorExists(rawPath)) { results.push({ path: rawPath, tool_id, verdict: 'skip', reason: 'file no longer exists on disk (deleted/renamed later in this diff) — nothing to verify' }); continue; }
+    if (!kernelExists(tool_id)) { results.push({ path: rawPath, tool_id, verdict: 'fail', reason: `no kernel found for ${tool_id} (expected chaingraph/kernels/${tool_id}.kernel.mjs) — cannot verify an authoring digest against a kernel that isn't there` }); continue; }
+    const floorSource = readFloorSource(rawPath);
+    const kernelSource = readKernelSource(tool_id);
+    const classified = await classifyFloor(kernelSource, floorSource, sourceDigestFn);
+    results.push({ path: rawPath, tool_id, verdict: classified.state === 'floored' ? 'pass' : 'fail', ...classified });
+  }
+  return results;
 }
 
 // ── deriveLiveKernels ────────────────────────────────────────────────────────────────────────────
@@ -165,6 +233,50 @@ const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(im
 if (IS_MAIN) {
 
 const { sourceDigest } = await import(pathToFileURL(resolve(KDIR, '_buildid.mjs')).href);
+
+// ── --verify-authoring: standalone, scoped-to-given-files mode ──────────────────────────────────────
+// Runs BEFORE deriveLiveKernels() below — it needs none of the full-estate machinery (chaingraph.meta.json,
+// per-node shard files) and must never be widened to iterate the floor directory itself; see the usage
+// comment at the top of this file for the full scope rationale (a floor file is legitimately allowed to go
+// stale later — this mode only ever sees the files its caller names, which the CI wiring sets to the PR's
+// own touched set).
+const VERIFY_AUTHORING_AT = process.argv.indexOf('--verify-authoring');
+if (VERIFY_AUTHORING_AT !== -1) {
+  const files = process.argv.slice(VERIFY_AUTHORING_AT + 1);
+  const results = await verifyAuthoringFiles(files, {
+    floorExists: (p) => existsSync(resolve(REPO, p)),
+    kernelExists: (id) => existsSync(resolve(KDIR, `${id}.kernel.mjs`)),
+    readFloorSource: (p) => readFileSync(resolve(REPO, p), 'utf8'),
+    readKernelSource: (id) => readFileSync(resolve(KDIR, `${id}.kernel.mjs`), 'utf8'),
+    sourceDigestFn: sourceDigest,
+  });
+  const skipped = results.filter((r) => r.verdict === 'skip');
+  const examined = results.filter((r) => r.verdict !== 'skip');
+  const failedRows = examined.filter((r) => r.verdict === 'fail');
+
+  for (const r of skipped) console.log(`  SKIP: ${r.path} — ${r.reason}`);
+  for (const r of examined) {
+    if (r.verdict === 'pass') {
+      console.log(`  OK:   ${r.path} — kernel_digest_at_authoring matches sourceDigest() of the current kernel (${r.current})`);
+    } else {
+      console.error(`  ✗ FAIL: ${r.path}`);
+      console.error(`      kernel:          chaingraph/kernels/${r.tool_id}.kernel.mjs`);
+      console.error(`      recorded header: ${r.recorded ?? '(none found — no valid "kernel_digest_at_authoring: sha256:…" header line)'}`);
+      console.error(`      actual current:  ${r.current ?? '(n/a — ' + r.reason + ')'}`);
+      console.error('      fix — run this EXACT command and paste its stdout verbatim into the header:');
+      console.error(`        node -e "const{sourceDigest}=await import('./chaingraph/kernels/_buildid.mjs');const fs=await import('node:fs');console.log(await sourceDigest(fs.readFileSync('chaingraph/kernels/${r.tool_id}.kernel.mjs','utf8')))" --input-type=module`);
+    }
+  }
+
+  console.log(`\n--verify-authoring examined ${examined.length} floor file(s) from this diff (${skipped.length} skipped — not a floor-file path, or deleted later in the same diff).`);
+  if (failedRows.length) {
+    console.error(`\n✗ FV-FLOOR-DIGEST-GATE-1 FAILED — ${failedRows.length} of ${examined.length} examined floor file(s) in this diff carry a kernel_digest_at_authoring that is not the executed sourceDigest() of the kernel they floor. A file authored in THIS diff has no legitimate "kernel moved since" excuse — "at authoring" and "now" are the same commit.`);
+    process.exit(1);
+  }
+  console.log(`✓ FV-FLOOR-DIGEST-GATE-1 clean — all ${examined.length} examined floor file(s) from this diff carry a genuinely executed kernel_digest_at_authoring.`);
+  process.exit(0);
+}
+
 const { liveKernels, note } = deriveLiveKernels();
 if (note) { console.error(`⚠ ${note}`); }
 
