@@ -288,7 +288,11 @@ export function compute(pp) {
   let zeroShareMint = false;
   if (round_trip_assets !== null) {
     const sharesMinted = toShares(round_trip_assets, EIP_ROUNDING.previewDeposit.direction, total_assets, total_supply);
-    if (sharesMinted === null) {
+    // The redeem leg divides by the POST-DEPOSIT supply, which can be zero even when the deposit
+    // leg's own denominator was not: with virtual_amounts off and total_supply 0, a deposit into a
+    // non-empty vault mints 0 shares, leaving the post-deposit supply still 0.
+    const redeemDenom = total_supply + (sharesMinted === null ? 0n : sharesMinted) + offsetUnit;
+    if (sharesMinted === null || redeemDenom === 0n) {
       round_trip = {
         assets_in: round_trip_assets.toString(),
         shares_minted: null,
@@ -296,7 +300,7 @@ export function compute(pp) {
         loss_assets: null,
         loss_bps: null,
         post_deposit_state: null,
-        note: 'Conversion undefined: total_assets is 0 and virtual_amounts is false, so the deposit ratio has a zero denominator.',
+        note: 'Round trip undefined: with virtual_amounts off, either the deposit ratio or the post-deposit redeem ratio has a zero denominator, so no share price exists to round trip through.',
       };
       undefinedConversion = true;
     } else {
