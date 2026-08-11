@@ -110,7 +110,8 @@ const GATES = [
   // `--no-verify` bypass — the pre-push hook (and this gate) simply doesn't run
   // if a push skips hooks.
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
-  ['Unassembled-shard scan (ASSEMBLE-COVER-1, advisory)', 'node scripts/check-shard-assembly.mjs'],
+  ['Unassembled-shard scan (ASSEMBLE-COVER-1 + CHAINORDER-GATE-1, advisory)', 'node scripts/check-shard-assembly.mjs'],
+  ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Nav reachability (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
@@ -123,6 +124,8 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
+  ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
@@ -163,6 +166,9 @@ const GATES = [
   ['§17 kernel identity (unit)',   'node chaingraph/kernels/kernel-identity.test.mjs'],
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§17 kernel-identity coverage (shard, KERNELID-GATE-1)', 'node chaingraph/kernels/gen-kernel-identity.mjs --check --shard'],
+  ['Property-testing floor',       'node scripts/run-proptests.mjs'],
+  ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
+  ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],

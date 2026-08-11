@@ -31,15 +31,28 @@ function escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Titles/descriptions/attrs pulled from committed HTML source are already
+// entity-escaped (e.g. "&amp;", "&lt;") — decode before storing so escHtml()
+// above only ever escapes each character once. Skipping this double-escapes
+// ("&amp;amp;", "&amp;lt;") on render.
+function decodeEntities(s) {
+  return String(s)
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 function extractTitle(html, fallback) {
   const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   if (!m) return fallback;
-  return m[1].split('|')[0].trim();
+  return decodeEntities(m[1].split('|')[0].trim());
 }
 
 function extractDesc(html) {
   const m = html.match(/<meta\s+name="description"\s+content="([^"]*)"/i);
-  return m ? m[1].trim() : '';
+  return m ? decodeEntities(m[1].trim()) : '';
 }
 
 // Source copy (tools.html card-desc, chaingraph.json node descriptions, page
@@ -74,10 +87,10 @@ const headingNames = new Map();
   const re = /<div class="cat-heading"[^>]*id="([^"]+)"[^>]*>[\s\S]*?<h2 class="cat-name">([\s\S]*?)<\/h2>/g;
   let m;
   while ((m = re.exec(toolsHtml))) {
-    headingNames.set(m[1], m[2].replace(/&amp;/g, '&').trim());
+    headingNames.set(m[1], decodeEntities(m[2].trim()));
   }
   const rbeTitleM = toolsHtml.match(/<h2 class="ai-title">([\s\S]*?)<\/h2>/);
-  headingNames.set('rbe', rbeTitleM ? rbeTitleM[1].trim() : 'RBE Suite: Rule-Based Engine');
+  headingNames.set('rbe', rbeTitleM ? decodeEntities(rbeTitleM[1].trim()) : 'RBE Suite: Rule-Based Engine');
 }
 
 const catOrder = [];
@@ -91,9 +104,9 @@ const catTools = new Map();
     const nameM = attrs.match(/data-name="([^"]+)"/);
     if (!catM || !nameM) continue;
     const cat = catM[1];
-    const name = nameM[1].replace(/&amp;/g, '&');
+    const name = decodeEntities(nameM[1]);
     const descM = body.match(/<div class="card-desc">([\s\S]*?)<\/div>/);
-    const desc = descM ? descM[1].replace(/&amp;/g, '&').trim() : '';
+    const desc = descM ? decodeEntities(descM[1].trim()) : '';
     if (!catTools.has(cat)) { catTools.set(cat, []); catOrder.push(cat); }
     catTools.get(cat).push({ href, name, desc });
   }

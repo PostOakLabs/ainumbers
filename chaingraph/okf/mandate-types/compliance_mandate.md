@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-312"]
+tags: ["compliance_mandate", "count-314"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-312 tool(s) in this mandate-type group:
+314 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -313,6 +313,7 @@ status: stable
 - [Corporate Action Entitlement Recompute](../tools/art-547-corporate-action-entitlement-recompute.md)
 - [Reg E Remittance Disclosure Consistency Check](../tools/art-550-reg-e-remittance-disclosure-check.md)
 - [Swift MT101 Coexistence Readiness Diff](../tools/art-551-mt101-coexistence-readiness-diff.md)
+- [Compile Model Risk Lineage Pack](../tools/art-562-compile-model-risk-lineage-pack.md)
 - [Swift MT9xx to camt Statement Migration Mapper](../tools/art-563-mt9xx-camt-statement-migration-mapper.md)
 - [UCP Checkout Payload Lint](../tools/art-564-ucp-checkout-payload-lint.md)
 - [KYA Credential x x402 Payload Scope Verifier](../tools/art-565-kya-x402-scope-verifier.md)
@@ -321,6 +322,7 @@ status: stable
 - [GENIUS Act Reserve-Disclosure Conformance Monitor](../tools/art-582-genius-reserve-disclosure-conformance-monitor.md)
 - [Proof-of-Reserves Verifier](../tools/art-584-proof-of-reserves-verifier.md)
 - [Sanctions Screening Evidence Pack](../tools/art-585-sanctions-screening-evidence-pack.md)
+- [FinP2P Ledger Proof Verifier](../tools/art-587-finp2p-ledger-proof-verifier.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (576 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (588 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -1921,7 +1921,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Reg Z Appendix J APR Solver",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-215-reg-z-appendix-j-apr.html",
-    "description": "Reg Z Appendix J actuarial APR solver. Newton-Raphson iteration over the general actuarial equation (12 CFR 1026 Appendix J). Handles regula",
+    "description": "Reg Z Appendix J actuarial APR solver. Bracketed bisection on the general actuarial equation (12 CFR 1026 Appendix J), with the odd-days fra",
     "consumes": [
       "art-332-build-amortization-schedule"
     ],
@@ -5821,6 +5821,46 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-560-oracle-price-aggregation",
+    "display_name": "Oracle Price Aggregation",
+    "mandate_type": "oracle_price_aggregation",
+    "url": "https://ainumbers.co/chaingraph/art-560-oracle-price-aggregation.html",
+    "description": "Computes the aggregate price a decentralized oracle network would publish from a set of individual submissions, and gives that print its own",
+    "consumes": [],
+    "feeds": [
+      "art-561-currency-basket-index"
+    ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-561-currency-basket-index",
+    "display_name": "Currency Basket Index",
+    "mandate_type": "currency_basket_index",
+    "url": "https://ainumbers.co/chaingraph/art-561-currency-basket-index.html",
+    "description": "Values a currency basket by the fixed-amount method, where currency amounts are fixed at a rebase date and the live weights float daily with",
+    "consumes": [
+      "art-560-oracle-price-aggregation"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-562-compile-model-risk-lineage-pack",
+    "display_name": "Compile Model Risk Lineage Pack",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-562-compile-model-risk-lineage-pack.html",
+    "description": "Compiles a model's current model-passport-lifecycle (art-450-model-inventory-entry, art-451-model-outcome-analysis, art-453-model-validation",
+    "consumes": [
+      "art-450-model-inventory-entry",
+      "art-451-model-outcome-analysis",
+      "art-453-model-validation-status",
+      "art-488-model-replication-diff",
+      "art-489-model-test-battery"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-563-mt9xx-camt-statement-migration-mapper",
     "display_name": "Swift MT9xx to camt Statement Migration Mapper",
     "mandate_type": "compliance_mandate",
@@ -6084,6 +6124,36 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-587-finp2p-ledger-proof-verifier",
+    "display_name": "FinP2P Ledger Proof Verifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-587-finp2p-ledger-proof-verifier.html",
+    "description": "Verifies a FinP2P Ledger Proof in Hashlist mode against a caller-supplied secp256k1 public key. Recomputes the FinP2P Hashlist digest (fixed",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-588-docket-deadline-sweep",
+    "display_name": "Docket Deadline Sweep",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-588-docket-deadline-sweep.html",
+    "description": "Sweeps a caller-declared docket -- a flat list of {date, action, type, source, done} deadline records, the structured shape practitioners al",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-589-redline-round-classifier",
+    "display_name": "Redline Round Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-589-redline-round-classifier.html",
+    "description": "Classifies per-segment changes between two negotiation rounds of the same document (paragraph or clause-segmented structured text, pasted or",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-59-settlement-asset-finality-classifier",
     "display_name": "Settlement-Asset & Legal-Finality Classifier",
     "mandate_type": "compliance_mandate",
@@ -6097,6 +6167,58 @@ window.CHAINBUILDER_CATALOG = [
       "506-onchain-cash-leg-finality-checker",
       "510-digital-asset-regulatory-classifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-590-x402-eip712-digest-recomputer",
+    "display_name": "x402 EIP-712 Digest Recomputer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-590-x402-eip712-digest-recomputer.html",
+    "description": "Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct (the x402 payments rail's underlying authorization",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-591-x402-signer-recovery-verifier",
+    "display_name": "x402 Signer Recovery Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-591-x402-signer-recovery-verifier.html",
+    "description": "Recovers the ECDSA signer address from a caller-supplied EIP-712 digest (the sibling art-590-x402-eip712-digest-recomputer's output) and a s",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-592-x402-domain-nonce-window-checker",
+    "display_name": "x402 Domain & Nonce Window Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-592-x402-domain-nonce-window-checker.html",
+    "description": "Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defense-adjacent fields against caller-supplied expectations. Ta",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-593-webbotauth-nonce-replay-check",
+    "display_name": "Web Bot Auth Nonce & Replay-Window Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.html",
+    "description": "Checks a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshness against a caller-supplied now_unix (created/expires spread",
+    "consumes": [],
+    "feeds": [
+      "art-130-signature-directory-validator"
+    ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-594-tempo-mpp-voucher-receipt-verifier",
+    "display_name": "Tempo MPP Voucher & Receipt Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-594-tempo-mpp-voucher-receipt-verifier.html",
+    "description": "Verifies a Tempo Machine Payments Protocol cumulative EIP-712 session voucher offline (ecrecover, no RPC or database lookup), validates a TI",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -6114,6 +6236,16 @@ window.CHAINBUILDER_CATALOG = [
       "mms-03-app-fraud-graph",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-604-erc8004-registry-entry-verifier",
+    "display_name": "ERC-8004 Registry Entry Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-604-erc8004-registry-entry-verifier.html",
+    "description": "Checks whether a caller-supplied claimed ERC-8004 agent registry entry (Identity, Reputation, or Validation registry) and a caller-supplied ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

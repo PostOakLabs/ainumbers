@@ -496,6 +496,8 @@ import * as art557    from './art-557-record-index-constituents.kernel.mjs';
 import * as art558    from './art-558-record-fund-positions.kernel.mjs';
 import * as art559    from './art-559-attest-calc-agent-independence.kernel.mjs';
 import * as art56     from './art-56-tokenized-settlement-fit-diagnostic.kernel.mjs';
+import * as art560    from './art-560-oracle-price-aggregation.kernel.mjs';
+import * as art561    from './art-561-currency-basket-index.kernel.mjs';
 import * as art562    from './art-562-compile-model-risk-lineage-pack.kernel.mjs';
 import * as art563    from './art-563-mt9xx-camt-statement-migration-mapper.kernel.mjs';
 import * as art564    from './art-564-ucp-checkout-payload-lint.kernel.mjs';
@@ -523,8 +525,16 @@ import * as art583    from './art-583-beacon-seeded-fair-sampling-deriver.kernel
 import * as art584    from './art-584-proof-of-reserves-verifier.kernel.mjs';
 import * as art585    from './art-585-sanctions-screening-evidence-pack.kernel.mjs';
 import * as art587    from './art-587-finp2p-ledger-proof-verifier.kernel.mjs';
+import * as art588    from './art-588-docket-deadline-sweep.kernel.mjs';
+import * as art589    from './art-589-redline-round-classifier.kernel.mjs';
 import * as art59     from './art-59-settlement-asset-finality-classifier.kernel.mjs';
+import * as art590    from './art-590-x402-eip712-digest-recomputer.kernel.mjs';
+import * as art591    from './art-591-x402-signer-recovery-verifier.kernel.mjs';
+import * as art592    from './art-592-x402-domain-nonce-window-checker.kernel.mjs';
+import * as art593    from './art-593-webbotauth-nonce-replay-check.kernel.mjs';
+import * as art594    from './art-594-tempo-mpp-voucher-receipt-verifier.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
+import * as art604    from './art-604-erc8004-registry-entry-verifier.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
 import * as art63     from './art-63-agent-service-metering-modeler.kernel.mjs';
@@ -1076,6 +1086,8 @@ export const KERNELS = {
   'art-558-record-fund-positions':                              art558,
   'art-559-attest-calc-agent-independence':                     art559,
   'art-56-tokenized-settlement-fit-diagnostic':                 art56,
+  'art-560-oracle-price-aggregation':                           art560,
+  'art-561-currency-basket-index':                              art561,
   'art-562-compile-model-risk-lineage-pack':                    art562,
   'art-563-mt9xx-camt-statement-migration-mapper':              art563,
   'art-564-ucp-checkout-payload-lint':                          art564,
@@ -1103,8 +1115,16 @@ export const KERNELS = {
   'art-584-proof-of-reserves-verifier':                         art584,
   'art-585-sanctions-screening-evidence-pack':                  art585,
   'art-587-finp2p-ledger-proof-verifier':                       art587,
+  'art-588-docket-deadline-sweep':                              art588,
+  'art-589-redline-round-classifier':                           art589,
   'art-59-settlement-asset-finality-classifier':                art59,
+  'art-590-x402-eip712-digest-recomputer':                      art590,
+  'art-591-x402-signer-recovery-verifier':                      art591,
+  'art-592-x402-domain-nonce-window-checker':                   art592,
+  'art-593-webbotauth-nonce-replay-check':                      art593,
+  'art-594-tempo-mpp-voucher-receipt-verifier':                 art594,
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
+  'art-604-erc8004-registry-entry-verifier':                    art604,
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-62-ap2-payment-receipt-verifier':                        art62,
   'art-63-agent-service-metering-modeler':                      art63,

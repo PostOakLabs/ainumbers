@@ -1,0 +1,140 @@
+{
+  "shard_id": "FV-PROPFLOOR-SHARD-B13-1",
+  "spec_anchor": "FV-PBT-FLOOR-BUILD-SPEC.md §2/§3/§4",
+  "population_definition": "all kernels in shard FV-PROPFLOOR-SHARD-B13-1, enumerated below by kernel id and spec digest",
+  "human_sign_off": {
+    "status": "PENDING",
+    "name": null,
+    "date": null
+  },
+  "independence_sentence": "Each item listed was reviewed and attested independently; the single signature is a mechanical convenience over the enumerated digests, not a bulk review.",
+  "per_item_basis_of_review": "Every row ran the same two mechanical checks unconditionally: (1) the fixture-oracle gate — compute() output diffed against the kernel's own existing golden fixtures before any property was trusted, and (2) run-proptests.mjs green (process exit 0). ULP-boundary forcing was mandatory and present for the 5 float-sensitive rows named in the WU (art-35, art-43, art-44, art-46 — plus art-37 originally named in the WU, see the correction below). ⚠ CORRECTION (FIX-2 CARRY, applied during authoring per the WU's own instruction to verify float-sensitivity against the kernel before writing, not inherit the triage table uncritically): art-37-tempo-stablecoin-issuance is float:no, not float:yes as the WU row states — direct inspection of its compute() shows every check is a boolean/string-equality gate and supplyCap only ever appears in a strict `supplyCap > 0` comparison, never a division, multiplication, or accumulation chain. art-37 was authored with forced CATEGORICAL boundary cases (case-insensitive currency match, supplyCap zero boundary, empty currencyCode, RBAC AND-gate false) in place of ULP forcing, matching the treatment given to the WU's other 5 declared float:no kernels (art-36, art-39, art-40, art-45, art-47). This leaves 4 kernels with genuine ULP-boundary forcing in this shard (art-35, art-43, art-44, art-46), not 5 as the WU row states. Two property definitions were corrected during authoring after direct measurement against the kernel found the initial assumption false: art-35/art-43's verdict-threshold property needed to recompute annualSaving/breakEvenMonths independently from RAW (unrounded) policy_parameters rather than from the kernel's own toFixed()-rounded output fields, since the kernel decides the verdict before rounding and comparing against the rounded field produced false violations exactly at a threshold boundary; art-44's herstatt_share_pct property was narrowed from an assumed [0,100] bound to a finiteness-only assertion after measurement showed the ratio can legitimately go negative (negative herstatt_spread_bps) or exceed 100% (stablefx fee eating into the non-herstatt portion of the incumbent saving) — a real modeled effect the kernel does not clamp, not a floor defect. art-46's round-trip identity (user-cost + merchant-cost = full-cost) needed a tolerance of 2x the independent per-field toFixed(6) rounding tick rather than a tighter bound, since each of the three fields is rounded separately. No row beyond these mechanical checks received a separate in-depth human review in this pass — that is exactly the gap human_sign_off.status=PENDING names.",
+  "items": [
+    {
+      "kernel_id": "art-35-tempo-payments-business-case",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "kernel_digest": "sha256:983a22594a38514987c18253d6efe800adb9ffb96148357f3deb80975f46837c",
+      "proptest_file_digest": "sha256:2208392aba64cf9ea02ca7cecece624e7f898fb2f50a5e23ac37c14e9c1a9a2b",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-35-tempo-payments-business-case.proptest.mjs",
+      "properties_tested": ["per_tx_incumbent_nondecreasing_in_tx_amount", "outputs_finite_or_beven_null", "verdict_matches_recomputed_thresholds_from_raw_inputs", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-36-tempo-mpp-agent-mandate",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "stated float:no exception per the WU row, confirmed by inspection — max_vouchers is a floor-division voucher count over a small fixed-lookup-table divisor, no continuous float arithmetic. Forced CATEGORICAL boundary cases (spendCap $50 threshold boundary both sides, agentDid prefix off-by-one, unrecognized rail fallback, negative spendCap, null agentDid) used instead of ULP forcing",
+      "kernel_digest": "sha256:4967b7d4af80a186fa8374e13f61c4f6a14a94ef7f74474dc4fd840ddf488608",
+      "proptest_file_digest": "sha256:b8596adf0807cfbee355bca7479dccb2f407317cd6cec9f7aaba53eef084f6ea",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-36-tempo-mpp-agent-mandate.proptest.mjs",
+      "properties_tested": ["risk_level_bounded_to_3_state_enum", "max_vouchers_equals_floor_spendcap_over_cost", "did_valid_matches_prefix_check_and_forces_high_risk_when_invalid"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-37-tempo-stablecoin-issuance",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "WU row states float:yes — CORRECTED to float:no during authoring (FIX-2 CARRY) after direct inspection found compute() performs no continuous floating-point arithmetic: every check is a boolean/string-equality gate and supplyCap only ever appears in a strict supplyCap>0 comparison. Forced CATEGORICAL boundary cases (case-insensitive currency match, supplyCap zero boundary, empty currencyCode, RBAC AND-gate false) used instead of ULP forcing. See manifest per_item_basis_of_review for the full correction note.",
+      "kernel_digest": "sha256:252b8f7b8a64ab8a59613d891c4849f52fdc3322a68a98de86dd032a2305f6ae",
+      "proptest_file_digest": "sha256:98df28d02987e80c706dda650d90f06b8d49242d7bd2439afd2cdbba6917f0d2",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-37-tempo-stablecoin-issuance.proptest.mjs",
+      "properties_tested": ["verdict_bounded_to_3_state_enum", "verdict_matches_fail_and_warn_counts", "currency_pass_is_case_insensitive_usd_match"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-39-tempo-zone-disclosure",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "stated float:no exception per the WU row, confirmed by inspection — compute() is pure boolean-logic AND/OR gates over 11 boolean flags, no arithmetic at all. Forced CATEGORICAL boundary cases (single-flag flips at each AML/TIP-403 gate boundary) used instead of ULP forcing",
+      "kernel_digest": "sha256:05bec4999682594eba3e6bccae123325059131b7d46c30a259ce4f0037610adf",
+      "proptest_file_digest": "sha256:4f407fe0244c16d3998150f3fb0fcbb258a65ad3e9034ff87d8b25a6f20e6311",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-39-tempo-zone-disclosure.proptest.mjs",
+      "properties_tested": ["verdict_bounded_to_3_state_enum", "checks_object_exactly_matches_independent_recomputation", "full_attestation_implies_aml_operator_and_travel_rule_all_true"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-40-tempo-agentic-checkout",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "stated float:no exception per the WU row, confirmed by inspection — compute() does string slicing/truncation and an integer-hash-based deterministic address builder, no continuous float arithmetic. Forced CATEGORICAL boundary cases (memo 32-char truncation boundary both sides, empty rawRef, unicode senderName) used instead of ULP forcing",
+      "kernel_digest": "sha256:47e0d8df39b535ff28996c6dc12584f8049e74d5b4f532510f296e2eebbddc02",
+      "proptest_file_digest": "sha256:00cffa0bca5c8d9155620a467b94d1c505ebdcb8b2151698b254a33606dd7405",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-40-tempo-agentic-checkout.proptest.mjs",
+      "properties_tested": ["memo_length_bounded_32_and_truncated_flag_exact", "unknown_protocol_falls_back_to_manual_iso20022_binding", "deterministic_addr_pure_function_of_name_only"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-43-arc-cpn-model",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "kernel_digest": "sha256:b63c0541028ab8fc4734ed626c01d898b2248c38df45a7136d68bc76669a4f91",
+      "proptest_file_digest": "sha256:8c0dc178312b21a5a584d287a5905ce34504d7e1629ac1d9d2a26ba6fe549fde",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-43-arc-cpn-model.proptest.mjs",
+      "properties_tested": ["per_tx_incumbent_nondecreasing_in_notional", "outputs_finite_or_beven_null", "npv_3yr_equals_annual_saving_times_3_minus_impl_cost_from_raw", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-44-arc-stablefx-model",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "kernel_digest": "sha256:7fcfd2624025beb441f4018775a81c7e1d967809adfaff6b96cdde238bbf8d73",
+      "proptest_file_digest": "sha256:57adfabe3778018a225e5e1835a327aa6c712537b5bea77ac4caa6513ee85220",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-44-arc-stablefx-model.proptest.mjs",
+      "properties_tested": ["incumbent_annual_nondecreasing_in_daily_volume", "outputs_finite_beven_null_and_herstatt_share_pct_guard_clause", "herstatt_eliminated_matches_isolated_herstatt_credit_term", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-45-arc-xreserve-linter",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "stated float:no per the WU row. Verified against the kernel: the reserve-sum check uses a fixed 0.01 tolerance band (Math.abs(sum-100)<0.01) and usyc_pct is compared against fixed 60/80 percentage thresholds — threshold-tier comparisons on declared percentage inputs, no division or compounding chain. Forced CATEGORICAL boundary cases (reserve sum at the 0.01 tolerance edges, usyc_pct at 80/81, cctp_domains at 1/2, attestation_cadence exactly 'none') used instead of ULP forcing",
+      "kernel_digest": "sha256:6c42f2e178d592ddca24ae38edae3baed3c67880f4f18ce29b79d11e0e46f4d4",
+      "proptest_file_digest": "sha256:e12621d18d6acc6ac9b4c25aa23cf0fbfeb6ee9815c15009116f3ebd4333a6a7",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-45-arc-xreserve-linter.proptest.mjs",
+      "properties_tested": ["grade_bounded_to_6_state_a_to_f_enum", "grade_matches_reederived_grade_function", "reserve_sum_check_matches_001_tolerance_threshold"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-46-arc-paymaster-model",
+      "class": "B",
+      "float_sensitive": true,
+      "ulp_forcing_present": true,
+      "kernel_digest": "sha256:86b52d9ce0d72966dc6be706fe6621eb0c036d9be967792292fb315dad560cbd",
+      "proptest_file_digest": "sha256:fca57df9b9244064abed1d5720717e93c494cfe8cc50eb512ae99a6b345f5bbd",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-46-arc-paymaster-model.proptest.mjs",
+      "properties_tested": ["eth_cost_per_uop_nondecreasing_in_gas_per_uop", "outputs_finite_or_beven_null", "user_plus_merchant_cost_equals_full_cost", "ULP_boundary_forcing"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    },
+    {
+      "kernel_id": "art-47-arc-cctp-transfer",
+      "class": "B",
+      "float_sensitive": false,
+      "ulp_forcing_present": false,
+      "ulp_forcing_note": "stated float:no exception per the WU row, confirmed by inspection — notional_usd only ever participates in fixed-threshold comparisons (>=3000, >1000000), never division/multiplication/accumulation; fmtEnUS is pure string formatting. Forced CATEGORICAL boundary cases (Travel Rule $3000 threshold both sides, $1M LP-depth threshold both sides, uppercase domain names, whitespace-only hook_payload) used instead of ULP forcing",
+      "kernel_digest": "sha256:5d628b9e3200e3791c5152e7eb5d6bbe34b3e278f43cd24ebc497eea062d9d15",
+      "proptest_file_digest": "sha256:d626003bfcca9250e3cb4b0bae376e7b5e7bbe2be0c804b96310dd7b79d7434e",
+      "proptest_file": "chaingraph/kernels/__proptests__/art-47-arc-cctp-transfer.proptest.mjs",
+      "properties_tested": ["grade_bounded_to_6_state_a_to_f_enum", "verdict_matches_fail_and_warn_counts", "travel_rule_warn_matches_exact_3000_threshold"],
+      "fixture_oracle_result": "PASS (1/1 vectors)",
+      "run_proptests_result": "PASS"
+    }
+  ]
+}

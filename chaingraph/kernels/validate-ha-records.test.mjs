@@ -68,7 +68,7 @@ if (!HAR || !Array.isArray(ROLE) || !Array.isArray(POLICY) || !SHA256REF) {
   if (!sha256re.test(rec.subject_hash)) shapeErrs.push(`subject_hash not a valid sha256ref`);
   if (typeof rec.identity?.id !== 'string' || !rec.identity.id) shapeErrs.push(`identity.id missing`);
   // sanity: the enums are the closed sets §27 specifies (catches an accidental widening in the schema)
-  const wantRoles = ['preparer', 'reviewer', 'approver', 'attestor', 'submitter', 'model_owner', 'compliance_officer', 'examiner'];
+  const wantRoles = ['preparer', 'reviewer', 'approver', 'attestor', 'submitter', 'model_owner', 'compliance_officer', 'examiner', 'checker'];
   const wantPolicy = ['auto_pass', 'review_required', 'dual_control', 'escalate', 'hold', 'reject', 'emergency_override'];
   if (ROLE.slice().sort().join(',') !== wantRoles.slice().sort().join(',')) shapeErrs.push(`haRole enum drifted from the §27.1 closed set`);
   if (POLICY.slice().sort().join(',') !== wantPolicy.slice().sort().join(',')) shapeErrs.push(`haGatePolicy enum drifted from the §27.4 closed set`);
@@ -370,6 +370,92 @@ function isConformantEvidence(record) {
       }
     }
   }
+}
+
+// ── (9) §27.12 COUNTER-SIGNED RECEIPT — cross-org peer verification, BILAT-CSR-CONFORMANCE-1 ────
+// SPEC.md §27.12 (v0.8.20) / BILAT-CSR-BUILD-SPEC.md §8. A counter_signed_receipt is a checker (B)
+// attesting independent cross-org re-verification of A's already-sealed artifact — never
+// organizational sign-off. PRE-CHANGE PROBE (quoted in this WU's check-off): a validator that
+// checks only the §16 proof — the state before this section's checks below existed — WRONGLY
+// PASSES vectors 2, 3, 4 and 6:
+//   vector 2 (wrong kernel_pin.kernel_digest)   naive ok=true
+//   vector 3 (unreachable subject_hash)          naive ok=true
+//   vector 4 (same-identity receipt)             naive ok=true
+//   vector 6 (tampered artifact post-receipt)    naive ok=true, artifact actually still matches=false
+// (vector 5 — unsigned/malformed §16 proof — is the EXISTING §27.2 signed-named-human rule,
+// unchanged; it already rejects correctly via isConformantEvidence, defined in section (5) above,
+// and is asserted here only as a regression guard per this WU's row.)
+{
+  const csr = fx.counter_signed_receipt;
+  const subjectHash = 'sha256:' + await executionHash(csr.policy_parameters, csr.output_payload);
+  const sign = (id) => ({ audit_signature: { proof: { cryptosuite: 'eddsa-jcs-2022', verificationMethod: `${id}#key-1` } } });
+  const receipt = (overrides = {}) => ({
+    record_type: 'counter_signed_receipt', role: 'checker', subject_hash: subjectHash,
+    identity: { id: csr.checker_identity }, kernel_pin: { kernel_digest: csr.correct_kernel_digest },
+    timestamp: csr.timestamp, ...sign(csr.checker_identity), ...overrides,
+  });
+
+  // The real check: structural §16 proof + kernel_pin match + subject reachability + same-identity
+  // rejection, all independent predicates (any one failing rejects the receipt).
+  function validateCounterSignedReceipt(rec, { makerIdentity, actualKernelDigest, knownSubjectHashes }) {
+    const errors = [];
+    if (!isConformantEvidence(rec)) errors.push('unsigned or malformed §16 proof');
+    if (!knownSubjectHashes.includes(rec.subject_hash)) errors.push('no sealed record reachable for subject_hash');
+    if (rec.identity?.id === makerIdentity) errors.push('same-identity receipt (checker equals maker) — self-countersigning is not countersigning');
+    if (rec.kernel_pin?.kernel_digest && rec.kernel_pin.kernel_digest !== actualKernelDigest) errors.push('kernel_pin.kernel_digest does not match the kernel the subject was actually produced against');
+    return { ok: errors.length === 0, errors };
+  }
+  // Independent offline recompute-and-compare — a verifier holding the (possibly-since-tampered)
+  // sealed artifact recomputes execution_hash and checks it still matches the receipt's subject_hash.
+  async function verifyAgainstArtifact(rec, policy_parameters, output_payload) {
+    const recomputed = 'sha256:' + await executionHash(policy_parameters, output_payload);
+    return { matches: recomputed === rec.subject_hash, recomputed };
+  }
+
+  const ctx = { makerIdentity: csr.maker_identity, actualKernelDigest: csr.correct_kernel_digest, knownSubjectHashes: [subjectHash] };
+
+  // vector 1 — happy path.
+  const v1 = validateCounterSignedReceipt(receipt(), ctx);
+  if (v1.ok) ok(`CSR vector 1 (happy path): correct kernel_pin, valid §16 proof, distinct checker identity → validates, offline recompute of subject_hash matches (${subjectHash.slice(0, 23)}…)`);
+  else bad(`CSR vector 1 (happy path) wrongly rejected: ${v1.errors.join('; ')}`);
+
+  // vector 2 — wrong-kernel counter-sign.
+  const v2 = validateCounterSignedReceipt(receipt({ kernel_pin: { kernel_digest: csr.wrong_kernel_digest } }), ctx);
+  if (!v2.ok && v2.errors.some((e) => e.includes('kernel_pin'))) ok(`CSR vector 2 (wrong-kernel counter-sign): kernel_pin.kernel_digest mismatching the subject's actual producer is REJECTED (was naive ok=true pre-change — see header) — ${v2.errors.join('; ')}`);
+  else bad(`CSR vector 2 (wrong-kernel counter-sign) not rejected for the right reason: ${JSON.stringify(v2)}`);
+
+  // vector 3 — missing maker signature analogue (no sealed record reachable for subject_hash).
+  const v3 = validateCounterSignedReceipt(receipt({ subject_hash: csr.unreachable_subject_hash }), ctx);
+  if (!v3.ok && v3.errors.some((e) => e.includes('no sealed record reachable'))) ok(`CSR vector 3 (missing maker signature analogue): a receipt over a subject_hash with no corresponding sealed artifact reachable is REJECTED — absence is a refusal to validate, never a silent pass (was naive ok=true pre-change) — ${v3.errors.join('; ')}`);
+  else bad(`CSR vector 3 (missing maker signature analogue) not rejected for the right reason: ${JSON.stringify(v3)}`);
+
+  // vector 4 — same-identity receipt (checker == maker). Freshly signed under the MAKER's own key
+  // so the ONLY thing that can reject it is the same-identity rule, never an unrelated proof failure.
+  const v4rec = receipt({ identity: { id: csr.maker_identity }, ...sign(csr.maker_identity) });
+  const v4proofAlone = isConformantEvidence(v4rec);
+  const v4 = validateCounterSignedReceipt(v4rec, ctx);
+  if (!v4.ok && v4.errors.some((e) => e.includes('same-identity')) && v4proofAlone) ok(`CSR vector 4 (same-identity receipt): checker identity.id equal to A's own signer identity is REJECTED for the RIGHT reason — the §16 proof alone is valid (proofOnly=${v4proofAlone}), so the rejection is the same-identity rule, not an unrelated signature failure (was naive ok=true pre-change) — ${v4.errors.join('; ')}`);
+  else bad(`CSR vector 4 (same-identity receipt) not rejected for the right reason: proofOnly=${v4proofAlone}, ${JSON.stringify(v4)}`);
+
+  // vector 5 — unsigned or malformed §16 proof: EXISTING §27.2 rule (isConformantEvidence, section
+  // (5) above), asserted here as a regression guard only — no change to that rule.
+  const v5unsigned = receipt(); delete v5unsigned.audit_signature;
+  const v5malformed = receipt({ audit_signature: { proof: { cryptosuite: 'not-eddsa-jcs-2022', verificationMethod: `${csr.checker_identity}#key-1` } } });
+  const v5 = validateCounterSignedReceipt(v5unsigned, ctx);
+  const v5m = validateCounterSignedReceipt(v5malformed, ctx);
+  if (!v5.ok && !v5m.ok && v5.errors.includes('unsigned or malformed §16 proof') && v5m.errors.includes('unsigned or malformed §16 proof')) ok(`CSR vector 5 (unsigned/malformed §16 proof): rejected per the EXISTING §27.2 signed-named-human rule, unchanged (regression guard, not new logic)`);
+  else bad(`CSR vector 5 regression: unsigned/malformed §16 proof no longer rejected — unsigned:${JSON.stringify(v5)} malformed:${JSON.stringify(v5m)}`);
+
+  // vector 6 — tampered artifact post-receipt: B signs against the ORIGINAL artifact; the sealed
+  // artifact is then altered; an offline verifier recomputes execution_hash from the (tampered)
+  // artifact and it no longer matches the receipt's subject_hash → reported as a verification
+  // failure, never a stale-but-valid receipt.
+  const originalReceipt = receipt();
+  const tamperedPayload = { ...csr.output_payload, fails_charge_amount: 999999.99 };
+  const v6 = await verifyAgainstArtifact(originalReceipt, csr.policy_parameters, tamperedPayload);
+  const v6control = await verifyAgainstArtifact(originalReceipt, csr.policy_parameters, csr.output_payload);
+  if (!v6.matches && v6control.matches) ok(`CSR vector 6 (tampered artifact post-receipt): recomputed execution_hash after tampering (${v6.recomputed.slice(0, 23)}…) no longer matches the receipt's subject_hash → reported as a verification failure, never a stale-but-valid receipt (untampered control still matches, so the check is non-vacuous; was naive ok=true pre-change)`);
+  else bad(`CSR vector 6 (tampered artifact post-receipt) broken — tampered matches:${v6.matches} (want false), untampered control matches:${v6control.matches} (want true)`);
 }
 
 if (fail === 0) { console.log(`\n✓ validate-ha-records clean — ${checked} §27 check(s) passed.`); process.exit(0); }

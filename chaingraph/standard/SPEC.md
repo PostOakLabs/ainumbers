@@ -975,6 +975,13 @@ composite_output = { chain, steps: [ { tool_id, mandate_type, execution_hash, ou
 Per-step timestamps and `mandate_id`s are EXCLUDED from the preimage, so the composite hash is
 reproducible. If no step ran, `composite_execution_hash` is `null` and no composite artifact is emitted.
 
+> **NOTE (non-normative).** `composite_policy.compute_mode` above is written as the literal
+> `"server"` — this composite preimage is defined for `compute_mode: "server"` only. No browser-leg
+> or other-backend composite preimage is defined anywhere in this standard; this is deliberate as of
+> the current version, not an oversight. See `research/CHAIN-DIFF-HASHTARGET-ADJUDICATION-2026-08-10.md`
+> for the reasoning. A non-server composite is parked, not specced, pending the first genuine
+> consumer that needs one.
+
 ### §21.3 Composite artifact
 The composite artifact carries `chaingraph_version:"0.4.0"`, `compute_mode:"server"`,
 `tool_id:"chaingraph/chains/<name>"`, `chain.parent_hashes = [<each RAN step execution_hash>]`,
@@ -1335,7 +1342,7 @@ escalation_record = {
   opened_at       // ISO 8601 instant the record was opened — WALL-CLOCK, hash-EXCLUDED
 }
 ```
-DETERMINISM (the load-bearing rule). `opened_at` is wall-clock and MUST NOT enter any hash preimage —
+DETERMINISM (the rule everything else here depends on). `opened_at` is wall-clock and MUST NOT enter any hash preimage —
 neither the composite/step `execution_hash` (§21.2 RAN-steps-only already excludes it) NOR the
 escalation-record hash. The **escalation-record hash** is the §4 canonical hash (`kernels/_hash.mjs`, the ONE
 canonicalizer, RFC 8785 / JCS `cgCanon` — never a hand-built preimage) over exactly the DETERMINISTIC
@@ -1435,7 +1442,7 @@ byte-identical and fully conformant.
 The record MAY carry a machine-readable descriptor `exception_detail: { type, code, message }`, where `type`
 restates `exception_class`, `code` is a stable machine token, and `message` is human-readable. An
 `application`-class record MAY carry `retry: { attempt, max }`; an item reaching `attempt == max` MUST become
-a §22.8 `escalation_record` rather than silently drop. The distinction is load-bearing precisely because the
+a §22.8 `escalation_record` rather than silently drop. The distinction matters precisely because the
 two classes have opposite correct responses: retrying a `business` exception cannot succeed and only hides
 the item, while routing an `application` exception to a human wastes the one resource that cannot scale.
 
@@ -1755,7 +1762,7 @@ its claim (replay determinism) is not what the §4 parity/finite gates already m
 (§15) does three things: (a) it re-runs every kernel declaring `seeded-stochastic` at its own declared seed and
 fails the kernel unless both runs' `execution_hash` values are byte-identical; (b) it re-runs the same kernel at
 a **tampered seed** drawn from the committed negative fixture and fails if the hash does NOT change, which is
-what proves the seed is genuinely load-bearing rather than a decorative field; and (c) it exercises (a) and (b)
+what proves the seed genuinely changes the hash rather than being a decorative field; and (c) it exercises (a) and (b)
 unconditionally against a committed reference vector (`fixtures/seed-replay.fixtures.json`), so the replay and
 tamper-detect paths stay proven even in an estate with zero `seeded-stochastic` kernels. The declared class,
 `prng_algorithm`, `seed`, and `draw_count` are ordinary receipt content; this section adds no envelope change,
@@ -2665,8 +2672,10 @@ limit).
 **§27.1 Roles (NORMATIVE).** §27 defines a closed set of accountability roles: `preparer` (assembles the
 reporting artifact), `reviewer` (checks it), `approver`/`attestor` (accepts responsibility — the
 legally-effective sign-off), `submitter` (transmits it), and the OPTIONAL `model_owner` (owns a model whose
-output fed the artifact), `compliance_officer`, and `examiner` (READ-ONLY — an examiner role binding grants
-inspection, never approval authority). A **role binding** is a signed record that ties one §9 identity
+output fed the artifact), `compliance_officer`, `examiner` (READ-ONLY — an examiner role binding grants
+inspection, never approval authority), and `checker` (§27.12, v0.8.20 — attests independent cross-org
+verification of someone else's already-sealed artifact, never organizational sign-off; distinct from
+`reviewer`/`approver` for that reason). A **role binding** is a signed record that ties one §9 identity
 (`did:key` or LEI) to one role for one subject; the binding's §16 `eddsa-jcs-2022` proof MUST verify against
 that identity. Roles are the vocabulary the gate policy (§27.4) and thresholds (§27.3) count over. An
 identity MAY hold more than one role, but §27.3 distinctness is by identity, so one human cannot satisfy a
@@ -2675,7 +2684,8 @@ dual-control threshold alone by wearing two role hats.
 **§27.2 Approval records (NORMATIVE — SCITT-style statements about statements).** An **approval record** is
 a conformant OCG artifact whose `mandate_type` is the accepted envelope value `"human_accountability_record"`
 and whose `output_payload` matches `$defs/humanAccountabilityRecord`. Its authority payload carries:
-`record_type` (`role_binding` | `approval` | `rejection` | `override` | `annotation`), `role` (§27.1),
+`record_type` (`role_binding` | `approval` | `rejection` | `override` | `annotation` | `counter_signed_receipt`
+— the last, §27.12, v0.8.20), `role` (§27.1),
 `subject_hash` (the `sha256:`-prefixed `execution_hash` of the artifact being acted upon — the SCITT
 reference), the acting `identity: { id }` (§9), a `decision` where applicable, a `reason_code`, and a
 `timestamp`. The approval record is **itself a first-class artifact**: it has its own §4 `execution_hash`
@@ -2952,6 +2962,120 @@ concept only). The statement-about-statement framing follows **IETF SCITT** (a r
 **ZCAP-LD** is cited as the anti-pattern the scope discipline (§27.0) deliberately avoids. No text or code
 is copied from any of them.
 
+**§27.12 Counter-signed receipts — cross-org peer verification (NORMATIVE, OPTIONAL — new in v0.8.20).**
+§27.1–§27.11 model accountability WITHIN one organization: preparer, reviewer, approver, submitter act on
+one org's own filing. A **counter-signed receipt** is a different fact — a counterparty attests its own
+independent re-verification of someone else's already-sealed artifact, peer-to-peer, with no shared
+organization, registry, or relay. §27.12 adds the closed-enum members and the OPTIONAL field this needs,
+reusing every existing §27.2 mechanic unchanged.
+
+**The record.** `record_type` gains a sixth closed member, **`counter_signed_receipt`** (joining
+`role_binding | approval | rejection | override | annotation`, §27.2): a §27.2 approval-record artifact
+whose `record_type` is this value asserts exactly one fact — **the checker independently recomputed the
+subject and signed a receipt of that recomputation at the recorded `timestamp`.** `role` gains a sixth
+closed member, **`checker`** (joining §27.1's set): a checker attests independent verification, never
+organizational sign-off, and is distinct from `reviewer`/`approver` for that reason — an identity holding
+`checker` for one subject grants no approval authority over it. `subject_hash` (§27.2, unchanged) is the
+SCITT reference to the artifact being counter-signed — a §4 `execution_hash` for a §12 node subject, or the
+non-node three-member preimage ("Non-node gate subjects", above) for a chainless one; `identity` (§9,
+unchanged) and `timestamp` (unchanged) carry the checker's identity and the "at time T" fact — no new field
+is needed for either.
+
+**⛔ Vocabulary ban (binding, NORMATIVE).** The one permitted claim is the one stated above. Neither this
+artifact, nor any schema description, gate-policy prose, or product copy describing it, may use "accept",
+"acceptance", "settled", "final", or "finality" (or a synonym implying legal or economic settlement) to
+describe a `counter_signed_receipt`. A counter-signed receipt is **evidence that both parties independently
+recomputed and signed the same result** — never a claim that either party is bound, that the underlying
+transition is accepted, or that a dispute is foreclosed. (Corda tripwires, checked: the record attests, it
+does not finalise; it is a liveness duty on the checker to run its own verification, never operatorship of
+the subject; no ordering service is implied, spec-only or otherwise.)
+
+**`kernel_pin` — the new OPTIONAL sibling field.** `$defs/humanAccountabilityRecord` gains one new OPTIONAL
+member, `kernel_pin` (`$defs/haKernelPin`), a sibling of `record_type` exactly as §27.10's
+`subject_run_state` is — not a `record_type` member, not in `required[]`, and outside every `execution_hash`
+preimage. It pins **which** kernel or tool the checker verified `subject_hash` against: `kernel_digest`
+(§17) for a §12 node subject, or `tool_ref` — the identical `{tool_id, tool_version, entry,
+manifest_digest}` shape the non-node clause already defines — for a chainless attested-artifact subject.
+Its absence is exactly as conformant as its presence; what it prevents, when present, is a wrong-kernel
+counter-sign passing silently: a verifier holding both the receipt and the kernel/tool source can confirm
+`kernel_pin` names the SAME producer the subject was actually produced against, a check the field's shape
+makes possible without asserting it was performed (matching §27.11's separation between "structurally
+present" and "cryptographically or referentially checked").
+
+**`replay_verified` — the second OPTIONAL sibling field (v0.8.21).** `$defs/humanAccountabilityRecord` gains
+a second new OPTIONAL member, `replay_verified` (boolean), a sibling of `record_type` exactly as
+`kernel_pin` and §27.10's `subject_run_state` are — not a `record_type` member, not in `required[]`, and
+outside every `execution_hash` preimage. It states one fact about the checker's own conduct: `true` iff the
+checker independently re-ran the subject's computation deterministically and got a matching `subject_hash`
+before signing this record — never a rubber-stamp approval. It is governed by the omit-not-false discipline
+§27.4 already established for this exact term ("Non-node gate subjects", above): where no replay was
+attempted, the field MUST be omitted, never set `false` — `false` would read as a replay that was attempted
+and disagreed. `replay_verified` and `kernel_pin` answer different questions and neither subsumes the
+other: `kernel_pin` names WHICH kernel or tool the checker verified against, without asserting a replay was
+performed; `replay_verified` states WHETHER the checker actually re-ran it. A checker MAY populate one,
+both, or neither.
+
+**Additivity (demonstrated).** §27.12 adds two closed-enum members and two OPTIONAL schema fields
+(`kernel_pin`, `replay_verified`), all under the EXISTING `$defs/humanAccountabilityRecord` shape §27.2
+already defines. It introduces no new artifact type, no new `$defs/artifact.required` member, and no
+`execution_hash` preimage change: minting, revising, or discarding a `counter_signed_receipt` record — with
+or without `kernel_pin` or `replay_verified` — leaves the subject artifact's `execution_hash` byte-identical,
+exactly as §27.0 requires of every §27 construct. A verifier that has never heard of `counter_signed_receipt`,
+`checker`, `kernel_pin`, or `replay_verified` continues to validate every existing artifact and every
+existing §27 record unchanged; only a NEW record populating these members carries its own new §4 hash,
+computed the one canonical way. `chaingraph_version` stays `"0.4.0"`, and no existing hash, gate, or golden
+vector moves.
+
+**Scope note.** §27.12 specifies the SHAPE of a counter-signed receipt only. The exchange format, the
+identity-resolution minimum (a bare `did:key` is sufficient; §9), the offline dispute story, and the four
+flagship instances (TMPG fails-charge claims, PE waterfall true-ups, trustee-report recomputes, UCP 600
+document exams) are specified in `BILAT-CSR-BUILD-SPEC.md` and are NOT restated here; conformance-vector
+coverage (`validate-ha-records.test.mjs`) is a separate WU's scope, not this subsection's.
+
+**§27.13 Party role — a per-party fact about the underlying agreement (NORMATIVE, OPTIONAL — new in
+v0.8.22).** §27.1's `role` records what accountability ACT an identity performed (prepared, reviewed,
+approved, submitted, or — §27.12 — independently verified); it says nothing about that identity's standing
+under the agreement the subject artifact reports on. A `counter_signed_receipt` (§27.12) routinely crosses
+an org boundary where the parties' own governing agreement already assigns each of them a standing —
+signatory to the agreement, an observer with visibility but no signing authority, or the controlling party
+for the matter at hand. §27.13 adds `party_role` (`$defs/haPartyRole`), a THIRD OPTIONAL sibling field of
+`record_type` — alongside `kernel_pin` and `replay_verified` (§27.12) — not in `required[]`, reusing the
+exact extension mechanism those two established.
+
+**The vocabulary (NORMATIVE, closed).** `party_role` is one of exactly three values: `signatory` (the
+identity is a signatory to the agreement the subject artifact reports on), `observer` (the identity has
+visibility into the agreement but no signing authority under it), `controlling_party` (the identity holds
+controlling standing over the matter at hand under the agreement). **⛔⛔ NEVER "controller"** — that word
+reads as authority THIS RECORD grants; `party_role` records authority the parties' own prior agreement
+already assigned, and §27 grants none. Closed: adding a value IS a spec change, same footing as
+`record_type` / `role` / `haGatePolicy`.
+
+**What it is not (NORMATIVE, binding — Corda tripwires).** `party_role` records a FACT ABOUT THE PARTIES'
+OWN PRE-EXISTING AGREEMENT — never an authorization this record confers, an act this record performs, or a
+duty this record enforces. It is INERT BY CONSTRUCTION: no gate reads it, no §27.4 policy counts over it,
+no §27.3 threshold treats it as a role for dual-control purposes, and nothing in this spec branches on its
+value. Its absence means NO CLAIM about standing, never "no standing" — a record MAY populate `role` alone,
+`party_role` alone, both, or neither, since §27.1's accountability role and §27.13's party standing answer
+independent questions (a `checker` MAY be a `signatory`, an `observer`, or hold no party role at all). The
+line is LIVENESS DUTY, never operatorship: "accept", "acceptance", "settled", "final", or "finality" (or a
+synonym implying legal or economic settlement) MUST NOT be used to describe `party_role`, exactly as
+§27.12's vocabulary ban already requires of `counter_signed_receipt`.
+
+**Additivity and hash impact (NORMATIVE, demonstrated).** `party_role` is a sibling OPTIONAL member of
+`$defs/humanAccountabilityRecord`, exactly as `kernel_pin` and `replay_verified` are: it is part of the
+approval record's OWN `{policy_parameters, output_payload}` preimage (so a NEW record populating it gets
+its own new §4 hash, as any populated field would), and it has ZERO impact on any OTHER artifact's hash —
+the subject artifact's `execution_hash` stays byte-identical per §27.0, and every EXISTING approval record
+(minted before this pass, lacking the field) stays byte-identical since absence was already conformant.
+No `$defs/artifact.required` change, no `chaingraph_version` change (stays `"0.4.0"`). **Schema-file change
+required, stated explicitly:** unlike §29's `audit_signature` object, `$defs/humanAccountabilityRecord`
+carries `additionalProperties: false` (confirmed by inspection of
+`openchain-graph-v0.4.schema.json`), so `party_role` cannot validate without a `$defs` entry
+(`haPartyRole`, the closed three-value enum) and a new `properties.party_role` reference — the same schema
+edit shape `kernel_pin` and `replay_verified` each required. No existing hash, gate, or golden vector
+moves; a verifier ignorant of `party_role` continues to validate every existing artifact and every existing
+§27 record unchanged.
+
 ## §28 Clause Binding Profile — `ocg-clause-binding@1` (NORMATIVE, OPTIONAL, profile-scoped — new in v0.8.14)
 A citation like `"MiCA"` or `"17 CFR 240.15c3-3"` sitting in a tool's `regulatory_frameworks` /
 `regulatory_citations` prose is **unpinned**: it reads present-tense forever, is never bound to any
@@ -3067,8 +3191,102 @@ the same artifact with `clause_bindings` stripped produce byte-identical `execut
 §25, the profile **defaults OFF**: no node is required to adopt it, and its absence is never itself a
 finding.
 
+## §29 Twin Execution Record — `audit_signature.twin_execution` (NORMATIVE, OPTIONAL — new in v0.8.20)
+A kernel's hand-written implementation and a formally-modeled twin of the same specification can be
+executed against the same inputs and compared. Agreement between the two is evidence the hand-written
+kernel matches the formal model of the specification it was built against — **it is not evidence that
+either implementation matches the underlying regulation**, which remains the human-signed spec's job
+(`FORMALVERIF-BUILD-SPEC.md` §5 step 3, unchanged by this section). §29 records the result of that
+comparison as a first-class `audit_signature` sub-object, following the exact placement precedent §18's
+`compute_proof` already established.
+
+**§29.0 Home + object (NORMATIVE).** The record lives at `audit_signature.twin_execution`
+(hash-excluded — see §29.3; keeps the frozen v0.4 root schema). It MUST carry:
+- `twin_digest` — `sha256:`-prefixed identity of the compiled twin module, the same construction as
+  §17's `kernel_digest`;
+- `kernel_digest` — `sha256:`-prefixed; MUST equal `audit_signature.build_identity.kernel_digest`,
+  restated here so this object is independently checkable without cross-referencing another field;
+- `agreement` — boolean; whether the twin's output matched the hand-written kernel's output within
+  `tolerance` across `cases_checked`;
+- `max_divergence` — the largest measured divergence across the comparison, or `null` when the
+  comparison is exact/boolean-only;
+- `tolerance` — the tolerance the comparison was run against (e.g. `"1/8pp §1026.22(a)(2)"`);
+- `method` — `"differential" | "property-based"`;
+- `cases_checked` — integer count of cases the comparison covered;
+- `checked_at` — ISO 8601 timestamp of when the comparison ran.
+
+**§29.1 What agreement proves, and what it does not (NORMATIVE, informative derivation).**
+`agreement:true` is evidence the hand-written kernel matches its formal twin — a continuous version of
+the differential-test snapshot precedent (`FV-C1-DIFFTEST-REFRESH-1`). It is **not** evidence that
+either side correctly implements the cited regulation: the twin itself can be a mistranslation of the
+specification, so neither side is presumed correct by construction. **`agreement:false` is a finding
+that requires human adjudication — it MUST NOT be read as an automatic verdict that the hand-written
+kernel is wrong.** A verifier or gate that treats `agreement:false` as a refusal or auto-hold, rather
+than a recorded finding for a human to adjudicate, misreads this section.
+
+**§29.2 Execution location (NORMATIVE).** The twin executes **offline, worker/CI-side, at
+proof-generation time** — the same location §18's `compute_proof` is generated — and is never shipped
+to the browser. The browser verifier that recomputes `execution_hash` (§4) reads `twin_execution` as
+asserted evidence and never re-executes the twin itself, exactly as it already reads `compute_proof`'s
+seal without re-running the zkVM guest, and never requires any arbitrary-precision runtime dependency
+the twin's toolchain may emit. Twin agreement is therefore **build-time provenance, not runtime
+verification** — the same trust model as every other `audit_signature` sub-object.
+
+**§29.3 Frozen-envelope invariance (NORMATIVE).** `twin_execution` is declared as an OPTIONAL,
+hash-excluded member of `audit_signature`, exactly as §18 `compute_proof` was. `$defs/artifact.required`
+is UNCHANGED, the §4 preimage members (`policy_parameters`, `output_payload`) are UNCHANGED, and
+`chaingraph_version` stays `"0.4.0"`. Measured against §0.4-FREEZE's three-condition bar: this addition
+(a) moves no existing artifact's `execution_hash` — `twin_execution` sits outside the hashed preimage,
+so `execution_hash` is byte-identical with and without it for every existing artifact; (b) changes no
+`required[]` — every member of this section is optional; (c) imposes no MUST-emit — absence of
+`twin_execution` is fully conformant and means NO CLAIM. All three conditions clear, so this is an
+additive change under §0.4-FREEZE, not a breaking one. A verifier correct for v0.8.19 computes an
+identical `execution_hash` for a v0.8.20 artifact and MAY ignore `twin_execution` entirely.
+
+**§29.4 Relationship to `compute_proof_ready` (NORMATIVE).** `compute_proof_ready` is per-artifact,
+never a per-kernel literal (§18). `twin_execution` is a sibling object to `compute_proof`, not a
+modifier of it, and this section imposes no requirement on `compute_proof_ready`: a kernel MAY carry
+`twin_execution` with no `compute_proof` at all (twin-checked but not zk-proved), or `compute_proof`
+with no `twin_execution`, or both, or neither.
+
+**§29.5 Conformance (NORMATIVE).** An implementation MAY populate `audit_signature.twin_execution` for
+an artifact whose kernel has a twin comparison on record. Conformance requires: all §29.0 members
+present when the object is present; `kernel_digest` equal to `audit_signature.build_identity.kernel_digest`;
+`checked_at` a valid ISO 8601 timestamp; and the no-hash-move guarantee of §29.3 (an artifact with
+`twin_execution` and the same artifact with it stripped produce byte-identical `execution_hash`). Like
+§18, this section **defaults OFF**: no node is required to adopt it, and its absence is never itself a
+finding.
+
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.19 (2026-08-04 — SPEC-TEXT PASS drafting the STP forward decision-outcome
+See `standard/CHANGELOG.md`. **v0.8.22 (2026-08-10 — SPEC-TEXT PASS adding §27.13 Party role, staged by
+`RECEIPT-ROLES-1` carrying Tim's 2026-08-10 robert-adjudication approval; the record `spec_version` stays
+at whatever `chaingraph.json` carries until the next coordinated K landing bumps it, same separation as
+every prior text pass):** §27.13 adds `party_role` (`$defs/haPartyRole`) — OPTIONAL, closed three-value
+enum (`signatory` | `observer` | `controlling_party`), a THIRD sibling of `record_type` alongside
+`kernel_pin`/`replay_verified` (§27.12). Records a FACT about a party's standing under the agreement the
+subject artifact reports on — never an authorization this spec grants, never something a gate reads, never
+something anything branches on. `additionalProperties: false` on `$defs/humanAccountabilityRecord` means
+this DOES require a schema-file edit (new `$defs/haPartyRole` + new `properties.party_role`), stated
+explicitly — same shape as the `kernel_pin`/`replay_verified` edits. Purely additive: no
+`$defs/artifact.required` change, `chaingraph_version` stays `"0.4.0"`, every existing artifact and every
+existing §27 record (lacking the field) stays byte-identical. Corda tripwires respected: no accept/
+finality/settlement language, no operatorship, liveness-duty framing only. No kernel, page, or
+`chaingraph.json` touched by this pass — documentation only. **v0.8.20 (2026-08-10 — SPEC-TEXT PASS adding §29 Twin Execution Record,
+staged by `FV-RUNTIME-TWIN-SPEC-1.md` §1/§6 WU 1 carrying Tim's 2026-08-10 models-allowed/proofs-frozen
+ruling; the record `spec_version` stays at whatever `chaingraph.json` carries until the next coordinated
+K landing bumps it, same separation as every prior text pass):** §29 defines `audit_signature.twin_execution`
+— OPTIONAL, hash-excluded, sibling to §18 `compute_proof`, recording agreement/divergence between a
+hand-written kernel and a Dafny-compiled twin of the same specification. Purely additive: no schema
+`required[]` change, `chaingraph_version` stays `0.4.0`, every existing `execution_hash` byte-identical
+with and without the member (§29.3). The JSON Schema's `audit_signature` object carries no
+`additionalProperties:false`, so it already accepts this member without a schema-file edit — confirmed
+by inspection of `openchain-graph-v0.4.schema.json`, no `$defs` entry added by this pass. States plainly
+that agreement is evidence the kernel matches its formal twin, not evidence either matches the
+regulation (§29.1), that disagreement is a human-adjudicated finding, never an automatic verdict
+(§29.1), that the twin executes offline/worker/CI-side only and the browser never re-executes it
+(§29.2), and that `compute_proof_ready` is untouched — `twin_execution` is a sibling to `compute_proof`,
+not a modifier (§29.4). No `dafny verify` invocation, no proof discharge, and no kernel/page/schema code
+touched by this pass — documentation only. **v0.8.19 (2026-08-04 — SPEC-TEXT PASS drafting the STP forward decision-outcome
 mandate carved out by `STP-BRANCHABILITY-BUILD-SPEC.md` §3; the record `spec_version` stays at whatever
 `chaingraph.json` carries until the next coordinated K landing bumps it, exactly as the v0.8.18/v0.8.17/v0.8.16
 text passes were separated from their record bumps):** §STPFWD-1 requires a node first published
@@ -3305,7 +3523,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §APROV-1 `ocg-agent-provenance@1` evidence bundle: CARv1 write→read round-trip byte-identity; every block's content re-hashes to the digest encoded in its own CID key; a tampered block (content mutated post-write) MUST fail the per-block digest check; an artifact block's CID digest matches an independently-computed §4 `execution_hash` over the same `{policy_parameters, output_payload}` (not a self-referential check); a malformed/truncated CAR file is rejected rather than silently partially parsed; no new artifact field, no envelope change, `chaingraph_version` stays 0.4.0 | `car-roundtrip.test.mjs` | validate |
 | §REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList `credentialStatus` object under `audit_signature` (tolerated added property), hash-excluded — a receipt without it is byte-identical and fully conformant; `chaingraph_version` 0.4.0 UNCHANGED; frozen v0.4 root schema still validates | `schema-validate.mjs` | validate |
 | §SIDECAR.2 resource-narrowing invariant (reserved): a future delegated mandate's resource set MUST be a subset of its parent's — stated now, unenforced until multi-hop mandates ship; §22 single-hop mandate gates UNCHANGED | `mandate-binding.test.mjs` | validate |
-| §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed is load-bearing, not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
+| §24.6.2 `seeded-stochastic` replay: a kernel declaring the class re-runs at its own declared seed to a byte-identical `execution_hash`; the SAME kernel re-run at a tampered seed MUST produce a DIFFERENT hash (the seed actually changes the hash, it is not decorative); `prng_algorithm` + integer `seed` + `draw_count` all present; the replay and tamper-detect paths are exercised unconditionally against a committed reference vector, so they stay proven in an estate with zero `seeded-stochastic` kernels; no envelope change, no new hash, `chaingraph_version` 0.4.0 UNCHANGED | `seed-replay.test.mjs` | validate |
 | §27 human-accountability records: `$defs/humanAccountabilityRecord` shape (closed `record_type`/`role`/`haGatePolicy` enums, `subject_hash` a valid `sha256ref`); ADDITIVITY — an approval record referencing a subject leaves that subject's `execution_hash` byte-identical and a subject with zero HA records is byte-identical to a plain v0.8.11 artifact (`$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED); THRESHOLD DISTINCTNESS — `dual_control(N)` counts DISTINCT `identity.id`, so a repeated identity satisfies only N=1 and two distinct identities satisfy N=2; OVERRIDE EXPIRY — an expired `emergency_override` reverts the gate policy, never a silent permanent pass; SIGNED-NAMED-HUMAN — an unsigned approval record is rejected (§16 pairing check stays with `proof-binding.test.mjs`); defaults OFF, absence conformant | `validate-ha-records.test.mjs`, `schema-validate.mjs` | validate |
 | §28 clause binding profile `ocg-clause-binding@1`: hash-excluded top-level `clause_bindings[]` (zero-entry artifact hash-identical + fully conformant); each entry's RFC 6901 `pointer` MUST root at `/policy_parameters` or `/output_payload` — a pointer rooted elsewhere is RED (§28.3); each resolved §28.1 citation object carries the five REQUIRED members (`scheme`, `id`, `in_force_from`, `mapped_by`, `mapped_at`), ISO-date fields validated, `interpretation_ref` when present is a `sha256:` content hash, no unknown members on the closed pinned form; a legacy bare-string citation is valid but classified UNPINNED and MUST NOT be declared in `clause_bindings`; unresolved pointer / malformed citation / off-preimage pointer MUST fail; `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED; defaults OFF, absence conformant, new-artifacts-only (no migration path) | `clause-binding.test.mjs`, `schema-validate.mjs` | validate |
 | §21.6 ancestry_digest: bottom-up recompute over `{execution_hash, parent_ancestry_digests}` via the one `cgCanon` path, root uses `[]`, mutation-sensitive (an omitted/reordered/substituted ancestor MUST change the terminal digest — the exact `cgCanon`-object-not-string trap §PPH-1 already guards against, tested identically here), hash-EXCLUDED (byte-identical `execution_hash` with and without the member, both halves asserted), absence conformant + reported as no-claim, incomplete bundle reported as a distinct `incomplete-bundle` tier never conflated with `failed` | `ancestry-digest.test.mjs` (unit) + `schema-validate.mjs` (shape) | validate |

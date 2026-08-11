@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Redline Round Classifier &middot; ART-589 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Classify per-segment redline changes between two negotiation rounds as ACCEPTED, REVERTED, MODIFIED, NEW, or DELETED, with a word-level diff transcript and a round-over-round hash chain check.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-589-redline-round-classifier.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:680px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.warn{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.disclaimer-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-left:3px solid var(--warn);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-hint{font-size:.66rem;color:var(--muted);margin-top:.25rem}
+input[type="number"],input[type="text"],textarea,select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+textarea{resize:vertical;min-height:52px}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.secondary{background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3)}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right;max-width:60%}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.note-box{font-size:.68rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .8rem;margin:10px 0}
+.seg-row{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px}
+.seg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.seg-id{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright)}
+.diff-line{font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.7;word-break:break-word}
+.diff-ins{background:rgba(34,197,94,.18);color:var(--green);text-decoration:none}
+.diff-del{background:rgba(239,68,68,.18);color:var(--red);text-decoration:line-through}
+.remove-seg{background:none;color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.25rem .5rem;cursor:pointer}
+@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-589 · Redline Round Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-589 &middot; Legal Operations</div>
+  <h1>Redline Round Classifier</h1>
+  <p class="sub">Classifies each declared segment of a negotiated document between two rounds as ACCEPTED, REVERTED, MODIFIED, NEW, or DELETED, and builds a word-level diff transcript for every changed segment. Round-over-round history is a hash chain: each round after the first declares the execution hash this node produced for the immediately preceding round's own artifact, and a chain check recomputes that prior round's hash from its own content and confirms the two agree, so a tampered middle round fails the chain check even if its own classification output still looks well-formed.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Change Classification Only</span>
+    <span class="flag info">Round-Over-Round Hash Chain</span>
+    <span class="flag warn">Not Legal Advice</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="disclaimer-notice">&#9888; Not legal advice. This node classifies the TYPE of change between two drafts (accepted / reverted / modified / new / deleted) using plain text equality and a word-level diff. It never scores, ranks, or evaluates which side a change favors, never opines on clause quality or enforceability, and does not parse DOCX, PDF, or any other binary document format: segment text must be pasted or pre-extracted by the caller.</div>
+  <div class="note-box">Attribution: the five-state enum (ACCEPTED / REVERTED / MODIFIED / NEW / DELETED) extends the four-state classification used by <a href="https://github.com/eigenlegal/counsel-os" target="_blank" rel="noopener">eigenlegal/counsel-os</a>'s <code>diff_rounds.py</code> (MIT license) by adding DELETED. This is a design borrow, not a code port: <code>diff_rounds.py</code>'s source has not been read by this node's author, and no code from it appears here.</div>
+
+  <div class="card">
+    <div class="section-head">Round (declared)</div>
+    <div class="grid3">
+      <div class="q"><span class="q-label">Document ID</span><input type="text" id="ppDocId" value="msa-2026-acme"></div>
+      <div class="q"><span class="q-label">Round number</span><input type="number" id="ppRoundNumber" value="2" min="1" step="1"></div>
+      <div class="q"><span class="q-label">Round label</span><input type="text" id="ppRoundLabel" value="Round 2"></div>
+    </div>
+    <div class="q">
+      <span class="q-label">Prior round digest (leave blank for round 1)</span>
+      <input type="text" id="ppPriorDigest" value="1111111111111111111111111111111111111111111111111111111111111111">
+      <div class="q-hint">The execution_hash this node produced for the immediately preceding round's own artifact. Required for round &gt; 1; must be blank for round 1.</div>
+    </div>
+
+    <div class="section-head" style="margin-top:16px">Segments (declared)</div>
+    <div id="segmentRows"></div>
+    <button type="button" class="secondary" onclick="addSegmentRow()">+ Add segment</button>
+
+    <div style="margin-top:14px">
+      <button onclick="runClassification()">&#9654; Classify Round</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Round Summary</div>
+      <div id="summaryKv"></div>
+      <div class="section-head" style="margin-top:14px">Round Chain</div>
+      <div id="chainKv"></div>
+      <div class="section-head" style="margin-top:14px">Diff Transcript (changed segments only)</div>
+      <div id="diffTranscript"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+
+    <div class="card">
+      <div class="section-head" style="margin-top:0">Round Chain Verification (3-round example)</div>
+      <div class="note-box">This runs the built-in 3-round worked example (independent of the form above): round 1 is the chain root, round 2 modifies a clause, round 3 reverts it back to the round-1 baseline. Each round declares the real execution_hash of the prior round's own artifact. The chain check recomputes round 1 and round 2's hashes from their own content and confirms round 2 and round 3 committed to exactly those values.</div>
+      <div style="margin-top:10px">
+        <button class="secondary" onclick="runChainDemo(false)">Verify 3-round chain (untampered)</button>
+        <button class="secondary" onclick="runChainDemo(true)">Verify 3-round chain (round 2 tampered)</button>
+      </div>
+      <div id="chainDemoResult" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="art-566-iolta-three-way-reconciliation.html">IOLTA Three-Way Reconciliation</a>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-589-redline-round-classifier',
+  version: '1.0.0',
+  mcp_name: 'classify_redline_round_changes',
+  title: 'Redline Round Classifier',
+  description: 'Classify per-segment changes between two negotiation rounds of a document (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) with a word-level diff transcript and a round-over-round hash chain check. Never scores negotiating position; not legal advice.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'Illustrative only: no jurisdiction-specific redlining, e-discovery, or professional-conduct rule is encoded here.',
+  mcp_tool_definition: {
+    name: 'classify_redline_round_changes',
+    description: 'Classify per-segment redline changes between two negotiation rounds of a document, reporting ACCEPTED/REVERTED/MODIFIED/NEW/DELETED, a diff transcript, and round-chain linkage.',
+    inputSchema: {
+      type: 'object',
+      required: ['round', 'segments'],
+      properties: {
+        document_id: { type: 'string' },
+        round: { type: 'object', properties: { number: { type: 'integer' }, label: { type: 'string' } } },
+        prior_round_digest: { type: 'string' },
+        segments: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              segment_id: { type: 'string' },
+              baseline_text: { type: 'string' },
+              prior_text: { type: 'string' },
+              current_text: { type: 'string' }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+var _segRowSeq = 0;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return hex;
+}
+
+function s(v) { return String(v == null ? '' : v).trim(); }
+function normDigest(v) { return typeof v === 'string' ? v.trim().toLowerCase().replace(/^sha256:/, '') : ''; }
+function digestWellFormed(v) { return /^[0-9a-f]{64}$/.test(normDigest(v)); }
+function normText(v) { var t = s(v); return t === '' ? null : t; }
+
+// Word-level LCS diff. Mirrors chaingraph/kernels/art-589-redline-round-classifier.kernel.mjs
+// wordDiff() -- pure string comparison, no locale-sensitive tokenization.
+function wordDiff(a, b) {
+  var aw = a == null ? [] : a.split(/(\s+)/).filter(function(t){return t !== '';});
+  var bw = b == null ? [] : b.split(/(\s+)/).filter(function(t){return t !== '';});
+  var n = aw.length, m = bw.length;
+  var dp = new Array(n + 1);
+  for (var i = 0; i <= n; i++) dp[i] = new Array(m + 1).fill(0);
+  for (i = n - 1; i >= 0; i--) {
+    for (var j = m - 1; j >= 0; j--) {
+      dp[i][j] = aw[i] === bw[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  var ops = []; i = 0; var jj = 0;
+  while (i < n && jj < m) {
+    if (aw[i] === bw[jj]) { ops.push({op:'equal', text:aw[i]}); i++; jj++; }
+    else if (dp[i+1][jj] >= dp[i][jj+1]) { ops.push({op:'delete', text:aw[i]}); i++; }
+    else { ops.push({op:'insert', text:bw[jj]}); jj++; }
+  }
+  while (i < n) { ops.push({op:'delete', text:aw[i]}); i++; }
+  while (jj < m) { ops.push({op:'insert', text:bw[jj]}); jj++; }
+  var merged = [];
+  for (var k = 0; k < ops.length; k++) {
+    var last = merged[merged.length-1];
+    if (last && last.op === ops[k].op) last.text += ops[k].text;
+    else merged.push({op: ops[k].op, text: ops[k].text});
+  }
+  return merged;
+}
+
+function classifySegment(entry) {
+  var segment_id = typeof entry.segment_id === 'string' && entry.segment_id.trim() !== '' ? entry.segment_id.trim() : null;
+  var baseline_text = normText(entry.baseline_text);
+  var prior_text = normText(entry.prior_text);
+  var current_text = normText(entry.current_text);
+
+  if (!segment_id) return { rejected: true, reason: 'missing_segment_id', entry: entry };
+  if (prior_text == null && current_text == null) return { rejected: true, reason: 'no_prior_or_current_text', segment_id: segment_id };
+
+  var classification;
+  if (prior_text == null && current_text != null) classification = 'NEW';
+  else if (prior_text != null && current_text == null) classification = 'DELETED';
+  else if (current_text === prior_text) classification = 'ACCEPTED';
+  else if (baseline_text != null && current_text === baseline_text && baseline_text !== prior_text) classification = 'REVERTED';
+  else classification = 'MODIFIED';
+
+  var changed = classification !== 'ACCEPTED';
+  var result = { segment_id: segment_id, classification: classification, baseline_text: baseline_text, prior_text: prior_text, current_text: current_text, changed: changed };
+  if (changed) {
+    var fromText = classification === 'NEW' ? null : prior_text;
+    var toText = classification === 'DELETED' ? null : current_text;
+    result.diff = wordDiff(fromText, toText);
+  }
+  return { rejected: false, result: result };
+}
+
+// Mirrors chaingraph/kernels/art-589-redline-round-classifier.kernel.mjs compute() --
+// deterministic classification only, no clock, no network.
+function classifyRound(pp) {
+  var document_id = typeof pp.document_id === 'string' && pp.document_id.trim() !== '' ? pp.document_id.trim() : null;
+  var roundIn = pp.round && typeof pp.round === 'object' ? pp.round : {};
+  var round_number = Number.isInteger(roundIn.number) && roundIn.number > 0 ? roundIn.number : null;
+  var round_label = typeof roundIn.label === 'string' && roundIn.label.trim() !== '' ? roundIn.label.trim() : null;
+  var prior_round_digest = typeof pp.prior_round_digest === 'string' && pp.prior_round_digest.trim() !== '' ? pp.prior_round_digest.trim() : null;
+  var segmentsIn = Array.isArray(pp.segments) ? pp.segments : [];
+
+  var compliance_flags = ['REDLINE_ROUND_CLASSIFICATION_EVALUATED'];
+  var round_chain_state;
+  if (round_number === 1) {
+    if (prior_round_digest) { round_chain_state = {status:'REJECTED', reason:'round_1_must_not_declare_prior_round_digest'}; compliance_flags.push('ROUND_1_DECLARED_UNEXPECTED_PRIOR_DIGEST'); }
+    else round_chain_state = {status:'ROOT', reason:null};
+  } else if (round_number != null && round_number > 1) {
+    if (!prior_round_digest) { round_chain_state = {status:'REJECTED', reason:'prior_round_digest_required_for_round_gt_1'}; compliance_flags.push('MISSING_PRIOR_ROUND_DIGEST'); }
+    else if (!digestWellFormed(prior_round_digest)) { round_chain_state = {status:'REJECTED', reason:'prior_round_digest_malformed'}; compliance_flags.push('MALFORMED_PRIOR_ROUND_DIGEST'); }
+    else round_chain_state = {status:'LINKED', reason:null};
+  } else {
+    round_chain_state = {status:'REJECTED', reason:'round_number_missing_or_invalid'}; compliance_flags.push('ROUND_NUMBER_MISSING_OR_INVALID');
+  }
+
+  var classifications = [], rejected_inputs = [];
+  for (var i = 0; i < segmentsIn.length; i++) {
+    var c = classifySegment(segmentsIn[i] && typeof segmentsIn[i] === 'object' ? segmentsIn[i] : {});
+    if (c.rejected) rejected_inputs.push(c); else classifications.push(c.result);
+  }
+
+  var counts = {ACCEPTED:0, REVERTED:0, MODIFIED:0, NEW:0, DELETED:0};
+  for (i = 0; i < classifications.length; i++) counts[classifications[i].classification]++;
+  var total_segments = classifications.length;
+  var changed_count = total_segments - counts.ACCEPTED;
+  var diff_transcript = classifications.filter(function(c){return c.changed;}).map(function(c){return {segment_id:c.segment_id, classification:c.classification, diff:c.diff};});
+
+  var verdict, reason;
+  if (round_chain_state.status === 'REJECTED') { verdict = 'INDETERMINATE'; reason = round_chain_state.reason; }
+  else if (total_segments === 0) { verdict = 'INDETERMINATE'; reason = 'no_segments_declared'; compliance_flags.push('NO_SEGMENTS_DECLARED'); }
+  else { verdict = 'CLASSIFIED'; reason = null; compliance_flags.push('SEGMENTS_CLASSIFIED'); }
+
+  var round_summary = { document_id: document_id, round_number: round_number, round_label: round_label, total_segments: total_segments, changed_count: changed_count, accepted_count: counts.ACCEPTED, reverted_count: counts.REVERTED, modified_count: counts.MODIFIED, new_count: counts.NEW, deleted_count: counts.DELETED };
+
+  var output_payload = {
+    verdict: verdict, reason: reason, round_summary: round_summary,
+    round_chain: { round_number: round_number, prior_round_digest: prior_round_digest, status: round_chain_state.status },
+    classifications: classifications, diff_transcript: diff_transcript, rejected_inputs: rejected_inputs,
+    scope_note: 'Classifies the TYPE of change per declared segment only (ACCEPTED, REVERTED, MODIFIED, NEW, DELETED). Never scores or evaluates the negotiating position of either side; not legal advice.',
+    attribution_note: 'Five-state enum (ACCEPTED/REVERTED/MODIFIED/NEW/DELETED) extends the four-state classification used by eigenlegal/counsel-os diff_rounds.py (MIT license), design-borrow only. That file was not read; no code was ported from it.'
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function addSegmentRow(prefill) {
+  prefill = prefill || {};
+  var id = 'seg' + (_segRowSeq++);
+  var container = document.getElementById('segmentRows');
+  var row = document.createElement('div');
+  row.className = 'seg-row';
+  row.id = id;
+  row.innerHTML =
+    '<div class="seg-head"><span class="seg-id">Segment</span><button type="button" class="remove-seg" onclick="document.getElementById(\'' + id + '\').remove()">remove</button></div>' +
+    '<div class="q"><span class="q-label">Segment ID</span><input type="text" class="seg-id-input" value="' + (prefill.segment_id || '') + '"></div>' +
+    '<div class="grid3">' +
+    '<div class="q"><span class="q-label">Baseline text</span><textarea class="seg-baseline">' + (prefill.baseline_text || '') + '</textarea></div>' +
+    '<div class="q"><span class="q-label">Prior round text</span><textarea class="seg-prior">' + (prefill.prior_text || '') + '</textarea></div>' +
+    '<div class="q"><span class="q-label">Current round text</span><textarea class="seg-current">' + (prefill.current_text || '') + '</textarea></div>' +
+    '</div>';
+  container.appendChild(row);
+}
+
+function seedDefaultSegments() {
+  document.getElementById('segmentRows').innerHTML = '';
+  _segRowSeq = 0;
+  addSegmentRow({ segment_id: 'S1-payment-terms', baseline_text: 'Payment is due within 30 days of invoice.', prior_text: 'Payment is due within 45 days of invoice.', current_text: 'Payment is due within 45 days of invoice.' });
+  addSegmentRow({ segment_id: 'S2-liability-cap', baseline_text: 'Liability is capped at fees paid in the prior 12 months.', prior_text: 'Liability is capped at 2x fees paid in the prior 12 months.', current_text: 'Liability is capped at fees paid in the prior 12 months.' });
+  addSegmentRow({ segment_id: 'S3-termination', baseline_text: 'Either party may terminate for convenience on 30 days notice.', prior_text: 'Either party may terminate for convenience on 60 days notice.', current_text: 'Either party may terminate for convenience on 90 days notice with written approval.' });
+  addSegmentRow({ segment_id: 'S4-data-processing', baseline_text: '', prior_text: '', current_text: 'Vendor will process personal data only as instructed by Customer.' });
+  addSegmentRow({ segment_id: 'S5-arbitration', baseline_text: 'Disputes are resolved by binding arbitration in Delaware.', prior_text: 'Disputes are resolved by binding arbitration in Delaware.', current_text: '' });
+}
+
+function readSegmentsFromForm() {
+  var rows = document.querySelectorAll('#segmentRows .seg-row');
+  var out = [];
+  rows.forEach(function(row) {
+    out.push({
+      segment_id: row.querySelector('.seg-id-input').value,
+      baseline_text: row.querySelector('.seg-baseline').value,
+      prior_text: row.querySelector('.seg-prior').value,
+      current_text: row.querySelector('.seg-current').value
+    });
+  });
+  return out;
+}
+
+function renderDiff(diffOps) {
+  if (!diffOps || !diffOps.length) return '<span style="color:var(--muted)">(no diff)</span>';
+  return diffOps.map(function(t) {
+    var esc = t.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (t.op === 'insert') return '<span class="diff-ins">' + esc + '</span>';
+    if (t.op === 'delete') return '<span class="diff-del">' + esc + '</span>';
+    return '<span>' + esc + '</span>';
+  }).join('');
+}
+
+function runClassification() {
+  var pp = {
+    document_id: s(document.getElementById('ppDocId').value),
+    round: { number: parseInt(document.getElementById('ppRoundNumber').value, 10) || null, label: s(document.getElementById('ppRoundLabel').value) || undefined },
+    prior_round_digest: s(document.getElementById('ppPriorDigest').value) || undefined,
+    segments: readSegmentsFromForm()
+  };
+
+  var result = classifyRound(pp);
+  _lastResult = { pp: pp, output_payload: result.output_payload, compliance_flags: result.compliance_flags };
+  var op = result.output_payload;
+
+  var vBox = document.getElementById('verdictBox');
+  if (op.verdict === 'INDETERMINATE') { vBox.style.color = 'var(--warn)'; vBox.style.background = 'rgba(245,158,11,.08)'; vBox.style.border = '1px solid var(--warn)'; }
+  else { vBox.style.color = 'var(--teal-lt)'; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid var(--teal)'; }
+  vBox.textContent = op.verdict + (op.reason ? ': ' + op.reason.replace(/_/g,' ') : '');
+
+  document.getElementById('flagRow').innerHTML = result.compliance_flags.map(function(f) {
+    var cls = (f.indexOf('MISSING') > -1 || f.indexOf('MALFORMED') > -1 || f.indexOf('UNEXPECTED') > -1 || f.indexOf('INVALID') > -1) ? 'fail' : (f.indexOf('NO_SEGMENTS') > -1) ? 'warn' : 'ok';
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+
+  var sm = op.round_summary;
+  var srows = [
+    ['Document ID', sm.document_id], ['Round number', sm.round_number], ['Round label', sm.round_label],
+    ['Total segments', sm.total_segments], ['Changed segments', sm.changed_count],
+    ['Accepted', sm.accepted_count], ['Reverted', sm.reverted_count], ['Modified', sm.modified_count],
+    ['New', sm.new_count], ['Deleted', sm.deleted_count]
+  ];
+  document.getElementById('summaryKv').innerHTML = srows.map(function(r) {
+    return '<div class="kv"><span class="kv-k">' + r[0] + '</span><span class="kv-v">' + (r[1] == null ? '--' : r[1]) + '</span></div>';
+  }).join('');
+
+  var rc = op.round_chain;
+  var crows = [['Round number', rc.round_number], ['Prior round digest', rc.prior_round_digest], ['Chain status', rc.status]];
+  document.getElementById('chainKv').innerHTML = crows.map(function(r) {
+    return '<div class="kv"><span class="kv-k">' + r[0] + '</span><span class="kv-v">' + (r[1] == null ? '--' : r[1]) + '</span></div>';
+  }).join('');
+
+  document.getElementById('diffTranscript').innerHTML = op.diff_transcript.length
+    ? op.diff_transcript.map(function(d) {
+        return '<div class="seg-row"><div class="seg-head"><span class="seg-id">' + d.segment_id + '</span><span class="badge info">' + d.classification + '</span></div><div class="diff-line">' + renderDiff(d.diff) + '</div></div>';
+      }).join('')
+    : '<span style="color:var(--muted);font-size:.7rem">No changed segments.</span>';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: 'art-589-redline-round-classifier',
+    tool_version: '1.0.0',
+    generated_at: __generatedAtCapture,
+    execution_hash: hash,
+    chain: { parent_hashes: _lastResult.pp.prior_round_digest ? [_lastResult.pp.prior_round_digest] : [], parent_tool_ids: _lastResult.pp.prior_round_digest ? ['art-589-redline-round-classifier'] : [], chain_depth: _lastResult.pp.prior_round_digest ? 1 : 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-589-redline-round-classifier.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// verifyRoundChain — mirrors chaingraph/kernels/art-589-redline-round-classifier.kernel.mjs.
+// Recomputes each round's own execution_hash from its OWN policy_parameters/output_payload
+// and confirms the NEXT round declared exactly that value as prior_round_digest. A round whose
+// content was tampered after the fact recomputes to a different hash than what the following
+// round committed to, so the check fails at that round.
+async function verifyRoundChainClient(rounds) {
+  var details = [];
+  if (!rounds.length) return { valid: false, reason: 'no_rounds_declared', break_at_index: null, details: details };
+  var valid = true, break_at_index = null, break_reason = null;
+  for (var i = 0; i < rounds.length; i++) {
+    var round = rounds[i];
+    var recomputed = await computeExecHash(round.policy_parameters, round.output_payload);
+    var selfConsistent = round.execution_hash ? (recomputed === round.execution_hash) : null;
+    var linkedToNext = null;
+    if (i + 1 < rounds.length) {
+      var next = rounds[i+1];
+      var declared = next.policy_parameters && typeof next.policy_parameters.prior_round_digest === 'string' ? normDigest(next.policy_parameters.prior_round_digest) : null;
+      linkedToNext = declared != null && declared === normDigest(recomputed);
+    }
+    details.push({ index: i, recomputed_hash: recomputed, self_consistent: selfConsistent, linked_to_next: linkedToNext });
+    if (selfConsistent === false && valid) { valid = false; break_at_index = i; break_reason = 'round_content_does_not_match_its_own_declared_execution_hash'; }
+    if (linkedToNext === false && valid) { valid = false; break_at_index = i; break_reason = 'next_round_prior_round_digest_does_not_match_recomputed_hash'; }
+  }
+  return { valid: valid, reason: valid ? null : break_reason, break_at_index: break_at_index, details: details };
+}
+
+async function buildRound(pp) {
+  var result = classifyRound(pp);
+  var hash = await computeExecHash(pp, result.output_payload);
+  return { policy_parameters: pp, output_payload: result.output_payload, execution_hash: hash };
+}
+
+async function runChainDemo(tamper) {
+  var round1PP = { document_id: 'nda-2026-globex', round: { number: 1, label: 'Round 1' }, prior_round_digest: undefined,
+    segments: [
+      { segment_id: 'C1-confidentiality', baseline_text: '', prior_text: '', current_text: 'Confidential information may be retained for 3 years after termination.' },
+      { segment_id: 'C2-governing-law', baseline_text: '', prior_text: '', current_text: 'This agreement is governed by the laws of New York.' }
+    ] };
+  var r1 = await buildRound(round1PP);
+
+  var round2PP = { document_id: 'nda-2026-globex', round: { number: 2, label: 'Round 2' }, prior_round_digest: r1.execution_hash,
+    segments: [
+      { segment_id: 'C1-confidentiality', baseline_text: 'Confidential information may be retained for 3 years after termination.', prior_text: 'Confidential information may be retained for 3 years after termination.', current_text: 'Confidential information may be retained for 1 year after termination.' },
+      { segment_id: 'C2-governing-law', baseline_text: 'This agreement is governed by the laws of New York.', prior_text: 'This agreement is governed by the laws of New York.', current_text: 'This agreement is governed by the laws of New York.' }
+    ] };
+  var r2 = await buildRound(round2PP);
+
+  var round3PP = { document_id: 'nda-2026-globex', round: { number: 3, label: 'Round 3' }, prior_round_digest: r2.execution_hash,
+    segments: [
+      { segment_id: 'C1-confidentiality', baseline_text: 'Confidential information may be retained for 3 years after termination.', prior_text: 'Confidential information may be retained for 1 year after termination.', current_text: 'Confidential information may be retained for 3 years after termination.' },
+      { segment_id: 'C2-governing-law', baseline_text: 'This agreement is governed by the laws of New York.', prior_text: 'This agreement is governed by the laws of New York.', current_text: 'This agreement is governed by the laws of New York.' }
+    ] };
+  var r3 = await buildRound(round3PP);
+
+  var r2ForCheck = r2;
+  if (tamper) {
+    r2ForCheck = JSON.parse(JSON.stringify(r2));
+    r2ForCheck.output_payload.round_summary.modified_count = 999; // simulate post-hoc tamper of round 2's own artifact
+  }
+
+  var chainResult = await verifyRoundChainClient([r1, r2ForCheck, r3]);
+  var box = document.getElementById('chainDemoResult');
+  var lines = chainResult.details.map(function(d) {
+    var mark = (d.self_consistent === false || d.linked_to_next === false) ? '<span class="badge fail">FAIL</span>' : '<span class="badge ok">OK</span>';
+    return '<div class="kv"><span class="kv-k">Round ' + (d.index+1) + '</span><span class="kv-v">' + mark + ' ' + d.recomputed_hash.slice(0,16) + '&hellip;</span></div>';
+  }).join('');
+  box.innerHTML =
+    '<div class="verdict-box" style="color:' + (chainResult.valid ? 'var(--teal-lt)' : 'var(--red)') + ';background:' + (chainResult.valid ? 'rgba(20,184,166,.08)' : 'rgba(239,68,68,.08)') + ';border:1px solid ' + (chainResult.valid ? 'var(--teal)' : 'var(--red)') + '">' +
+      (chainResult.valid ? 'CHAIN VALID' : 'CHAIN INVALID: ' + (chainResult.reason || '').replace(/_/g,' ') + (chainResult.break_at_index != null ? ' (round ' + (chainResult.break_at_index+1) + ')' : '')) +
+    '</div>' + lines;
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+
+seedDefaultSegments();
+</script>
+</body>
+</html>

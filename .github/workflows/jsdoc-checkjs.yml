@@ -1,0 +1,123 @@
+name: JSDoc CheckJS
+
+# Incremental-only type-check gate: runs `tsc --noEmit --checkJs` against
+# NEW or TOUCHED kernel files only, never a sweep across the existing kernel
+# estate. No build step is introduced — `--noEmit` only, output is never
+# committed. TypeScript is fetched ephemerally via `npx`, never added as a
+# dependency (this repo ships zero-dependency browser artifacts and keeps
+# no package.json/lockfile). Actions below are pinned to a full commit SHA,
+# reusing the same pins already used elsewhere in this repo's workflows.
+#
+# No `${{ }}` expansion appears inside any `run:` body: the touched-file list is
+# author-controlled data and is carried by file, not by script text. See the
+# comment above the listing step.
+#
+# SCOPE (2026-08-10): `--checkJs` type-checks the whole
+# program tsc builds to resolve a touched file's types, and reports
+# diagnostics for every file in that program — including a touched file's
+# IMPORTED, completely untouched sibling (e.g. a new `__proptests__` floor
+# file dragging in its already-merged `.kernel.mjs`, which may carry
+# pre-existing type debt no diff here ever introduced). The type-check step
+# below now runs through `scripts/jsdoc-checkjs-gate.mjs`, which scopes
+# failure to diagnostics reported against a touched file itself, plus one
+# narrow, named allowlist for the deliberate, permanent absence of
+# `@types/node` in `__proptests__/*.proptest.mjs` harnesses (see that
+# script's header for the exact rules). It does not change which files are
+# selected as touched — only which of tsc's diagnostics are allowed to fail
+# the job.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'chaingraph/kernels/**/*.mjs'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'chaingraph/kernels/**/*.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  jsdoc-checkjs:
+    name: tsc --checkJs on touched kernels
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      # Filenames are PR-author-controlled, so they never reach a `run:` script
+      # as `${{ }}` text — GitHub expands those into the script BEFORE the shell
+      # runs, which turns a filename into code. Values arrive through `env:` and
+      # the file list is passed as a NUL-delimited FILE, never as a string: a
+      # quoted "$FILES" scalar would be a single bogus argument and an unquoted
+      # one word-splits on spaces, so neither is a safe way to carry a path list.
+      # Only an integer count crosses via `$GITHUB_OUTPUT`.
+      - name: List new/touched kernel files
+        id: files
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+          FILE_LIST: ${{ runner.temp }}/touched-kernels.z
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE_SHA"
+            HEAD="$PR_HEAD_SHA"
+          else
+            BASE="$PUSH_BEFORE"
+            HEAD="$PUSH_SHA"
+          fi
+          : > "$FILE_LIST"
+          # Incremental-only: if BASE can't be resolved (e.g. new branch, no
+          # prior commit), skip rather than diff against an empty tree — a
+          # missing BASE must never fall through to a full-estate sweep.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "BASE unresolvable — skipping (incremental-only gate never sweeps)."
+          else
+            git diff -z --name-only --diff-filter=ACM "$BASE" "$HEAD" -- 'chaingraph/kernels/**/*.mjs' > "$FILE_LIST"
+          fi
+          COUNT=$(tr -cd '\0' < "$FILE_LIST" | wc -c | tr -d '[:space:]')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Type-check touched kernels only
+        if: steps.files.outputs.count != '0'
+        shell: bash
+        env:
+          FILE_LIST: ${{ runner.temp }}/touched-kernels.z
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t FILES < "$FILE_LIST"
+          # Prefix with ./ so a path can never be read as a tsc option. The
+          # 'chaingraph/kernels/**' pathspec already anchors every entry, so
+          # this only stops that guard from being load-bearing by accident.
+          FILES=("${FILES[@]/#/./}")
+          printf 'Checking %s kernel file(s):\n' "${#FILES[@]}"
+          printf '  %q\n' "${FILES[@]}"
+          # jsdoc-checkjs-gate.mjs runs the same npx-fetched tsc with the same
+          # flags (see its own header) and applies the scope fix described
+          # above. FILES stays an argv array the whole way through — never
+          # re-joined into a string — so this is exactly as safe against
+          # metacharacter-bearing filenames as the direct tsc call it replaces.
+          node scripts/jsdoc-checkjs-gate.mjs "${FILES[@]}"
+
+      - name: No touched kernels
+        if: steps.files.outputs.count == '0'
+        shell: bash
+        run: echo "No kernel files changed — skipping (incremental-only gate)."

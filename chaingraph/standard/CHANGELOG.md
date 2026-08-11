@@ -259,7 +259,7 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
   bit-identical `output_payload`, hence a byte-identical `execution_hash`. A kernel that cannot meet that bar MUST
   declare `estimated` — under-claiming stays conformant (§11).
 - **Gated, not asserted** — new §15 row + `seed-replay.test.mjs`: replay against a committed reference vector, a
-  tampered-seed negative fixture that MUST fail (proving the seed is load-bearing, not decorative), and a
+  tampered-seed negative fixture that MUST fail (proving the seed actually changes the hash, not decorative), and a
   per-kernel replay/perturb check for any kernel declaring the class. The first two run unconditionally, so the
   paths stay proven while the estate has no adopters.
 - **Specified, not yet adopted** — no live kernel declares `seeded-stochastic` at 0.8.8. `art-371`

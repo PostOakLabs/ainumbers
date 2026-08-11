@@ -1,0 +1,86 @@
+{
+  "tool_id": "art-592-x402-domain-nonce-window-checker",
+  "version": "1.0.0",
+  "title": "x402 Domain & Nonce Window Checker",
+  "description": "Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defense-adjacent fields against caller-supplied expectations. expected_chain_id and expected_verifying_contract are mandatory policy parameters, separate from the chainId/verifyingContract actually baked into the signed domain -- a mismatch on either is a hard refuse, never a soft warning (the cross-domain replay defect EIP-712 domain separation exists to prevent). Also checks the validAfter/validBefore window against a caller-supplied now_unix, and the nonce's format (bytes32, non-zero). Accepts an optional caller-supplied nonce_already_used boolean; this kernel never queries a chain -- on-chain nonce uniqueness is enforced by the token contract at settlement time, not by this verifier. Zero network calls; never a facilitator, proxy, or settlement relay.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["compliance_control", "x402", "eip-712", "eip-3009", "domain-separation", "nonce-check", "mcp:check_x402_domain_nonce_window"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "expected_chain_id": { "type": ["string", "number"], "description": "Mandatory policy parameter: the chain id the caller expects this authorization to be valid against. Never defaulted or inferred from the signed domain." },
+      "expected_verifying_contract": { "type": "string", "description": "Mandatory policy parameter: the 20-byte hex verifying-contract address the caller expects. Never defaulted or inferred from the signed domain." },
+      "chainId": { "type": ["string", "number"], "description": "The chainId actually baked into the EIP-712 domain the signature was computed against." },
+      "verifyingContract": { "type": "string", "description": "The verifyingContract actually baked into the EIP-712 domain the signature was computed against." },
+      "validAfter": { "type": ["string", "number"], "description": "TransferWithAuthorization.validAfter -- uint256 unix timestamp." },
+      "validBefore": { "type": ["string", "number"], "description": "TransferWithAuthorization.validBefore -- uint256 unix timestamp." },
+      "now_unix": { "type": ["string", "number"], "description": "Caller-supplied reference time (uint256 unix timestamp). This kernel never reads the system clock -- the check is a pure function of its inputs." },
+      "nonce": { "type": "string", "description": "TransferWithAuthorization.nonce -- 32-byte hex value (bytes32)." },
+      "nonce_already_used": { "type": ["boolean", "null"], "description": "Optional: caller-computed boolean against the caller's own on-chain/off-chain record. This kernel never queries a chain." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_x402_domain_nonce_window",
+    "description": "Checks an EIP-3009 authorization's domain (expected vs. signed chainId/verifyingContract, hard refuse on mismatch), validAfter/validBefore window against a caller-supplied now_unix, and nonce format. Accepts an optional caller-supplied nonce_already_used flag. Never queries a chain.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "expected_chain_id": { "type": ["string", "number"] },
+        "expected_verifying_contract": { "type": "string" },
+        "chainId": { "type": ["string", "number"] },
+        "verifyingContract": { "type": "string" },
+        "validAfter": { "type": ["string", "number"] },
+        "validBefore": { "type": ["string", "number"] },
+        "now_unix": { "type": ["string", "number"] },
+        "nonce": { "type": "string" },
+        "nonce_already_used": { "type": ["boolean", "null"] }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-592-x402-domain-nonce-window-checker.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } },
+      "expected": {
+        "type": "object",
+        "properties": {
+          "expected_chain_id": { "type": ["string", "null"] },
+          "expected_verifying_contract": { "type": ["string", "null"] }
+        }
+      },
+      "signed_domain": {
+        "type": "object",
+        "properties": {
+          "chain_id": { "type": ["string", "null"] },
+          "verifying_contract": { "type": ["string", "null"] }
+        }
+      },
+      "domain_chain_match": { "type": ["boolean", "null"] },
+      "domain_contract_match": { "type": ["boolean", "null"] },
+      "window": {
+        "type": "object",
+        "properties": {
+          "valid_after": { "type": ["string", "null"] },
+          "valid_before": { "type": ["string", "null"] },
+          "now_unix": { "type": ["string", "null"] }
+        }
+      },
+      "authorization_within_window": { "type": ["boolean", "null"] },
+      "authorization_expired": { "type": ["boolean", "null"] },
+      "authorization_not_yet_valid": { "type": ["boolean", "null"] },
+      "nonce": { "type": ["string", "null"] },
+      "nonce_well_formed": { "type": ["boolean", "null"] },
+      "nonce_already_used": { "type": ["boolean", "null"] },
+      "disclosure": { "type": "string" }
+    }
+  },
+  "source": "authored by BUILD-X402-DOMAIN-NONCE-1 per research/SPEC-X402-CRYPTO-CORE-1-2026-08-09.md section 6; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-592-x402-domain-nonce-window-checker.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest sibling: art-590-x402-eip712-digest-recomputer)."
+}

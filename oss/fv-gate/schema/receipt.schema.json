@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/schema/fv-gate-receipt.schema.json",
+  "title": "fv-gate receipt",
+  "description": "Schema'd receipt emitted by fv-gate — pure record of a property-test-floor run + coverage/freshness ratchet check. No assurance-grade claim; internal engineering QC only.",
+  "type": "object",
+  "required": ["schema_version", "tool", "generated_at", "proptests", "coverage", "pass"],
+  "properties": {
+    "schema_version": { "const": "fv-gate-receipt-v1" },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "fv-gate" },
+        "version": { "type": "string" }
+      }
+    },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "proptests": {
+      "type": "object",
+      "required": ["total", "passed", "failed", "files"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file", "ok"],
+            "properties": {
+              "file": { "type": "string" },
+              "ok": { "type": "boolean" },
+              "status": { "type": ["integer", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "description": "Present only when a kernel/node layout was found; omitted (null) in proptests-only mode.",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "floored": { "type": "integer", "minimum": 0 },
+        "unfloored": { "type": "integer", "minimum": 0 },
+        "unfloored_nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "state", "reason"],
+            "properties": {
+              "name": { "type": "string" },
+              "state": { "enum": ["missing", "stale"] },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "ratchet": {
+          "type": "object",
+          "properties": {
+            "baseline_ceiling": { "type": ["integer", "null"] },
+            "regressions": { "type": "array", "items": { "type": "string" } },
+            "new_unfloored": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "pass": { "type": "boolean" },
+    "sarif_path": { "type": ["string", "null"] }
+  }
+}

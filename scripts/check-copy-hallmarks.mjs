@@ -54,6 +54,12 @@
  * hard gate, ever. Body-prose emoji counts (see scope decision above) are
  * also advisory-only.
  *
+ * Blocking, zero-tolerance, no baseline, SCOPED (BILAT-CSR-BUILD-SPEC.md §7 +
+ * Tim's 2026-08-07 popup addendum): a counter_signed_receipt vocabulary ban
+ * (accept/acceptance, final/finality, settled) — fires only on pages whose
+ * visible text names `counter_signed_receipt`, never sitewide (COSIGN_VOCAB_BAN
+ * / cosignVocabHits()). See BILAT-CSR-LINT-1.
+ *
  * Usage:
  *   node scripts/check-copy-hallmarks.mjs            # gate (preflight + CI)
  *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold baseline
@@ -66,11 +72,21 @@
  */
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE_PATH = resolve(REPO, 'scripts', 'copy-hallmarks-baseline.json');
 const UPDATE = process.argv.includes('--update');
+
+// Double-escaped HTML entities (ENTITY-DOUBLE-ESCAPE-1, 2026-08-09): a source
+// value that already carries an entity (e.g. "&amp;" for a literal "&") gets
+// escaped a SECOND time by a generator's esc()/escHtml(), rendering literal
+// "&amp;" text on the page instead of "&". Scanned over raw HTML (not just
+// tag-stripped visible text) because the bug also hits attributes like
+// data-name/aria-label that visibleText() strips before this point. Zero-
+// tolerance, no baseline — the sweep that added this found and fixed every
+// pre-existing hit first, so there is no legacy debt to shield.
+const DOUBLE_ESCAPED_ENTITY = /&amp;(?:amp|lt|gt|quot|#39|nbsp);/g;
 
 const EMDASH = /—/g;
 // Blocking, zero-tolerance, no baseline (DASHSWEEP-1, 2026-08-03 — CONTRACT §1.4
@@ -92,6 +108,33 @@ const JARGON = [
 const TWOTONE_HIGHPRECISION = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
 // Advisory only, PERMANENTLY — heuristic, catches legitimate 3-item lists too often for a hard gate.
 const TRIAD = /\b\w+,\s*\w+,\s*(?:and|&)\s*\w+\b/g;
+// Advisory only, WARN-ONLY per Tim's ruling 2026-08-07 (memory
+// feedback-anti-ai-tell-copy-ban item 11, LOADBEARING-SWEEP-1): "load-bearing"
+// used as a metaphor for "important"/"required" is an AI-writing tell, but the
+// word also has legitimate literal-structural and domain-specific uses (e.g.
+// physical load-bearing walls, a genuinely load-bearing field in a schema) that
+// a regex can't tell apart from the metaphor — never a hard block, a reviewer
+// clears each hit. Same shape as the triad/emoji advisories above.
+const LOADBEARING = /\bload[\s-]?bearing\b/gi;
+// Blocking, zero-tolerance, SCOPED (BILAT-CSR-BUILD-SPEC.md §7 + Tim's
+// 2026-08-07 popup addendum, binding): the claim a `counter_signed_receipt`
+// makes is "both parties recomputed and signed the same result" — NEVER
+// "settled/accepted/final". These words are ordinary vocabulary with heavy
+// legitimate use across ~480 unrelated tool pages ("click Accept", "final
+// step", "settlement date" fields), so this is NOT a sitewide ban — it fires
+// ONLY on a page whose visible text names `counter_signed_receipt` (the
+// record_type this ban protects). No such page exists yet (BILAT-CSR-SCHEMA-1
+// not landed) — this activates automatically once one ships, and a future
+// author who writes "the receipt confirms acceptance" gets caught before
+// merge. Scope (a) from §7 (the eventual SPEC.md prose section) is NOT
+// covered here — this gate is HTML-only by construction (`htmlFiles()`),
+// SPEC.md is markdown and already carries its own §15 gate suite.
+const COSIGN_RECEIPT_MARKER = /counter_signed_receipt/;
+const COSIGN_VOCAB_BAN = [
+  [/\baccept(?:ance|ed|s|ing)?\b/gi, 'accept/acceptance'],
+  [/\bfinal(?:ity)?\b/gi, 'final/finality'],
+  [/\bsettled?\b/gi, 'settled'],
+];
 // Structural UI chrome exempt from the bold count (not prose emphasis) —
 // same precedent as the italics rule's h1-h6 exemption, plus tabular/form
 // labels. <button> is already stripped upstream via BUTTON_TAG.
@@ -181,6 +224,18 @@ function htmlFiles(dir, out = []) {
   return out;
 }
 
+/** Scoped vocabulary ban (see COSIGN_VOCAB_BAN comment): only evaluates when
+ * `text` names counter_signed_receipt. Exported for unit testing. */
+export function cosignVocabHits(text) {
+  if (!COSIGN_RECEIPT_MARKER.test(text)) return [];
+  const hits = [];
+  for (const [re, label] of COSIGN_VOCAB_BAN) {
+    const m = text.match(re) || [];
+    if (m.length) hits.push(`${label} ×${m.length}`);
+  }
+  return hits;
+}
+
 // CONTRACT §1.3 mandates this banner verbatim (em-dash included) — exempt it.
 const PII_BANNER = '🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
 
@@ -228,6 +283,12 @@ function headerText(prose) {
   return out.join(' ');
 }
 
+// Gate body runs only when this file is executed directly (node scripts/check-
+// copy-hallmarks.mjs), never on `import` — cosignVocabHits() above is safe to
+// unit-test in isolation (check-copy-hallmarks.test.mjs) without triggering a
+// full repo scan / process.exit as an import side effect.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+
 const findings = {}; // rel path -> { emdash, jargon: [msg], twotone, hallmarks: [msg] }
 for (const file of htmlFiles(REPO)) {
   const rel = relative(REPO, file).replace(/\\/g, '/');
@@ -235,6 +296,7 @@ for (const file of htmlFiles(REPO)) {
   const prose = proseHtml(raw); // tags intact, badges/script/style/pre/code/comments gone
   const text = visibleText(raw); // fully tag-stripped
 
+  const doubleEscaped = (raw.match(DOUBLE_ESCAPED_ENTITY) || []).length;
   const emdash = (text.match(EMDASH) || []).length;
   const doubledashText = proseHtml(raw).replace(OPTION_TAG, ' ').replace(/<[^>]+>/g, ' ');
   const doubledash = (doubledashText.match(DOUBLEDASH) || []).length;
@@ -245,6 +307,8 @@ for (const file of htmlFiles(REPO)) {
   }
   const twotoneHP = (text.match(TWOTONE_HIGHPRECISION) || []).length;
   const triad = (text.match(TRIAD) || []).length;
+  const cosignVocab = cosignVocabHits(text);
+  const loadbearing = (text.match(LOADBEARING) || []).length;
 
   const hallmarks = [];
   // Italic/bold emphasis in HEADINGS (h1-h6) is now a blocking tell too (Tim
@@ -296,8 +360,8 @@ for (const file of htmlFiles(REPO)) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || hallmarks.length || emojiProse || bold || Object.keys(overuse).length) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, hallmarks, emojiProse, bold, overuse };
+  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse };
   }
 }
 
@@ -307,7 +371,7 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 let cgEmdash = 0;
 for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
 for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, emojiProse: 0, hallmarks: [], bold: 0, overuse: {} };
+if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {} };
 
 if (UPDATE) {
   const baseline = {};
@@ -346,11 +410,17 @@ for (const [rel, f] of Object.entries(findings)) {
     if (v > allowed) failures.push(`${rel}: "${k}" ×${v} in visible text — overused (max ${allowed})`);
     else if (bOver[k] != null && v < bOver[k]) improvements.push(`${rel}: "${k}" ${bOver[k]} -> ${v}`);
   }
+  // Double-escaped HTML entities: zero-tolerance, no baseline (ENTITY-DOUBLE-ESCAPE-1).
+  if (f.doubleEscaped) failures.push(`${rel}: ${f.doubleEscaped} double-escaped HTML entity/entities (e.g. "&amp;amp;") — a generator is escaping an already-escaped source value`);
   // ANTI-AI-TELL categories: zero-tolerance, no baseline, always fail if present.
   if (f.hallmarks.length) failures.push(`${rel}: ANTI-AI-TELL hit(s): ${f.hallmarks.join('; ')}`);
   // HIGH-PRECISION twotone: zero-tolerance, no baseline (COPYTELL-SWEEP-1, italics precedent).
   if (f.twotoneHP) failures.push(`${rel}: ${f.twotoneHP} HIGH-PRECISION twotone construction(s) ("It is not X. It is Y." family) — rewrite as a direct statement`);
+  // BILAT-CSR §7 vocabulary ban: zero-tolerance, no baseline, SCOPED to pages
+  // naming counter_signed_receipt (see cosignVocabHits comment).
+  if (f.cosignVocab.length) failures.push(`${rel}: counter_signed_receipt vocabulary ban hit(s): ${f.cosignVocab.join('; ')} — a receipt proves both parties recomputed and signed the same result, NEVER "settled/accepted/final"`);
   if (f.triad) advisories.push(`${rel}: ${f.triad} possible rule-of-three triad(s)`);
+  if (f.loadbearing) advisories.push(`${rel}: ${f.loadbearing} "load-bearing" hit(s) — likely a metaphor for important/required; reviewer clears literal-structural/domain uses (advisory)`);
   if (f.emojiProse) advisories.push(`${rel}: ${f.emojiProse} emoji glyph(s) in body text (advisory — see script header comment)`);
 }
 for (const rel of Object.keys(baseline)) {
@@ -369,3 +439,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`copy-hallmarks: OK (${Object.keys(baseline).length} baselined file(s) within budget, 0 ANTI-AI-TELL hits).`);
+
+}

@@ -1,0 +1,568 @@
+{
+  "tool_id": "art-560-oracle-price-aggregation",
+  "note": "golden_hash and output_payload filled by `node golden-parity.test.mjs --update`. Vectors cover all four aggregation mechanisms, the outlier path, the SPEC.md §25 private submitter-id path, the structural-error path, and -- as the DERIV-WORKFLOWS-BUILD-SPEC.md §4 backward-compatibility pair -- the SAME inputs with prev_print_hash omitted and supplied. The omitted-field vector is the backward-compat baseline: its policy_parameters carry no prev_print_hash key at all, and its output_payload carries neither lineage key, so it is byte-identical to what a kernel with no wiring would emit. Measured, not assumed: supplying the field moves the execution_hash; supplying it as an empty string ALSO moves it, because the key's presence in policy_parameters is itself hashed.",
+  "vectors": [
+    {
+      "name": "median-filtered-cwm-with-outlier",
+      "description": "Median-filtered confidence-weighted mean. One submission sits far beyond the 3% threshold and is flagged as an outlier, excluded from the weighted mean, and given an informative outlier-penalty readout.",
+      "policy_parameters": {
+        "mode": "median_filtered_confidence_weighted_mean",
+        "currency_pair": "EUR_USD",
+        "submissions": [
+          {
+            "id": "sub-01",
+            "price": 1.0823,
+            "weight_pct": 4.2,
+            "confidence": 0.005,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-02",
+            "price": 1.0819,
+            "weight_pct": 3.8,
+            "confidence": 0.0045,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-03",
+            "price": 1.12,
+            "weight_pct": 5.1,
+            "confidence": 0.006,
+            "timestamp": "2026-08-08T12:00:00Z"
+          }
+        ],
+        "outlier_threshold_pct": 3,
+        "epoch": 14200
+      },
+      "output_payload": {
+        "currency_pair": "EUR_USD",
+        "epoch": 14200,
+        "structural_error": null,
+        "aggregated_price": 1.0821105263,
+        "aggregation_method": "median_filtered_confidence_weighted_mean",
+        "aggregate_confidence": 0.00475,
+        "submission_count": 3,
+        "priced_submission_count": 3,
+        "surviving_count": 2,
+        "outlier_count": 1,
+        "outliers_flagged": [
+          "sub-03"
+        ],
+        "outlier_detail": [
+          {
+            "id": "sub-03",
+            "deviation_pct": 3.483323,
+            "outlier_penalty_rate_pct": 0
+          }
+        ],
+        "outlier_threshold_pct": 3,
+        "price_spread_pct": 3.521582,
+        "min_submitted": 1.0819,
+        "max_submitted": 1.12,
+        "stale_submissions": [],
+        "fault_tolerance": null,
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "Submission authenticity",
+            "detail": "Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source."
+          },
+          {
+            "item": "Commit-reveal phase",
+            "detail": "This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed."
+          },
+          {
+            "item": "Real-network publication",
+            "detail": "The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch."
+          },
+          {
+            "item": "Outlier-penalty enforcement",
+            "detail": "The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook."
+          }
+        ],
+        "fence": "Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number."
+      },
+      "golden_hash": "99158793535ef1d9038705db80664dd33aa2a77f59c3a95903522a802c786d79"
+    },
+    {
+      "name": "backward-compat-prev-print-hash-omitted",
+      "description": "§4 BACKWARD-COMPAT BASELINE. Plain median over three submissions with prev_print_hash absent entirely. Pairs with the vector below: identical inputs otherwise, so the two golden_hash values are the measured evidence that the wiring moves the hash only when the field is supplied.",
+      "policy_parameters": {
+        "mode": "plain_median",
+        "currency_pair": "GBP_USD",
+        "submissions": [
+          {
+            "id": "sub-01",
+            "price": 1.2701,
+            "weight_pct": 10,
+            "confidence": 0.002,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-02",
+            "price": 1.2705,
+            "weight_pct": 10,
+            "confidence": 0.002,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-03",
+            "price": 1.2709,
+            "weight_pct": 10,
+            "confidence": 0.002,
+            "timestamp": "2026-08-08T12:00:00Z"
+          }
+        ],
+        "epoch": 14201
+      },
+      "output_payload": {
+        "currency_pair": "GBP_USD",
+        "epoch": 14201,
+        "structural_error": null,
+        "aggregated_price": 1.2705,
+        "aggregation_method": "plain_median",
+        "aggregate_confidence": null,
+        "submission_count": 3,
+        "priced_submission_count": 3,
+        "surviving_count": 3,
+        "outlier_count": 0,
+        "outliers_flagged": [],
+        "outlier_detail": [],
+        "outlier_threshold_pct": 3,
+        "price_spread_pct": 0.062987,
+        "min_submitted": 1.2701,
+        "max_submitted": 1.2709,
+        "stale_submissions": [],
+        "fault_tolerance": {
+          "report_count": 3,
+          "tolerable_faults": 0,
+          "signatures_required": 1
+        },
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "Submission authenticity",
+            "detail": "Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source."
+          },
+          {
+            "item": "Commit-reveal phase",
+            "detail": "This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed."
+          },
+          {
+            "item": "Real-network publication",
+            "detail": "The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch."
+          },
+          {
+            "item": "Outlier-penalty enforcement",
+            "detail": "The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook."
+          }
+        ],
+        "fence": "Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number."
+      },
+      "golden_hash": "0e7a54c1418db480e8e7368d2654b414a3aff17aa5725cb1a7ab929d227a8911"
+    },
+    {
+      "name": "prev-print-hash-supplied-chained",
+      "description": "§4 CHAINED PRINT. Byte-for-byte the vector above plus prev_print_hash, citing the prior print of the same pair. The kernel adds the two lineage keys to output_payload and buildArtifact populates chain.parent_hashes / chain.parent_tool_ids; chain.* sits outside the §4 preimage, so only the policy_parameters field moves the hash.",
+      "policy_parameters": {
+        "mode": "plain_median",
+        "currency_pair": "GBP_USD",
+        "submissions": [
+          {
+            "id": "sub-01",
+            "price": 1.2701,
+            "weight_pct": 10,
+            "confidence": 0.002,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-02",
+            "price": 1.2705,
+            "weight_pct": 10,
+            "confidence": 0.002,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-03",
+            "price": 1.2709,
+            "weight_pct": 10,
+            "confidence": 0.002,
+            "timestamp": "2026-08-08T12:00:00Z"
+          }
+        ],
+        "epoch": 14201,
+        "prev_print_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "output_payload": {
+        "currency_pair": "GBP_USD",
+        "epoch": 14201,
+        "structural_error": null,
+        "aggregated_price": 1.2705,
+        "aggregation_method": "plain_median",
+        "aggregate_confidence": null,
+        "submission_count": 3,
+        "priced_submission_count": 3,
+        "surviving_count": 3,
+        "outlier_count": 0,
+        "outliers_flagged": [],
+        "outlier_detail": [],
+        "outlier_threshold_pct": 3,
+        "price_spread_pct": 0.062987,
+        "min_submitted": 1.2701,
+        "max_submitted": 1.2709,
+        "stale_submissions": [],
+        "fault_tolerance": {
+          "report_count": 3,
+          "tolerable_faults": 0,
+          "signatures_required": 1
+        },
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "Submission authenticity",
+            "detail": "Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source."
+          },
+          {
+            "item": "Commit-reveal phase",
+            "detail": "This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed."
+          },
+          {
+            "item": "Real-network publication",
+            "detail": "The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch."
+          },
+          {
+            "item": "Outlier-penalty enforcement",
+            "detail": "The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook."
+          }
+        ],
+        "fence": "Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number.",
+        "prev_print_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "chain_position": "chained"
+      },
+      "golden_hash": "88bd7c33fe7e936493fef132db3719aaa21ea32e2fb528adb709cde37f0ee4b2"
+    },
+    {
+      "name": "stake-weighted-median-frequency",
+      "description": "Stake-weighted median under the pinned frequency convention: a submitter with twice the weight appears twice as often in the sorted list, so the result is a submitted price rather than an average pulled toward the heavier weight.",
+      "policy_parameters": {
+        "mode": "stake_weighted_median_frequency",
+        "currency_pair": "USD_JPY",
+        "submissions": [
+          {
+            "id": "sub-01",
+            "price": 148.12,
+            "weight_pct": 10,
+            "confidence": 0.01,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-02",
+            "price": 148.31,
+            "weight_pct": 55,
+            "confidence": 0.01,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-03",
+            "price": 148.44,
+            "weight_pct": 35,
+            "confidence": 0.01,
+            "timestamp": "2026-08-08T12:00:00Z"
+          }
+        ],
+        "epoch": 14202
+      },
+      "output_payload": {
+        "currency_pair": "USD_JPY",
+        "epoch": 14202,
+        "structural_error": null,
+        "aggregated_price": 148.31,
+        "aggregation_method": "stake_weighted_median_frequency",
+        "aggregate_confidence": null,
+        "submission_count": 3,
+        "priced_submission_count": 3,
+        "surviving_count": 3,
+        "outlier_count": 0,
+        "outliers_flagged": [],
+        "outlier_detail": [],
+        "outlier_threshold_pct": 3,
+        "price_spread_pct": 0.216041,
+        "min_submitted": 148.12,
+        "max_submitted": 148.44,
+        "stale_submissions": [],
+        "fault_tolerance": null,
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "Submission authenticity",
+            "detail": "Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source."
+          },
+          {
+            "item": "Commit-reveal phase",
+            "detail": "This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed."
+          },
+          {
+            "item": "Real-network publication",
+            "detail": "The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch."
+          },
+          {
+            "item": "Outlier-penalty enforcement",
+            "detail": "The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook."
+          }
+        ],
+        "fence": "Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number."
+      },
+      "golden_hash": "5ab95624d1a6910c67443b755265ecf03693a5bb5637130b72ec320b5c3087d3"
+    },
+    {
+      "name": "three-vote-confidence-median",
+      "description": "Three-vote confidence median: each publisher casts p, p+c and p-c, the aggregate is the median of all votes, and the aggregate confidence is the greater distance from the aggregate to the 25th and 75th percentile of the votes.",
+      "policy_parameters": {
+        "mode": "three_vote_confidence_median",
+        "currency_pair": "BTC_USD",
+        "submissions": [
+          {
+            "id": "sub-01",
+            "price": 64100.5,
+            "weight_pct": 20,
+            "confidence": 12.5,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-02",
+            "price": 64150.25,
+            "weight_pct": 20,
+            "confidence": 18,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-03",
+            "price": 64090.75,
+            "weight_pct": 20,
+            "confidence": 9.25,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-04",
+            "price": 64180,
+            "weight_pct": 20,
+            "confidence": 22,
+            "timestamp": "2026-08-08T12:00:00Z"
+          }
+        ],
+        "epoch": 14203
+      },
+      "output_payload": {
+        "currency_pair": "BTC_USD",
+        "epoch": 14203,
+        "structural_error": null,
+        "aggregated_price": 64122.625,
+        "aggregation_method": "three_vote_confidence_median",
+        "aggregate_confidence": 37.9375,
+        "submission_count": 4,
+        "priced_submission_count": 4,
+        "surviving_count": 4,
+        "outlier_count": 0,
+        "outliers_flagged": [],
+        "outlier_detail": [],
+        "outlier_threshold_pct": 3,
+        "price_spread_pct": 0.139256,
+        "min_submitted": 64090.75,
+        "max_submitted": 64180,
+        "stale_submissions": [],
+        "fault_tolerance": null,
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "Submission authenticity",
+            "detail": "Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source."
+          },
+          {
+            "item": "Commit-reveal phase",
+            "detail": "This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed."
+          },
+          {
+            "item": "Real-network publication",
+            "detail": "The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch."
+          },
+          {
+            "item": "Outlier-penalty enforcement",
+            "detail": "The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook."
+          }
+        ],
+        "fence": "Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number."
+      },
+      "golden_hash": "065c32d3fff4988a7d6bbf128ada6d05c9f66e18a40f95d0651b6e6ed287240b"
+    },
+    {
+      "name": "private-submitter-id-and-stale-submission",
+      "description": "SPEC.md §25 path: one submitter id is supplied as a sha256-salted@1 commitment rather than plaintext, so the identifier is withheld while the aggregation stays bound to it. One submission is older than the staleness window relative to the newest supplied timestamp, which is flagged without any wall-clock read.",
+      "policy_parameters": {
+        "mode": "plain_median",
+        "currency_pair": "EUR_USD",
+        "submissions": [
+          {
+            "id": "sha256:cd5e29fe0b0d8c451c23e571275fd97975c21a7cede5c8c0223ffb9c8daafc55",
+            "price": 1.0822,
+            "weight_pct": 12,
+            "confidence": 0.004,
+            "timestamp": "2026-08-08T12:00:00Z",
+            "submitter_id_commitment_scheme": "sha256-salted@1"
+          },
+          {
+            "id": "sub-02",
+            "price": 1.0826,
+            "weight_pct": 12,
+            "confidence": 0.004,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "sub-03",
+            "price": 1.0824,
+            "weight_pct": 12,
+            "confidence": 0.004,
+            "timestamp": "2026-08-08T11:58:00Z"
+          }
+        ],
+        "stale_after_seconds": 30,
+        "epoch": 14204
+      },
+      "output_payload": {
+        "currency_pair": "EUR_USD",
+        "epoch": 14204,
+        "structural_error": null,
+        "aggregated_price": 1.0824,
+        "aggregation_method": "plain_median",
+        "aggregate_confidence": null,
+        "submission_count": 3,
+        "priced_submission_count": 3,
+        "surviving_count": 3,
+        "outlier_count": 0,
+        "outliers_flagged": [],
+        "outlier_detail": [],
+        "outlier_threshold_pct": 3,
+        "price_spread_pct": 0.036962,
+        "min_submitted": 1.0822,
+        "max_submitted": 1.0826,
+        "stale_submissions": [
+          "sub-03"
+        ],
+        "fault_tolerance": {
+          "report_count": 3,
+          "tolerable_faults": 0,
+          "signatures_required": 1
+        },
+        "rejected_inputs": [],
+        "not_proven": [
+          {
+            "item": "Submission authenticity",
+            "detail": "Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source."
+          },
+          {
+            "item": "Commit-reveal phase",
+            "detail": "This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed."
+          },
+          {
+            "item": "Real-network publication",
+            "detail": "The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch."
+          },
+          {
+            "item": "Outlier-penalty enforcement",
+            "detail": "The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook."
+          }
+        ],
+        "fence": "Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number."
+      },
+      "golden_hash": "c33652c051ef028978d0195af23becb9038adce36c53b446b2a52f7292847f1b"
+    },
+    {
+      "name": "structural-error-and-rejected-inputs",
+      "description": "Structural-error path: the mode is not one of the supported mechanisms, a price is non-numeric, a commitment scheme is unknown, and prev_print_hash is malformed. Every rejection is recorded with its pointer and the supplied value rather than being silently coerced.",
+      "policy_parameters": {
+        "mode": "whatever_the_venue_does",
+        "currency_pair": "EUR_USD",
+        "submissions": [
+          {
+            "id": "sub-01",
+            "price": "not-a-number",
+            "weight_pct": 10,
+            "confidence": 0.004,
+            "timestamp": "2026-08-08T12:00:00Z"
+          },
+          {
+            "id": "plaintext-id",
+            "price": 1.0822,
+            "weight_pct": 10,
+            "confidence": 0.004,
+            "timestamp": "2026-08-08T12:00:00Z",
+            "submitter_id_commitment_scheme": "md5-plain"
+          }
+        ],
+        "prev_print_hash": "not-a-hash",
+        "epoch": 14205
+      },
+      "output_payload": {
+        "currency_pair": "EUR_USD",
+        "epoch": 14205,
+        "structural_error": "mode is required.",
+        "aggregated_price": null,
+        "aggregation_method": null,
+        "aggregate_confidence": null,
+        "submission_count": 2,
+        "priced_submission_count": 1,
+        "surviving_count": null,
+        "outlier_count": 0,
+        "outliers_flagged": [],
+        "outlier_detail": [],
+        "outlier_threshold_pct": 3,
+        "price_spread_pct": 0,
+        "min_submitted": 1.0822,
+        "max_submitted": 1.0822,
+        "stale_submissions": [],
+        "fault_tolerance": null,
+        "rejected_inputs": [
+          {
+            "where": "mode",
+            "reason": "not one of the supported aggregation mechanisms: median_filtered_confidence_weighted_mean, stake_weighted_median_frequency, three_vote_confidence_median, plain_median",
+            "supplied": "whatever_the_venue_does"
+          },
+          {
+            "where": "submissions[0].price",
+            "reason": "absent or not a finite number",
+            "supplied": "not-a-number"
+          },
+          {
+            "where": "submissions[1].submitter_id_commitment_scheme",
+            "reason": "unknown commitment scheme -- \"sha256-salted@1\" is the sole scheme accepted (SPEC.md §25.1); the declared id is excluded rather than trusted as opaque",
+            "supplied": "md5-plain"
+          },
+          {
+            "where": "prev_print_hash",
+            "reason": "supplied but not a well-formed sha256: execution_hash (^sha256:[0-9a-f]{64}$); the prior print is not cited rather than cited wrongly",
+            "supplied": "not-a-hash"
+          }
+        ],
+        "not_proven": [
+          {
+            "item": "Submission authenticity",
+            "detail": "Every price, weight, confidence, timestamp and submitter id is caller-supplied and asserted. This kernel performs no oracle-network, price-feed or market-data lookups (zero-egress) and does not verify any submission against an external source."
+          },
+          {
+            "item": "Commit-reveal phase",
+            "detail": "This kernel simulates the aggregation step only. The commit-reveal phase that precedes aggregation in most real oracle networks is not modelled, so nothing here shows whether a submission was validly committed before it was revealed."
+          },
+          {
+            "item": "Real-network publication",
+            "detail": "The aggregate computed here is what the named mechanism yields on the supplied submissions. It is not a claim that any real oracle network did, or would, publish this number for this pair at this epoch."
+          },
+          {
+            "item": "Outlier-penalty enforcement",
+            "detail": "The outlier penalty rate is computed from the stated formula as an informative readout. This kernel does not assert that any penalty was applied, by whom, or under whose rulebook."
+          }
+        ],
+        "fence": "Every submission -- price, weight, confidence, timestamp and submitter id -- is SUPPLIED, asserted, and digested into this receipt. This kernel simulates the aggregation step only: it performs no price-feed or oracle-network lookups (zero-egress by contract), does not model the commit-reveal phase that precedes aggregation, and makes no claim that any real network did or would publish this number."
+      },
+      "golden_hash": "09b6896d142db4fdcf54d5b9d08282c447c4b811058a47c380cb7eba516b6d73"
+    }
+  ]
+}
