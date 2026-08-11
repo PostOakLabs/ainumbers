@@ -3076,6 +3076,64 @@ edit shape `kernel_pin` and `replay_verified` each required. No existing hash, g
 moves; a verifier ignorant of `party_role` continues to validate every existing artifact and every existing
 §27 record unchanged.
 
+**§27.14 Cure records and itemized deltas (NORMATIVE, OPTIONAL — new in v0.8.23).** A regulatory cure-of-error
+(for example TRID's cure-of-error mechanism for a mortgage disclosure) and a value-level correction with a
+stated reason (the AvaTax `TaxOverride` shape) are both value corrections, but they are not the same fact:
+an override (§27.5) is a time-boxed §22.10 attenuation of a GATE POLICY, scoped and expiring by
+construction; a cure evidences that a PRIOR ARTIFACT'S VALUE was wrong and has been corrected, with no
+policy attenuation implied. §27.14 gives the cure its own name so a reader never has to disambiguate two
+meanings inside one enum value, and adds the one genuinely missing piece, an itemized record of what
+changed, as a field both `cure` and `override` records may carry.
+
+**The record.** `record_type` gains a seventh closed member, **`cure`** (joining `role_binding | approval |
+rejection | override | annotation | counter_signed_receipt`, §27.2 / §27.12): a §27.2 approval-record
+artifact whose `record_type` is this value asserts that the acting identity corrected an error in the
+subject artifact's value(s) and is evidencing that correction. `subject_hash` (§27.2, unchanged) is the
+SCITT reference to the artifact being cured; `identity` (§9, unchanged) and `timestamp` (unchanged) carry
+who performed the cure and when. `cure` does NOT reuse `override`'s `scope`/`expiry` shape (§27.5) — a
+cure is not time-boxed and does not revert, because it is not attenuating a policy, it is recording a fact
+about a value.
+
+**`delta` — the new OPTIONAL sibling field.** `$defs/humanAccountabilityRecord` gains one new OPTIONAL
+member, `delta` (`$defs/haDelta`), a FOURTH sibling of `record_type` alongside `kernel_pin`,
+`replay_verified`, and `party_role` (§27.12/§27.13) — not a `record_type` member, not in `required[]`, and
+outside every `execution_hash` preimage of the SUBJECT artifact. It is an array of `{field_pointer,
+old_value_digest, new_value_digest}` entries: `field_pointer` is an RFC 6901 JSON Pointer naming the
+changed field within the subject artifact's `output_payload`, and `old_value_digest`/`new_value_digest`
+are sha256 digests of the field's value before and after the change. **Digests, never raw values** — the
+field records THAT a value changed and lets a holder of both artifacts confirm WHICH value, without
+re-opening what belongs in a preimage. Both `cure` and `override` records MAY carry `delta`; its absence
+means NO CLAIM about what changed, never that nothing changed.
+
+**Validation (NORMATIVE, stated explicitly).** A `cure` or `override` record naming a `subject_hash` that
+was never sealed fails the SAME validation §27.2 already runs for any approval record — no new check is
+needed for that case. A `delta` claiming a new value is a bare assertion unless a NEW sealed artifact
+carrying that value exists and is the artifact this record's `subject_hash` cites, via `chain.parent_hashes`
+reusing the §21.6 ancestry-commitment pattern — "this recompute supersedes that one" is already expressible
+as the corrected artifact's `chain.parent_hashes` citing the failing artifact's `execution_hash`, and a
+`delta` without such a citation states an intent to correct, not a proven correction. A verifier holding
+only the cure/override record and not the corrected artifact reports the delta as unverified, never as
+false.
+
+**AvaTax comparison, stated (NORMATIVE honesty).** AvaTax's `TaxOverride.Reason` is a flatter shape: a
+free-text reason attached to a replaced value, with no itemized field-level digest and no ancestry link to
+a superseding sealed artifact. §27.5's `override` mechanism (time-boxed, scoped, expiring, subject-linked)
+is already stricter and better-evidenced than that shape; this section does NOT rebuild AvaTax's flat
+shape as a new construct — it reuses §27.5 as the base and adds only the itemized `delta` that was
+genuinely missing.
+
+**Additivity (demonstrated).** §27.14 adds one closed-enum member (`cure`) and one OPTIONAL schema field
+(`delta`), under the EXISTING `$defs/humanAccountabilityRecord` shape §27.2 already defines. It introduces
+no new artifact type, no new `$defs/artifact.required` member, and no `execution_hash` preimage change to
+the SUBJECT artifact: minting, revising, or discarding a `cure` record, with or without `delta`, leaves the
+subject artifact's `execution_hash` byte-identical, exactly as §27.0 requires of every §27 construct.
+Because `$defs/humanAccountabilityRecord` carries `additionalProperties: false`, this addition DOES require
+a schema-file edit (new `$defs/haDelta` `$defs` entry, a new `cure` enum member on `record_type`, and a
+new `properties.delta` reference) — the same edit shape `kernel_pin`, `replay_verified`, and `party_role`
+each required. `chaingraph_version` stays `"0.4.0"`, and no existing hash, gate, or golden vector moves. A
+verifier that has never heard of `cure` or `delta` continues to validate every existing artifact and every
+existing §27 record unchanged; only a NEW record populating these members carries its own new §4 hash.
+
 ## §28 Clause Binding Profile — `ocg-clause-binding@1` (NORMATIVE, OPTIONAL, profile-scoped — new in v0.8.14)
 A citation like `"MiCA"` or `"17 CFR 240.15c3-3"` sitting in a tool's `regulatory_frameworks` /
 `regulatory_citations` prose is **unpinned**: it reads present-tense forever, is never bound to any
@@ -3258,7 +3316,23 @@ present when the object is present; `kernel_digest` equal to `audit_signature.bu
 finding.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.22 (2026-08-10 — SPEC-TEXT PASS adding §27.13 Party role, staged by
+See `standard/CHANGELOG.md`. **v0.8.23 (2026-08-11 — SPEC-TEXT PASS adding §27.14 Cure records and
+itemized deltas, staged by `RECEIPT-DELTA-CURE-1` carrying the 2026-08-10 robert-persona mechanism
+adjudication; the record `spec_version` stays at whatever `chaingraph.json` carries until the next
+coordinated K landing bumps it, same separation as every prior text pass):** §27.14 adds `cure`, a
+SEVENTH closed `record_type` member distinct from `override` (a value-level correction fact, not a
+time-boxed policy attenuation), and `delta` (`$defs/haDelta`) — OPTIONAL, a FOURTH sibling of
+`record_type` alongside `kernel_pin`/`replay_verified`/`party_role` (§27.12/§27.13), an itemized
+`{field_pointer, old_value_digest, new_value_digest}` array carrying digests only, never raw values.
+Available to both `cure` and `override` records. States the validation explicitly: an unsealed
+`subject_hash` fails the existing §27.2 check, and a `delta`'s claimed new value must cite a real new
+sealed artifact via `chain.parent_hashes` (the §21.6 ancestry-commitment pattern) or it is a bare
+assertion. `additionalProperties: false` on `$defs/humanAccountabilityRecord` means this DOES require a
+schema-file edit (new `$defs/haDelta` + the `cure` enum member + `properties.delta`), same shape the
+`kernel_pin`/`replay_verified`/`party_role` edits each required. Purely additive: no
+`$defs/artifact.required` change, `chaingraph_version` stays `"0.4.0"`, every existing artifact and every
+existing §27 record (lacking the field) stays byte-identical. No kernel, `chaingraph.json`, or spec-page
+structural change beyond the mirrored prose — documentation only. **v0.8.22 (2026-08-10 — SPEC-TEXT PASS adding §27.13 Party role, staged by
 `RECEIPT-ROLES-1` carrying Tim's 2026-08-10 robert-adjudication approval; the record `spec_version` stays
 at whatever `chaingraph.json` carries until the next coordinated K landing bumps it, same separation as
 every prior text pass):** §27.13 adds `party_role` (`$defs/haPartyRole`) — OPTIONAL, closed three-value
