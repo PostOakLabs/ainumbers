@@ -158,17 +158,42 @@ const result = runTsc(files);
 const output = `${result.stdout || ''}${result.stderr || ''}`;
 const { classified, blocking, ignoredDependency, ignoredAllowlisted } = classifyDiagnostics(output, files);
 
+// GitHub Actions' hosted runner has a DEFAULT tsc problem matcher always
+// active (no add-matcher call anywhere in this repo — confirmed by grep).
+// It annotates ANY line matching `<path>(<line>,<col>): error TS<code>:
+// <message>` — anywhere in stdout, prefix or not — as annotation_level
+// "failure". Measured via `gh api .../check-runs/<id>/annotations` on run
+// 31486811429: all 10 annotations (GitHub caps at 10/check-run) were
+// ignored-class diagnostics, because the raw tsc line was printed verbatim
+// for every kind, including ignored ones. formatIgnored re-punctuates the
+// SAME path/line/col/message (nothing dropped) so the string no longer
+// matches that matcher's regex — no parens, no literal "error TS" token —
+// so it still prints but never annotates. The `[BLOCKING]` line for a real
+// diagnostic is left byte-identical to tsc's own output so the matcher
+// keeps annotating it, unchanged.
+function formatIgnored(diagLine) {
+  const m = diagLine.match(DIAG_RE);
+  if (!m) return diagLine;
+  const [, rawPath, line, col, code, message] = m;
+  return `${rawPath}:${line}:${col} — ${code}: ${message}`;
+}
+
 for (const c of classified) {
-  if (c.kind === 'ignored-dependency') console.log(`[pre-existing dependency, not in this diff, ignored] ${c.line}`);
-  else if (c.kind === 'ignored-allowlisted') console.log(`[allowlisted: no @types/node in __proptests__ floor files (SO #10), ignored] ${c.line}`);
+  if (c.kind === 'ignored-dependency') console.log(`[pre-existing dependency, not in this diff, ignored] ${formatIgnored(c.line)}`);
+  else if (c.kind === 'ignored-allowlisted') console.log(`[allowlisted: no @types/node in __proptests__ floor files (SO #10), ignored] ${formatIgnored(c.line)}`);
   else if (c.kind === 'blocking') console.log(`[BLOCKING] ${c.line}`);
   else console.log(c.line);
 }
 
-console.log(
-  `\njsdoc-checkjs-gate summary: ${blocking} blocking, ${ignoredDependency} pre-existing dependency diagnostic(s) ignored, ` +
-  `${ignoredAllowlisted} allowlisted (no @types/node) diagnostic(s) ignored, checked ${files.length} touched file(s).`,
-);
+const summaryLine =
+  `jsdoc-checkjs-gate summary: ${blocking} blocking, ${ignoredDependency} pre-existing dependency diagnostic(s) ignored, ` +
+  `${ignoredAllowlisted} allowlisted (no @types/node) diagnostic(s) ignored, checked ${files.length} touched file(s).`;
+// On a clean run, restate the denominator as a ::notice:: so it's visible
+// on the run without mailing a failure digest — a plain console.log line
+// here would not annotate at all, but a notice keeps a green run's summary
+// as discoverable as a red run's failure summary already is.
+if (blocking === 0) console.log(`\n::notice::${summaryLine}`);
+else console.log(`\n${summaryLine}`);
 
 if (blocking > 0) {
   console.error(`\n✗ jsdoc-checkjs-gate FAILED — ${blocking} blocking diagnostic(s) in a touched file. See [BLOCKING] lines above.`);
