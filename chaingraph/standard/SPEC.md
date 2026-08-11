@@ -3134,6 +3134,84 @@ each required. `chaingraph_version` stays `"0.4.0"`, and no existing hash, gate,
 verifier that has never heard of `cure` or `delta` continues to validate every existing artifact and every
 existing §27 record unchanged; only a NEW record populating these members carries its own new §4 hash.
 
+**§27.15 Receipt-chain transitions — the closed `receipt_transition` sibling (NORMATIVE, OPTIONAL — new in
+v0.8.24).** §27.12 models exactly one fact: a checker independently recomputed A subject and signed a
+receipt of that recomputation, referenced once via `subject_hash`. A real bilateral exchange is rarely
+single-shot — a later `counter_signed_receipt` routinely responds to an EARLIER one: an identity countersigns
+it, challenges it, supersedes it, attests to it without recomputing, or extends how long it treats it as
+current. §27.15 names the closed, versioned vocabulary for that fact and reuses §27.12's own mechanism to
+carry it — no new reference field, no second extension path.
+
+**No new reference field (NORMATIVE).** A `receipt_transition` describes this record's relationship to a
+PRIOR `counter_signed_receipt`. That prior receipt is named by `subject_hash` — the field §27.2 already
+requires on every record — exactly as it names any other subject: `receipt_transition` MAY be present only
+when `record_type` is `counter_signed_receipt` and `subject_hash` is the prior receipt's own
+`execution_hash`. This is §27.12's mechanism unchanged, pointed at a receipt instead of an original artifact.
+
+**The vocabulary (NORMATIVE, closed).** `receipt_transition.type` is one of exactly five values —
+`countersign`, `challenge`, `supersede`, `attest`, `extend` — each carrying its own typed payload
+sub-object, and no other shape:
+- `countersign` — the acting identity independently reproduced the prior receipt's own recomputation and
+  reached the same result. Payload: none (the empty fact is the payload; no field to add).
+- `challenge` — the acting identity disputes the prior receipt. Payload: `{reason_code}` (a machine-stable
+  token naming why). Recording a challenge is descriptive only — it names a disagreement and MUST NOT be
+  read as opening, routing, or deciding any dispute-resolution process, since none exists in this spec.
+- `supersede` — the acting identity treats this record as the operative one for the subject the prior
+  receipt covered, going forward from its own point of view. Payload: `{replacement_subject_hash}` — the
+  `execution_hash` of the artifact this record newly recomputed. Recording a supersession is additive: the
+  prior receipt is never deleted, mutated, or marked invalid by this record — only marked superseded IN THE
+  EYES OF THE ACTING PARTY, exactly as §28.1 requires of a `superseded_by` citation.
+- `attest` — the acting identity attests the prior receipt still holds AS OF a given instant, without
+  re-performing the underlying recomputation. Payload: `{as_of}` (ISO 8601). Distinct from `countersign`,
+  which requires independent recomputation; `attest` requires none.
+- `extend` — the acting identity extends how long IT will treat the prior receipt as current. Payload:
+  `{new_valid_until}` (ISO 8601). Extending is a statement about the acting party's own future conduct, not
+  a claim that any other party is bound to honor the new date.
+
+Adding a sixth value, renaming one, or letting a caller define its own transition type IS a spec change —
+the exact discipline `record_type` / `haRole` / `haGatePolicy` already carry. A verifier MUST reject an
+unrecognized `receipt_transition.type` rather than silently accept it, the same closure §27.10 states for
+`haRunState`.
+
+**`consuming` — a property of the record, never a lock (NORMATIVE, binding — Corda tripwires).** A
+`receipt_transition` MAY carry `consuming` (boolean): the acting identity's own claim about whether it now
+treats the prior receipt as no longer the operative one for its subject. Governed by the same omit-not-false
+discipline §27.4 and `replay_verified` (§27.12) already established: where the acting party makes no claim
+either way, `consuming` MUST be omitted, never set `false`. `consuming` is INERT BY CONSTRUCTION — no gate
+reads it, nothing here executes a transition, no ordering is enforced between transitions on the same
+receipt chain, and no "valid next transition" machinery exists or is implied. It records what one party now
+believes about a prior receipt, never what the standard requires, permits, or will reject — the same
+descriptive-not-enforcing line §27.11.3 draws for a gate-evaluation record. The line is LIVENESS DUTY, never
+operatorship: no global total order over a receipt chain is implied, spec-only or otherwise, and no ordering
+service is named — the same tripwire §27.12 already checked.
+
+**Vocabulary ban (binding, NORMATIVE).** The same ban §27.12 states for `counter_signed_receipt` and §27.13
+states for `party_role` applies here without exception: no field, schema description, gate-policy prose, or
+product copy describing a `receipt_transition` — including `countersign` and `challenge`, the two values
+most likely to invite it — may use "accept", "acceptance", "settled", "final", or "finality" (or a synonym
+implying legal or economic settlement).
+
+**Additivity and hash impact (NORMATIVE, demonstrated).** `receipt_transition` is a FIFTH OPTIONAL sibling
+member of `$defs/humanAccountabilityRecord`, alongside `kernel_pin`, `replay_verified`, `party_role`, and `delta` (§27.12/§27.13/§27.14): not
+a `record_type` member, not in `required[]`, and — like every §27.12/§27.13 sibling before it — part of the
+approval record's OWN `{policy_parameters, output_payload}` preimage, so a NEW record populating it gets its
+own new §4 hash, exactly as any newly-populated field would, with ZERO impact on any OTHER artifact's hash.
+The subject artifact's `execution_hash` stays byte-identical per §27.0; every EXISTING approval record
+(minted before this pass, lacking the field) stays byte-identical since absence was already conformant. No
+`$defs/artifact.required` change, no `chaingraph_version` change (stays `"0.4.0"`). Because
+`$defs/humanAccountabilityRecord` carries `additionalProperties: false`, this addition requires the same
+schema-file edit shape `kernel_pin`, `replay_verified`, `party_role`, and `delta` each required: a new
+`$defs/haReceiptTransitionType` closed enum, a new `$defs/haReceiptTransition` object (five typed,
+mutually-exclusive payload sub-objects plus the `consuming` sibling), and a new
+`properties.receipt_transition` reference. No existing hash, gate, or golden vector moves; a verifier
+ignorant of `receipt_transition` continues to validate every existing artifact and every existing §27 record
+unchanged.
+
+**Scope note.** §27.15 specifies the SHAPE of a receipt-chain transition only. Whether, or how, an
+implementation displays a chain of `counter_signed_receipt` records to a human, and any offline
+dispute-resolution process a `challenge` might inform, are out of scope here and unspecified by this
+section, exactly as §27.12's own scope note already draws that line for the exchange format.
+
 ## §28 Clause Binding Profile — `ocg-clause-binding@1` (NORMATIVE, OPTIONAL, profile-scoped — new in v0.8.14)
 A citation like `"MiCA"` or `"17 CFR 240.15c3-3"` sitting in a tool's `regulatory_frameworks` /
 `regulatory_citations` prose is **unpinned**: it reads present-tense forever, is never bound to any
