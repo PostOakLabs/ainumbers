@@ -22,6 +22,10 @@
    it. sha256 is exported alongside sha512 because both come from the same vendored sha2.js and
    art-284 needs SHA-256 for its did:webvh entry hashing.
 
+   Also deleted: @noble/hashes utils.js's nextTick()/asyncLoop() pair, which exists only for the
+   async KDFs (pbkdf2/scrypt/argon2) and none of those are vendored. asyncLoop calls Date.now(),
+   which the kernel-determinism lint hard-bans, so it is removed rather than shipped unreachable.
+
    WHY THIS EXISTS: QuickJS inside the RISC Zero zkVM guest has NO WebCrypto -- `crypto.subtle` is
    ABSENT, not merely async. Kernels that verified Ed25519 signatures through crypto.subtle therefore
    computed nothing in-guest and sealed empty journals. noble's ed25519.verify is synchronous pure JS,
@@ -415,41 +419,6 @@ function hexToBytes(hex) {
     return array;
 }
 /**
- * There is no setImmediate in browser and setTimeout is slow.
- * This yields to the Promise/microtask scheduler queue, not to timers or the
- * full macrotask event loop.
- * @example
- * Yield to the next scheduler tick.
- * ```ts
- * await nextTick();
- * ```
- */
-const nextTick = async () => { };
-/**
- * Returns control to the Promise/microtask scheduler every `tick`
- * milliseconds to avoid blocking long loops.
- * @param iters - number of loop iterations to run
- * @param tick - maximum time slice in milliseconds
- * @param cb - callback executed on each iteration
- * @example
- * Run a loop that periodically yields back to the event loop.
- * ```ts
- * await asyncLoop(2, 0, () => {});
- * ```
- */
-async function asyncLoop(iters, tick, cb) {
-    let ts = Date.now();
-    for (let i = 0; i < iters; i++) {
-        cb(i);
-        // Date.now() is not monotonic, so in case if clock goes backwards we return return control too
-        const diff = Date.now() - ts;
-        if (diff >= 0 && diff < tick)
-            continue;
-        await nextTick();
-        ts += diff;
-    }
-}
-/**
  * Converts string to bytes using UTF8 encoding.
  * Built-in doesn't validate input to be string: we do the check.
  * Non-ASCII details are delegated to the platform `TextEncoder`.
@@ -607,7 +576,7 @@ const oidNist = (suffix) => ({
     oid: Uint8Array.from([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, suffix]),
 });
 //# sourceMappingURL=utils.js.map
-  return { isBytes, anumber, abytes, copyBytes, ahash, aexists, aoutput, u8, u32, clean, createView, rotr, rotl, isLE, byteSwap, swap8IfBE, byteSwap32, swap32IfBE, bytesToHex, hexToBytes, nextTick, asyncLoop, utf8ToBytes, kdfInputToBytes, concatBytes, checkOpts, createHasher, randomBytes, oidNist };
+  return { isBytes, anumber, abytes, copyBytes, ahash, aexists, aoutput, u8, u32, clean, createView, rotr, rotl, isLE, byteSwap, swap8IfBE, byteSwap32, swap32IfBE, bytesToHex, hexToBytes, utf8ToBytes, kdfInputToBytes, concatBytes, checkOpts, createHasher, randomBytes, oidNist };
 })();
 
 // ── @noble/hashes _u64.js (v2.2.0, MIT, Paul Miller) ─────────────────────────────────────────────────────────
