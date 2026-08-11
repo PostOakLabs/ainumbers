@@ -108,7 +108,9 @@ if (IS_MAIN) {
   }
   const elapsed = Date.now() - t0;
 
-  const verdict = evaluateResults(results, quarantine);
+  // Under --only the examined set is deliberately a subset, so "this quarantine entry names a node the
+  // gate did not examine" is meaningless there — the stale-entry check is a FULL-RUN invariant.
+  const verdict = evaluateResults(results, ONLY ? { nodes: (quarantine.nodes ?? []).filter((q) => q.tool_id === ONLY) } : quarantine);
 
   if (JSON_OUT) {
     console.log(JSON.stringify({ elapsed_ms: elapsed, examined: results.length, skippedPrivate, ...verdict }, null, 2));
