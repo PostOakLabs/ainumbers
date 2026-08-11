@@ -1,0 +1,44 @@
+name: CI Anchor
+
+# Closes a class of hole where a PR gets zero CI and still merges
+# ungated. PR #1199's branch conflicted with main, so the merge ref
+# never existed; a pull_request run builds on that merge commit, so
+# GitHub dispatched nothing for it: 0 runs, 0 check-suites. A PR with
+# zero checks and a PR with all-green checks look identical on the PR
+# page — there was nothing distinguishing "CI passed" from "CI never
+# ran".
+#
+# Design, deliberately this shape and no cleverer one:
+# - ONE thin job, NO paths/paths-ignore filter, runs on every pull_request.
+#   It does nothing but report success.
+# - Intended to be made a REQUIRED status check on main's branch
+#   protection (a repo-settings change, applied separately from this
+#   workflow file).
+# - CI dispatched => this check exists => merge allowed.
+#   CI could NOT dispatch (conflicting merge ref, path-filter miss, Actions
+#   outage, billing cap, or any future cause) => this check is MISSING =>
+#   GitHub blocks the merge itself. The control lives at the platform layer,
+#   not in reviewer attentiveness, since the #1199 failure was invisible
+#   precisely because it depended on someone noticing zero checks.
+#
+# This is independent of fixing the underlying cause of #1199 (making
+# the regeneration step the single writer of shared derived artifacts)
+# — that removes one trigger; this is the backstop for every other
+# cause of zero dispatch.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  anchor:
+    name: anchor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Report
+        run: echo "CI dispatched for this PR."
