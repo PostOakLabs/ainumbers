@@ -1,6 +1,8 @@
-// art-288-map-iso20022-to-evm-calldata.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C9-1).
-// kernel_digest_at_authoring: sha256:4181a160659a5d2f880b1fd8bce92735686ae56106b8b90c584c8eda135a059b
+// art-288-map-iso20022-to-evm-calldata.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
+// kernel_digest_at_authoring: sha256:c434dd10ec7cc8e96757d0f1679f3dc90861bb065ca053bfa7646a8afa6e0a6c
 // human_sign_off: PENDING
+// (re-attributed from a stale FV-PROPFLOOR-SHARD-C9-1 header — digest re-verified byte-for-byte
+// against the current kernel via sha256sum; all properties below still pass unmodified.)
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
 // float_sensitive: NO (direct read confirmed — the only "amount" handling is string-based

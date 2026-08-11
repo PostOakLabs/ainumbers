@@ -1,5 +1,5 @@
-// art-286-anchored-extract-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C9-1).
-// kernel_digest_at_authoring: sha256:7934427c04943b1f295a5d7e95cb214c7d73be32aeb2262a89791462f513a9af
+// art-286-anchored-extract-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
+// kernel_digest_at_authoring: sha256:7532df2eced1bf011b8bb608c7ca0038e116d7d554d5439e90d09905d997091c
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
