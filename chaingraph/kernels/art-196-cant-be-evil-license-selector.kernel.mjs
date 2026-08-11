@@ -134,7 +134,7 @@ function resolveCBE(waiveAll, commercial, exclusive, hateRestriction) {
   return hate ? 'CBE_NECR_HS' : 'CBE_NECR';
 }
 
-export async function compute(pp) {
+export function compute(pp) {
   const waiveAll        = pp?.waive_all           ?? false;
   const commercial      = pp?.commercial           ?? true;
   const exclusive       = pp?.exclusive            ?? false;
@@ -170,7 +170,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

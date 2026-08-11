@@ -11,7 +11,7 @@ export const meta = {
   gpu: false,
 };
 
-export async function compute(pp) {
+export function compute(pp) {
   const { active_manifest_hash, ingredients = [] } = pp;
   // ingredients: [{ label:'c2pa.ingredient', hashed_uri, nested_manifest_hash, relationship, redacted }]
   const edges = [];
@@ -50,7 +50,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

@@ -9,7 +9,7 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-export async function compute(pp) {
+export function compute(pp) {
   const { directory_jwks = {}, keyid, well_known_path } = pp;
   const keys = Array.isArray(directory_jwks.keys) ? directory_jwks.keys : [];
   const path_ok = well_known_path === '/.well-known/http-message-signatures-directory';
@@ -26,7 +26,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

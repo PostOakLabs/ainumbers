@@ -1,5 +1,5 @@
 // art-132-agent-key-rotation-auditor property-test floor (FV-PROPFLOOR-SHARD-A-CHECKSOBJ-1).
-// kernel_digest_at_authoring: sha256:25ff3998171f39653fb0799f0c1892c148031af3615a59fe45b4a7e1ab3cecd3
+// kernel_digest_at_authoring: sha256:a394588aa87698b40dba7cc1d088b210f1a1043ea22387e7b104adb71ab9cb20
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

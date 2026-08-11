@@ -1,5 +1,5 @@
 // art-134-agent-directory-publish-readiness property-test floor (FV-PROPFLOOR-SHARD-A-CHECKSOBJ-1).
-// kernel_digest_at_authoring: sha256:46abd179f6af07c11f97b205b1762ce25fc640e75366b96c65663b338f3b9f7b
+// kernel_digest_at_authoring: sha256:073c473b341de3c957f56c88bac87992ec78bd3bd40c3a3b91e0980d388b5d8f
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

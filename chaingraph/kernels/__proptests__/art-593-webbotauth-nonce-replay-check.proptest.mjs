@@ -1,5 +1,5 @@
 // art-593-webbotauth-nonce-replay-check property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-2).
-// kernel_digest_at_authoring: sha256:5ec3dad61655bda4de9f6031a45281a97744748b6573271b354d56f3d6f56086
+// kernel_digest_at_authoring: sha256:4d4491d75002a02d8a1448ca25e0aa851ccd4ea646dccde0afdd5d745f48967b
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,

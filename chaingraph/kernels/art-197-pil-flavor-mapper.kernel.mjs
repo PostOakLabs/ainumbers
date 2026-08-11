@@ -83,7 +83,7 @@ function buildPilTerms(flavor, mintingFee, revSharePct) {
   };
 }
 
-export async function compute(pp) {
+export function compute(pp) {
   const commercial   = pp?.commercial_use       ?? false;
   const derivatives  = pp?.derivatives_allowed  ?? true;
   const mintingFee   = pp?.minting_fee          ?? 0;
@@ -112,7 +112,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

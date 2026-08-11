@@ -18,8 +18,8 @@ export const meta = {
 // conformance engine. It does not check cross-record consistency, does not check
 // regulatory timeliness, and never transmits, calls an RNSA, or simulates submission.
 //
-// Compliance-date context (verify against a then-current SEC.gov release before treating
-// as load-bearing): the SEC's 2025-12-03 exemptive order, issued after the Fifth Circuit's
+// Compliance-date context (verify against a then-current SEC.gov release before
+// relying on it): the SEC's 2025-12-03 exemptive order, issued after the Fifth Circuit's
 // 2025-08-25 remand-without-vacatur in NAPFM v. SEC, sets the Rule 10c-1a reporting
 // compliance date at 2028-09-28.
 //
@@ -95,7 +95,7 @@ export function compute(pp) {
     field_spec_version: FIELD_SPEC_VERSION,
     regulatory_basis: 'FINRA Rule 6540 (Securities Lending and Transparency Engine reporting, implementing SEC Rule 10c-1a); Rule 6500-series field definitions (loan terms, rate, collateral type, counterparty).',
     scope_note: 'Field-level structural validator only -- schema-validates report records against the FINRA Rule 6500-series field spec. This is explicitly NOT a full SLATE conformance engine: no cross-record consistency check, no regulatory-timeliness check. Validate-never-transmit: this tool never calls fetch, never calls an RNSA, and never simulates submission -- readiness is not submission.',
-    compliance_date_note: 'SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before treating this date as load-bearing.',
+    compliance_date_note: 'SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before relying on this date.',
   };
 
   return { output_payload, compliance_flags };

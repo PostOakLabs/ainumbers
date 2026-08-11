@@ -1,5 +1,5 @@
 // art-285-acdc-delegation-chain-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
-// kernel_digest_at_authoring: sha256:c2e7514896d7266effdbb7716fefc7f39377a555f3f45bb847ec9250a184c7db
+// kernel_digest_at_authoring: sha256:6126b6c80552a767fe0de0b45f76f0896f0dbb7f0576c62d25a6968418f9f819
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

@@ -11,7 +11,7 @@ export const meta = {
   gpu: false,
 };
 
-export async function compute(pp) {
+export function compute(pp) {
   const { c2pa_metadata_present, watermark_present, watermark_method } = pp;
   const WATERMARK_METHODS = ['synthid', 'digimarc', 'trustmark', 'c2pa.soft_binding', 'other'];
   const layers_present = [];
@@ -39,7 +39,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

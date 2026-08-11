@@ -18,7 +18,7 @@ function nonceFormatOk(nonce) {
   return approxBytes >= 16;
 }
 
-export async function compute(pp) {
+export function compute(pp) {
   const {
     nonce, created, expires, now_unix, max_age_s = 3600,
     seen_nonces = [], nonce_already_used = false,
@@ -54,7 +54,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

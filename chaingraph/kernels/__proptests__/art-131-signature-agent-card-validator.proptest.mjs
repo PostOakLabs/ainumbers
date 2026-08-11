@@ -1,5 +1,5 @@
 // art-131-signature-agent-card-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:02cc79e6816db16e1e31ee80ce2bf4101ab8959fbb51653651ac1a84084b1134
+// kernel_digest_at_authoring: sha256:5d6f9fd42c6de44f905132f55d36afa25bbe38665916fcbd9130d08308ea05d3
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

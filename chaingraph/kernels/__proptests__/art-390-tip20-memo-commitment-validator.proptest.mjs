@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:2e6765cb6fedbe96e56bc75b47196c2e7243c367d754267127df2711a012aee4
+// kernel_digest_at_authoring: sha256:674c4beec75fed25496ab6ea99dffe58a860e683e6c82485de35ac65bcff7fce
 //
 // FV-PROPFLOOR-SHARD-B22-1 — property-test floor for art-390-tip20-memo-commitment-validator.
 // Class B (bounded-categorical/hash-integrity), FLOAT:NO per the WU row — every check is a

@@ -1,5 +1,5 @@
 // art-195-creative-commons-license-chooser property-test floor (FV-PROPFLOOR-SHARD-A-ENUMSEL-1).
-// kernel_digest_at_authoring: sha256:e774c0903bee2e48da8fbe099e50e3004183c9ddd51777c75ccaedfa7011f32e
+// kernel_digest_at_authoring: sha256:23d99c49276243711b0b156cb0a24b24261b258f8c17e768786073d33139e117
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

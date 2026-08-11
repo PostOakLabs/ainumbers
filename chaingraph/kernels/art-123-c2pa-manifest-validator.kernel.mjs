@@ -15,7 +15,7 @@ export const meta = {
 // assertion (covers the asset bytes), and a referenced claim signature.
 // Agent decodes the JUMBF/binary manifest (e.g. c2patool) and passes the JSON;
 // this kernel validates the extracted structure deterministically. Zero network.
-export async function compute(pp) {
+export function compute(pp) {
   const { claim = {}, assertions = [], signature = {}, claim_generator } = pp;
 
   const labels = Array.isArray(assertions) ? assertions.map(a => a && a.label).filter(Boolean) : [];
@@ -49,7 +49,7 @@ export async function compute(pp) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = await compute(pp);
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

@@ -1,5 +1,5 @@
 // art-196-cant-be-evil-license-selector property-test floor (FV-PROPFLOOR-SHARD-A-ENUMSEL-1).
-// kernel_digest_at_authoring: sha256:c523b34f5294d1e6632a8ef888455d88c7fd1c912278c3080af0d1abac2527f4
+// kernel_digest_at_authoring: sha256:9281484d2db7355117c3b8c416300df1a4c338d05dee08de26207a46a20def74
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

@@ -1,5 +1,5 @@
 // art-125-provenance-ingredient-tree-resolver.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:a1c4a8356fca87be9f173fb8e17477148c292da0bd3ee408c0c9e88eea8b9054
+// kernel_digest_at_authoring: sha256:7bae0dc529d7955478c147173fb20c3a752a9964162b83434abc62521887e527
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

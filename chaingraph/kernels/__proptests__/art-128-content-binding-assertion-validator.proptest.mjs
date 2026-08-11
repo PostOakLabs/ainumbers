@@ -1,5 +1,5 @@
 // art-128-content-binding-assertion-validator property-test floor (FV-PROPFLOOR-SHARD-A-CHECKSOBJ-1).
-// kernel_digest_at_authoring: sha256:37bac36fc216d5a8a8c3828b47eaa645982663dd39ebcbd34e14dfd78ddead1f
+// kernel_digest_at_authoring: sha256:60e81365b579a79abf492ac5f0629ac124c93f263ad1a66363dca62be1c898af
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED
