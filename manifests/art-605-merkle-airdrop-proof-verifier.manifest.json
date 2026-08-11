@@ -1,0 +1,67 @@
+{
+  "tool_id": "art-605-merkle-airdrop-proof-verifier",
+  "version": "1.0.0",
+  "title": "Merkle Airdrop-Proof Verifier",
+  "description": "Recomputes a Merkle airdrop-claim proof from caller-declared leaf fields (address, uint256 amount, encoding_variant) and a sibling path, OpenZeppelin MerkleProof.verify shape (processProof/_hashPair) over the already-vendored @noble/hashes keccak256 bundle -- no new vendoring, no hand-rolled hashing. Leaf derivation follows OpenZeppelin StandardMerkleTree's (address,uint256) convention: encoding_variant selects the double-hash leaf (the second-preimage-resistant default) or a single-hash variant some deployed contracts use instead, always a declared param. Sibling-pair hashing is sorted/commutative (pair_sort:true, OpenZeppelin's default) or explicit per-step left/right position (pair_sort:false), also a declared param. Given an optional claimed_path (a prior run's per-step running hashes), re-verifies and reports the earliest step at which the recompute diverges, instead of only a final match/no-match. This node never reads any chain: it cannot know whether claimed_root is the root actually recorded on-chain, whether the leaf's allocation was already claimed or redeemed, or whether the underlying tree was built correctly from the full allocation list.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["payment_policy", "merkle", "airdrop", "keccak256", "openzeppelin", "hash-proof", "mcp:verify_merkle_airdrop_proof"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "address": { "type": "string", "description": "0x-prefixed 20-byte (40 hex char) EVM address, the airdrop claim leaf's account field." },
+      "amount": { "type": "string", "description": "Non-negative uint256 token amount, as a decimal or 0x-hex string (never a JS number, to avoid precision loss above 2^53)." },
+      "encoding_variant": { "type": "string", "description": "'double-hash' (default, OpenZeppelin StandardMerkleTree convention: keccak256(keccak256(abi.encode(address,amount)))) or 'single-hash' (keccak256(abi.encode(address,amount)) with no outer hash)." },
+      "pair_sort": { "type": "boolean", "description": "true (default) uses OpenZeppelin's commutative sorted-pair _hashPair; false requires each proof step to declare an explicit left/right position." },
+      "proof": {
+        "type": "array",
+        "description": "Sibling path from leaf to root. Empty array means the leaf is the root (depth 0). Each entry is either a 0x-prefixed 32-byte hash string (pair_sort:true) or {sibling, position} (pair_sort:false).",
+        "items": { "type": "object" }
+      },
+      "claimed_root": { "type": "string", "description": "0x-prefixed 32-byte (64 hex char) hash this proof is claimed to reconstruct." },
+      "claimed_path": {
+        "type": "array",
+        "description": "Optional. A prior run's per-step running_hash values (as previously returned in output_payload.path) to re-verify against a possibly-altered leaf/proof -- used to detect the earliest divergent step.",
+        "items": { "type": "string" }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "verify_merkle_airdrop_proof",
+    "description": "Recomputes a Merkle airdrop-claim proof from a declared leaf (address, amount) and sibling path to a claimed root, OpenZeppelin MerkleProof.verify shape, and optionally re-verifies a prior proof trace to report the earliest step where a recompute diverges.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "address": { "type": "string" },
+        "amount": { "type": "string" },
+        "encoding_variant": { "type": "string" },
+        "pair_sort": { "type": "boolean" },
+        "proof": { "type": "array" },
+        "claimed_root": { "type": "string" },
+        "claimed_path": { "type": "array" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-605-merkle-airdrop-proof-verifier.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "leaf": { "type": ["string", "null"] },
+      "computed_root": { "type": ["string", "null"] },
+      "path": { "type": "array" },
+      "encoding_variant_used": { "type": ["string", "null"] },
+      "pair_sort_used": { "type": "boolean" },
+      "root_matches_claimed": { "type": ["boolean", "null"] },
+      "path_intact": { "type": ["boolean", "null"] },
+      "first_divergent_step": { "type": ["number", "null"] },
+      "note": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "source": "authored by ETHMATH-MERKLE-1 per ETHMATH-WAVE-BUILD-SPEC.md section 4; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-605-merkle-airdrop-proof-verifier.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest sibling: art-595-ap2-cartmandate-hashchain-builder, another declared-input hash-recompute kernel over the same vendored keccak256 bundle)."
+}
