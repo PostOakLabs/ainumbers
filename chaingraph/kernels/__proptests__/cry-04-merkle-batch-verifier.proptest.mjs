@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };

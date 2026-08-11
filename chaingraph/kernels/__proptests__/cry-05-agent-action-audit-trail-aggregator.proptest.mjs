@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
@@ -65,7 +66,7 @@ function sha256pairHex(a, b) {
   return createHash('sha256').update(Buffer.from(a + b, 'hex')).digest('hex');
 }
 function independentRoot(leaves) {
-  if (leaves.length === 0) return '0'.repeat(64);
+  if (leaves.length === 0) return { root: '0'.repeat(64), depth: 0 };
   let level = [...leaves];
   let depth = 0;
   while (level.length > 1) {
