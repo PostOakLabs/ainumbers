@@ -1,5 +1,5 @@
 // art-127-dual-layer-disclosure-verifier property-test floor (FV-PROPFLOOR-SHARD-A-CHECKSOBJ-1).
-// kernel_digest_at_authoring: sha256:5562ad0d21f0602d5f812fea8b7149afe980514fd642b2231bfb9e48713486c2
+// kernel_digest_at_authoring: sha256:56cd22eca21423290fd3c332d722f6e6afd0c5a3b24650cf68b266aa33db0ae8
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

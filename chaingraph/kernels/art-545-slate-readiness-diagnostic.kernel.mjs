@@ -49,7 +49,7 @@ export function compute(pp) {
     obligation_checklist_version: OBLIGATION_CHECKLIST_VERSION,
     regulatory_basis: 'FINRA Rule 6540 (Securities Lending and Transparency Engine reporting, implementing SEC Rule 10c-1a) obligation checklist.',
     scope_note: 'Declared-state readiness diagnostic only -- scores a caller-declared reporting pipeline against the Rule 6540 obligation checklist. This is explicitly NOT a full SLATE conformance engine and does not replace art-544-slate-report-validator field-level structural validation of an actual report record. Validate-never-transmit: this tool never calls fetch, never calls an RNSA, and never simulates submission -- readiness is not submission.',
-    compliance_date_note: 'SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before treating this date as load-bearing.',
+    compliance_date_note: 'SEC exemptive order (2025-12-03), issued after the Fifth Circuit remand-without-vacatur in NAPFM v. SEC (2025-08-25), sets the Rule 10c-1a reporting compliance date at 2028-09-28 -- verify against a then-current SEC.gov release before relying on this date.',
   };
 
   return { output_payload, compliance_flags };

@@ -1,5 +1,5 @@
 // art-133-agent-payment-rail-trust-crosswalk property-test floor (FV-PROPFLOOR-SHARD-A-CHECKSOBJ-1).
-// kernel_digest_at_authoring: sha256:a7e15f563cd47402550a3b4c1164e8dcc35ca0576feb53d0ab18cf0971a9b8bf
+// kernel_digest_at_authoring: sha256:878bf6955236e7bf1666e444bb332da7cf1b777ed2769a9975efc3d9bb752a20
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

@@ -1,5 +1,5 @@
 // art-123-c2pa-manifest-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:e2191fb2c1cfcbbec083616921861612aebe0dd75f823fe782a6fc1d301f70c8
+// kernel_digest_at_authoring: sha256:57b6f19cdf64a9288e4ff13b21078dce42b714bd0e9596f5be911756fe634bce
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

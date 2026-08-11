@@ -1,5 +1,5 @@
 // art-189-markdown-document-converter.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C5-1).
-// kernel_digest_at_authoring: sha256:a207d209c504b5fd261aae969d2c9ed362c95df104378ec95e84ce2c4acece89
+// kernel_digest_at_authoring: sha256:366d56b7225bb3a094fb31f8ff393b6a63adf21a07735d58df87c49b385b71cd
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

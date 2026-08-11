@@ -1,5 +1,5 @@
 // art-126-ai-act-art50-marking-checker property-test floor (FV-PROPFLOOR-SHARD-A-CHECKSOBJ-1).
-// kernel_digest_at_authoring: sha256:3baa21f9a81107596607b29ef5a324d8ef993842384da54dac31e65811e55479
+// kernel_digest_at_authoring: sha256:7b3eb5f17b46b43c54e96195da8716c39b2eccc9ac75080186ff0dd578e31411
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

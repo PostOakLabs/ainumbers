@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:56ca92d4607a236ab837bea0ab681065f309ac7343457a9f057e4b1fcc7a9ae9
+// kernel_digest_at_authoring: sha256:59ffd31eb91e148f5ffd33a6d7d396cef95c7f55035d3cbe8e8c0457f2cb58ea
 //
 // FV-PROPFLOOR-SHARD-B5-1 — property-test floor for art-197-pil-flavor-mapper.
 // Class B (bounded categorical mapper w/ real-number fee/revshare clamps). float-sensitive: yes --

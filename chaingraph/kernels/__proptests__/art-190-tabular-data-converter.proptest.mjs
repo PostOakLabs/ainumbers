@@ -1,5 +1,5 @@
 // art-190-tabular-data-converter.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C5-1).
-// kernel_digest_at_authoring: sha256:b25ddec2f77bf9180e134c09369282fa7530ba9218218445c2ba5d469f34b6b9
+// kernel_digest_at_authoring: sha256:ebda2b1d4bde79561f6c8555da36e765a44fa6a0b32cf475c953c59d3f38bb67
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

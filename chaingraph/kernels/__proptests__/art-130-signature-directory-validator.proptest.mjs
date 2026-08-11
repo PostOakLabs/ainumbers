@@ -1,5 +1,5 @@
 // art-130-signature-directory-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:3826cbd5f7c8d26075aaa4ebe3fa0b1f62f959e159a28b2eb6a153d6f307efcb
+// kernel_digest_at_authoring: sha256:77d084f5d2d837ac21a389f2d1b651d8e3fe5faca6b43a737b22be0bfeaf6532
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
