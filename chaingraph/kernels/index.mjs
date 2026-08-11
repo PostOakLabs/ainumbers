@@ -1129,7 +1129,7 @@ export const KERNELS = {
   'art-595-ap2-cartmandate-hashchain-builder':                  art595,
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
   'art-602-mica-register-presence-check':                       art602,
-  'art-603-stablecoin-reserve-3source-recompute':                art603,
+  'art-603-stablecoin-reserve-3source-recompute':               art603,
   'art-604-erc8004-registry-entry-verifier':                    art604,
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-62-ap2-payment-receipt-verifier':                        art62,
