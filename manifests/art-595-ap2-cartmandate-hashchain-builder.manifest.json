@@ -1,0 +1,73 @@
+{
+  "tool_id": "art-595-ap2-cartmandate-hashchain-builder",
+  "version": "1.0.0",
+  "title": "AP2 CartMandate Hash-Chain Builder",
+  "description": "Builds an illustrative Google AP2 CartMandate Verifiable Digital Credential (VDC) skeleton whose credentialSubject carries a deterministic hash-chain over an ordered list of cart line items: link_0 = keccak256(canon({index:0,item})), link_i = keccak256(canon({index:i,item,prev:link_(i-1)})), cart_root = the final link. Reuses this repo's existing RFC 8785/JCS canonicalization (cgCanon) and the already-vendored @noble/hashes keccak256 bundle -- no new vendoring, no hand-rolled canonicalization or hashing. Stands beside art-16 (Google AP2 Mandate Builder) as a new node -- art-16's flat CheckoutMandate/PaymentMandate shape has no line-item array to chain over. An intact chain proves the ordered cart_items list was not altered after the chain was built; it does NOT prove human authorisation, delivery, settlement, or that item prices are correct or current. Given a prior chain's per-item links (claimed_links) and a possibly tampered cart_items, the kernel recomputes and reports whether the chain is intact plus the earliest divergent index, never a thrown exception. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["payment_policy", "ap2", "cartmandate", "hash-chain", "keccak256", "verifiable-credential", "mcp:build_ap2_cartmandate_hashchain"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string", "description": "DID of the agent issuing the mandate. Defaults to a placeholder did:example value if omitted." },
+      "subject": { "type": "string", "description": "DID of the credential subject (the user on whose behalf the agent acts). Defaults to a placeholder did:example value if omitted." },
+      "merchant": { "type": "string", "description": "Merchant identifier. Defaults to a placeholder value if omitted." },
+      "stage": { "type": "string", "description": "Mandate stage: 'open' or 'closed'. Defaults to 'open'." },
+      "cart_items": {
+        "type": "array",
+        "description": "Required, non-empty, ordered array of cart line items. Each item needs sku, description, quantity (positive number), unit_price (non-negative number), currency.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sku": { "type": "string" },
+            "description": { "type": "string" },
+            "quantity": { "type": "number" },
+            "unit_price": { "type": "number" },
+            "currency": { "type": "string" }
+          }
+        }
+      },
+      "claimed_links": {
+        "type": "array",
+        "description": "Optional. A prior chain's per-item link array (as previously returned in output_payload.chain_links) to re-verify against the supplied cart_items -- used to detect a broken/tampered chain.",
+        "items": { "type": "string" }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "build_ap2_cartmandate_hashchain",
+    "description": "Builds a deterministic hash-chain over an ordered cart_items array for an illustrative AP2 CartMandate VDC, or re-verifies a prior chain's links against a (possibly tampered) cart_items and reports whether it is intact plus the earliest divergent index.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent_id": { "type": "string" },
+        "subject": { "type": "string" },
+        "merchant": { "type": "string" },
+        "stage": { "type": "string" },
+        "cart_items": { "type": "array" },
+        "claimed_links": { "type": "array" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-595-ap2-cartmandate-hashchain-builder.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "vdc": { "type": ["object", "null"] },
+      "vdc_type": { "type": "string" },
+      "cart_root": { "type": ["string", "null"] },
+      "chain_length": { "type": "number" },
+      "chain_links": { "type": "array", "items": { "type": "string" } },
+      "cart_chain_intact": { "type": ["boolean", "null"] },
+      "first_divergent_index": { "type": ["number", "null"] },
+      "note": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "source": "authored by BUILD-AP2-CARTMANDATE-1 per research/SPEC-AGENT-COMMERCE-CHAIN-1-2026-08-09.md sections 3/5/8; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-595-ap2-cartmandate-hashchain-builder.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest sibling: art-590-x402-eip712-digest-recomputer)."
+}
