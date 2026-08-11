@@ -1,0 +1,73 @@
+{
+  "tool_id": "art-602-mica-register-presence-check",
+  "version": "1.0.0",
+  "title": "MiCA Register Presence Check",
+  "description": "Answers one question about a pasted extract of an ESMA MiCA public register: was a named entity present in that snapshot on the date the reader captured it? The reader names the register type (the register of crypto-asset white papers, or the register of authorised crypto-asset service providers), supplies the entity identifier, supplies the capture date, and pastes the extract. The kernel digests the pasted bytes exactly as pasted into register_snapshot_digest, parses the extract with RFC 4180 quoting, searches either every cell or one caller-named column, and emits a single fixed verdict sentence: as of the retrieval date, the entity was or was not present in the named register snapshot with that digest. HARD FENCE: the extract, the entity identifier, the register type and the retrieval date are every one of them a caller input. This node performs no lookup of any kind (zero-egress), ships no bundled copy of either register, adds no scheduled refresh, and has no clock at all, so retrieval_date dates the reader's capture rather than the run. match_found is a tristate: null means the search did not run, and it is never collapsed into a false. Oversized extracts are refused with a named flag rather than truncated, since a digest over bytes the reader never saw would be worse than no reading. Presence is a dated fact about a snapshot, never authorisation, never a current status, never a claim the register itself is complete or current, and never legal advice.",
+  "category": "mica-casp-lifecycle",
+  "tags": ["compliance_mandate", "mica", "esma", "register", "presence-as-of-date", "snapshot-digest", "mcp:check_mica_register_presence"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "register_type": { "type": "string", "description": "Required. Either 'white_paper' (register of crypto-asset white papers) or 'casp' (register of authorised crypto-asset service providers). No default is inferred: the verdict sentence names the register in words." },
+      "entity_identifier": { "type": "string", "description": "Required. LEI or register ID, compared as a literal string (trimmed) against the extract's own cells. No name resolution and no directory is held." },
+      "register_extract": { "type": "string", "description": "Required. The register extract as pasted, verbatim. Digested exactly as supplied into register_snapshot_digest. Refused rather than truncated above 262144 characters or 5000 parsed rows." },
+      "retrieval_date": { "type": "string", "description": "Required. ISO YYYY-MM-DD date on which the READER captured the extract. Never read from a clock: the kernel contains no Date object in any form." },
+      "register_source_ref": { "type": "string", "description": "Optional free text recording where the extract came from. Echoed into the receipt, never checked." },
+      "delimiter": { "type": "string", "description": "Optional single-character field delimiter. Defaults to a comma. Quoted fields may contain the delimiter, line breaks and doubled quotes." },
+      "header_row": { "type": "boolean", "description": "Optional. Defaults to true: the first non-blank parsed line is read as a header and excluded from the searched rows." },
+      "match_column": { "type": ["string", "number", "null"], "description": "Optional header name or 0-based column index to restrict the comparison to. Null compares every cell. A name that does not appear in the header raises judgment_required rather than widening back to an any-cell search." },
+      "case_sensitive": { "type": "boolean", "description": "Optional. Defaults to true. When false, both the identifier and each cell are lowercased before comparison." }
+    },
+    "required": ["register_type", "entity_identifier", "register_extract", "retrieval_date"]
+  },
+  "mcp_tool_definition": {
+    "name": "check_mica_register_presence",
+    "description": "Reports whether a named entity was present in a pasted ESMA MiCA register extract as of a caller-supplied retrieval date, pinned by a SHA-256 digest of the pasted bytes. Never an authorisation or current-status claim.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "register_type": { "type": "string" },
+        "entity_identifier": { "type": "string" },
+        "register_extract": { "type": "string" },
+        "retrieval_date": { "type": "string" },
+        "register_source_ref": { "type": "string" },
+        "delimiter": { "type": "string" },
+        "header_row": { "type": "boolean" },
+        "match_column": { "type": ["string", "number", "null"] },
+        "case_sensitive": { "type": "boolean" }
+      },
+      "required": ["register_type", "entity_identifier", "register_extract", "retrieval_date"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-602-mica-register-presence-check.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "register_type": { "type": ["string", "null"] },
+      "register_label": { "type": ["string", "null"] },
+      "entity_identifier": { "type": ["string", "null"] },
+      "retrieval_date": { "type": ["string", "null"] },
+      "register_source_ref": { "type": ["string", "null"] },
+      "register_snapshot_digest": { "type": ["string", "null"] },
+      "snapshot": { "type": "object" },
+      "search": { "type": "object" },
+      "match_found": { "type": ["boolean", "null"] },
+      "matched_row": { "type": ["string", "null"] },
+      "matched_rows": { "type": "array", "items": { "type": "object" } },
+      "match_count": { "type": "number" },
+      "verdict": { "type": ["string", "null"] },
+      "verdict_unavailable_reason": { "type": ["string", "null"] },
+      "judgment_required": { "type": ["object", "null"] },
+      "rationale": { "type": "array", "items": { "type": "string" } },
+      "not_proven": { "type": "array", "items": { "type": "object" } },
+      "fence": { "type": "string" }
+    }
+  },
+  "source": "authored by MICA-REGISTER-K-1 per research/SPEC-MICA-REGISTER-1-BUILD-SPEC.md sections 3/5/6; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-602-mica-register-presence-check.fixtures.json; category reuses the existing mica-casp-lifecycle hub cluster (closest sibling: art-512-check-mica-reserve-disclosure)."
+}
