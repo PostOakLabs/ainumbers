@@ -1,5 +1,5 @@
 // art-129-webbotauth-signature-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:6e54e84c5d83d433fc37b31030c1fd5bc32d029f016f7ab3ea0a37883b3f8615
+// kernel_digest_at_authoring: sha256:1e5441d851e35b6041e017d6290b3162588d96db8cb70255b1973f688008a14e
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -9,8 +9,10 @@
 // signature-base string built from it is linear in that length, never unbounded recursion),
 // differential re-derivation of alg_ok/tag_ok/fresh/verdict from the input booleans/strings, and
 // a boundedness check on the freshness window (fresh is exactly the closed clock-skew interval).
-// Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled). Uses the
-// runtime's real globalThis.crypto.subtle (Node 19+ WebCrypto) exactly as production does.
+// Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled). Ed25519
+// verification runs through the vendored _noble-ed25519.bundle.mjs exactly as the kernel does; it
+// no longer touches globalThis.crypto.subtle, which the zkVM guest does not have. A synchronicity
+// property below pins compute() to a plain (non-thenable) return so it cannot drift back to async.
 //
 // Run: node chaingraph/kernels/__proptests__/art-129-webbotauth-signature-verifier.proptest.mjs
 
@@ -115,6 +117,22 @@ async function checkP3_freshness_window_bounded() {
   return { name: 'P3_freshness_window_boundedness', trials: checked, violations };
 }
 
+// ---------- P4: synchronicity — compute() must return a plain object, never a thenable ----------
+// The zkVM guest calls compute(pp) and canonicalizes the result directly. A thenable canonicalizes
+// to {} and the receipt then attests nothing while every gate still reads green, which is exactly
+// the defect this kernel was converted to fix. Pinned as a property so it cannot come back.
+function checkP4_compute_is_synchronous() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < 64; i++) {
+    const out = compute(randomPP(rand));
+    checked++;
+    if (out === null || typeof out !== 'object') { violations++; continue; }
+    if (typeof out.then === 'function') { violations++; continue; }
+    if (Object.keys(out).length === 0) violations++;
+  }
+  return { name: 'P4_compute_is_synchronous', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = await runFixtureOracle();
 if (!oracleOk) {
@@ -125,6 +143,7 @@ if (!oracleOk) {
 results.properties.push(await checkP1_termination());
 results.properties.push(await checkP2_verdict_differential());
 results.properties.push(await checkP3_freshness_window_bounded());
+results.properties.push(checkP4_compute_is_synchronous());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

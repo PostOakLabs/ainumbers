@@ -1,12 +1,12 @@
 // art-284-did-webvh-log-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
-// kernel_digest_at_authoring: sha256:e224c8b26c16b08b7d1cbb8bd0c036358387aa3c7c091ba3cd25f769c2d5d888
+// kernel_digest_at_authoring: sha256:cc7db2ef233cf9a58db18168d8091264f2698729cf080160e934041181001469
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
 // float_sensitive: NO (direct read confirmed) — compute() is a pure verify-only did:webvh DID-log
 // walker: JCS canonicalization + SHA-256 self-hash per entry, sequential versionId parsing via a
-// regex, base58/base64url decode for did:key material, and Ed25519 signature verification via
-// crypto.subtle. No floating-point arithmetic, no iterative numeric solver, nothing to converge —
+// regex, base58 decode for did:key material, and Ed25519 signature verification via the vendored
+// noble bundle. No floating-point arithmetic, no iterative numeric solver, nothing to converge —
 // every quantity involved (entry index, version number, key membership) is integer/string/boolean.
 // Per §3, forced CATEGORICAL boundary cases (not ULP forcing) are used: empty log, single-entry
 // log, log at the DEFAULT_MAX_ENTRIES (100) and HARD_MAX_ENTRIES (500) bounds, malformed
@@ -23,8 +23,11 @@
 // broken-hash-chain and wrong-key-signature plus additional generated malformed-versionId cases),
 // and forced categorical boundary cases (empty/absent did_log, non-array did_log, oversized log
 // truncation, deactivated-log-continued).
-// Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled); Ed25519
-// verification runs through globalThis.crypto.subtle exactly as the kernel does.
+// Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled). Ed25519
+// verification and entry hashing run through the vendored _noble-ed25519.bundle.mjs exactly as the
+// kernel does; neither touches globalThis.crypto.subtle, which the zkVM guest does not have. A
+// synchronicity property below pins compute() to a plain (non-thenable) return so it cannot drift
+// back to async — a thenable canonicalizes to {} in-guest and seals a receipt that attests nothing.
 //
 // Run: node chaingraph/kernels/__proptests__/art-284-did-webvh-log-verifier.proptest.mjs
 
@@ -248,6 +251,23 @@ async function checkP4_forced_boundary_cases() {
 }
 
 // ---------- run ----------
+// ---------- P5: synchronicity — compute() must return a plain object, never a thenable ----------
+// The zkVM guest calls compute(pp) and canonicalizes the result directly. A thenable canonicalizes
+// to {} and the receipt then attests nothing while every gate still reads green, which is exactly
+// the defect this kernel was converted to fix. Pinned as a property so it cannot come back.
+function checkP5_compute_is_synchronous() {
+  let violations = 0, checked = 0;
+  const inputs = [HAPPY, { did: HAPPY.did, did_log: [] }, { did: HAPPY.did, did_log: { not: 'an array' } }, {}];
+  for (const pp of inputs) {
+    const out = compute(pp);
+    checked++;
+    if (out === null || typeof out !== 'object') { violations++; continue; }
+    if (typeof out.then === 'function') { violations++; continue; }
+    if (Object.keys(out).length === 0) violations++;
+  }
+  return { name: 'P5_compute_is_synchronous', trials: checked, violations };
+}
+
 const oracleOk = await runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED -- spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -258,6 +278,7 @@ results.properties.push(await checkP1_termination_bounded_entries());
 results.properties.push(await checkP2_boundedness_output_shape());
 results.properties.push(await checkP3_tamper_flips_validity());
 results.properties.push(await checkP4_forced_boundary_cases());
+results.properties.push(checkP5_compute_is_synchronous());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
