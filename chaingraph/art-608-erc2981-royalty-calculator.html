@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ERC-2981 Royalty Calculator &middot; ART-608 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes an ERC-2981 royalty amount as floor(sale_price * bps / 10000) from a declared sale price and basis-point fraction, using BigInt for exact arithmetic. Zero network calls, never queries royaltyInfo().">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-608-erc2981-royalty-calculator.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ERC-2981 Royalty Calculator &middot; ART-608 &middot; OpenChainGraph &middot; AINumbers.co">
+<meta property="og:description" content="Recomputes an ERC-2981 royalty amount from a declared sale price and basis-point fraction, the same integer-division convention OpenZeppelin uses. Zero network calls. OpenChainGraph v0.4.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-608-erc2981-royalty-calculator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{color:var(--body);max-width:640px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+input[type=text],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.6rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.5;min-height:140px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results{display:none}.results.show{display:block}
+.hero-row{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;text-align:center;min-width:130px}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.met{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.indet{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.notmet{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text);margin-top:10px;max-height:340px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+.muted{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.key-dates-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.key-dates-box .kd-title{color:var(--gold);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.run-btn{margin-top:6px}
+.section-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.78rem}
+.section-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 8px}
+.section-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.section-table tr:last-child td{border-bottom:none}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-608 · ERC-2981 Royalty Calculator</span></span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+
+  <div class="eyebrow">ART-608 · Verify-Rails · EVM Interface Identity Family</div>
+  <h1>ERC-2981 Royalty Calculator</h1>
+  <p class="sub">Recomputes an ERC-2981 royalty amount as floor(sale_price × royalty_fraction_bps / 10000), the same integer-division convention the OpenZeppelin reference implementation uses, from a declared sale price and basis-point fraction, using BigInt so large sale prices never lose precision. Zero network calls: never queries a contract's actual royaltyInfo() return.</p>
+  <div>
+    <span class="flag">BigInt integer division, exact for any sale_price</span>
+    <span class="flag warn">Flags bps &gt; 10000 as out of range</span>
+    <span class="flag red">Royalty payment is voluntary: never a marketplace guarantee</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="key-dates-box" style="border-left-color:var(--red)">
+    <div class="kd-title" style="color:var(--red)">Scope: what the formula yields, not what gets paid</div>
+    This tool never calls a contract's royaltyInfo(tokenId, salePrice). sale_price and royalty_fraction_bps are caller-declared, not read from chain state. ERC-2981 is a voluntary off-chain-enforced convention: most marketplaces are not required to honor it, and a computed royalty amount is not a guarantee any marketplace will actually pay it.
+  </div>
+
+  <div class="preset-row">
+    <button class="preset-btn" onclick="loadPreset('consistent')">2.5% royalty, claim matches</button>
+    <button class="preset-btn" onclick="loadPreset('mismatch')">5% royalty, claim mismatch</button>
+    <button class="preset-btn" onclick="loadPreset('outOfRange')">120% bps: flagged out of range</button>
+    <button class="preset-btn" onclick="loadPreset('zeroPrice')">Zero sale price</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Declared sale + royalty terms</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Integer</span>sale_price</label>
+        <input type="text" id="sale_price" placeholder="1000000000000000000"></div>
+      <div class="q"><label><span class="dim">bps</span>royalty_fraction_bps (10000 = 100%)</label>
+        <input type="text" id="royalty_fraction_bps" placeholder="250"></div>
+    </div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Optional</span>claimed_royalty_amount</label>
+        <input type="text" id="claimed_royalty_amount" placeholder="25000000000000000"></div>
+      <div class="q"><label><span class="dim">Optional</span>receiver</label>
+        <input type="text" id="receiver" placeholder="0x..."></div>
+    </div>
+    <button class="run-btn" onclick="run()">Recompute Royalty →</button>
+  </div>
+
+  <div class="card results" id="results">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="amountVal" style="color:var(--teal-lt);font-size:1.3rem">–</div>
+        <div class="hero-lbl">Computed Royalty Amount</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="pctVal" style="color:var(--gold)">–</div>
+        <div class="hero-lbl">Effective %</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="detVal" style="font-size:1.4rem;padding-top:.4rem;color:var(--body)">–</div>
+        <div class="hero-lbl">Overall Determination</div>
+      </div>
+    </div>
+
+    <div id="verdictBox"></div>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Per-check findings</div>
+    <table class="section-table">
+      <thead><tr><th>Check</th><th>Verdict</th><th>Detail</th></tr></thead>
+      <tbody id="findingsTableBody"></tbody>
+    </table>
+
+    <div style="margin:14px 0 6px;font-size:.78rem;color:var(--bright)">Related tools</div>
+    <div id="relatedToolsRow" class="muted"></div>
+
+    <div style="margin:14px 0 4px;font-size:.78rem;color:var(--bright)">Compliance Flags</div>
+    <div id="flagsRow" style="margin-bottom:8px"></div>
+
+    <div class="key-dates-box">
+      <div class="kd-title">Not proven by this check</div>
+      <div id="notProvenList"></div>
+    </div>
+
+    <div class="muted" style="margin-top:8px">⚠ DECISION-SUPPORT DRAFT. Never a guarantee any marketplace will actually pay the computed amount.</div>
+
+    <div class="muted" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash">–</div>
+    <pre id="artifact"></pre>
+
+    <div class="results-export-row">
+      <button id="ap2ExportBtn" disabled onclick="exportAP2()" style="background:var(--bg-3);color:var(--muted);border:1px solid var(--border-2)">↓ AP2 Policy Mandate</button>
+    <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+    <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+      <button id="pdfExportBtn" onclick="exportPDF()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ PDF</button>
+      <button id="csvExportBtn" onclick="exportCSV()" style="background:var(--bg-3);color:var(--body);border:1px solid var(--border-2)">↓ XLSX/CSV</button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">{ } MCP manifest</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+
+// ── art-608 ERC-2981 Royalty Calculator browser logic ──────────────────────────────────────
+// Faithful port of chaingraph/kernels/art-608-erc2981-royalty-calculator.kernel.mjs compute().
+// Same BigInt floor-division math, same range/claim checks. No cryptographic primitive in
+// this tool -- no vendored bundle needed.
+
+var FEE_DENOMINATOR = 10000n;
+
+var RELATED_TOOLS = [
+  { tool_id: '528-nft-metadata-validator', relation: 'Validates the token metadata JSON this royalty figure would accompany.' },
+  { tool_id: '521-cant-be-evil-nft-license-picker', relation: 'Picks the license terms a royalty-bearing NFT is minted under.' },
+];
+
+function _parseNonNegativeIntString(v) {
+  if (typeof v === 'number') {
+    if (!isFinite(v) || v < 0 || Math.floor(v) !== v) return null;
+    return BigInt(v);
+  }
+  if (typeof v !== 'string') return null;
+  var s = v.trim();
+  if (!/^\d+$/.test(s)) return null;
+  return BigInt(s);
+}
+
+var SCOPE_NOTE = 'Recomputes an ERC-2981 royalty amount as floor(sale_price * royalty_fraction_bps / 10000), the same integer-division convention the OpenZeppelin reference ERC2981 implementation uses. Zero network calls -- this tool never queries a contract\'s actual royaltyInfo() return value; sale_price, royalty_fraction_bps, and receiver are all caller-declared. ERC-2981 royalty payment is a voluntary off-chain convention: most marketplaces are not required to honor it, and this tool makes no claim that any marketplace will actually pay the computed amount.';
+
+var NOT_PROVEN = [
+  { item: 'On-chain royaltyInfo() response', detail: 'This tool never calls a contract\'s royaltyInfo(tokenId, salePrice). sale_price and royalty_fraction_bps are caller-declared, not read from chain state.' },
+  { item: 'Marketplace enforcement', detail: 'ERC-2981 is a voluntary signalling standard. A computed royalty amount is what the formula yields, not a guarantee any marketplace will pay it.' },
+  { item: 'Per-token royalty override correctness', detail: 'Many ERC-2981 implementations allow a per-token royalty that overrides a contract default. This tool has no way to know which one governs a given tokenId -- royalty_fraction_bps is exactly what the caller declares.' },
+];
+
+function compute(pp) {
+  pp = (pp !== null && typeof pp === 'object') ? pp : {};
+  var reasons = [];
+
+  var salePrice = _parseNonNegativeIntString(pp.sale_price);
+  if (pp.sale_price === undefined || pp.sale_price === null || String(pp.sale_price).trim() === '') {
+    reasons.push('sale_price is required');
+  } else if (salePrice === null) {
+    reasons.push('sale_price must be a non-negative integer (string or number)');
+  }
+
+  var bpsRaw = pp.royalty_fraction_bps;
+  var bps = _parseNonNegativeIntString(bpsRaw);
+  if (bpsRaw === undefined || bpsRaw === null || String(bpsRaw).trim() === '') {
+    reasons.push('royalty_fraction_bps is required');
+  } else if (bps === null) {
+    reasons.push('royalty_fraction_bps must be a non-negative integer (string or number)');
+  }
+
+  var claimedRaw = pp.claimed_royalty_amount;
+  var claimedHasValue = claimedRaw !== undefined && claimedRaw !== null && String(claimedRaw).trim() !== '';
+  var claimedAmount = null;
+  if (claimedHasValue) {
+    claimedAmount = _parseNonNegativeIntString(claimedRaw);
+    if (claimedAmount === null) reasons.push('claimed_royalty_amount must be a non-negative integer (string or number) if supplied');
+  }
+
+  var receiverRaw = (typeof pp.receiver === 'string' && pp.receiver.trim() !== '') ? pp.receiver.trim() : null;
+
+  if (reasons.length > 0) {
+    return {
+      output_payload: {
+        overall_determination: 'INDETERMINATE',
+        findings: [{ check: 'input_validation', verdict: 'INDETERMINATE', detail: reasons.join('; ') }],
+        sale_price: salePrice !== null ? salePrice.toString() : null,
+        royalty_fraction_bps: bps !== null ? bps.toString() : null,
+        effective_royalty_pct: null,
+        computed_royalty_amount: null,
+        claimed_royalty_amount: claimedAmount !== null ? claimedAmount.toString() : null,
+        receiver: receiverRaw,
+        related_tools: RELATED_TOOLS,
+        not_proven: NOT_PROVEN,
+        scope_note: SCOPE_NOTE,
+      },
+      compliance_flags: ['ERC2981_INDETERMINATE', 'ERC2981_MALFORMED_INPUT'],
+    };
+  }
+
+  var computedRoyaltyAmount = (salePrice * bps) / FEE_DENOMINATOR;
+  var effectivePct = (Number(bps) / 100).toString() + '%';
+
+  var rangeVerdict = bps <= FEE_DENOMINATOR ? 'CONSISTENT' : 'INCONSISTENT';
+  var rangeDetail = bps <= FEE_DENOMINATOR
+    ? 'royalty_fraction_bps (' + bps.toString() + ') is within the 0-10000 (0-100%) range the OpenZeppelin reference ERC2981 implementation enforces.'
+    : 'royalty_fraction_bps (' + bps.toString() + ') exceeds 10000 (100%) -- the OpenZeppelin reference ERC2981 implementation reverts on this value ("ERC2981: royalty fee will exceed salePrice"). The recompute below still reports the raw arithmetic.';
+
+  var matchVerdict, matchDetail;
+  if (claimedAmount === null) {
+    matchVerdict = 'INDETERMINATE';
+    matchDetail = 'No claimed_royalty_amount was supplied to compare against.';
+  } else if (claimedAmount === computedRoyaltyAmount) {
+    matchVerdict = 'CONSISTENT';
+    matchDetail = 'claimed_royalty_amount matches the recomputed value.';
+  } else {
+    matchVerdict = 'INCONSISTENT';
+    matchDetail = 'claimed_royalty_amount (' + claimedAmount.toString() + ') does NOT match the recomputed value (' + computedRoyaltyAmount.toString() + ').';
+  }
+
+  var findings = [
+    { check: 'bps_range_validity', verdict: rangeVerdict, detail: rangeDetail },
+    { check: 'claimed_amount_match', verdict: matchVerdict, detail: matchDetail },
+  ];
+  var verdicts = [findings[0].verdict, findings[1].verdict];
+  var overall_determination = verdicts.indexOf('INCONSISTENT') !== -1 ? 'INCONSISTENT' : (verdicts.indexOf('INDETERMINATE') !== -1 ? 'INDETERMINATE' : 'CONSISTENT');
+
+  var compliance_flags = [];
+  if (rangeVerdict === 'CONSISTENT') compliance_flags.push('ERC2981_BPS_IN_RANGE');
+  if (rangeVerdict === 'INCONSISTENT') compliance_flags.push('ERC2981_BPS_OUT_OF_RANGE');
+  if (matchVerdict === 'CONSISTENT') compliance_flags.push('ERC2981_CLAIMED_MATCH');
+  if (matchVerdict === 'INCONSISTENT') compliance_flags.push('ERC2981_CLAIMED_MISMATCH');
+  if (matchVerdict === 'INDETERMINATE') compliance_flags.push('ERC2981_NO_CLAIM');
+
+  var output_payload = {
+    overall_determination: overall_determination,
+    findings: findings,
+    sale_price: salePrice.toString(),
+    royalty_fraction_bps: bps.toString(),
+    effective_royalty_pct: effectivePct,
+    computed_royalty_amount: computedRoyaltyAmount.toString(),
+    claimed_royalty_amount: claimedAmount !== null ? claimedAmount.toString() : null,
+    receiver: receiverRaw,
+    related_tools: RELATED_TOOLS,
+    not_proven: NOT_PROVEN,
+    scope_note: SCOPE_NOTE,
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+var MANIFEST = {
+  tool_id: "art-608-erc2981-royalty-calculator",
+  tool_version: "1.0.0",
+  mcp_name: "calculate_erc2981_royalty",
+  mandate_type: "payment_policy",
+  wave: 99,
+  chaingraph_version: "0.4.0",
+  spec_version: '0.5.0',
+  compute_capability: "server",
+  export_capability: ["json"],
+  description: "Recomputes an ERC-2981 royalty amount as floor(sale_price * royalty_fraction_bps / 10000) from a declared sale price and basis-point fraction. Zero network calls, never queries a contract's royaltyInfo().",
+  chain: "erc2981-royalty-calculation",
+  url: "https://ainumbers.co/chaingraph/art-608-erc2981-royalty-calculator.html"
+};
+
+async function computeHash(pp, op) {
+  function jcs(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(jcs).join(',') + ']';
+    var keys = Object.keys(v).sort();
+    return '{' + keys.map(function(k) { return JSON.stringify(k) + ':' + jcs(v[k]); }).join(',') + '}';
+  }
+  var text = jcs({ policy_parameters: pp, output_payload: op });
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+var PRESETS = {
+  consistent: { sale_price: '1000000000000000000', royalty_fraction_bps: '250', claimed_royalty_amount: '25000000000000000', receiver: '0x5B38Da6a701c568545dCfcB03FcB875f56beddC4' },
+  mismatch: { sale_price: '1000000000000000000', royalty_fraction_bps: '500', claimed_royalty_amount: '1', receiver: '' },
+  outOfRange: { sale_price: '100', royalty_fraction_bps: '12000', claimed_royalty_amount: '', receiver: '' },
+  zeroPrice: { sale_price: '0', royalty_fraction_bps: '750', claimed_royalty_amount: '', receiver: '' },
+};
+
+function loadPreset(p) {
+  var pr = PRESETS[p];
+  if (!pr) return;
+  document.getElementById('sale_price').value = pr.sale_price;
+  document.getElementById('royalty_fraction_bps').value = pr.royalty_fraction_bps;
+  document.getElementById('claimed_royalty_amount').value = pr.claimed_royalty_amount;
+  document.getElementById('receiver').value = pr.receiver;
+}
+
+function getPP() {
+  return {
+    sale_price: document.getElementById('sale_price').value || null,
+    royalty_fraction_bps: document.getElementById('royalty_fraction_bps').value || null,
+    claimed_royalty_amount: document.getElementById('claimed_royalty_amount').value || null,
+    receiver: document.getElementById('receiver').value || null,
+  };
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  var show = b.style.display === 'block';
+  b.style.display = show ? 'none' : 'block';
+  if (!show) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+var _lastArtifact = null;
+var _lastPP = null;
+var _lastOP = null;
+
+var DET_COLOR = { CONSISTENT: 'var(--green)', INDETERMINATE: 'var(--warn)', INCONSISTENT: 'var(--red)' };
+var VCLASS = { CONSISTENT: 'met', INDETERMINATE: 'indet', INCONSISTENT: 'notmet' };
+var BADGE_CLASS = { CONSISTENT: 'ok', INDETERMINATE: 'warn-b', INCONSISTENT: 'err' };
+
+async function run() {
+  var pp = getPP();
+  var result = compute(pp);
+  var output_payload = result.output_payload, compliance_flags = result.compliance_flags;
+  var hash = await computeHash(pp, output_payload);
+
+  var __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', compute_mode: 'browser',
+    mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
+    generated_at: __generatedAtCapture, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: pp, output_payload: output_payload, compliance_flags: compliance_flags,
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  document.getElementById('generatedAt').textContent = 'generated_at ' + __generatedAtCapture;
+  _lastArtifact = artifact; _lastPP = pp; _lastOP = output_payload;
+
+  document.getElementById('results').classList.add('show');
+
+  var det = output_payload.overall_determination;
+  var detEl = document.getElementById('detVal');
+  detEl.textContent = det;
+  detEl.style.color = DET_COLOR[det] || 'var(--teal-lt)';
+
+  document.getElementById('amountVal').textContent = output_payload.computed_royalty_amount === null ? '—' : output_payload.computed_royalty_amount;
+  document.getElementById('pctVal').textContent = output_payload.effective_royalty_pct || '—';
+
+  document.getElementById('verdictBox').innerHTML = '<div class="verdict ' + (VCLASS[det] || 'indet') + '">' + det + ': overall determination across both independently reported checks</div>';
+
+  var tbody = document.getElementById('findingsTableBody');
+  tbody.innerHTML = output_payload.findings.map(function(f) {
+    return '<tr><td>' + f.check + '</td><td><span class="badge ' + (BADGE_CLASS[f.verdict] || 'warn-b') + '">' + f.verdict + '</span></td><td>' + f.detail + '</td></tr>';
+  }).join('');
+
+  document.getElementById('relatedToolsRow').innerHTML = output_payload.related_tools.map(function(r) {
+    return '<div style="margin-bottom:4px"><b>' + r.tool_id + ':</b> ' + r.relation + '</div>';
+  }).join('');
+
+  document.getElementById('flagsRow').innerHTML = compliance_flags.map(function(f) {
+    var cls = f.indexOf('MISMATCH') !== -1 || f.indexOf('OUT_OF_RANGE') !== -1 || f.indexOf('MALFORMED') !== -1 ? 'err' : (f.indexOf('NO_CLAIM') !== -1 || f.indexOf('INDETERMINATE') !== -1 ? 'warn-b' : 'ok');
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+
+  document.getElementById('notProvenList').innerHTML = output_payload.not_proven.map(function(n) {
+    return '<div style="margin-bottom:4px"><b>' + n.item + ':</b> ' + n.detail + '</div>';
+  }).join('');
+
+  document.getElementById('hash').textContent = hash;
+  document.getElementById('artifact').textContent = JSON.stringify(artifact, null, 2);
+
+  var abtn = document.getElementById('ap2ExportBtn');
+  abtn.disabled = false; abtn.style.background = 'var(--teal)'; abtn.style.color = '#06121f'; abtn.style.border = 'none';
+  var sbtn = document.getElementById('signArtifactBtn');
+  sbtn.disabled = false; sbtn.style.opacity = '1'; sbtn.style.cursor = 'pointer';
+}
+
+function download(filename, text, mime) {
+  var blob = new Blob([text], { type: mime });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function exportAP2() {
+  if (!_lastArtifact) return;
+  var mandate = {
+    ap2_version: '1.0', mandate_type: 'payment_policy', tool_id: MANIFEST.tool_id,
+    generated_at: _lastArtifact.generated_at, execution_hash: _lastArtifact.execution_hash,
+    determination: _lastOP.overall_determination, findings: _lastOP.findings,
+    policy_parameters: _lastPP, output_payload: _lastOP,
+  };
+  download('art-608-policy-mandate.json', JSON.stringify(mandate, null, 2), 'application/json');
+}
+
+function exportPDF() {
+  if (!_lastArtifact) return;
+  var w = window.open('', '_blank');
+  w.document.write('<pre>' + JSON.stringify(_lastArtifact, null, 2).replace(/</g, '&lt;') + '</pre>');
+  w.document.close(); w.print();
+}
+
+function exportCSV() {
+  if (!_lastOP) return;
+  var rows = [['field', 'value']];
+  rows.push(['sale_price', _lastOP.sale_price]);
+  rows.push(['royalty_fraction_bps', _lastOP.royalty_fraction_bps]);
+  rows.push(['computed_royalty_amount', _lastOP.computed_royalty_amount]);
+  rows.push(['claimed_royalty_amount', _lastOP.claimed_royalty_amount]);
+  var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+  download('art-608-erc2981-calculator.csv', csv, 'text/csv');
+}
+
+async function signArtifact() {
+  alert('Ed25519 artifact signing is a manual §16 workflow -- see chaingraph/standard/SPEC.md §16 for the signing procedure. This button marks the artifact ready to sign.');
+}
+
+async function verifySignature() {
+  if (!_lastArtifact) { alert('Run the verifier first to generate an artifact.'); return; }
+  alert(_lastArtifact.audit_signature && _lastArtifact.audit_signature.signatures && _lastArtifact.audit_signature.signatures.length
+    ? 'Signature present -- verify offline per SPEC.md §16.'
+    : 'No signature attached to this artifact yet.');
+}
+
+</script>
+</body>
+</html>
