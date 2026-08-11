@@ -1428,6 +1428,9 @@
       "name": "agreement"
     },
     {
+      "name": "ai-provenance"
+    },
+    {
       "name": "ai-training"
     },
     {
@@ -2349,6 +2352,9 @@
       "name": "digitalSourceType"
     },
     {
+      "name": "digitalsourcetype"
+    },
+    {
       "name": "direct debit"
     },
     {
@@ -2434,9 +2440,6 @@
     },
     {
       "name": "eddsa-jcs-2022"
-    },
-    {
-      "name": "edgar-nmfp"
     },
     {
       "name": "eidas2"
@@ -2740,9 +2743,6 @@
     },
     {
       "name": "genius"
-    },
-    {
-      "name": "genius-act"
     },
     {
       "name": "gir"
@@ -3174,7 +3174,7 @@
       "name": "mcp:classify_redline_round_changes"
     },
     {
-      "name": "mcp:recompute_stablecoin_reserve_3source"
+      "name": "mcp:decode_c2pa_aiml_assertions"
     },
     {
       "name": "mcp:recompute_x402_eip712_digest"
@@ -3930,9 +3930,6 @@
       "name": "reserve-adequacy"
     },
     {
-      "name": "reserve-ratio"
-    },
-    {
       "name": "reserving"
     },
     {
@@ -4425,9 +4422,6 @@
       "name": "third-party"
     },
     {
-      "name": "three-source-reconcile"
-    },
-    {
       "name": "threshold"
     },
     {
@@ -4489,6 +4483,9 @@
     },
     {
       "name": "training data"
+    },
+    {
+      "name": "training-opt-out"
     },
     {
       "name": "transaction monitoring"
@@ -4633,9 +4630,6 @@
     },
     {
       "name": "wallet"
-    },
-    {
-      "name": "wam"
     },
     {
       "name": "watermark"
@@ -47258,6 +47252,109 @@
         "x-source": "manifest"
       }
     },
+    "/v1/tools/decode_c2pa_aiml_assertions": {
+      "post": {
+        "operationId": "decode_c2pa_aiml_assertions",
+        "summary": "C2PA AI/ML Assertion Decoder",
+        "description": "Decodes AI/ML provenance assertions off a C2PA manifest's assertion array: ALL entries in every c2pa.actions/c2pa.actions.v2 assertion (a manifest can carry a created -> edited -> published history; this reads the whole chain, not just the first action), the full IPTC digitalsourcetype NewsCodes vocabulary (raw code always surfaced, an unrecognized code is never silently dropped), and c2pa.ai_training / c2pa.ai_generative_training training-and-data-mining opt-out assertions (training_mining_opt_out: true/false/not_asserted, read only from an explicit boolean, never inferred). Reports assertions only -- never adjudicates whether an assertion is true, and absence of an AI/ML assertion means nothing. Reuses art-123's assertion-array input shape as a sibling stage; zero edits to art-123 or art-361. Zero network calls, zero PII.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-597-c2pa-aiml-assertion-decoder.html",
+        "tags": [
+          "compliance_control",
+          "c2pa",
+          "ai-provenance",
+          "digitalsourcetype",
+          "training-opt-out",
+          "mcp:decode_c2pa_aiml_assertions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assertions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "digital_source_type": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "when": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "software_agent": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "digital_source_type_summary": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "training_mining_opt_out": {
+                      "type": [
+                        "boolean",
+                        "string"
+                      ]
+                    },
+                    "unrecognized_source_types": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "decode_c2pa_aiml_assertions",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-597-c2pa-aiml-assertion-decoder.html",
+        "x-source": "manifest"
+      }
+    },
     "/v1/tools/check_mica_register_presence": {
       "post": {
         "operationId": "check_mica_register_presence",
@@ -47434,135 +47531,6 @@
         "x-mcp-tool-name": "check_mica_register_presence",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-602-mica-register-presence-check.html",
         "x-source": "manifest"
-      }
-    },
-    "/v1/tools/recompute_stablecoin_reserve_3source": {
-      "post": {
-        "operationId": "recompute_stablecoin_reserve_3source",
-        "summary": "Stablecoin Reserve 3-Source Recompute",
-        "description": "Recomputes reserve ratio, weighted-average maturity, and per-holding GENIUS eligible-asset match from three independently-sourced legs (issuer disclosure with a per-asset-class breakdown, EDGAR N-MFP Part 1 series summary, declared on-chain supply), then reconciles them against each other, skew-gated on how far apart their as-of dates are. Each leg is optional; a missing leg drives every check that depends on it to INDETERMINATE, never a fabricated pass. Reserve-ratio and WAM-ceiling checks use MET/NOT_MET/INDETERMINATE vocabulary; per-holding GENIUS eligible-asset flags use MATCHES_CRITERION/DOES_NOT_MATCH/INDETERMINATE (the statutory catch-all item always INDETERMINATE, never auto-matched, no overall_eligibility field of any kind); the three cross-source reconcile checks use RECONCILED/DISCREPANT/INDETERMINATE. A RECOMPUTE only: never a solvency claim, never an audit, never a third-party sign-off, never 'satisfies GENIUS'.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-603-stablecoin-reserve-3source-recompute.html\n**AP2/Policy Mandate export:** yes",
-        "tags": [
-          "compliance_mandate",
-          "genius-act",
-          "stablecoin",
-          "reserve-ratio",
-          "wam",
-          "edgar-nmfp",
-          "three-source-reconcile",
-          "mcp:recompute_stablecoin_reserve_3source"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "max_as_of_skew_days": {
-                    "type": "number"
-                  },
-                  "leg_a": {
-                    "type": [
-                      "object",
-                      "null"
-                    ]
-                  },
-                  "leg_b": {
-                    "type": [
-                      "object",
-                      "null"
-                    ]
-                  },
-                  "leg_c": {
-                    "type": [
-                      "object",
-                      "null"
-                    ]
-                  }
-                },
-                "required": []
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful tool execution result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "overall_determination": {
-                      "type": "string"
-                    },
-                    "leg_a": {
-                      "type": "object"
-                    },
-                    "leg_b": {
-                      "type": "object"
-                    },
-                    "leg_c": {
-                      "type": "object"
-                    },
-                    "max_as_of_skew_days_global": {
-                      "type": [
-                        "number",
-                        "null"
-                      ]
-                    },
-                    "as_of_skew_pairs": {
-                      "type": "object"
-                    },
-                    "as_of_skew_threshold_days": {
-                      "type": "number"
-                    },
-                    "reserve_ratio": {
-                      "type": "object"
-                    },
-                    "wam": {
-                      "type": "object"
-                    },
-                    "genius_eligible_holdings": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    },
-                    "provisional_nprm_detail": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    },
-                    "reconciles": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    },
-                    "not_proven": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    },
-                    "determination_note": {
-                      "type": "string"
-                    },
-                    "regulatory_framework": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-mcp-tool-name": "recompute_stablecoin_reserve_3source",
-        "x-tool-url": "https://ainumbers.co/chaingraph/art-603-stablecoin-reserve-3source-recompute.html",
-        "x-source": "manifest",
-        "x-ap2-export": true
       }
     },
     "/v1/tools/batch_payment_file_validator": {

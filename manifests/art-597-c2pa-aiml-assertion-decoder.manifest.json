@@ -1,0 +1,56 @@
+{
+  "tool_id": "art-597-c2pa-aiml-assertion-decoder",
+  "version": "1.0.0",
+  "title": "C2PA AI/ML Assertion Decoder",
+  "description": "Decodes AI/ML provenance assertions off a C2PA manifest's assertion array: ALL entries in every c2pa.actions/c2pa.actions.v2 assertion (a manifest can carry a created -> edited -> published history; this reads the whole chain, not just the first action), the full IPTC digitalsourcetype NewsCodes vocabulary (raw code always surfaced, an unrecognized code is never silently dropped), and c2pa.ai_training / c2pa.ai_generative_training training-and-data-mining opt-out assertions (training_mining_opt_out: true/false/not_asserted, read only from an explicit boolean, never inferred). Reports assertions only -- never adjudicates whether an assertion is true, and absence of an AI/ML assertion means nothing. Reuses art-123's assertion-array input shape as a sibling stage; zero edits to art-123 or art-361. Zero network calls, zero PII.",
+  "category": "content-provenance-and-media-authenticity",
+  "tags": ["compliance_control", "c2pa", "ai-provenance", "digitalsourcetype", "training-opt-out", "mcp:decode_c2pa_aiml_assertions"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "assertions": {
+        "type": "array",
+        "description": "C2PA manifest assertion array (same shape art-123/art-361 already consume). Entries with label c2pa.actions/c2pa.actions.v2 carry an actions[] array of {action, digitalSourceType, when, softwareAgent}; entries with label c2pa.ai_training/c2pa.ai_generative_training carry a training_mining_opt_out boolean.",
+        "items": { "type": "object" }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "decode_c2pa_aiml_assertions",
+    "description": "Decodes ALL c2pa.actions/c2pa.actions.v2 action entries (full edit history, not just the first), the IPTC digitalsourcetype vocabulary (unrecognized codes surfaced, never dropped), and c2pa.ai_training/c2pa.ai_generative_training opt-out assertions off a C2PA manifest. Reports assertions only -- never adjudicates truth; absence means nothing.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "assertions": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-597-c2pa-aiml-assertion-decoder.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "actions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "action": { "type": ["string", "null"] },
+            "digital_source_type": { "type": ["string", "null"] },
+            "when": { "type": ["string", "null"] },
+            "software_agent": { "type": ["string", "null"] }
+          }
+        }
+      },
+      "digital_source_type_summary": { "type": "array", "items": { "type": "string" } },
+      "training_mining_opt_out": { "type": ["boolean", "string"] },
+      "unrecognized_source_types": { "type": "array", "items": { "type": "string" } },
+      "note": { "type": "string" }
+    }
+  }
+}
