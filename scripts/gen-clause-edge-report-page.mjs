@@ -1,0 +1,250 @@
+#!/usr/bin/env node
+// Renders clause-edge-report.html from chaingraph/clause-edges/index.json (CLAUSE-EDGE-TYPES-1).
+// Re-run after `node scripts/gen-clause-edge-report.mjs` any time a shard node's citations
+// change -- this file is fully derived, never hand-edited.
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..');
+const REPORT_PATH = join(ROOT, 'chaingraph', 'clause-edges', 'index.json');
+const CHECK = process.argv.includes('--check');
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function edgeRow(e) {
+  return `
+        <tr>
+          <td><span class="edge-type edge-${esc(e.type)}">${esc(e.type)}</span></td>
+          <td><code>${esc(e.from.scheme)}</code> ${esc(e.from.id)}</td>
+          <td><code>${esc(e.to.scheme)}</code> ${esc(e.to.id)}</td>
+          <td>${esc(e.mapped_by)}</td>
+          <td>${esc(e.mapped_at)}</td>
+        </tr>`;
+}
+
+function orphanRow(o) {
+  const sites = o.cited_from.map((c) => `<code>${esc(c.tool_id)}</code>`).join(', ');
+  return `
+        <tr>
+          <td><code>${esc(o.scheme)}</code> ${esc(o.id)}</td>
+          <td>${esc(o.mapped_by)}</td>
+          <td>${esc(o.mapped_at)}</td>
+          <td>${sites}</td>
+        </tr>`;
+}
+
+function render(report) {
+  const edgesSection = report.edges.length
+    ? `<table class="clause-table">
+      <thead><tr><th>relationship</th><th>from</th><th>to</th><th>mapped by</th><th>mapped at</th></tr></thead>
+      <tbody>${report.edges.map(edgeRow).join('')}
+      </tbody>
+    </table>`
+    : `<p class="empty-state">No kernel has declared a typed relationship between two citations yet: the corpus has not needed one so far. The row appears here the moment a kernel's citation carries a <code>superseded_by</code> reference (or any future typed field this vocabulary grows to cover).</p>`;
+
+  const orphansSection = report.orphans.length
+    ? `<table class="clause-table">
+      <thead><tr><th>clause</th><th>mapped by</th><th>mapped at</th><th>cited from</th></tr></thead>
+      <tbody>${report.orphans.map(orphanRow).join('')}
+      </tbody>
+    </table>`
+    : `<p class="empty-state">Every pinned citation in the corpus currently declares a relationship to another citation.</p>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Clause Edge Report | AINumbers.co</title>
+<meta name="description" content="A regulation-to-regulation relationship report over pinned SPEC.md section 28 citation objects: which cited instruments amend, reference, repeal, or mention another, and which are still unclassified, each attributed to who mapped it.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/clause-edge-report.html">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Clause Edge Report | AINumbers.co">
+<meta property="og:description" content="Typed relationship report over pinned regulatory citations: amends, references, repeals, mentions, and what is still unclassified.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/clause-edge-report.html">
+<meta property="og:site_name" content="AINumbers.co">
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<!-- Schema.org -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://ainumbers.co/#org",
+      "name": "AINumbers.co",
+      "url": "https://ainumbers.co"
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": "https://ainumbers.co/chaingraph/clause-edge-report.html",
+      "name": "Clause Edge Report",
+      "url": "https://ainumbers.co/chaingraph/clause-edge-report.html",
+      "isPartOf": { "@id": "https://ainumbers.co/#org" },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://ainumbers.co" },
+          { "@type": "ListItem", "position": 2, "name": "Clause Edge Report", "item": "https://ainumbers.co/chaingraph/clause-edge-report.html" }
+        ]
+      }
+    }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #080E1A; --bg-2: #0D1627; --bg-3: #111E35;
+  --border: #1E2F4A; --muted: #3A5270; --body: #6888A8;
+  --text: #A8C4DE; --bright: #D4E8F8; --white: #EEF6FD;
+  --teal: #14B8A6; --teal-lt: #2DD4BF; --gold: #D4A847; --amber: #E0A83D;
+  --radius: 6px; --radius-lg: 10px;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:'Sora',sans-serif; font-size:.9rem; line-height:1.7; min-height:100vh; }
+h1,h2 { font-family:'DM Serif Display',serif; font-weight:400; line-height:1.2; }
+a { color:inherit; text-decoration:none; }
+code { font-family:'JetBrains Mono',monospace; font-size:.85em; color:var(--teal-lt); }
+.container { max-width:1000px; margin:0 auto; padding:0 2rem; }
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright)}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-links{display:flex;align-items:center;gap:20px;justify-self:end}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.nav-links a:hover{color:var(--teal-lt)}
+.hero{padding:4rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt)}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(2rem,4vw,2.6rem);color:var(--white);margin-bottom:.85rem}
+.hero-sub{font-size:.93rem;color:var(--body);max-width:720px;line-height:1.85}
+.vocab-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.2rem}
+.vocab-pill{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;padding:.3rem .65rem;border-radius:999px;background:rgba(20,184,166,.1);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.rpt-section{padding:2.5rem 2rem;max-width:1000px;margin:0 auto}
+.rpt-section + .rpt-section{border-top:1px solid var(--border)}
+.rpt-section h2{font-size:1.4rem;color:var(--white);margin-bottom:.5rem}
+.rpt-section-note{font-size:.85rem;color:var(--body);margin-bottom:1.5rem;max-width:750px}
+.empty-state{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.4rem;font-size:.83rem;color:var(--body)}
+.clause-table{width:100%;border-collapse:collapse;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;font-size:.8rem}
+.clause-table th{text-align:left;padding:.65rem .9rem;background:var(--bg-3);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.clause-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.clause-table tr:last-child td{border-bottom:none}
+.edge-type{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;padding:.2rem .5rem;border-radius:999px;background:rgba(224,168,61,.12);color:var(--amber);border:1px solid rgba(224,168,61,.35)}
+.stat-row{display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1.5rem}
+.stat-tile{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.3rem;min-width:140px}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.5rem;color:var(--bright)}
+.stat-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:.25rem}
+.rpt-footnote{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:1rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+footer{border-top:1px solid var(--border);padding:2rem 0}
+.footer-inner{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-links{display:flex;gap:1.5rem;flex-wrap:wrap}
+.footer-links a{color:var(--body);font-size:.82rem}
+.footer-links a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" aria-label="AINumbers.co home">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-links">
+      <a href="../about.html">About</a>
+      <a href="../index.html">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <header class="hero" role="banner">
+    <div class="container">
+      <p class="hero-eyebrow">Clause corpus / regulation-to-regulation edges</p>
+      <h1>Clause edge report.</h1>
+      <p class="hero-sub">SPEC.md section 28 pins a regulatory citation to the computation it grounds: citation to calculation. This report is a different graph: citation to citation. Does one cited instrument amend, reference, repeal, or merely mention another? That relationship is not tracked anywhere else in this estate. This page sweeps every pinned citation object across the built graph, lists the relationships the corpus already declares, and lists every citation with no declared relationship, attributed to whoever mapped it. It is regenerated from source on every run; nothing here is hand-maintained.</p>
+      <div class="vocab-row">
+        ${report.vocabulary.map((v) => `<span class="vocab-pill">${esc(v)}</span>`).join('')}
+      </div>
+      <div class="stat-row">
+        <div class="stat-tile"><div class="stat-num">${report.clauses_swept}</div><div class="stat-label">clauses swept</div></div>
+        <div class="stat-tile"><div class="stat-num">${report.edges.length}</div><div class="stat-label">typed edges found</div></div>
+        <div class="stat-tile"><div class="stat-num">${report.orphans.length}</div><div class="stat-label">unclassified</div></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="rpt-section" aria-label="Typed edges">
+    <h2>Typed relationships found</h2>
+    <p class="rpt-section-note">A relationship the corpus already declares in structured form. Today the only such field is section 28.1's own <code>superseded_by</code>, reused here as a <code>repeals</code> edge rather than duplicated as a separate concept.</p>
+    ${edgesSection}
+  </section>
+
+  <section class="rpt-section" aria-label="Unclassified citations">
+    <h2>Unclassified citations</h2>
+    <p class="rpt-section-note">Every pinned citation with no declared relationship to another citation, listed with the kernel(s) that cite it and who mapped it. This is a list, not a ratio: it grows or shrinks as kernels adopt the vocabulary above, and it is never published as a coverage percentage.</p>
+    ${orphansSection}
+  </section>
+
+  <div class="container">
+    <p class="rpt-footnote">Generated ${esc(report.generated_at)} from <code>chaingraph/graph/nodes/*.json</code> by <code>node scripts/gen-clause-edge-report.mjs</code>. Read-only over existing citation data: this tool writes nothing back to the shard files it sweeps. Re-run any time a kernel's citations change; raw data at <a href="clause-edges/index.json">clause-edges/index.json</a>.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <a href="../index.html" class="logo">
+        <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+      </a>
+      <div class="footer-links">
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../disclosures/index.html">Disclosures</a>
+        <a href="../contact.html">Contact</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
+`;
+}
+
+function main() {
+  const report = JSON.parse(readFileSync(REPORT_PATH, 'utf8'));
+  const html = render(report);
+  const outPath = join(ROOT, 'chaingraph', 'clause-edge-report.html');
+  if (CHECK) {
+    const current = readFileSync(outPath, 'utf8');
+    if (current !== html) {
+      console.error('gen-clause-edge-report-page --check: clause-edge-report.html is stale, run `node scripts/gen-clause-edge-report-page.mjs`');
+      process.exit(1);
+    }
+    console.log('gen-clause-edge-report-page --check: OK, clause-edge-report.html is fresh.');
+    return;
+  }
+  writeFileSync(outPath, html);
+  console.log('gen-clause-edge-report-page: wrote chaingraph/clause-edge-report.html');
+}
+
+main();
