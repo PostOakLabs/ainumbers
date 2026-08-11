@@ -64,7 +64,11 @@ function mulberry32(seed) {
 }
 const rand = mulberry32(0x424C19);
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
-function randB64(rng, n) { let s = ''; for (let i = 0; i < n; i++) s += String.fromCharCode(32 + Math.floor(rng() * 90)); return Buffer.from(s).toString('base64'); }
+function randB64(rng, n) {
+  let s = '';
+  for (let i = 0; i < n; i++) s += String.fromCharCode(32 + Math.floor(rng() * 90));
+  return btoa(s);
+}
 
 // A syntactically well-formed checkpoint note: origin\nsize\nrootB64\n\n[sig lines]
 function randomNote(rng) {
