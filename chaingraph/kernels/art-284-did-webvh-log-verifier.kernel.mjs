@@ -4259,7 +4259,7 @@ function bytesToHex(bytes) {
 }
 
 function sha256Hex(text) {
-  return bytesToHex(sha256(new TextEncoder().encode(text)));
+  return bytesToHex(sha256(utf8Bytes(text)));
 }
 
 function canonJson(v) {
@@ -4295,18 +4295,58 @@ function didKeyToPublicKey(did) {
   return raw;
 }
 
+// ── Host-free encoding helpers ────────────────────────────────────────────────────────────────
+// The zkVM guest provides NO atob/btoa, NO Buffer and NO TextEncoder — only WebCrypto's absence
+// was known before this kernel was first proven; the rest surfaced the moment compute() stopped
+// being vacuous and the guest journal could finally be compared against V8. Both helpers below
+// are pure JS for that reason, following art-287 (base64, "no atob, no Buffer, no host API") and
+// art-189 (UTF-8), both already proven in-guest.
+const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+// Standard base64 -> bytes. THROWS on a malformed input exactly as atob() did, so
+// verifyEntrySignature's existing try/catch keeps turning malformed material into false.
 function b64ToBytes(b64) {
-  const bin = globalThis.atob ? globalThis.atob(b64) : Buffer.from(b64, 'base64').toString('binary');
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+  const s = String(b64 ?? '').replace(/=+$/, '');
+  if (s.length % 4 === 1) throw new Error('invalid base64 length');
+  const out = [];
+  let buffer = 0, bits = 0;
+  for (let i = 0; i < s.length; i++) {
+    const idx = B64_ALPHABET.indexOf(s[i]);
+    if (idx === -1) throw new Error('invalid base64 character');
+    buffer = (buffer << 6) | idx;
+    bits += 6;
+    if (bits >= 8) { bits -= 8; out.push((buffer >> bits) & 0xff); }
+  }
+  return new Uint8Array(out);
+}
+
+// UTF-8 encode without TextEncoder. Byte-identical to TextEncoder().encode() for well-formed
+// input; verbatim from the already-proven art-189 kernel.
+function utf8Bytes(str) {
+  const s = String(str);
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c < 0x80) {
+      out.push(c);
+    } else if (c < 0x800) {
+      out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+    } else if (c >= 0xd800 && c <= 0xdbff) {
+      const hi = c, lo = s.charCodeAt(++i);
+      const cp = 0x10000 + ((hi - 0xd800) << 10) + (lo - 0xdc00);
+      out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+    } else {
+      out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    }
+  }
+  return new Uint8Array(out);
 }
 
 function verifyEntrySignature(entryInput, proof, did) {
   try {
     const pub = didKeyToPublicKey(did);
     const sigBytes = b64ToBytes(proof.proofValue);
-    const msgBytes = new TextEncoder().encode(canonJson(entryInput));
+    const msgBytes = utf8Bytes(canonJson(entryInput));
     return ed25519.verify(sigBytes, msgBytes, pub, { zip215: false }) === true;
   } catch { return false; }
 }

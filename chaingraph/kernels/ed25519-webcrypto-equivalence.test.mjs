@@ -40,6 +40,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
+import vm from 'node:vm';
 import { ed25519 } from './_noble-ed25519.bundle.mjs';
 import { compute as compute129 } from './art-129-webbotauth-signature-verifier.kernel.mjs';
 import { compute as compute284 } from './art-284-did-webvh-log-verifier.kernel.mjs';
@@ -103,6 +104,36 @@ const fixtures = (id) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures'
   ok('art-284 compute() is not a thenable', typeof r284?.then !== 'function');
   ok('art-129 compute() returns a populated object', r129 && Object.keys(r129).length > 0);
   ok('art-284 compute() returns a populated object', r284 && Object.keys(r284).length > 0);
+}
+
+// ── 1b. Guest-shaped run: no TextEncoder, no atob, no Buffer, no crypto ────────────────────
+// The zkVM guest supplies NONE of those. That was learned the expensive way: the first prove of
+// these kernels burned 620 GPU-seconds and came back output_not_v8_identical, because b64ToBytes
+// fell through to Buffer and TextEncoder was simply absent, and both throws were swallowed into
+// signature_cryptographically_valid=false. crypto.subtle's absence was the known half; the rest
+// only surfaced once compute() stopped being vacuous and the guest journal could be compared.
+// A fresh vm context has ECMAScript built-ins only, so it reproduces that environment locally and
+// this class fails here in milliseconds instead of after a GPU session.
+{
+  const { stripEsmSyntaxForVm } = await import('../vm/kernel-vm.mjs');
+  for (const id of ['art-129-webbotauth-signature-verifier', 'art-284-did-webvh-log-verifier']) {
+    const src = stripEsmSyntaxForVm(readFileSync(path.join(__dirname, `${id}.kernel.mjs`), 'utf8'));
+    const ctx = vm.createContext(Object.create(null));
+    // Guard: confirm the sandbox really is host-global free, or this check proves nothing.
+    const absent = vm.runInContext(
+      '[typeof TextEncoder, typeof atob, typeof Buffer, typeof crypto].join(",")', ctx);
+    ok(`${id} sandbox has no host globals`, absent === 'undefined,undefined,undefined,undefined', absent);
+    vm.runInContext(`${src}\n;globalThis.__compute = compute;`, ctx, { timeout: 60_000 });
+    for (const v of fixtures(id).vectors) {
+      const got = vm.runInContext('JSON.stringify(__compute(__pp))',
+        Object.assign(ctx, { __pp: vm.runInContext(`(${JSON.stringify(v.policy_parameters)})`, ctx) }),
+        { timeout: 60_000 });
+      ok(`${id}/${v.name} matches the golden fixture with no host globals`,
+        JSON.parse(got).output_payload && JSON.stringify(JSON.parse(got).output_payload) === JSON.stringify(v.output_payload),
+        JSON.parse(got).output_payload && JSON.stringify(JSON.parse(got).output_payload));
+    }
+  }
+  console.log('  guest-shaped run: both kernels reproduce every golden fixture with no host globals');
 }
 
 // ── 2. Fixture-level equivalence, triples reconstructed from the golden fixtures ────────────

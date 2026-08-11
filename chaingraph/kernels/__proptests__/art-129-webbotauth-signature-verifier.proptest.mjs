@@ -1,5 +1,5 @@
 // art-129-webbotauth-signature-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:5274be35695e7e38d8fc3b42148a9446bad7a77fa7af42574be4eaeeadc2c31a
+// kernel_digest_at_authoring: sha256:540c9d7518ba023177cc5b43c463c8ae89c8fcedb57a44e4f007de93b891ebcf
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
