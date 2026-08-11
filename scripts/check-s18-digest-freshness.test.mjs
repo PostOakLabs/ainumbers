@@ -361,9 +361,20 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // groth16 receipts, each VERIFY_PASS with journal.kernel_digest matching the pre-prove pin. Same
   // shape as above -- denominator and fresh each move by exactly 3, stale does not move.
   // Measured both sides, not assumed: 434/567 fresh + 133 stale before, 437/570 + 133 after.
-  assert(total === 570, `expected 570 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 437, `expected 437 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 133, `expected 133 stale (unchanged by S18-CLEAR-DEFERRALS-1), got ${stale.length}`);
+  // 570 -> 571 post-ASYNC-VACUOUS-REMEDIATE-1 + ASSEMBLE-LAND-ASYNCVACUOUS-1 (2026-08-11): the
+  // async-vacuous remediation converted 18 async-compute kernels to synchronous compute and re-proved
+  // 20 nodes, whose receipts had verified over an EMPTY journal. art-593 was the only deferred node in
+  // that set, so the denominator moves by exactly 1; the other 19 were already counted. Every one of
+  // the 20 carries a fresh receipt written against the post-conversion kernel, so they stay in the
+  // FRESH set (their kernel_digest moved and the receipt moved with it, verified by recomputation).
+  // The stale count DOES move here, unlike the deferral-draining rows above: 15 of the 20 were in the
+  // stale set on main and their new receipts clear them, and art-593 enters fresh as a new denominator
+  // member -- so fresh gains 16 and stale drops by 15.
+  // Measured both sides, not assumed: 437/570 fresh + 133 stale before this row's assemble,
+  // 453/571 fresh + 118 stale after.
+  assert(total === 571, `expected 571 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 453, `expected 453 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 118, `expected 118 stale (15 cleared by ASSEMBLE-LAND-ASYNCVACUOUS-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
