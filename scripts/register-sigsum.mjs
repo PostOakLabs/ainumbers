@@ -315,10 +315,12 @@ async function main() {
     const rootHash = Buffer.from(cosignedHead.root_hash[0], 'hex');
     const cosignatures = [];
     const csList = cosignedHead.cosignature || [];
-    const khList = cosignedHead.key_hash || [];
     for (let i = 0; i < csList.length; i++) {
+      // Each `cosignature=` line is ONE field: "<key_hash_hex> <timestamp> <signature_hex>"
+      // (measured live against seasalp's get-tree-head response) — NOT split across a
+      // parallel `key_hash=` field, which the response never sends.
       const parts = csList[i].split(' ');
-      cosignatures.push({ key_hash: khList[i], timestamp: Number(parts[0]), signature: parts[1] });
+      cosignatures.push({ key_hash: parts[0], timestamp: Number(parts[1]), signature: parts[2] });
     }
 
     const record = {
