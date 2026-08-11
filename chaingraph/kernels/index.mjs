@@ -538,6 +538,7 @@ import * as art599    from './art-599-gleif-snapshot-digest.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
 import * as art600    from './art-600-lei-relationship-consistency.kernel.mjs';
 import * as art602    from './art-602-mica-register-presence-check.kernel.mjs';
+import * as art603    from './art-603-stablecoin-reserve-3source-recompute.kernel.mjs';
 import * as art604    from './art-604-erc8004-registry-entry-verifier.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
@@ -1132,6 +1133,7 @@ export const KERNELS = {
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
   'art-600-lei-relationship-consistency':                       art600,
   'art-602-mica-register-presence-check':                       art602,
+  'art-603-stablecoin-reserve-3source-recompute':               art603,
   'art-604-erc8004-registry-entry-verifier':                    art604,
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-62-ap2-payment-receipt-verifier':                        art62,
