@@ -47,14 +47,23 @@ jobs:
         # run, fetch failure) fails OPEN — gates still run — this narrows blast
         # radius, it never weakens what the gate itself checks.
         id: helmscope
+        env:
+          # Event values cross via env:, never `${{ }}` inside the run: body.
+          # These three are SHAs and a trigger name, so nothing here is
+          # attacker-shapeable today; the point is that no expansion is spliced
+          # into the script text, so the property holds by construction rather
+          # than by each value happening to be benign.
+          EVENT_BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
         run: |
-          BEFORE="${{ github.event.before }}"
+          BEFORE="$EVENT_BEFORE"
           ZERO="0000000000000000000000000000000000000000"
           CHANGED="undeterminable"
-          if [ "${{ github.event_name }}" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "$ZERO" ]; then
+          if [ "$EVENT_NAME" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "$ZERO" ]; then
             git fetch --no-tags --depth=1 origin "$BEFORE" 2>/dev/null || true
             if git cat-file -e "$BEFORE" 2>/dev/null; then
-              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- helm.html helm/ scripts/check-helm-version-drift.mjs scripts/gen-helm-guide-freshness.mjs)
+              CHANGED=$(git diff --name-only "$BEFORE" "$EVENT_SHA" -- helm.html helm/ scripts/check-helm-version-drift.mjs scripts/gen-helm-guide-freshness.mjs)
             fi
           fi
           if [ -n "$CHANGED" ]; then
@@ -352,12 +361,29 @@ jobs:
           persist-credentials: false
 
       - name: 🔐 Setup SSH Key & Host
+        env:
+          # Secrets cross via env:, never `${{ }}` inside the run: body.
+          # These are repo secrets, NOT attacker-controlled input, so this is
+          # not the fork-PR RCE shape. Two real exposures remain and are what
+          # this change closes:
+          #   (1) an expansion is spliced into the script TEXT, so the value
+          #       becomes part of the program the runner writes to disk and
+          #       passes to the shell;
+          #   (2) a value containing shell metacharacters — a quote, a
+          #       backtick, `$(` — would break or re-shape the command. A PEM
+          #       key is base64 and will not contain them today, so this is
+          #       robustness and defence in depth, not a live incident.
+          DH_SSH_KEY: ${{ secrets.DH_SSH_KEY }}
+          DH_SSH_HOST: ${{ secrets.DH_SSH_HOST }}
         run: |
           mkdir -p ~/.ssh
-          # Strip Windows line endings from the key before writing
-          echo "${{ secrets.DH_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          # Strip Windows line endings from the key before writing.
+          # printf '%s\n' rather than echo: the key is multi-line, and echo's
+          # backslash handling is shell-dependent while printf '%s' is not.
+          # Output is byte-identical for a well-formed PEM.
+          printf '%s\n' "$DH_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.DH_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H "$DH_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # Verification (safe — does not expose key content)
           echo "Key header : $(head -1 ~/.ssh/deploy_key)"
@@ -367,23 +393,32 @@ jobs:
       - name: 🔌 Test SSH connection to DreamHost
         # Hard-fail early if the key is wrong — prevents rsync from running
         # with --delete against an unreachable or misidentified target.
+        env:
+          DH_SSH_USER: ${{ secrets.DH_SSH_USER }}
+          DH_SSH_HOST: ${{ secrets.DH_SSH_HOST }}
         run: |
+          # Quoted as ONE argument. The previous form was unquoted, so a value
+          # containing whitespace or a glob character would have word-split
+          # into several arguments; for the current values the resulting argv
+          # is identical.
           ssh -i ~/.ssh/deploy_key \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=no \
             -o BatchMode=yes \
             -o ConnectTimeout=10 \
-            ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }} "echo '✅ SSH connection confirmed'"
+            "$DH_SSH_USER@$DH_SSH_HOST" "echo '✅ SSH connection confirmed'"
 
       - name: 🪪 Write deploy stamp (DEPLOYDRIFT-1)
         # Written HERE, at rsync time, from the commit actually being deployed —
         # never at preflight — so it attests what really shipped, not what merely
         # passed checks. scripts/check-deploy-drift.mjs compares this against
         # origin/main's HEAD to detect a deploy that silently failed to fire.
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
           mkdir -p .well-known
           printf '{"sha":"%s","deployed_at":"%s"}\n' \
-            "${{ github.sha }}" \
+            "$DEPLOY_SHA" \
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             > .well-known/deploy-stamp.json
           cat .well-known/deploy-stamp.json
@@ -393,6 +428,10 @@ jobs:
         # is the CI-freshness-gated (generate-okf.mjs --check) machine-knowledge bundle,
         # and chaingraph/standard/SPEC.md is the publicly-linked SSOT doc — both are
         # meant to be live, unlike CONTRACT.md/CLAUDE.md/other internal build docs.
+        env:
+          DH_SSH_USER: ${{ secrets.DH_SSH_USER }}
+          DH_SSH_HOST: ${{ secrets.DH_SSH_HOST }}
+          DH_WEB_ROOT: ${{ secrets.DH_WEB_ROOT }}
         run: |
           rsync -avz --delete --dry-run --omit-dir-times \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
@@ -414,10 +453,14 @@ jobs:
             --exclude='reconciled/' \
             --exclude='CANONICAL_TOOL_EXAMPLE.html' \
             --exclude='docs/' \
-            ./ ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }}:${{ secrets.DH_WEB_ROOT }}/
+            ./ "$DH_SSH_USER@$DH_SSH_HOST:$DH_WEB_ROOT/"
 
       - name: 🚀 Sync to DreamHost via rsync
         # Keep these --include/--exclude flags identical to the dry-run rsync above.
+        env:
+          DH_SSH_USER: ${{ secrets.DH_SSH_USER }}
+          DH_SSH_HOST: ${{ secrets.DH_SSH_HOST }}
+          DH_WEB_ROOT: ${{ secrets.DH_WEB_ROOT }}
         run: |
           rsync -avz --delete --omit-dir-times \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
@@ -439,7 +482,7 @@ jobs:
             --exclude='reconciled/' \
             --exclude='CANONICAL_TOOL_EXAMPLE.html' \
             --exclude='docs/' \
-            ./ ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }}:${{ secrets.DH_WEB_ROOT }}/
+            ./ "$DH_SSH_USER@$DH_SSH_HOST:$DH_WEB_ROOT/"
 
           echo "✅ rsync completed successfully."
 
@@ -479,14 +522,16 @@ jobs:
       - name: 🌐 Smoke test — homepage responds
         # A lightweight check that the site root returns HTTP 200 after deploy.
         # Set DH_SITE_URL secret to your domain, e.g. https://ainumbers.co
+        env:
+          DH_SITE_URL: ${{ secrets.DH_SITE_URL }}
         run: |
-          if [ -z "${{ secrets.DH_SITE_URL }}" ]; then
+          if [ -z "$DH_SITE_URL" ]; then
             echo "ℹ️  DH_SITE_URL secret not set — skipping smoke test"
             echo "   Add it in GitHub → Settings → Secrets → Actions"
             exit 0
           fi
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            --max-time 15 "${{ secrets.DH_SITE_URL }}")
+            --max-time 15 "$DH_SITE_URL")
           if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
             echo "✅ Site responded with HTTP $HTTP_CODE"
           else
