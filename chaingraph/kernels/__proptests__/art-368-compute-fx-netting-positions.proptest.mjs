@@ -1,5 +1,5 @@
 // art-368-compute-fx-netting-positions.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:665538f1e6305877bc876b3bd1bf4fcc797a890efabe8855d1dd82f9375af8ce
+// kernel_digest_at_authoring: sha256:f7c40844e14788edbc93617ffab9ff10e02f9ced7a427a11d232041defcb2f78
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

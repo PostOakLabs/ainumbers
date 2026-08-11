@@ -1,5 +1,5 @@
 // art-445-credit-concentration-topn-sector.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:e804851599dab3fed1edcc45f8351fb75a7af0de1ac4bd7b51a21ac32c34cfee
+// kernel_digest_at_authoring: sha256:2c48c891970145492a64a3005f4756cbe485a5a8f04738cc43b59eea9453bb0b
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

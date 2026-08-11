@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:3597d7ea924b5db1b1a5c6887a87745e40260ba4d1e12edee08eb205ff594a02
+// kernel_digest_at_authoring: sha256:8dbc646bb29e68a985eb5fdcf053ed106137917d9b89dd4ec179f792589bf9cf
 //
 // FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-305-aiuc1-evidence-freshness-lint.
 // Class B (bounded categorical), float:no exception per the WU row — pure integer civil-calendar

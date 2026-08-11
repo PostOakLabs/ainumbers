@@ -1,5 +1,5 @@
 // art-377-build-vop-session-receipt.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:d619c9291ada5776fcb8a4c066262349bc41aaf73ab36c10e60ad02b0aa72b44
+// kernel_digest_at_authoring: sha256:0a05ff3c98289d522ac8c33f9348e44f835c6ace45f93a2e25e4fa6d7871f317
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

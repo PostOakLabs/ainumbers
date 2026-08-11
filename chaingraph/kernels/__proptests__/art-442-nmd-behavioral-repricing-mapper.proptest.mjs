@@ -1,5 +1,5 @@
 // art-442-nmd-behavioral-repricing-mapper.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:8ebc318c72c432a4069b429e0d8e6a46991ee35df7fd9c6b7148e1ff8960606d
+// kernel_digest_at_authoring: sha256:388900a314f4d9e05be9bfcf9909a1b89a67b9c482c057d9434cb200f7bef94d
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

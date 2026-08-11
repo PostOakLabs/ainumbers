@@ -1,5 +1,5 @@
 // art-446-counterparty-internal-limit-check.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C20-1).
-// kernel_digest_at_authoring: sha256:4b222e099bedce272b5741a1299c63886b19820ad6192e036157660ee061fa9c
+// kernel_digest_at_authoring: sha256:235144f13ce1e5f16af5e68341a3f6eac7579044827d63769a9b062658bd21ab
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

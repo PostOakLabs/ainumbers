@@ -1,5 +1,5 @@
 // art-379-agent-incident-record-composer.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:6b17b7b3344b853baf9681947aab0c38ae76691022becffec36df51a5d0c5c79
+// kernel_digest_at_authoring: sha256:ca7adfd773fa280aeacd5abc28dd20e505612adeceeb7d9311e419c794920177
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

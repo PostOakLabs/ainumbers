@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:cfedf3ff0ef87ac809412df20fb99a2c3efc1aa985ea67b5f9dcd2db5f9fcfb9
+// kernel_digest_at_authoring: sha256:b5846a6b36327671eca8553c1a075d732ce6a236e0cf86fbd688c4ee4e52a6ad
 //
 // FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-302-401k-adp-acp-test.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (allowed_max_pct is Math.max of two raw-double

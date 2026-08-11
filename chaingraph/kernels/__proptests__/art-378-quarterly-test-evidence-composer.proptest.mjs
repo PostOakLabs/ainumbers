@@ -1,5 +1,5 @@
 // art-378-quarterly-test-evidence-composer.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:a211c8ebffdf9378aeb958e003bbee2077aa0a667c4db474e3fa5c0ae6e60e1a
+// kernel_digest_at_authoring: sha256:4110cf70767dc5ed8b26fc3543ef15d71239a5f52a8e9396832ac105f212de32
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

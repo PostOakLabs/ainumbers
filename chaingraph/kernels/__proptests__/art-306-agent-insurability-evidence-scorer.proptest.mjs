@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:a7dc48eb1eff2fb12164681b1b8bb838153d5819a26c7bdfbb88cbb1c739f4d8
+// kernel_digest_at_authoring: sha256:f50363027fceb9b9a98ba34c1f35c4327444cc91359d34e351167d15f2812013
 //
 // FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-306-agent-insurability-evidence-scorer.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (composite is a raw-double weighted sum of four

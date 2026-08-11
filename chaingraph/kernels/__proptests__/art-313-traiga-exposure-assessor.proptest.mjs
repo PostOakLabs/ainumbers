@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:24b6d6ea0e0d64702691ffb397888c9754d6fed5fd2974fd765e8dafda5e3aa1
+// kernel_digest_at_authoring: sha256:46ddb72f43e3a33e75b6718621bc06971855f36c96ee9be5c32f9d28277ca6ac
 //
 // FV-PROPFLOOR-SHARD-B11-1 — property-test floor for art-313-traiga-exposure-assessor.
 // Class B (bounded categorical), float:no exception per the WU row — boolean gate + fixed-list
