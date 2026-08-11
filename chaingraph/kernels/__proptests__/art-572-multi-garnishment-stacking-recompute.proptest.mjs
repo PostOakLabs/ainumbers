@@ -146,11 +146,11 @@ function checkP3_ulp_boundary_forcing() {
     // hea_awg (15%) and the general CCPA cap (25%, via "other") -- with the floor forced to zero,
     // Math.min(pctOf(disposable, pct), nonNegFloor) resolves to pctOf() whenever disposable <= itself,
     // i.e. always here since nonNegFloor = disposable - 0 = disposable >= pctOf(disposable, pct).
-    for (const [pct, type] of [[15, 'hea_awg'], [25, 'other']]) {
+    for (const row of [{ pct: 15, type: 'hea_awg' }, { pct: 25, type: 'other' }]) {
       checked++;
-      const pp = { employee_ref: 'E', period_label: 'P', currency: 'USD', gross_minor_units: disp, legally_required_deductions: [], federal_minimum_wage_minor_units: 0, orders: [{ order_id: 'O1', type, claimed_amount_minor_units: disp }] };
+      const pp = { employee_ref: 'E', period_label: 'P', currency: 'USD', gross_minor_units: disp, legally_required_deductions: [], federal_minimum_wage_minor_units: 0, orders: [{ order_id: 'O1', type: row.type, claimed_amount_minor_units: disp }] };
       const { output_payload } = compute(pp);
-      const expected = Math.round((disp * pct) / 100);
+      const expected = Math.round((disp * row.pct) / 100);
       if (output_payload.orders[0].cap_minor_units !== expected) violations++;
     }
   }
