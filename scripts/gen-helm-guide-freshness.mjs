@@ -26,7 +26,17 @@
 //
 // Usage:
 //   node scripts/gen-helm-guide-freshness.mjs             sync: write the snapshot if in-scope conditions are met
-//   node scripts/gen-helm-guide-freshness.mjs --check      verify only, exit 1 if a sync is owed and cannot be justified
+//   node scripts/gen-helm-guide-freshness.mjs --check      verify only, exit 2 if a sync is owed and cannot be justified
+//                                                            (a FINDING, not a crash — see exit-code note below)
+//
+// EXIT CODES for --check, deliberately distinct so a caller (the scheduled
+// report-only workflow) can tell "the guide is stale" from "this script is
+// broken" without parsing stderr text:
+//   0 = clean, nothing owed
+//   2 = a sync is owed and unjustified — the FINDING this gate exists to
+//       raise. Not a crash; the script ran correctly and reported a fact.
+//   1 = an uncaught error (missing helm.html, malformed JSON, a scene id no
+//       longer present, etc.) — the checker itself is broken.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -94,7 +104,7 @@ function main() {
   if (!state) {
     if (CHECK) {
       console.error('✗ helm guide-freshness gate FAILED — helm/guide-freshness.json does not exist yet. Run: node scripts/gen-helm-guide-freshness.mjs');
-      process.exit(1);
+      process.exit(2);
     }
     const seeded = { synced_version: latestVersion, guide_hash: guideHash, acknowledged_no_change: [] };
     writeFileSync(STATE_PATH, JSON.stringify(seeded, null, 2) + '\n');
@@ -106,7 +116,7 @@ function main() {
 
   if (!result.ok) {
     console.error(`✗ helm guide-freshness gate FAILED — ${result.reason}`);
-    process.exit(1);
+    process.exit(2);
   }
 
   if (result.action === 'none') {
@@ -120,7 +130,7 @@ function main() {
   // silently-passing --check would let the record drift forever unwritten.
   if (CHECK) {
     console.error(`✗ helm guide-freshness gate FAILED — ${result.reason}, but helm/guide-freshness.json is not synced to ${latestVersion} yet. Run: node scripts/gen-helm-guide-freshness.mjs (then commit the updated file).`);
-    process.exit(1);
+    process.exit(2);
   }
   const next = {
     synced_version: latestVersion,
