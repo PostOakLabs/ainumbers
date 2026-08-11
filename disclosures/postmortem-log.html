@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Postmortem Log | AINumbers.co</title>
+<meta name="description" content="A dated, blameless record of correctness defects found in AINumbers.co artifacts and kernels, the affected digest range, and the fix. Sourced from real commit and build history, not asserted from memory.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/disclosures/postmortem-log.html">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Postmortem Log | AINumbers.co">
+<meta property="og:description" content="A dated, blameless record of correctness defects found in AINumbers.co artifacts and kernels, the affected digest range, and the fix.">
+<meta property="og:url" content="https://ainumbers.co/disclosures/postmortem-log.html">
+<meta property="og:site_name" content="AINumbers.co">
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<!-- Schema.org -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://ainumbers.co/#org",
+      "name": "AINumbers.co",
+      "url": "https://ainumbers.co"
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": "https://ainumbers.co/disclosures/postmortem-log.html",
+      "name": "Postmortem Log",
+      "url": "https://ainumbers.co/disclosures/postmortem-log.html",
+      "isPartOf": { "@id": "https://ainumbers.co/#org" },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://ainumbers.co" },
+          { "@type": "ListItem", "position": 2, "name": "Disclosures", "item": "https://ainumbers.co/disclosures/" },
+          { "@type": "ListItem", "position": 3, "name": "Postmortem Log", "item": "https://ainumbers.co/disclosures/postmortem-log.html" }
+        ]
+      }
+    }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #080E1A; --bg-2: #0D1627; --bg-3: #111E35;
+  --border: #1E2F4A; --muted: #3A5270; --body: #6888A8;
+  --text: #A8C4DE; --bright: #D4E8F8; --white: #EEF6FD;
+  --teal: #14B8A6; --teal-lt: #2DD4BF; --gold: #D4A847;
+  --radius: 6px; --radius-lg: 10px;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:'Sora',sans-serif; font-size:.9rem; line-height:1.7; min-height:100vh; }
+h1,h2,h3 { font-family:'DM Serif Display',serif; font-weight:400; line-height:1.2; }
+a { color:inherit; text-decoration:none; }
+.container { max-width:860px; margin:0 auto; padding:0 2rem; }
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright)}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-links{display:flex;align-items:center;gap:20px;justify-self:end}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.nav-links a:hover{color:var(--teal-lt)}
+.breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:1rem 0 0}
+.breadcrumb a{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt)}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(2rem,4vw,2.6rem);color:var(--white);margin-bottom:.85rem}
+.hero-sub{font-size:.93rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:.9rem}
+.hero-sub:last-child{margin-bottom:0}
+.list-wrap{padding:3rem 0 5rem}
+.pm-card{display:block;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.6rem 1.8rem;margin-bottom:1.25rem}
+.pm-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);margin-bottom:.5rem}
+.pm-meta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.9rem}
+.pm-section{margin-bottom:.75rem}
+.pm-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.pm-body{font-size:.85rem;color:var(--body);line-height:1.75}
+.pm-body code{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text);background:var(--bg-3);padding:.1rem .3rem;border-radius:3px}
+.pm-fix{border-left:2px solid var(--teal);padding-left:1rem;margin-top:1rem}
+.doi-note{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:1rem;padding-top:1.5rem;border-top:1px solid var(--border);line-height:1.9}
+footer{border-top:1px solid var(--border);padding:2rem 0}
+.footer-inner{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-links{display:flex;gap:1.5rem;flex-wrap:wrap}
+.footer-links a{color:var(--body);font-size:.82rem}
+.footer-links a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" aria-label="AINumbers.co home">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-links">
+      <a href="../about.html">About</a>
+      <a href="../index.html">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="container">
+    <p class="breadcrumb"><a href="index.html">Disclosures</a> / Postmortem Log</p>
+  </div>
+
+  <header class="hero" role="banner">
+    <div class="container">
+      <p class="hero-eyebrow">Correctness record</p>
+      <h1>Postmortem log.</h1>
+      <p class="hero-sub">A dated, blameless record of correctness defects found in AINumbers.co artifacts and kernels: what was wrong, the affected digest range, when it was found, and the fix. Every entry below is sourced from the project's own commit and build-log history, not written from memory.</p>
+      <p class="hero-sub">This is not a service-availability status page: there is no server to be down. It is a record of computation correctness, which is the actual claim this suite makes: that a given kernel, given the same inputs, produces the receipted output. When that claim was wrong, it is recorded here rather than quietly corrected.</p>
+      <p class="hero-sub">Entries name a role or a process gap, never a person. A defect entering a proven artifact is not evidence the cryptographic seal is broken: a seal proves a computation ran as specified against a given kernel revision, but it does not prove the kernel's source data was correct. Digest-freshness bookkeeping (a kernel's source moving without its receipted output changing) is routine maintenance and is not logged here; only defects where a wrong value was actually produced and shipped are.</p>
+    </div>
+  </header>
+
+  <section class="list-wrap" aria-label="Postmortem entries">
+    <div class="container">
+
+      <article class="pm-card">
+        <p class="pm-title">Seven regulatory citations wrong in proven artifacts</p>
+        <p class="pm-meta">Discovered 2026-07-31 &middot; Fixed 2026-07-31 &middot; 6 nodes re-proven</p>
+        <div class="pm-section">
+          <p class="pm-label">What happened</p>
+          <p class="pm-body">A parity-checker triage pass found 7 regulatory citations that were wrong in kernel source, in most cases already shipping inside a cryptographically proven (groth16) artifact. Examples: an ECOA adverse-action notice duty cited to the administrative-enforcement section (<code>15 USC &sect;1691c</code>) instead of the actual duty section (<code>&sect;1691(d)</code>); an OECD Transfer Pricing Guidelines cash-pooling reference cited to the cost-contribution-arrangements chapter (Ch. VIII) instead of the correct chapter (Ch. X); a FinCEN CDD Rule applicability date invented as "July 2018" where no such date exists in the primary source; and one node (<code>art-240</code>) where the citation was wrong on both the page and the kernel simultaneously, so a page&harr;kernel agreement check could not have caught it.</p>
+        </div>
+        <div class="pm-section">
+          <p class="pm-label">Affected artifacts</p>
+          <p class="pm-body"><code>art-59</code>, <code>art-227</code>, <code>art-228</code>, <code>art-240</code>, <code>art-260</code>, <code>art-268</code>: 6 nodes, 7 citation fields.</p>
+        </div>
+        <div class="pm-fix">
+          <p class="pm-label">Fix</p>
+          <p class="pm-body">Each citation was re-verified against its primary source before editing (not taken on the triage table's word). Every fix was additive; no citation was stripped to force two surfaces into agreement. All 6 affected nodes were re-proven on GPU (groth16-bn254): kernel digest, proof journal, and seal moved together, and 15 golden fixtures were re-pinned. The one node with no correct citation on either surface (<code>art-240</code>) was resolved from the regulator's own published record rather than invented.</p>
+        </div>
+      </article>
+
+      <article class="pm-card">
+        <p class="pm-title">Five citation defects wrong on both page and kernel simultaneously</p>
+        <p class="pm-meta">Discovered 2026-07-31 &middot; Fixed 2026-07-31 &middot; 3 kernels re-proven</p>
+        <div class="pm-section">
+          <p class="pm-label">What happened</p>
+          <p class="pm-body">A follow-up source-verification pass found defects that a page&harr;kernel agreement checker structurally cannot detect: the same fact hand-authored identically wrong on both surfaces. Included a CFR subsection quoted with the wrong letter designation, a CBAM carbon-tariff calculator applying the wrong percentage ramp to fertiliser inputs (it was applying the cement/iron/steel/aluminium/hydrogen ramp instead of the flat rate that applies to fertilisers, so a live calculator produced a wrong number, not just a wrong citation string), and a reference version string naming an EU instrument that does not exist.</p>
+        </div>
+        <div class="pm-section">
+          <p class="pm-label">Affected artifacts</p>
+          <p class="pm-body"><code>art-231</code>, <code>art-70</code>, plus 3 further checker-invisible fields across the same batch.</p>
+        </div>
+        <div class="pm-fix">
+          <p class="pm-label">Fix</p>
+          <p class="pm-body">Each defect re-verified against its primary source (Cornell LII text, the actual Commission Implementing Regulation) before editing. The CBAM calculator was made sector-aware in both the kernel and the live page calculator, so the badge, schedule, and advice copy all follow the corrected ramp. Affected kernels re-proven with matching seals.</p>
+        </div>
+      </article>
+
+      <article class="pm-card">
+        <p class="pm-title">Artifact asserted an inapplicable regulatory regime</p>
+        <p class="pm-meta">Discovered 2026-08-02 &middot; Fixed 2026-08-02 &middot; 1 node re-proven</p>
+        <div class="pm-section">
+          <p class="pm-label">What happened</p>
+          <p class="pm-body">Node <code>art-452</code> cited SR 11-7 (model risk management) as its regulatory basis. SR 26-2 excludes deterministic, non-statistical tools from the definition of "model" entirely, so a tool that falls outside that definition cannot be described as SR 11-7 compliant; the citation asserted a regime that did not apply to the tool it was attached to.</p>
+        </div>
+        <div class="pm-section">
+          <p class="pm-label">Affected artifacts</p>
+          <p class="pm-body"><code>art-452</code>, <code>regulatory_basis</code> field (this field is part of the hashed <code>execution_hash</code> preimage on this node, so the correction moved the artifact's hash).</p>
+        </div>
+        <div class="pm-fix">
+          <p class="pm-label">Fix</p>
+          <p class="pm-body">Citation corrected from SR 11-7 to SR 26-2. The node was re-proven with a fresh seal; <code>image_id</code>, <code>journal.kernel_digest</code>, journal output, and seal moved together. A sibling node was independently diagnostic-run afterward and returned the same maturity score as before the change.</p>
+        </div>
+      </article>
+
+      <p class="doi-note">Entries are drawn from this project's own commit and build-record history (search terms: citation-correction commits, kernel re-prove records) and are added as they are found and confirmed fixed. This is not an exhaustive list of every development-time defect, only defects that reached a shipped, receipted artifact. A defect caught in review before shipping is not logged here. This page will grow as the correctness-verification work that produces these findings continues; it carries no commitment about how often it is updated.</p>
+
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <a href="../index.html" class="logo">
+        <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+      </a>
+      <div class="footer-links">
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="index.html">Disclosures</a>
+        <a href="../contact.html">Contact</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
