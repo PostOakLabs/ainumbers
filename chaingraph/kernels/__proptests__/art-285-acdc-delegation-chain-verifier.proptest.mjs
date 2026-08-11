@@ -63,6 +63,7 @@ function buildChain(rng, n, { brokenEdgeAt = -1, mismatchIssuerAt = -1 } = {}) {
     d: `D${i}${'0'.repeat(60)}`,
     i: i < n - 1 ? `agent${i + 1}` : 'root_issuer',
     a: { i: `agent${i}` },
+    e: /** @type {{ auth: { n: string, s: string } } | undefined} */ (undefined),
   }));
   for (let i = 0; i < n - 1; i++) {
     const parent = creds[i + 1];

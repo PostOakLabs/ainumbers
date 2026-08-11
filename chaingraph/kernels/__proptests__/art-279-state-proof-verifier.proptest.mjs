@@ -166,7 +166,7 @@ function checkP4_forced_categorical_boundaries() {
     }
   }
   // storage_slots boundary: exactly 8 vs 9
-  for (const [n, expectRejected] of [[8, false], [9, true]]) {
+  for (const { n, expectRejected } of [{ n: 8, expectRejected: false }, { n: 9, expectRejected: true }]) {
     const pp = {
       block_state_root: randomHex(rand, 32), address: randomHex(rand, 20),
       account_proof: randomGarbageProofArray(rand, 1),
