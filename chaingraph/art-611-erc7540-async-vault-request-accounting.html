@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ERC-7540 Async-Vault Request Accounting &middot; ART-611 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes ERC-7540 asynchronous-vault pending, claimable and claimed request accounting from declared state, applies a claim sequence at the bucket's pro-rata rate, and checks the standard's invariants by name. Zero network. Provable ChainGraph node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-611-erc7540-async-vault-request-accounting.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem;line-height:1.4}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:90px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right;max-width:70%}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table.rt{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:6px}
+table.rt th{text-align:left;color:var(--teal);font-weight:600;padding:5px 8px 5px 0;border-bottom:1px solid var(--border-2);white-space:nowrap}
+table.rt td{padding:5px 8px 5px 0;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+table.rt tr:last-child td{border-bottom:none}
+table.rt td.num{text-align:right;color:var(--bright)}
+table.rt tr.rej td{color:var(--red)}
+.scroll-x{overflow-x:auto}
+.inv-row{border-bottom:1px solid var(--border);padding:7px 0}
+.inv-row:last-child{border-bottom:none}
+.inv-name{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--bright)}
+.inv-detail{font-size:.62rem;color:var(--muted);margin-top:2px;line-height:1.45}
+.inv-src{font-size:.6rem;color:var(--body);margin-top:2px;line-height:1.45;font-style:italic}
+.lifecycle{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px}
+.lc{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.lc-t{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:4px}
+.lc-d{font-size:.62rem;color:var(--muted);line-height:1.45}
+@media(max-width:700px){.lifecycle{grid-template-columns:1fr}}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-611 · ERC-7540 Async-Vault Request Accounting</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-611 &middot; EVM-Standard Math</div>
+  <h1>ERC-7540 Async-Vault Request Accounting</h1>
+  <p class="sub">ERC-7540 extends ERC-4626 for vaults that cannot settle a deposit or redemption in the same transaction, which is the normal case for institutional and real-world-asset funds. This tool recomputes the pending, claimable and claimed split from declared request state, applies a sequence of claims at the pro-rata rate the vault fixed when it made the request claimable, reports the rounding residue a run of partial claims strands, and checks the standard's own invariants one by one. Exact uint256 integer arithmetic throughout, no floating point.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">ERC-7540 (Final, 2023-10-18)</span><span class="flag info">Exact uint256 integer math</span><span class="flag info">Declared inputs, no chain reads</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">The Request Lifecycle</div>
+    <div class="lifecycle">
+      <div class="lc"><div class="lc-t">1. Pending</div><div class="lc-d">A holder calls requestDeposit or requestRedeem. The amount appears in pendingDepositRequest or pendingRedeemRequest and waits. The standard deliberately leaves the timing of what happens next unspecified.</div></div>
+      <div class="lc"><div class="lc-t">2. Claimable</div><div class="lc-d">The vault fulfils the request. The amount leaves the pending view and appears in the claimable view at a fixed pro-rata rate. The two views exclude each other, so they never double-count.</div></div>
+      <div class="lc"><div class="lc-t">3. Claimed</div><div class="lc-d">The holder calls deposit or mint (deposit leg) or withdraw or redeem (redeem leg) and receives the output tokens. The standard requires that a request never skips or short-circuits this state.</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">One Thing The Standard Leaves Open</div>
+    <p class="sub" style="margin-bottom:0">ERC-4626 fixes a rounding direction for every one of its functions. ERC-7540 does not extend that to partial claims: it requires that all requests sharing a non-zero requestId become claimable at the same pro-rata rate, but it states no direction for rounding an individual partial claim. So the direction here is something you declare, not something this tool derives, and every claim reports what the other direction would have paid out beside what it did pay. Defaulting to rounding down follows ERC-4626's favour-the-vault reasoning, which is an inherited convention rather than a requirement of ERC-7540. What this tool cannot tell you: whether the amounts you typed match any deployed vault, when or whether a pending request will actually be fulfilled, whether the controller is authorised, or whether a claim transaction would succeed.</p>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Request State</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="requestId">request_id</label><input type="text" id="requestId" value="0">
+        <div class="q-hint">Zero is the standard's aggregate convention: the vault discriminates purely by controller and amounts are fungible across that controller's requests. A non-zero id is a discrete request that must hold one pro-rata rate.</div>
+      </div>
+      <div class="q"><label class="q-label" for="claimRounding">claim_rounding (declared, not mandated)</label>
+        <select id="claimRounding"><option value="down" selected>down (favour the vault, inherited from ERC-4626)</option><option value="up">up (favour the claimant)</option></select>
+      </div>
+    </div>
+    <div class="subsection">Deposit Leg (requested in assets, claimed as shares)</div>
+    <div class="row3">
+      <div class="q"><label class="q-label" for="depPending">pending_assets</label><input type="text" id="depPending" value="500"></div>
+      <div class="q"><label class="q-label" for="depClaimableIn">claimable_assets</label><input type="text" id="depClaimableIn" value="1000"></div>
+      <div class="q"><label class="q-label" for="depClaimableOut">claimable_shares</label><input type="text" id="depClaimableOut" value="333"></div>
+    </div>
+    <div class="q-hint" style="margin-bottom:12px">The two claimable fields are a pair: together they fix the rate the vault made the request claimable at, so they must be both zero or both non-zero.</div>
+    <div class="subsection">Redeem Leg (requested in shares, claimed as assets)</div>
+    <div class="row3">
+      <div class="q"><label class="q-label" for="redPending">pending_shares</label><input type="text" id="redPending" value="0"></div>
+      <div class="q"><label class="q-label" for="redClaimableIn">claimable_shares</label><input type="text" id="redClaimableIn" value="0"></div>
+      <div class="q"><label class="q-label" for="redClaimableOut">claimable_assets</label><input type="text" id="redClaimableOut" value="0"></div>
+    </div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="chainId">chain_id (optional label)</label><input type="text" id="chainId" placeholder="e.g. 1"></div>
+      <div class="q"><label class="q-label" for="networkLabel">network_label (optional label)</label><input type="text" id="networkLabel" placeholder="free text">
+        <div class="q-hint">Both are carried into the receipt verbatim for your own records. Neither selects any behaviour.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Claims To Apply</div>
+    <div class="q">
+      <label class="q-label" for="claims">claims (JSON array, applied in order)</label>
+      <textarea id="claims">[
+  {"leg":"deposit","unit":"requested","amount":"300"},
+  {"leg":"deposit","unit":"requested","amount":"700"}
+]</textarea>
+      <div class="q-hint"><code>unit</code> is <code>requested</code> (deposit: assets, redeem: shares) or <code>received</code> (deposit: shares, redeem: assets), matching the standard's four claim overloads. A claim beyond what remains claimable is rejected rather than silently clamped.</div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runCheck()">&#9654; Recompute Request Accounting</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+
+      <div class="subsection">Claims</div>
+      <div class="scroll-x"><table class="rt" id="claimTable"></table></div>
+
+      <div class="subsection">Opening and Closing State</div>
+      <div id="stateBox"></div>
+
+      <div class="subsection">Rounding Residue</div>
+      <div id="dustBox"></div>
+
+      <div class="subsection">Invariants Checked</div>
+      <div id="invBox"></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-611-erc7540-async-vault-request-accounting',
+  version: '1.0.0',
+  mcp_name: 'recompute_erc7540_request_accounting',
+  title: 'ERC-7540 Async-Vault Request Accounting',
+  description: 'Recomputes ERC-7540 asynchronous-vault pending/claimable/claimed request accounting from declared state, applies a claim sequence at the bucket pro-rata rate under a declared rounding direction, and reports the standard invariants by name.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_erc7540_request_accounting',
+    description: 'Recomputes ERC-7540 asynchronous-vault pending/claimable/claimed request accounting from declared state, applies a claim sequence at the bucket pro-rata rate under a declared rounding direction, and reports the standard invariants by name.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        request_id: { type: 'string' },
+        deposit: { type: 'object' },
+        redeem: { type: 'object' },
+        claims: { type: 'array' },
+        claim_rounding: { type: 'string' },
+        chain_id: { type: 'string' },
+        network_label: { type: 'string' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+// ── the kernel, ported verbatim from
+// chaingraph/kernels/art-611-erc7540-async-vault-request-accounting.kernel.mjs. Browser and server
+// share the identical arithmetic; BigInt is native in both, so no primitive is vendored or
+// re-implemented here. See that file's header for the ERC-7540 lifecycle and invariants this
+// implements and their provenance. ─────────────────────────────────────────────────────────────
+
+var SCOPE_NOTE = 'Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard\'s stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.';
+
+var MAX_UINT256 = (1n << 256n) - 1n;
+var RATE_SCALE = 10n ** 18n;
+
+function parseUint(v) {
+  if (v === undefined || v === null) return 0n;
+  if (typeof v === 'number') {
+    if (!Number.isInteger(v) || v < 0) return null;
+    return BigInt(v);
+  }
+  if (typeof v !== 'string') return null;
+  var t = v.trim();
+  if (t.length === 0) return null;
+  try {
+    if (/^0x[0-9a-fA-F]+$/.test(t)) {
+      var n1 = BigInt(t);
+      return (n1 >= 0n && n1 <= MAX_UINT256) ? n1 : null;
+    }
+    if (/^[0-9]+$/.test(t)) {
+      var n2 = BigInt(t);
+      return (n2 >= 0n && n2 <= MAX_UINT256) ? n2 : null;
+    }
+  } catch (e) { return null; }
+  return null;
+}
+
+function str(v, fallback) {
+  return typeof v === 'string' && v.trim().length > 0 ? v.trim() : fallback;
+}
+
+function mulDiv(a, b, denom, direction) {
+  var prod = a * b;
+  var q = prod / denom;
+  if (direction === 'up' && q * denom !== prod) return q + 1n;
+  return q;
+}
+
+function parseLeg(raw, names, reasons, label) {
+  if (raw === undefined || raw === null) {
+    return { present: false, pending: 0n, claimable_in: 0n, claimable_out: 0n };
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    reasons.push(label + ' must be an object with ' + names.pending + ', ' + names['in'] + ' and ' + names.out);
+    return null;
+  }
+  var pending = parseUint(raw[names.pending]);
+  var cin = parseUint(raw[names['in']]);
+  var cout = parseUint(raw[names.out]);
+  if (pending === null) reasons.push(label + '.' + names.pending + ' must be a non-negative uint256');
+  if (cin === null) reasons.push(label + '.' + names['in'] + ' must be a non-negative uint256');
+  if (cout === null) reasons.push(label + '.' + names.out + ' must be a non-negative uint256');
+  if (pending === null || cin === null || cout === null) return null;
+  if ((cin === 0n) !== (cout === 0n)) {
+    reasons.push(label + ': ' + names['in'] + ' and ' + names.out + ' must be both zero or both non-zero -- a claimable bucket with only one side declared has no pro-rata rate');
+    return null;
+  }
+  return { present: true, pending: pending, claimable_in: cin, claimable_out: cout };
+}
+
+function compute(pp) {
+  pp = (pp !== null && typeof pp === 'object') ? pp : {};
+  var reasons = [];
+
+  var request_id = str(pp.request_id, '0');
+  if (!/^(0|[1-9][0-9]*|0x[0-9a-fA-F]+)$/.test(request_id)) {
+    reasons.push('request_id, if supplied, must be a non-negative integer as a decimal or 0x-hex string ("0" means the aggregate-by-controller convention)');
+  }
+  var aggregate_by_controller = request_id === '0' || request_id === '0x0';
+
+  var claim_rounding = (pp.claim_rounding === undefined || pp.claim_rounding === null) ? 'down' : pp.claim_rounding;
+  if (claim_rounding !== 'down' && claim_rounding !== 'up') {
+    reasons.push('claim_rounding, if supplied, must be "down" or "up" -- ERC-7540 mandates no direction for a partial claim, so one must be declared');
+  }
+
+  var depositLeg = parseLeg(pp.deposit, { pending: 'pending_assets', 'in': 'claimable_assets', out: 'claimable_shares' }, reasons, 'deposit');
+  var redeemLeg = parseLeg(pp.redeem, { pending: 'pending_shares', 'in': 'claimable_shares', out: 'claimable_assets' }, reasons, 'redeem');
+
+  var rawClaims = (pp.claims === undefined || pp.claims === null) ? [] : pp.claims;
+  if (!Array.isArray(rawClaims)) reasons.push('claims, if supplied, must be an array of {leg, unit, amount} entries');
+
+  var parsedClaims = [];
+  if (Array.isArray(rawClaims)) {
+    for (var i = 0; i < rawClaims.length; i++) {
+      var c = rawClaims[i];
+      if (c === null || typeof c !== 'object' || Array.isArray(c)) { reasons.push('claims[' + i + '] must be an object {leg, unit, amount}'); continue; }
+      var leg = str(c.leg, null);
+      if (leg !== 'deposit' && leg !== 'redeem') { reasons.push('claims[' + i + '].leg must be "deposit" or "redeem"'); continue; }
+      var unit = str(c.unit, 'requested');
+      if (unit !== 'requested' && unit !== 'received') { reasons.push('claims[' + i + '].unit, if supplied, must be "requested" (deposit: assets, redeem: shares) or "received" (deposit: shares, redeem: assets)'); continue; }
+      var amount = parseUint(c.amount);
+      if (amount === null) { reasons.push('claims[' + i + '].amount must be a non-negative uint256'); continue; }
+      parsedClaims.push({ leg: leg, unit: unit, amount: amount });
+    }
+  }
+
+  var chain_id = str(pp.chain_id, null);
+  var network_label = str(pp.network_label, null);
+
+  if (reasons.length > 0 || depositLeg === null || redeemLeg === null) {
+    return {
+      output_payload: {
+        declared_context: { chain_id: null, network_label: null },
+        request_id: null, aggregate_by_controller: null, claim_rounding_used: null,
+        opening: null, claims: [], closing: null, invariants: [],
+        note: SCOPE_NOTE,
+        reasons: reasons.length > 0 ? reasons : ['one or more request legs were malformed']
+      },
+      compliance_flags: ['ERC7540_INDETERMINATE', 'ERC7540_MALFORMED_INPUT']
+    };
+  }
+
+  var legs = {
+    deposit: { pending: depositLeg.pending, claimable_in: depositLeg.claimable_in, claimable_out: depositLeg.claimable_out, claimed_in: 0n, claimed_out: 0n },
+    redeem: { pending: redeemLeg.pending, claimable_in: redeemLeg.claimable_in, claimable_out: redeemLeg.claimable_out, claimed_in: 0n, claimed_out: 0n }
+  };
+  var openRate = {
+    deposit: { 'in': legs.deposit.claimable_in, out: legs.deposit.claimable_out },
+    redeem: { 'in': legs.redeem.claimable_in, out: legs.redeem.claimable_out }
+  };
+
+  var opening = {
+    deposit: {
+      pending_assets: legs.deposit.pending.toString(),
+      claimable_assets: legs.deposit.claimable_in.toString(),
+      claimable_shares: legs.deposit.claimable_out.toString(),
+      max_deposit_implied: legs.deposit.claimable_in.toString(),
+      max_mint_implied: legs.deposit.claimable_out.toString()
+    },
+    redeem: {
+      pending_shares: legs.redeem.pending.toString(),
+      claimable_shares: legs.redeem.claimable_in.toString(),
+      claimable_assets: legs.redeem.claimable_out.toString(),
+      max_redeem_implied: legs.redeem.claimable_in.toString(),
+      max_withdraw_implied: legs.redeem.claimable_out.toString()
+    }
+  };
+
+  var overclaim = false, claimWithoutClaimable = false, prorataDrift = false;
+
+  var claims = [];
+  for (var j = 0; j < parsedClaims.length; j++) {
+    var cl = parsedClaims[j];
+    var L = legs[cl.leg], R = openRate[cl.leg];
+    var other = claim_rounding === 'down' ? 'up' : 'down';
+
+    if (R['in'] === 0n || R.out === 0n) {
+      claimWithoutClaimable = true;
+      claims.push({
+        index: j, leg: cl.leg, unit: cl.unit, amount: cl.amount.toString(),
+        consumed_requested: null, received: null,
+        rounding_direction: claim_rounding, received_if_rounded_other_way: null,
+        rejected: true,
+        rejection_reason: 'Nothing is in the Claimable state for this leg. ERC-7540: "Requests MUST NOT skip or otherwise short-circuit the Claim state" -- a pending amount cannot be claimed until the vault has made it claimable.'
+      });
+      continue;
+    }
+
+    var consumed, received, receivedOther;
+    if (cl.unit === 'requested') {
+      consumed = cl.amount;
+      received = mulDiv(cl.amount, R.out, R['in'], claim_rounding);
+      receivedOther = mulDiv(cl.amount, R.out, R['in'], other);
+    } else {
+      received = cl.amount;
+      consumed = mulDiv(cl.amount, R['in'], R.out, claim_rounding);
+      receivedOther = cl.amount;
+    }
+
+    var remainingIn = L.claimable_in, remainingOut = L.claimable_out;
+    if (consumed > remainingIn || received > remainingOut) {
+      overclaim = true;
+      claims.push({
+        index: j, leg: cl.leg, unit: cl.unit, amount: cl.amount.toString(),
+        consumed_requested: consumed.toString(), received: received.toString(),
+        rounding_direction: claim_rounding, received_if_rounded_other_way: receivedOther.toString(),
+        rejected: true,
+        rejection_reason: 'Claim exceeds what remains claimable on the ' + cl.leg + ' leg (would consume ' + consumed + ' of ' + remainingIn + ' and pay out ' + received + ' of ' + remainingOut + ').'
+      });
+      continue;
+    }
+
+    L.claimable_in = remainingIn - consumed;
+    L.claimable_out = remainingOut - received;
+    L.claimed_in += consumed;
+    L.claimed_out += received;
+
+    var claimRateScaled = consumed === 0n ? null : mulDiv(received, RATE_SCALE, consumed, 'down');
+    var openRateScaled = mulDiv(R.out, RATE_SCALE, R['in'], 'down');
+    var drifted = false;
+    if (claimRateScaled !== null && consumed > 0n) {
+      var tolerance = mulDiv(RATE_SCALE, 1n, consumed, 'up');
+      var diff = claimRateScaled >= openRateScaled ? claimRateScaled - openRateScaled : openRateScaled - claimRateScaled;
+      drifted = diff > tolerance;
+    }
+    if (drifted && !aggregate_by_controller) prorataDrift = true;
+
+    claims.push({
+      index: j, leg: cl.leg, unit: cl.unit, amount: cl.amount.toString(),
+      consumed_requested: consumed.toString(),
+      received: received.toString(),
+      rounding_direction: claim_rounding,
+      received_if_rounded_other_way: receivedOther.toString(),
+      rounding_changes_result: cl.unit === 'requested' && received !== receivedOther,
+      settled_rate_scaled: claimRateScaled === null ? null : claimRateScaled.toString(),
+      opening_rate_scaled: openRateScaled.toString(),
+      rate_scale: RATE_SCALE.toString(),
+      rejected: false,
+      rejection_reason: null
+    });
+  }
+
+  var closing = {
+    deposit: {
+      pending_assets: legs.deposit.pending.toString(),
+      claimable_assets: legs.deposit.claimable_in.toString(),
+      claimable_shares: legs.deposit.claimable_out.toString(),
+      claimed_assets: legs.deposit.claimed_in.toString(),
+      claimed_shares: legs.deposit.claimed_out.toString()
+    },
+    redeem: {
+      pending_shares: legs.redeem.pending.toString(),
+      claimable_shares: legs.redeem.claimable_in.toString(),
+      claimable_assets: legs.redeem.claimable_out.toString(),
+      claimed_shares: legs.redeem.claimed_in.toString(),
+      claimed_assets: legs.redeem.claimed_out.toString()
+    }
+  };
+
+  var dust = {
+    deposit_shares_stranded: (legs.deposit.claimable_in === 0n ? legs.deposit.claimable_out : 0n).toString(),
+    deposit_assets_stranded: (legs.deposit.claimable_out === 0n ? legs.deposit.claimable_in : 0n).toString(),
+    redeem_assets_stranded: (legs.redeem.claimable_in === 0n ? legs.redeem.claimable_out : 0n).toString(),
+    redeem_shares_stranded: (legs.redeem.claimable_out === 0n ? legs.redeem.claimable_in : 0n).toString(),
+    note: 'A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket\'s rate.'
+  };
+  var anyDust = Object.keys(dust).some(function(k) { return k !== 'note' && dust[k] !== '0'; });
+
+  var invariants = [
+    {
+      name: 'pending_and_claimable_disjoint',
+      source: 'ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state\'s amount.',
+      holds: true,
+      detail: 'Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket.'
+    },
+    {
+      name: 'claim_never_skips_claimable_state',
+      source: 'ERC-7540: "Requests MUST NOT skip or otherwise short-circuit the Claim state."',
+      holds: !claimWithoutClaimable,
+      detail: claimWithoutClaimable ? 'At least one claim was attempted against a leg with nothing in the Claimable state; it was rejected rather than drawn from pending.' : 'Every claim drew only from an amount already in the Claimable state.'
+    },
+    {
+      name: 'claim_within_claimable_bounds',
+      source: 'ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest).',
+      holds: !overclaim,
+      detail: overclaim ? 'At least one claim exceeded the remaining claimable amount on its leg and was rejected.' : 'No claim exceeded its leg\'s remaining claimable amount.'
+    },
+    {
+      name: 'single_prorata_rate_for_nonzero_request_id',
+      source: 'ERC-7540: "If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate."',
+      holds: !prorataDrift,
+      applicable: !aggregate_by_controller,
+      detail: aggregate_by_controller
+        ? 'Not applicable: request_id is 0, the aggregate-by-controller convention, where amounts from separate requests are fungible and no single per-request rate is asserted.'
+        : (prorataDrift ? 'A claim settled at a rate differing from its bucket\'s opening rate by more than one unit of the requested side, which rounding alone cannot explain.' : 'Every claim settled at its bucket\'s opening pro-rata rate, within one unit of the requested side.')
+    },
+    {
+      name: 'partial_claim_rounding_direction_is_declared_not_mandated',
+      source: 'ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims.',
+      holds: true,
+      detail: 'Direction "' + claim_rounding + '" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced.'
+    }
+  ];
+
+  var output_payload = {
+    declared_context: { chain_id: chain_id, network_label: network_label },
+    request_id: request_id,
+    aggregate_by_controller: aggregate_by_controller,
+    claim_rounding_used: claim_rounding,
+    opening: opening,
+    claims: claims,
+    closing: closing,
+    dust: dust,
+    invariants: invariants,
+    note: SCOPE_NOTE,
+    reasons: []
+  };
+
+  var compliance_flags = [
+    aggregate_by_controller ? 'ERC7540_REQUEST_ID_AGGREGATE' : 'ERC7540_REQUEST_ID_DISCRETE',
+    'ERC7540_CLAIM_ROUNDING_' + claim_rounding.toUpperCase() + '_DECLARED'
+  ];
+  if (overclaim) compliance_flags.push('ERC7540_OVERCLAIM_REJECTED');
+  if (claimWithoutClaimable) compliance_flags.push('ERC7540_CLAIM_WITHOUT_CLAIMABLE');
+  if (prorataDrift) compliance_flags.push('ERC7540_PRORATA_RATE_DRIFT');
+  if (anyDust) compliance_flags.push('ERC7540_ROUNDING_DUST_STRANDED');
+  if (!overclaim && !claimWithoutClaimable && !prorataDrift) compliance_flags.push('ERC7540_INVARIANTS_HELD');
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function kv(k, v) { return '<div class="kv"><span class="kv-k">' + esc(k) + '</span><span class="kv-v">' + esc(v) + '</span></div>'; }
+
+function runCheck() {
+  var claimsRaw;
+  try { claimsRaw = JSON.parse(document.getElementById('claims').value); } catch (e) { claimsRaw = 'INVALID_JSON'; }
+
+  var pp = {
+    request_id: document.getElementById('requestId').value.trim(),
+    claim_rounding: document.getElementById('claimRounding').value,
+    deposit: {
+      pending_assets: document.getElementById('depPending').value.trim(),
+      claimable_assets: document.getElementById('depClaimableIn').value.trim(),
+      claimable_shares: document.getElementById('depClaimableOut').value.trim()
+    },
+    redeem: {
+      pending_shares: document.getElementById('redPending').value.trim(),
+      claimable_shares: document.getElementById('redClaimableIn').value.trim(),
+      claimable_assets: document.getElementById('redClaimableOut').value.trim()
+    },
+    claims: claimsRaw
+  };
+  var ci = document.getElementById('chainId').value.trim();
+  var nl = document.getElementById('networkLabel').value.trim();
+  if (ci.length > 0) pp.chain_id = ci;
+  if (nl.length > 0) pp.network_label = nl;
+
+  var result = compute(pp);
+  var op = result.output_payload, flags = result.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var ok = op.opening !== null;
+  var anyRejected = (op.claims || []).some(function(c) { return c.rejected; });
+  var vBox = document.getElementById('verdictBox');
+  var vColor = !ok ? 'var(--warn)' : (anyRejected ? 'var(--red)' : 'var(--green)');
+  vBox.style.color = vColor; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = !ok ? 'INDETERMINATE' : (anyRejected ? 'RECOMPUTED - ONE OR MORE CLAIMS REJECTED' : 'RECOMPUTED - INVARIANTS HELD');
+
+  document.getElementById('flagRow').innerHTML = ok
+    ? flags.map(function(f){ var cls = (f.indexOf('OVERCLAIM') !== -1 || f.indexOf('WITHOUT_CLAIMABLE') !== -1 || f.indexOf('DRIFT') !== -1) ? 'fail' : (f.indexOf('DUST') !== -1 ? 'warn' : 'ok'); return '<span class="badge ' + cls + '">' + esc(f) + '</span>'; }).join('')
+    : (op.reasons || []).map(function(r){ return '<span class="badge fail">' + esc(r) + '</span>'; }).join('');
+
+  var ct = document.getElementById('claimTable');
+  if (!ok || op.claims.length === 0) { ct.innerHTML = '<tr><td>No claims applied.</td></tr>'; }
+  else {
+    ct.innerHTML = '<tr><th>#</th><th>leg</th><th>unit</th><th>amount</th><th>consumed</th><th>received</th><th>other way</th><th>status</th></tr>'
+      + op.claims.map(function(c) {
+        return '<tr' + (c.rejected ? ' class="rej"' : '') + '><td>' + esc(c.index) + '</td><td>' + esc(c.leg) + '</td><td>' + esc(c.unit)
+          + '</td><td class="num">' + esc(c.amount) + '</td><td class="num">' + esc(c.consumed_requested === null ? '-' : c.consumed_requested)
+          + '</td><td class="num">' + esc(c.received === null ? '-' : c.received)
+          + '</td><td class="num">' + esc(c.received_if_rounded_other_way === null ? '-' : c.received_if_rounded_other_way) + (c.rounding_changes_result ? ' *' : '')
+          + '</td><td>' + (c.rejected ? esc(c.rejection_reason) : 'accepted') + '</td></tr>';
+      }).join('');
+  }
+
+  var sBox = document.getElementById('stateBox');
+  if (!ok) { sBox.innerHTML = '<div class="q-hint">Not computed.</div>'; }
+  else {
+    sBox.innerHTML = '<div class="subsection" style="margin-top:4px">Deposit leg</div>'
+      + kv('pending_assets (unchanged by any claim)', op.closing.deposit.pending_assets)
+      + kv('claimable_assets: opening / closing', op.opening.deposit.claimable_assets + ' / ' + op.closing.deposit.claimable_assets)
+      + kv('claimable_shares: opening / closing', op.opening.deposit.claimable_shares + ' / ' + op.closing.deposit.claimable_shares)
+      + kv('claimed assets / shares', op.closing.deposit.claimed_assets + ' / ' + op.closing.deposit.claimed_shares)
+      + '<div class="subsection">Redeem leg</div>'
+      + kv('pending_shares (unchanged by any claim)', op.closing.redeem.pending_shares)
+      + kv('claimable_shares: opening / closing', op.opening.redeem.claimable_shares + ' / ' + op.closing.redeem.claimable_shares)
+      + kv('claimable_assets: opening / closing', op.opening.redeem.claimable_assets + ' / ' + op.closing.redeem.claimable_assets)
+      + kv('claimed shares / assets', op.closing.redeem.claimed_shares + ' / ' + op.closing.redeem.claimed_assets);
+  }
+
+  var dBox = document.getElementById('dustBox');
+  if (!ok) { dBox.innerHTML = '<div class="q-hint">Not computed.</div>'; }
+  else {
+    dBox.innerHTML = kv('deposit: shares stranded', op.dust.deposit_shares_stranded)
+      + kv('deposit: assets stranded', op.dust.deposit_assets_stranded)
+      + kv('redeem: assets stranded', op.dust.redeem_assets_stranded)
+      + kv('redeem: shares stranded', op.dust.redeem_shares_stranded)
+      + '<div class="q-hint">' + esc(op.dust.note) + '</div>';
+  }
+
+  var iBox = document.getElementById('invBox');
+  if (!ok) { iBox.innerHTML = '<div class="q-hint">Not computed.</div>'; }
+  else {
+    iBox.innerHTML = op.invariants.map(function(inv) {
+      var applicable = inv.applicable === false ? false : true;
+      var badge = !applicable ? '<span class="badge warn">not applicable</span>' : (inv.holds ? '<span class="badge ok">holds</span>' : '<span class="badge fail">does not hold</span>');
+      return '<div class="inv-row"><div class="inv-name">' + badge + ' ' + esc(inv.name) + '</div>'
+        + '<div class="inv-detail">' + esc(inv.detail) + '</div>'
+        + '<div class="inv-src">' + esc(inv.source) + '</div></div>';
+    }).join('');
+  }
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'payment_policy',
+    tool_id: 'art-611-erc7540-async-vault-request-accounting', tool_version: '1.0.0',
+    generated_at: __generatedAtCapture, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-611-erc7540-async-vault-request-accounting.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
