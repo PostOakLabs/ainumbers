@@ -1,5 +1,5 @@
 // art-284-did-webvh-log-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C13-1).
-// kernel_digest_at_authoring: sha256:cc7db2ef233cf9a58db18168d8091264f2698729cf080160e934041181001469
+// kernel_digest_at_authoring: sha256:1b4e93cb03fa38ecefd5789205baaa64ebcd9f03baf0e7bcf7c5d7b1e8232603
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

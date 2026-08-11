@@ -75,6 +75,24 @@ const nobleVerify = (pubRaw, sig, msg) => {
 
 const fixtures = (id) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures', `${id}.fixtures.json`), 'utf8'));
 
+// ── 0. The inlined copies are byte-identical to the bundle SSOT ────────────────────────────
+// Kernels cannot import the bundle — chaingraph/vm/kernel-vm.mjs strips every ESM import before
+// running a kernel in QuickJS, and the zkVM guest loads it the same way, so an imported symbol is
+// undefined in both. Each kernel therefore carries its own inlined copy (art-591 and art-424 do
+// the same). This pins those copies to the bundle so the three can never drift apart.
+{
+  const bundleText = readFileSync(path.join(__dirname, '_noble-ed25519.bundle.mjs'), 'utf8');
+  const start = bundleText.indexOf('// ── @noble/hashes utils.js');
+  ok('bundle carries the vendored-body start marker', start >= 0);
+  const body = bundleText.slice(start).replace(/\n*export \{[^}]*\};\s*$/, '').trimEnd();
+  ok('vendored body is non-trivial', body.length > 50_000, `${body.length} bytes`);
+  for (const id of ['art-129-webbotauth-signature-verifier', 'art-284-did-webvh-log-verifier']) {
+    const src = readFileSync(path.join(__dirname, `${id}.kernel.mjs`), 'utf8');
+    ok(`${id} inlines the bundle body byte-identically`, src.includes(body));
+    ok(`${id} does not import the bundle`, !/^import\s+.*_noble-ed25519\.bundle\.mjs/m.test(src));
+  }
+}
+
 // ── 1. compute() is synchronous ────────────────────────────────────────────────────────────
 {
   const f129 = fixtures('art-129-webbotauth-signature-verifier');
