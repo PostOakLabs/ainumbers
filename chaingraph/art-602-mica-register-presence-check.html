@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>MiCA Register Presence Check &middot; ART-602 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Was a named entity present in a pasted ESMA MiCA register extract on the date the reader captured it? Digests the pasted bytes, searches them, and emits one dated verdict. Never an authorisation claim. Zero network.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-602-mica-register-presence-check.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem;line-height:1.4}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:150px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button.ghost{background:none;color:var(--body);border:1px solid var(--border-2);font-weight:400}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:110px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right;max-width:70%}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center;line-height:1.6}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.match-row{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all;padding:5px 0;border-bottom:1px solid var(--border)}
+.match-row:last-child{border-bottom:none}
+.match-row .ln{color:var(--gold);margin-right:8px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-602 · MiCA Register Presence Check</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-602 &middot; MiCA Registers</div>
+  <h1>MiCA Register Presence Check</h1>
+  <p class="sub">Answers one question, and only that question: was this entity present in the register extract you captured, on the date you captured it? You paste the extract, name which ESMA register it came from, give the entity identifier and give the capture date. The page digests the pasted bytes exactly as pasted, searches them, and writes a single dated sentence you can quote.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Presence as of a date, never authorisation</span><span class="flag info">Paste-in only, zero lookups</span><span class="flag info">No clock: the retrieval date is yours</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">What This Does and Does Not Prove</div>
+    <p class="sub" style="margin-bottom:8px">A match proves a line carrying your identifier was in the text you pasted. It is not authorisation, not licensing, not registration in good standing, and not a statement about today. A no-match proves absence from that same pasted text and nothing more: a partial page, a filtered export, the wrong register, or an identifier the register spells differently would each read the same way. Nothing here proves the extract came from ESMA, was unmodified, or was captured on the date you supplied. The digest pins the bytes that were checked; it does not attest where they came from.</p>
+    <p class="sub" style="margin-bottom:0">This page never fetches anything, ships no copy of either register, and has no clock. <code>retrieval_date</code> is your input because a machine clock would date the run rather than the capture, and those are different facts.</p>
+  </div>
+
+  <div class="card">
+    <div class="section-head">The Four Facts the Verdict Is Built From</div>
+    <div class="row3">
+      <div class="q"><label class="q-label" for="registerType">register_type</label>
+        <select id="registerType">
+          <option value="white_paper" selected>white_paper (crypto-asset white papers)</option>
+          <option value="casp">casp (authorised service providers)</option>
+        </select>
+        <div class="q-hint">Names the register in the verdict sentence. No default is inferred.</div>
+      </div>
+      <div class="q"><label class="q-label" for="entityIdentifier">entity_identifier</label><input type="text" id="entityIdentifier" value="984500XXXXXXXXXXXX02">
+        <div class="q-hint">LEI or register ID, compared as a literal string against the extract's own cells.</div>
+      </div>
+      <div class="q"><label class="q-label" for="retrievalDate">retrieval_date</label><input type="text" id="retrievalDate" value="2026-08-11">
+        <div class="q-hint">ISO YYYY-MM-DD. The date you captured the extract, never read from a clock.</div>
+      </div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="registerSourceRef">register_source_ref (optional)</label>
+      <input type="text" id="registerSourceRef" value="ESMA crypto-asset white paper register export (synthetic sample)">
+      <div class="q-hint">Free text recording where the extract came from. Echoed into the receipt, never checked.</div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="registerExtract">register_extract (pasted verbatim)</label>
+      <textarea id="registerExtract">lei,issuer_name,crypto_asset_name,notification_date,home_member_state
+984500XXXXXXXXXXXX01,Example Issuer SA,EXAMPLE-EURO-TOKEN,2026-01-15,FR
+984500XXXXXXXXXXXX02,Second Issuer NV,SECOND-TOKEN,2026-02-03,NL
+984500XXXXXXXXXXXX03,Third Issuer GmbH,THIRD-TOKEN,2026-03-21,DE
+</textarea>
+      <div class="q-hint">Digested exactly as pasted. Quoted fields may contain the delimiter, line breaks and doubled quotes. Oversized extracts are refused rather than truncated.</div>
+    </div>
+    <div class="row3">
+      <div class="q"><label class="q-label" for="delimiter">delimiter</label><input type="text" id="delimiter" value=","></div>
+      <div class="q"><label class="q-label" for="headerRow">header_row</label>
+        <select id="headerRow"><option value="true" selected>true</option><option value="false">false</option></select>
+      </div>
+      <div class="q"><label class="q-label" for="caseSensitive">case_sensitive</label>
+        <select id="caseSensitive"><option value="true" selected>true</option><option value="false">false</option></select>
+      </div>
+    </div>
+    <div class="q">
+      <label class="q-label" for="matchColumn">match_column (optional)</label>
+      <input type="text" id="matchColumn" value="lei">
+      <div class="q-hint">Header name or a 0-based index. Leave blank to compare every cell. An unresolvable column is raised, never quietly widened back to an any-cell search.</div>
+    </div>
+
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button onclick="runCheck()">&#9654; Check Presence</button>
+      <button class="ghost" onclick="loadSample('match')">Load white-paper sample (match)</button>
+      <button class="ghost" onclick="loadSample('nomatch')">Load CASP sample (no match)</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="subsection">register_snapshot_digest</div>
+      <div class="exec-hash" id="digestBox"></div>
+      <div class="subsection">Matched rows (verbatim)</div>
+      <div id="matchBox"></div>
+      <div class="subsection">Judgment required</div>
+      <div id="judgmentBox" style="font-size:.72rem;color:var(--body)"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Where This Sits Beside the Other MiCA Surfaces</div>
+    <div class="kv"><span class="kv-k"><a href="art-512-check-mica-reserve-disclosure.html">art-512</a> Check MiCA Reserve Disclosure</span><span class="kv-v">a published reserve disclosure against your declared terms</span></div>
+    <div class="kv"><span class="kv-k"><a href="art-102-crypto-asset-whitepaper-linter.html">art-102</a> Crypto-Asset White Paper Linter</span><span class="kv-v">structural lint of a white paper, not of the register of white papers</span></div>
+    <div class="kv"><span class="kv-k"><a href="../tools/332-mica-casp-authorization-checker.html">332</a> MiCA CASP Authorization Checker</span><span class="kv-v">the authorisation question this node refuses to answer</span></div>
+    <div class="kv"><span class="kv-k"><a href="chains/mica-register-crosscheck.html">mica-register-crosscheck</a></span><span class="kv-v">this node beside the reserve and attestation recomputes</span></div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-602-mica-register-presence-check',
+  version: '1.0.0',
+  mcp_name: 'check_mica_register_presence',
+  title: 'MiCA Register Presence Check',
+  description: 'Reports whether a named entity was present in a pasted ESMA MiCA register extract as of a caller-supplied retrieval date, pinned by a SHA-256 digest of the pasted bytes. Never an authorisation or current-status claim.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'check_mica_register_presence',
+    description: 'Reports whether a named entity was present in a pasted ESMA MiCA register extract as of a caller-supplied retrieval date, pinned by a SHA-256 digest of the pasted bytes. Never an authorisation or current-status claim.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        register_type: { type: 'string' },
+        entity_identifier: { type: 'string' },
+        register_extract: { type: 'string' },
+        retrieval_date: { type: 'string' },
+        register_source_ref: { type: 'string' },
+        delimiter: { type: 'string' },
+        header_row: { type: 'boolean' },
+        match_column: { type: ['string', 'number', 'null'] },
+        case_sensitive: { type: 'boolean' }
+      },
+      required: ['register_type', 'entity_identifier', 'register_extract', 'retrieval_date']
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+// ── Inlined pure-JS SHA-256, byte-identical to the one in
+// chaingraph/kernels/art-602-mica-register-presence-check.kernel.mjs. It is inlined rather
+// than taken from crypto.subtle because the kernel must produce the SAME
+// register_snapshot_digest synchronously inside the zkVM guest, where crypto.subtle does
+// not exist. Browser and server therefore share one implementation, not two.
+function _utf8Bytes(str) {
+  var s = String(str); var out = [];
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c < 0x80) { out.push(c); }
+    else if (c < 0x800) { out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f)); }
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      var hi = c, lo = s.charCodeAt(++i);
+      var cp = 0x10000 + ((hi - 0xd800) << 10) + (lo - 0xdc00);
+      out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+    } else { out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f)); }
+  }
+  return new Uint8Array(out);
+}
+function _sha256(bytes) {
+  var K = new Uint32Array([
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ]);
+  var msgLen = bytes.length;
+  var paddedLen = Math.ceil((msgLen + 9) / 64) * 64;
+  var padded = new Uint8Array(paddedLen);
+  padded.set(bytes);
+  padded[msgLen] = 0x80;
+  var bitLen = msgLen * 8;
+  for (var i = 0; i < 8; i++) padded[paddedLen - 8 + i] = Number((BigInt(bitLen) >> BigInt(56 - i * 8)) & 0xffn);
+  var h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  var rotr = function(x, n) { return (x >>> n) | (x << (32 - n)); };
+  for (var cs = 0; cs < paddedLen; cs += 64) {
+    var W = new Uint32Array(64);
+    for (var w = 0; w < 16; w++) { var j = cs + w * 4; W[w] = (padded[j] << 24) | (padded[j+1] << 16) | (padded[j+2] << 8) | padded[j+3]; }
+    for (var t = 16; t < 64; t++) {
+      var s0 = rotr(W[t-15], 7) ^ rotr(W[t-15], 18) ^ (W[t-15] >>> 3);
+      var s1 = rotr(W[t-2], 17) ^ rotr(W[t-2], 19) ^ (W[t-2] >>> 10);
+      W[t] = (W[t-16] + s0 + W[t-7] + s1) >>> 0;
+    }
+    var a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for (var r2 = 0; r2 < 64; r2++) {
+      var S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25), ch = (e & f) ^ (~e & g);
+      var t1 = (h + S1 + ch + K[r2] + W[r2]) >>> 0;
+      var S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22), maj = (a & b) ^ (a & c) ^ (b & c);
+      var t2 = (S0 + maj) >>> 0;
+      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
+  }
+  var out = new Uint8Array(32);
+  [h0,h1,h2,h3,h4,h5,h6,h7].forEach(function(v, i) { var k = i * 4; out[k] = v >>> 24; out[k+1] = (v >>> 16) & 0xff; out[k+2] = (v >>> 8) & 0xff; out[k+3] = v & 0xff; });
+  return out;
+}
+function _sha256Hex(str) {
+  return Array.from(_sha256(_utf8Bytes(str))).map(function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+// ── strict ISO date handling, integer arithmetic only. No Date object anywhere in
+// this page's compute path, in any form. ─────────────────────────────────────
+function daysFromCivil(y, m, d) {
+  var yy = y - (m <= 2 ? 1 : 0);
+  var era = Math.floor(yy / 400);
+  var yoe = yy - era * 400;
+  var doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  var doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+function civilFromDays(z) {
+  var zz = z + 719468;
+  var era = Math.floor(zz / 146097);
+  var doe = zz - era * 146097;
+  var yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);
+  var y = yoe + era * 400;
+  var doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  var mp = Math.floor((5 * doy + 2) / 153);
+  var d = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  var m = mp + (mp < 10 ? 3 : -9);
+  return { y: y + (m <= 2 ? 1 : 0), m: m, d: d };
+}
+function isValidIsoDay(s) {
+  var mm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s === null || s === undefined ? '' : s).trim());
+  if (!mm) return false;
+  var y = Number(mm[1]), mo = Number(mm[2]), d = Number(mm[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  var back = civilFromDays(daysFromCivil(y, mo, d));
+  return back.y === y && back.m === mo && back.d === d;
+}
+
+var MAX_EXTRACT_CHARS = 262144;
+var MAX_ROWS = 5000;
+var MAX_CELLS_PER_ROW = 128;
+
+var REGISTER_LABELS = { white_paper: 'white-paper', casp: 'CASP' };
+
+function parseDelimited(text, delimiter) {
+  var rows = [], row = [], field = '', inQuotes = false, rowStart = 0, raw = [];
+  var src = String(text);
+  var delim = delimiter.charAt(0);
+  var endField = function() { row.push(field); field = ''; };
+  var endRow = function(endIdx) { endField(); rows.push(row); raw.push(src.slice(rowStart, endIdx)); row = []; };
+  for (var i = 0; i < src.length; i++) {
+    var ch = src[i];
+    if (inQuotes) {
+      if (ch === '"') { if (src[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; } }
+      else { field += ch; }
+      continue;
+    }
+    if (ch === '"') { inQuotes = true; continue; }
+    if (ch === delim) { endField(); continue; }
+    if (ch === '\n' || ch === '\r') {
+      endRow(i);
+      if (ch === '\r' && src[i + 1] === '\n') i++;
+      rowStart = i + 1;
+      continue;
+    }
+    field += ch;
+  }
+  if (field.length > 0 || row.length > 0 || rowStart < src.length) endRow(src.length);
+  var out = [];
+  for (var k = 0; k < rows.length; k++) {
+    var cells = rows[k];
+    if (cells.length === 1 && cells[0].trim() === '') continue;
+    out.push({ line_number: k + 1, cells: cells, raw: raw[k] });
+  }
+  return out;
+}
+
+var NOT_PROVEN = [
+  { item: 'Authorisation status', detail: 'Presence in a register extract is not authorisation, licensing, registration in good standing, or any other status. This kernel reports whether a line was found in pasted text on a stated date, and refuses to say anything about what is true today.' },
+  { item: 'Snapshot completeness', detail: 'The extract is whatever the reader pasted. Absence of a match proves absence from THAT TEXT, never absence from the register: a partial page, a filtered export, or a different register would each produce the same "was not present" reading.' },
+  { item: 'Snapshot authenticity', detail: 'Nothing here proves the pasted text came from ESMA, was unmodified in transit, or was captured on the date supplied. The digest pins the bytes that were checked; it does not attest their provenance.' },
+  { item: 'Identifier correctness', detail: 'The entity identifier is compared as a literal string against the extract\'s own cells. A register spelling the identifier differently, a legal-name change, or a subsidiary listed under a different LEI all read as no match, and none of those is evidence about the entity.' },
+  { item: 'Currency of the register', detail: 'The register itself may have been stale, mid-update, or corrected after capture. retrieval_date dates the CAPTURE, not the register, and this kernel has no clock with which to compare either against now.' }
+];
+
+// ── art-602 presence logic (same algorithm as the .kernel.mjs compute(), browser copy) ──
+function compute(pp) {
+  var params = (pp !== null && typeof pp === 'object') ? pp : {};
+  var compliance_flags = [];
+  var judgmentFields = [];
+
+  var extractRaw = typeof params.register_extract === 'string' ? params.register_extract : '';
+  var extractPresent = extractRaw.trim().length > 0;
+  var extractTooLarge = extractRaw.length > MAX_EXTRACT_CHARS;
+  var register_snapshot_digest = extractPresent ? 'sha256:' + _sha256Hex(extractRaw) : null;
+
+  if (!extractPresent) {
+    compliance_flags.push('MICA_REGISTER_EXTRACT_EMPTY');
+    judgmentFields.push({ field: 'register_extract', reason: 'No register extract was pasted, so there is nothing to search and no snapshot to digest. This kernel ships no copy of either ESMA register and performs no lookup, so an absent extract is an absent input, never an empty result.', supplied: null });
+  }
+  if (extractTooLarge) {
+    compliance_flags.push('MICA_REGISTER_EXTRACT_TOO_LARGE');
+    judgmentFields.push({ field: 'register_extract', reason: 'The extract is ' + extractRaw.length + ' characters, above the ' + MAX_EXTRACT_CHARS + '-character bound. It is refused rather than truncated: a truncated extract would carry a digest over bytes the reader never saw, and a "was not present" reading over a silently shortened text is worse than no reading.', supplied: extractRaw.length + ' characters' });
+  }
+
+  var registerTypeRaw = (params.register_type === undefined || params.register_type === null) ? '' : String(params.register_type);
+  var registerType = Object.prototype.hasOwnProperty.call(REGISTER_LABELS, registerTypeRaw) ? registerTypeRaw : null;
+  if (registerType === null) {
+    judgmentFields.push({ field: 'register_type', reason: 'register_type must be declared as "white_paper" (register of crypto-asset white papers) or "casp" (register of authorised crypto-asset service providers). It carries no default: the verdict sentence names the register in words, and inferring which register an extract came from would put a noun the reader never chose into a sentence they may quote.', supplied: params.register_type === undefined ? null : params.register_type });
+  }
+  var registerLabel = registerType === null ? null : REGISTER_LABELS[registerType];
+
+  var identifierRaw = (params.entity_identifier === undefined || params.entity_identifier === null) ? '' : String(params.entity_identifier);
+  var identifier = identifierRaw.trim();
+  if (identifier === '') {
+    judgmentFields.push({ field: 'entity_identifier', reason: 'No entity identifier was supplied, so there is nothing to look for. The identifier is compared as a literal string against the extract\'s own cells; this kernel resolves no names and holds no directory.', supplied: params.entity_identifier === undefined ? null : params.entity_identifier });
+  }
+
+  var retrievalDateRaw = (params.retrieval_date === undefined || params.retrieval_date === null) ? '' : String(params.retrieval_date).trim();
+  var retrievalDateValid = isValidIsoDay(retrievalDateRaw);
+  if (!retrievalDateValid) {
+    judgmentFields.push({ field: 'retrieval_date', reason: 'retrieval_date must be supplied as an ISO calendar date (YYYY-MM-DD). It is the date the READER captured the extract and it is never read from a clock: a machine clock would date the run rather than the capture, and the verdict is a statement about the capture.', supplied: params.retrieval_date === undefined ? null : params.retrieval_date });
+  }
+  var retrieval_date = retrievalDateValid ? retrievalDateRaw : null;
+
+  var delimiterRaw = (typeof params.delimiter === 'string' && params.delimiter.length > 0) ? params.delimiter.charAt(0) : ',';
+  var headerRow = (params.header_row === undefined || params.header_row === null) ? true : params.header_row === true;
+  var caseSensitive = (params.case_sensitive === undefined || params.case_sensitive === null) ? true : params.case_sensitive === true;
+  var matchColumnRaw = (params.match_column === undefined || params.match_column === null || params.match_column === '') ? null : params.match_column;
+
+  var searchable = extractPresent && !extractTooLarge;
+  var parsedRows = searchable ? parseDelimited(extractRaw, delimiterRaw) : [];
+
+  var rowCapExceeded = false;
+  if (parsedRows.length > MAX_ROWS) {
+    rowCapExceeded = true;
+    parsedRows = [];
+    compliance_flags.push('MICA_REGISTER_ROW_CAP_EXCEEDED');
+    judgmentFields.push({ field: 'register_extract', reason: 'The extract parses to more than ' + MAX_ROWS + ' rows. It is refused rather than searched in part, for the same reason an oversized extract is refused: a partial search reported as a full one is a false negative wearing a verdict.', supplied: 'more than ' + MAX_ROWS + ' rows' });
+  }
+
+  var headerCells = (headerRow && parsedRows.length > 0) ? parsedRows[0].cells.map(function(c){ return c.trim(); }) : [];
+  var dataRows = headerRow ? parsedRows.slice(1) : parsedRows;
+
+  var matchColumnIndex = null;
+  var matchColumnResolved = null;
+  if (matchColumnRaw !== null) {
+    if (typeof matchColumnRaw === 'number' && Number.isInteger(matchColumnRaw) && matchColumnRaw >= 0) {
+      matchColumnIndex = matchColumnRaw;
+      matchColumnResolved = 'index ' + matchColumnRaw;
+    } else {
+      var wanted = String(matchColumnRaw).trim();
+      var idx = headerCells.indexOf(wanted);
+      if (idx >= 0) {
+        matchColumnIndex = idx;
+        matchColumnResolved = 'header "' + wanted + '" at index ' + idx;
+      } else if (searchable && !rowCapExceeded) {
+        judgmentFields.push({ field: 'match_column', reason: 'match_column "' + wanted + '" does not appear in the parsed header row, so the targeted search the caller asked for cannot be run. It is not widened back to an any-cell search: that would answer a different question than the one asked.', supplied: matchColumnRaw });
+      }
+    }
+  }
+  var columnUnresolved = matchColumnRaw !== null && matchColumnIndex === null;
+
+  var needle = caseSensitive ? identifier : identifier.toLowerCase();
+  var cellMatches = function(cell) {
+    var v = String(cell === null || cell === undefined ? '' : cell).trim();
+    return (caseSensitive ? v : v.toLowerCase()) === needle;
+  };
+
+  var canSearch = searchable && !rowCapExceeded && identifier !== '' && !columnUnresolved;
+
+  var matched_rows = [];
+  if (canSearch) {
+    for (var i2 = 0; i2 < dataRows.length; i2++) {
+      var r = dataRows[i2];
+      if (r.cells.length > MAX_CELLS_PER_ROW) continue;
+      var hit = matchColumnIndex === null ? r.cells.some(cellMatches) : cellMatches(r.cells[matchColumnIndex]);
+      if (hit) {
+        matched_rows.push({
+          line_number: r.line_number,
+          matched_row: r.raw,
+          cells: r.cells,
+          matched_column_index: matchColumnIndex === null ? r.cells.findIndex(cellMatches) : matchColumnIndex
+        });
+      }
+    }
+  }
+
+  var match_found = canSearch ? matched_rows.length > 0 : null;
+  var matched_row = matched_rows.length > 0 ? matched_rows[0].matched_row : null;
+
+  if (match_found === true) compliance_flags.push('MICA_REGISTER_MATCH_FOUND');
+  else if (match_found === false) compliance_flags.push('MICA_REGISTER_NO_MATCH');
+  if (matched_rows.length > 1) compliance_flags.push('MICA_REGISTER_MULTIPLE_MATCHES');
+
+  var verdictSayable = match_found !== null && retrieval_date !== null && registerLabel !== null && register_snapshot_digest !== null;
+  var verdict = verdictSayable
+    ? 'As of ' + retrieval_date + ', entity ' + identifier + ' ' + (match_found ? 'was' : 'was not') + ' present in the ' + registerLabel + ' register snapshot with digest ' + register_snapshot_digest + '.'
+    : null;
+  var verdict_unavailable_reason = verdictSayable
+    ? null
+    : 'The verdict sentence is withheld because at least one of its four terms is missing: the retrieval date, the register type, the snapshot digest, or a search that actually ran. A sentence assembled from absent terms would read as a finding.';
+
+  if (judgmentFields.length > 0) compliance_flags.push('ESCALATION_RAISED');
+  compliance_flags.push('MICA_REGISTER_PRESENCE_CHECKED');
+
+  var judgment_required = judgmentFields.length === 0 ? null : {
+    fields: judgmentFields,
+    reason: 'One or more inputs the verdict depends on were absent or unusable, so the corresponding step was not performed. An absent input is reported as unresolved, never defaulted into a reading.'
+  };
+
+  var rationale = [];
+  rationale.push(extractPresent
+    ? 'The pasted extract is ' + extractRaw.length + ' characters and is pinned by digest ' + register_snapshot_digest + '; every statement below is against those exact bytes.'
+    : 'No extract was pasted, so nothing was searched and no snapshot was pinned.');
+  rationale.push(rowCapExceeded
+    ? 'The extract parses to more than ' + MAX_ROWS + ' rows and was refused rather than searched in part.'
+    : (searchable
+        ? 'The extract parses to ' + parsedRows.length + ' non-blank line' + (parsedRows.length === 1 ? '' : 's') + (headerRow ? ', the first read as a header row' : ', with no header row declared') + ', giving ' + dataRows.length + ' data row' + (dataRows.length === 1 ? '' : 's') + ' to search.'
+        : 'The extract was not searched.'));
+  rationale.push(matchColumnRaw === null
+    ? 'Every cell of every data row was compared, because no match_column was declared.'
+    : (columnUnresolved
+        ? 'The declared match_column could not be resolved against the header, so no targeted search was run and none was substituted.'
+        : 'Only the column resolved as ' + matchColumnResolved + ' was compared, because that is the column the caller declared.'));
+  rationale.push(match_found === null
+    ? 'No presence reading was reached, so match_found is null rather than false: not looking and looking-and-not-finding are different facts.'
+    : (match_found
+        ? (matched_rows.length === 1
+            ? 'One line matched the identifier ' + identifier + ', at line ' + matched_rows[0].line_number + ' of the paste, and is echoed verbatim.'
+            : matched_rows.length + ' lines matched the identifier ' + identifier + '; all are echoed verbatim with their line numbers, and the first is reported as matched_row.')
+        : 'No line in the searched rows carried the identifier ' + identifier + ' as a cell value, compared ' + (caseSensitive ? 'case-sensitively' : 'case-insensitively') + ' after trimming.'));
+  rationale.push('Presence here is a dated fact about a pasted snapshot. It is not authorisation, not a current status, not a statement that the register is complete or current, and not legal advice.');
+
+  var output_payload = {
+    register_type: registerType,
+    register_label: registerLabel,
+    entity_identifier: identifier === '' ? null : identifier,
+    retrieval_date: retrieval_date,
+    register_source_ref: params.register_source_ref === undefined ? null : params.register_source_ref,
+    register_snapshot_digest: register_snapshot_digest,
+    snapshot: {
+      extract_length_chars: extractRaw.length,
+      extract_present: extractPresent,
+      extract_too_large: extractTooLarge,
+      max_extract_chars: MAX_EXTRACT_CHARS,
+      parsed_line_count: parsedRows.length,
+      data_row_count: dataRows.length,
+      header_row_declared: headerRow,
+      header_cells: headerCells,
+      row_cap_exceeded: rowCapExceeded,
+      max_rows: MAX_ROWS
+    },
+    search: {
+      delimiter: delimiterRaw,
+      case_sensitive: caseSensitive,
+      match_column_declared: matchColumnRaw,
+      match_column_resolved: matchColumnResolved,
+      match_column_unresolved: columnUnresolved,
+      searched: canSearch
+    },
+    match_found: match_found,
+    matched_row: matched_row,
+    matched_rows: matched_rows,
+    match_count: matched_rows.length,
+    verdict: verdict,
+    verdict_unavailable_reason: verdict_unavailable_reason,
+    judgment_required: judgment_required,
+    rationale: rationale,
+    not_proven: NOT_PROVEN,
+    fence: 'The register extract, the entity identifier, the register type and the retrieval date are every one of them a caller input. This kernel performs no lookup of any kind (zero-egress by contract), ships no copy of either ESMA register, and has no clock: retrieval_date is the date the reader captured the extract, never a machine clock read. register_snapshot_digest pins the exact pasted bytes the verdict was reached against, so a later register update makes an old receipt dated rather than wrong. Presence in a snapshot is never authorisation and never a statement about today.'
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+var SAMPLES = {
+  match: {
+    registerType: 'white_paper',
+    entityIdentifier: '984500XXXXXXXXXXXX02',
+    registerSourceRef: 'ESMA crypto-asset white paper register export (synthetic sample)',
+    matchColumn: 'lei',
+    extract: 'lei,issuer_name,crypto_asset_name,notification_date,home_member_state\n984500XXXXXXXXXXXX01,Example Issuer SA,EXAMPLE-EURO-TOKEN,2026-01-15,FR\n984500XXXXXXXXXXXX02,Second Issuer NV,SECOND-TOKEN,2026-02-03,NL\n984500XXXXXXXXXXXX03,Third Issuer GmbH,THIRD-TOKEN,2026-03-21,DE\n'
+  },
+  nomatch: {
+    registerType: 'casp',
+    entityIdentifier: '529900XXXXXXXXXXXX99',
+    registerSourceRef: 'ESMA CASP register export (synthetic sample)',
+    matchColumn: '',
+    extract: 'lei,entity_name,authorisation_date,competent_authority,services\n529900XXXXXXXXXXXX11,Alpha Custody Ltd,2026-01-08,CSSF,"custody,exchange"\n529900XXXXXXXXXXXX12,Beta Exchange SAS,2026-02-19,AMF,"exchange,transfer"\n'
+  }
+};
+
+function loadSample(which) {
+  var s = SAMPLES[which];
+  if (!s) return;
+  document.getElementById('registerType').value = s.registerType;
+  document.getElementById('entityIdentifier').value = s.entityIdentifier;
+  document.getElementById('registerSourceRef').value = s.registerSourceRef;
+  document.getElementById('matchColumn').value = s.matchColumn;
+  document.getElementById('registerExtract').value = s.extract;
+  runCheck();
+}
+
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function runCheck() {
+  var mcRaw = document.getElementById('matchColumn').value.trim();
+  var pp = {
+    register_type: document.getElementById('registerType').value,
+    entity_identifier: document.getElementById('entityIdentifier').value,
+    register_extract: document.getElementById('registerExtract').value,
+    retrieval_date: document.getElementById('retrievalDate').value.trim(),
+    register_source_ref: document.getElementById('registerSourceRef').value.trim(),
+    delimiter: document.getElementById('delimiter').value,
+    header_row: document.getElementById('headerRow').value === 'true',
+    match_column: mcRaw === '' ? null : (/^\d+$/.test(mcRaw) ? Number(mcRaw) : mcRaw),
+    case_sensitive: document.getElementById('caseSensitive').value === 'true'
+  };
+
+  var result = compute(pp);
+  var op = result.output_payload, flags = result.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var vBox = document.getElementById('verdictBox');
+  var vColor = op.verdict === null ? 'var(--warn)' : (op.match_found ? 'var(--green)' : 'var(--red)');
+  vBox.style.color = vColor;
+  vBox.style.background = 'rgba(20,184,166,.08)';
+  vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = op.verdict === null ? 'VERDICT WITHHELD: ' + op.verdict_unavailable_reason : op.verdict;
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f) {
+    var cls = f === 'MICA_REGISTER_MATCH_FOUND' ? 'ok' : (f === 'MICA_REGISTER_NO_MATCH' ? 'fail' : (f === 'MICA_REGISTER_PRESENCE_CHECKED' ? 'ok' : 'warn'));
+    return '<span class="badge ' + cls + '">' + esc(f) + '</span>';
+  }).join('');
+
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + (op.match_found === null ? '—' : (op.match_found ? 'YES' : 'NO')) + '</span><span class="stat-key">match_found</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.match_count + '</span><span class="stat-key">matched rows</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.snapshot.data_row_count + '</span><span class="stat-key">data rows</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.snapshot.extract_length_chars + '</span><span class="stat-key">chars digested</span></div>' +
+    '<div class="stat"><span class="stat-val">' + esc(op.retrieval_date || '—') + '</span><span class="stat-key">retrieval_date</span></div>';
+
+  document.getElementById('digestBox').textContent = op.register_snapshot_digest || '—';
+
+  document.getElementById('matchBox').innerHTML = op.matched_rows.length > 0
+    ? op.matched_rows.map(function(m) { return '<div class="match-row"><span class="ln">line ' + m.line_number + '</span>' + esc(m.matched_row) + '</div>'; }).join('')
+    : '<div class="match-row">No line matched. Absence from this paste is not absence from the register.</div>';
+
+  document.getElementById('judgmentBox').innerHTML = op.judgment_required === null
+    ? '<span style="color:var(--green)">None. Every input the verdict depends on was supplied and usable.</span>'
+    : op.judgment_required.fields.map(function(f) { return '<div style="margin-bottom:6px"><span class="badge warn">' + esc(f.field) + '</span> ' + esc(f.reason) + '</div>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'compliance_mandate',
+    tool_id: 'art-602-mica-register-presence-check', tool_version: '1.0.0',
+    generated_at: __generatedAtCapture, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-602-mica-register-presence-check.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

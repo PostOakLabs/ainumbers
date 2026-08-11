@@ -535,6 +535,7 @@ import * as art593    from './art-593-webbotauth-nonce-replay-check.kernel.mjs';
 import * as art594    from './art-594-tempo-mpp-voucher-receipt-verifier.kernel.mjs';
 import * as art595    from './art-595-ap2-cartmandate-hashchain-builder.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
+import * as art602    from './art-602-mica-register-presence-check.kernel.mjs';
 import * as art604    from './art-604-erc8004-registry-entry-verifier.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
@@ -1126,6 +1127,7 @@ export const KERNELS = {
   'art-594-tempo-mpp-voucher-receipt-verifier':                 art594,
   'art-595-ap2-cartmandate-hashchain-builder':                  art595,
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
+  'art-602-mica-register-presence-check':                       art602,
   'art-604-erc8004-registry-entry-verifier':                    art604,
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-62-ap2-payment-receipt-verifier':                        art62,
