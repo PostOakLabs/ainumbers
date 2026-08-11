@@ -5,8 +5,15 @@
 // Proves: (1) a version bump with an unchanged walkthrough and no escape is
 // REJECTED (the "changelog only" trap Tim called out must not satisfy this
 // gate); (2) a version bump with a genuinely changed walkthrough is
-// ACCEPTED; (3) the documented acknowledged_no_change escape works; (4) the
-// real committed helm/guide-freshness.json is in sync with helm.html right now.
+// ACCEPTED; (3) the documented acknowledged_no_change escape works;
+// (4) hashGuide() is deterministic against the real helm.html.
+//
+// Deliberately does NOT assert the real committed helm/guide-freshness.json
+// is in sync right now (HELM-GUIDE-FRESHNESS-REPORTONLY-1, 2026-08-11) — that
+// assertion duplicates --check's own staleness finding, and this file is run
+// as a crash-detector ahead of --check in the scheduled workflow. A real
+// staleness owes a ::notice, not a red unit-test suite. --check is still the
+// authority on current staleness; run it directly to ask that question.
 
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -69,15 +76,6 @@ test('hashGuide() is deterministic and scoped to scenes s1-s6', () => {
   const h2 = hashGuide(helmHtmlText);
   assert(h1 === h2, 'hashGuide() must be deterministic for identical input');
   assert(/^[0-9a-f]{64}$/.test(h1), `expected a sha256 hex digest, got: ${h1}`);
-});
-
-test('real committed helm/guide-freshness.json is in sync right now', () => {
-  const versionJson = JSON.parse(readFileSync(resolve(REPO, 'helm', 'version.json'), 'utf8'));
-  const state = JSON.parse(readFileSync(resolve(REPO, 'helm', 'guide-freshness.json'), 'utf8'));
-  const helmHtmlText = readFileSync(resolve(REPO, 'helm.html'), 'utf8');
-  const guideHash = hashGuide(helmHtmlText);
-  const r = evaluate({ latestVersion: versionJson.latest_version, guideHash, state });
-  assert(r.ok === true && r.action === 'none', `real repo state should be synced right now, got: ${JSON.stringify(r)}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

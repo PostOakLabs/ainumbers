@@ -11,14 +11,23 @@ name: Helm Guide Freshness (scheduled)
 #
 # This is a side project with no on-call human, so no design that ends in a
 # person acknowledging something before a deploy can proceed is acceptable.
-# The check moves here instead: same evaluate()/exit-code logic
-# (gen-helm-guide-freshness.mjs --check, UNCHANGED), same non-blocking shape as
-# the worker's Vendor Freshness (vendor-freshness-schedule.yml) — it can only
-# raise a tracking issue, never block anything, because by the time this runs
-# there is nothing left to block. Deploy to DreamHost's own preflight job stays
+# The check moves here instead: same evaluate() logic in
+# gen-helm-guide-freshness.mjs, same non-blocking shape as the worker's
+# Vendor Freshness (vendor-freshness-schedule.yml) — it can only raise a
+# tracking issue, never block anything, because by the time this runs there
+# is nothing left to block. Deploy to DreamHost's own preflight job stays
 # the real, blocking gate for what it always blocked (JS syntax, hashes,
 # dead links, helm release/version drift, etc.) — this workflow adds zero
 # blocking surface anywhere.
+#
+# 2026-08-11: a job literally named "report only" still exited 1 on a stale
+# finding, reddening the run and sending a failure email every 6h cycle
+# (3x in one day) — noise-training on a real signal. Fixed by exit-code
+# triage in gen-helm-guide-freshness.mjs (0 = clean, 2 = stale finding,
+# 1 = the checker itself crashed) plus a GITHUB_OUTPUT the run reads:
+# stale=true|false runs GREEN with a ::notice + job summary; any other exit
+# code still reds. raise-on-stale is gated on that output, not on failure(),
+# so it keeps firing on a stale finding even though the run is green.
 
 on:
   schedule:
@@ -34,6 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      stale: ${{ steps.check.outputs.stale }}
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -46,15 +57,40 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🪖 Helm guide freshness (report only)
+      - name: 🧪 Run gate unit tests (a real bug here MUST still red the run)
+        run: node scripts/gen-helm-guide-freshness.test.mjs
+
+      - name: 🪖 Helm guide freshness (report only — stale is a finding, not a failure)
+        id: check
         run: |
-          node scripts/gen-helm-guide-freshness.mjs --check
-          node scripts/gen-helm-guide-freshness.test.mjs
+          set +e
+          OUTPUT=$(node scripts/gen-helm-guide-freshness.mjs --check 2>&1)
+          CODE=$?
+          echo "$OUTPUT"
+          if [ "$CODE" -eq 0 ]; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          elif [ "$CODE" -eq 2 ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "## 🪖 Helm guide freshness: STALE"
+              echo ""
+              echo '```'
+              echo "$OUTPUT"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice title=Helm guide freshness::$OUTPUT"
+          else
+            # Any other exit code (uncaught exception, missing file, etc.) is
+            # the checker itself being broken, not a staleness finding — this
+            # MUST red the run.
+            echo "::error title=Helm guide-freshness checker crashed::exit code $CODE — $OUTPUT"
+            exit "$CODE"
+          fi
 
   raise-on-stale:
     name: Raise a tracking issue on a stale walkthrough
     needs: check-freshness
-    if: failure()
+    if: needs.check-freshness.outputs.stale == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
