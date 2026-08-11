@@ -81,7 +81,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          fetch-depth: 1
+          # fetch-depth 0 (was 1): the touched-floor-files diff step below needs to resolve
+          # github.event.before / the PR base sha as a real commit to diff against — the same
+          # requirement jsdoc-checkjs.yml already solved this way. depth 1 would leave BASE unresolvable
+          # on this job's own trigger shape most of the time, silently degrading the new gate to a no-op.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node 20
@@ -159,3 +163,64 @@ jobs:
         run: |
           node scripts/check-fv-floor-coverage.mjs
           node scripts/check-fv-floor-coverage.test.mjs
+
+      # Makes the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4) ENFORCED instead of
+      # merely asked-for. A prior diagnosis found floor files across several shards carrying a
+      # kernel_digest_at_authoring that was never computed against anything real — the recorded value
+      # matched no kernel source, no git revision, no byte variant, on any of them. ⛔ SCOPE IS THE WHOLE
+      # TRICK — this must examine ONLY floor files THIS diff touched, never the full floor estate: a floor
+      # file legitimately goes stale later when its kernel moves (see check-fv-floor-coverage.mjs's own
+      # STALE-state comment), so a full-estate run of this exact check would false-fail on that honest
+      # drift. For a file authored in THIS diff, "at authoring" is "now".
+      #
+      # Filenames are PR-author-controlled, so they never reach a `run:` script as `${{ }}` text — reuses
+      # jsdoc-checkjs.yml's exact injection-safe plumbing rather than reinventing it: NUL-delimited
+      # `git diff -z`, `mapfile -d ''`, an argv array passed as `"${FILES[@]}"`, never re-joined into a
+      # string. Only an integer count crosses via $GITHUB_OUTPUT.
+      - name: List floor files touched in this diff
+        id: floor-files
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+          FILE_LIST: ${{ runner.temp }}/touched-floor-files.z
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE_SHA"
+            HEAD="$PR_HEAD_SHA"
+          else
+            BASE="$PUSH_BEFORE"
+            HEAD="$PUSH_SHA"
+          fi
+          : > "$FILE_LIST"
+          # Incremental-only, same rule as jsdoc-checkjs.yml: an unresolvable BASE must never fall
+          # through to a full floor-estate sweep — that's the exact widening the design forbids.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "BASE unresolvable — skipping (scoped-to-diff gate never sweeps the full floor estate)."
+          else
+            git diff -z --name-only --diff-filter=ACM "$BASE" "$HEAD" -- 'chaingraph/kernels/__proptests__/*.proptest.mjs' > "$FILE_LIST"
+          fi
+          COUNT=$(tr -cd '\0' < "$FILE_LIST" | wc -c | tr -d '[:space:]')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Verify executed-digest authoring on touched floor files only
+        if: steps.floor-files.outputs.count != '0'
+        shell: bash
+        env:
+          FILE_LIST: ${{ runner.temp }}/touched-floor-files.z
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t FILES < "$FILE_LIST"
+          FILES=("${FILES[@]/#/./}")
+          printf 'Verifying %s touched floor file(s):\n' "${#FILES[@]}"
+          printf '  %q\n' "${FILES[@]}"
+          node scripts/check-fv-floor-coverage.mjs --verify-authoring "${FILES[@]}"
+
+      - name: No touched floor files
+        if: steps.floor-files.outputs.count == '0'
+        shell: bash
+        run: echo "No floor files changed in this diff — skipping (scoped-to-diff gate, never a full-estate sweep)."
