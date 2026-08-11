@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Input Attestation Verifier · ART-598 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Verify SPEC.md §23 input_attestations entries: vc-2.0, c2pa-manifest, rfc3161-snapshot, zktls, against a target artifact's policy_parameters. Structural checks client-side; full cryptographic verification runs server-side via MCP.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-598-input-attestation-verifier.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Input Attestation Verifier","applicationCategory":"FinanceApplication","description":"Verify SPEC.md §23 input_attestations entries: vc-2.0, c2pa-manifest, rfc3161-snapshot, zktls, against a target artifact's policy_parameters.","url":"https://ainumbers.co/chaingraph/art-598-input-attestation-verifier.html","publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:920px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.warn{background:rgba(212,168,71,.1);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.flag.purple{background:rgba(155,114,245,.08);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:14px}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .dim{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+input[type=text],input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+button:disabled{opacity:.45;cursor:not-allowed}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--bg-3);color:var(--body);border:1px solid var(--border-2);font-size:.62rem;padding:.3rem .7rem;text-transform:none;letter-spacing:0;font-weight:400}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal-lt);opacity:1}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:110px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:600}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.info{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);color:var(--teal-lt)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.warn-b{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.2)}
+.badge.purple{background:rgba(155,114,245,.1);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.78rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:7px 8px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+.mfst-btn:hover{color:var(--text);border-color:var(--border-2)}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.run-btn{margin-top:6px}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.handoff-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:4px;padding:.75rem 1rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);line-height:1.7}
+.handoff-box .hb-title{color:var(--purple);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-598 · Input Attestation Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-598 · SPEC.md §23</div>
+  <h1>Input Attestation Verifier</h1>
+  <p class="sub">Verifies SPEC.md §23 <code>input_attestations</code> entries against a target artifact's <code>policy_parameters</code>: <code>vc-2.0</code>, <code>c2pa-manifest</code>, <code>rfc3161-snapshot</code>, and <code>zktls</code>, all four types in one report. Each pointer is resolved by RFC 6901 and its digest bound to the attested value; per-entry results carry <code>{pointer, type, structural, verifiable}</code> plus a <code>zero_attestation_caveat_shown</code> marker. This page performs structural pointer/digest checks only; full cryptographic verification (RFC 3161 CMS chain, Data Integrity signatures) runs server-side via the MCP tool.</p>
+  <div style="margin-bottom:6px"><span class="flag info">SPEC §23</span><span class="flag info">RFC 6901</span><span class="flag info">RFC 3161 reuse</span><span class="flag">Zero PII</span><span class="flag">Client-side structural</span></div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="info-box"><div class="ib-title">Scope</div>Structural checks only in-browser: pointer resolution (RFC 6901) + canonical digest binding. Full cryptographic verification (RFC 3161 CMS/TSA chain, eddsa-jcs-2022 Data Integrity signatures) runs server-side via the <code>verify_input_attestations</code> MCP tool, reusing the same §20 anchor-binding and §16 proof-binding machinery. An artifact with zero attestations remains fully conformant; the caveat stays visible either way.</div>
+
+  <div class="card">
+    <div class="section-head">Presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('mixed')">Mixed (pass + fail)</button>
+      <button class="preset-btn" onclick="loadPreset('zeroAttestations')">Zero Attestations</button>
+      <button class="preset-btn" onclick="loadPreset('resolveFailure')">Unresolvable Pointer</button>
+    </div>
+    <div class="section-head">Inputs</div>
+    <div class="q"><label>Target policy_parameters <span class="dim">JSON object, the artifact being attested about</span></label><textarea id="target_policy_parameters" rows="4"></textarea></div>
+    <div class="q"><label>input_attestations <span class="dim">JSON array, SPEC.md §23 entries</span></label><textarea id="input_attestations" rows="8"></textarea></div>
+    <div class="q"><label>Verification time <span class="dim">ISO-8601, for §23.4 freshness_status</span></label><input type="text" id="verification_time" value="2026-08-11T00:00:00Z"></div>
+    <button class="run-btn" style="margin-top:14px" onclick="run()">Run</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <table class="tbl" id="attTable"><thead><tr><th>Pointer</th><th>Type</th><th>Structural</th><th>Verifiable</th><th>Freshness</th></tr></thead><tbody id="attBody"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+        <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+        <button onclick="exportArtifact()">Export §4 Artifact</button>
+        <button onclick="exportVC()">Export W3C VC (§13.11)</button>
+      </div>
+    </div>
+    <div class="handoff-box">
+      <div class="hb-title">Related</div>
+      Reuses the §20 anchor-binding RFC 3161 verifier (rfc3161-snapshot) and the §16 Data Integrity proof machinery (vc-2.0). c2pa-manifest structural checks follow art-123's own manifest validator rules.
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card" style="margin-top:10px">
+    <pre id="mfstCode"></pre>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const MANIFEST = {
+  "tool_id": "art-598-input-attestation-verifier",
+  "version": "1.0.0",
+  "title": "Input Attestation Verifier",
+  "mcp_tool_definition": {
+    "name": "verify_input_attestations",
+    "description": "Verify SPEC.md §23 input_attestations entries (vc-2.0, c2pa-manifest, rfc3161-snapshot, zktls) against a target artifact's policy_parameters. Zero network.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "target_policy_parameters": {"type": "object"},
+        "input_attestations": {"type": "array"},
+        "verification_time": {"type": "string"},
+        "tsa_root_pem": {"type": "string"}
+      },
+      "required": ["target_policy_parameters", "input_attestations"]
+    }
+  },
+  "ap2_export": true,
+  "chaingraph": true
+};
+
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function canonicalDigestHex(value){const bytes=new TextEncoder().encode(JSON.stringify(cgCanon(value)));const d=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+function resolvePointer(doc,pointer){
+  if(typeof pointer!=='string'||pointer===''||pointer[0]!=='/')throw new Error('bad pointer');
+  const parts=pointer.split('/').slice(1).map(p=>p.replace(/~1/g,'/').replace(/~0/g,'~'));
+  let cur=doc;
+  for(const part of parts){if(cur===null||typeof cur!=='object')throw new Error('pointer does not resolve');cur=Array.isArray(cur)?cur[Number(part)]:cur[part];}
+  if(cur===undefined)throw new Error('pointer does not resolve');
+  return cur;
+}
+
+function freshnessStatus(freshness,verificationTime){
+  if(!freshness||typeof freshness!=='object')return 'undeclared';
+  if(typeof freshness.expires_at==='string'&&typeof verificationTime==='string'&&freshness.expires_at<verificationTime)return 'stale';
+  return 'fresh';
+}
+
+// Structural-only, browser-side (§23.1): full crypto (RFC 3161 CMS chain, eddsa-jcs-2022 DI
+// signature) runs server-side via the MCP tool — this mirrors what a client CAN check offline
+// with WebCrypto alone, and is honest about the gap (verifiable stays 'n/a' where it can't).
+async function checkEntryStructural(entry,resolvedDigestHex){
+  const type=entry&&entry.type;
+  if(type==='rfc3161-snapshot'){
+    const ok=typeof entry.proof==='string'&&entry.proof.length>0;
+    return {structural:ok?'pass':'fail',verifiable:'n/a'};
+  }
+  if(type==='c2pa-manifest'){
+    const m=entry&&entry.proof;
+    if(!m||typeof m!=='object')return {structural:'fail',verifiable:'n/a'};
+    const assertions=Array.isArray(m.assertions)?m.assertions:[];
+    const labels=assertions.map(a=>a&&a.label).filter(Boolean);
+    const hasHardBinding=labels.includes('c2pa.hash.data')||labels.includes('c2pa.hash.bmff');
+    const hardBinding=assertions.find(a=>a&&(a.label==='c2pa.hash.data'||a.label==='c2pa.hash.bmff'));
+    const claimWellFormed=typeof m.claim_generator==='string'&&m.claim_generator.length>0&&m.claim&&typeof m.claim.format==='string'&&typeof m.claim.instanceID==='string';
+    const sigRefPresent=!!m.signature&&(m.signature.present===true||typeof m.signature.alg==='string');
+    const digestBound=!!hardBinding&&hardBinding.hash===resolvedDigestHex;
+    return {structural:(claimWellFormed&&hasHardBinding&&sigRefPresent&&digestBound)?'pass':'fail',verifiable:'n/a'};
+  }
+  if(type==='vc-2.0'){
+    const c=entry&&entry.proof;
+    const proofWellFormed=c&&c.proof&&c.proof.type==='DataIntegrityProof'&&c.proof.cryptosuite==='eddsa-jcs-2022'&&typeof c.proof.proofValue==='string';
+    const digestBound=!!(c&&c.credentialSubject&&c.credentialSubject.digest===resolvedDigestHex);
+    return {structural:(proofWellFormed&&digestBound)?'pass':'fail',verifiable:'n/a'};
+  }
+  if(type==='zktls'){
+    const ok=typeof entry.source_ref==='string'&&entry.source_ref.length>0&&(typeof entry.proof==='string'||(entry.proof&&typeof entry.proof==='object'));
+    return {structural:ok?'pass':'fail',verifiable:'external'};
+  }
+  return {structural:'fail',verifiable:'n/a'};
+}
+
+const KNOWN_TYPES=new Set(['vc-2.0','c2pa-manifest','rfc3161-snapshot','zktls']);
+
+async function compute(pp){
+  const {target_policy_parameters={},input_attestations=[],verification_time}=pp;
+  const attestations=[];
+  for(const entry of Array.isArray(input_attestations)?input_attestations:[]){
+    const pointer=entry&&typeof entry.pointer==='string'?entry.pointer:null;
+    const type=entry&&entry.type;
+    const freshness_status=freshnessStatus(entry&&entry.freshness,verification_time);
+    if(!KNOWN_TYPES.has(type)){attestations.push({pointer,type:type??null,structural:'fail',verifiable:'n/a',freshness_status});continue;}
+    let resolved,resolveOk=true;
+    try{resolved=resolvePointer(target_policy_parameters,pointer);}catch(e){resolveOk=false;}
+    if(!resolveOk){attestations.push({pointer,type,structural:'fail',verifiable:'n/a',freshness_status});continue;}
+    const resolvedDigestHex=await canonicalDigestHex(resolved);
+    const verdict=await checkEntryStructural(entry,resolvedDigestHex);
+    attestations.push({pointer,type,structural:verdict.structural,verifiable:verdict.verifiable,freshness_status});
+  }
+  const compliance_flags={INPUT_ATTESTATIONS_ASSESSED:true};
+  if(attestations.length===0){compliance_flags.ZERO_ATTESTATIONS=true;}
+  else{
+    const allPass=attestations.every(a=>a.structural==='pass');
+    compliance_flags[allPass?'ALL_ATTESTATIONS_STRUCTURAL_PASS':'ATTESTATION_STRUCTURAL_FAILURE_PRESENT']=true;
+    if(attestations.some(a=>a.verifiable==='external'))compliance_flags.ATTESTATION_EXTERNAL_VERIFICATION_ONLY=true;
+  }
+  const output_payload={zero_attestation_caveat_shown:true,attestation_count:attestations.length,attestations};
+  return {output_payload,compliance_flags};
+}
+
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
+
+async function run(){
+  const pp=getParams();
+  if(!pp)return;
+  const {output_payload,compliance_flags}=await compute(pp);
+  const rawHash=await executionHashLocal(pp,output_payload);
+  const execHash='sha256:'+rawHash;
+  const __generatedAtCapture = new Date().toISOString();
+  const artifact={
+    '@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version:'0.4.0',
+    spec_version:'0.5.0',
+    compute_mode:'browser',
+    mandate_type:'compliance_mandate',
+    tool_id:MANIFEST.tool_id,
+    tool_version:MANIFEST.version,
+    generated_at: __generatedAtCapture,
+    execution_hash:execHash,
+    chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
+    policy_parameters:pp,
+    output_payload,
+    compliance_flags,
+    audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
+  renderResults(output_payload,compliance_flags,execHash,artifact);
+  document.getElementById('ap2ExportBtn').disabled=false;
+}
+
+function renderResults(op,flags,execHash,artifact){
+  const passCount=op.attestations.filter(a=>a.structural==='pass').length;
+  document.getElementById('heroRow').innerHTML=
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--teal-lt)">'+op.attestation_count+'</div><div class="hero-lbl">attestation_count</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--green)">'+passCount+'</div><div class="hero-lbl">structural pass</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="color:var(--gold);font-size:1rem;padding-top:6px">SHOWN</div><div class="hero-lbl">zero_attestation_caveat</div></div>';
+  const flagKeys=Object.keys(flags);
+  document.getElementById('verdictDiv').innerHTML=
+    '<div class="verdict '+(op.attestation_count===0?'info':(passCount===op.attestation_count?'pass':'warn'))+'">'+
+    (op.attestation_count===0?'No input_attestations present — artifact remains fully conformant (SPEC.md §23).':passCount+' / '+op.attestation_count+' entries pass structural checks.')+
+    '</div><div style="margin-top:6px">'+flagKeys.map(f=>'<span class="badge '+(f.includes('FAILURE')?'err':(f.includes('ZERO')?'warn-b':'ok'))+'">'+f+'</span>').join('')+'</div>';
+  document.getElementById('attBody').innerHTML=op.attestations.map(a=>
+    '<tr><td>'+(a.pointer??'—')+'</td><td>'+(a.type??'—')+'</td>'+
+    '<td><span class="badge '+(a.structural==='pass'?'ok':'err')+'">'+a.structural+'</span></td>'+
+    '<td><span class="badge '+(a.verifiable==='verified'?'ok':a.verifiable==='failed'?'err':a.verifiable==='external'?'purple':'info')+'">'+a.verifiable+'</span></td>'+
+    '<td>'+a.freshness_status+'</td></tr>').join('');
+  document.getElementById('execHash').textContent=execHash;
+  document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+function exportAP2(){if(!_lastArtifact)return;const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastHash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags};dl(JSON.stringify(ap2,null,2),'art-598-input-attestation-verifier-policy-mandate.json','application/json');}
+function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),'art-598-input-attestation-verifier-artifact.json','application/json');}
+function exportVC(){if(!_lastArtifact)return;const vc={"@context":["https://www.w3.org/ns/credentials/v2","https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"],type:["VerifiableCredential","OpenChainGraphArtifact"],issuer:"did:web:ainumbers.co",validFrom:_lastArtifact.generated_at,credentialSubject:{...{id:"urn:ocg:"+_lastHash},..._lastArtifact}};dl(JSON.stringify(vc,null,2),'art-598-input-attestation-verifier-vc.json','application/json');}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+
+const PRESETS={
+  mixed:{
+    target_policy_parameters:'{\n  "report": "quarterly-compliance-summary-v1",\n  "filing": {"filing_id":"F-2026-0714","jurisdiction":"US-DE"}\n}',
+    input_attestations:'[\n  {"type":"zktls","pointer":"/report","proof":{"origin":"example.com"},"source_ref":"https://example.com"},\n  {"type":"vc-2.0","pointer":"/filing","proof":{"credentialSubject":{"id":"https://example.org/filings/F-2026-0714","digest":"ffc91223dd2131e4be434aa1afdc50e303708ee240046ad4e27e9766a4049804"},"proof":{"type":"DataIntegrityProof","cryptosuite":"eddsa-jcs-2022","verificationMethod":"did:key:z6MkgaZdkjF5HGza4ieAtPUwK4DBmdnB6M2aAHSXSS7YtUji","proofPurpose":"assertionMethod","created":"2026-07-14T00:00:00Z","proofValue":"z2f11EykzFzhtuJHc2rRsCiJeq5ZTx9odxAAmFTxo2EbLRTWwjk61a7uVXPrZckjm41EHbZK7WSC8AfKeTkxWBXZG"}}},\n  {"type":"c2pa-manifest","pointer":"/report","proof":{"claim_generator":"x","claim":{"format":"a","instanceID":"b"},"assertions":[{"label":"c2pa.hash.data","hash":"deadbeef"}],"signature":{"present":true}}}\n]'
+  },
+  zeroAttestations:{
+    target_policy_parameters:'{\n  "report": "quarterly-compliance-summary-v1"\n}',
+    input_attestations:'[]'
+  },
+  resolveFailure:{
+    target_policy_parameters:'{\n  "report": "quarterly-compliance-summary-v1"\n}',
+    input_attestations:'[\n  {"type":"rfc3161-snapshot","pointer":"/does/not/exist","proof":"MA=="}\n]'
+  }
+};
+
+function loadPreset(n){
+  const d=PRESETS[n];
+  if(!d)return;
+  document.getElementById('target_policy_parameters').value=d.target_policy_parameters;
+  document.getElementById('input_attestations').value=d.input_attestations;
+}
+
+function getParams(){
+  let target_policy_parameters,input_attestations;
+  try{target_policy_parameters=JSON.parse(document.getElementById('target_policy_parameters').value);}catch(e){alert('Target policy_parameters must be valid JSON');return null;}
+  try{input_attestations=JSON.parse(document.getElementById('input_attestations').value);}catch(e){alert('input_attestations must be valid JSON array');return null;}
+  return{
+    target_policy_parameters,
+    input_attestations,
+    verification_time:document.getElementById('verification_time').value.trim()
+  };
+}
+loadPreset('mixed');
+</script>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x));}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Reuses __ocgCanon from OCG-CANON v1 (single canon path — §4 array-replacer forms stay FORBIDDEN). */
+/* Exposes globals: __ocgSign(artifact,{verificationMethod,created,privateKey}) -> signed artifact;
+   __ocgVerify(artifact,publicKey) -> bool; __ocgDidKeyFromPub(pubKey) -> did:key; __ocgPubFromDidKey(did) -> CryptoKey. */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(JSON.stringify(__ocgCanon(o)));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-ap2) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){
+  var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];
+  for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}
+  var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');
+  if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}
+  return null;
+}
+async function signArtifact(){
+  var art=__ocgGetArt();
+  if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}
+  if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+  var did=await __ocgDidKeyFromPub(kp.publicKey);
+  var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});
+  var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+  a.download=fn;a.click();URL.revokeObjectURL(a.href);
+}
+async function verifySignature(){
+  var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;
+  var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}
+  var pr=art&&art.audit_signature&&art.audit_signature.proof;
+  if(!pr){alert('✗ no §16 proof on this artifact');return;}
+  try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}
+  catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}
+}
+(function(){
+  var el=document.getElementById('ap2ExportBtn');
+  if(!el)return;
+  var obs=new MutationObserver(function(){
+    var sab=document.getElementById('signArtifactBtn');
+    if(sab){sab.disabled=false;}
+    obs.disconnect();
+  });
+  obs.observe(el,{attributes:true,attributeFilter:['disabled']});
+})();
+</script>
+</body>
+</html>
