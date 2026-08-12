@@ -543,6 +543,9 @@ import * as art602    from './art-602-mica-register-presence-check.kernel.mjs';
 import * as art603    from './art-603-stablecoin-reserve-3source-recompute.kernel.mjs';
 import * as art604    from './art-604-erc8004-registry-entry-verifier.kernel.mjs';
 import * as art605    from './art-605-merkle-airdrop-proof-verifier.kernel.mjs';
+import * as art606    from './art-606-erc165-interface-id-verifier.kernel.mjs';
+import * as art607    from './art-607-erc1967-proxy-slot-classifier.kernel.mjs';
+import * as art608    from './art-608-erc2981-royalty-calculator.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
 import * as art63     from './art-63-agent-service-metering-modeler.kernel.mjs';
@@ -1141,6 +1144,9 @@ export const KERNELS = {
   'art-603-stablecoin-reserve-3source-recompute':               art603,
   'art-604-erc8004-registry-entry-verifier':                    art604,
   'art-605-merkle-airdrop-proof-verifier':                      art605,
+  'art-606-erc165-interface-id-verifier':                       art606,
+  'art-607-erc1967-proxy-slot-classifier':                      art607,
+  'art-608-erc2981-royalty-calculator':                         art608,
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-62-ap2-payment-receipt-verifier':                        art62,
   'art-63-agent-service-metering-modeler':                      art63,
