@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1108 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1109 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1440,6 +1440,9 @@
       "name": "air-gapped"
     },
     {
+      "name": "airdrop"
+    },
+    {
       "name": "airgapped"
     },
     {
@@ -2790,6 +2793,9 @@
       "name": "hash-chain"
     },
     {
+      "name": "hash-proof"
+    },
+    {
       "name": "headers"
     },
     {
@@ -3195,10 +3201,16 @@
       "name": "mcp:sweep_docket_deadlines"
     },
     {
+      "name": "mcp:verify_merkle_airdrop_proof"
+    },
+    {
       "name": "mcp:verify_x402_signer_recovery"
     },
     {
       "name": "merchant"
+    },
+    {
+      "name": "merkle"
     },
     {
       "name": "merkle inclusion"
@@ -3415,6 +3427,9 @@
     },
     {
       "name": "opensea"
+    },
+    {
+      "name": "openzeppelin"
     },
     {
       "name": "operational resilience"
@@ -47764,6 +47779,123 @@
         "x-tool-url": "https://ainumbers.co/chaingraph/art-603-stablecoin-reserve-3source-recompute.html",
         "x-source": "manifest",
         "x-ap2-export": true
+      }
+    },
+    "/v1/tools/verify_merkle_airdrop_proof": {
+      "post": {
+        "operationId": "verify_merkle_airdrop_proof",
+        "summary": "Merkle Airdrop-Proof Verifier",
+        "description": "Recomputes a Merkle airdrop-claim proof from caller-declared leaf fields (address, uint256 amount, encoding_variant) and a sibling path, OpenZeppelin MerkleProof.verify shape (processProof/_hashPair) over the already-vendored @noble/hashes keccak256 bundle -- no new vendoring, no hand-rolled hashing. Leaf derivation follows OpenZeppelin StandardMerkleTree's (address,uint256) convention: encoding_variant selects the double-hash leaf (the second-preimage-resistant default) or a single-hash variant some deployed contracts use instead, always a declared param. Sibling-pair hashing is sorted/commutative (pair_sort:true, OpenZeppelin's default) or explicit per-step left/right position (pair_sort:false), also a declared param. Given an optional claimed_path (a prior run's per-step running hashes), re-verifies and reports the earliest step at which the recompute diverges, instead of only a final match/no-match. This node never reads any chain: it cannot know whether claimed_root is the root actually recorded on-chain, whether the leaf's allocation was already claimed or redeemed, or whether the underlying tree was built correctly from the full allocation list.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-605-merkle-airdrop-proof-verifier.html",
+        "tags": [
+          "payment_policy",
+          "merkle",
+          "airdrop",
+          "keccak256",
+          "openzeppelin",
+          "hash-proof",
+          "mcp:verify_merkle_airdrop_proof"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "address": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "string"
+                  },
+                  "encoding_variant": {
+                    "type": "string"
+                  },
+                  "pair_sort": {
+                    "type": "boolean"
+                  },
+                  "proof": {
+                    "type": "array"
+                  },
+                  "claimed_root": {
+                    "type": "string"
+                  },
+                  "claimed_path": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "leaf": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "computed_root": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "path": {
+                      "type": "array"
+                    },
+                    "encoding_variant_used": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pair_sort_used": {
+                      "type": "boolean"
+                    },
+                    "root_matches_claimed": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "path_intact": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "first_divergent_step": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_merkle_airdrop_proof",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-605-merkle-airdrop-proof-verifier.html",
+        "x-source": "manifest"
       }
     },
     "/v1/tools/batch_payment_file_validator": {
