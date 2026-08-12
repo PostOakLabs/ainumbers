@@ -381,9 +381,23 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // the fresh set, so fresh is unchanged and stale drops by exactly 1.
   // Measured both sides, not assumed: 453/571 fresh + 118 stale before this row's assemble,
   // 453/570 fresh + 117 stale after.
-  assert(total === 570, `expected 570 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 453, `expected 453 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 117, `expected 117 stale (art-124 left the gpu:false scope, SIGKERNEL-VERIFYONLY-RECLASS-1), got ${stale.length}`);
+  // 570 -> 575 post-ASSEMBLE-LAND-BATCH-0811-B (2026-08-12): the batch assembled 6 ETHMATH nodes
+  // and locally merged held drafts #1211 (5 ETHMATH groth16 receipts) and #1197 (art-129 converted
+  // off crypto.subtle onto vendored noble Ed25519, with its own groth16 receipt attached).
+  // Denominator moves by exactly 5: art-605/606/608/610/611 are proven and enter the gpu:false
+  // proven set; art-607 assembled deferred (guest ocg_run -3, the art-476 signature) so it is not
+  // in the denominator at all, and the other 8 shards on disk were NOT assembled by that row.
+  // Fresh moves by 5 but is the sum of three separate movements, not one: +5 for the ETHMATH
+  // receipts (each written against the kernel it proves), +1 for art-129 which LEAVES the stale set
+  // (its noble conversion and its receipt landed together, so digest and receipt moved as a pair),
+  // and -1 for art-284, which ENTERS the stale set -- #1197 converted art-284's kernel to noble in
+  // the same commit range but attached no new receipt for it, so its committed receipt now predates
+  // its kernel bytes. Stale therefore does not move: art-129 out, art-284 in, net zero.
+  // Measured both sides, not assumed: 453/570 fresh + 117 stale before this row's assemble,
+  // 458/575 fresh + 117 stale after.
+  assert(total === 575, `expected 575 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 458, `expected 458 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 117, `expected 117 stale (art-129 cleared, art-284 entered, ASSEMBLE-LAND-BATCH-0811-B), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
