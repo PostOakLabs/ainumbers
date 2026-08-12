@@ -1,7 +1,7 @@
 ---
 type: Attested Computation
 title: "Content Credential Signature Verifier — attested computation"
-runtime: server
+runtime: browser
 computation: "Kernel-backed evaluation for the compliance_mandate decision, producing a hash-anchored OpenChainGraph artifact."
 executor:
   resource: https://ainumbers.co/chaingraph/kernels/art-124-content-credential-signature-verifier.kernel.mjs

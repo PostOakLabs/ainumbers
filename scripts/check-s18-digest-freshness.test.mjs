@@ -372,9 +372,18 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // member -- so fresh gains 16 and stale drops by 15.
   // Measured both sides, not assumed: 437/570 fresh + 133 stale before this row's assemble,
   // 453/571 fresh + 118 stale after.
-  assert(total === 571, `expected 571 in-scope gpu:false proven nodes, got ${total}`);
+  // 571 -> 570 post-SIGKERNEL-VERIFYONLY-RECLASS-1 (2026-08-11): art-124
+  // (content-credential-signature-verifier) reclassified gpu:false -> gpu:true (verify-only,
+  // out of the §18.6 profile's scope per SPEC.md §18.6 -- accepts PS256/RSA-PSS, which has no
+  // sync in-guest verifier) and its vacuous compute_proof (journal.output={}) removed. It leaves
+  // the gpu:false denominator entirely, so total drops by 1. It was in the STALE set on main (its
+  // digest-freshness state was itself part of the proof-honesty defect this row exists to fix), not
+  // the fresh set, so fresh is unchanged and stale drops by exactly 1.
+  // Measured both sides, not assumed: 453/571 fresh + 118 stale before this row's assemble,
+  // 453/570 fresh + 117 stale after.
+  assert(total === 570, `expected 570 in-scope gpu:false proven nodes, got ${total}`);
   assert(fresh.length === 453, `expected 453 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 118, `expected 118 stale (15 cleared by ASSEMBLE-LAND-ASYNCVACUOUS-1), got ${stale.length}`);
+  assert(stale.length === 117, `expected 117 stale (art-124 left the gpu:false scope, SIGKERNEL-VERIFYONLY-RECLASS-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -36,19 +36,28 @@ function kernelDigest(node) {
 // compute_proof_ready field. A node carrying a real compute_proof but no explicit
 // compute_proof_ready flag is ready: the attached receipt is the fact and the flag only
 // restates it (SPEC.md §18.6 -- a live gpu:false node either carries a verifying
-// compute_proof or declares "deferred" with a reason, there is no third state).
+// compute_proof or declares "deferred" with a reason). A live gpu:true node with no
+// compute_proof is a THIRD state -- verify-only, out of the §18.6 profile's scope
+// entirely (SIGKERNEL-VERIFYONLY-RECLASS-1) -- never "deferred": that word is reserved
+// for a gpu:false node parked in the proving queue, and a gpu:true node was never in it.
 // Resolving these two through different rules is what put "PROOF READY" beside
 // "zkVM proof not yet generated" on the same register card.
-function proofReady(node) {
-  if (node.compute_proof_ready) return node.compute_proof_ready === "ready";
-  return Boolean(node.compute_proof);
+function proofState(node) {
+  if (node.compute_proof) return "ready";
+  if (node.compute_proof_ready === "deferred") return "deferred";
+  if (node.gpu === true) return "verify_only";
+  return "deferred";
 }
 
 function trustLabel(node) {
-  if (proofReady(node)) {
+  const state = proofState(node);
+  if (state === "ready") {
     const sys = node.compute_proof?.system ?? "risc0";
     const fmt = node.compute_proof?.receiptFormat ?? "groth16-bn254";
     return `independently verified: zkVM execution proof (${sys}/${fmt})`;
+  }
+  if (state === "verify_only") {
+    return "verify-only: callable in chains, carries no compute-proof claim (out of the §18.6 deterministic-node profile's scope)";
   }
   const reason = node.deferred_reason ? `; ${node.deferred_reason}` : "";
   return `deferred: deterministic source published, zkVM proof not yet generated${reason}`;
@@ -73,7 +82,7 @@ function buildRegisterEntry(node, generatedAt) {
     data_vintage: latestVintage(node),
     last_validated: latestVintage(node),
     conformance_fixtures_vendored: node.conformance_fixtures === true,
-    compute_proof_ready: proofReady(node) ? "ready" : "deferred",
+    compute_proof_ready: proofState(node),
     wave: node.wave ?? null,
     source_url: node.url ?? null,
     generated_at: generatedAt,
