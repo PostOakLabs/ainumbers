@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Content Credential Signature Verifier"
-description: "Verify the COSE_Sign1 claim signature against a caller-supplied signer public key using crypto.subtle.verify (Ed25519/ES256/ES384/PS256). Trust-anchor membership, cert validity window, and revocation status are caller-supplied policy inputs: zero network, no OCSP. Emits ACCEPT or REFUSE verdict."
+description: "Verify-only node: callable in chains, carrying no compute-proof claim. Verify the COSE_Sign1 claim signature against a caller-supplied signer public key using crypto.subtle.verify (Ed25519/ES256/ES384/PS256). Trust-anchor membership, cert validity window, and revocation status are caller-supplied policy inputs: zero network, no OCSP. Emits ACCEPT or REFUSE verdict. PS256 (RSA-PSS) support means this kernel has no faithful sync in-guest verifier today, so its zkVM compute-integrity proof is out of the ocg-p18-deterministic profile's scope: not counted as proven."
 resource: https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html
 tags: ["compliance_mandate", "wave-23", "mcp:verify_content_credential_signature"]
 timestamp: 2026-07-14
