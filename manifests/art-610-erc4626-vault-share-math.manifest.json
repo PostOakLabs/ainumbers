@@ -1,0 +1,70 @@
+{
+  "tool_id": "art-610-erc4626-vault-share-math",
+  "version": "1.0.0",
+  "title": "ERC-4626 Vault Share Math",
+  "description": "Recomputes ERC-4626 tokenized-vault share and asset conversions from caller-declared vault state, applying the rounding direction the standard mandates for each function and reporting which direction produced each result alongside what the opposite direction would have produced. ERC-4626 fixes those directions per function: convertToShares and convertToAssets round down towards 0, previewDeposit and previewRedeem round down, previewMint and previewWithdraw round up. Also computes a deposit-then-redeem round-trip loss bound against the post-deposit state, a signed exchange-rate drift between two declared snapshots, and a declared fee application. All arithmetic is exact uint256 integer math with no floating point. Never reads any chain: it cannot know whether the declared totals match a deployed vault, whether that vault applies these directions, or whether a rate change came from yield, loss, a donation, or an attack.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["payment_policy", "erc-4626", "tokenized-vault", "rounding", "share-price", "inflation-attack", "mcp:recompute_erc4626_vault_share_math"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "total_assets": { "type": "string", "description": "Vault totalAssets as a non-negative uint256, decimal or 0x-hex string (never a JS number, to avoid precision loss above 2^53)." },
+      "total_supply": { "type": "string", "description": "Vault totalSupply of shares as a non-negative uint256, decimal or 0x-hex string." },
+      "virtual_amounts": { "type": "boolean", "description": "true (default) uses the OpenZeppelin virtual shares/assets mitigation: shares = assets * (totalSupply + 10**decimals_offset) / (totalAssets + 1). false uses the naive formula, which is the shape a first-depositor inflation attack drains." },
+      "decimals_offset": { "type": "string", "description": "Virtual-shares decimals offset, integer 0..36 (default 0). Only meaningful when virtual_amounts is true; a larger offset bounds the inflation-attack loss more tightly." },
+      "operations": {
+        "type": "array",
+        "description": "Conversions to recompute. Each entry is {op, amount}, where op is one of convertToShares, convertToAssets, previewDeposit, previewMint, previewWithdraw, previewRedeem. The rounding direction is not selectable: it is fixed per op by ERC-4626 and reported in the result.",
+        "items": { "type": "object" }
+      },
+      "round_trip_assets": { "type": "string", "description": "Optional. Deposit this many assets then immediately redeem the shares minted, evaluated against the post-deposit state, to produce a round-trip loss bound in assets and basis points." },
+      "snapshot_b": { "type": "object", "description": "Optional. A second {total_assets, total_supply} snapshot; the result carries the scaled share price of each and the signed drift in basis points between them." },
+      "fee_bps": { "type": "string", "description": "Optional. Declared fee in basis points, integer 0..10000. ERC-4626 mandates no fee formula; this applies the OpenZeppelin ERC4626Fees shapes, rounding up." },
+      "fee_basis": { "type": "string", "description": "'raw' (fee charged on top of the amount) or 'total' (fee carved out of the amount). Default 'raw'." },
+      "chain_id": { "type": "string", "description": "Optional free-text label carried through to the receipt for the reader's own record-keeping. Never a selector: no branch in this tool reads it and no result depends on it." },
+      "network_label": { "type": "string", "description": "Optional free-text network label, carried through verbatim. Never a selector." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "recompute_erc4626_vault_share_math",
+    "description": "Recomputes ERC-4626 vault share/asset conversions from declared vault state under the rounding directions the standard mandates per function, plus a deposit-then-redeem round-trip loss bound, exchange-rate drift between two snapshots, and a declared fee application.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "total_assets": { "type": "string" },
+        "total_supply": { "type": "string" },
+        "virtual_amounts": { "type": "boolean" },
+        "decimals_offset": { "type": "string" },
+        "operations": { "type": "array" },
+        "round_trip_assets": { "type": "string" },
+        "snapshot_b": { "type": "object" },
+        "fee_bps": { "type": "string" },
+        "fee_basis": { "type": "string" },
+        "chain_id": { "type": "string" },
+        "network_label": { "type": "string" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-610-erc4626-vault-share-math.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "declared_context": { "type": "object" },
+      "vault_state": { "type": ["object", "null"] },
+      "conversions": { "type": "array" },
+      "fee": { "type": ["object", "null"] },
+      "round_trip": { "type": ["object", "null"] },
+      "rate_drift": { "type": ["object", "null"] },
+      "rounding_table": { "type": "array" },
+      "note": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "source": "authored by ETHMATH-VAULT-1 per ETHMATH-WAVE-BUILD-SPEC.md section 1; the six rounding directions are ERC-4626's own normative text (Final, Created 2021-12-22, CC0-1.0), retrieved and quoted at build time on 2026-08-11; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-610-erc4626-vault-share-math.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value, the same one its sibling declared-input EVM-standard kernels use."
+}

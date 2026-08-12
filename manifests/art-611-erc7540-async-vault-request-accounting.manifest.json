@@ -1,0 +1,64 @@
+{
+  "tool_id": "art-611-erc7540-async-vault-request-accounting",
+  "version": "1.0.0",
+  "title": "ERC-7540 Async-Vault Request Accounting",
+  "description": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state. ERC-7540 extends ERC-4626 with a three-state request lifecycle used by funds that cannot settle a deposit or redemption in the same transaction: an amount is Pending after a request, becomes Claimable when the vault fulfils it, and is Claimed when the holder calls deposit, mint, withdraw or redeem. This tool applies a sequence of claims against the claimable buckets at the pro-rata rate they were made claimable at, tracks the pending, claimable and claimed split for both legs, reports the rounding residue a sequence of partial claims strands, and checks the standard's invariants by name. ERC-7540 mandates no rounding direction for a partial claim, so the direction is a declared parameter and the opposite direction's result is reported beside it. Never reads any chain: it cannot know whether the declared amounts match a deployed vault, when a pending request will be fulfilled, whether the controller is authorised, or whether a claim transaction would succeed.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["payment_policy", "erc-7540", "async-vault", "request-lifecycle", "rwa-fund", "rounding", "mcp:recompute_erc7540_request_accounting"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "request_id": { "type": "string", "description": "Non-negative integer as a decimal or 0x-hex string, default '0'. Zero is the standard's aggregate convention, where the vault discriminates purely by controller and amounts across requests are fungible; a non-zero id is a discrete request that must stay at one pro-rata rate." },
+      "deposit": { "type": "object", "description": "Deposit leg: {pending_assets, claimable_assets, claimable_shares}. The two claimable fields are a pair fixing the rate the vault made the request claimable at, so they must be both zero or both non-zero." },
+      "redeem": { "type": "object", "description": "Redeem leg: {pending_shares, claimable_shares, claimable_assets}. Same pairing rule as the deposit leg." },
+      "claims": {
+        "type": "array",
+        "description": "Claims to apply in order. Each entry is {leg, unit, amount}: leg is 'deposit' or 'redeem'; unit is 'requested' (deposit: assets, redeem: shares) or 'received' (deposit: shares, redeem: assets), matching the standard's four claim overloads.",
+        "items": { "type": "object" }
+      },
+      "claim_rounding": { "type": "string", "description": "'down' (default) or 'up'. ERC-7540 mandates NO direction for a partial claim, so one must be declared. Every claim reports what the other direction would have produced." },
+      "chain_id": { "type": "string", "description": "Optional free-text label carried through to the receipt for the reader's own record-keeping. Never a selector: no branch in this tool reads it and no result depends on it." },
+      "network_label": { "type": "string", "description": "Optional free-text network label, carried through verbatim. Never a selector." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "recompute_erc7540_request_accounting",
+    "description": "Recomputes ERC-7540 asynchronous-vault pending/claimable/claimed request accounting from declared state, applies a claim sequence at the bucket's pro-rata rate under a declared rounding direction, and reports the standard's invariants by name.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "request_id": { "type": "string" },
+        "deposit": { "type": "object" },
+        "redeem": { "type": "object" },
+        "claims": { "type": "array" },
+        "claim_rounding": { "type": "string" },
+        "chain_id": { "type": "string" },
+        "network_label": { "type": "string" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-611-erc7540-async-vault-request-accounting.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "declared_context": { "type": "object" },
+      "request_id": { "type": ["string", "null"] },
+      "aggregate_by_controller": { "type": ["boolean", "null"] },
+      "claim_rounding_used": { "type": ["string", "null"] },
+      "opening": { "type": ["object", "null"] },
+      "claims": { "type": "array" },
+      "closing": { "type": ["object", "null"] },
+      "dust": { "type": "object" },
+      "invariants": { "type": "array" },
+      "note": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "source": "authored by ETHMATH-VAULT-1 per ETHMATH-WAVE-BUILD-SPEC.md section 1; the request-lifecycle states, the requestId-zero convention, the no-short-circuiting-the-Claim-state rule and the single-pro-rata-rate rule are ERC-7540's own normative text (Final, Created 2023-10-18, CC0-1.0), retrieved at build time on 2026-08-11, as is the absence of any mandated partial-claim rounding direction; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-611-erc7540-async-vault-request-accounting.fixtures.json; category matches its sibling art-610."
+}

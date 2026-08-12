@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ERC-4626 Vault Share Math &middot; ART-610 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes ERC-4626 vault share and asset conversions from declared vault state under the rounding direction the standard mandates for each function, with a round-trip loss bound and exchange-rate drift. Zero network. Provable ChainGraph node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-610-erc4626-vault-share-math.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem;line-height:1.4}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:90px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.checkbox-row{display:flex;align-items:center;gap:8px;margin:8px 0}
+.checkbox-row input{width:auto}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right;max-width:70%}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+table.rt{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:6px}
+table.rt th{text-align:left;color:var(--teal);font-weight:600;padding:5px 8px 5px 0;border-bottom:1px solid var(--border-2);white-space:nowrap}
+table.rt td{padding:5px 8px 5px 0;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+table.rt tr:last-child td{border-bottom:none}
+table.rt td.dir-down{color:var(--teal-lt)}
+table.rt td.dir-up{color:var(--gold)}
+table.rt td.num{text-align:right;color:var(--bright)}
+.scroll-x{overflow-x:auto}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-610 · ERC-4626 Vault Share Math</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-610 &middot; EVM-Standard Math</div>
+  <h1>ERC-4626 Vault Share Math</h1>
+  <p class="sub">Recomputes tokenized-vault conversions from a declared <code>total_assets</code> and <code>total_supply</code>, applying the rounding direction ERC-4626 mandates for each function and showing you which direction produced each number and what the opposite direction would have given. Also computes a deposit-then-redeem round-trip loss bound, the exchange-rate drift between two declared snapshots, and a declared fee. Every quantity is exact uint256 integer arithmetic, the same integer semantics Solidity uses. There is no floating point anywhere in it.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">ERC-4626 (Final, 2021-12-22)</span><span class="flag info">Exact uint256 integer math</span><span class="flag info">Declared inputs, no chain reads</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">What This Does and Does Not Tell You</div>
+    <p class="sub" style="margin-bottom:8px">ERC-4626 mandates a rounding direction per function, and the reason is stated in the standard's own security considerations: it is considered most secure to favour the vault over its users, so amounts issued to a user round down and amounts a user must supply round up. Getting exactly one of those backwards is how a vault quietly leaks value, one wei at a time, which is why this tool reports each direction separately rather than a single verdict.</p>
+    <p class="sub" style="margin-bottom:0">What it cannot tell you: whether the numbers you typed match any deployed vault, whether that vault's own implementation applies these directions, whether a rate change between two snapshots came from yield, a loss, a donation or an attack, or whether the fee basis points you declared are what anyone actually charges. It never fetches on-chain state and is never a party to a transaction. A round-trip loss or a zero-share mint reported here is a property of the numbers you supplied under the standard's arithmetic, not an audit of a deployment.</p>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Vault State</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="totalAssets">total_assets (uint256)</label><input type="text" id="totalAssets" value="1000000000000000000000"></div>
+      <div class="q"><label class="q-label" for="totalSupply">total_supply (uint256)</label><input type="text" id="totalSupply" value="333000000000000000000"></div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="virtualAmounts">virtual_amounts</label>
+        <div class="checkbox-row"><input type="checkbox" id="virtualAmounts" checked><span style="font-size:.68rem;color:var(--body)">OpenZeppelin virtual shares and assets. Uncheck for the naive formula, which is the shape a first-depositor inflation attack drains.</span></div>
+      </div>
+      <div class="q"><label class="q-label" for="decimalsOffset">decimals_offset (0 to 36)</label><input type="text" id="decimalsOffset" value="0">
+        <div class="q-hint">Only meaningful when virtual_amounts is on. A larger offset bounds an inflation-attack loss more tightly.</div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="chainId">chain_id (optional label)</label><input type="text" id="chainId" placeholder="e.g. 1"></div>
+      <div class="q"><label class="q-label" for="networkLabel">network_label (optional label)</label><input type="text" id="networkLabel" placeholder="free text">
+        <div class="q-hint">Both are carried into the receipt verbatim for your own records. Neither selects any behaviour: the same declared state computes identically under any label.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Conversions, Round Trip, Drift and Fee</div>
+    <div class="q">
+      <label class="q-label" for="operations">operations (JSON array)</label>
+      <textarea id="operations">[
+  {"op":"convertToShares","amount":"1000"},
+  {"op":"convertToAssets","amount":"1000"},
+  {"op":"previewDeposit","amount":"1000"},
+  {"op":"previewMint","amount":"1000"},
+  {"op":"previewWithdraw","amount":"1000"},
+  {"op":"previewRedeem","amount":"1000"}
+]</textarea>
+      <div class="q-hint">ERC-4626 fixes the rounding direction per operation, so there is nothing to select here. The direction used is reported alongside each result.</div>
+    </div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="roundTripAssets">round_trip_assets (optional)</label><input type="text" id="roundTripAssets" placeholder="e.g. 1000000000000000000">
+        <div class="q-hint">Deposits this many assets, then immediately redeems the shares minted, evaluated against the post-deposit state.</div>
+      </div>
+      <div class="q"><label class="q-label" for="feeBps">fee_bps (optional, 0 to 10000)</label><input type="text" id="feeBps" placeholder="e.g. 37">
+        <div class="q-hint">ERC-4626 mandates no fee formula. This applies the OpenZeppelin ERC4626Fees shapes, rounding up.</div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="feeBasis">fee_basis</label>
+        <select id="feeBasis"><option value="raw" selected>raw (fee charged on top of the amount)</option><option value="total">total (fee carved out of the amount)</option></select>
+      </div>
+      <div class="q"><label class="q-label" for="snapshotB">snapshot_b (optional JSON)</label><textarea id="snapshotB" style="min-height:60px" placeholder='{"total_assets":"...","total_supply":"..."}'></textarea></div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button onclick="runCheck()">&#9654; Recompute Vault Math</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+
+      <div class="subsection">Conversions</div>
+      <div class="scroll-x"><table class="rt" id="convTable"></table></div>
+
+      <div class="subsection">Round Trip</div>
+      <div id="roundTripBox"></div>
+
+      <div class="subsection">Exchange-Rate Drift</div>
+      <div id="driftBox"></div>
+
+      <div class="subsection">Fee</div>
+      <div id="feeBox"></div>
+
+      <div class="subsection">Rounding Table Applied (ERC-4626)</div>
+      <div class="scroll-x"><table class="rt" id="ruleTable"></table></div>
+
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-610-erc4626-vault-share-math',
+  version: '1.0.0',
+  mcp_name: 'recompute_erc4626_vault_share_math',
+  title: 'ERC-4626 Vault Share Math',
+  description: 'Recomputes ERC-4626 vault share/asset conversions from declared vault state under the rounding directions the standard mandates per function, plus a deposit-then-redeem round-trip loss bound, exchange-rate drift between two snapshots, and a declared fee application.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_erc4626_vault_share_math',
+    description: 'Recomputes ERC-4626 vault share/asset conversions from declared vault state under the rounding directions the standard mandates per function, plus a deposit-then-redeem round-trip loss bound, exchange-rate drift between two snapshots, and a declared fee application.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        total_assets: { type: 'string' },
+        total_supply: { type: 'string' },
+        virtual_amounts: { type: 'boolean' },
+        decimals_offset: { type: 'string' },
+        operations: { type: 'array' },
+        round_trip_assets: { type: 'string' },
+        snapshot_b: { type: 'object' },
+        fee_bps: { type: 'string' },
+        fee_basis: { type: 'string' },
+        chain_id: { type: 'string' },
+        network_label: { type: 'string' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+// ── the kernel, ported verbatim from chaingraph/kernels/art-610-erc4626-vault-share-math.kernel.mjs.
+// Browser and server share the identical arithmetic; BigInt is native in both, so no primitive is
+// vendored or re-implemented here. See that file's header for the ERC-4626 rounding table this
+// implements and its provenance. ──────────────────────────────────────────────────────────────
+
+var SCOPE_NOTE = 'Recomputes ERC-4626 share/asset conversions from caller-declared vault state, applying the per-function rounding directions ERC-4626 mandates (convertToShares/convertToAssets/previewDeposit/previewRedeem round down; previewMint/previewWithdraw round up) and reporting the direction used for each. This kernel does NOT read any chain: it cannot know whether the declared total_assets/total_supply match any deployed vault, whether that vault\'s own implementation actually applies these directions, whether a rate change between two declared snapshots came from yield, loss, donation or an attack, or whether the declared fee basis points are the fee a vault really charges. Round-trip loss and zero-share-mint findings are properties of the declared numbers under the standard\'s arithmetic, not an audit of any deployment.';
+
+var MAX_UINT256 = (1n << 256n) - 1n;
+var BPS_DENOM = 10000n;
+var RATE_SCALE = 10n ** 18n;
+
+var EIP_ROUNDING = {
+  convertToShares: { direction: 'down', eip_rule: 'MUST round down towards 0' },
+  convertToAssets: { direction: 'down', eip_rule: 'MUST round down towards 0' },
+  previewDeposit: { direction: 'down', eip_rule: 'MUST return as close to and no more than the exact amount of Vault shares that would be minted in a deposit call' },
+  previewMint: { direction: 'up', eip_rule: 'MUST return as close to and no fewer than the exact amount of assets that would be deposited in a mint call' },
+  previewWithdraw: { direction: 'up', eip_rule: 'MUST return as close to and no fewer than the exact amount of Vault shares that would be burned in a withdraw call' },
+  previewRedeem: { direction: 'down', eip_rule: 'MUST return as close to and no more than the exact amount of assets that would be withdrawn in a redeem call' }
+};
+
+var OP_SIDE = {
+  convertToShares: 'toShares',
+  previewDeposit: 'toShares',
+  previewWithdraw: 'toShares',
+  convertToAssets: 'toAssets',
+  previewMint: 'toAssets',
+  previewRedeem: 'toAssets'
+};
+
+function parseUint(v) {
+  if (typeof v === 'number') {
+    if (!Number.isInteger(v) || v < 0) return null;
+    return BigInt(v);
+  }
+  if (typeof v !== 'string') return null;
+  var t = v.trim();
+  if (t.length === 0) return null;
+  try {
+    if (/^0x[0-9a-fA-F]+$/.test(t)) {
+      var n1 = BigInt(t);
+      return (n1 >= 0n && n1 <= MAX_UINT256) ? n1 : null;
+    }
+    if (/^[0-9]+$/.test(t)) {
+      var n2 = BigInt(t);
+      return (n2 >= 0n && n2 <= MAX_UINT256) ? n2 : null;
+    }
+  } catch (e) { return null; }
+  return null;
+}
+
+function mulDiv(a, b, denom, direction) {
+  var prod = a * b;
+  var q = prod / denom;
+  if (direction === 'up' && q * denom !== prod) return q + 1n;
+  return q;
+}
+
+function str(v, fallback) {
+  return typeof v === 'string' && v.trim().length > 0 ? v.trim() : fallback;
+}
+
+function compute(pp) {
+  pp = (pp !== null && typeof pp === 'object') ? pp : {};
+  var reasons = [];
+
+  var total_assets = parseUint(pp.total_assets);
+  if (total_assets === null) reasons.push('total_assets is required and must be a non-negative uint256, as a decimal or 0x-hex string');
+
+  var total_supply = parseUint(pp.total_supply);
+  if (total_supply === null) reasons.push('total_supply is required and must be a non-negative uint256, as a decimal or 0x-hex string');
+
+  var virtual_amounts = pp.virtual_amounts === false ? false : true;
+
+  var decimals_offset = 0n;
+  if (pp.decimals_offset !== undefined && pp.decimals_offset !== null) {
+    var d = parseUint(pp.decimals_offset);
+    if (d === null || d > 36n) reasons.push('decimals_offset, if supplied, must be an integer 0..36');
+    else decimals_offset = d;
+  }
+
+  var rawOps = (pp.operations === undefined || pp.operations === null) ? [] : pp.operations;
+  if (!Array.isArray(rawOps)) reasons.push('operations, if supplied, must be an array of {op, amount} entries');
+
+  var parsedOps = [];
+  if (Array.isArray(rawOps)) {
+    for (var i = 0; i < rawOps.length; i++) {
+      var entry = rawOps[i];
+      var opName = (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) ? str(entry.op, null) : null;
+      if (opName === null || !Object.prototype.hasOwnProperty.call(EIP_ROUNDING, opName)) {
+        reasons.push('operations[' + i + '].op must be one of convertToShares, convertToAssets, previewDeposit, previewMint, previewWithdraw, previewRedeem');
+        continue;
+      }
+      var amt = parseUint(entry.amount);
+      if (amt === null) {
+        reasons.push('operations[' + i + '].amount must be a non-negative uint256, as a decimal or 0x-hex string');
+        continue;
+      }
+      parsedOps.push({ op: opName, amount: amt });
+    }
+  }
+
+  var fee_bps = null;
+  var fee_basis = 'raw';
+  if (pp.fee_bps !== undefined && pp.fee_bps !== null) {
+    var f = parseUint(pp.fee_bps);
+    if (f === null || f > BPS_DENOM) reasons.push('fee_bps, if supplied, must be an integer 0..10000');
+    else fee_bps = f;
+    var bb = str(pp.fee_basis, 'raw');
+    if (bb !== 'raw' && bb !== 'total') reasons.push('fee_basis, if supplied, must be "raw" (fee charged on top of the amount) or "total" (fee carved out of the amount)');
+    else fee_basis = bb;
+  }
+
+  var round_trip_assets = null;
+  if (pp.round_trip_assets !== undefined && pp.round_trip_assets !== null) {
+    round_trip_assets = parseUint(pp.round_trip_assets);
+    if (round_trip_assets === null) reasons.push('round_trip_assets, if supplied, must be a non-negative uint256, as a decimal or 0x-hex string');
+  }
+
+  var chain_id = str(pp.chain_id, null);
+  var network_label = str(pp.network_label, null);
+
+  var snapshot_b = null;
+  if (pp.snapshot_b !== undefined && pp.snapshot_b !== null) {
+    var s = pp.snapshot_b;
+    if (s === null || typeof s !== 'object' || Array.isArray(s)) {
+      reasons.push('snapshot_b, if supplied, must be an object with total_assets and total_supply');
+    } else {
+      var sa = parseUint(s.total_assets);
+      var ss = parseUint(s.total_supply);
+      if (sa === null || ss === null) reasons.push('snapshot_b.total_assets and snapshot_b.total_supply must each be a non-negative uint256');
+      else snapshot_b = { total_assets: sa, total_supply: ss };
+    }
+  }
+
+  if (reasons.length > 0) {
+    return {
+      output_payload: {
+        declared_context: { chain_id: null, network_label: null },
+        vault_state: null,
+        conversions: [],
+        fee: null,
+        round_trip: null,
+        rate_drift: null,
+        rounding_table: [],
+        note: SCOPE_NOTE,
+        reasons: reasons
+      },
+      compliance_flags: ['ERC4626_INDETERMINATE', 'ERC4626_MALFORMED_INPUT']
+    };
+  }
+
+  var offsetUnit = virtual_amounts ? 10n ** decimals_offset : 0n;
+  var virtualAsset = virtual_amounts ? 1n : 0n;
+
+  function toShares(assets, direction, ta, ts) {
+    var denom = ta + virtualAsset;
+    if (denom === 0n) return null;
+    return mulDiv(assets, ts + offsetUnit, denom, direction);
+  }
+  function toAssets(shares, direction, ta, ts) {
+    var denom = ts + offsetUnit;
+    if (denom === 0n) return null;
+    return mulDiv(shares, ta + virtualAsset, denom, direction);
+  }
+
+  var undefinedConversion = false;
+  var conversions = [];
+  for (var k = 0; k < parsedOps.length; k++) {
+    var op = parsedOps[k].op, amount = parsedOps[k].amount;
+    var direction = EIP_ROUNDING[op].direction, eip_rule = EIP_ROUNDING[op].eip_rule;
+    var side = OP_SIDE[op];
+    var out = side === 'toShares' ? toShares(amount, direction, total_assets, total_supply) : toAssets(amount, direction, total_assets, total_supply);
+    var other = direction === 'down' ? 'up' : 'down';
+    var outOther = side === 'toShares' ? toShares(amount, other, total_assets, total_supply) : toAssets(amount, other, total_assets, total_supply);
+    if (out === null) undefinedConversion = true;
+    conversions.push({
+      op: op,
+      side: side === 'toShares' ? 'assets_to_shares' : 'shares_to_assets',
+      input: amount.toString(),
+      output: out === null ? null : out.toString(),
+      rounding_direction: direction,
+      eip_rule: eip_rule,
+      output_if_rounded_other_way: outOther === null ? null : outOther.toString(),
+      rounding_changes_result: out !== null && outOther !== null && out !== outOther
+    });
+  }
+
+  var fee = null;
+  if (fee_bps !== null) {
+    var base = round_trip_assets !== null ? round_trip_assets : (parsedOps.length > 0 ? parsedOps[0].amount : 0n);
+    var feeAmount = fee_basis === 'raw' ? mulDiv(base, fee_bps, BPS_DENOM, 'up') : mulDiv(base, fee_bps, fee_bps + BPS_DENOM, 'up');
+    fee = {
+      fee_bps: fee_bps.toString(),
+      fee_basis: fee_basis,
+      basis_amount: base.toString(),
+      fee_amount: feeAmount.toString(),
+      net_amount: (base >= feeAmount ? base - feeAmount : 0n).toString(),
+      rounding_direction: 'up',
+      note: 'ERC-4626 mandates no fee formula. This applies the OpenZeppelin ERC4626Fees shapes (_feeOnRaw / _feeOnTotal), both rounding up, over the declared fee_bps.'
+    };
+  }
+
+  var round_trip = null;
+  var zeroShareMint = false;
+  if (round_trip_assets !== null) {
+    var sharesMinted = toShares(round_trip_assets, EIP_ROUNDING.previewDeposit.direction, total_assets, total_supply);
+    var redeemDenom = total_supply + (sharesMinted === null ? 0n : sharesMinted) + offsetUnit;
+    if (sharesMinted === null || redeemDenom === 0n) {
+      round_trip = {
+        assets_in: round_trip_assets.toString(),
+        shares_minted: null, assets_out: null, loss_assets: null, loss_bps: null, post_deposit_state: null,
+        note: 'Round trip undefined: with virtual_amounts off, either the deposit ratio or the post-deposit redeem ratio has a zero denominator, so no share price exists to round trip through.'
+      };
+      undefinedConversion = true;
+    } else {
+      var taAfter = total_assets + round_trip_assets;
+      var tsAfter = total_supply + sharesMinted;
+      var assetsOut = mulDiv(sharesMinted, taAfter + virtualAsset, tsAfter + offsetUnit, EIP_ROUNDING.previewRedeem.direction);
+      var loss = round_trip_assets >= assetsOut ? round_trip_assets - assetsOut : 0n;
+      var lossBps = round_trip_assets === 0n ? 0n : mulDiv(loss, BPS_DENOM, round_trip_assets, 'up');
+      zeroShareMint = round_trip_assets > 0n && sharesMinted === 0n;
+      round_trip = {
+        assets_in: round_trip_assets.toString(),
+        shares_minted: sharesMinted.toString(),
+        assets_out: assetsOut.toString(),
+        loss_assets: loss.toString(),
+        loss_bps: lossBps.toString(),
+        post_deposit_state: { total_assets: taAfter.toString(), total_supply: tsAfter.toString() },
+        zero_share_mint: zeroShareMint,
+        note: 'Deposit uses previewDeposit (round down), redeem uses previewRedeem (round down) against the post-deposit state. loss_bps rounds up, so a non-zero loss never reports as 0 bps. A zero_share_mint means the deposit bought no shares at all -- the first-depositor/inflation-attack outcome.'
+      };
+    }
+  }
+
+  var rate_drift = null;
+  if (snapshot_b !== null) {
+    var denomA = total_supply + offsetUnit;
+    var denomB = snapshot_b.total_supply + offsetUnit;
+    if (denomA === 0n || denomB === 0n) {
+      rate_drift = { rate_a_scaled: null, rate_b_scaled: null, drift_bps: null, rate_scale: RATE_SCALE.toString(), note: 'Rate undefined: a snapshot has zero shares and virtual_amounts is false.' };
+      undefinedConversion = true;
+    } else {
+      var rateA = mulDiv(total_assets + virtualAsset, RATE_SCALE, denomA, 'down');
+      var rateB = mulDiv(snapshot_b.total_assets + virtualAsset, RATE_SCALE, denomB, 'down');
+      var driftBps = null;
+      if (rateA !== 0n) {
+        var diff = rateB >= rateA ? rateB - rateA : rateA - rateB;
+        var mag = mulDiv(diff, BPS_DENOM, rateA, 'down');
+        driftBps = (rateB >= rateA ? mag : -mag).toString();
+      }
+      rate_drift = {
+        rate_a_scaled: rateA.toString(),
+        rate_b_scaled: rateB.toString(),
+        rate_scale: RATE_SCALE.toString(),
+        direction: rateB > rateA ? 'up' : (rateB < rateA ? 'down' : 'flat'),
+        drift_bps: driftBps,
+        note: 'Rate is assets per 1e18 shares, floored. drift_bps is signed and floored toward zero in magnitude. This kernel cannot know whether a drift came from yield, loss, a donation, or an attack.'
+      };
+    }
+  }
+
+  var rounding_table = Object.keys(EIP_ROUNDING).sort().map(function(o) {
+    return { op: o, direction: EIP_ROUNDING[o].direction, eip_rule: EIP_ROUNDING[o].eip_rule };
+  });
+
+  var anyRoundingMattered = conversions.some(function(c) { return c.rounding_changes_result; });
+
+  var output_payload = {
+    declared_context: { chain_id: chain_id, network_label: network_label },
+    vault_state: {
+      total_assets: total_assets.toString(),
+      total_supply: total_supply.toString(),
+      virtual_amounts_used: virtual_amounts,
+      decimals_offset_used: decimals_offset.toString(),
+      virtual_shares: offsetUnit.toString(),
+      virtual_assets: virtualAsset.toString()
+    },
+    conversions: conversions,
+    fee: fee,
+    round_trip: round_trip,
+    rate_drift: rate_drift,
+    rounding_table: rounding_table,
+    note: SCOPE_NOTE,
+    reasons: []
+  };
+
+  var compliance_flags = [
+    virtual_amounts ? 'ERC4626_VIRTUAL_AMOUNTS' : 'ERC4626_NO_VIRTUAL_AMOUNTS',
+    anyRoundingMattered ? 'ERC4626_ROUNDING_MATERIAL' : 'ERC4626_ROUNDING_IMMATERIAL'
+  ];
+  if (undefinedConversion) compliance_flags.push('ERC4626_CONVERSION_UNDEFINED');
+  if (round_trip !== null && round_trip.loss_assets !== null) {
+    compliance_flags.push(round_trip.loss_assets === '0' ? 'ERC4626_ROUNDTRIP_LOSSLESS' : 'ERC4626_ROUNDTRIP_LOSS');
+  }
+  if (zeroShareMint) compliance_flags.push('ERC4626_ZERO_SHARE_MINT');
+  if (fee !== null) compliance_flags.push('ERC4626_FEE_APPLIED');
+  if (rate_drift !== null && rate_drift.drift_bps !== null && rate_drift.drift_bps !== '0') {
+    compliance_flags.push(rate_drift.direction === 'down' ? 'ERC4626_RATE_DECREASED' : 'ERC4626_RATE_INCREASED');
+  }
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function kv(k, v) { return '<div class="kv"><span class="kv-k">' + esc(k) + '</span><span class="kv-v">' + esc(v) + '</span></div>'; }
+
+function runCheck() {
+  var ops, snapB;
+  try { ops = JSON.parse(document.getElementById('operations').value); } catch (e) { ops = 'INVALID_JSON'; }
+  var snapRaw = document.getElementById('snapshotB').value.trim();
+  if (snapRaw.length === 0) { snapB = null; }
+  else { try { snapB = JSON.parse(snapRaw); } catch (e) { snapB = 'INVALID_JSON'; } }
+
+  var rt = document.getElementById('roundTripAssets').value.trim();
+  var fb = document.getElementById('feeBps').value.trim();
+
+  var pp = {
+    total_assets: document.getElementById('totalAssets').value.trim(),
+    total_supply: document.getElementById('totalSupply').value.trim(),
+    virtual_amounts: document.getElementById('virtualAmounts').checked,
+    decimals_offset: document.getElementById('decimalsOffset').value.trim(),
+    operations: ops
+  };
+  if (rt.length > 0) pp.round_trip_assets = rt;
+  if (fb.length > 0) { pp.fee_bps = fb; pp.fee_basis = document.getElementById('feeBasis').value; }
+  if (snapB !== null) pp.snapshot_b = snapB;
+  var ci = document.getElementById('chainId').value.trim();
+  var nl = document.getElementById('networkLabel').value.trim();
+  if (ci.length > 0) pp.chain_id = ci;
+  if (nl.length > 0) pp.network_label = nl;
+
+  var result = compute(pp);
+  var op = result.output_payload, flags = result.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var ok = op.vault_state !== null;
+  var vBox = document.getElementById('verdictBox');
+  var vColor = !ok ? 'var(--warn)' : (op.round_trip && op.round_trip.zero_share_mint ? 'var(--red)' : 'var(--green)');
+  vBox.style.color = vColor; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = !ok ? 'INDETERMINATE' : (op.round_trip && op.round_trip.zero_share_mint ? 'RECOMPUTED - DEPOSIT MINTS ZERO SHARES' : 'RECOMPUTED');
+
+  document.getElementById('flagRow').innerHTML = ok
+    ? flags.map(function(f){ var cls = (f.indexOf('ZERO_SHARE') !== -1 || f.indexOf('DECREASED') !== -1) ? 'fail' : (f.indexOf('UNDEFINED') !== -1 || f.indexOf('LOSS') !== -1 ? 'warn' : 'ok'); return '<span class="badge ' + cls + '">' + esc(f) + '</span>'; }).join('')
+    : (op.reasons || []).map(function(r){ return '<span class="badge fail">' + esc(r) + '</span>'; }).join('');
+
+  var ct = document.getElementById('convTable');
+  if (op.conversions.length === 0) { ct.innerHTML = '<tr><td>No conversions requested.</td></tr>'; }
+  else {
+    ct.innerHTML = '<tr><th>op</th><th>input</th><th>output</th><th>rounds</th><th>other way</th><th>ERC-4626 rule</th></tr>'
+      + op.conversions.map(function(c) {
+        return '<tr><td>' + esc(c.op) + '</td><td class="num">' + esc(c.input) + '</td><td class="num">' + esc(c.output === null ? 'undefined' : c.output)
+          + '</td><td class="dir-' + esc(c.rounding_direction) + '">' + esc(c.rounding_direction)
+          + '</td><td class="num">' + esc(c.output_if_rounded_other_way === null ? '-' : c.output_if_rounded_other_way) + (c.rounding_changes_result ? ' *' : '')
+          + '</td><td>' + esc(c.eip_rule) + '</td></tr>';
+      }).join('');
+  }
+
+  var rtBox = document.getElementById('roundTripBox');
+  if (op.round_trip === null) { rtBox.innerHTML = '<div class="q-hint">Not requested. Supply round_trip_assets to compute a deposit-then-redeem loss bound.</div>'; }
+  else if (op.round_trip.assets_out === null) { rtBox.innerHTML = '<div class="q-hint">' + esc(op.round_trip.note) + '</div>'; }
+  else {
+    rtBox.innerHTML = kv('assets in', op.round_trip.assets_in) + kv('shares minted', op.round_trip.shares_minted)
+      + kv('assets out', op.round_trip.assets_out) + kv('loss (assets)', op.round_trip.loss_assets)
+      + kv('loss (bps, rounded up)', op.round_trip.loss_bps)
+      + kv('post-deposit total_assets', op.round_trip.post_deposit_state.total_assets)
+      + kv('post-deposit total_supply', op.round_trip.post_deposit_state.total_supply)
+      + (op.round_trip.zero_share_mint ? '<div class="q-hint" style="color:var(--red)">The deposit bought no shares at all. This is the first-depositor inflation-attack outcome: the depositor loses the entire amount to existing holders.</div>' : '');
+  }
+
+  var dBox = document.getElementById('driftBox');
+  if (op.rate_drift === null) { dBox.innerHTML = '<div class="q-hint">Not requested. Supply snapshot_b to compare two declared vault states.</div>'; }
+  else if (op.rate_drift.rate_a_scaled === null) { dBox.innerHTML = '<div class="q-hint">' + esc(op.rate_drift.note) + '</div>'; }
+  else {
+    dBox.innerHTML = kv('rate A (assets per 1e18 shares)', op.rate_drift.rate_a_scaled) + kv('rate B', op.rate_drift.rate_b_scaled)
+      + kv('direction', op.rate_drift.direction) + kv('drift (bps, signed)', op.rate_drift.drift_bps)
+      + '<div class="q-hint">' + esc(op.rate_drift.note) + '</div>';
+  }
+
+  var fBox = document.getElementById('feeBox');
+  if (op.fee === null) { fBox.innerHTML = '<div class="q-hint">Not requested. Supply fee_bps to apply a declared fee.</div>'; }
+  else {
+    fBox.innerHTML = kv('fee_bps', op.fee.fee_bps) + kv('basis', op.fee.fee_basis) + kv('basis amount', op.fee.basis_amount)
+      + kv('fee amount (rounded up)', op.fee.fee_amount) + kv('net amount', op.fee.net_amount)
+      + '<div class="q-hint">' + esc(op.fee.note) + '</div>';
+  }
+
+  var rTable = document.getElementById('ruleTable');
+  rTable.innerHTML = '<tr><th>op</th><th>rounds</th><th>ERC-4626 rule</th></tr>'
+    + (op.rounding_table || []).map(function(r) {
+      return '<tr><td>' + esc(r.op) + '</td><td class="dir-' + esc(r.direction) + '">' + esc(r.direction) + '</td><td>' + esc(r.eip_rule) + '</td></tr>';
+    }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'payment_policy',
+    tool_id: 'art-610-erc4626-vault-share-math', tool_version: '1.0.0',
+    generated_at: __generatedAtCapture, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-610-erc4626-vault-share-math.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
