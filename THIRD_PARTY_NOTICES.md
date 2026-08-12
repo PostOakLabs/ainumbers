@@ -13,6 +13,7 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Path(s) in this repo:**
   - `chaingraph/kernels/_noble-secp256k1.bundle.mjs`
   - `chaingraph/kernels/_noble-bn254.bundle.mjs`
+  - `chaingraph/kernels/_noble-ed25519.bundle.mjs`
 
 ## @noble/post-quantum (ML-DSA)
 

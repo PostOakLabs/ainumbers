@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1112 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1115 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -69902,6 +69902,126 @@
         "x-source": "chaingraph",
         "x-ap2-export": true,
         "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 99
+      }
+    },
+    "/v1/tools/verify_erc165_interface_id": {
+      "post": {
+        "operationId": "verify_erc165_interface_id",
+        "summary": "ERC-165 Interface ID Verifier",
+        "description": "Recomputes an ERC-165 interfaceId as the XOR of 4-byte function selectors (the first 4 bytes of keccak256 of each canonical Solidity signature) over a caller-declared list of function signatures, using the vendored keccak256 bundle already pinned in this repository. Zero network calls: this tool never queries a live contract's supportsInterface(bytes4) and makes no claim about what any deployed contract actually returns. Compares the recomputed id against an optional claimed_interface_id and flags a match against seven well-known standard ids (ERC-165 itself, ERC-721 core/Metadata/Enumerable, ERC-1155 core/MetadataURI, ERC-2981) purely as a courtesy label, never as verification. Malformed signature entries are excluded from the XOR and reported separately rather than silently dropped. A CONSISTENT match only establishes that the declared function list hashes to that value -- never that the list is complete, correct, or actually implemented anywhere.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-606-erc165-interface-id-verifier.html\n**Wave:** 99\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-606-erc165-interface-id-verifier.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_erc165_interface_id",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-606-erc165-interface-id-verifier.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 99
+      }
+    },
+    "/v1/tools/classify_erc1967_proxy_slot": {
+      "post": {
+        "operationId": "classify_erc1967_proxy_slot",
+        "summary": "ERC-1967 Proxy Slot Classifier",
+        "description": "Recomputes the four canonical EIP-1967 storage slots (bytes32(uint256(keccak256(label)) - 1) for the implementation, admin, beacon, and rollback labels) fresh on every call using the vendored keccak256 bundle already pinned in this repository, then classifies a caller-supplied (declared_slot, storage_value) pair: which of the four roles declared_slot matches, if any, and whether storage_value looks like the zero-padded 20-byte address EIP-1967 expects at that slot (extracting and EIP-55 checksumming the embedded address when it does). Zero network calls: this tool never reads live chain state -- declared_slot and storage_value are both caller-supplied, read by the caller from their own eth_getStorageAt call or a block explorer, and may already be stale by the time they are pasted in. Address/slot-level fact only: renders no upgrade-safety, admin-trustworthiness, or implementation-safety judgment, and a non-standard declared_slot does not itself prove a contract is not a proxy.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-607-erc1967-proxy-slot-classifier.html\n**Wave:** 99\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-607-erc1967-proxy-slot-classifier.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "classify_erc1967_proxy_slot",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-607-erc1967-proxy-slot-classifier.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 99
+      }
+    },
+    "/v1/tools/calculate_erc2981_royalty": {
+      "post": {
+        "operationId": "calculate_erc2981_royalty",
+        "summary": "ERC-2981 Royalty Calculator",
+        "description": "Recomputes an ERC-2981 royalty amount as floor(sale_price * royalty_fraction_bps / 10000) -- the same integer-division convention the OpenZeppelin reference ERC2981 implementation uses -- from a caller-declared sale_price and royalty_fraction_bps, using BigInt arithmetic throughout so a sale_price beyond Number.MAX_SAFE_INTEGER never loses precision. Flags a bps value above 10000 (100%) as out of range (the value the reference implementation reverts on) while still reporting the raw recompute, and compares against an optional claimed_royalty_amount. Zero network calls: this tool never queries a contract's actual royaltyInfo() return value -- sale_price, royalty_fraction_bps, and receiver are all caller-declared. Cross-links 528-nft-metadata-validator and 521-cant-be-evil-nft-license-picker for adjacent NFT-standard surfaces (metadata shape, license terms) this tool does not cover. ERC-2981 royalty payment is a voluntary off-chain convention: this tool makes no claim that any marketplace will actually pay the computed amount.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-608-erc2981-royalty-calculator.html\n**Wave:** 99\n**mandate_type:** payment_policy\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "payment_policy"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-608-erc2981-royalty-calculator.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: payment_policy. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "calculate_erc2981_royalty",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-608-erc2981-royalty-calculator.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "payment_policy",
         "x-ocg-wave": 99
       }
     },

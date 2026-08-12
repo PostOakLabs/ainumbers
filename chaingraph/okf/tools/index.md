@@ -538,7 +538,13 @@ status: stable
 - [Tempo MPP Voucher & Receipt Verifier](./art-594-tempo-mpp-voucher-receipt-verifier.md) — `verify_tempo_mpp_voucher`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [ERC-8004 Registry Entry Verifier](./art-604-erc8004-registry-entry-verifier.md) — `verify_erc8004_registry_entry`
+- [Merkle Airdrop-Proof Verifier](./art-605-merkle-airdrop-proof-verifier.md) — `verify_merkle_airdrop_proof`
+- [ERC-165 Interface ID Verifier](./art-606-erc165-interface-id-verifier.md) — `verify_erc165_interface_id`
+- [ERC-1967 Proxy Slot Classifier](./art-607-erc1967-proxy-slot-classifier.md) — `classify_erc1967_proxy_slot`
+- [ERC-2981 Royalty Calculator](./art-608-erc2981-royalty-calculator.md) — `calculate_erc2981_royalty`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`
+- [ERC-4626 Vault Share Math](./art-610-erc4626-vault-share-math.md) — `recompute_erc4626_vault_share_math`
+- [ERC-7540 Async-Vault Request Accounting](./art-611-erc7540-async-vault-request-accounting.md) — `recompute_erc7540_request_accounting`
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`
 - [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md) — `run_ai_act_highrisk_fit`

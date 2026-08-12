@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (588 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (594 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6249,6 +6249,46 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-605-merkle-airdrop-proof-verifier",
+    "display_name": "Merkle Airdrop-Proof Verifier",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/chaingraph/art-605-merkle-airdrop-proof-verifier.html",
+    "description": "Recomputes a Merkle airdrop-claim proof from caller-declared leaf fields (address, uint256 amount, encoding_variant) and a sibling path, Ope",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-606-erc165-interface-id-verifier",
+    "display_name": "ERC-165 Interface ID Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-606-erc165-interface-id-verifier.html",
+    "description": "Recomputes an ERC-165 interfaceId as the XOR of 4-byte function selectors (the first 4 bytes of keccak256 of each canonical Solidity signatu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-607-erc1967-proxy-slot-classifier",
+    "display_name": "ERC-1967 Proxy Slot Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-607-erc1967-proxy-slot-classifier.html",
+    "description": "Recomputes the four canonical EIP-1967 storage slots (bytes32(uint256(keccak256(label)) - 1) for the implementation, admin, beacon, and roll",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-608-erc2981-royalty-calculator",
+    "display_name": "ERC-2981 Royalty Calculator",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/chaingraph/art-608-erc2981-royalty-calculator.html",
+    "description": "Recomputes an ERC-2981 royalty amount as floor(sale_price * royalty_fraction_bps / 10000) -- the same integer-division convention the OpenZe",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-61-x402-batch-settlement-reconciler",
     "display_name": "x402 V2 Batch-Settlement Reconciler",
     "mandate_type": "settlement_mandate",
@@ -6261,6 +6301,26 @@ window.CHAINBUILDER_CATALOG = [
       "cry-04-merkle-batch-verifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-610-erc4626-vault-share-math",
+    "display_name": "ERC-4626 Vault Share Math",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/chaingraph/art-610-erc4626-vault-share-math.html",
+    "description": "Recomputes ERC-4626 tokenized-vault share and asset conversions from caller-declared vault state (total_assets, total_supply, optional virtu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-611-erc7540-async-vault-request-accounting",
+    "display_name": "ERC-7540 Async-Vault Request Accounting",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/chaingraph/art-611-erc7540-async-vault-request-accounting.html",
+    "description": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state. ERC-7540 (Final, Created 2023-10-18, CC0-1.0) ",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
