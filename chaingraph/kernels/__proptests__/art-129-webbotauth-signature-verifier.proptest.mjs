@@ -50,6 +50,26 @@ const rand = mulberry32(0x129C9);
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 function maybe(rng, v, p = 0.7) { return rng() < p ? v : undefined; }
 
+const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+// Local (test-side) standard-base64 encoder over ASCII, mirroring the art-287 proptest's idiom.
+// Deliberately not Buffer and not btoa: the site repo ships no @types/node (SO #10 bans installing
+// it) and tsconfig.check.json declares no DOM lib, so BOTH names are unresolvable under the
+// jsdoc-checkjs gate. This is used only to build random-but-valid signature_b64 fixtures.
+function base64EncodeAscii(str) {
+  let out = '';
+  for (let i = 0; i < str.length; i += 3) {
+    const a = str.charCodeAt(i);
+    const b = i + 1 < str.length ? str.charCodeAt(i + 1) : NaN;
+    const c = i + 2 < str.length ? str.charCodeAt(i + 2) : NaN;
+    out += B64_ALPHABET[a >> 2];
+    out += B64_ALPHABET[((a & 3) << 4) | (Number.isNaN(b) ? 0 : b >> 4)];
+    out += Number.isNaN(b) ? '=' : B64_ALPHABET[((b & 15) << 2) | (Number.isNaN(c) ? 0 : c >> 6)];
+    out += Number.isNaN(c) ? '=' : B64_ALPHABET[c & 63];
+  }
+  return out;
+}
+
 function randomPP(rng) {
   const n = Math.floor(rng() * 5);
   const created = 1_000_000 + Math.floor(rng() * 10000);
@@ -57,7 +77,7 @@ function randomPP(rng) {
   return {
     covered_components: Array.from({ length: n }, (_, i) => ({ name: `x-comp-${i}`, value: `"v${i}"` })),
     signature_params: pick(rng, [`sig1=("x-comp-0");created=${created};tag="web-bot-auth"`, `sig1=();tag="other"`, undefined]),
-    signature_b64: maybe(rng, Buffer.from(`sig-${Math.floor(rng() * 1e6)}`).toString('base64'), 0.8),
+    signature_b64: maybe(rng, base64EncodeAscii(`sig-${Math.floor(rng() * 1e6)}`), 0.8),
     public_key_jwk: maybe(rng, { kty: 'OKP', crv: 'Ed25519', x: 'garbage-not-base64url!!' }, 0.6),
     expected_tag: 'web-bot-auth',
     alg: pick(rng, ['ed25519', 'rsa', undefined]),
