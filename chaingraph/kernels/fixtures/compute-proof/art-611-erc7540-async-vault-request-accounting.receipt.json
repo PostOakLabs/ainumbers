@@ -1,0 +1,128 @@
+{
+  "type": "ZkVmReceipt",
+  "system": "risc0",
+  "receiptFormat": "groth16-bn254",
+  "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+  "seal": "Ee6ozLbFNY1+SzqZtuwnyKdak2RGTgIfdMmqWLftm80L1iQaUNX11aH6WtTKnJ1ZHxtqLi+lnKHTrfiiXITjuCWheIZaL5qg2jlfiA7JcGncdk8iiwEyNolYE+ens2jACNdpiIle7F0i0kkEGZvM7hqKzozgzc4qSI6cundhEckKGMV3gz+2s8SJrFgvUEhQibk+OxnE3TAz5JoFYUWPqx3kglJwm8/w6AVJeODYjZkz8Qwr2JHn7tYoGHf8+0SQLw+Qz1Ots01XZ4can2Mmp7lezADn8hsAQbRS0EexJpcKDn+sUh3PoxG6E5qC7qQkMS4Qx11wYVTnSCwxYLJONg==",
+  "journal": {
+    "chaingraph_version": "0.4.0",
+    "kernel_digest": "sha256:5cd9dd6c701f8631291807f556d9b14f7f65bf9ccbacc31d2d089ef3a65c0541",
+    "output": {
+      "aggregate_by_controller": true,
+      "claim_rounding_used": "down",
+      "claims": [
+        {
+          "amount": "300",
+          "consumed_requested": "300",
+          "index": 0,
+          "leg": "deposit",
+          "opening_rate_scaled": "333000000000000000",
+          "rate_scale": "1000000000000000000",
+          "received": "99",
+          "received_if_rounded_other_way": "100",
+          "rejected": false,
+          "rejection_reason": null,
+          "rounding_changes_result": true,
+          "rounding_direction": "down",
+          "settled_rate_scaled": "330000000000000000",
+          "unit": "requested"
+        },
+        {
+          "amount": "700",
+          "consumed_requested": "700",
+          "index": 1,
+          "leg": "deposit",
+          "opening_rate_scaled": "333000000000000000",
+          "rate_scale": "1000000000000000000",
+          "received": "233",
+          "received_if_rounded_other_way": "234",
+          "rejected": false,
+          "rejection_reason": null,
+          "rounding_changes_result": true,
+          "rounding_direction": "down",
+          "settled_rate_scaled": "332857142857142857",
+          "unit": "requested"
+        }
+      ],
+      "closing": {
+        "deposit": {
+          "claimable_assets": "0",
+          "claimable_shares": "1",
+          "claimed_assets": "1000",
+          "claimed_shares": "332",
+          "pending_assets": "500"
+        },
+        "redeem": {
+          "claimable_assets": "0",
+          "claimable_shares": "0",
+          "claimed_assets": "0",
+          "claimed_shares": "0",
+          "pending_shares": "0"
+        }
+      },
+      "declared_context": {
+        "chain_id": null,
+        "network_label": null
+      },
+      "dust": {
+        "deposit_assets_stranded": "0",
+        "deposit_shares_stranded": "1",
+        "note": "A stranded amount is one side of a claimable bucket left non-zero after the other side reached zero, so no further claim against it can be computed at the bucket's rate.",
+        "redeem_assets_stranded": "0",
+        "redeem_shares_stranded": "0"
+      },
+      "invariants": [
+        {
+          "detail": "Structural: this kernel models pending and claimable as separate buckets and never moves an amount between them, so the two views can never double-count. A claim only ever draws from the claimable bucket.",
+          "holds": true,
+          "name": "pending_and_claimable_disjoint",
+          "source": "ERC-7540: pendingDepositRequest/claimableDepositRequest (and the redeem pair) each exclude the other state's amount."
+        },
+        {
+          "detail": "Every claim drew only from an amount already in the Claimable state.",
+          "holds": true,
+          "name": "claim_never_skips_claimable_state",
+          "source": "ERC-7540: \"Requests MUST NOT skip or otherwise short-circuit the Claim state.\""
+        },
+        {
+          "detail": "No claim exceeded its leg's remaining claimable amount.",
+          "holds": true,
+          "name": "claim_within_claimable_bounds",
+          "source": "ERC-7540 max* views track the claimable amount (the standard notes maxDeposit moves in sync with claimableDepositRequest)."
+        },
+        {
+          "applicable": false,
+          "detail": "Not applicable: request_id is 0, the aggregate-by-controller convention, where amounts from separate requests are fungible and no single per-request rate is asserted.",
+          "holds": true,
+          "name": "single_prorata_rate_for_nonzero_request_id",
+          "source": "ERC-7540: \"If a Request with requestId != 0 becomes partially claimable, all requests of the same requestId MUST become claimable at the same pro-rata rate.\""
+        },
+        {
+          "detail": "Direction \"down\" was supplied by the caller, not derived from the standard. Each claim reports what the opposite direction would have produced.",
+          "holds": true,
+          "name": "partial_claim_rounding_direction_is_declared_not_mandated",
+          "source": "ERC-7540 states no rounding direction for a partial claim. ERC-4626 fixes a direction per function; ERC-7540 does not extend that to claims."
+        }
+      ],
+      "note": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state: applies a sequence of claims against the claimable buckets at the implied pro-rata rate, tracks the pending/claimable/claimed split, and checks the standard's stated invariants (pending and claimable are disjoint views; a claim never skips the Claim state; a non-zero requestId stays at one pro-rata rate). ERC-7540 mandates NO rounding direction for a partial claim, so the direction here is a declared parameter and the result of the opposite direction is reported alongside it. This kernel does NOT read any chain: it cannot know whether the declared amounts match any deployed vault, when or whether a pending request will be fulfilled (the standard leaves that timing unspecified), whether the controller is authorised, or whether a claim transaction would succeed.",
+      "opening": {
+        "deposit": {
+          "claimable_assets": "1000",
+          "claimable_shares": "333",
+          "max_deposit_implied": "1000",
+          "max_mint_implied": "333",
+          "pending_assets": "500"
+        },
+        "redeem": {
+          "claimable_assets": "0",
+          "claimable_shares": "0",
+          "max_redeem_implied": "0",
+          "max_withdraw_implied": "0",
+          "pending_shares": "0"
+        }
+      },
+      "reasons": [],
+      "request_id": "0"
+    }
+  }
+}
