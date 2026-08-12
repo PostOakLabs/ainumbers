@@ -91,12 +91,16 @@ function checkP2_hard_rail_never_adjudicates() {
   }
 
   // explicit true/false ARE surfaced verbatim -- the rail forbids inference, not honest pass-through.
+  // training_mining_opt_out is a tri-state ('not_asserted' | true | false); cast to `any` for the
+  // comparison below since tsc otherwise narrows the literal-input case too tightly (TS2367).
   { checked++;
     const { output_payload: o } = compute({ assertions: [{ label: 'c2pa.ai_training', training_mining_opt_out: true }] });
-    if (o.training_mining_opt_out !== true) violations++; }
+    const v = /** @type {any} */ (o.training_mining_opt_out);
+    if (v !== true) violations++; }
   { checked++;
     const { output_payload: o } = compute({ assertions: [{ label: 'c2pa.ai_generative_training', training_mining_opt_out: false }] });
-    if (o.training_mining_opt_out !== false) violations++; }
+    const v = /** @type {any} */ (o.training_mining_opt_out);
+    if (v !== false) violations++; }
 
   // No actions assertion at all -> empty actions array, never an error, never inferred content.
   { checked++;
