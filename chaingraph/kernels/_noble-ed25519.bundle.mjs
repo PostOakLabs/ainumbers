@@ -1,18 +1,36 @@
-import { executionHash } from './_hash.mjs';
-// Ed25519 verification runs through the vendored noble bundle, NOT crypto.subtle. The QuickJS
-// guest inside the zkVM has no WebCrypto at all, so the old `await crypto.subtle.verify(...)`
-// path could never execute in-guest and the receipt sealed an empty journal. noble's verify is
-// synchronous pure JS, so compute() is synchronous and the proof attests the real verification.
-// Mode is strict RFC 8032 (`zip215: false`) — see the equivalence test for why.
-// ── VENDORED CRYPTO, INLINED (see chaingraph/kernels/_noble-ed25519.bundle.mjs) ────────────────
-// @noble/curves 2.2.0 + @noble/hashes 2.2.0 (MIT, (c) Paul Miller paulmillr.com) — Ed25519 EdDSA verify.
-// Inlined rather than imported because chaingraph/vm/kernel-vm.mjs strips every ESM import before
-// running a kernel in QuickJS, and the RISC Zero zkVM guest loads a kernel the same way: an
-// imported symbol is undefined in both. art-591 (secp256k1) and art-424 (ML-DSA) vendor inline for
-// exactly this reason. DO NOT hand-edit this block — regenerate it from
-// chaingraph/kernels/_noble-ed25519.bundle.mjs, which is its SSOT. The equivalence test
-// chaingraph/kernels/ed25519-webcrypto-equivalence.test.mjs asserts the two stay byte-identical.
-// Full licence text: https://github.com/paulmillr/noble-curves/blob/main/LICENSE
+/* Vendored: @noble/curves (ed25519 EdDSA verify path only) + @noble/hashes (sha2: sha256/sha512)
+   v2.2.0 (MIT, (c) Paul Miller paulmillr.com). Self-contained ESM bundle exporting
+   { ed25519, sha256, sha512 }. DO NOT hand-edit -- rebuild from pinned source.
+
+   Source: @noble/curves@2.2.0 and @noble/hashes@2.2.0 npm dist tarballs, resolved from the
+   local npm cache and integrity-verified by recomputing SHA-512 over the tarball bytes:
+     @noble/curves  2.2.0  sha512-T/BoHgFXirb0ENSPBquzX0rcjXeM6Lo892a2jlYJkqk83LqZx0l1Of7DzlKJ6jkpvMrkHSnAcgb5JegL8SeIkQ==
+     @noble/hashes  2.2.0  sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==
+   Same v2.2.0 pin already vendored in chaingraph/kernels/_noble-bn254.bundle.mjs and
+   _noble-secp256k1.bundle.mjs.
+
+   Flattening method: every source module is wrapped in an IIFE returning its export object, and
+   cross-module imports become destructuring assignments from those objects. Consequence: FUNCTION
+   BODIES ARE BYTE-IDENTICAL to the pinned npm dist -- no identifier was renamed and no top-level
+   binding was disambiguated (the IIFE scope removes the name collisions that forced renames in
+   the secp256k1 bundle). Only `import`/`export` boilerplate was removed.
+
+   Deleted from the vendored ed25519.js -- ALL of it unreachable from ed25519.verify(): ed25519ctx,
+   ed25519ph, ed25519_domain, ed25519_FROST, x25519/montgomery, ristretto255 (+ its hasher, OPRF and
+   FROST), elligator2 hash-to-curve, and ED25519_TORSION_SUBGROUP. The verify path this bundle keeps
+   is edwards()/eddsa() over the ed25519 curve with ZIP-215 semantics, exactly as upstream configures
+   it. sha256 is exported alongside sha512 because both come from the same vendored sha2.js and
+   art-284 needs SHA-256 for its did:webvh entry hashing.
+
+   Also deleted: @noble/hashes utils.js's nextTick()/asyncLoop() pair, which exists only for the
+   async KDFs (pbkdf2/scrypt/argon2) and none of those are vendored. asyncLoop calls Date.now(),
+   which the kernel-determinism lint hard-bans, so it is removed rather than shipped unreachable.
+
+   WHY THIS EXISTS: QuickJS inside the RISC Zero zkVM guest has NO WebCrypto -- `crypto.subtle` is
+   ABSENT, not merely async. Kernels that verified Ed25519 signatures through crypto.subtle therefore
+   computed nothing in-guest and sealed empty journals. noble's ed25519.verify is synchronous pure JS,
+   so the kernels become sync and the receipt attests the real verification. */
+
 // ── @noble/hashes utils.js (v2.2.0, MIT, Paul Miller) ────────────────────────────────────────────────────────
 const H_utils = (() => {
 /**
@@ -4217,135 +4235,5 @@ const ed25519 = /* @__PURE__ */ ed({});
 const ed25519 = C_ed25519.ed25519;
 const sha256 = H_sha2.sha256;
 const sha512 = H_sha2.sha512;
-// ── end vendored block ─────────────────────────────────────────────────────────────────────────
 
-const TOOL_ID = 'art-129-webbotauth-signature-verifier';
-const TOOL_VERSION = '1.0.0';
-
-export const meta = {
-  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'verify_webbotauth_signature',
-  mandate_type: 'compliance_mandate', gpu: false,
-};
-
-// ── Host-free encoding helpers ────────────────────────────────────────────────────────────────
-// The zkVM guest provides NO atob/btoa, NO Buffer and NO TextEncoder — only WebCrypto's absence
-// was known before this kernel was first proven; the rest surfaced the moment compute() stopped
-// being vacuous and the guest journal could finally be compared against V8. Both helpers below
-// are pure JS for that reason, following art-287 (base64, "no atob, no Buffer, no host API") and
-// art-189 (UTF-8), both already proven in-guest.
-const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-// Standard base64 -> bytes. THROWS on a malformed input exactly as atob() did, so the callers'
-// existing try/catch keeps turning malformed material into signature_cryptographically_valid=false.
-function b64ToBytes(b64) {
-  const s = String(b64 ?? '').replace(/=+$/, '');
-  if (s.length % 4 === 1) throw new Error('invalid base64 length');
-  const out = [];
-  let buffer = 0, bits = 0;
-  for (let i = 0; i < s.length; i++) {
-    const idx = B64_ALPHABET.indexOf(s[i]);
-    if (idx === -1) throw new Error('invalid base64 character');
-    buffer = (buffer << 6) | idx;
-    bits += 6;
-    if (bits >= 8) { bits -= 8; out.push((buffer >> bits) & 0xff); }
-  }
-  return new Uint8Array(out);
-}
-
-// base64url -> bytes (RFC 7515 §2), normalised onto the standard alphabet first.
-function b64uToBytes(s) {
-  return b64ToBytes(String(s ?? '').replace(/-/g, '+').replace(/_/g, '/'));
-}
-
-// UTF-8 encode without TextEncoder. Byte-identical to TextEncoder().encode() for well-formed
-// input; verbatim from the already-proven art-189 kernel.
-function utf8Bytes(str) {
-  const s = String(str);
-  const out = [];
-  for (let i = 0; i < s.length; i++) {
-    let c = s.charCodeAt(i);
-    if (c < 0x80) {
-      out.push(c);
-    } else if (c < 0x800) {
-      out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
-    } else if (c >= 0xd800 && c <= 0xdbff) {
-      const hi = c, lo = s.charCodeAt(++i);
-      const cp = 0x10000 + ((hi - 0xd800) << 10) + (lo - 0xdc00);
-      out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
-    } else {
-      out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
-    }
-  }
-  return new Uint8Array(out);
-}
-
-// JWK -> raw 32-byte Ed25519 public key. Mirrors what crypto.subtle.importKey enforced:
-// a non-OKP / non-Ed25519 / wrong-length key is a THROW, which the caller turns into
-// signature_cryptographically_valid = false. Callers may or may not carry the non-standard
-// 'alg' member (RFC 8037 wants 'EdDSA', C2PA tooling often writes 'Ed25519'); it is ignored
-// either way, which is what the old `delete jwk.alg` workaround achieved.
-function ed25519PublicKeyFromJwk(jwk) {
-  if (!jwk || typeof jwk !== 'object') throw new Error('jwk missing');
-  if (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519') throw new Error('jwk is not an Ed25519 OKP key');
-  if (typeof jwk.x !== 'string') throw new Error('jwk.x missing');
-  const raw = b64uToBytes(jwk.x);
-  if (raw.length !== 32) throw new Error('Ed25519 public key must be 32 bytes');
-  return raw;
-}
-
-// RFC 9421 §2.5 signature base: one line per covered component
-//   "<lowercased-name>": <value>
-// then the final line  "@signature-params": <signature-params-inner-list>
-// Caller supplies already-canonicalized component values (zero network).
-function buildSignatureBase(covered_components, signature_params) {
-  const lines = covered_components.map(c => `"${String(c.name).toLowerCase()}": ${c.value}`);
-  lines.push(`"@signature-params": ${signature_params}`);
-  return lines.join('\n');
-}
-
-export function compute(pp) {
-  const {
-    covered_components = [], signature_params, signature_b64, public_key_jwk,
-    expected_tag = 'web-bot-auth', alg, created, now_unix, max_age_s = 3600,
-  } = pp;
-
-  const alg_ok = alg === 'ed25519';
-  const tag_ok = typeof signature_params === 'string' && signature_params.includes(`tag="${expected_tag}"`);
-  const fresh = (typeof created === 'number' && typeof now_unix === 'number')
-    ? (now_unix - created) <= max_age_s && (now_unix - created) >= -300  // small clock-skew tolerance
-    : null;
-
-  let signature_cryptographically_valid = false;
-  if (alg_ok && public_key_jwk && signature_b64 && Array.isArray(covered_components) && signature_params) {
-    try {
-      const base = buildSignatureBase(covered_components, signature_params);
-      const pub = ed25519PublicKeyFromJwk(public_key_jwk);
-      signature_cryptographically_valid = ed25519.verify(
-        b64ToBytes(signature_b64), utf8Bytes(base), pub, { zip215: false }) === true;
-    } catch { signature_cryptographically_valid = false; }
-  }
-
-  const verdict = (signature_cryptographically_valid && alg_ok && tag_ok && fresh !== false) ? 'ACCEPT' : 'REFUSE';
-  const compliance_flags = [];
-  compliance_flags.push('WEBBOTAUTH_SIGNATURE_ASSESSED');
-  compliance_flags.push(verdict === 'ACCEPT' ? 'AGENT_SIGNATURE_VERIFIED' : 'AGENT_SIGNATURE_REFUSED');
-  if (!alg_ok) compliance_flags.push('ALGORITHM_NOT_ED25519');
-  if (!tag_ok) compliance_flags.push('TAG_MISMATCH');
-  if (fresh === false) compliance_flags.push('SIGNATURE_STALE');
-
-  return { output_payload: { signature_cryptographically_valid, alg_ok, tag_ok, fresh, verdict }, compliance_flags };
-}
-
-export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
-    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
-    chaingraph_version: '0.4.0', mandate_type: meta.mandate_type,
-    tool_id: TOOL_ID, tool_version: TOOL_VERSION, generated_at: now ?? null,
-    execution_hash: hash, chain: { parent_hashes, parent_tool_ids, chain_depth },
-    policy_parameters: pp, output_payload, compliance_flags, compute_mode: 'server',
-    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
-  };
-}
+export { ed25519, sha256, sha512 };

@@ -112,6 +112,7 @@ const GATES = [
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
+  ['Ed25519 noble↔WebCrypto equivalence (FV-ED25519-NOBLE-1)', 'node chaingraph/kernels/ed25519-webcrypto-equivalence.test.mjs'],
   ['Canon block ordering (CANON-ORDER-1)', 'node scripts/check-canon-order.mjs'],
   ['Inline SSOT sync (INLINESYNC-1)', 'node scripts/check-inline-ssot-sync.mjs --check'],
   ['DAG helper resolvability (ESCDAG-FIX-1)', 'node scripts/check-dag-idents.mjs'],
