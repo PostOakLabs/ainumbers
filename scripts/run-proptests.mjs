@@ -24,6 +24,20 @@
 //   node scripts/run-proptests.mjs             → run all *.proptest.mjs, exit 1 on any failure
 //   node scripts/run-proptests.mjs --check      → same (alias, matches other repo gates' --check convention)
 //   node scripts/run-proptests.mjs --out FILE   → also write a JSON results manifest to FILE
+//   node scripts/run-proptests.mjs --base <ref> [--head <sha>]
+//     FV-PREPUSH-FLOOR-SCOPE-1: scope the run to only the kernels this diff touches.
+//     --base <ref> alone (local/pre-push): union of working-tree + staged + committed-vs-
+//       merge-base(<ref>) diffs, same pattern preflight.mjs's touchedFloorFiles() uses.
+//     --base <sha> --head <sha> (CI, no working tree): diffs base..head only.
+//     SOUNDNESS, checked not assumed: every *.proptest.mjs imports ONLY its own sibling
+//     ../<id>.kernel.mjs (grepped across all 588 floor files, zero exceptions, zero shared
+//     imports) — no cross-file registry, no global count, no ratchet lives inside THIS gate,
+//     so per-kernel scoping is exact here. The whole-corpus invariant some floor gates DO
+//     carry lives in the separate check-fv-floor-coverage.mjs ratchet, which this row does
+//     not touch and which still runs full-estate every time. The one real cross-cutting
+//     hazard is chaingraph/kernels/_*.mjs shared helpers (595 kernels import _hash.mjs) — a
+//     change there can move every kernel's output, so scoping FALLS BACK to a full run
+//     whenever a shared helper, or an undeterminable diff, is in play. Never silently narrows.
 //
 // MANIFEST SHAPE (FV-COVERAGE-GATE-1 hook point — chosen here, NOT built here,
 // per FV-PBT-FLOOR-BUILD-SPEC.md §6 row 1 "Gates" column):
@@ -40,7 +54,7 @@
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -49,6 +63,10 @@ const PROPTESTS_DIR = resolve(REPO, 'chaingraph', 'kernels', '__proptests__');
 const argv = process.argv.slice(2);
 const outIdx = argv.indexOf('--out');
 const OUT_FILE = outIdx !== -1 ? argv[outIdx + 1] : null;
+const baseIdx = argv.indexOf('--base');
+const BASE_REF = baseIdx !== -1 ? argv[baseIdx + 1] : null;
+const headIdx = argv.indexOf('--head');
+const HEAD_REF = headIdx !== -1 ? argv[headIdx + 1] : null;
 
 function findPropertyFiles(dir) {
   if (!existsSync(dir)) return [];
@@ -60,6 +78,74 @@ function findPropertyFiles(dir) {
 
 function kernelIdOf(filePath) {
   return basename(filePath).replace(/\.proptest\.mjs$/, '');
+}
+
+// --- --base/--head scoping (FV-PREPUSH-FLOOR-SCOPE-1) -----------------------
+
+function gitDiffNames(args) {
+  try {
+    return execSync(`git diff --name-only --diff-filter=ACM ${args}`, {
+      cwd: REPO,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).split('\n').filter(Boolean);
+  } catch {
+    return null; // undeterminable
+  }
+}
+
+// Returns an array of touched repo-relative paths, or null if undeterminable.
+function computeTouchedFiles(base, head) {
+  if (head) {
+    // CI mode: explicit shas, no working tree to union with.
+    return gitDiffNames(`${base} ${head}`);
+  }
+  // Local/pre-push mode: union of working tree + staged + committed-vs-merge-base(base),
+  // same three-way union preflight.mjs's touchedFloorFiles()/helmPathsTouched() use.
+  const touched = new Set();
+  const wt = gitDiffNames('HEAD');
+  if (wt === null) return null;
+  wt.forEach((f) => touched.add(f));
+  const staged = gitDiffNames('--cached');
+  if (staged === null) return null;
+  staged.forEach((f) => touched.add(f));
+  let mergeBase;
+  try {
+    mergeBase = execSync(`git merge-base ${base} HEAD`, {
+      cwd: REPO,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+  const committed = gitDiffNames(`${mergeBase} HEAD`);
+  if (committed === null) return null;
+  committed.forEach((f) => touched.add(f));
+  return [...touched];
+}
+
+const SHARED_HELPER_RE = /^chaingraph\/kernels\/_[^/]+\.mjs$/;
+const PROPTEST_PATH_RE = /^chaingraph\/kernels\/__proptests__\/([^/]+)\.proptest\.mjs$/;
+const KERNEL_PATH_RE = /^chaingraph\/kernels\/([^/]+)\.kernel\.mjs$/;
+
+// Returns { files } to run scoped, or { fallback: <reason> } to run everything.
+function selectScopedFiles(touchedFiles) {
+  if (touchedFiles.some((f) => SHARED_HELPER_RE.test(f))) {
+    return { fallback: 'a shared kernel helper (chaingraph/kernels/_*.mjs) was touched — it can move every kernel\'s output, so scoping would be unsound' };
+  }
+  const ids = new Set();
+  for (const f of touchedFiles) {
+    const pt = f.match(PROPTEST_PATH_RE);
+    if (pt) ids.add(pt[1]);
+    const k = f.match(KERNEL_PATH_RE);
+    if (k) ids.add(k[1]);
+  }
+  const files = [...ids]
+    .map((id) => join(PROPTESTS_DIR, `${id}.proptest.mjs`))
+    .filter(existsSync)
+    .sort();
+  return { files };
 }
 
 function runOne(filePath) {
@@ -78,7 +164,26 @@ function runOne(filePath) {
 }
 
 function main() {
-  const files = findPropertyFiles(PROPTESTS_DIR);
+  const allFiles = findPropertyFiles(PROPTESTS_DIR);
+  let files = allFiles;
+
+  if (BASE_REF) {
+    const touched = computeTouchedFiles(BASE_REF, HEAD_REF);
+    if (touched === null) {
+      console.log('run-proptests: --base diff undeterminable — falling back to a full run.');
+    } else {
+      const scoped = selectScopedFiles(touched);
+      if (scoped.fallback) {
+        console.log(`run-proptests: ${scoped.fallback} — falling back to a full run.`);
+      } else if (scoped.files.length === 0) {
+        console.log(`run-proptests: --base scoping active, 0 floor file(s) touched by this diff — no-op PASS.`);
+        process.exit(0);
+      } else {
+        files = scoped.files;
+        console.log(`run-proptests: --base scoping active — running ${files.length}/${allFiles.length} floor file(s) touched by this diff.`);
+      }
+    }
+  }
 
   if (files.length === 0) {
     console.log('run-proptests: 0 property files found — no-op PASS.');

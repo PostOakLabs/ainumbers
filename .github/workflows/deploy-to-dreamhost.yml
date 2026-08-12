@@ -75,6 +75,14 @@ jobs:
           fi
 
       - name: 🔐 OpenChainGraph hash + JS syntax gates
+        # FV-PREPUSH-FLOOR-SCOPE-1: the Property-testing floor line below scopes to the
+        # kernels this push touches, reusing the $BEFORE commit the 🪖 helm-scope step
+        # above already fetched (git fetch --depth=1 origin "$BEFORE", unconditional for
+        # push events) — no second fetch needed. Falls back to a full run when BEFORE is
+        # unresolvable or a shared kernel helper (chaingraph/kernels/_*.mjs) is touched.
+        env:
+          EVENT_BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
         # Hard gate (exits 1 on failure). Catches: any inline classic <script>
         # that fails to parse; forbidden hash patterns (array-replacer
         # canonicalization, fake 32-bit simpleHash); execution_hash golden-parity
@@ -98,7 +106,12 @@ jobs:
           node chaingraph/kernels/gen-kernel-identity.mjs --check
           node chaingraph/kernels/gen-kernel-identity.mjs --check --shard
           node chaingraph/kernels/compute-proof.test.mjs
-          node scripts/run-proptests.mjs
+          ZERO="0000000000000000000000000000000000000000"
+          if [ "$EVENT_NAME" = "push" ] && [ -n "$EVENT_BEFORE" ] && [ "$EVENT_BEFORE" != "$ZERO" ] && git cat-file -e "$EVENT_BEFORE" 2>/dev/null; then
+            node scripts/run-proptests.mjs --base "$EVENT_BEFORE" --head "$GITHUB_SHA"
+          else
+            node scripts/run-proptests.mjs
+          fi
           node scripts/check-fv-floor-coverage.mjs
           node scripts/check-fv-floor-coverage.test.mjs
           node chaingraph/kernels/anchor-binding.test.mjs
