@@ -29,10 +29,12 @@
 //   (2) A NARROW, NAMED ALLOWLIST for the one deliberate, permanent gap this
 //       repo accepts: `chaingraph/kernels/__proptests__/*.proptest.mjs` floor
 //       files use Node builtins (`node:fs`, `node:path`, `node:url`, `process`)
-//       to read fixtures at test time, and this repo never installs @types/node
-//       — that is NEW npm surface, which SO #10 bans outright and SO #32's CI-
-//       dependency carve-out explicitly does not widen. TS2307 ("cannot find
-//       module 'node:…'") and TS2580 ("cannot find name 'process'") are matched
+//       to read fixtures at test time, and this repo installs no `@types/node`
+//       — SO #47 (2026-08-11) exempts that package narrowly, but it is not
+//       reachable in a zero-`package.json` repo without `npm install` (SO #10
+//       hard ban); see the DENOISE PASS note above for the measured reason.
+//       TS2307 ("cannot find module 'node:…'") and TS2580 ("cannot find name
+//       'process'") are matched
 //       by BOTH their code AND their message text, and ONLY inside that one
 //       directory — a TS2307 for a mistyped relative import, or either code
 //       anywhere else, still fails the gate like any other diagnostic.
@@ -44,6 +46,42 @@
 // gate. That is intentional: the proven failure mode is dependency drag-in from
 // an UNTOUCHED file, and this fix targets exactly that, nothing wider. A gate
 // that passes everything is not a fix.
+//
+// DENOISE PASS (JSDOC-CHECKJS-DENOISE-1, 2026-08-11) — measured on the
+// FV-PROPFLOOR-SHARD-C13-1 file set (PR #1165), 68 raw tsc errors:
+//   - `chaingraph/kernels/globals.d.ts` ambient-declares `scalbn` (a hand-
+//     ported fdlibm global several kernels call inline, e.g. art-278). This
+//     is a true free-standing global, so an ambient declare resolves it with
+//     zero kernel edits — verified, drops 4 of the 68.
+//   - `tsconfig.check.json` is now the SSOT for compilerOptions (NodeNext
+//     module+resolution, paired per TS's own requirement that they agree),
+//     read by loadCompilerOptionFlags() below rather than duplicated as a
+//     second hardcoded flag list.
+//   - SO #47 (2026-08-11) granted a narrow `@types/node` exemption
+//     (devDependencies only, CI-only, pinned major) that would resolve the
+//     remaining `node:*`/`process`/`Buffer` diagnostics for real instead of
+//     via allowlist. It is NOT wired in here: this repo (unlike the worker)
+//     ships no `package.json`, `npx --package=@types/node` installs into a
+//     content-hashed cache directory outside any resolvable typeRoots, and
+//     making it resolve requires either a hardcoded (non-deterministic,
+//     breaks on any npx cache-layout change — a #0 SURVIVES-THE-MAINTAINER
+//     violation) path scrape, or `npm install`, which SO #10 bans outright
+//     with no carve-out for "just this once." Measured, not assumed: see
+//     board `JSDOC-CHECKJS-DENOISE-1` check-off for the repro. The rule (2)
+//     allowlist below therefore stays live — it is the only working fix for
+//     this class today, unchanged from before this pass.
+//   - The `Property 'now' does not exist on type '{ parent_hashes?...}'`
+//     diagnostic (10 of the 68) is NOT fixed by globals.d.ts and cannot be:
+//     it is TypeScript inferring a destructured-parameter type purely from
+//     each binding element's OWN default value (`{ now, parent_hashes = [],
+//     ... } = {}`), and `now` has no default — an ambient global declaration
+//     has no effect on that local, per-call-site inference. The only real
+//     fix is a one-line `now = undefined` default in each kernel's own
+//     signature, which is a kernel edit and out of this row's fence. It
+//     stays non-blocking today only because rule (1) (scope-to-touched)
+//     already excludes it whenever the kernel itself is untouched — true for
+//     every kernel in the C13 set. A PR that directly adds or edits a
+//     kernel with this exact destructuring shape will hit it for real.
 //
 // Usage: node scripts/jsdoc-checkjs-gate.mjs <file> [<file> ...]
 //   Each <file> is a root file to type-check (same list already computed by
@@ -118,10 +156,44 @@ export function classifyDiagnostics(tscOutput, touchedFiles) {
   return { classified, blocking, ignoredDependency, ignoredAllowlisted };
 }
 
+// GLOBALS_DTS — ambient scalbn declaration (see its own header for the
+// no-top-level-import/export footgun). Always added as an extra root
+// alongside the touched files so tsc's type resolution sees it on every
+// run; it is never itself a "touched" file, so any diagnostic tsc somehow
+// reported against it would fall into ignoredDependency, not blocking.
+const GLOBALS_DTS = 'chaingraph/kernels/globals.d.ts';
+
+// TSCONFIG_PATH — SSOT for compiler options (tsconfig.check.json). tsc's
+// own --project flag cannot be combined with an explicit file-argument list
+// (TS5042: "Option 'project' cannot be mixed with source files on a command
+// line"), and passing an explicit file list is exactly how this gate keeps
+// checking scoped to touched files only — so this reads the same JSON a
+// human would point an editor or `tsc --project` at, and re-applies its
+// compilerOptions as CLI flags instead.
+const TSCONFIG_PATH = 'tsconfig.check.json';
+
+// loadCompilerOptionFlags — flatten tsconfig.check.json's compilerOptions
+// into the CLI flag shape tsc expects. Only the small option-value shapes
+// this repo's tsconfig actually uses are handled (boolean, string) — this
+// is not a general tsconfig-to-CLI translator.
+export function loadCompilerOptionFlags(tsconfigJson) {
+  const { compilerOptions } = JSON.parse(tsconfigJson);
+  const flags = [];
+  for (const [key, value] of Object.entries(compilerOptions)) {
+    if (typeof value === 'boolean') {
+      if (value) flags.push(`--${key}`);
+      else flags.push(`--${key}`, 'false');
+    } else {
+      flags.push(`--${key}`, String(value));
+    }
+  }
+  return flags;
+}
+
 // runTsc — the one impure boundary (spawns a child process). Kept separate
 // so classifyDiagnostics (the logic this row exists to fix) can be tested
 // without a TypeScript install or network access.
-export function runTsc(files) {
+export function runTsc(files, tsconfigJson) {
   // No `shell: true` — args stay an array passed straight to execve, never
   // concatenated into shell text, so nothing here can be reinterpreted as
   // shell syntax. `npx.cmd` on win32 is Windows' own PATHEXT resolution
@@ -132,16 +204,16 @@ export function runTsc(files) {
     npxCmd,
     [
       '--yes', '--package=typescript@5.7.2', 'tsc',
-      '--noEmit', '--checkJs', '--allowJs',
-      '--target', 'ES2022', '--module', 'ESNext', '--moduleResolution', 'bundler',
-      '--skipLibCheck', '--pretty', 'false',
+      ...loadCompilerOptionFlags(tsconfigJson),
       ...files,
+      GLOBALS_DTS,
     ],
     { encoding: 'utf8' },
   );
 }
 
 // ── CLI entry point ──────────────────────────────────────────────────────
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -154,7 +226,8 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-const result = runTsc(files);
+const tsconfigJson = readFileSync(TSCONFIG_PATH, 'utf8');
+const result = runTsc(files, tsconfigJson);
 const output = `${result.stdout || ''}${result.stderr || ''}`;
 const { classified, blocking, ignoredDependency, ignoredAllowlisted } = classifyDiagnostics(output, files);
 
