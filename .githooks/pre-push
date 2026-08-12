@@ -32,6 +32,28 @@ if [ "$status" -ne 0 ]; then
   exit 1
 fi
 
+# PREPUSH-SKEW-ADVISORY-1 (2026-08-12): sibling-page skew advisory — ADVISORY ONLY, NEVER BLOCKS.
+# The structural fix is SITEMAP-MAIN-REGEN-1 (main auto-regenerates sitemap.html on every merge);
+# until that lands, a branch cut before a sibling page merged to origin/main can push a sitemap.html
+# that's already stale the moment it lands. This shrinks that window by telling the pusher up front.
+# Requires a fetch — kept cheap (--quiet) and tolerant of no network: any fetch failure just skips
+# the check silently, it never fails or delays the push.
+merge_base_skew=$(git merge-base origin/main HEAD 2>/dev/null) || merge_base_skew=""
+if [ -n "$merge_base_skew" ]; then
+  page_paths_here=$(git diff --name-only "$merge_base_skew" HEAD -- tools/ guides/ chaingraph/chains/ 'chaingraph/*.html' 2>/dev/null)
+  if [ -n "$page_paths_here" ] && git fetch origin main --quiet 2>/dev/null; then
+    page_paths_main=$(git diff --name-only "$merge_base_skew" origin/main -- tools/ guides/ chaingraph/chains/ 'chaingraph/*.html' sitemap.html 2>/dev/null)
+    if [ -n "$page_paths_main" ]; then
+      echo "────────────────────────────────────────────────────────────────" 1>&2
+      echo "⚠ pre-push advisory: sibling pages landed on origin/main since this branch was cut." 1>&2
+      echo "  Rebase onto origin/main and re-run node scripts/gen-sitemap-html.mjs before pushing," 1>&2
+      echo "  or expect the main-side regen to follow your merge." 1>&2
+      echo "  (advisory only — this does not block the push)" 1>&2
+      echo "────────────────────────────────────────────────────────────────" 1>&2
+    fi
+  fi
+fi
+
 # PREPUSH-SITEHOOK-1 (2026-08-04): VISIBILITY, not prevention — SO #27 stays legal,
 # a documented --no-verify bypass is still possible. The gap this closes: a push that
 # skips this hook (--no-verify) produces IDENTICAL terminal output to a clean push —
