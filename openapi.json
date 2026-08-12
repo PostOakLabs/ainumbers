@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1109 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1110 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2337,6 +2337,9 @@
       "name": "digest"
     },
     {
+      "name": "digest-pinning"
+    },
+    {
       "name": "digital assets"
     },
     {
@@ -3178,6 +3181,9 @@
     },
     {
       "name": "mcp:check_iolta_three_way_reconciliation"
+    },
+    {
+      "name": "mcp:check_jwks_pinned_directory"
     },
     {
       "name": "mcp:check_mica_register_presence"
@@ -47896,6 +47902,82 @@
         "x-mcp-tool-name": "verify_merkle_airdrop_proof",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-605-merkle-airdrop-proof-verifier.html",
         "x-source": "manifest"
+      }
+    },
+    "/v1/tools/check_jwks_pinned_directory": {
+      "post": {
+        "operationId": "check_jwks_pinned_directory",
+        "summary": "JWKS Pinned-Directory Check",
+        "description": "Confirms a caller-supplied JWKS directory document matches a caller-pinned SHA-256 digest -- sha256(canonicalize(directory_jwks)) === pinned_digest -- before art-130 trusts the document's internal shape. Canonicalization is this codebase's one JCS/RFC-8785 canon (recursive key-sort, array order preserved), hashed as lowercase hex, so two honest callers hashing the same logical document land on the same digest. Zero network, zero key hosting: both the directory document and the pinned digest are supplied by the caller, never fetched, cached, or served by this tool. Chains before art-130 in the visa-tap-agent-verification chain, so a substituted directory fails before its shape is even checked.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-609-jwks-pinned-directory-check.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "rfc9421",
+          "web-bot-auth",
+          "visa-tap",
+          "jwks",
+          "digest-pinning",
+          "agent-identity",
+          "mcp:check_jwks_pinned_directory"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "directory_jwks": {
+                    "type": "object"
+                  },
+                  "pinned_digest": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "directory_jwks",
+                  "pinned_digest"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "computed_digest": {
+                      "type": "string",
+                      "description": "sha256(canonicalize(directory_jwks)), lowercase hex."
+                    },
+                    "pinned_digest": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pinned_digest_well_formed": {
+                      "type": "boolean",
+                      "description": "True only if pinned_digest is present and matches 64 lowercase-or-mixed-case hex characters."
+                    },
+                    "digest_match": {
+                      "type": "boolean"
+                    },
+                    "key_count": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "check_jwks_pinned_directory",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-609-jwks-pinned-directory-check.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
       }
     },
     "/v1/tools/batch_payment_file_validator": {
