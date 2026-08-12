@@ -112,6 +112,15 @@ function randBig(rng, maxBits) {
 // this keeps numerator and denominator apart and asks a direction-free question: does the kernel's
 // integer answer sit on the mandated side of num/den, and within one unit of it? An answer that
 // satisfies that for every trial can only be the correctly-directed rounding of num/den.
+/**
+ * @param {string} op
+ * @param {bigint} amount
+ * @param {bigint} ta
+ * @param {bigint} ts
+ * @param {boolean} virtualAmounts
+ * @param {bigint} offset
+ * @returns {{num: bigint, den: bigint}}
+ */
 function exactRatio(op, amount, ta, ts, virtualAmounts, offset) {
   const offsetUnit = virtualAmounts ? 10n ** offset : 0n;
   const virtualAsset = virtualAmounts ? 1n : 0n;
@@ -134,6 +143,7 @@ function satisfiesDirection(got, num, den, direction) {
   return (got === 0n ? num === 0n : (got - 1n) * den < num) && num <= got * den;
 }
 
+/** @type {Array<[string, string, 'down'|'up']>} */
 const DIRECTED = [
   ['P1_previewDeposit_rounds_down', 'previewDeposit', 'down'],
   ['P2_previewMint_rounds_up', 'previewMint', 'up'],
