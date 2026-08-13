@@ -1,32 +1,62 @@
-# .claudeignore — keep Grep/Glob/Explore out of noise.
-# Token optimization 2026-07-24. Excludes full-repo-copy worktrees + build scratch.
-# ⚠ Does NOT ignore archive/ or board/ (both referenced/live). If a rule stops
-# finding something you need, remove the offending line.
+# Workspace-root .claudeignore — scopes Grep/Glob/Explore for ORCH sessions.
+#
+# WHY THIS FILE EXISTS AT THE WORKSPACE ROOT AND NOT ONLY IN repo/:
+# the 2026-07-24 token pass shipped a .claudeignore at the SITE repo root, but the
+# ORCH session's cwd is the WORKSPACE root, so every Grep/Glob issued by the
+# orchestrator ran unfiltered across the whole tree. Measured 2026-08-12:
+# .wt/ alone held 114 subdirectories, each a full repo copy, so a single Grep
+# matched the same file dozens of times over.
+#
+# DO NOT ADD (each is read live and excluding it causes false absences):
+#   board/                      status is the directory; the ORCH reads it every turn
+#   research/                   live verdict docs, cited by rows
+#   archive/                    referenced by HEARTBEAT history trims
+#   mcp-apps-poc/data|kernels   SSOT reads for vendor/parity checks
+#   repo/chaingraph/            kernels + standard are searched constantly
+#
+# A repo-scoped search already produces FALSE ABSENCES across four repos; this file
+# must never widen that failure mode. When in doubt, leave it searchable.
 
-# --- Worktrees: each is a FULL repo copy → every search matches N× over ---
-# Covers .wt/ .worktrees/ worktrees/ .claude/worktrees/ repo/.claude/worktrees/
+# --- worktrees: full repo copies, the dominant multiplier ---
 .wt/
 .worktrees/
-**/worktrees/
-# Root-level worktree dirs with ad-hoc names
+.worktrees-mcp/
+worktrees/
+worktrees-worker/
 wt-*/
-wave*/
-*-worktree/
+wave*-archived/
+.claude/worktrees-worker/
 
-# --- Build / verifier scratch (regenerated, never source) ---
+# --- vendor/scratch run dirs ---
 .vendor-run-*/
+.scratch/
 .verifier_out/
-**/bundled/
+.tools/
+
+# --- git internals and mirrors ---
+**/.git/
+.internal.git/
+
+# --- dependency trees and lockfiles ---
 **/node_modules/
-**/dist/
-**/__pycache__/
-
-# --- Lockfiles, binaries, DBs (never usefully grep-read) ---
-*.lock
 **/package-lock.json
-*.db
-*.sqlite
-*.sqlite3
+**/pnpm-lock.yaml
+**/yarn.lock
 
-# NOTE: deliberately NOT ignoring mcp-apps-poc/data/ (counts.json = live SSOT read)
-# or mcp-apps-poc/kernels/ (grepped during kernel work).
+# --- binaries and archives ---
+**/*.zip
+**/*.tar
+**/*.tar.gz
+**/*.gz
+**/*.exe
+**/*.dll
+**/*.so
+**/*.wasm
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.pdf
+**/*.ico
+**/*.woff
+**/*.woff2
