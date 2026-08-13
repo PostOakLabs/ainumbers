@@ -25,9 +25,9 @@
 //   pkg/requests/requests.go — add-leaf POST body: message/signature/public_key
 //   pkg/merkle/{merkle,verify}.go — RFC 6962 leaf/interior hashing + inclusion walk
 //   pkg/submit-token/token.go — rate-limit token + "_sigsum_v1"/"_sigsum_v0" DNS TXT
-//   Live policy (glasklar/services/sigsum-logs, instances/seasalp.md +
-//   www.sigsum.org/content/services.md, fetched 2026-08-10): seasalp log
-//   pubkey + the two stable witness pubkeys pinned below.
+//   Trust policy: the OFFICIAL NAMED POLICY "sigsum-generic-2025-1" (first
+//   published sigsum-go 0.13.0) — see the pinned-policy comment block below
+//   for the full source citation and the verbatim upstream policy text.
 //
 // Zero-dep (CONTRACT.md — site repo is zero-dep, forever): Node built-in
 // fetch + WebCrypto Ed25519, from-scratch RFC 6962 Merkle inclusion walk
@@ -67,16 +67,80 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 
 const subtle = webcrypto.subtle;
-const LOG_URL = 'https://seasalp.glasklar.is';
 
-// Pinned live policy, fetched 2026-08-10 from
-// git.glasklar.is/glasklar/services/sigsum-logs (instances/seasalp.md) and
-// git.glasklar.is/sigsum/project/documentation (www.sigsum.org/content/services.md).
+// ---------------------------------------------------------------------------
+// Pinned trust policy — sigsum-go's OFFICIAL NAMED POLICY "sigsum-generic-2025-1"
+// (first published in sigsum-go 0.13.0; Glasklar Teknik announcement "Named
+// policies for Sigsum", https://www.glasklarteknik.se/post/named-policies-for-sigsum/,
+// accessed 2026-08-13). A named policy is versioned and, per that announcement,
+// "once a built-in named policy has been released, its contents should not
+// change" — pinning it here by NAME+VERSION (never re-fetched at verify time,
+// per the CHAINPOINT GUARD below) is exactly the trust-continuity mechanism
+// the Sigsum project built this feature for. This SUPERSEDES the SIGSUM-ANCHOR-1
+// ad-hoc pin (fetched 2026-08-10, pre-dates the named policy's release) with a
+// versioned upstream reference plus a third, independent witness (Tillitis).
+//
+// Canonical source (fetched fresh 2026-08-13, quoted verbatim below):
+//   git.glasklar.is/sigsum/core/sigsum-go/-/raw/main/pkg/policy/builtin/sigsum-generic-2025-1.builtin-policy
+//   mirrored: raw.githubusercontent.com/sigsum/sigsum-go/main/pkg/policy/builtin/sigsum-generic-2025-1.builtin-policy
+//
+//   # This is a Sigsum trust policy that has been vetted by the Sigsum project
+//   # See https://git.glasklar.is/sigsum/project/documentation/-/blob/main/policy-maintenance.md
+//
+//   # https://git.glasklar.is/glasklar/services/sigsum-logs/-/blob/main/instances/seasalp.md (accessed 2025-12-04)
+//   log 0ec7e16843119b120377a73913ac6acbc2d03d82432e2c36b841b09a95841f25 https://seasalp.glasklar.is
+//
+//   # https://ginkgo.tlog.mullvad.net/about (accessed 2025-12-04)
+//   log f00c159663d09bbda6131ee1816863b6adcacfe80b0b288000b11aba8fe38314 https://ginkgo.tlog.mullvad.net
+//
+//   # https://git.glasklar.is/glasklar/services/witnessing/-/blob/main/witness.glasklar.is/about.md (accessed 2025-12-04)
+//   witness witness.glasklar.is            b2106db9065ec97f25e09c18839216751a6e26d8ed8b41e485a563d3d1498536
+//
+//   # https://witness.mullvad.net/about (accessed 2025-12-04)
+//   witness witness.mullvad.net            15d6d0141543247b74bab3c1076372d9c894f619c376d64b29aa312cc00f61ad
+//
+//   # https://github.com/tillitis/tillitis.se-tillitis-witness-1/blob/main/about.md (accessed 2025-12-04)
+//   witness tillitis.se/tillitis-witness-1 076be8c9ee7ea60916f0df3608c945d7730082ecb37749dad2c9ed339fea770c
+//
+//   # Requiring 2 of 3 is intended to give reasonable balance between security and availability.
+//   group quorum-rule 2 witness.glasklar.is witness.mullvad.net tillitis.se/tillitis-witness-1
+//
+//   quorum quorum-rule
+//
+// We TRANSCRIBE this data only (never vendor sigsum-go — CONTRACT.md zero-dep
+// forever): two logs, three witnesses, 2-of-3 quorum. `register` below still
+// submits to seasalp only (LOG_URL/LOG_PUBLIC_KEY_HEX, unchanged) — wiring
+// Mullvad-log submission is a separate, larger change outside this fence.
+// `verify` now accepts a record anchored to EITHER pinned log (LOGS below),
+// which is what the named policy actually grants, and requires the 2-of-3
+// witness quorum the policy defines (WITNESS_QUORUM_THRESHOLD).
+//
+// REGRESSION: records registered under the pre-named-policy pin
+// (SIGSUM-ANCHOR-2, leaf_index 59524, only 2 witnesses known at the time)
+// still verify here — seasalp's key and both original witnesses are
+// UNCHANGED by this upgrade; the third witness and second log are ADDITIVE,
+// and 59524's own 14 witness cosignatures already clear the 2-of-3 quorum.
+// See scripts/register-sigsum.test.mjs (fixture:
+// scripts/register-sigsum.fixtures.json, key sigsum_anchor_2_record).
+// ---------------------------------------------------------------------------
+const LOG_URL = 'https://seasalp.glasklar.is'; // submission target (register/dns-record) — unchanged
 const LOG_PUBLIC_KEY_HEX = '0ec7e16843119b120377a73913ac6acbc2d03d82432e2c36b841b09a95841f25';
+
+// Both logs named in sigsum-generic-2025-1 — `verify` accepts a record anchored
+// to either. `register` (submission) still targets LOG_URL/LOG_PUBLIC_KEY_HEX above only.
+const LOGS = [
+  { name: 'seasalp.glasklar.is', keyHex: LOG_PUBLIC_KEY_HEX, url: LOG_URL },
+  { name: 'ginkgo.tlog.mullvad.net', keyHex: 'f00c159663d09bbda6131ee1816863b6adcacfe80b0b288000b11aba8fe38314', url: 'https://ginkgo.tlog.mullvad.net' },
+];
+
 const WITNESSES = [
   { name: 'witness.glasklar.is', keyHex: 'b2106db9065ec97f25e09c18839216751a6e26d8ed8b41e485a563d3d1498536' },
   { name: 'witness.mullvad.net', keyHex: '15d6d0141543247b74bab3c1076372d9c894f619c376d64b29aa312cc00f61ad' },
+  { name: 'tillitis.se/tillitis-witness-1', keyHex: '076be8c9ee7ea60916f0df3608c945d7730082ecb37749dad2c9ed339fea770c' },
 ];
+// "group quorum-rule 2 witness.glasklar.is witness.mullvad.net tillitis.se/tillitis-witness-1"
+// above: sigsum-generic-2025-1 requires 2-of-3 pinned witnesses to cosign.
+const WITNESS_QUORUM_THRESHOLD = 2;
 
 const CHECKPOINT_ORIGIN_PREFIX = 'sigsum.org/v1/tree/';
 const COSIGNATURE_NAMESPACE = 'cosignature/v1';
@@ -383,14 +447,32 @@ async function main() {
       path: record.inclusion_proof.path.map((h) => Buffer.from(h, 'hex')),
     });
 
-    // 4. log's own signature over the checkpoint (origin/size/root) verifies
-    //    against the PINNED log public key.
-    const logPub = await importPublicRawHex(record.log_public_key);
-    const checkpointOrigin = record.log_origin;
+    // 4. the record's log_public_key must be ONE OF THE PINNED sigsum-generic-2025-1
+    //    logs (SO #34 — never trust a record's own claim about which log this is;
+    //    the prior version of this check imported record.log_public_key directly,
+    //    which let ANY self-signed keypair pass as "the log"). The checkpoint
+    //    origin is INDEPENDENTLY DERIVED from the matched PINNED key, never taken
+    //    from record.log_origin — verified to reproduce byte-for-byte against the
+    //    real SIGSUM-ANCHOR-2 record's origin (see register-sigsum.test.mjs).
+    const matchedLog = LOGS.find((l) => l.keyHex === record.log_public_key);
+    results.logKeyPinned = !!matchedLog;
+    results.logName = matchedLog ? matchedLog.name : null;
+    const checkpointOrigin = matchedLog
+      ? await sigsumCheckpointOrigin(Buffer.from(matchedLog.keyHex, 'hex'))
+      : record.log_origin; // unpinned key: kept only so the shape below still runs — ALL_PASS is forced false by logKeyPinned
+    results.logOriginMatchesPinned = matchedLog ? checkpointOrigin === record.log_origin : false;
+
+    // 5. log's own signature over the checkpoint (derived origin/size/root) verifies
+    //    against the PINNED log public key (never a key read out of the record).
+    const logPub = await importPublicRawHex(matchedLog ? matchedLog.keyHex : record.log_public_key);
     const checkpointText = formatCheckpoint(checkpointOrigin, record.tree_head.size, root);
     results.logSignatureValid = await subtle.verify({ name: 'Ed25519' }, logPub, Buffer.from(record.tree_head.log_signature, 'hex'), Buffer.from(checkpointText, 'utf8'));
 
-    // 5. >=1 of the PINNED witness cosignatures verify over the SAME checkpoint.
+    // 6. >=1 of the PINNED witness cosignatures verify over the SAME checkpoint;
+    //    ALL_PASS additionally requires the sigsum-generic-2025-1 2-of-3 QUORUM
+    //    (WITNESS_QUORUM_THRESHOLD) — a count against the RECORD'S OWN cosignatures,
+    //    never a retroactive demand for a specific witness (an old 2-witness record
+    //    still clears a 2-of-3 threshold with its original two).
     let witnessesOk = 0;
     const witnessResults = [];
     for (const cs of record.witness_cosignatures || []) {
@@ -409,14 +491,26 @@ async function main() {
     }
     results.witnessCosignaturesValid = witnessesOk;
     results.witnessCosignatureDetail = witnessResults;
+    results.witnessQuorumThreshold = WITNESS_QUORUM_THRESHOLD;
+    results.witnessQuorumMet = witnessesOk >= WITNESS_QUORUM_THRESHOLD;
 
-    results.ALL_PASS = results.checksumMatchesAnchoredHash && results.leafSignatureValid && results.inclusionProofValid && results.logSignatureValid;
+    results.ALL_PASS = results.checksumMatchesAnchoredHash && results.leafSignatureValid && results.inclusionProofValid
+      && results.logKeyPinned && results.logOriginMatchesPinned && results.logSignatureValid && results.witnessQuorumMet;
     console.log(JSON.stringify(results, null, 2));
     process.exit(results.ALL_PASS ? 0 : 1);
   }
 
   if (cmd === 'selftest') {
     let failures = 0;
+
+    // sigsum-generic-2025-1 pin shape: 2 logs, 3 witnesses, 2-of-3 quorum, every
+    // key a well-formed 32-byte (64-hex) Ed25519 public key.
+    const pinShapeOk = LOGS.length === 2 && WITNESSES.length === 3 && WITNESS_QUORUM_THRESHOLD === 2
+      && WITNESS_QUORUM_THRESHOLD <= WITNESSES.length
+      && LOGS.every((l) => /^[0-9a-f]{64}$/.test(l.keyHex))
+      && WITNESSES.every((w) => /^[0-9a-f]{64}$/.test(w.keyHex));
+    console.log(`[pin-shape] sigsum-generic-2025-1 constants well-formed: ${pinShapeOk ? 'PASS' : 'FAIL'}`);
+    if (!pinShapeOk) failures++;
 
     // Local Merkle sanity: build an 8-leaf tree with the SAME hashLeafNode/
     // hashInteriorNode used above, derive inclusion paths the naive way, and
