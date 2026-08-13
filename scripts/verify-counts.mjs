@@ -32,7 +32,7 @@ const write = (rel, txt) => writeFileSync(resolve(root, rel), txt, 'utf8')
 
 // ── 1. Derive counts ─────────────────────────────────────────────────────────
 
-const C = deriveCounts()
+const C = await deriveCounts()
 
 // ── 2. HTML comment sentinel scanner/fixer ───────────────────────────────────
 

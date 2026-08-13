@@ -303,7 +303,7 @@ const tocLinks = sections
   .join('\n');
 
 const totalToolRows = sections.reduce((n, s) => n + s.rows.length, 0);
-const counts = deriveCounts();
+const counts = await deriveCounts();
 const categoryCount = counts.categories; // SSOT: cat-heading spans in tools.html (does not include rbe, matches counts.mjs doctrine)
 
 // ---------------------------------------------------------------------------

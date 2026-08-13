@@ -86,7 +86,7 @@ function checkFile(relPath, checks) {
 let drifted = 0;
 
 // Authoritative counts from counts.mjs (SSOT)
-const C = deriveCounts();
+const C = await deriveCounts();
 
 // mcp.html — workflow recipe count
 // Cross-check: DOM count must match counts.mjs

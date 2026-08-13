@@ -61,8 +61,8 @@ function collectGuides(repo) {
     });
 }
 
-function renderBody() {
-  const counts = deriveCounts();
+async function renderBody() {
+  const counts = await deriveCounts();
   const chaingraph = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
   const liveNodes = (chaingraph.nodes ?? []).filter((n) => n.status === 'live');
   const chains = chaingraph.chains ?? [];
@@ -117,9 +117,9 @@ function renderBody() {
   return lines.join('\n') + '\n';
 }
 
-function main() {
+async function main() {
   const check = process.argv.includes('--check');
-  const next = renderBody();
+  const next = await renderBody();
   if (check) {
     let current = '';
     try { current = readFileSync(OUT_PATH, 'utf8'); } catch { /* not written yet */ }
@@ -134,4 +134,4 @@ function main() {
   console.log('gen-llms-full: llms-full.txt regenerated (' + next.split('\n').length + ' lines).');
 }
 
-main();
+await main();
