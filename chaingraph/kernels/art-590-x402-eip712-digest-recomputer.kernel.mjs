@@ -7,7 +7,12 @@ import { executionHash } from './_hash.mjs';
 // section 3: reuse the existing vendored bundle, no second copy). This kernel needs only
 // keccak_256 (no ECDSA), so only the hashes-side utils/u64/sha3 sections are inlined here
 // -- byte-identical to the corresponding lines of _noble-secp256k1.bundle.mjs, verbatim,
-// not hand-edited. Inlined rather than imported per RIDER-KERNEL #6 / the art-476 lesson:
+// not hand-edited -- EXCEPT `utf8ToBytes`, which this file and art-595-ap2-cartmandate-
+// hashchain-builder.kernel.mjs both patch identically away from the pristine vendored
+// source (see its own comment, ART595-ART590-UTF8-FIX-1-2026-08-13): the original called
+// `new TextEncoder()`, which the zkVM guest does not reliably provide, so both copies now
+// use a validated pure-JS UTF-8 encoder instead. Every other function here is unmodified
+// vendored source. Inlined rather than imported per RIDER-KERNEL #6 / the art-476 lesson:
 // the chaingraph/vm QuickJS guest's ESM-strip only expects a kernel to import from
 // ./_hash.mjs, and compute() must stay fully synchronous.
 // License: MIT, (c) Paul Miller paulmillr.com. Full text:
@@ -427,7 +432,46 @@ const nextTick = async () => { };
 function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new TypeError('string expected');
-    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+    // Was `new Uint8Array(new TextEncoder().encode(str))`. Replaced -- the zkVM guest does not
+    // reliably provide TextEncoder (ART595-GUEST-ERROR-1-2026-08-13.md; ART595-ART590-UTF8-FIX-1
+    // -2026-08-13.md's own harness probe additionally showed art-587's non-empty-input
+    // TextEncoder calls fail identically once actually reached, so a lazy-init-only fix here
+    // would very likely reproduce the same crash one level down -- see this kernel's own
+    // ART595-ART590-UTF8-FIX-1 note below on why this file gets BOTH fixes, not lazy-init
+    // alone). Pure-JS UTF-8 encoder, validated byte-identical to TextEncoder.encode across
+    // ASCII, 2/3/4-byte sequences, surrogate pairs, and lone surrogates (which TextEncoder
+    // replaces with U+FFFD, reproduced here) -- 22 named cases + 20,000 randomized fuzz cases
+    // against Node's native TextEncoder, zero mismatches.
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code >= 0xd800 && code <= 0xdbff) {
+            const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+            if (next >= 0xdc00 && next <= 0xdfff) {
+                code = (code - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000;
+                i++;
+            }
+            else {
+                code = 0xfffd; // unpaired high surrogate
+            }
+        }
+        else if (code >= 0xdc00 && code <= 0xdfff) {
+            code = 0xfffd; // lone low surrogate
+        }
+        if (code < 0x80) {
+            bytes.push(code);
+        }
+        else if (code < 0x800) {
+            bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+        }
+        else if (code < 0x10000) {
+            bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+        else {
+            bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+    }
+    return Uint8Array.from(bytes);
 }
 /**
  * Helper for KDFs: consumes Uint8Array or string.
@@ -1075,21 +1119,32 @@ const keccak_512 = /* @__PURE__ */ genKeccak(0x01, 72, 64);
 // malformed-input handling already established in this estate).
 //
 // Two typehash constants below are keccak256 of fixed, byte-for-byte public-spec strings; each
-// is self-checked at module load against an independently-confirmed reference value (EIP712Domain
-// typehash: standard, cited across ethers.js/OpenZeppelin; TransferWithAuthorization typehash:
-// confirmed 2026-08-10 against Circle's production circlefin/stablecoin-evm EIP3009.sol source).
-// A mismatch throws at load time rather than silently signing the wrong digest.
+// is self-checked against an independently-confirmed reference value (EIP712Domain typehash:
+// standard, cited across ethers.js/OpenZeppelin; TransferWithAuthorization typehash: confirmed
+// 2026-08-10 against Circle's production circlefin/stablecoin-evm EIP3009.sol source). A
+// mismatch throws rather than silently signing the wrong digest.
+//
+// Built INSIDE compute() (via _buildAndVerifyEip712Typehashes() below), not at module top
+// level, matching art-607's lazy-init pattern (ART607-EAGER-INIT-FIX-1-2026-08-13,
+// board/RIDER-KERNEL.md): the original module-top-level `const EIP712DOMAIN_TYPEHASH =
+// keccak_256(utf8ToBytes(...))` called TextEncoder before compute() ever runs, which is
+// exactly art-607's eager-top-level bug shape (ART595-GUEST-ERROR-1-2026-08-13.md found this
+// PRE-EMPTIVELY, before any GPU attempt). The two self-check IIFEs moved with it, since they
+// also called utf8ToBytes('Ether Mail')/utf8ToBytes('1') at module scope.
 
 const EIP712DOMAIN_TYPE_STRING = 'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)';
 const TRANSFER_WITH_AUTHORIZATION_TYPE_STRING = 'TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)';
 
-const EIP712DOMAIN_TYPEHASH = keccak_256(utf8ToBytes(EIP712DOMAIN_TYPE_STRING));
-const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak_256(utf8ToBytes(TRANSFER_WITH_AUTHORIZATION_TYPE_STRING));
-
 const EIP712DOMAIN_TYPEHASH_EXPECT = '8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f';
 const TRANSFER_WITH_AUTHORIZATION_TYPEHASH_EXPECT = '7c7c6cdb67a18743f49ec6fa9b35f50d52ed05cbed4cc592e13b44501c1a2267';
 
-(function _typehashSelfCheck() {
+// Rebuilt (not memoized) on every compute() call, matching art-606's/art-607's pattern --
+// cheap (a handful of keccak_256 calls over short fixed strings), and avoids any module-level
+// mutable state. Throws if either self-check fails, exactly as the former top-level IIFEs did.
+function _buildAndVerifyEip712Typehashes() {
+  const EIP712DOMAIN_TYPEHASH = keccak_256(utf8ToBytes(EIP712DOMAIN_TYPE_STRING));
+  const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak_256(utf8ToBytes(TRANSFER_WITH_AUTHORIZATION_TYPE_STRING));
+
   const a = bytesToHex_(EIP712DOMAIN_TYPEHASH);
   if (a !== EIP712DOMAIN_TYPEHASH_EXPECT) {
     throw new Error('art-590 EIP712Domain typehash self-check FAILED: got ' + a + ' expected ' + EIP712DOMAIN_TYPEHASH_EXPECT);
@@ -1098,13 +1153,11 @@ const TRANSFER_WITH_AUTHORIZATION_TYPEHASH_EXPECT = '7c7c6cdb67a18743f49ec6fa9b3
   if (b !== TRANSFER_WITH_AUTHORIZATION_TYPEHASH_EXPECT) {
     throw new Error('art-590 TransferWithAuthorization typehash self-check FAILED: got ' + b + ' expected ' + TRANSFER_WITH_AUTHORIZATION_TYPEHASH_EXPECT);
   }
-})();
 
-// Independent, spec-official known-answer test for the domain-separator ABI encoding itself
-// (the "Ether Mail" example from the EIP-712 spec's own reference Example.sol -- domain
-// separator computation is identical regardless of which typed struct is signed, so this
-// checks the encoding path this kernel shares, not a TransferWithAuthorization-specific value).
-(function _domainSeparatorSelfCheck() {
+  // Independent, spec-official known-answer test for the domain-separator ABI encoding itself
+  // (the "Ether Mail" example from the EIP-712 spec's own reference Example.sol -- domain
+  // separator computation is identical regardless of which typed struct is signed, so this
+  // checks the encoding path this kernel shares, not a TransferWithAuthorization-specific value).
   const ds = keccak_256(concatBytes_(
     EIP712DOMAIN_TYPEHASH,
     keccak_256(utf8ToBytes('Ether Mail')),
@@ -1112,12 +1165,14 @@ const TRANSFER_WITH_AUTHORIZATION_TYPEHASH_EXPECT = '7c7c6cdb67a18743f49ec6fa9b3
     _uint256Word(1n),
     _addressWord('0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC'),
   ));
-  const expect = 'f2cee375fa42b42143804025fc449deafd50cc031ca257e0b194a650a912090f';
-  const got = bytesToHex_(ds);
-  if (got !== expect) {
-    throw new Error('art-590 EIP-712 domain-separator self-check FAILED (Ether Mail spec vector): got ' + got + ' expected ' + expect);
+  const dsExpect = 'f2cee375fa42b42143804025fc449deafd50cc031ca257e0b194a650a912090f';
+  const dsGot = bytesToHex_(ds);
+  if (dsGot !== dsExpect) {
+    throw new Error('art-590 EIP-712 domain-separator self-check FAILED (Ether Mail spec vector): got ' + dsGot + ' expected ' + dsExpect);
   }
-})();
+
+  return { EIP712DOMAIN_TYPEHASH, TRANSFER_WITH_AUTHORIZATION_TYPEHASH };
+}
 
 function _stripHexPrefix(hex) {
   const s = String(hex ?? '');
@@ -1202,6 +1257,7 @@ export const meta = {
 export function compute(pp) {
   pp = (pp !== null && typeof pp === 'object') ? pp : {};
   const reasons = [];
+  const { EIP712DOMAIN_TYPEHASH, TRANSFER_WITH_AUTHORIZATION_TYPEHASH } = _buildAndVerifyEip712Typehashes();
 
   const name = (typeof pp.name === 'string' && pp.name.length > 0) ? pp.name : null;
   const version = (typeof pp.version === 'string' && pp.version.length > 0) ? pp.version : null;

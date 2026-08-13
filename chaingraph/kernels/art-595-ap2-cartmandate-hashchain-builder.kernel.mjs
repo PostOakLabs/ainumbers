@@ -18,7 +18,11 @@ const cgCanon = (v) =>
 // reason art-590 re-inlines it (RIDER-KERNEL #6 / the art-476 lesson: the chaingraph/vm QuickJS
 // guest's ESM-strip only expects a kernel to import from ./_hash.mjs, and compute() must stay
 // fully synchronous). Byte-identical to chaingraph/kernels/art-590-x402-eip712-digest-recomputer
-// .kernel.mjs's copy of the same block, not hand-edited.
+// .kernel.mjs's copy of the same block, not hand-edited -- EXCEPT `utf8ToBytes`, which both
+// files patch identically away from the pristine vendored source (see its own comment,
+// ART595-ART590-UTF8-FIX-1-2026-08-13): the original called `new TextEncoder()`, which the
+// zkVM guest does not reliably provide, so both copies now use a validated pure-JS UTF-8
+// encoder instead. Every other function in this block is unmodified vendored source.
 // License: MIT, (c) Paul Miller paulmillr.com. Full text:
 // https://github.com/paulmillr/noble-hashes/blob/main/LICENSE
 
@@ -150,7 +154,43 @@ function hexToBytes_(hex) {
 function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new TypeError('string expected');
-    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+    // Was `new Uint8Array(new TextEncoder().encode(str))`. Replaced -- the zkVM guest does not
+    // provide a working TextEncoder at this call site (ART595-GUEST-ERROR-1-2026-08-13.md,
+    // confirmed with the real proving stack trace: utf8ToBytes -> _canonBytes -> compute).
+    // Pure-JS UTF-8 encoder, validated byte-identical to TextEncoder.encode across ASCII,
+    // 2/3/4-byte sequences, surrogate pairs, and lone surrogates (which TextEncoder replaces
+    // with U+FFFD, reproduced here) -- 22 named cases + 20,000 randomized fuzz cases against
+    // Node's native TextEncoder, zero mismatches (ART595-ART590-UTF8-FIX-1-2026-08-13).
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code >= 0xd800 && code <= 0xdbff) {
+            const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+            if (next >= 0xdc00 && next <= 0xdfff) {
+                code = (code - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000;
+                i++;
+            }
+            else {
+                code = 0xfffd; // unpaired high surrogate
+            }
+        }
+        else if (code >= 0xdc00 && code <= 0xdfff) {
+            code = 0xfffd; // lone low surrogate
+        }
+        if (code < 0x80) {
+            bytes.push(code);
+        }
+        else if (code < 0x800) {
+            bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+        }
+        else if (code < 0x10000) {
+            bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+        else {
+            bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+    }
+    return Uint8Array.from(bytes);
 }
 function concatBytes_(...arrays) {
     let sum = 0;
