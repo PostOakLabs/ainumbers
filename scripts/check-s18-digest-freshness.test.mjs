@@ -395,9 +395,21 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // its kernel bytes. Stale therefore does not move: art-129 out, art-284 in, net zero.
   // Measured both sides, not assumed: 453/570 fresh + 117 stale before this row's assemble,
   // 458/575 fresh + 117 stale after.
-  assert(total === 575, `expected 575 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 458, `expected 458 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 117, `expected 117 stale (art-129 cleared, art-284 entered, ASSEMBLE-LAND-BATCH-0811-B), got ${stale.length}`);
+  // 575 -> 581 post-ASSEMBLE-LAND-BATCH-0811-C (2026-08-13): the batch assembled the 6 nodes that
+  // PROVE-8-DEFERRED-0812-1 actually proved -- art-597, art-599, art-600, art-602, art-603 and
+  // art-609 -- each carrying a groth16 compute_proof from held draft #1216, merged locally into
+  // this land. Denominator moves by exactly 6. art-595 and art-598 were deliberately LEFT AS
+  // SHARDS (both unproven; assembling all 8 would take the deferred gpu:false count to 5 against a
+  // pinned ceiling of 3), so they are not in the denominator at all. All 6 enter the FRESH set by
+  // construction -- compute_proof_ready flips deferred->ready with no prior receipt on main, and
+  // each receipt was written against the kernel it proves -- so fresh moves by exactly 6 and the
+  // stale count does not move. art-607 also landed in this push (held draft #1215, the eager-init
+  // fix) but it stays deferred and unproven, so it is outside this gate's denominator entirely.
+  // Measured both sides, not assumed: 458/575 fresh + 117 stale on the base commit dd9adac9,
+  // 464/581 fresh + 117 stale after.
+  assert(total === 581, `expected 581 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 464, `expected 464 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 117, `expected 117 stale (unchanged -- the 6 assembled nodes all enter fresh, ASSEMBLE-LAND-BATCH-0811-C), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

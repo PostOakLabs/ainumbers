@@ -1084,12 +1084,17 @@ function _eip1967Slot(label) {
   return _bigIntToHex32(_bytesToBigInt(digest) - 1n);
 }
 
-const KNOWN_EIP1967_SLOTS = {
-  implementation: _eip1967Slot('eip1967.proxy.implementation'),
-  admin: _eip1967Slot('eip1967.proxy.admin'),
-  beacon: _eip1967Slot('eip1967.proxy.beacon'),
-  rollback: _eip1967Slot('eip1967.proxy.rollback'),
-};
+// Built inside compute() (not at module top level) because _eip1967Slot() calls
+// TextEncoder via utf8ToBytes() -- the zkVM guest has no TextEncoder at top-level
+// eval, only lazily once compute() runs. Matches art-606's pattern.
+function _buildKnownEip1967Slots() {
+  return {
+    implementation: _eip1967Slot('eip1967.proxy.implementation'),
+    admin: _eip1967Slot('eip1967.proxy.admin'),
+    beacon: _eip1967Slot('eip1967.proxy.beacon'),
+    rollback: _eip1967Slot('eip1967.proxy.rollback'),
+  };
+}
 
 function _normalizeHex32(v) {
   if (typeof v !== 'string') return null;
@@ -1142,6 +1147,7 @@ const NOT_PROVEN = [
 export function compute(pp) {
   pp = (pp !== null && typeof pp === 'object') ? pp : {};
   const reasons = [];
+  const knownEip1967Slots = _buildKnownEip1967Slots();
 
   const declaredSlotRaw = pp.declared_slot;
   const declaredSlot = _normalizeHex32(declaredSlotRaw);
@@ -1170,7 +1176,7 @@ export function compute(pp) {
         classification_summary: 'Input validation failed -- see finding detail.',
         embedded_address: null,
         embedded_address_checksummed: null,
-        known_eip1967_slots: KNOWN_EIP1967_SLOTS,
+        known_eip1967_slots: knownEip1967Slots,
         not_proven: NOT_PROVEN,
         scope_note: SCOPE_NOTE,
       },
@@ -1178,7 +1184,7 @@ export function compute(pp) {
     };
   }
 
-  const matchedRole = Object.keys(KNOWN_EIP1967_SLOTS).find((role) => KNOWN_EIP1967_SLOTS[role] === declaredSlot) || null;
+  const matchedRole = Object.keys(knownEip1967Slots).find((role) => knownEip1967Slots[role] === declaredSlot) || null;
   const slotVerdict = matchedRole !== null ? 'CONSISTENT' : 'INCONSISTENT';
   const slotDetail = matchedRole !== null
     ? 'declared_slot matches the canonical EIP-1967 "' + matchedRole + '" slot.'
@@ -1232,7 +1238,7 @@ export function compute(pp) {
     classification_summary: classificationSummary,
     embedded_address: embeddedAddress,
     embedded_address_checksummed: embeddedAddressChecksummed,
-    known_eip1967_slots: KNOWN_EIP1967_SLOTS,
+    known_eip1967_slots: knownEip1967Slots,
     not_proven: NOT_PROVEN,
     scope_note: SCOPE_NOTE,
   };

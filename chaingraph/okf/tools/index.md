@@ -536,12 +536,18 @@ status: stable
 - [x402 Domain & Nonce Window Checker](./art-592-x402-domain-nonce-window-checker.md) — `check_x402_domain_nonce_window`
 - [Web Bot Auth Nonce & Replay-Window Checker](./art-593-webbotauth-nonce-replay-check.md) — `check_webbotauth_nonce_replay`
 - [Tempo MPP Voucher & Receipt Verifier](./art-594-tempo-mpp-voucher-receipt-verifier.md) — `verify_tempo_mpp_voucher`
+- [C2PA AI/ML Assertion Decoder](./art-597-c2pa-aiml-assertion-decoder.md) — `decode_c2pa_aiml_assertions`
+- [GLEIF Snapshot Digest](./art-599-gleif-snapshot-digest.md) — `digest_gleif_snapshot`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
+- [LEI Relationship Consistency Checker](./art-600-lei-relationship-consistency.md) — `check_lei_relationship_consistency`
+- [MiCA Register Presence Check](./art-602-mica-register-presence-check.md) — `check_mica_register_presence`
+- [Stablecoin Reserve 3-Source Recompute](./art-603-stablecoin-reserve-3source-recompute.md) — `recompute_stablecoin_reserve_3source`
 - [ERC-8004 Registry Entry Verifier](./art-604-erc8004-registry-entry-verifier.md) — `verify_erc8004_registry_entry`
 - [Merkle Airdrop-Proof Verifier](./art-605-merkle-airdrop-proof-verifier.md) — `verify_merkle_airdrop_proof`
 - [ERC-165 Interface ID Verifier](./art-606-erc165-interface-id-verifier.md) — `verify_erc165_interface_id`
 - [ERC-1967 Proxy Slot Classifier](./art-607-erc1967-proxy-slot-classifier.md) — `classify_erc1967_proxy_slot`
 - [ERC-2981 Royalty Calculator](./art-608-erc2981-royalty-calculator.md) — `calculate_erc2981_royalty`
+- [JWKS Pinned-Directory Check](./art-609-jwks-pinned-directory-check.md) — `check_jwks_pinned_directory`
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`
 - [ERC-4626 Vault Share Math](./art-610-erc4626-vault-share-math.md) — `recompute_erc4626_vault_share_math`
 - [ERC-7540 Async-Vault Request Accounting](./art-611-erc7540-async-vault-request-accounting.md) — `recompute_erc7540_request_accounting`
