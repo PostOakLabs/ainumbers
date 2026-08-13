@@ -1,6 +1,12 @@
 // art-598-input-attestation-verifier.proptest.mjs — FV property-test FLOOR (FVFLOOR-BACKFILL-0811-1).
-// kernel_digest_at_authoring: sha256:3e19c015b178ae9d68bb18ee34fa47792b5ab8c2c7ae72440ed061382835e0a3
+// kernel_digest_at_authoring: sha256:88666175859cec277cf7e5ab8ff81475eb15e07e188f4d05c6f0b8139e5d075d
 // human_sign_off: PENDING
+//
+// RE-STAMPED (ART598-DEASYNC-1, 2026-08-13): the kernel's compute() was converted from async
+// (crypto.subtle) to synchronous (vendored noble ed25519 + inlined sha256) — see the kernel's own
+// ASYNC -> SYNC CONVERSION header comment. output_payload is demonstrated byte-identical for every
+// fixture vector against the pre-conversion kernel (ART598-DEASYNC-1 check-off), so this floor's
+// checks below did not need to change, only the digest header they pin to.
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md section 3, class C -- multi-format structural
 // verification with an async compute()). NOT a proof, NOT Dafny.
