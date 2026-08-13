@@ -1,5 +1,5 @@
 // art-590-x402-eip712-digest-recomputer property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-1).
-// kernel_digest_at_authoring: sha256:c7dd94ca90d22d3888355b61077df60c778983b3911097679024ad5798093605
+// kernel_digest_at_authoring: sha256:62dbc12bf0d0a66b089587f7c30ca10fa8ec5e33bed5d8867d9d7dfdba7b0b15
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,

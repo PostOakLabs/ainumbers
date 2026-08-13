@@ -1,5 +1,5 @@
 // art-607-erc1967-proxy-slot-classifier property-test floor (ETHMATH-RIDERS-1).
-// kernel_digest_at_authoring: sha256:cb03801af9357ed6b3898dae05c178a7a764302bbb4b1959ac2fa65bad1b065c
+// kernel_digest_at_authoring: sha256:ba2594899100c01f60407bceb4cf910240b5fd70113d1cd91236d1b0bfa1c896
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- inputs are a bounded (declared_slot,

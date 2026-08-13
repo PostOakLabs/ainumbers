@@ -1,5 +1,5 @@
 // art-594-tempo-mpp-voucher-receipt-verifier property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-2).
-// kernel_digest_at_authoring: sha256:4db1842bc9f674ac0c7f1039f1226c4ce9e91ce798e02470bd81a6ee6302ce3b
+// kernel_digest_at_authoring: sha256:00e2d09eedb43ff35d813340ab11a76e1d30d3774516fcc2293413a67804c15f
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,

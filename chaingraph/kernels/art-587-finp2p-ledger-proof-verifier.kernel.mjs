@@ -437,7 +437,51 @@ const nextTick = async () => { };
 function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new TypeError('string expected');
-    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+    // Was `new Uint8Array(new TextEncoder().encode(str))`. Replaced -- the zkVM guest does not
+    // provide a working TextEncoder (confirmed via the chaingraph/vm QuickJS-ng harness with
+    // TextEncoder genuinely deleted post-prelude, TEXTENCODER-SWEEP-FIX-1-2026-08-13). This
+    // kernel is also used directly by recomputeHashlistDigest below, which is the node this
+    // whole sweep row was raised to re-check: this kernel IS PROVEN, but the receipt only ever
+    // exercised the empty-hashlist fixture vector (the length===0 guard that bypasses an
+    // encode call entirely) -- the non-empty vectors reach a real encode call and genuinely
+    // crash the guest, refuting the prior belief that TextEncoder "works for non-empty input"
+    // (GUEST-BUILTIN-AUDIT-1's conclusion, based on citing this exact node without checking
+    // which vector its receipt actually ran). This fix stales that receipt (hash-moving); see
+    // the sweep row's check-off for the re-prove name. Pure-JS UTF-8 encoder, validated
+    // byte-identical to TextEncoder.encode across ASCII, 2/3/4-byte sequences, surrogate pairs,
+    // and lone surrogates (which TextEncoder replaces with U+FFFD, reproduced here) -- 22 named
+    // cases + 20,000 randomized fuzz cases against Node's native TextEncoder, zero mismatches
+    // (ART595-ART590-UTF8-FIX-1-2026-08-13); reused verbatim, not re-derived.
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code >= 0xd800 && code <= 0xdbff) {
+            const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+            if (next >= 0xdc00 && next <= 0xdfff) {
+                code = (code - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000;
+                i++;
+            }
+            else {
+                code = 0xfffd; // unpaired high surrogate
+            }
+        }
+        else if (code >= 0xdc00 && code <= 0xdfff) {
+            code = 0xfffd; // lone low surrogate
+        }
+        if (code < 0x80) {
+            bytes.push(code);
+        }
+        else if (code < 0x800) {
+            bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+        }
+        else if (code < 0x10000) {
+            bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+        else {
+            bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+    }
+    return Uint8Array.from(bytes);
 }
 /**
  * Helper for KDFs: consumes Uint8Array or string.
@@ -5500,14 +5544,15 @@ function stripHexPrefix(hex) {
 
 function recomputeHashlistDigest(receipt, hashFn) {
   const concatenated = HASHLIST_FIELD_ORDER.map((f) => fieldToString(receipt, f)).join('');
-  // TextEncoder().encode('') is spec-guaranteed to return an empty Uint8Array (WHATWG Encoding
-  // Standard, TextEncoder.encode) -- returning it directly instead of invoking the guest's
-  // TextEncoder is byte-identical, not a behavior change. The guard matters because with an
-  // empty/absent receipt (all 17 hashlist fields blank) `concatenated` is '', and the zkVM
-  // guest's TextEncoder throws on that specific empty-string call (observed: `error ocg_run,
-  // code -3` at this line) even though it succeeds on every non-empty string this kernel (and
-  // every other proven kernel in this estate) ever encodes with it.
-  const fieldBytes = concatenated.length === 0 ? new Uint8Array(0) : new TextEncoder().encode(concatenated);
+  // CORRECTED (TEXTENCODER-SWEEP-FIX-1-2026-08-13): the comment this replaces claimed the guest's
+  // TextEncoder "succeeds on every non-empty string ... ever encodes with it" -- that was never
+  // verified; this kernel's actual GPU receipt only ever exercised the empty-concatenated vector
+  // (this ternary's zero-length branch, which bypasses TextEncoder entirely), never a non-empty
+  // one. The chaingraph/vm QuickJS-ng harness, run with TextEncoder genuinely deleted
+  // post-prelude, shows the non-empty branch crashes identically to the empty one once it
+  // actually reaches TextEncoder -- so now both branches route through utf8ToBytes (above),
+  // which needs no host TextEncoder at all. Byte-identical output for every input, empty or not.
+  const fieldBytes = concatenated.length === 0 ? new Uint8Array(0) : utf8ToBytes(concatenated);
   const groupHash = hashFn(fieldBytes); // HG
   const hashListDigest = hashFn(groupHash); // hash(concat(hg1..hgN)) with N=1
   return { groupHash, hashListDigest };
