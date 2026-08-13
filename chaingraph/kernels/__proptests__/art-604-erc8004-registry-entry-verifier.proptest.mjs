@@ -1,5 +1,5 @@
 // art-604-erc8004-registry-entry-verifier property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-2).
-// kernel_digest_at_authoring: sha256:a0d0d7841adf813cd204e4b35ef5e8b236cd59a8e0a694f3b18fde392e66c789
+// kernel_digest_at_authoring: sha256:1da61365399f5cf6ccd435e837f00981a4c6f9ebd9264d0d0641bda3f38091bc
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,

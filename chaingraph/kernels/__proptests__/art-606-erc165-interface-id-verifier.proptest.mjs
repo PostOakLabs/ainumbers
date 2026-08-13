@@ -1,5 +1,5 @@
 // art-606-erc165-interface-id-verifier property-test floor (ETHMATH-RIDERS-1).
-// kernel_digest_at_authoring: sha256:e9bf71524d892d2d322265654d818f55036d8070b3ba6a2861d38c39843708d2
+// kernel_digest_at_authoring: sha256:4e23a23b5e2ec1ba559f1dc3c84e9e352b8006df0c0049b25a218cf70c88fede
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- inputs are a bounded declared list of

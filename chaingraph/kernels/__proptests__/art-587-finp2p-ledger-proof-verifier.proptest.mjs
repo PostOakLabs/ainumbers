@@ -1,5 +1,5 @@
 // art-587-finp2p-ledger-proof-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C12-1).
-// kernel_digest_at_authoring: sha256:3c844292a3af41f9d432ae70b2573143e1de22d82b2ddda19f531d233ec06d5f
+// kernel_digest_at_authoring: sha256:013d4547171c799f950105160dcf639ae9f06ee466c67e2f8856ceac24217cc6
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
