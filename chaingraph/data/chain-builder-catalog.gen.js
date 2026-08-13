@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (594 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (600 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6222,6 +6222,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-597-c2pa-aiml-assertion-decoder",
+    "display_name": "C2PA AI/ML Assertion Decoder",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-597-c2pa-aiml-assertion-decoder.html",
+    "description": "Decodes AI/ML provenance assertions off a C2PA manifest's assertion array: ALL entries in every c2pa.actions/c2pa.actions.v2 assertion (a ma",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-599-gleif-snapshot-digest",
+    "display_name": "GLEIF Snapshot Digest",
+    "mandate_type": "cryptographic_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-599-gleif-snapshot-digest.html",
+    "description": "Hash-pins a pasted GLEIF Golden Copy record or file segment as of a caller-stated capture time, so a later reader can tell whether the entit",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-60-agent-economy-runtime-fit-diagnostic",
     "display_name": "Agent Economy Runtime Fit Diagnostic",
     "mandate_type": "agent_guardrail_mandate",
@@ -6236,6 +6256,36 @@ window.CHAINBUILDER_CATALOG = [
       "mms-03-app-fraud-graph",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-600-lei-relationship-consistency",
+    "display_name": "LEI Relationship Consistency Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-600-lei-relationship-consistency.html",
+    "description": "Checks four structural invariants over a pasted set of GLEIF Level-2 relationship records for one subject LEI: every startNode and endNode i",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-602-mica-register-presence-check",
+    "display_name": "MiCA Register Presence Check",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-602-mica-register-presence-check.html",
+    "description": "Answers one question about a pasted extract of an ESMA MiCA public register: was a named entity present in that snapshot on the date the rea",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-603-stablecoin-reserve-3source-recompute",
+    "display_name": "Stablecoin Reserve 3-Source Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-603-stablecoin-reserve-3source-recompute.html",
+    "description": "Recomputes reserve ratio, weighted-average maturity (WAM), and per-holding GENIUS eligible-asset match from three independently-sourced, cal",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -6286,6 +6336,20 @@ window.CHAINBUILDER_CATALOG = [
     "description": "Recomputes an ERC-2981 royalty amount as floor(sale_price * royalty_fraction_bps / 10000) -- the same integer-division convention the OpenZe",
     "consumes": [],
     "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-609-jwks-pinned-directory-check",
+    "display_name": "JWKS Pinned-Directory Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-609-jwks-pinned-directory-check.html",
+    "description": "Confirm a caller-supplied JWKS directory document matches a caller-pinned SHA-256 digest (sha256(canonicalize(directory_jwks)) === pinned_di",
+    "consumes": [
+      "art-129-webbotauth-signature-verifier"
+    ],
+    "feeds": [
+      "art-130-signature-directory-validator"
+    ],
     "status": "live"
   },
   {

@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-63"]
+tags: ["compliance_control", "count-66"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-63 tool(s) in this mandate-type group:
+66 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -72,6 +72,9 @@ status: stable
 - [x402 Domain & Nonce Window Checker](../tools/art-592-x402-domain-nonce-window-checker.md)
 - [Web Bot Auth Nonce & Replay-Window Checker](../tools/art-593-webbotauth-nonce-replay-check.md)
 - [Tempo MPP Voucher & Receipt Verifier](../tools/art-594-tempo-mpp-voucher-receipt-verifier.md)
+- [C2PA AI/ML Assertion Decoder](../tools/art-597-c2pa-aiml-assertion-decoder.md)
+- [LEI Relationship Consistency Checker](../tools/art-600-lei-relationship-consistency.md)
 - [ERC-8004 Registry Entry Verifier](../tools/art-604-erc8004-registry-entry-verifier.md)
 - [ERC-165 Interface ID Verifier](../tools/art-606-erc165-interface-id-verifier.md)
 - [ERC-1967 Proxy Slot Classifier](../tools/art-607-erc1967-proxy-slot-classifier.md)
+- [JWKS Pinned-Directory Check](../tools/art-609-jwks-pinned-directory-check.md)
