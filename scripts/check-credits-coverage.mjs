@@ -23,7 +23,7 @@ const covered = registry.vendored
   .flatMap(v => (v.paths && v.paths[repoId]) || [])
   .map(p => p.replace(/\\/g, '/'));
 
-const EXCLUDE_DIRS = new Set(['.git', 'node_modules', '.wt', '.wrangler', '.claude-worktrees', '.worktrees', 'bundled', 'dist']);
+const EXCLUDE_DIRS = new Set(['.git', 'node_modules', '.wt', '.wrangler', '.claude', '.claude-worktrees', '.worktrees', 'bundled', 'dist']);
 const VENDOR_PATH_RE = /(^|\/)vendored?\//i;
 const BUNDLE_FILE_RE = /\.bundle\.(mjs|js)$/i;
 
