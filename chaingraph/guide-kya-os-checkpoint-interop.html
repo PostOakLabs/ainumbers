@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KYA-OS / Checkpoint Interop Note: OCG Primitive Overlap (Informative, Non-Conformant) | AINumbers OpenChainGraph</title>
+<meta name="description" content="Informative note on where OpenChainGraph's shipped did:key/did:web, JCS, and Ed25519 primitives overlap with KYA-OS/Checkpoint's org.kya-os/response-proof ProofMeta shape, and which required fields OCG cannot populate today.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/guide-kya-os-checkpoint-interop.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="KYA-OS / Checkpoint Interop Note: OCG Primitive Overlap (Informative, Non-Conformant) | AINumbers OpenChainGraph">
+<meta property="og:description" content="Field-by-field note on OCG's overlap with KYA-OS/Checkpoint's ProofMeta shape. Not a conformant org.kya-os/response-proof emitter; documents what is sourceable and what is not.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/guide-kya-os-checkpoint-interop.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal-lt);background:var(--teal-dim);padding:.1em .35em;border-radius:3px}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+nav .in{max-width:1000px;margin:0 auto;width:100%;display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+nav b{color:var(--teal)}
+.hero{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--border2);border-radius:var(--radius-lg);padding:24px 26px;margin:18px 0}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+h1{font-size:1.7rem;color:var(--white);margin-bottom:10px;font-weight:600;font-family:'DM Serif Display',serif}
+.hero p{max-width:820px;color:var(--body)}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.25rem .6rem;border-radius:20px;background:rgba(20,184,166,.1);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.tag.gold{background:rgba(212,168,71,.08);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.tag.red{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.3)}
+.tag.green{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.3)}
+h2{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);margin:30px 0 6px;font-weight:400}
+.sub{color:var(--body);margin-bottom:14px;font-size:.86rem}
+.regime-hdr{background:linear-gradient(90deg,rgba(20,184,166,.08),transparent);border-left:3px solid var(--teal);padding:10px 14px;margin:24px 0 10px;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-lt)}
+.regime-law{font-size:.72rem;color:var(--body);margin-top:3px;font-family:'Sora',sans-serif;font-style:normal;text-transform:none;letter-spacing:0}
+.tbl-wrap{overflow-x:auto;margin:14px 0 24px}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead tr{background:var(--bg3);border-bottom:1px solid var(--border2)}
+thead th{text-align:left;padding:9px 12px;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.05em;font-weight:500;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:hover{background:rgba(20,184,166,.03)}
+td{padding:8px 12px;vertical-align:top;line-height:1.5}
+td:first-child{color:var(--bright);font-size:.78rem;white-space:nowrap}
+td:nth-child(2){color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+td:nth-child(3){color:var(--body);font-size:.75rem}
+.td-yes{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600}
+.td-cond{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600}
+.td-no{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600}
+.caveat-box{background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:12px 16px;margin:20px 0;font-size:.78rem;color:var(--body)}
+.caveat-box b{color:var(--red)}
+.caveat-box h3{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.warn-box{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25);padding:.4rem .75rem;border-radius:4px;margin-top:10px;display:inline-block}
+.distinct-box{background:rgba(20,184,166,.05);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:10px 14px;font-size:.78rem;color:var(--body);margin-top:12px}
+.distinct-box b{color:var(--teal-lt)}
+.spec-ladder{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--muted);line-height:2;margin:14px 0}
+.spec-ladder .h{color:var(--teal-lt)}
+.foot{margin-top:36px;border-top:1px solid var(--border);padding-top:16px;font-size:.78rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.ref-row{margin-bottom:8px}
+.ref-row b{color:var(--bright)}
+</style>
+</head>
+<body>
+<nav><div class="in"><span><span style="color:var(--teal)">AI</span>Numbers · OpenChainGraph</span><a href="chaingraph-hub.html">← Suite</a></div></nav>
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Interop Note · OpenChainGraph v0.4 · Informative, Non-Normative</div>
+    <h1>KYA-OS / Checkpoint Interop: What OCG's Shipped Primitives Overlap, and What They Don't</h1>
+    <p>For an integrator reading both specifications side by side. <a href="https://github.com/decentralized-identity/kya-os-mcp" target="_blank" rel="noopener">KYA-OS / Checkpoint</a> defines <code>org.kya-os/response-proof</code>, a signed <code>ProofMeta</code> object an MCP server can attach to a tool-call response to attest agent identity and session context. OpenChainGraph is a compute-identity and artifact-provenance standard, a different problem. This note states plainly where the two overlap at the primitive level (same signature family, same canonicalization) and where they do not (KYA-OS's required fields include session/handshake concepts OCG has no infrastructure for). It corrects an earlier internal review that scored more of the overlap as absent than the specification text actually supports.</p>
+    <div class="tags">
+      <span class="tag">KYA-OS SPEC.md v1.0.0 · Status: Stable</span>
+      <span class="tag">did:key / did:web · JCS RFC 8785 · Ed25519</span>
+      <span class="tag red">Not a conformant org.kya-os/response-proof emitter</span>
+      <span class="tag green">Informative note · not a SPEC.md subsection</span>
+    </div>
+    <div class="warn-box">NON-CONFORMANCE DISCLAIMER: this page does not describe, and OCG does not ship, a working <code>org.kya-os/response-proof</code> emitter. The KYA-OS <code>ProofMeta</code> object is schema-closed (<code>additionalProperties:false</code>) with seven required fields. Three of them, <code>nonce</code>, <code>audience</code>, <code>sessionId</code>, are session/handshake concepts bound to KYA-OS's own protocol exchange, and OCG has no equivalent infrastructure to populate them truthfully. A partial object does not validate against that schema. No reader should present an OCG artifact, or anything built from this note, to a KYA-OS verifier as a conformant proof.</div>
+  </div>
+
+  <h2>OCG is not a KYA-OS/Checkpoint proof source</h2>
+  <div class="sub">Stated first because it is the load-bearing fact of this note. OpenChainGraph secures the provenance of a compute artifact: the inputs, the output, the kernel that ran, and (optionally) who signed it. KYA-OS/Checkpoint secures a different thing: that a specific agent, in a specific authenticated session, made a specific tool call and got a specific response. Overlap in the underlying cryptography does not make these the same claim, and this note does not narrow that gap by asserting one.</div>
+
+  <h2>The primitive overlap is real, and ships zero new crypto dependency</h2>
+  <div class="sub">Both specifications converge on the same signature family independently. OCG's <a href="openchain-graph-spec.html">SPEC.md</a> already ships every primitive KYA-OS's <code>ProofMeta</code> needs for the fields it can populate:</div>
+  <div class="spec-ladder">
+<span class="h">did:key</span>            §9: recommended verificationMethod/keyid, a multicodec-prefixed base58btc Ed25519 public key (the z6Mk... form)
+<span class="h">did:web</span>            §16.4: for a stable institutional issuer, anchor to did:web over the publisher's domain, key in HSM/KMS, signing server-side (§12 compute path)
+<span class="h">JCS canonicalization</span>  §16.1: RFC 8785, the same kernels/_hash.mjs cgCanon used for §4 execution_hash, one canonicalization path, no second one
+<span class="h">Ed25519 signing</span>    §16: DataIntegrityProof, cryptosuite eddsa-jcs-2022, W3C Data Integrity 1.0
+  </div>
+  <div class="sub">No new key type, no new canonicalization, no new signature algorithm is required to populate the fields below marked sourceable. The overlap is a re-serialization of already-shipped material into KYA-OS's field names, not a new capability.</div>
+
+  <!-- Field-by-field table, content-identical to §2 of CHECKPOINT-RESCOPE-2026-08-11.md -->
+  <div class="regime-hdr">
+    org.kya-os/response-proof ProofMeta: field by field
+    <div class="regime-law">KYA-OS SPEC.md §7.2 · required: did, kid, ts, nonce, audience, sessionId, requestHash · responseHash conditional on outcome</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ProofMeta field</th>
+          <th>Sourceable from OCG?</th>
+          <th>Basis</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>did</td>
+          <td class="td-cond">SOURCEABLE, conditionally</td>
+          <td>SPEC.md §9 defines did:key as the recommended verificationMethod/keyid, already used for <code>signatures[].keyid</code> (§9) and for <code>audit_signature.proof.verificationMethod</code> (§16, Proof Binding). §16.4 names the server-signing case this export needs: a stable institutional issuer anchoring to did:web over the publisher's domain, key in HSM/KMS, signing server-side via the §12 compute path. That is a documented, already-specified pattern, not new infrastructure. Condition: only present when §16 Proof Binding is populated on the artifact, which is rare today (1 <code>verificationMethod</code> hit across the current graph, re-derived at publication time; most artifacts still lack it).</td>
+        </tr>
+        <tr>
+          <td>kid</td>
+          <td class="td-cond">SOURCEABLE, same condition as did</td>
+          <td>KYA-OS requires kid match the JWS protected header and resolve under the signer's key material. A did:key fragment (<code>did:key:z6Mk...#z6Mk...</code>) or the §16 verificationMethod value satisfies that structurally.</td>
+        </tr>
+        <tr>
+          <td>ts</td>
+          <td class="td-yes">SOURCEABLE</td>
+          <td>Trivial, computable at serve time.</td>
+        </tr>
+        <tr>
+          <td>requestHash</td>
+          <td class="td-yes">SOURCEABLE</td>
+          <td>Computable at serve time from the request.</td>
+        </tr>
+        <tr>
+          <td>responseHash</td>
+          <td class="td-yes">SOURCEABLE</td>
+          <td>Computable at serve time from the response; conditional on outcome per KYA-OS's own schema.</td>
+        </tr>
+        <tr>
+          <td>audience</td>
+          <td class="td-no">NOT SOURCEABLE as an artifact-derived value</td>
+          <td>Caller-supplied at export time would be the truthful route, not artifact sourcing. The worker has no authenticated caller identity today (no session/OAuth layer on MCP calls per current architecture), so filling this field would be the responder's own guess at a recipient, which is invented, not sourced. If the worker later gains authenticated MCP sessions, this becomes sourceable; today it is not.</td>
+        </tr>
+        <tr>
+          <td>sessionId</td>
+          <td class="td-no">NOT SOURCEABLE</td>
+          <td>No session concept exists at all, caller-supplied or otherwise. Genuinely absent infrastructure, not a documentation gap.</td>
+        </tr>
+        <tr>
+          <td>nonce</td>
+          <td class="td-no">NOT SOURCEABLE, as specified</td>
+          <td>A self-minted per-call random value satisfies the JSON Schema string type but not KYA-OS's replay-prevention semantics, which are bound to the <code>_kyaos</code> handshake. Filling it would be schema-legal and protocol-dishonest.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>The correction this note exists to make</h2>
+  <div class="distinct-box">An earlier internal review scored all five contested fields (did, kid, audience, sessionId, nonce) as absent. That scoring was itself incomplete for two of the five: <code>did</code> and <code>kid</code> are sourceable via a primitive OCG already ships and already uses elsewhere in the specification (§9 did:key, §16.4 did:web for server-side institutional signing). The gap that actually blocks a conformant <code>org.kya-os/response-proof</code> emitter is narrower than first scored, three required fields, not five, but it is still fatal to schema conformance: <code>additionalProperties:false</code> with three required keys structurally absent cannot validate as a partial object. Narrowing the gap does not close it.</div>
+
+  <h2>Three fields stay marked absent</h2>
+  <div class="caveat-box">
+    <h3>audience, sessionId, nonce: not invented, not approximated</h3>
+    All three are session/handshake concepts bound to KYA-OS's own protocol exchange, which OCG's current architecture does not implement. A self-minted value would be schema-legal (the JSON Schema type-checks) and protocol-dishonest (it would not carry the semantic guarantee KYA-OS's verifier expects). This note does not propose filling them, and no OCG artifact should be presented to a KYA-OS verifier claiming they are populated.
+  </div>
+
+  <h2>Re-opening a normative mapping</h2>
+  <div class="sub">A schema-conformant <code>org.kya-os/response-proof</code> emitter becomes possible only if the worker gains an authenticated MCP session layer that can genuinely populate <code>audience</code>, <code>sessionId</code>, and <code>nonce</code> per KYA-OS's handshake semantics. That is a separate, materially larger design decision, a session/authentication layer for the MCP worker, and is not recommended here as a prerequisite to chase. Until it exists, this note is the full extent of the interop story: a primitive overlap worth knowing about, not a bridge.</div>
+
+  <div class="foot">
+    <div class="ref-row">KYA-OS / Checkpoint: <a href="https://github.com/decentralized-identity/kya-os-mcp" target="_blank" rel="noopener">github.com/decentralized-identity/kya-os-mcp</a>, MIT license. SPEC.md v1.0.0, Status Stable, re-verified against the published repository at the time of this note's publication; the document itself carries no revision-date field.</div>
+    <div class="ref-row">RFC 8785 (JCS): <a href="https://www.rfc-editor.org/rfc/rfc8785" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc8785</a> · OCG SPEC.md §9 (party identity), §16 (Proof Binding): <a href="openchain-graph-spec.html">openchain-graph-spec.html</a>.</div>
+    <div style="margin-top:14px;font-size:.7rem">OpenChainGraph v0.4 &middot; <a href="chaingraph-hub.html">Suite</a> &middot; <a href="openchain-graph-spec.html">Spec v0.4</a> &middot; Zero PII &middot; CC BY 4.0</div>
+  </div>
+</div>
+</body></html>
