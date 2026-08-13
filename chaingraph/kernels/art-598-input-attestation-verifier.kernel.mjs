@@ -412,7 +412,43 @@ function hexToBytes(hex) {
 function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new TypeError('string expected');
-    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+    // Was `new Uint8Array(new TextEncoder().encode(str))`. Replaced -- the zkVM guest does not
+    // provide a working TextEncoder (TEXTENCODER-SWEEP-FIX-1-2026-08-13, refuting this same
+    // file's own prior comment below, which claimed the opposite). Pure-JS UTF-8 encoder,
+    // validated byte-identical to TextEncoder.encode across ASCII, 2/3/4-byte sequences,
+    // surrogate pairs, and lone surrogates (which TextEncoder replaces with U+FFFD, reproduced
+    // here) -- 22 named cases + 20,000 randomized fuzz cases against Node's native TextEncoder,
+    // zero mismatches (ART595-ART590-UTF8-FIX-1-2026-08-13); reused verbatim, not re-derived.
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code >= 0xd800 && code <= 0xdbff) {
+            const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+            if (next >= 0xdc00 && next <= 0xdfff) {
+                code = (code - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000;
+                i++;
+            }
+            else {
+                code = 0xfffd; // unpaired high surrogate
+            }
+        }
+        else if (code >= 0xdc00 && code <= 0xdfff) {
+            code = 0xfffd; // lone low surrogate
+        }
+        if (code < 0x80) {
+            bytes.push(code);
+        }
+        else if (code < 0x800) {
+            bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+        }
+        else if (code < 0x10000) {
+            bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+        else {
+            bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+    }
+    return Uint8Array.from(bytes);
 }
 /**
  * Helper for KDFs: consumes Uint8Array or string.
@@ -4256,13 +4292,19 @@ const cgCanon = (v) =>
 // vendored noble sha256 above instead of crypto.subtle.digest, and the vc-2.0 signature check
 // runs through vendored noble ed25519.verify (strict RFC 8032, zip215:false, matching
 // art-129/art-284's measured choice) instead of crypto.subtle.importKey/verify.
-// atob (used below by the rfc3161-snapshot DER reader) and TextEncoder are UNCHANGED and stay as
-// direct globals — GUEST-BUILTIN-AUDIT-1 (2026-08-13) found both already present and synchronous
-// on the guest (never Promise-based to begin with, so they were never the defect), and every
-// TextEncoder call in this file encodes JSON.stringify(...) output, which is never empty — the
-// one input shape that audit flagged as unverified for TextEncoder. compute() is fully
-// synchronous as of this conversion; only buildArtifact() (host/worker-only, never run in-guest)
-// still awaits executionHash.
+// atob (used below by the rfc3161-snapshot DER reader) is UNCHANGED and stays a direct global —
+// GUEST-BUILTIN-AUDIT-1 (2026-08-13) found it already present and synchronous on the guest
+// (never Promise-based to begin with, so it was never the defect). CORRECTED
+// (TEXTENCODER-SWEEP-FIX-1-2026-08-13): this comment previously also carried TextEncoder in
+// that "unchanged, already fine" claim, reasoning that every TextEncoder call in this file
+// encodes non-empty JSON.stringify(...) output, so the one input shape the audit flagged
+// (empty string) never applied here. That reasoning was never actually verified against the
+// guest -- the chaingraph/vm QuickJS-ng harness, run with TextEncoder genuinely deleted
+// post-prelude, shows this kernel's non-empty TextEncoder calls crash identically to the
+// empty-string case, on 3 of 5 fixture vectors. All three direct TextEncoder call sites below
+// now route through the vendored utf8ToBytes above instead, which needs no host TextEncoder.
+// compute() is fully synchronous as of the earlier ART598-DEASYNC-1 conversion; only
+// buildArtifact() (host/worker-only, never run in-guest) still awaits executionHash.
 
 const TOOL_ID = 'art-598-input-attestation-verifier';
 const TOOL_VERSION = '1.0.0';
@@ -4297,7 +4339,7 @@ function bytesToHex(bytes) {
 // SPEC.md §23 — SHA-256 of the cgCanon encoding of the resolved value. Same canon as executionHash.
 // SYNCHRONOUS: uses the vendored noble sha256 (above), not crypto.subtle — see ASYNC -> SYNC note.
 function canonicalDigestHex(value) {
-  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(value)));
+  const bytes = H_utils.utf8ToBytes(JSON.stringify(cgCanon(value)));
   return bytesToHex(sha256(bytes));
 }
 
@@ -4431,8 +4473,8 @@ function checkVc20(entry, resolvedDigestHex) {
   try {
     const pub = didKeyToEd25519PublicKey(proof.verificationMethod);
     const { proofValue, ...proofOpts } = proof;
-    const optHash = sha256(new TextEncoder().encode(JSON.stringify(cgCanon(proofOpts))));
-    const docHash = sha256(new TextEncoder().encode(JSON.stringify(cgCanon(bare))));
+    const optHash = sha256(H_utils.utf8ToBytes(JSON.stringify(cgCanon(proofOpts))));
+    const docHash = sha256(H_utils.utf8ToBytes(JSON.stringify(cgCanon(bare))));
     const toSign = new Uint8Array(optHash.length + docHash.length);
     toSign.set(optHash, 0); toSign.set(docHash, optHash.length);
     const sig = b58decode(proofValue.slice(1));
