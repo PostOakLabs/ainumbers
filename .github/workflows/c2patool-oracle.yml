@@ -1,0 +1,85 @@
+name: c2patool Differential Oracle
+
+# Compares art-598's C2PA input-attestation verifier
+# (chaingraph/kernels/art-598-input-attestation-verifier.kernel.mjs) against c2patool
+# (contentauth/c2pa-rs), the reference C2PA implementation, over a small fixture corpus.
+# A divergence not covered by scripts/c2patool-oracle-allowlist.json fails the run.
+#
+# c2patool is a CI-only comparison instrument, never a runtime dependency (site zero-dep
+# policy governs product code, not this gate — same trust tier as the pinned QuickJS
+# binary in cross-engine-parity.yml). Binary is downloaded from a PINNED release and
+# sha256-verified before use. Update deliberately: download the new version, run
+# sha256sum on the linux tarball, update C2PATOOL_VERSION/C2PATOOL_SHA256 below.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'chaingraph/kernels/art-598-input-attestation-verifier.kernel.mjs'
+      - 'scripts/c2patool-oracle-compare.mjs'
+      - 'scripts/c2patool-oracle-allowlist.json'
+      - '.github/workflows/c2patool-oracle.yml'
+  pull_request:
+    # DRAFTCI pattern (see cross-engine-parity.yml): expected-red shard/kernel PRs open
+    # as drafts; skip them below, ready_for_review + push-to-main remain the backstops.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'chaingraph/kernels/art-598-input-attestation-verifier.kernel.mjs'
+      - 'scripts/c2patool-oracle-compare.mjs'
+      - 'scripts/c2patool-oracle-allowlist.json'
+      - '.github/workflows/c2patool-oracle.yml'
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+  C2PATOOL_VERSION: '0.27.12'
+  # sha256 of c2patool-v${C2PATOOL_VERSION}-x86_64-unknown-linux-gnu.tar.gz.
+  # To update: download the new release asset, run sha256sum, paste the digest here.
+  C2PATOOL_SHA256: '167b8f68959f5c994523a1f8278b52d39700c97ddaf26d079a5299bc11b5d09e'
+
+jobs:
+  oracle:
+    name: c2pa-manifest differential oracle
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download c2patool v${{ env.C2PATOOL_VERSION }} (pinned)
+        run: |
+          curl -fsSL \
+            "https://github.com/contentauth/c2pa-rs/releases/download/c2patool-v${{ env.C2PATOOL_VERSION }}/c2patool-v${{ env.C2PATOOL_VERSION }}-x86_64-unknown-linux-gnu.tar.gz" \
+            -o c2patool.tar.gz
+
+      - name: Verify c2patool tarball sha256
+        run: |
+          ACTUAL=$(sha256sum c2patool.tar.gz | awk '{print $1}')
+          EXPECTED="${{ env.C2PATOOL_SHA256 }}"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "✗ c2patool tarball sha256 mismatch! Supply-chain integrity check FAILED."
+            echo "  expected: $EXPECTED"
+            echo "  actual:   $ACTUAL"
+            exit 1
+          fi
+          echo "✓ c2patool tarball sha256 verified."
+
+      - name: Extract c2patool
+        run: |
+          tar -xzf c2patool.tar.gz
+          chmod +x c2patool/c2patool
+
+      - name: Run differential oracle
+        run: node scripts/c2patool-oracle-compare.mjs "$(pwd)/c2patool/c2patool" "$(pwd)/c2patool/sample/image.jpg"
