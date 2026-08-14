@@ -15,12 +15,13 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
   - `chaingraph/kernels/_noble-bn254.bundle.mjs`
   - `chaingraph/kernels/_noble-ed25519.bundle.mjs`
 
-## @noble/post-quantum (ML-DSA)
+## @noble/post-quantum (ML-DSA + SLH-DSA)
 
 - **Version:** 0.6.1
 - **License:** MIT
 - **Upstream:** https://github.com/paulmillr/noble-post-quantum
 - **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** CREDITS re-pass 2026-08-14 (PQC-REANCHOR-BUILD-1): SLH-DSA (FIPS 205) added to repo/chaingraph/kernels/_proof.mjs from the same already-approved v0.6.1 tarball as the ML-DSA entry above — completing the existing pull, not a new package/version.
 - **Path(s) in this repo:**
   - `chaingraph/kernels/_proof.mjs`
   - `chaingraph/kernels/art-424-witness-cosignature-verifier.kernel.mjs`

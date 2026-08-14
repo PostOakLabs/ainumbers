@@ -3147,7 +3147,7 @@ export async function verifyProofs(artifact, resolveKey) {
     if (i === -1) return false;                   // missing id or dependency cycle
     const proof = pending.splice(i, 1)[0];
     if (!proof || proof.type !== 'DataIntegrityProof') return false;
-    if (proof.cryptosuite !== CRYPTOSUITE && proof.cryptosuite !== MLDSA_CRYPTOSUITE) return false;
+    if (proof.cryptosuite !== CRYPTOSUITE && proof.cryptosuite !== MLDSA_CRYPTOSUITE && proof.cryptosuite !== SLHDSA_CRYPTOSUITE) return false;
     if (proof.proofPurpose !== 'assertionMethod' || typeof proof.proofValue !== 'string' || proof.proofValue[0] !== 'z') return false;
     if (prevIds(proof).some((id) => !ids.has(id))) return false;
     // §PQC-1: opts built from the proof's OWN cryptosuite (may be eddsa-jcs-2022 or the §PQC-1 ML-DSA
@@ -3162,6 +3162,8 @@ export async function verifyProofs(artifact, resolveKey) {
       const digest = await hashDataForDoc(doc, opts);
       const ok = proof.cryptosuite === CRYPTOSUITE
         ? await globalThis.crypto.subtle.verify('Ed25519', publicKey, sig, digest)
+        : proof.cryptosuite === SLHDSA_CRYPTOSUITE
+        ? slhdsaVerify(sig, digest, publicKey)
         : mldsaVerify(sig, digest, publicKey);
       if (!ok) return false;
     } catch { return false; }
@@ -3258,5 +3260,726 @@ export function mldsaJwkToSecretKey(jwk) {
 }
 
 export const MLDSA_PROOF_CRYPTOSUITE = MLDSA_CRYPTOSUITE;
+
+// ── §PQC-1 SLH-DSA (FIPS 205) Data Integrity proof — dual-sign secondary alongside ML-DSA ─────────
+// Vendored verbatim (function bodies unmodified; import/export boilerplate stripped, a handful of
+// same-name top-level bindings renamed on collision — see notes below) from @noble/post-quantum
+// v0.6.1 (MIT, Paul Miller) `slh-dsa.js` + `utils.js` (the latter's helpers — splitCoder, vecCoder,
+// getMask, checkHash, getMessage, getMessagePrehash, validateSigOpts, validateVerOpts, equalBytes,
+// copyBytes, cleanBytes, randomBytes, EMPTY, abytes — were ALREADY vendored above for ML-DSA and are
+// reused unchanged here, same package, same file, no second copy) plus the two small @noble/hashes
+// v2.2.0 modules ML-DSA did not need: `_md.js` (Chi/Maj/HashMD Merkle-Damgard base) and `hmac.js`.
+// Source: https://registry.npmjs.org/@noble/{post-quantum,hashes}/-/*.tgz (npm registry tarballs;
+// license MIT verified against the registry manifest + each package's LICENSE file — same
+// verification the ML-DSA block above already recorded for this exact tarball pin).
+// PARAMETER SET — measured, not assumed (PQC-REANCHOR-BUILD-1, 2026-08-14): signed one 64-byte
+// message with all 8 SLH-DSA variants exposed by this package on plain Node (no WASM/SIMD, a fair
+// proxy for browser JS): slh_dsa_sha2_128f 139ms sign / 32B pubkey / 17088B sig; slh_dsa_sha2_128s
+// 2841ms sign / 7856B sig; slh_dsa_sha2_192f 248ms / 35664B; slh_dsa_sha2_192s 5560ms / 16224B;
+// slh_dsa_sha2_256f 497ms / 49856B; slh_dsa_sha2_256s 5076ms / 29792B; slh_dsa_shake_128f 590ms;
+// slh_dsa_shake_128s 12455ms. The 's' (small-signature) variants cost 20-40x the sign latency of
+// their 'f' counterpart for a browser tool that signs once per session — an order-of-magnitude gap,
+// exactly what the row's build note warned parameter sets differ by. SHA2 beat SHAKE at every tier
+// (JS SHAKE/Keccak cost, not a security difference). Chosen: slh_dsa_sha2_128f — fastest sign
+// (139ms), signature 17088 bytes (fine for a downloadable JSON export artifact, named here per
+// SPEC.md §6 rather than left for the user to discover by download size). This is FIPS 205 Category
+// 1 (128-bit); the ML-DSA-65 secondary above is Category 3 (192-bit) — the two proofs are
+// intentionally NOT equal-strength, because the tool's purpose is algorithm diversity (a lattice
+// break does not imply a hash break, or vice versa), not doubled margin at one category. Only the
+// sha2/128 hash lane (pqSha256/pqSha512, SHA256_IV/SHA512_IV) is vendored below — the other 7
+// variants' code paths (shake, 192, 256) are present in `gen`/`genSha`/`genShake` for parity with
+// upstream's module shape (same posture as ml_dsa44/87 riding along unused above) but the SHAKE
+// lane's own hash calls resolve to the shake256 already vendored for ML-DSA, so no shake-specific
+// hash code needed vendoring either.
+// DO NOT hand-edit the vendored block below — regenerate from the pinned tarball + this recipe if
+// the pin ever moves.
+// Rename notes (collision-only, values untouched): post-quantum/slh-dsa.js's `PARAMS` -> `SLHDSA_PARAMS`
+// (name-only clash with ml-dsa.js's own `PARAMS`, already vendored above with the unqualified name);
+// slh-dsa.js's internal `gen` -> `genSlhDsa` (defensive rename, no confirmed clash but cheap
+// insurance against a future ml-dsa.js resync introducing one); @noble/hashes sha2.js's exported
+// `sha256`/`sha512` -> `pqSha256`/`pqSha512` (real clash: this file already defines its OWN
+// `sha256` above, an async WebCrypto SubtleCrypto wrapper used by the eddsa-jcs-2022 hash pipeline
+// — completely different signature/purpose from the noble synchronous hasher SLH-DSA needs).
+// Trimmed vs upstream (rationale, not upstream content changed): `_md.js`'s SHA224_IV/SHA384_IV and
+// sha2.js's sha224/sha384/sha512_224/sha512_256 exports are omitted — no SLH-DSA parameter set here
+// uses them (128 uses sha256 both lanes; 192/256 use sha256+sha512), and CONTRACT's no-unneeded-code
+// rule applies to a hand-vendor exactly as it would to first-party code.
+// ── @noble/hashes _md.js (v2.2.0, MIT, Paul Miller) — Merkle-Damgard base + SHA-2 IVs ──────────────
+function Chi(a, b, c) { return (a & b) ^ (~a & c); }
+function Maj(a, b, c) { return (a & b) ^ (a & c) ^ (b & c); }
+class HashMD {
+  blockLen; outputLen; canXOF = false; padOffset; isLE;
+  buffer; view; finished = false; length = 0; pos = 0; destroyed = false;
+  constructor(blockLen, outputLen, padOffset, isLE) {
+    this.blockLen = blockLen; this.outputLen = outputLen; this.padOffset = padOffset; this.isLE = isLE;
+    this.buffer = new Uint8Array(blockLen); this.view = createView(this.buffer);
+  }
+  update(data) {
+    aexists(this); abytes(data);
+    const { view, buffer, blockLen } = this;
+    const len = data.length;
+    for (let pos = 0; pos < len;) {
+      const take = Math.min(blockLen - this.pos, len - pos);
+      if (take === blockLen) {
+        const dataView = createView(data);
+        for (; blockLen <= len - pos; pos += blockLen) this.process(dataView, pos);
+        continue;
+      }
+      buffer.set(data.subarray(pos, pos + take), this.pos);
+      this.pos += take; pos += take;
+      if (this.pos === blockLen) { this.process(view, 0); this.pos = 0; }
+    }
+    this.length += data.length; this.roundClean();
+    return this;
+  }
+  digestInto(out) {
+    aexists(this); aoutput(out, this); this.finished = true;
+    const { buffer, view, blockLen, isLE } = this;
+    let { pos } = this;
+    buffer[pos++] = 0b10000000;
+    clean(this.buffer.subarray(pos));
+    if (this.padOffset > blockLen - pos) { this.process(view, 0); pos = 0; }
+    for (let i = pos; i < blockLen; i++) buffer[i] = 0;
+    view.setBigUint64(blockLen - 8, BigInt(this.length * 8), isLE);
+    this.process(view, 0);
+    const oview = createView(out);
+    const len = this.outputLen;
+    if (len % 4) throw new Error('_sha2: outputLen must be aligned to 32bit');
+    const outLen = len / 4;
+    const state = this.get();
+    if (outLen > state.length) throw new Error('_sha2: outputLen bigger than state');
+    for (let i = 0; i < outLen; i++) oview.setUint32(4 * i, state[i], isLE);
+  }
+  digest() {
+    const { buffer, outputLen } = this;
+    this.digestInto(buffer);
+    const res = buffer.slice(0, outputLen);
+    this.destroy();
+    return res;
+  }
+  _cloneInto(to) {
+    to ||= new this.constructor();
+    to.set(...this.get());
+    const { blockLen, buffer, length, finished, destroyed, pos } = this;
+    to.destroyed = destroyed; to.finished = finished; to.length = length; to.pos = pos;
+    if (length % blockLen) to.buffer.set(buffer);
+    return to;
+  }
+  clone() { return this._cloneInto(); }
+}
+const SHA256_IV = /* @__PURE__ */ Uint32Array.from([
+  0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+]);
+const SHA512_IV = /* @__PURE__ */ Uint32Array.from([
+  0x6a09e667, 0xf3bcc908, 0xbb67ae85, 0x84caa73b, 0x3c6ef372, 0xfe94f82b, 0xa54ff53a, 0x5f1d36f1,
+  0x510e527f, 0xade682d1, 0x9b05688c, 0x2b3e6c1f, 0x1f83d9ab, 0xfb41bd6b, 0x5be0cd19, 0x137e2179,
+]);
+// ── @noble/hashes sha2.js (v2.2.0, MIT, Paul Miller) — sha256/sha512, trimmed to what SLH-DSA uses ─
+const SHA256_K = /* @__PURE__ */ Uint32Array.from([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+]);
+const SHA256_W = /* @__PURE__ */ new Uint32Array(64);
+class SHA2_32B extends HashMD {
+  constructor(outputLen) { super(64, outputLen, 8, false); }
+  get() { const { A, B, C, D, E, F, G, H } = this; return [A, B, C, D, E, F, G, H]; }
+  set(A, B, C, D, E, F, G, H) {
+    this.A = A | 0; this.B = B | 0; this.C = C | 0; this.D = D | 0;
+    this.E = E | 0; this.F = F | 0; this.G = G | 0; this.H = H | 0;
+  }
+  process(view, offset) {
+    for (let i = 0; i < 16; i++, offset += 4) SHA256_W[i] = view.getUint32(offset, false);
+    for (let i = 16; i < 64; i++) {
+      const W15 = SHA256_W[i - 15]; const W2 = SHA256_W[i - 2];
+      const s0 = rotr(W15, 7) ^ rotr(W15, 18) ^ (W15 >>> 3);
+      const s1 = rotr(W2, 17) ^ rotr(W2, 19) ^ (W2 >>> 10);
+      SHA256_W[i] = (s1 + SHA256_W[i - 7] + s0 + SHA256_W[i - 16]) | 0;
+    }
+    let { A, B, C, D, E, F, G, H } = this;
+    for (let i = 0; i < 64; i++) {
+      const sigma1 = rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25);
+      const T1 = (H + sigma1 + Chi(E, F, G) + SHA256_K[i] + SHA256_W[i]) | 0;
+      const sigma0 = rotr(A, 2) ^ rotr(A, 13) ^ rotr(A, 22);
+      const T2 = (sigma0 + Maj(A, B, C)) | 0;
+      H = G; G = F; F = E; E = (D + T1) | 0; D = C; C = B; B = A; A = (T1 + T2) | 0;
+    }
+    A = (A + this.A) | 0; B = (B + this.B) | 0; C = (C + this.C) | 0; D = (D + this.D) | 0;
+    E = (E + this.E) | 0; F = (F + this.F) | 0; G = (G + this.G) | 0; H = (H + this.H) | 0;
+    this.set(A, B, C, D, E, F, G, H);
+  }
+  roundClean() { clean(SHA256_W); }
+  destroy() { this.destroyed = true; this.set(0, 0, 0, 0, 0, 0, 0, 0); clean(this.buffer); }
+}
+class _SHA256 extends SHA2_32B {
+  A = SHA256_IV[0] | 0; B = SHA256_IV[1] | 0; C = SHA256_IV[2] | 0; D = SHA256_IV[3] | 0;
+  E = SHA256_IV[4] | 0; F = SHA256_IV[5] | 0; G = SHA256_IV[6] | 0; H = SHA256_IV[7] | 0;
+  constructor() { super(32); }
+}
+const K512 = /* @__PURE__ */ (() => u64.split([
+  '0x428a2f98d728ae22', '0x7137449123ef65cd', '0xb5c0fbcfec4d3b2f', '0xe9b5dba58189dbbc',
+  '0x3956c25bf348b538', '0x59f111f1b605d019', '0x923f82a4af194f9b', '0xab1c5ed5da6d8118',
+  '0xd807aa98a3030242', '0x12835b0145706fbe', '0x243185be4ee4b28c', '0x550c7dc3d5ffb4e2',
+  '0x72be5d74f27b896f', '0x80deb1fe3b1696b1', '0x9bdc06a725c71235', '0xc19bf174cf692694',
+  '0xe49b69c19ef14ad2', '0xefbe4786384f25e3', '0x0fc19dc68b8cd5b5', '0x240ca1cc77ac9c65',
+  '0x2de92c6f592b0275', '0x4a7484aa6ea6e483', '0x5cb0a9dcbd41fbd4', '0x76f988da831153b5',
+  '0x983e5152ee66dfab', '0xa831c66d2db43210', '0xb00327c898fb213f', '0xbf597fc7beef0ee4',
+  '0xc6e00bf33da88fc2', '0xd5a79147930aa725', '0x06ca6351e003826f', '0x142929670a0e6e70',
+  '0x27b70a8546d22ffc', '0x2e1b21385c26c926', '0x4d2c6dfc5ac42aed', '0x53380d139d95b3df',
+  '0x650a73548baf63de', '0x766a0abb3c77b2a8', '0x81c2c92e47edaee6', '0x92722c851482353b',
+  '0xa2bfe8a14cf10364', '0xa81a664bbc423001', '0xc24b8b70d0f89791', '0xc76c51a30654be30',
+  '0xd192e819d6ef5218', '0xd69906245565a910', '0xf40e35855771202a', '0x106aa07032bbd1b8',
+  '0x19a4c116b8d2d0c8', '0x1e376c085141ab53', '0x2748774cdf8eeb99', '0x34b0bcb5e19b48a8',
+  '0x391c0cb3c5c95a63', '0x4ed8aa4ae3418acb', '0x5b9cca4f7763e373', '0x682e6ff3d6b2b8a3',
+  '0x748f82ee5defb2fc', '0x78a5636f43172f60', '0x84c87814a1f0ab72', '0x8cc702081a6439ec',
+  '0x90befffa23631e28', '0xa4506cebde82bde9', '0xbef9a3f7b2c67915', '0xc67178f2e372532b',
+  '0xca273eceea26619c', '0xd186b8c721c0c207', '0xeada7dd6cde0eb1e', '0xf57d4f7fee6ed178',
+  '0x06f067aa72176fba', '0x0a637dc5a2c898a6', '0x113f9804bef90dae', '0x1b710b35131c471b',
+  '0x28db77f523047d84', '0x32caab7b40c72493', '0x3c9ebe0a15c9bebc', '0x431d67c49c100d4c',
+  '0x4cc5d4becb3e42b6', '0x597f299cfc657e2a', '0x5fcb6fab3ad6faec', '0x6c44198c4a475817'
+].map(n => BigInt(n))))();
+const SHA512_Kh = /* @__PURE__ */ (() => K512[0])();
+const SHA512_Kl = /* @__PURE__ */ (() => K512[1])();
+const SHA512_W_H = /* @__PURE__ */ new Uint32Array(80);
+const SHA512_W_L = /* @__PURE__ */ new Uint32Array(80);
+class SHA2_64B extends HashMD {
+  constructor(outputLen) { super(128, outputLen, 16, false); }
+  get() {
+    const { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
+    return [Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl];
+  }
+  set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl) {
+    this.Ah = Ah | 0; this.Al = Al | 0; this.Bh = Bh | 0; this.Bl = Bl | 0;
+    this.Ch = Ch | 0; this.Cl = Cl | 0; this.Dh = Dh | 0; this.Dl = Dl | 0;
+    this.Eh = Eh | 0; this.El = El | 0; this.Fh = Fh | 0; this.Fl = Fl | 0;
+    this.Gh = Gh | 0; this.Gl = Gl | 0; this.Hh = Hh | 0; this.Hl = Hl | 0;
+  }
+  process(view, offset) {
+    for (let i = 0; i < 16; i++, offset += 4) {
+      SHA512_W_H[i] = view.getUint32(offset); SHA512_W_L[i] = view.getUint32((offset += 4));
+    }
+    for (let i = 16; i < 80; i++) {
+      const W15h = SHA512_W_H[i - 15] | 0; const W15l = SHA512_W_L[i - 15] | 0;
+      const s0h = u64.rotrSH(W15h, W15l, 1) ^ u64.rotrSH(W15h, W15l, 8) ^ u64.shrSH(W15h, W15l, 7);
+      const s0l = u64.rotrSL(W15h, W15l, 1) ^ u64.rotrSL(W15h, W15l, 8) ^ u64.shrSL(W15h, W15l, 7);
+      const W2h = SHA512_W_H[i - 2] | 0; const W2l = SHA512_W_L[i - 2] | 0;
+      const s1h = u64.rotrSH(W2h, W2l, 19) ^ u64.rotrBH(W2h, W2l, 61) ^ u64.shrSH(W2h, W2l, 6);
+      const s1l = u64.rotrSL(W2h, W2l, 19) ^ u64.rotrBL(W2h, W2l, 61) ^ u64.shrSL(W2h, W2l, 6);
+      const SUMl = u64.add4L(s0l, s1l, SHA512_W_L[i - 7], SHA512_W_L[i - 16]);
+      const SUMh = u64.add4H(SUMl, s0h, s1h, SHA512_W_H[i - 7], SHA512_W_H[i - 16]);
+      SHA512_W_H[i] = SUMh | 0; SHA512_W_L[i] = SUMl | 0;
+    }
+    let { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
+    for (let i = 0; i < 80; i++) {
+      const sigma1h = u64.rotrSH(Eh, El, 14) ^ u64.rotrSH(Eh, El, 18) ^ u64.rotrBH(Eh, El, 41);
+      const sigma1l = u64.rotrSL(Eh, El, 14) ^ u64.rotrSL(Eh, El, 18) ^ u64.rotrBL(Eh, El, 41);
+      const CHIh = (Eh & Fh) ^ (~Eh & Gh); const CHIl = (El & Fl) ^ (~El & Gl);
+      const T1ll = u64.add5L(Hl, sigma1l, CHIl, SHA512_Kl[i], SHA512_W_L[i]);
+      const T1h = u64.add5H(T1ll, Hh, sigma1h, CHIh, SHA512_Kh[i], SHA512_W_H[i]);
+      const T1l = T1ll | 0;
+      const sigma0h = u64.rotrSH(Ah, Al, 28) ^ u64.rotrBH(Ah, Al, 34) ^ u64.rotrBH(Ah, Al, 39);
+      const sigma0l = u64.rotrSL(Ah, Al, 28) ^ u64.rotrBL(Ah, Al, 34) ^ u64.rotrBL(Ah, Al, 39);
+      const MAJh = (Ah & Bh) ^ (Ah & Ch) ^ (Bh & Ch); const MAJl = (Al & Bl) ^ (Al & Cl) ^ (Bl & Cl);
+      Hh = Gh | 0; Hl = Gl | 0; Gh = Fh | 0; Gl = Fl | 0; Fh = Eh | 0; Fl = El | 0;
+      ({ h: Eh, l: El } = u64.add(Dh | 0, Dl | 0, T1h | 0, T1l | 0));
+      Dh = Ch | 0; Dl = Cl | 0; Ch = Bh | 0; Cl = Bl | 0; Bh = Ah | 0; Bl = Al | 0;
+      const All = u64.add3L(T1l, sigma0l, MAJl);
+      Ah = u64.add3H(All, T1h, sigma0h, MAJh); Al = All | 0;
+    }
+    ({ h: Ah, l: Al } = u64.add(this.Ah | 0, this.Al | 0, Ah | 0, Al | 0));
+    ({ h: Bh, l: Bl } = u64.add(this.Bh | 0, this.Bl | 0, Bh | 0, Bl | 0));
+    ({ h: Ch, l: Cl } = u64.add(this.Ch | 0, this.Cl | 0, Ch | 0, Cl | 0));
+    ({ h: Dh, l: Dl } = u64.add(this.Dh | 0, this.Dl | 0, Dh | 0, Dl | 0));
+    ({ h: Eh, l: El } = u64.add(this.Eh | 0, this.El | 0, Eh | 0, El | 0));
+    ({ h: Fh, l: Fl } = u64.add(this.Fh | 0, this.Fl | 0, Fh | 0, Fl | 0));
+    ({ h: Gh, l: Gl } = u64.add(this.Gh | 0, this.Gl | 0, Gh | 0, Gl | 0));
+    ({ h: Hh, l: Hl } = u64.add(this.Hh | 0, this.Hl | 0, Hh | 0, Hl | 0));
+    this.set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl);
+  }
+  roundClean() { clean(SHA512_W_H, SHA512_W_L); }
+  destroy() { this.destroyed = true; clean(this.buffer); this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0); }
+}
+class _SHA512 extends SHA2_64B {
+  Ah = SHA512_IV[0] | 0; Al = SHA512_IV[1] | 0; Bh = SHA512_IV[2] | 0; Bl = SHA512_IV[3] | 0;
+  Ch = SHA512_IV[4] | 0; Cl = SHA512_IV[5] | 0; Dh = SHA512_IV[6] | 0; Dl = SHA512_IV[7] | 0;
+  Eh = SHA512_IV[8] | 0; El = SHA512_IV[9] | 0; Fh = SHA512_IV[10] | 0; Fl = SHA512_IV[11] | 0;
+  Gh = SHA512_IV[12] | 0; Gl = SHA512_IV[13] | 0; Hh = SHA512_IV[14] | 0; Hl = SHA512_IV[15] | 0;
+  constructor() { super(64); }
+}
+const pqSha256 = /* @__PURE__ */ createHasher(() => new _SHA256(), /* @__PURE__ */ oidNist(0x01));
+const pqSha512 = /* @__PURE__ */ createHasher(() => new _SHA512(), /* @__PURE__ */ oidNist(0x03));
+// ── @noble/hashes hmac.js (v2.2.0, MIT, Paul Miller) — RFC 2104 HMAC, used by SLH-DSA's PRFmsg ─────
+class _HMAC {
+  oHash; iHash; blockLen; outputLen; canXOF = false; finished = false; destroyed = false;
+  constructor(hash, key) {
+    ahash(hash); abytes(key, undefined, 'key');
+    this.iHash = hash.create();
+    if (typeof this.iHash.update !== 'function') throw new Error('Expected instance of class which extends utils.Hash');
+    this.blockLen = this.iHash.blockLen; this.outputLen = this.iHash.outputLen;
+    const blockLen = this.blockLen;
+    const pad = new Uint8Array(blockLen);
+    pad.set(key.length > blockLen ? hash.create().update(key).digest() : key);
+    for (let i = 0; i < pad.length; i++) pad[i] ^= 0x36;
+    this.iHash.update(pad);
+    this.oHash = hash.create();
+    for (let i = 0; i < pad.length; i++) pad[i] ^= 0x36 ^ 0x5c;
+    this.oHash.update(pad);
+    clean(pad);
+  }
+  update(buf) { aexists(this); this.iHash.update(buf); return this; }
+  digestInto(out) {
+    aexists(this); aoutput(out, this); this.finished = true;
+    const buf = out.subarray(0, this.outputLen);
+    this.iHash.digestInto(buf);
+    this.oHash.update(buf);
+    this.oHash.digestInto(buf);
+    this.destroy();
+  }
+  digest() { const out = new Uint8Array(this.oHash.outputLen); this.digestInto(out); return out; }
+  destroy() { this.destroyed = true; this.oHash.destroy(); this.iHash.destroy(); }
+}
+const hmac = /* @__PURE__ */ (() => {
+  const hmac_ = ((hash, key, message) => new _HMAC(hash, key).update(message).digest());
+  hmac_.create = (hash, key) => new _HMAC(hash, key);
+  return hmac_;
+})();
+// ── @noble/post-quantum slh-dsa.js (v0.6.1, MIT, Paul Miller) — FIPS 205 SLH-DSA / SPHINCS+ v3.1 ───
+const SLHDSA_PARAMS = /* @__PURE__ */ (() => Object.freeze({
+  '128f': Object.freeze({ W: 16, N: 16, H: 66, D: 22, K: 33, A: 6, securityLevel: 128 }),
+  '128s': Object.freeze({ W: 16, N: 16, H: 63, D: 7, K: 14, A: 12, securityLevel: 128 }),
+  '192f': Object.freeze({ W: 16, N: 24, H: 66, D: 22, K: 33, A: 8, securityLevel: 192 }),
+  '192s': Object.freeze({ W: 16, N: 24, H: 63, D: 7, K: 17, A: 14, securityLevel: 192 }),
+  '256f': Object.freeze({ W: 16, N: 32, H: 68, D: 17, K: 35, A: 9, securityLevel: 256 }),
+  '256s': Object.freeze({ W: 16, N: 32, H: 64, D: 8, K: 22, A: 14, securityLevel: 256 }),
+}))();
+const SlhAddressType = { WOTS: 0, WOTSPK: 1, HASHTREE: 2, FORSTREE: 3, FORSPK: 4, WOTSPRF: 5, FORSPRF: 6 };
+function slhHexToNumber(hex) {
+  if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
+  return BigInt(hex === '' ? '0' : '0x' + hex);
+}
+function slhBytesToNumberBE(bytes) { return slhHexToNumber(bytesToHex(bytes)); }
+function slhNumberToBytesBE(n, len) { return hexToBytes(n.toString(16).padStart(len * 2, '0')); }
+const slhBase2b = (outLen, b) => {
+  const mask = getMask(b);
+  return (bytes) => {
+    const baseB = new Uint32Array(outLen);
+    for (let out = 0, pos = 0, bits = 0, total = 0; out < outLen; out++) {
+      while (bits < b) { total = (total << 8) | bytes[pos++]; bits += 8; }
+      bits -= b;
+      baseB[out] = (total >>> bits) & mask;
+    }
+    return baseB;
+  };
+};
+function slhGetMaskBig(bits) { return (1n << BigInt(bits)) - 1n; }
+function genSlhDsa(opts, hashOpts_) {
+  const hashOpts = hashOpts_;
+  const { N, W, H, D, K, A, securityLevel } = opts;
+  const getContext = hashOpts.getContext(opts);
+  if (W !== 16) throw new Error('Unsupported Winternitz parameter');
+  const WOTS_LOGW = 4;
+  const WOTS_LEN1 = Math.floor((8 * N) / WOTS_LOGW);
+  const WOTS_LEN2 = N <= 8 ? 2 : N <= 136 ? 3 : 4;
+  const TREE_HEIGHT = Math.floor(H / D);
+  const WOTS_LEN = WOTS_LEN1 + WOTS_LEN2;
+  let ADDR_BYTES = 22;
+  let OFFSET_LAYER = 0, OFFSET_TREE = 1, OFFSET_TYPE = 9, OFFSET_KP_ADDR2 = 12, OFFSET_KP_ADDR1 = 13;
+  let OFFSET_CHAIN_ADDR = 17, OFFSET_TREE_INDEX = 18, OFFSET_HASH_ADDR = 21;
+  if (!hashOpts.isCompressed) {
+    ADDR_BYTES = 32;
+    OFFSET_LAYER += 3; OFFSET_TREE += 7; OFFSET_TYPE += 10; OFFSET_KP_ADDR2 += 10;
+    OFFSET_KP_ADDR1 += 10; OFFSET_CHAIN_ADDR += 10; OFFSET_TREE_INDEX += 10; OFFSET_HASH_ADDR += 10;
+  }
+  const setAddr = (opts, addr = new Uint8Array(ADDR_BYTES)) => {
+    const { type, height, tree, layer, index, chain, hash, keypair } = opts;
+    const { subtreeAddr, keypairAddr } = opts;
+    const v = createView(addr);
+    if (height !== undefined) addr[OFFSET_CHAIN_ADDR] = height;
+    if (layer !== undefined) addr[OFFSET_LAYER] = layer;
+    if (type !== undefined) addr[OFFSET_TYPE] = type;
+    if (chain !== undefined) addr[OFFSET_CHAIN_ADDR] = chain;
+    if (hash !== undefined) addr[OFFSET_HASH_ADDR] = hash;
+    if (index !== undefined) v.setUint32(OFFSET_TREE_INDEX, index, false);
+    if (subtreeAddr) addr.set(subtreeAddr.subarray(0, OFFSET_TREE + 8));
+    if (tree !== undefined) v.setBigUint64(OFFSET_TREE, tree, false);
+    if (keypair !== undefined) {
+      addr[OFFSET_KP_ADDR1] = keypair;
+      if (TREE_HEIGHT > 8) addr[OFFSET_KP_ADDR2] = keypair >>> 8;
+    }
+    if (keypairAddr) {
+      addr.set(keypairAddr.subarray(0, OFFSET_TREE + 8));
+      addr[OFFSET_KP_ADDR1] = keypairAddr[OFFSET_KP_ADDR1];
+      if (TREE_HEIGHT > 8) addr[OFFSET_KP_ADDR2] = keypairAddr[OFFSET_KP_ADDR2];
+    }
+    return addr;
+  };
+  const chainCoder = slhBase2b(WOTS_LEN2, WOTS_LOGW);
+  const chainLengths = (msg) => {
+    const W1 = slhBase2b(WOTS_LEN1, WOTS_LOGW)(msg);
+    let csum = 0;
+    for (let i = 0; i < W1.length; i++) csum += W - 1 - W1[i];
+    csum <<= (8 - ((WOTS_LEN2 * WOTS_LOGW) % 8)) % 8;
+    const W2 = chainCoder(slhNumberToBytesBE(csum, Math.ceil((WOTS_LEN2 * WOTS_LOGW) / 8)));
+    const lengths = new Uint32Array(WOTS_LEN);
+    lengths.set(W1); lengths.set(W2, W1.length);
+    return lengths;
+  };
+  const messageToIndices = slhBase2b(K, A);
+  const TREE_BITS = TREE_HEIGHT * (D - 1);
+  const LEAF_BITS = TREE_HEIGHT;
+  const hashMsgCoder = splitCoder('hashedMessage', Math.ceil((A * K) / 8), Math.ceil(TREE_BITS / 8), Math.ceil(TREE_HEIGHT / 8));
+  const hashMessage = (R, pkSeed, msg, context) => {
+    const rawContext = context;
+    const digest = rawContext.Hmsg(R, pkSeed, msg, hashMsgCoder.bytesLen);
+    const [md, tmpIdxTree, tmpIdxLeaf] = hashMsgCoder.decode(digest);
+    const tree = slhBytesToNumberBE(tmpIdxTree) & slhGetMaskBig(TREE_BITS);
+    const leafIdx = Number(slhBytesToNumberBE(tmpIdxLeaf)) & getMask(LEAF_BITS);
+    return { tree, leafIdx, md };
+  };
+  const treehash = (height, fn) => function treehash_i(context, leafIdx, idxOffset, treeAddr, info) {
+    const rawContext = context;
+    const leafFn = fn;
+    const maxIdx = (1 << height) - 1;
+    const stack = new Uint8Array(height * N);
+    const authPath = new Uint8Array(height * N);
+    for (let idx = 0;; idx++) {
+      const current = new Uint8Array(2 * N);
+      const cur0 = current.subarray(0, N);
+      const cur1 = current.subarray(N);
+      const addrOffset = idx + idxOffset;
+      cur1.set(leafFn(leafIdx, addrOffset, rawContext, info));
+      let h = 0;
+      for (let i = idx, o = idxOffset, l = leafIdx;; h++, i >>>= 1, l >>>= 1, o >>>= 1) {
+        if (h === height) return { root: cur1, authPath };
+        if ((i ^ l) === 1) authPath.subarray(h * N).set(cur1);
+        if ((i & 1) === 0 && idx < maxIdx) break;
+        setAddr({ height: h + 1, index: (i >> 1) + (o >> 1) }, treeAddr);
+        cur0.set(stack.subarray(h * N).subarray(0, N));
+        cur1.set(rawContext.thashN(2, current, treeAddr));
+      }
+      stack.subarray(h * N).set(cur1);
+    }
+  };
+  const wotsTreehash = treehash(TREE_HEIGHT, (leafIdx, addrOffset, context, info) => {
+    const rawContext = context;
+    const wotsPk = new Uint8Array(WOTS_LEN * N);
+    const wotsKmask = addrOffset === leafIdx ? 0 : ~0 >>> 0;
+    setAddr({ keypair: addrOffset }, info.leafAddr);
+    setAddr({ keypair: addrOffset }, info.pkAddr);
+    for (let i = 0; i < WOTS_LEN; i++) {
+      const wotsK = info.wotsSteps[i] | wotsKmask;
+      const pk = wotsPk.subarray(i * N, (i + 1) * N);
+      setAddr({ chain: i, hash: 0, type: SlhAddressType.WOTSPRF }, info.leafAddr);
+      pk.set(rawContext.PRFaddr(info.leafAddr));
+      setAddr({ type: SlhAddressType.WOTS }, info.leafAddr);
+      for (let k = 0;; k++) {
+        if (k === wotsK) info.wotsSig.subarray(i * N).set(pk);
+        if (k === W - 1) break;
+        setAddr({ hash: k }, info.leafAddr);
+        pk.set(rawContext.thash1(pk, info.leafAddr));
+      }
+    }
+    return rawContext.thashN(WOTS_LEN, wotsPk, info.pkAddr);
+  });
+  const forsTreehash = treehash(A, (_, addrOffset, context, forsLeafAddr) => {
+    const rawContext = context;
+    setAddr({ type: SlhAddressType.FORSPRF, index: addrOffset }, forsLeafAddr);
+    const prf = rawContext.PRFaddr(forsLeafAddr);
+    setAddr({ type: SlhAddressType.FORSTREE }, forsLeafAddr);
+    return rawContext.thash1(prf, forsLeafAddr);
+  });
+  const merkleSign = (context, wotsAddr, treeAddr, leafIdx, prevRoot = new Uint8Array(N)) => {
+    setAddr({ type: SlhAddressType.HASHTREE }, treeAddr);
+    const info = {
+      wotsSig: new Uint8Array(wotsCoder.bytesLen),
+      wotsSteps: chainLengths(prevRoot),
+      leafAddr: setAddr({ subtreeAddr: wotsAddr }),
+      pkAddr: setAddr({ type: SlhAddressType.WOTSPK, subtreeAddr: wotsAddr }),
+    };
+    const { root, authPath } = wotsTreehash(context, leafIdx, 0, treeAddr, info);
+    return { root, sigWots: info.wotsSig.subarray(0, WOTS_LEN * N), sigAuth: authPath };
+  };
+  const computeRoot = (leaf, leafIdx, idxOffset, authPath, treeHeight, context, addr) => {
+    const rawContext = context;
+    const buffer = new Uint8Array(2 * N);
+    const b0 = buffer.subarray(0, N);
+    const b1 = buffer.subarray(N, 2 * N);
+    if ((leafIdx & 1) !== 0) { b1.set(leaf.subarray(0, N)); b0.set(authPath.subarray(0, N)); }
+    else { b0.set(leaf.subarray(0, N)); b1.set(authPath.subarray(0, N)); }
+    leafIdx >>>= 1; idxOffset >>>= 1;
+    for (let i = 0; i < treeHeight - 1; i++, leafIdx >>= 1, idxOffset >>= 1) {
+      setAddr({ height: i + 1, index: leafIdx + idxOffset }, addr);
+      const a = authPath.subarray((i + 1) * N, (i + 2) * N);
+      if ((leafIdx & 1) !== 0) { b1.set(rawContext.thashN(2, buffer, addr)); b0.set(a); }
+      else { buffer.set(rawContext.thashN(2, buffer, addr)); b1.set(a); }
+    }
+    setAddr({ height: treeHeight, index: leafIdx + idxOffset }, addr);
+    return rawContext.thashN(2, buffer, addr);
+  };
+  const seedCoder = splitCoder('seed', N, N, N);
+  const publicCoder = splitCoder('publicKey', N, N);
+  const secretCoder = splitCoder('secretKey', N, N, publicCoder.bytesLen);
+  const forsCoder = vecCoder(splitCoder('fors', N, N * A), K);
+  const wotsCoder = vecCoder(splitCoder('wots', WOTS_LEN * N, TREE_HEIGHT * N), D);
+  const sigCoder = splitCoder('signature', N, forsCoder, wotsCoder);
+  const internal = Object.freeze({
+    info: Object.freeze({ type: 'internal-slh-dsa' }),
+    lengths: Object.freeze({
+      publicKey: publicCoder.bytesLen, secretKey: secretCoder.bytesLen,
+      signature: sigCoder.bytesLen, seed: seedCoder.bytesLen, signRand: N,
+    }),
+    keygen(seed) {
+      if (seed !== undefined) abytes(seed, seedCoder.bytesLen, 'seed');
+      seed = seed === undefined ? randomBytes(seedCoder.bytesLen) : copyBytes(seed);
+      const [secretSeed, secretPRF, publicSeed] = seedCoder.decode(seed);
+      const context = getContext(publicSeed, secretSeed);
+      const topTreeAddr = setAddr({ layer: D - 1 });
+      const wotsAddr = setAddr({ layer: D - 1 });
+      const { root } = merkleSign(context, wotsAddr, topTreeAddr, ~0 >>> 0);
+      const publicKey = publicCoder.encode([publicSeed, root]);
+      const secretKey = secretCoder.encode([secretSeed, secretPRF, publicKey]);
+      context.clean();
+      cleanBytes(secretSeed, secretPRF, root, wotsAddr, topTreeAddr);
+      return { publicKey, secretKey };
+    },
+    getPublicKey: (secretKey) => { const [, , pk] = secretCoder.decode(secretKey); return Uint8Array.from(pk); },
+    sign: (msg, sk, opts = {}) => {
+      validateSigOpts(opts);
+      let { extraEntropy: random } = opts;
+      const [skSeed, skPRF, pk] = secretCoder.decode(sk);
+      const [pkSeed] = publicCoder.decode(pk);
+      if (random === false) random = copyBytes(pkSeed);
+      else if (random === undefined) random = randomBytes(N);
+      else random = copyBytes(random);
+      abytes(random, N);
+      const context = getContext(pkSeed, skSeed);
+      const R = context.PRFmsg(skPRF, random, msg);
+      let { tree, leafIdx, md } = hashMessage(R, pk, msg, context);
+      const wotsAddr = setAddr({ type: SlhAddressType.WOTS, tree, keypair: leafIdx });
+      const roots = [];
+      const forsLeaf = setAddr({ keypairAddr: wotsAddr });
+      const forsTreeAddr = setAddr({ keypairAddr: wotsAddr });
+      const indices = messageToIndices(md);
+      const fors = [];
+      for (let i = 0; i < indices.length; i++) {
+        const idxOffset = i << A;
+        setAddr({ type: SlhAddressType.FORSPRF, height: 0, index: indices[i] + idxOffset }, forsTreeAddr);
+        const prf = context.PRFaddr(forsTreeAddr);
+        setAddr({ type: SlhAddressType.FORSTREE }, forsTreeAddr);
+        const { root, authPath } = forsTreehash(context, indices[i], idxOffset, forsTreeAddr, forsLeaf);
+        roots.push(root); fors.push([prf, authPath]);
+      }
+      const forsPkAddr = setAddr({ type: SlhAddressType.FORSPK, keypairAddr: wotsAddr });
+      const root = context.thashN(K, concatBytes(...roots), forsPkAddr);
+      const treeAddr = setAddr({ type: SlhAddressType.HASHTREE });
+      const wots = [];
+      for (let i = 0; i < D; i++, tree >>= BigInt(TREE_HEIGHT)) {
+        setAddr({ tree, layer: i }, treeAddr);
+        setAddr({ subtreeAddr: treeAddr, keypair: leafIdx }, wotsAddr);
+        const { sigWots, sigAuth, root: r } = merkleSign(context, wotsAddr, treeAddr, leafIdx, root);
+        root.set(r); cleanBytes(r);
+        wots.push([sigWots, sigAuth]);
+        leafIdx = Number(tree & slhGetMaskBig(TREE_HEIGHT));
+      }
+      context.clean();
+      const SIG = sigCoder.encode([R, fors, wots]);
+      cleanBytes(R, random, treeAddr, wotsAddr, forsLeaf, forsTreeAddr, indices, roots);
+      return SIG;
+    },
+    verify: (sig, msg, publicKey) => {
+      const [pkSeed, pubRoot] = publicCoder.decode(publicKey);
+      const [random, forsVec, wotsVec] = sigCoder.decode(sig);
+      const pk = publicKey;
+      if (sig.length !== sigCoder.bytesLen) return false;
+      const context = getContext(pkSeed);
+      let { tree, leafIdx, md } = hashMessage(random, pk, msg, context);
+      const wotsAddr = setAddr({ type: SlhAddressType.WOTS, tree, keypair: leafIdx });
+      const roots = [];
+      const forsTreeAddr = setAddr({ type: SlhAddressType.FORSTREE, keypairAddr: wotsAddr });
+      const indices = messageToIndices(md);
+      for (let i = 0; i < forsVec.length; i++) {
+        const [prf, authPath] = forsVec[i];
+        const idxOffset = i << A;
+        setAddr({ height: 0, index: indices[i] + idxOffset }, forsTreeAddr);
+        const leaf = context.thash1(prf, forsTreeAddr);
+        roots.push(computeRoot(leaf, indices[i], idxOffset, authPath, A, context, forsTreeAddr));
+      }
+      const forsPkAddr = setAddr({ type: SlhAddressType.FORSPK, keypairAddr: wotsAddr });
+      let root = context.thashN(K, concatBytes(...roots), forsPkAddr);
+      const treeAddr = setAddr({ type: SlhAddressType.HASHTREE });
+      const wotsPkAddr = setAddr({ type: SlhAddressType.WOTSPK });
+      const wotsPk = new Uint8Array(WOTS_LEN * N);
+      for (let i = 0; i < wotsVec.length; i++, tree >>= BigInt(TREE_HEIGHT)) {
+        const [wots, sigAuth] = wotsVec[i];
+        setAddr({ tree, layer: i }, treeAddr);
+        setAddr({ subtreeAddr: treeAddr, keypair: leafIdx }, wotsAddr);
+        setAddr({ keypairAddr: wotsAddr }, wotsPkAddr);
+        const lengths = chainLengths(root);
+        for (let i2 = 0; i2 < WOTS_LEN; i2++) {
+          setAddr({ chain: i2 }, wotsAddr);
+          const steps = W - 1 - lengths[i2];
+          const start = lengths[i2];
+          const out = wotsPk.subarray(i2 * N);
+          out.set(wots.subarray(i2 * N, (i2 + 1) * N));
+          for (let j = start; j < start + steps && j < W; j++) {
+            setAddr({ hash: j }, wotsAddr);
+            out.set(context.thash1(out, wotsAddr));
+          }
+        }
+        const leaf = context.thashN(WOTS_LEN, wotsPk, wotsPkAddr);
+        root = computeRoot(leaf, leafIdx, 0, sigAuth, TREE_HEIGHT, context, treeAddr);
+        leafIdx = Number(tree & slhGetMaskBig(TREE_HEIGHT));
+      }
+      return equalBytes(root, pubRoot);
+    },
+  });
+  return Object.freeze({
+    info: Object.freeze({ type: 'slh-dsa' }),
+    internal, securityLevel, lengths: internal.lengths,
+    keygen: internal.keygen, getPublicKey: internal.getPublicKey,
+    sign: (msg, secretKey, opts = {}) => {
+      validateSigOpts(opts);
+      const M = getMessage(msg, opts.context);
+      const res = internal.sign(M, secretKey, opts);
+      cleanBytes(M);
+      return res;
+    },
+    verify: (sig, msg, publicKey, opts = {}) => {
+      validateVerOpts(opts);
+      return internal.verify(sig, getMessage(msg, opts.context), publicKey);
+    },
+  });
+}
+const genSlhShake = () => (opts) => (pubSeed, skSeed) => {
+  const { N } = opts;
+  const h0 = shake256.create({}).update(pubSeed);
+  const h0tmp = h0.clone();
+  const thash = (blocks, input, addr) => h0._cloneInto(h0tmp).update(addr).update(input.subarray(0, blocks * N)).xof(N);
+  return {
+    PRFaddr: (addr) => {
+      if (!skSeed) throw new Error('no sk seed');
+      return h0._cloneInto(h0tmp).update(addr).update(skSeed).xof(N);
+    },
+    PRFmsg: (skPRF, random, msg) => shake256.create({}).update(skPRF).update(random).update(msg).digest().subarray(0, N),
+    Hmsg: (R, pk, m, outLen) => shake256.create({}).update(R.subarray(0, N)).update(pk).update(m).xof(outLen),
+    thash1: thash.bind(null, 1), thashN: thash,
+    clean: () => { h0.destroy(); h0tmp.destroy(); },
+  };
+};
+const SLH_SHAKE_SIMPLE = /* @__PURE__ */ (() => ({ getContext: genSlhShake() }))();
+export const slh_dsa_shake_128f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128f'], SLH_SHAKE_SIMPLE))();
+export const slh_dsa_shake_128s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128s'], SLH_SHAKE_SIMPLE))();
+export const slh_dsa_shake_192f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192f'], SLH_SHAKE_SIMPLE))();
+export const slh_dsa_shake_192s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192s'], SLH_SHAKE_SIMPLE))();
+export const slh_dsa_shake_256f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256f'], SLH_SHAKE_SIMPLE))();
+export const slh_dsa_shake_256s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256s'], SLH_SHAKE_SIMPLE))();
+const genSlhSha = (h0, h1) => (opts) => (pub_seed, sk_seed) => {
+  const { N } = opts;
+  const counterB = new Uint8Array(4);
+  const counterV = createView(counterB);
+  const h0ps = h0.create().update(pub_seed).update(new Uint8Array(h0.blockLen - N));
+  const h1ps = h1.create().update(pub_seed).update(new Uint8Array(h1.blockLen - N));
+  const h0tmp = h0ps.clone();
+  const h1tmp = h1ps.clone();
+  function mgf1(seed, length, hash) {
+    const out = new Uint8Array(Math.ceil(length / hash.outputLen) * hash.outputLen);
+    if (length > 2 ** 32) throw new Error('mask too long');
+    for (let counter = 0, o = out; o.length; counter++) {
+      counterV.setUint32(0, counter, false);
+      hash.create().update(seed).update(counterB).digestInto(o);
+      o = o.subarray(hash.outputLen);
+    }
+    cleanBytes(out.subarray(length));
+    return out.subarray(0, length);
+  }
+  const thash = (_, h, hTmp) => (blocks, input, addr) => h._cloneInto(hTmp).update(addr).update(input.subarray(0, blocks * N)).digest().subarray(0, N);
+  return {
+    PRFaddr: (addr) => {
+      if (!sk_seed) throw new Error('No sk seed');
+      return h0ps._cloneInto(h0tmp).update(addr).update(sk_seed).digest().subarray(0, N);
+    },
+    PRFmsg: (skPRF, random, msg) => hmac.create(h1, skPRF).update(random).update(msg).digest().subarray(0, N),
+    Hmsg: (R, pk, m, outLen) => {
+      const seed = concatBytes(R.subarray(0, N), pk.subarray(0, N), h1.create().update(R.subarray(0, N)).update(pk).update(m).digest());
+      return mgf1(seed, outLen, h1);
+    },
+    thash1: thash(h0, h0ps, h0tmp).bind(null, 1),
+    thashN: thash(h1, h1ps, h1tmp),
+    clean: () => { h0ps.destroy(); h1ps.destroy(); h0tmp.destroy(); h1tmp.destroy(); },
+  };
+};
+const SLH_SHA256_SIMPLE = /* @__PURE__ */ (() => ({ isCompressed: true, getContext: genSlhSha(pqSha256, pqSha256) }))();
+const SLH_SHA512_SIMPLE = /* @__PURE__ */ (() => ({ isCompressed: true, getContext: genSlhSha(pqSha256, pqSha512) }))();
+/** SLH-DSA-SHA2-128f (FIPS 205 Category 1): the row-chosen primary parameter set — see the measured
+ * latency note above. lengths publicKey=32, secretKey=64, signature=17088, seed=48, signRand=16. */
+export const slh_dsa_sha2_128f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128f'], SLH_SHA256_SIMPLE))();
+export const slh_dsa_sha2_128s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128s'], SLH_SHA256_SIMPLE))();
+export const slh_dsa_sha2_192f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192f'], SLH_SHA512_SIMPLE))();
+export const slh_dsa_sha2_192s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192s'], SLH_SHA512_SIMPLE))();
+export const slh_dsa_sha2_256f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256f'], SLH_SHA512_SIMPLE))();
+export const slh_dsa_sha2_256s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256s'], SLH_SHA512_SIMPLE))();
+
+// ── §PQC-1 SLH-DSA Data Integrity proof helpers — mirrors the ML-DSA block above exactly ───────────
+// Cryptosuite id: named by its FIPS 205 parameter-set designation ("SLH-DSA-SHA2-128f") rather than
+// an invented cryptosuite string — same reserved-extension discipline as MLDSA_CRYPTOSUITE above (no
+// registered W3C DI or COSE/JOSE alg id for SLH-DSA exists yet to cite in its place).
+const SLHDSA_CRYPTOSUITE = 'SLH-DSA-SHA2-128f';
+
+function slhdsaProofOptions({ verificationMethod, created, id, previousProof }) {
+  const o = { type: 'DataIntegrityProof', cryptosuite: SLHDSA_CRYPTOSUITE, verificationMethod, proofPurpose: 'assertionMethod', created };
+  if (id !== undefined) o.id = id;
+  if (previousProof !== undefined) o.previousProof = previousProof;
+  return o;
+}
+
+/** addSlhdsaProof(artifact, { verificationMethod, created, secretKey, id?, previousProof? }) -> new artifact.
+ * Appends a §16.5 proof-set member signed with SLH-DSA-SHA2-128f (FIPS 205) — the dual-sign PRIMARY
+ * alongside addMldsaProof's ML-DSA-65 secondary (PQC-REANCHOR-BUILD-1, Path A). Same single-lineage
+ * pipeline as addMldsaProof: no second canonicalization, no second hash path. secretKey is a raw
+ * slh_dsa_sha2_128f secret key Uint8Array (see slhdsaKeygen / slhdsaSecretKeyToJwk below). created is
+ * caller-supplied ISO-8601 (determinism — never Date.now() here). */
+export async function addSlhdsaProof(artifact, { verificationMethod, created, secretKey, id, previousProof }) {
+  if (!verificationMethod || !created || !secretKey) throw new Error('addSlhdsaProof requires { verificationMethod, created, secretKey }');
+  const opts = slhdsaProofOptions({ verificationMethod, created, id, previousProof });
+  const doc = chainSecuredDocument(artifact, { ...opts });
+  const digest = await hashDataForDoc(doc, opts);
+  const sigBytes = slh_dsa_sha2_128f.sign(digest, secretKey);
+  const proof = { ...opts, proofValue: 'z' + b58encode(sigBytes) };
+  const out = structuredClone(artifact);
+  const existing = asArray(out.audit_signature?.proof);
+  out.audit_signature = { ...(out.audit_signature || {}), proof: existing.length ? [...existing, proof] : proof };
+  return out;
+}
+
+/** slhdsaKeygen(seed: Uint8Array[48]) -> { publicKey, secretKey } (both Uint8Array, SLH-DSA-SHA2-128f).
+ * Caller-supplied seed — determinism is the caller's responsibility, same posture as mldsaKeygen. */
+export function slhdsaKeygen(seed) { return slh_dsa_sha2_128f.keygen(seed); }
+
+/** slhdsaVerify(sigBytes, msgBytes, publicKey) -> boolean. Raw verify, mirrors mldsaVerify. */
+export function slhdsaVerify(sigBytes, msgBytes, publicKey) {
+  try { return slh_dsa_sha2_128f.verify(sigBytes, msgBytes, publicKey); } catch { return false; }
+}
+
+export function slhdsaPublicKeyToJwk(publicKey) {
+  return { kty: 'AKP', alg: SLHDSA_CRYPTOSUITE, pub: b64uEncode(publicKey) };
+}
+export function slhdsaJwkToPublicKey(jwk) {
+  if (!jwk || jwk.kty !== 'AKP' || typeof jwk.pub !== 'string') throw new Error('not an SLH-DSA AKP JWK');
+  return b64uDecode(jwk.pub);
+}
+export function slhdsaSecretKeyToJwk(secretKey) {
+  return { kty: 'AKP', alg: SLHDSA_CRYPTOSUITE, priv: b64uEncode(secretKey) };
+}
+export function slhdsaJwkToSecretKey(jwk) {
+  if (!jwk || jwk.kty !== 'AKP' || typeof jwk.priv !== 'string') throw new Error('not an SLH-DSA AKP JWK');
+  return b64uDecode(jwk.priv);
+}
+
+export const SLHDSA_PROOF_CRYPTOSUITE = SLHDSA_CRYPTOSUITE;
 
 export const PROOF_CRYPTOSUITE = CRYPTOSUITE;
