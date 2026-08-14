@@ -261,16 +261,27 @@ export function advisoryGates() {
  * be affirmatively earned, never inherited from a failed lookup.
  */
 export function isMainContext() {
-  if (process.env.GITHUB_EVENT_NAME === 'pull_request') return false;
+  // ⚠ STRUCTURED AS A WHITELIST OF PR PROOFS, NOT A BLACKLIST OF MAIN ONES.
+  // An earlier draft asked "is GITHUB_REF_NAME === 'main'?" and returned false
+  // otherwise — which made an EMPTY/absent ref name read as "PR", i.e. it failed
+  // OPEN, silently downgrading gates in an unknown CI context. (Caught by the
+  // context probe, not by review.) Only an affirmative proof of a PR may earn
+  // the downgrade; every other state blocks.
+
+  // CI: `pull_request` is the one and only PR proof. push-to-main, schedule,
+  // workflow_dispatch, workflow_call and anything unrecognised all BLOCK.
   if (process.env.GITHUB_ACTIONS === 'true') {
-    return (process.env.GITHUB_REF_NAME || '') === 'main';
+    return process.env.GITHUB_EVENT_NAME !== 'pull_request';
   }
-  // Local pre-push: on main → main context; on a feature branch → PR context.
+
+  // Local pre-push: a feature branch is the PR proof. It must RESOLVE, and be
+  // neither `main` nor a detached HEAD, before the downgrade applies.
   try {
     const branch = execSync('git rev-parse --abbrev-ref HEAD', {
       cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'],
     }).toString().trim();
-    return branch === 'main' || branch === 'HEAD'; // detached → fail closed
+    if (!branch || branch === 'HEAD' || branch === 'main') return true; // fail closed
+    return false;
   } catch {
     return true; // undeterminable → fail closed, gates block
   }
