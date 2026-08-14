@@ -550,6 +550,7 @@ import * as art609    from './art-609-jwks-pinned-directory-check.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art610    from './art-610-erc4626-vault-share-math.kernel.mjs';
 import * as art611    from './art-611-erc7540-async-vault-request-accounting.kernel.mjs';
+import * as art614    from './art-614-eip7702-authorization-tuple-decoder.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
 import * as art63     from './art-63-agent-service-metering-modeler.kernel.mjs';
 import * as art64     from './art-64-ai-act-highrisk-fit-diagnostic.kernel.mjs';
@@ -1154,6 +1155,7 @@ export const KERNELS = {
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-610-erc4626-vault-share-math':                           art610,
   'art-611-erc7540-async-vault-request-accounting':             art611,
+  'art-614-eip7702-authorization-tuple-decoder':                art614,
   'art-62-ap2-payment-receipt-verifier':                        art62,
   'art-63-agent-service-metering-modeler':                      art63,
   'art-64-ai-act-highrisk-fit-diagnostic':                      art64,
