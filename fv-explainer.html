@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>How the Formal-Verification Pilot Works | AINumbers.co</title>
+<meta name="description" content="A seven-panel visual walk of the formal-verification pilot as implemented: clause to LLM-drafted spec, independence gates, human adjudication, verification tiers, execution binding, the fixtures-are-not-proofs story, and what is not claimed.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/fv-explainer.html">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="How the Formal-Verification Pilot Works | AINumbers.co">
+<meta property="og:description" content="Seven panels walking the implemented FV pipeline: clause to spec, independence gates, human adjudication, verification tiers, execution binding, the fixtures-are-not-proofs story, and what is not claimed.">
+<meta property="og:url" content="https://ainumbers.co/fv-explainer.html">
+<meta property="og:site_name" content="AINumbers.co">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@ainumbers">
+<meta name="twitter:title" content="How the Formal-Verification Pilot Works | AINumbers.co">
+<meta name="twitter:description" content="A visual walk of the implemented FV pipeline, including what it does not claim.">
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<!-- Schema.org: WebPage -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://ainumbers.co/#org",
+      "name": "AINumbers.co",
+      "url": "https://ainumbers.co",
+      "parentOrganization": { "@type": "Organization", "name": "Post Oak Labs", "url": "https://postoaklabs.com" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://ainumbers.co/fv-explainer.html",
+      "name": "How the Formal-Verification Pilot Works",
+      "url": "https://ainumbers.co/fv-explainer.html",
+      "description": "A seven-panel visual walk of the formal-verification pilot as implemented, including what is not claimed.",
+      "isPartOf": { "@id": "https://ainumbers.co/#org" },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://ainumbers.co" },
+          { "@type": "ListItem", "position": 2, "name": "Methods", "item": "https://ainumbers.co/methods.html" },
+          { "@type": "ListItem", "position": 3, "name": "FV Process Explainer", "item": "https://ainumbers.co/fv-explainer.html" }
+        ]
+      }
+    }
+  ]
+}
+</script>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1000px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-links{display:flex;align-items:center;gap:16px;flex-shrink:0}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg)!important;background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
+
+/* Hero */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.9rem,3.6vw,2.9rem);color:var(--white);max-width:780px;margin-bottom:.9rem}
+.hero-desc{font-size:.95rem;color:var(--body);max-width:700px;line-height:1.9;margin-bottom:1.5rem}
+
+/* Section */
+.section{padding:3rem 0;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.section:last-of-type{border-bottom:none}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.sec-heading{font-size:clamp(1.15rem,2.1vw,1.55rem);color:var(--white);margin-bottom:.5rem}
+.sec-hook{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal-lt);margin-bottom:1.2rem}
+.prose{max-width:760px}
+.prose p{font-size:.9rem;color:var(--body);line-height:1.9;margin-bottom:1rem}
+.prose p:last-child{margin-bottom:0}
+.prose strong{color:var(--text);font-weight:500}
+.prose a{color:var(--teal-lt);border-bottom:1px solid rgba(45,212,191,.3);transition:opacity .2s}
+.prose a:hover{opacity:.75}
+.prose code{font-family:'JetBrains Mono',monospace;font-size:.88em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+.prose ul{margin:.6rem 0 0 1.1rem;color:var(--body)}
+.prose li{font-size:.85rem;line-height:1.85;margin-bottom:.5rem}
+
+/* Panel diagram frame */
+.panel-svg-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.1rem .9rem;margin:0 0 1.4rem;overflow-x:auto}
+.panel-svg-wrap svg{display:block;min-width:600px;width:100%;height:auto}
+.svg-box{fill:var(--bg-3);stroke:var(--border-2)}
+.svg-box-hi{fill:var(--teal-dim);stroke:var(--teal)}
+.svg-box-gold{fill:var(--gold-dim);stroke:var(--gold)}
+.svg-box-bad{fill:var(--red-dim);stroke:var(--red)}
+.svg-box-ok{fill:var(--green-dim);stroke:var(--green)}
+.svg-title{font-family:'Sora',sans-serif;font-weight:500;fill:var(--bright)}
+.svg-mono{font-family:'JetBrains Mono',monospace;fill:var(--body)}
+.svg-mono-dim{font-family:'JetBrains Mono',monospace;fill:var(--muted)}
+.svg-tag{font-family:'JetBrains Mono',monospace;fill:var(--teal-lt)}
+.svg-tag-gold{font-family:'JetBrains Mono',monospace;fill:var(--gold)}
+.svg-tag-bad{font-family:'JetBrains Mono',monospace;fill:var(--red)}
+.svg-tag-ok{font-family:'JetBrains Mono',monospace;fill:var(--green)}
+.svg-arrow{stroke:var(--border-2);stroke-width:1.5;fill:none}
+.pulse-dot{animation:pulse-op 2.6s ease-in-out infinite}
+@keyframes pulse-op{0%,100%{opacity:.55}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.pulse-dot{animation:none;opacity:1}}
+
+/* Tier ladder */
+.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:.4rem}
+.tier{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem;position:relative}
+.tier-badge{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);border-radius:4px;padding:.15rem .5rem;display:inline-block;margin-bottom:.6rem}
+.tier-name{font-size:.9rem;color:var(--bright);font-weight:500;margin-bottom:.5rem;line-height:1.4}
+.tier-desc{font-size:.76rem;color:var(--muted);line-height:1.7}
+.tier-kernel{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);margin-top:.6rem}
+
+/* Boundary / not-claimed callout */
+.boundary-callout{background:var(--bg-2);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:var(--radius-lg);padding:1.4rem 1.6rem;margin-top:.5rem}
+.boundary-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem}
+.boundary-callout p{font-size:.87rem;color:var(--body);line-height:1.85;margin-bottom:.7rem}
+.boundary-callout p:last-child{margin-bottom:0}
+.boundary-callout strong{color:var(--text);font-weight:500}
+.not-claimed{background:var(--bg-2);border:1px solid rgba(239,68,68,.28);border-left:3px solid var(--red);border-radius:var(--radius-lg);padding:1.4rem 1.6rem}
+.not-claimed .boundary-label{color:var(--red)}
+.not-claimed ul{margin:.4rem 0 0 1.1rem}
+.not-claimed li{font-size:.86rem;color:var(--body);line-height:1.85;margin-bottom:.6rem}
+
+/* QC coverage stat (separate from the 4-kernel pilot) */
+.qc-stat{display:flex;flex-wrap:wrap;gap:1rem;align-items:baseline;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.3rem;margin-top:1rem}
+.qc-stat-num{font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--bright);font-weight:600}
+.qc-stat-label{font-size:.76rem;color:var(--muted);max-width:560px;line-height:1.65}
+
+/* CTA */
+.cta-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem 1.2rem;border-radius:var(--radius);border:1px solid var(--teal);transition:all .2s}
+.btn-primary{background:var(--teal);color:var(--bg)}
+.btn-primary:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--teal-lt)}
+.btn-ghost:hover{background:var(--teal-dim)}
+
+/* ROOT-FOOTER-CSS:START (generated by scripts/gen-root-chrome.mjs — do not hand-edit) */
+/* OCG-ROOT-FOOTER-CSS:v1 */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+/* ROOT-FOOTER-CSS:END */
+
+@media(max-width:760px){
+  .tier-grid{grid-template-columns:1fr}
+  .nav-links a:not(.nav-cta){display:none}
+  .nav-breadcrumb{display:none}
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <div class="nav-inner">
+    <a href="index.html" class="logo" aria-label="AINumbers.co home">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+        <div class="logo-tag">Fintech Intelligence Suite</div>
+      </div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="index.html">Home</a>
+      <span>&rsaquo;</span>
+      <a href="methods.html">Methods</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">FV Process Explainer</span>
+    </div>
+    <div class="nav-links">
+      <a href="methods.html">Methods</a>
+      <a href="chaingraph/kernel-vm-explainer.html">Kernel VM</a>
+      <a href="start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+<!-- Hero -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">Formal verification &middot; pilot</div>
+    <h1>How the formal-verification pilot actually works</h1>
+    <p class="hero-desc">This is a visual walk of the pipeline as it exists today, on four named kernels, not a description of a shipped capability. Every claim on this page is method transparency, not an assurance grade: it shows what ran and what a signed spec covers, and names what is deliberately out of scope. See <a href="methods.html">Methods</a> for the six general checking mechanisms this pilot sits alongside, and <a href="chaingraph/kernel-vm-explainer.html">How the Kernel VM Works</a> for the execution runtime this pipeline binds to.</p>
+  </div>
+</div>
+
+<!-- Panel 1: Clause -> spec -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Panel 1 of 7</div>
+    <h2 class="sec-heading">Clause to spec</h2>
+    <p class="sec-hook">LLM-drafted, verifier-checked.</p>
+    <div class="panel-svg-wrap">
+<svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A regulation clause or house rubric becomes an LLM-drafted formal spec, then a verifier-checked spec, with source, retrieval date, clause digest, and snapshot pinned to it.">
+  <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--border-2)"/></marker></defs>
+  <rect class="svg-box" x="16" y="46" width="230" height="70" rx="8"/>
+  <text class="svg-title" x="131" y="76" font-size="13" text-anchor="middle">Regulation clause</text>
+  <text class="svg-mono-dim" x="131" y="96" font-size="10" text-anchor="middle">or declared house rubric, no-clause kernels</text>
+  <path class="svg-arrow" d="M246 81 H318" marker-end="url(#a1)"/>
+  <rect class="svg-box-hi" x="322" y="46" width="230" height="70" rx="8"/>
+  <text class="svg-title" x="437" y="76" font-size="13" text-anchor="middle">LLM-drafted spec</text>
+  <text class="svg-mono-dim" x="437" y="96" font-size="10" text-anchor="middle">drafted from clause text, not from the kernel</text>
+  <path class="svg-arrow" d="M552 81 H624" marker-end="url(#a1)"/>
+  <rect class="svg-box-ok" x="628" y="46" width="256" height="70" rx="8"/>
+  <text class="svg-title" x="756" y="76" font-size="13" text-anchor="middle">Verifier-checked spec</text>
+  <text class="svg-mono-dim" x="756" y="96" font-size="10" text-anchor="middle">only trusted after &sect;2 gates below</text>
+  <g class="svg-tag" font-size="10">
+    <rect x="16" y="150" width="90" height="24" rx="12" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1"/>
+    <text x="61" y="166" text-anchor="middle">source</text>
+    <rect x="118" y="150" width="140" height="24" rx="12" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1"/>
+    <text x="188" y="166" text-anchor="middle">retrieval date</text>
+    <rect x="270" y="150" width="140" height="24" rx="12" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1"/>
+    <text x="340" y="166" text-anchor="middle">clause digest</text>
+    <rect x="422" y="150" width="120" height="24" rx="12" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1"/>
+    <text x="482" y="166" text-anchor="middle">snapshot</text>
+  </g>
+  <text class="svg-mono-dim" x="560" y="166" font-size="10">pinned per kernel, e.g. <tspan fill="var(--body)">cited_clause_digest</tspan>, <tspan fill="var(--body)">clause_snapshot_location</tspan></text>
+</svg>
+    </div>
+    <div class="prose">
+      <p>A candidate spec is drafted from the cited regulation text itself, never from reading the kernel: a spec derived from the implementation would only show that the implementation matches itself. Every spec file in this pilot carries the clause's source document, the date it was retrieved, a content digest of that document, and a stored snapshot location, so the exact text a spec claims to implement can be checked later even if the live regulation page changes. One kernel in this pilot, the payee name-match scorer, deviated from that order in its first draft; the deviation was self-disclosed, the spec was independently re-derived from the declared contract without reading the kernel, and the two versions matched, so the signed spec stands.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Panel 2: Independence gates -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Panel 2 of 7</div>
+    <h2 class="sec-heading">Independence gates before trust</h2>
+    <p class="sec-hook">A spec earns trust by surviving checks it could fail.</p>
+    <div class="panel-svg-wrap">
+<svg viewBox="0 0 900 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three independence gates run before a spec is trusted: a fixture-oracle gate, a negative control that fails a deliberately wrong spec, and spec-strength gates for mutation and vacuity.">
+  <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--border-2)"/></marker></defs>
+  <rect class="svg-box-ok" x="14" y="20" width="210" height="84" rx="8"/>
+  <text class="svg-title" x="119" y="50" font-size="12.5" text-anchor="middle">Fixture-oracle gate</text>
+  <text class="svg-mono-dim" x="119" y="68" font-size="9.5" text-anchor="middle">spec vs. regulation's own</text>
+  <text class="svg-mono-dim" x="119" y="82" font-size="9.5" text-anchor="middle">worked examples</text>
+  <text class="svg-tag-ok" x="119" y="98" font-size="10" text-anchor="middle">&#10003; must reproduce them</text>
+  <path class="svg-arrow" d="M228 62 H300" marker-end="url(#a2)"/>
+  <rect class="svg-box-bad" x="304" y="20" width="230" height="84" rx="8"/>
+  <text class="svg-title" x="419" y="50" font-size="12.5" text-anchor="middle">Negative control</text>
+  <text class="svg-mono-dim" x="419" y="68" font-size="9.5" text-anchor="middle">a deliberately wrong spec is run</text>
+  <text class="svg-mono-dim" x="419" y="82" font-size="9.5" text-anchor="middle">through the same gate</text>
+  <text class="svg-tag-bad" x="419" y="98" font-size="10" text-anchor="middle">&#10007; must be rejected, this is the check</text>
+  <path class="svg-arrow" d="M538 62 H610" marker-end="url(#a2)"/>
+  <rect class="svg-box-ok" x="614" y="20" width="270" height="84" rx="8"/>
+  <text class="svg-title" x="749" y="50" font-size="12.5" text-anchor="middle">Spec-strength gates</text>
+  <text class="svg-mono-dim" x="749" y="68" font-size="9.5" text-anchor="middle">mutation testing + vacuity check</text>
+  <text class="svg-mono-dim" x="749" y="82" font-size="9.5" text-anchor="middle">catches specs too weak to fail on anything</text>
+  <text class="svg-tag-ok" x="749" y="98" font-size="10" text-anchor="middle">&#10003; must actually constrain</text>
+  <path class="svg-arrow" d="M419 104 V138 M419 138 H749 M749 138 V104" marker-end="url(#a2)"/>
+  <rect class="svg-box-hi" x="619" y="150" width="260" height="46" rx="8"/>
+  <text class="svg-title" x="749" y="178" font-size="12.5" text-anchor="middle">Eligible for human sign-off</text>
+</svg>
+    </div>
+    <div class="prose">
+      <p>The kernel's own golden fixtures are the obvious oracle and a weak one: a spec transliterated from the kernel passes them trivially. Where a stronger public oracle exists, the pilot uses it, for example Appendix J's own four worked transactions, matched to two decimals before any proof is trusted. The negative control is the gate that actually earns trust: a spec that never fails, even a spec deliberately built wrong, is not verifying anything. Mutation and vacuity checks close that gap by confirming the spec's obligations are strong enough to catch a broken proof, not merely present.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Panel 3: Human adjudication -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Panel 3 of 7</div>
+    <h2 class="sec-heading">Human adjudication</h2>
+    <p class="sec-hook">A human signs the spec, never the proof.</p>
+    <div class="panel-svg-wrap">
+<svg viewBox="0 0 900 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="State machine: draft, then fixture-verified, then signed by a named human or provisional under a challenge window, then attested. A single adjudicator today.">
+  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--border-2)"/></marker></defs>
+  <g font-family="JetBrains Mono, monospace" font-size="10.5">
+    <rect class="svg-box" x="10" y="70" width="120" height="46" rx="8"/>
+    <text class="svg-mono" x="70" y="98" text-anchor="middle">DRAFT</text>
+    <path class="svg-arrow" d="M130 93 H188" marker-end="url(#a3)"/>
+    <rect class="svg-box" x="192" y="70" width="180" height="46" rx="8"/>
+    <text class="svg-mono" x="282" y="98" text-anchor="middle">FIXTURE-VERIFIED</text>
+    <path class="svg-arrow" d="M372 93 H430" marker-end="url(#a3)"/>
+    <rect class="svg-box-hi" x="434" y="20" width="200" height="46" rx="8"/>
+    <text class="svg-tag" x="534" y="48" text-anchor="middle">SIGNED (named human)</text>
+    <rect class="svg-box-gold" x="434" y="118" width="200" height="46" rx="8"/>
+    <text class="svg-tag-gold" x="534" y="146" text-anchor="middle">PROVISIONAL (challenge window)</text>
+    <path class="svg-arrow" d="M400 93 L434 43" marker-end="url(#a3)"/>
+    <path class="svg-arrow" d="M400 93 L434 141" marker-end="url(#a3)"/>
+    <path class="svg-arrow" d="M634 141 H660 V93 H700" marker-end="url(#a3)"/>
+    <path class="svg-arrow" d="M634 43 H700" marker-end="url(#a3)"/>
+    <rect class="svg-box-ok" x="704" y="70" width="186" height="46" rx="8"/>
+    <text class="svg-tag-ok" x="797" y="98" text-anchor="middle">ATTESTED</text>
+  </g>
+  <text class="svg-mono-dim" x="10" y="180" font-size="9.5">Single-adjudicator today: the person who prompted the spec draft and the signer are the same person, stated as an assumption, not hidden.</text>
+</svg>
+    </div>
+    <div class="prose">
+      <p>The proof itself is never what a human adjudicates; by the time a proof runs, the spec it proves against is already the human-signed artifact. Today's process runs under a stated single-adjudicator assumption: the person who prompted a spec's drafting and the person who signs it are the same person, and no other person reviewed it. A routine template instance of an already-signed spec family may publish provisionally under a named review-cadence challenge window rather than wait for a fresh pre-sign; a novel spec is always pre-signed before its proof is trusted. Nothing about the window implies a stake, a bond, or an adversarial dispute; it is a labeling and review-cadence device, and today the only reviewer able to challenge within it is the same signer.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Panel 4: Verification tiers -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Panel 4 of 7</div>
+    <h2 class="sec-heading">Verification tiers</h2>
+    <p class="sec-hook">"Proven" names a machine-checked theorem. Nothing here is bare "correct."</p>
+    <div class="tier-grid">
+      <div class="tier">
+        <span class="tier-badge">Class A</span>
+        <div class="tier-name">Verified by exhaustive enumeration (all N inputs)</div>
+        <div class="tier-desc">Every point in the declared input space is computed and checked against the signed spec, with the result recorded as zero failures across that full space, not a sample of it.</div>
+        <div class="tier-kernel">art-157 (24 inputs) &middot; art-27 (531,441 inputs)</div>
+      </div>
+      <div class="tier">
+        <span class="tier-badge">Class B</span>
+        <div class="tier-name">Property-tested over stated ranges</div>
+        <div class="tier-desc">Stated properties are checked over a declared range rather than every possible input, alongside a hand proof for the properties the generated tests can't reach directly.</div>
+        <div class="tier-kernel">art-376</div>
+      </div>
+      <div class="tier">
+        <span class="tier-badge">Class C</span>
+        <div class="tier-name">Machine-checked proof (Dafny)</div>
+        <div class="tier-desc">The algorithm is ported to Dafny and Z3 discharges the stated proof obligations against a spec signed by a human. Shown here only because a real Dafny artifact exists for this pilot today; where none exists, this tier is not claimed.</div>
+        <div class="tier-kernel">art-215</div>
+      </div>
+    </div>
+    <div class="prose" style="margin-top:1.1rem">
+      <p>These are Tim's own tier labels, used verbatim, not a marketing paraphrase of them. "Verified" always ships with the spec and its stated assumptions visible next to the claim, never as a bare word standing alone.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Panel 5: Execution binding -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Panel 5 of 7</div>
+    <h2 class="sec-heading">Execution binding</h2>
+    <p class="sec-hook">Three digests, one binding, or the run is rejected.</p>
+    <div class="panel-svg-wrap">
+<svg viewBox="0 0 900 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kernel digest, spec digest, and toolchain digest converge into a triple-identity binding, joined by a zk proof of execution and a runtime twin agreement check.">
+  <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--border-2)"/></marker></defs>
+  <g font-size="11">
+    <rect class="svg-box" x="20" y="16" width="200" height="46" rx="8"/>
+    <text class="svg-mono" x="120" y="44" text-anchor="middle">kernel digest</text>
+    <rect class="svg-box" x="20" y="88" width="200" height="46" rx="8"/>
+    <text class="svg-mono" x="120" y="116" text-anchor="middle">spec digest</text>
+    <rect class="svg-box" x="20" y="160" width="200" height="46" rx="8"/>
+    <text class="svg-mono" x="120" y="188" text-anchor="middle">toolchain digest</text>
+    <path class="svg-arrow" d="M220 39 L360 100" marker-end="url(#a5)"/>
+    <path class="svg-arrow" d="M220 111 L360 111" marker-end="url(#a5)"/>
+    <path class="svg-arrow" d="M220 183 L360 122" marker-end="url(#a5)"/>
+    <rect class="svg-box-hi" x="364" y="80" width="220" height="62" rx="8"/>
+    <text class="svg-title" x="474" y="106" font-size="12" text-anchor="middle">Triple-identity binding</text>
+    <text class="svg-mono-dim" x="474" y="124" font-size="9.5" text-anchor="middle">all three must match at proof time</text>
+    <path class="svg-arrow" d="M584 111 H656" marker-end="url(#a5)"/>
+    <rect class="svg-box-ok" x="660" y="60" width="220" height="46" rx="8"/>
+    <text class="svg-tag-ok" x="770" y="88" text-anchor="middle">zk proof of execution</text>
+    <rect class="svg-box-ok" x="660" y="116" width="220" height="46" rx="8"/>
+    <text class="svg-tag-ok" x="770" y="144" text-anchor="middle">twin_agreement in receipt</text>
+  </g>
+  <circle class="pulse-dot" cx="474" cy="180" r="4" fill="var(--green)"/>
+  <text class="svg-mono-dim" x="486" y="184" font-size="9.5">execution_hash agrees, or the run is the finding, not something hidden</text>
+</svg>
+    </div>
+    <div class="prose">
+      <p>A proof is only meaningful bound to the exact code, spec, and toolchain that produced it: the kernel's content digest, the signed spec's digest, and the pinned toolchain digest (Dafny and Z3 versions, for the Class C leg) are each checked at proof time. Execution itself runs through the same zk compute-proof and runtime-twin machinery the rest of the suite uses; this page doesn't duplicate that mechanism, see <a href="chaingraph/kernel-vm-explainer.html">How the Kernel VM Works</a> for how one kernel source runs identically across runtimes and what <code>execution_hash</code> agreement actually checks.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Panel 6: Flagship story -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Panel 6 of 7</div>
+    <h2 class="sec-heading">Fixtures are not proofs: the Reg Z APR finding</h2>
+    <p class="sec-hook">A kernel can match every fixture and still be wrong past the fixtures' reach.</p>
+    <div class="panel-svg-wrap">
+<svg viewBox="0 0 900 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The APR solver matched all four CFR worked examples to two decimals, yet the Dafny proof surfaced two defects the fixtures never exercised: a tolerance breach above roughly 200 percent APR, and a Newton solver that could report converged over an APR it never computed.">
+  <g font-size="11">
+    <rect class="svg-box-ok" x="10" y="16" width="410" height="76" rx="8"/>
+    <text class="svg-title" x="215" y="42" font-size="12.5" text-anchor="middle">4 of 4 CFR worked examples matched, to 2dp</text>
+    <text class="svg-mono-dim" x="215" y="60" font-size="9.5" text-anchor="middle">9.69 / 11.82 / 10.34 / 8.97, every fixture the kernel had</text>
+    <text class="svg-tag-ok" x="215" y="78" font-size="10" text-anchor="middle">&#10003; fixtures pass, kernel looks correct</text>
+    <rect class="svg-box-bad" x="480" y="16" width="410" height="76" rx="8"/>
+    <text class="svg-title" x="685" y="42" font-size="12.5" text-anchor="middle">F-1: odd-days compounding vs. simple interest</text>
+    <text class="svg-mono-dim" x="685" y="60" font-size="9.5" text-anchor="middle">breaches tolerance above &#8776;200% APR, near-full odd-day fraction</text>
+    <text class="svg-tag-bad" x="685" y="78" font-size="10" text-anchor="middle">&#10007; only the proof's boundary corpus found it</text>
+    <rect class="svg-box-bad" x="480" y="106" width="410" height="60" rx="8"/>
+    <text class="svg-title" x="685" y="130" font-size="12.5" text-anchor="middle">F-2: solveAPR could report converged: true</text>
+    <text class="svg-mono-dim" x="685" y="148" font-size="9.5" text-anchor="middle">over an APR it never actually computed</text>
+  </g>
+  <text class="svg-mono-dim" x="20" y="192" font-size="9.5">Neither defect showed inside the fixture set. Both showed once the proof was pushed past it. This is the pilot's flagship demonstration, factual, not dramatized.</text>
+</svg>
+    </div>
+    <div class="prose">
+      <p>Reg Z Appendix J publishes four fully worked transactions with their APRs. The shipped kernel reproduces all four to the two decimals the regulation itself speaks in, and its own three golden fixtures pass unchanged. That is the entire evidence a fixture-only check would ever produce. The Dafny proof, discharged against a spec drafted from Appendix J's text rather than the kernel, went further: it found that the kernel compounds interest across an odd-days fraction where Appendix J (b)(6) and (b)(8) prescribe simple interest, a deviation invisible at ordinary rates and growing to a measured 5.56 percentage points at the most extreme rate probed, breaching the &sect;1026.22(a) tolerance above roughly 200% APR with a near-full odd-day fraction. Separately, the proof's solver harness exposed a Newton-iteration exit that could mark an unconverged result <code>converged: true</code>, returning the caller's own guess as if it were computed. Both are documented findings against the specification, tracked for kernel repair as a separate landing step, not silently patched into this page. See <a href="methods.html">Methods</a> for the pilot's present canonical status per kernel.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Panel 7: What is NOT claimed -->
+<div class="section">
+  <div class="container">
+    <div class="sec-label">Panel 7 of 7</div>
+    <h2 class="sec-heading">What is not claimed</h2>
+    <p class="sec-hook">Honesty about scope is the differentiator, not a footnote.</p>
+    <div class="not-claimed">
+      <div class="boundary-label">Named narrow, on purpose</div>
+      <ul>
+        <li>Existence of the root is not claimed. For the APR solver, Dafny's real type is rational and the root is irrational; uniqueness and the bisection bracket are proved, existence itself is not.</li>
+        <li>Date arithmetic is out of scope. Deriving day counts and period fractions from calendar dates is neither in the spec nor proved; it sits outside this pilot entirely.</li>
+        <li>The Class C floor is not the same claim as a proof. The site-wide property-test floor (below) is internal engineering QC over a much larger kernel set; it is a different, weaker guarantee than this pilot's four signed, proved kernels and is never presented as equivalent to them.</li>
+        <li>Single-adjudicator limitation. One person both prompts and signs today's specs; no second reviewer has checked any of them, and that assumption is stated wherever a spec's status is shown, not implied away.</li>
+        <li>Conformity of the shipped kernel to the clause is a separate question from spec correctness. A proof over a Dafny port establishes the port satisfies its obligations; whether the shipped JavaScript computes the same function is checked separately, by differential testing, exactly as Panel 6 shows it can diverge.</li>
+        <li>Coverage is four kernels, named, out of the catalog. No claim is made here about any other kernel, and nothing on this page certifies, warrants, or guarantees compliance with any regulation.</li>
+      </ul>
+    </div>
+    <div class="qc-stat">
+      <div class="qc-stat-num"><!--COUNT:fv.floorFloored-->600<!--/COUNT--> / <!--COUNT:fv.floorTotal-->600<!--/COUNT--></div>
+      <div class="qc-stat-label">Live kernels carrying a digest-matched property-test floor, measured 2026-08-13. This is internal engineering QC across the whole catalog, not an assurance grade, and not the formal-verification pilot described on this page, which covers four named kernels only.</div>
+    </div>
+    <div class="prose" style="margin-top:1.2rem">
+      <p>See the <a href="disclosures/terms.html">Terms &amp; Reliance</a> page for the full disclaimer, and <a href="methods.html">Methods</a> for the six general-purpose checking mechanisms this pilot sits alongside.</p>
+    </div>
+    <div class="cta-row">
+      <a href="methods.html" class="btn btn-primary">Read Methods</a>
+      <a href="chaingraph/kernel-vm-explainer.html" class="btn btn-ghost">How the Kernel VM Works</a>
+      <a href="chaingraph/chaingraph-hub.html" class="btn btn-ghost">Browse the ChainGraph hub</a>
+    </div>
+  </div>
+</div>
+</main>
+
+<!--ROOT-FOOTER:START (generated by scripts/gen-root-chrome.mjs — do not hand-edit)-->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph/chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="chaingraph/rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="chaingraph/openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="chaingraph/openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="chaingraph/ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="chaingraph/aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="chaingraph/ocg-sandbox.html">Sandbox</a>
+        <a href="chaingraph/ocg-chain-builder.html">Chain Builder</a>
+        <a href="chaingraph/ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="chaingraph/ocg-integration-guide.html">Integration Guide</a>
+        <a href="chaingraph/ocg-guide-export.html">Export Profiles</a>
+        <a href="chaingraph/ocg-industries.html">Industry Concepts</a>
+        <a href="helm.html">Helm (Phase 1)</a>
+        <a href="convert.html">Conversion Suite</a>
+        <a href="guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="chaingraph/guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="chaingraph/guide-tempo.html">Tempo Network</a>
+        <a href="chaingraph/guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="chaingraph/guide-buildtype.html">buildType / SLSA</a>
+        <a href="chaingraph/guide-intoto.html">in-toto / DSSE</a>
+        <a href="chaingraph/guide-ed25519.html">Ed25519 Signing</a>
+        <a href="chaingraph/guide-otel.html">OpenTelemetry</a>
+        <a href="chaingraph/guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="chaingraph/guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph/chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="chaingraph/okf/index.md" target="_blank">OKF bundle</a>
+        <a href="data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="openapi.json" target="_blank">openapi.json</a>
+        <a href="llms.txt" target="_blank">llms.txt</a>
+        <a href=".well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="chaingraph/standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="robots.txt" target="_blank">robots.txt</a>
+        <a href="sitemap.html">Sitemap</a>
+        <a href="euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="tools.html">All Tools</a>
+        <a href="mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="about.html">About</a>
+        <a href="methods.html">Methods</a>
+        <a href="fv-explainer.html">FV Process Explainer</a>
+        <a href="suggest.html">Suggest</a>
+        <a href="contact.html">Contact</a>
+        <a href="security.html">Security</a>
+        <a href="disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!--ROOT-FOOTER:END-->
+</body>
+</html>

@@ -26,7 +26,7 @@ const CHECK = process.argv.includes('--check');
 const PAGES = [
   'index.html', 'start.html',
   'contact.html', 'convert.html', 'credits.html', 'methods.html',
-  'security.html', 'suggest.html',
+  'security.html', 'suggest.html', 'fv-explainer.html',
   'helm.html', 'sitemap.html', 'tools.html',
 ];
 

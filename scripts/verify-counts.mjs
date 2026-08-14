@@ -337,6 +337,7 @@ for (const rel of [
   'chaingraph/chaingraph-hub.html',
   'chaingraph/zkvm-compute-integrity.html',
   'chaingraph/why-openchain-graph.html',
+  'fv-explainer.html',
 ]) {
   total += checkHtmlSentinels(rel)
 }
