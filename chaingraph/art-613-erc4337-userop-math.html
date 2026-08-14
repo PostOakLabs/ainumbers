@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ERC-4337 UserOperation Math &middot; ART-613 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees. Zero network. Provable ChainGraph node.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.subsection{font-size:.66rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin:12px 0 6px}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem;line-height:1.4}
+input[type="number"],input[type="text"],select,textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:100px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right;max-width:70%}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-613 · ERC-4337 UserOperation Math</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-613 &middot; ERC-4337 Account Abstraction</div>
+  <h1>ERC-4337 UserOperation Math</h1>
+  <p class="sub">Three deterministic legs over bytes you already hold. First, the <code>userOpHash</code> recompute: <code>keccak256(abi.encode(keccak256(packedUserOp), entryPoint, chainId))</code>. Second, the EntryPoint's required prefund, computed from the gas limits you supply. Third, a reconciliation of a paymaster charge you declare against one recomputed from your own declared inputs. Nothing here is fetched: no RPC, no indexer, no receipt lookup, no contract state.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">ERC-4337 v0.6 and v0.7</span><span class="flag info">keccak256 (vendored, no hand-rolled crypto)</span><span class="flag info">Recompute and reconcile only, no settlement claim</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="section-head">What This Does and Does Not Prove</div>
+    <p class="sub" style="margin-bottom:8px">This node recomputes the exact 32 bytes an ERC-4337 account signs, from the UserOperation fields you supply. It does not verify a signature or recover a signer address, and the ERC-4337 specification itself excludes the signature from the hashed struct, so supplying one changes nothing. A recomputed hash is not an inclusion, and a reconciled charge is not a settlement. This node never reads chain state: it cannot tell you whether the account exists, whether the EntryPoint holds a deposit, whether the nonce is still valid, or whether the operation was ever mined.</p>
+    <p class="sub" style="margin-bottom:0">The EntryPoint version is yours to declare, and it changes what gets hashed. v0.6 hashes a ten-word <code>UserOperation</code> pack. v0.7 hashes an eight-word <code>PackedUserOperation</code>, in which <code>verificationGasLimit</code> and <code>callGasLimit</code> pack into a single <code>accountGasLimits</code> word and <code>maxPriorityFeePerGas</code> and <code>maxFeePerGas</code> pack into <code>gasFees</code>. The prefund formulas differ as well. Guessing the version would silently produce a wrong hash that still looks perfectly well formed, so this node refuses to guess: an unrecognised version returns INDETERMINATE rather than falling back to either layout.</p>
+  </div>
+
+  <div class="card" style="border-color:var(--gold)">
+    <div class="section-head">What This Node Never Fetches</div>
+    <p class="sub" style="margin-bottom:8px">L1 data and blob fees are never derived. On rollups the total charge includes an L1 data-fee component that, after EIP-4844, depends on the inclusion-time L1 basefee and blob basefee. Neither is derivable offline from a UserOperation, so this node does not compute them. An L1 data fee enters the reconciliation only when you declare it, and when you do not, its absence is reported as a named gap rather than quietly absorbed into a residual.</p>
+    <p class="sub" style="margin-bottom:0">The value <code>block.basefee</code> is never fetched either. The effective gas price is <code>min(maxFeePerGas, maxPriorityFeePerGas + block.basefee)</code>. When your two fee caps are equal, the EntryPoint's own legacy shortcut returns <code>maxFeePerGas</code> directly and the basefee drops out, so the price is fully derivable offline. When they differ, the price is reported as null with the reason unless you declare a basefee. It is never guessed.</p>
+  </div>
+
+  <div class="card">
+    <div class="section-head">EntryPoint (declared, never inferred)</div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="epVersion">entryPointVersion</label>
+        <select id="epVersion">
+          <option value="0.6">0.6 (UserOperation, 10-word pack)</option>
+          <option value="0.7" selected>0.7 (PackedUserOperation, 8-word pack)</option>
+        </select>
+      </div>
+      <div class="q"><label class="q-label" for="epAddress">entryPoint (address)</label><input type="text" id="epAddress" value="0x0000000071727De22E5E9d8BAf0edAc6f37da032"></div>
+    </div>
+    <div class="q"><label class="q-label" for="opChainId">chainId (uint256)</label><input type="text" id="opChainId" value="1"></div>
+    <div class="q-hint">Both are hashed into the userOpHash, so neither is defaulted. The address you enter is what gets hashed; this node only flags whether it matches the widely published canonical deployment for the version you declared, and never substitutes it.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">UserOperation Fields</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="opSender">sender (address)</label><input type="text" id="opSender" value="0x2A1530C4C41db0B0b2bB646CB5Eb1A67b7158667"></div>
+      <div class="q"><label class="q-label" for="opNonce">nonce (uint256)</label><input type="text" id="opNonce" value="0"></div>
+    </div>
+    <div class="q"><label class="q-label" for="opInitCode">initCode (bytes)</label><input type="text" id="opInitCode" value="0x"></div>
+    <div class="q"><label class="q-label" for="opCallData">callData (bytes)</label><input type="text" id="opCallData" value="0xb61d27f60000000000000000000000005ff137d4b0fdcd49dca30c7cf57e578a026d2789"></div>
+    <div class="q"><label class="q-label" for="opPaymasterAndData">paymasterAndData (bytes)</label><input type="text" id="opPaymasterAndData" value="0x1234567890abcdef1234567890abcdef12345678000000000000000000000000000138800000000000000000000000000000c350deadbeef"></div>
+    <div class="q-hint">Use <code>0x</code> for an empty field. Under v0.7 the first 52 bytes of paymasterAndData carry the paymaster address, its verification gas limit, and its postOp gas limit; a shorter value is reported as not carrying them rather than back-filled with zeros.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Caller-Supplied Gas Limits and Fee Caps</div>
+    <div class="row3">
+      <div class="q"><label class="q-label" for="opCallGasLimit">callGasLimit</label><input type="text" id="opCallGasLimit" value="100000"></div>
+      <div class="q"><label class="q-label" for="opVerificationGasLimit">verificationGasLimit</label><input type="text" id="opVerificationGasLimit" value="150000"></div>
+      <div class="q"><label class="q-label" for="opPreVerificationGas">preVerificationGas</label><input type="text" id="opPreVerificationGas" value="21000"></div>
+    </div>
+    <div class="row3">
+      <div class="q"><label class="q-label" for="opMaxFeePerGas">maxFeePerGas (wei)</label><input type="text" id="opMaxFeePerGas" value="2000000000"></div>
+      <div class="q"><label class="q-label" for="opMaxPriorityFeePerGas">maxPriorityFeePerGas (wei)</label><input type="text" id="opMaxPriorityFeePerGas" value="1000000000"></div>
+      <div class="q"><label class="q-label" for="opDeclaredBaseFee">declaredBaseFeePerGas (wei, optional)</label><input type="text" id="opDeclaredBaseFee" value="500000000"></div>
+    </div>
+    <div class="q-hint">Every value here is yours. This node applies each version's own prefund formula to them and never checks them against a deployed EntryPoint.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">Paymaster Reconciliation (all inputs declared, all optional)</div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="recGasUsed">declaredActualGasUsed</label><input type="text" id="recGasUsed" value="180000"></div>
+      <div class="q"><label class="q-label" for="recGasCost">declaredActualGasCostWei</label><input type="text" id="recGasCost" value="271000000000000"></div>
+    </div>
+    <div class="row2">
+      <div class="q"><label class="q-label" for="recL1Fee">declaredL1DataFeeWei (never derived)</label><input type="text" id="recL1Fee" value="1000000000000"></div>
+      <div class="q"><label class="q-label" for="recTolerance">reconciliationToleranceWei</label><input type="text" id="recTolerance" value="0"></div>
+    </div>
+    <div class="q-hint">Leave any field blank to declare nothing. A blank field is treated as undeclared and named in the output, never as a zero.</div>
+
+    <div style="margin-top:20px">
+      <button onclick="runCheck()">&#9654; Recompute and Reconcile</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div id="reasonsBox"></div>
+      <div class="subsection">userOpHash (the bytes the account signs)</div>
+      <div class="exec-hash" id="userOpHashBox"></div>
+      <div class="subsection">Packed Struct Hash</div>
+      <div class="exec-hash" id="packedHashBox"></div>
+      <div class="subsection">Pack Layout</div>
+      <div class="kv"><span class="kv-k">EntryPoint version</span><span class="kv-v" id="epVersionBox"></span></div>
+      <div class="kv"><span class="kv-k">Words hashed</span><span class="kv-v" id="wordCountBox"></span></div>
+      <div class="kv"><span class="kv-k">accountGasLimits</span><span class="kv-v" id="accountGasLimitsBox"></span></div>
+      <div class="kv"><span class="kv-k">gasFees</span><span class="kv-v" id="gasFeesBox"></span></div>
+      <div class="kv"><span class="kv-k">EntryPoint matches canonical</span><span class="kv-v" id="epCanonicalBox"></span></div>
+      <div class="subsection">Gas Accounting</div>
+      <div id="gasTable"></div>
+      <div class="subsection">Paymaster Reconciliation</div>
+      <div id="reconTable"></div>
+      <div class="subsection">Never Fetched</div>
+      <div id="neverFetchedBox"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-613-erc4337-userop-math',
+  version: '1.0.0',
+  mcp_name: 'recompute_erc4337_userop_math',
+  title: 'ERC-4337 UserOperation Math',
+  description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_erc4337_userop_math',
+    description: 'Recomputes the ERC-4337 userOpHash under a declared EntryPoint version (0.6 or 0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against one recomputed from declared inputs. Never derives L1 data or blob fees and never fetches block.basefee. Zero network calls, no settlement claim.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entryPointVersion: { type: ['string', 'number'] },
+        entryPoint: { type: 'string' },
+        chainId: { type: ['string', 'number'] },
+        sender: { type: 'string' },
+        nonce: { type: ['string', 'number'] },
+        initCode: { type: 'string' },
+        callData: { type: 'string' },
+        paymasterAndData: { type: 'string' },
+        callGasLimit: { type: ['string', 'number'] },
+        verificationGasLimit: { type: ['string', 'number'] },
+        preVerificationGas: { type: ['string', 'number'] },
+        maxFeePerGas: { type: ['string', 'number'] },
+        maxPriorityFeePerGas: { type: ['string', 'number'] },
+        declaredBaseFeePerGas: { type: ['string', 'number'] },
+        declaredActualGasUsed: { type: ['string', 'number'] },
+        declaredActualGasCostWei: { type: ['string', 'number'] },
+        declaredL1DataFeeWei: { type: ['string', 'number'] },
+        reconciliationToleranceWei: { type: ['string', 'number'] }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+// ── keccak_256, vendored inline (WebCrypto has no keccak/SHA3 support, so browser and server
+// share the identical vendored primitive — same bundle as chaingraph/kernels/art-590-*.kernel.mjs,
+// see that file's header for provenance/licence) ─────────────────────────────────────────────
+// ---- @noble/hashes utils.js (v2.2.0, MIT, Paul Miller) ----
+/**
+ * Checks if something is Uint8Array. Be careful: nodejs Buffer will return true.
+ * @param a - value to test
+ * @returns `true` when the value is a Uint8Array-compatible view.
+ * @example
+ * Check whether a value is a Uint8Array-compatible view.
+ * ```ts
+ * isBytes_(new Uint8Array([1, 2, 3]));
+ * ```
+ */
+function isBytes_(a) {
+    // Plain `instanceof Uint8Array` is too strict for some Buffer / proxy / cross-realm cases.
+    // The fallback still requires a real ArrayBuffer view, so plain
+    // JSON-deserialized `{ constructor: ... }` spoofing is rejected, and
+    // `BYTES_PER_ELEMENT === 1` keeps the fallback on byte-oriented views.
+    return (a instanceof Uint8Array ||
+        (ArrayBuffer.isView(a) &&
+            a.constructor.name === 'Uint8Array' &&
+            'BYTES_PER_ELEMENT' in a &&
+            a.BYTES_PER_ELEMENT === 1));
+}
+/**
+ * Asserts something is a non-negative integer.
+ * @param n - number to validate
+ * @param title - label included in thrown errors
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
+ * @example
+ * Validate a non-negative integer option.
+ * ```ts
+ * anumber(32, 'length');
+ * ```
+ */
+function anumber(n, title = '') {
+    if (typeof n !== 'number') {
+        const prefix = title && `"${title}" `;
+        throw new TypeError(`${prefix}expected number, got ${typeof n}`);
+    }
+    if (!Number.isSafeInteger(n) || n < 0) {
+        const prefix = title && `"${title}" `;
+        throw new RangeError(`${prefix}expected integer >= 0, got ${n}`);
+    }
+}
+/**
+ * Asserts something is Uint8Array.
+ * @param value - value to validate
+ * @param length - optional exact length constraint
+ * @param title - label included in thrown errors
+ * @returns The validated byte array.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
+ * @example
+ * Validate that a value is a byte array.
+ * ```ts
+ * abytes(new Uint8Array([1, 2, 3]));
+ * ```
+ */
+function abytes(value, length, title = '') {
+    const bytes = isBytes_(value);
+    const len = value?.length;
+    const needsLen = length !== undefined;
+    if (!bytes || (needsLen && len !== length)) {
+        const prefix = title && `"${title}" `;
+        const ofLen = needsLen ? ` of length ${length}` : '';
+        const got = bytes ? `length=${len}` : `type=${typeof value}`;
+        const message = prefix + 'expected Uint8Array' + ofLen + ', got ' + got;
+        if (!bytes)
+            throw new TypeError(message);
+        throw new RangeError(message);
+    }
+    return value;
+}
+/**
+ * Copies bytes into a fresh Uint8Array.
+ * Buffer-style slices can alias the same backing store, so callers that need ownership should copy.
+ * @param bytes - source bytes to clone
+ * @returns Freshly allocated copy of `bytes`.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Clone a byte array before mutating it.
+ * ```ts
+ * const copy = copyBytes_(new Uint8Array([1, 2, 3]));
+ * ```
+ */
+function copyBytes_(bytes) {
+    // `Uint8Array.from(...)` would also accept arrays / other typed arrays. Keep this helper strict
+    // because callers use it at byte-validation boundaries before mutating the detached copy.
+    return Uint8Array.from(abytes(bytes));
+}
+/**
+ * Asserts something is a wrapped hash constructor.
+ * @param h - hash constructor to validate
+ * @throws On wrong argument types or invalid hash wrapper shape. {@link TypeError}
+ * @throws On invalid hash metadata ranges or values. {@link RangeError}
+ * @throws If the hash metadata allows empty outputs or block sizes. {@link Error}
+ * @example
+ * Validate a callable hash wrapper.
+ * ```ts
+ * import { ahash } from '@noble/hashes/utils.js';
+ * import { sha256 } from '@noble/hashes/sha2.js';
+ * ahash(sha256);
+ * ```
+ */
+function ahash(h) {
+    if (typeof h !== 'function' || typeof h.create !== 'function')
+        throw new TypeError('Hash must wrapped by utils.createHasher');
+    anumber(h.outputLen);
+    anumber(h.blockLen);
+    // HMAC and KDF callers treat these as real byte lengths; allowing zero lets fake wrappers pass
+    // validation and can produce empty outputs instead of failing fast.
+    if (h.outputLen < 1)
+        throw new Error('"outputLen" must be >= 1');
+    if (h.blockLen < 1)
+        throw new Error('"blockLen" must be >= 1');
+}
+/**
+ * Asserts a hash instance has not been destroyed or finished.
+ * @param instance - hash instance to validate
+ * @param checkFinished - whether to reject finalized instances
+ * @throws If the hash instance has already been destroyed or finalized. {@link Error}
+ * @example
+ * Validate that a hash instance is still usable.
+ * ```ts
+ * import { aexists } from '@noble/hashes/utils.js';
+ * import { sha256 } from '@noble/hashes/sha2.js';
+ * const hash = sha256.create();
+ * aexists(hash);
+ * ```
+ */
+function aexists(instance, checkFinished = true) {
+    if (instance.destroyed)
+        throw new Error('Hash instance has been destroyed');
+    if (checkFinished && instance.finished)
+        throw new Error('Hash#digest() has already been called');
+}
+/**
+ * Asserts output is a sufficiently-sized byte array.
+ * @param out - destination buffer
+ * @param instance - hash instance providing output length
+ * Oversized buffers are allowed; downstream code only promises to fill the first `outputLen` bytes.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
+ * @example
+ * Validate a caller-provided digest buffer.
+ * ```ts
+ * import { aoutput } from '@noble/hashes/utils.js';
+ * import { sha256 } from '@noble/hashes/sha2.js';
+ * const hash = sha256.create();
+ * aoutput(new Uint8Array(hash.outputLen), hash);
+ * ```
+ */
+function aoutput(out, instance) {
+    abytes(out, undefined, 'digestInto() output');
+    const min = instance.outputLen;
+    if (out.length < min) {
+        throw new RangeError('"digestInto() output" expected to be of length >=' + min);
+    }
+}
+/**
+ * Casts a typed array view to Uint8Array.
+ * @param arr - source typed array
+ * @returns Uint8Array view over the same buffer.
+ * @example
+ * Reinterpret a typed array as bytes.
+ * ```ts
+ * u8(new Uint32Array([1, 2]));
+ * ```
+ */
+function u8(arr) {
+    return new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+}
+/**
+ * Casts a typed array view to Uint32Array.
+ * `arr.byteOffset` must already be 4-byte aligned or the platform
+ * Uint32Array constructor will throw.
+ * @param arr - source typed array
+ * @returns Uint32Array view over the same buffer.
+ * @example
+ * Reinterpret a byte array as 32-bit words.
+ * ```ts
+ * u32(new Uint8Array(8));
+ * ```
+ */
+function u32(arr) {
+    return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+}
+/**
+ * Zeroizes typed arrays in place. Warning: JS provides no guarantees.
+ * @param arrays - arrays to overwrite with zeros
+ * @example
+ * Zeroize sensitive buffers in place.
+ * ```ts
+ * clean(new Uint8Array([1, 2, 3]));
+ * ```
+ */
+function clean(...arrays) {
+    for (let i = 0; i < arrays.length; i++) {
+        arrays[i].fill(0);
+    }
+}
+/**
+ * Creates a DataView for byte-level manipulation.
+ * @param arr - source typed array
+ * @returns DataView over the same buffer region.
+ * @example
+ * Create a DataView over an existing buffer.
+ * ```ts
+ * createView(new Uint8Array(4));
+ * ```
+ */
+function createView(arr) {
+    return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
+}
+/**
+ * Rotate-right operation for uint32 values.
+ * @param word - source word
+ * @param shift - shift amount in bits
+ * @returns Rotated word.
+ * @example
+ * Rotate a 32-bit word to the right.
+ * ```ts
+ * rotr(0x12345678, 8);
+ * ```
+ */
+function rotr(word, shift) {
+    return (word << (32 - shift)) | (word >>> shift);
+}
+/**
+ * Rotate-left operation for uint32 values.
+ * @param word - source word
+ * @param shift - shift amount in bits
+ * @returns Rotated word.
+ * @example
+ * Rotate a 32-bit word to the left.
+ * ```ts
+ * rotl(0x12345678, 8);
+ * ```
+ */
+function rotl(word, shift) {
+    return (word << shift) | ((word >>> (32 - shift)) >>> 0);
+}
+/** Whether the current platform is little-endian. */
+const isLE = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44)();
+/**
+ * Byte-swap operation for uint32 values.
+ * @param word - source word
+ * @returns Word with reversed byte order.
+ * @example
+ * Reverse the byte order of a 32-bit word.
+ * ```ts
+ * byteSwap(0x11223344);
+ * ```
+ */
+function byteSwap(word) {
+    return (((word << 24) & 0xff000000) |
+        ((word << 8) & 0xff0000) |
+        ((word >>> 8) & 0xff00) |
+        ((word >>> 24) & 0xff));
+}
+/**
+ * Conditionally byte-swaps one 32-bit word on big-endian platforms.
+ * @param n - source word
+ * @returns Original or byte-swapped word depending on platform endianness.
+ * @example
+ * Normalize a 32-bit word for host endianness.
+ * ```ts
+ * swap8IfBE(0x11223344);
+ * ```
+ */
+const swap8IfBE = isLE
+    ? (n) => n
+    : (n) => byteSwap(n) >>> 0;
+/**
+ * Byte-swaps every word of a Uint32Array in place.
+ * @param arr - array to mutate
+ * @returns The same array after mutation; callers pass live state arrays here.
+ * @example
+ * Reverse the byte order of every word in place.
+ * ```ts
+ * byteSwap32(new Uint32Array([0x11223344]));
+ * ```
+ */
+function byteSwap32(arr) {
+    for (let i = 0; i < arr.length; i++) {
+        arr[i] = byteSwap(arr[i]);
+    }
+    return arr;
+}
+/**
+ * Conditionally byte-swaps a Uint32Array on big-endian platforms.
+ * @param u - array to normalize for host endianness
+ * @returns Original or byte-swapped array depending on platform endianness.
+ *   On big-endian runtimes this mutates `u` in place via `byteSwap32(...)`.
+ * @example
+ * Normalize a word array for host endianness.
+ * ```ts
+ * swap32IfBE(new Uint32Array([0x11223344]));
+ * ```
+ */
+const swap32IfBE = isLE
+    ? (u) => u
+    : byteSwap32;
+// Built-in hex conversion https://caniuse.com/mdn-javascript_builtins_uint8array_fromhex
+const hasHexBuiltin = /* @__PURE__ */ (() => 
+// @ts-ignore
+typeof Uint8Array.from([]).toHex === 'function' && typeof Uint8Array.fromHex === 'function')();
+// Array where index 0xf0 (240) is mapped to string 'f0'
+const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+/**
+ * Convert byte array to hex string.
+ * Uses the built-in function when available and assumes it matches the tested
+ * fallback semantics.
+ * @param bytes - bytes to encode
+ * @returns Lowercase hexadecimal string.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Convert bytes to lowercase hexadecimal.
+ * ```ts
+ * bytesToHex_(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])); // 'cafe0123'
+ * ```
+ */
+function bytesToHex_(bytes) {
+    abytes(bytes);
+    // @ts-ignore
+    if (hasHexBuiltin)
+        return bytes.toHex();
+    // pre-caching improves the speed 6x
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        hex += hexes[bytes[i]];
+    }
+    return hex;
+}
+// We use optimized technique to convert hex string to byte array
+const asciis = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 };
+function asciiToBase16(ch) {
+    if (ch >= asciis._0 && ch <= asciis._9)
+        return ch - asciis._0; // '2' => 50-48
+    if (ch >= asciis.A && ch <= asciis.F)
+        return ch - (asciis.A - 10); // 'B' => 66-(65-10)
+    if (ch >= asciis.a && ch <= asciis.f)
+        return ch - (asciis.a - 10); // 'b' => 98-(97-10)
+    return;
+}
+/**
+ * Convert hex string to byte array. Uses built-in function, when available.
+ * @param hex - hexadecimal string to decode
+ * @returns Decoded bytes.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
+ * @example
+ * Decode lowercase hexadecimal into bytes.
+ * ```ts
+ * hexToBytes_('cafe0123'); // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
+ * ```
+ */
+function hexToBytes_(hex) {
+    if (typeof hex !== 'string')
+        throw new TypeError('hex string expected, got ' + typeof hex);
+    if (hasHexBuiltin) {
+        try {
+            return Uint8Array.fromHex(hex);
+        }
+        catch (error) {
+            if (error instanceof SyntaxError)
+                throw new RangeError(error.message);
+            throw error;
+        }
+    }
+    const hl = hex.length;
+    const al = hl / 2;
+    if (hl % 2)
+        throw new RangeError('hex string expected, got unpadded hex of length ' + hl);
+    const array = new Uint8Array(al);
+    for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {
+        const n1 = asciiToBase16(hex.charCodeAt(hi));
+        const n2 = asciiToBase16(hex.charCodeAt(hi + 1));
+        if (n1 === undefined || n2 === undefined) {
+            const char = hex[hi] + hex[hi + 1];
+            throw new RangeError('hex string expected, got non-hex character "' + char + '" at index ' + hi);
+        }
+        array[ai] = n1 * 16 + n2; // multiply first octet, e.g. 'a3' => 10*16+3 => 160 + 3 => 163
+    }
+    return array;
+}
+/**
+ * There is no setImmediate in browser and setTimeout is slow.
+ * This yields to the Promise/microtask scheduler queue, not to timers or the
+ * full macrotask event loop.
+ * @example
+ * Yield to the next scheduler tick.
+ * ```ts
+ * await nextTick();
+ * ```
+ */
+const nextTick = async () => { };
+/**
+ * Converts string to bytes using UTF8 encoding.
+ * Built-in doesn't validate input to be string: we do the check.
+ * Non-ASCII details are delegated to the platform `TextEncoder`.
+ * @param str - string to encode
+ * @returns UTF-8 encoded bytes.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Encode a string as UTF-8 bytes.
+ * ```ts
+ * utf8ToBytes('abc'); // Uint8Array.from([97, 98, 99])
+ * ```
+ */
+function utf8ToBytes(str) {
+    if (typeof str !== 'string')
+        throw new TypeError('string expected');
+    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+}
+/**
+ * Helper for KDFs: consumes Uint8Array or string.
+ * String inputs are UTF-8 encoded; byte-array inputs stay aliased to the caller buffer.
+ * @param data - user-provided KDF input
+ * @param errorTitle - label included in thrown errors
+ * @returns Byte representation of the input.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Normalize KDF input to bytes.
+ * ```ts
+ * kdfInputToBytes('password');
+ * ```
+ */
+function kdfInputToBytes(data, errorTitle = '') {
+    if (typeof data === 'string')
+        return utf8ToBytes(data);
+    return abytes(data, undefined, errorTitle);
+}
+/**
+ * Copies several Uint8Arrays into one.
+ * @param arrays - arrays to concatenate
+ * @returns Concatenated byte array.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Concatenate multiple byte arrays.
+ * ```ts
+ * concatBytes_(new Uint8Array([1]), new Uint8Array([2]));
+ * ```
+ */
+function concatBytes_(...arrays) {
+    let sum = 0;
+    for (let i = 0; i < arrays.length; i++) {
+        const a = arrays[i];
+        abytes(a);
+        sum += a.length;
+    }
+    const res = new Uint8Array(sum);
+    for (let i = 0, pad = 0; i < arrays.length; i++) {
+        const a = arrays[i];
+        res.set(a, pad);
+        pad += a.length;
+    }
+    return res;
+}
+/**
+ * Merges default options and passed options.
+ * @param defaults - base option object
+ * @param opts - user overrides
+ * @returns Merged option object. The merge mutates `defaults` in place.
+ * @throws On wrong argument types. {@link TypeError}
+ * @example
+ * Merge user overrides onto default options.
+ * ```ts
+ * checkOpts({ dkLen: 32 }, { asyncTick: 10 });
+ * ```
+ */
+function checkOpts(defaults, opts) {
+    if (opts !== undefined && {}.toString.call(opts) !== '[object Object]')
+        throw new TypeError('options must be object or undefined');
+    const merged = Object.assign(defaults, opts);
+    return merged;
+}
+/**
+ * Creates a callable hash function from a stateful class constructor.
+ * @param hashCons - hash constructor or factory
+ * @param info - optional metadata such as DER OID
+ * @returns Frozen callable hash wrapper with `.create()`.
+ *   Wrapper construction eagerly calls `hashCons(undefined)` once to read
+ *   `outputLen` / `blockLen`, so constructor side effects happen at module
+ *   init time.
+ * @example
+ * Wrap a stateful hash constructor into a callable helper.
+ * ```ts
+ * import { createHasher } from '@noble/hashes/utils.js';
+ * import { sha256 } from '@noble/hashes/sha2.js';
+ * const wrapped = createHasher(sha256.create, { oid: sha256.oid });
+ * wrapped(new Uint8Array([1]));
+ * ```
+ */
+function createHasher(hashCons, info = {}) {
+    const hashC = (msg, opts) => hashCons(opts)
+        .update(msg)
+        .digest();
+    const tmp = hashCons(undefined);
+    hashC.outputLen = tmp.outputLen;
+    hashC.blockLen = tmp.blockLen;
+    hashC.canXOF = tmp.canXOF;
+    hashC.create = (opts) => hashCons(opts);
+    Object.assign(hashC, info);
+    return Object.freeze(hashC);
+}
+/**
+ * Cryptographically secure PRNG backed by `crypto.getRandomValues`.
+ * @param bytesLength - number of random bytes to generate
+ * @returns Random bytes.
+ * The platform `getRandomValues()` implementation still defines any
+ * single-call length cap, and this helper rejects oversize requests
+ * with a stable library `RangeError` instead of host-specific errors.
+ * @throws On wrong argument types. {@link TypeError}
+ * @throws On wrong argument ranges or values. {@link RangeError}
+ * @throws If the current runtime does not provide `crypto.getRandomValues`. {@link Error}
+ * @example
+ * Generate a fresh random key or nonce.
+ * ```ts
+ * const key = randomBytes_(16);
+ * ```
+ */
+function randomBytes_(bytesLength = 32) {
+    // Match the repo's other length-taking helpers instead of relying on Uint8Array coercion.
+    anumber(bytesLength, 'bytesLength');
+    const cr = typeof globalThis === 'object' ? globalThis.crypto : null;
+    if (typeof cr?.getRandomValues !== 'function')
+        throw new Error('crypto.getRandomValues must be defined');
+    // Web Cryptography API Level 2 §10.1.1:
+    // if `byteLength > 65536`, throw `QuotaExceededError`.
+    // Keep the guard explicit so callers can see the quota in code
+    // instead of discovering it by reading the spec or host errors.
+    // This wrapper surfaces the same quota as a stable library RangeError.
+    if (bytesLength > 65536)
+        throw new RangeError(`"bytesLength" expected <= 65536, got ${bytesLength}`);
+    return cr.getRandomValues(new Uint8Array(bytesLength));
+}
+/**
+ * Creates OID metadata for NIST hashes with prefix `06 09 60 86 48 01 65 03 04 02`.
+ * @param suffix - final OID byte for the selected hash.
+ *   The helper accepts any byte even though only the documented NIST hash
+ *   suffixes are meaningful downstream.
+ * @returns Object containing the DER-encoded OID.
+ * @example
+ * Build OID metadata for a NIST hash.
+ * ```ts
+ * oidNist(0x01);
+ * ```
+ */
+const oidNist = (suffix) => ({
+    // Current NIST hashAlgs suffixes used here fit in one DER subidentifier octet.
+    // Larger suffix values would need base-128 OID encoding and a different length byte.
+    oid: Uint8Array.from([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, suffix]),
+});
+//# sourceMappingURL=utils.js.map
+
+// ---- Rename/dedup notes (collision-only; values untouched) ----
+// @noble/hashes utils.js: bytesToHex/concatBytes/hexToBytes/isBytes/randomBytes/copyBytes ->
+//   *_ (trailing underscore) -- these 6 names are ALSO defined by @noble/curves utils.js as its
+//   own (behaviourally-identical passthrough) wrappers; renaming the hashes-package originals lets
+//   both live in one flattened scope. abytes/anumber were NOT renamed (curves' own abytes/anumber
+//   wrappers were deleted instead, see below) because @noble/hashes' sha2.js/sha3.js/hmac.js/_md.js
+//   call the plain (unsuffixed) abytes/anumber directly and are NOT touched by this rename.
+// @noble/curves utils.js: the 7 pure-passthrough wrapper exports (abytes, anumber, bytesToHex,
+//   concatBytes, hexToBytes, isBytes, randomBytes) are DELETED -- each was a one-line passthrough
+//   to the identically-behaved @noble/hashes original, so once both packages share one scope the
+//   hashes original already serves every caller. copyBytes is CURVES' OWN distinct implementation
+//   (not a passthrough) and is kept, unrenamed -- only the hashes-side copyBytes was suffixed above.
+// abytes_ / anumber_ -- curves/utils.js's internal helpers (e.g. bytesToNumberLE) call the
+//   underscore-suffixed names per the original @noble/hashes import aliasing; this const restores
+//   that aliasing against the plain (unrenamed) hashes abytes/anumber.
+const abytes_ = abytes, anumber_ = anumber;
+// Per-file BigInt literal constants (_0n, _1n, _2n, _3n, _4n, ...) are redeclared independently in
+// utils.js, modular.js, curve.js, weierstrass.js, and secp256k1.js in the original package layout
+// (each file is its own module scope there). Flattened into one scope here, each file's copies are
+// suffixed per-file (_u / _m / _c / _w / _s) to avoid "Identifier has already been declared".
+
+// ---- @noble/hashes _u64.js (v2.2.0, MIT, Paul Miller) ----
+const U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
+const _32n = /* @__PURE__ */ BigInt(32);
+// Split bigint into two 32-bit halves. With `le=true`, returned fields become `{ h: low, l: high
+// }` to match little-endian word order rather than the property names.
+function fromBig(n, le = false) {
+    if (le)
+        return { h: Number(n & U32_MASK64), l: Number((n >> _32n) & U32_MASK64) };
+    return { h: Number((n >> _32n) & U32_MASK64) | 0, l: Number(n & U32_MASK64) | 0 };
+}
+// Split bigint list into `[highWords, lowWords]` when `le=false`; with `le=true`, the first array
+// holds the low halves because `fromBig(...)` swaps the semantic meaning of `h` and `l`.
+function split(lst, le = false) {
+    const len = lst.length;
+    let Ah = new Uint32Array(len);
+    let Al = new Uint32Array(len);
+    for (let i = 0; i < len; i++) {
+        const { h, l } = fromBig(lst[i], le);
+        [Ah[i], Al[i]] = [h, l];
+    }
+    return [Ah, Al];
+}
+// Combine explicit `(high, low)` 32-bit halves into a bigint; `>>> 0` normalizes signed JS
+// bitwise results back to uint32 first, and little-endian callers must swap.
+const toBig = (h, l) => (BigInt(h >>> 0) << _32n) | BigInt(l >>> 0);
+// High 32-bit half of a 64-bit logical right shift for `s` in `0..31`.
+const shrSH = (h, _l, s) => h >>> s;
+// Low 32-bit half of a 64-bit logical right shift, valid for `s` in `1..31`.
+const shrSL = (h, l, s) => (h << (32 - s)) | (l >>> s);
+// High 32-bit half of a 64-bit right rotate, valid for `s` in `1..31`.
+const rotrSH = (h, l, s) => (h >>> s) | (l << (32 - s));
+// Low 32-bit half of a 64-bit right rotate, valid for `s` in `1..31`.
+const rotrSL = (h, l, s) => (h << (32 - s)) | (l >>> s);
+// High 32-bit half of a 64-bit right rotate, valid for `s` in `33..63`; `32` uses `rotr32*`.
+const rotrBH = (h, l, s) => (h << (64 - s)) | (l >>> (s - 32));
+// Low 32-bit half of a 64-bit right rotate, valid for `s` in `33..63`; `32` uses `rotr32*`.
+const rotrBL = (h, l, s) => (h >>> (s - 32)) | (l << (64 - s));
+// High 32-bit half of a 64-bit right rotate for `s === 32`; this is just the swapped low half.
+const rotr32H = (_h, l) => l;
+// Low 32-bit half of a 64-bit right rotate for `s === 32`; this is just the swapped high half.
+const rotr32L = (h, _l) => h;
+// High 32-bit half of a 64-bit left rotate, valid for `s` in `1..31`.
+const rotlSH = (h, l, s) => (h << s) | (l >>> (32 - s));
+// Low 32-bit half of a 64-bit left rotate, valid for `s` in `1..31`.
+const rotlSL = (h, l, s) => (l << s) | (h >>> (32 - s));
+// High 32-bit half of a 64-bit left rotate, valid for `s` in `33..63`; `32` uses `rotr32*`.
+const rotlBH = (h, l, s) => (l << (s - 32)) | (h >>> (64 - s));
+// Low 32-bit half of a 64-bit left rotate, valid for `s` in `33..63`; `32` uses `rotr32*`.
+const rotlBL = (h, l, s) => (h << (s - 32)) | (l >>> (64 - s));
+// Add two split 64-bit words and return the split `{ h, l }` sum.
+// JS uses 32-bit signed integers for bitwise operations, so we cannot simply shift the carry out
+// of the low sum and instead use division.
+function add(Ah, Al, Bh, Bl) {
+    const l = (Al >>> 0) + (Bl >>> 0);
+    return { h: (Ah + Bh + ((l / 2 ** 32) | 0)) | 0, l: l | 0 };
+}
+// Addition with more than 2 elements
+// Unmasked low-word accumulator for 3-way addition; pass the raw result into `add3H(...)`.
+const add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
+// High-word finalize step for 3-way addition; `low` must be the untruncated output of `add3L(...)`.
+const add3H = (low, Ah, Bh, Ch) => (Ah + Bh + Ch + ((low / 2 ** 32) | 0)) | 0;
+// Unmasked low-word accumulator for 4-way addition; pass the raw result into `add4H(...)`.
+const add4L = (Al, Bl, Cl, Dl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0);
+// High-word finalize step for 4-way addition; `low` must be the untruncated output of `add4L(...)`.
+const add4H = (low, Ah, Bh, Ch, Dh) => (Ah + Bh + Ch + Dh + ((low / 2 ** 32) | 0)) | 0;
+// Unmasked low-word accumulator for 5-way addition; pass the raw result into `add5H(...)`.
+const add5L = (Al, Bl, Cl, Dl, El) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0) + (El >>> 0);
+// High-word finalize step for 5-way addition; `low` must be the untruncated output of `add5L(...)`.
+const add5H = (low, Ah, Bh, Ch, Dh, Eh) => (Ah + Bh + Ch + Dh + Eh + ((low / 2 ** 32) | 0)) | 0;
+// prettier-ignore
+
+// Canonical grouped namespace for callers that prefer one object.
+// Named exports stay for direct imports.
+// prettier-ignore
+const u64 = {
+    fromBig, split, toBig,
+    shrSH, shrSL,
+    rotrSH, rotrSL, rotrBH, rotrBL,
+    rotr32H, rotr32L,
+    rotlSH, rotlSL, rotlBH, rotlBL,
+    add, add3L, add3H, add4L, add4H, add5H, add5L,
+};
+// Default export mirrors named `u64` for compatibility with object-style imports.
+
+//# sourceMappingURL=_u64.js.map
+// ---- @noble/hashes sha3.js (v2.2.0, MIT, Paul Miller) -- Keccak/SHA3 ----
+/**
+ * SHA3 (keccak) hash function, based on a new "Sponge function" design.
+ * Different from older hashes, the internal state is bigger than output size.
+ *
+ * Check out
+ * {@link https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf | FIPS-202},
+ * {@link https://keccak.team/keccak.html | Website}, and
+ * {@link https://crypto.stackexchange.com/q/15727 | the differences between
+ * SHA-3 and Keccak}.
+ *
+ * Check out `sha3-addons` module for cSHAKE, k12, and others.
+ * @module
+ */
+
+// prettier-ignore
+
+// No __PURE__ annotations in sha3 header:
+// EVERYTHING is in fact used on every export.
+// Various per round constants calculations
+const _0n = BigInt(0);
+const _1n = BigInt(1);
+const _2n = BigInt(2);
+const _7n = BigInt(7);
+const _256n = BigInt(256);
+// FIPS 202 Algorithm 5 rc(): when the outgoing bit is 1, the 8-bit LFSR xors
+// taps 0, 4, 5, and 6, which compresses to the feedback mask `0x71`.
+const _0x71n = BigInt(0x71);
+const SHA3_PI = [];
+const SHA3_ROTL = [];
+const _SHA3_IOTA = []; // no pure annotation: var is always used
+for (let round = 0, R = _1n, x = 1, y = 0; round < 24; round++) {
+    // Pi
+    [x, y] = [y, (2 * x + 3 * y) % 5];
+    SHA3_PI.push(2 * (5 * y + x));
+    // Rotational
+    SHA3_ROTL.push((((round + 1) * (round + 2)) / 2) % 64);
+    // Iota
+    let t = _0n;
+    for (let j = 0; j < 7; j++) {
+        R = ((R << _1n) ^ ((R >> _7n) * _0x71n)) % _256n;
+        if (R & _2n)
+            t ^= _1n << ((_1n << BigInt(j)) - _1n);
+    }
+    _SHA3_IOTA.push(t);
+}
+const IOTAS = split(_SHA3_IOTA, true);
+// `split(..., true)` keeps the local little-endian lane-word layout used by
+// `state32`, so these `H` / `L` tables follow the file's first-word /
+// second-word lane slots rather than `_u64.ts`'s usual high/low naming.
+const SHA3_IOTA_H = IOTAS[0];
+const SHA3_IOTA_L = IOTAS[1];
+// Left rotation (without 0, 32, 64)
+const rotlH = (h, l, s) => (s > 32 ? rotlBH(h, l, s) : rotlSH(h, l, s));
+const rotlL = (h, l, s) => (s > 32 ? rotlBL(h, l, s) : rotlSL(h, l, s));
+/**
+ * `keccakf1600` internal permutation, additionally allows adjusting the round count.
+ * @param s - 5x5 Keccak state encoded as 25 lanes split into 50 uint32 words
+ *   in this file's local little-endian lane-word order
+ * @param rounds - number of rounds to execute
+ * @throws If `rounds` is outside the supported `1..24` range. {@link Error}
+ * @example
+ * Permute a Keccak state with the default 24 rounds.
+ * ```ts
+ * keccakP(new Uint32Array(50));
+ * ```
+ */
+function keccakP(s, rounds = 24) {
+    anumber(rounds, 'rounds');
+    // This implementation precomputes only the standard Keccak-f[1600] 24-round Iota table.
+    if (rounds < 1 || rounds > 24)
+        throw new Error('"rounds" expected integer 1..24');
+    const B = new Uint32Array(5 * 2);
+    // NOTE: all indices are x2 since we store state as u32 instead of u64 (bigints to slow in js)
+    for (let round = 24 - rounds; round < 24; round++) {
+        // Theta θ
+        for (let x = 0; x < 10; x++)
+            B[x] = s[x] ^ s[x + 10] ^ s[x + 20] ^ s[x + 30] ^ s[x + 40];
+        for (let x = 0; x < 10; x += 2) {
+            const idx1 = (x + 8) % 10;
+            const idx0 = (x + 2) % 10;
+            const B0 = B[idx0];
+            const B1 = B[idx0 + 1];
+            const Th = rotlH(B0, B1, 1) ^ B[idx1];
+            const Tl = rotlL(B0, B1, 1) ^ B[idx1 + 1];
+            for (let y = 0; y < 50; y += 10) {
+                s[x + y] ^= Th;
+                s[x + y + 1] ^= Tl;
+            }
+        }
+        // Rho (ρ) and Pi (π)
+        let curH = s[2];
+        let curL = s[3];
+        for (let t = 0; t < 24; t++) {
+            const shift = SHA3_ROTL[t];
+            const Th = rotlH(curH, curL, shift);
+            const Tl = rotlL(curH, curL, shift);
+            const PI = SHA3_PI[t];
+            curH = s[PI];
+            curL = s[PI + 1];
+            s[PI] = Th;
+            s[PI + 1] = Tl;
+        }
+        // Chi (χ)
+        // Same as:
+        // for (let x = 0; x < 10; x++) B[x] = s[y + x];
+        // for (let x = 0; x < 10; x++) s[y + x] ^= ~B[(x + 2) % 10] & B[(x + 4) % 10];
+        for (let y = 0; y < 50; y += 10) {
+            const b0 = s[y], b1 = s[y + 1], b2 = s[y + 2], b3 = s[y + 3];
+            s[y] ^= ~s[y + 2] & s[y + 4];
+            s[y + 1] ^= ~s[y + 3] & s[y + 5];
+            s[y + 2] ^= ~s[y + 4] & s[y + 6];
+            s[y + 3] ^= ~s[y + 5] & s[y + 7];
+            s[y + 4] ^= ~s[y + 6] & s[y + 8];
+            s[y + 5] ^= ~s[y + 7] & s[y + 9];
+            s[y + 6] ^= ~s[y + 8] & b0;
+            s[y + 7] ^= ~s[y + 9] & b1;
+            s[y + 8] ^= ~b0 & b2;
+            s[y + 9] ^= ~b1 & b3;
+        }
+        // Iota (ι)
+        s[0] ^= SHA3_IOTA_H[round];
+        s[1] ^= SHA3_IOTA_L[round];
+    }
+    clean(B);
+}
+/**
+ * Keccak sponge function.
+ * @param blockLen - absorb/squeeze rate in bytes
+ * @param suffix - domain separation suffix byte
+ * @param outputLen - default digest length in bytes. This base sponge only
+ *   requires a non-negative integer; wrappers that need positive output
+ *   lengths must enforce that themselves.
+ * @param enableXOF - whether XOF output is allowed
+ * @param rounds - number of Keccak-f rounds
+ * @example
+ * Build a sponge state, absorb bytes, then finalize a digest.
+ * ```ts
+ * const hash = new Keccak(136, 0x06, 32);
+ * hash.update(new Uint8Array([1, 2, 3]));
+ * hash.digest();
+ * ```
+ */
+class Keccak {
+    state;
+    pos = 0;
+    posOut = 0;
+    finished = false;
+    state32;
+    destroyed = false;
+    blockLen;
+    suffix;
+    outputLen;
+    canXOF;
+    enableXOF = false;
+    rounds;
+    // NOTE: we accept arguments in bytes instead of bits here.
+    constructor(blockLen, suffix, outputLen, enableXOF = false, rounds = 24) {
+        this.blockLen = blockLen;
+        this.suffix = suffix;
+        this.outputLen = outputLen;
+        this.enableXOF = enableXOF;
+        this.canXOF = enableXOF;
+        this.rounds = rounds;
+        // Can be passed from user as dkLen
+        anumber(outputLen, 'outputLen');
+        // 1600 = 5x5 matrix of 64bit.  1600 bits === 200 bytes
+        // 0 < blockLen < 200
+        if (!(0 < blockLen && blockLen < 200))
+            throw new Error('only keccak-f1600 function is supported');
+        this.state = new Uint8Array(200);
+        this.state32 = u32(this.state);
+    }
+    clone() {
+        return this._cloneInto();
+    }
+    keccak() {
+        swap32IfBE(this.state32);
+        keccakP(this.state32, this.rounds);
+        swap32IfBE(this.state32);
+        this.posOut = 0;
+        this.pos = 0;
+    }
+    update(data) {
+        aexists(this);
+        abytes(data);
+        const { blockLen, state } = this;
+        const len = data.length;
+        for (let pos = 0; pos < len;) {
+            const take = Math.min(blockLen - this.pos, len - pos);
+            for (let i = 0; i < take; i++)
+                state[this.pos++] ^= data[pos++];
+            if (this.pos === blockLen)
+                this.keccak();
+        }
+        return this;
+    }
+    finish() {
+        if (this.finished)
+            return;
+        this.finished = true;
+        const { state, suffix, pos, blockLen } = this;
+        // FIPS 202 appends the SHA3/SHAKE domain-separation suffix before pad10*1.
+        // These byte values already include the first padding bit, while the
+        // final `0x80` below supplies the closing `1` bit in the last rate byte.
+        state[pos] ^= suffix;
+        // If that combined suffix lands in the last rate byte and already sets
+        // bit 7, absorb it first so the final pad10*1 bit can be xored into a
+        // fresh block.
+        if ((suffix & 0x80) !== 0 && pos === blockLen - 1)
+            this.keccak();
+        state[blockLen - 1] ^= 0x80;
+        this.keccak();
+    }
+    writeInto(out) {
+        aexists(this, false);
+        abytes(out);
+        this.finish();
+        const bufferOut = this.state;
+        const { blockLen } = this;
+        for (let pos = 0, len = out.length; pos < len;) {
+            if (this.posOut >= blockLen)
+                this.keccak();
+            const take = Math.min(blockLen - this.posOut, len - pos);
+            out.set(bufferOut.subarray(this.posOut, this.posOut + take), pos);
+            this.posOut += take;
+            pos += take;
+        }
+        return out;
+    }
+    xofInto(out) {
+        // Plain SHA3/Keccak usage with XOF is probably a mistake, but this base
+        // class is also reused by SHAKE/cSHAKE/KMAC/TupleHash/ParallelHash/
+        // TurboSHAKE/KangarooTwelve wrappers that intentionally enable XOF.
+        if (!this.enableXOF)
+            throw new Error('XOF is not possible for this instance');
+        return this.writeInto(out);
+    }
+    xof(bytes) {
+        anumber(bytes);
+        return this.xofInto(new Uint8Array(bytes));
+    }
+    digestInto(out) {
+        aoutput(out, this);
+        if (this.finished)
+            throw new Error('digest() was already called');
+        // `aoutput(...)` allows oversized buffers; digestInto() must fill only the advertised digest.
+        this.writeInto(out.subarray(0, this.outputLen));
+        this.destroy();
+    }
+    digest() {
+        const out = new Uint8Array(this.outputLen);
+        this.digestInto(out);
+        return out;
+    }
+    destroy() {
+        this.destroyed = true;
+        clean(this.state);
+    }
+    _cloneInto(to) {
+        const { blockLen, suffix, outputLen, rounds, enableXOF } = this;
+        to ||= new Keccak(blockLen, suffix, outputLen, enableXOF, rounds);
+        // Reused destinations can come from a different rate/capacity variant, so clone must rewrite
+        // the sponge geometry as well as the state words.
+        to.blockLen = blockLen;
+        to.state32.set(this.state32);
+        to.pos = this.pos;
+        to.posOut = this.posOut;
+        to.finished = this.finished;
+        to.rounds = rounds;
+        // Suffix can change in cSHAKE
+        to.suffix = suffix;
+        to.outputLen = outputLen;
+        to.enableXOF = enableXOF;
+        // Clones must preserve the public capability bit too; `_KMAC` reuses this path and deep clone
+        // tests compare instance fields directly, so leaving `canXOF` behind makes the clone lie.
+        to.canXOF = this.canXOF;
+        to.destroyed = this.destroyed;
+        return to;
+    }
+}
+const genKeccak = (suffix, blockLen, outputLen, info = {}) => createHasher(() => new Keccak(blockLen, suffix, outputLen), info);
+/**
+ * SHA3-224 hash function.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with SHA3-224.
+ * ```ts
+ * sha3_224(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const sha3_224 = /* @__PURE__ */ genKeccak(0x06, 144, 28, 
+/* @__PURE__ */ oidNist(0x07));
+/**
+ * SHA3-256 hash function. Different from keccak-256.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with SHA3-256.
+ * ```ts
+ * sha3_256(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const sha3_256 = /* @__PURE__ */ genKeccak(0x06, 136, 32, 
+/* @__PURE__ */ oidNist(0x08));
+/**
+ * SHA3-384 hash function.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with SHA3-384.
+ * ```ts
+ * sha3_384(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const sha3_384 = /* @__PURE__ */ genKeccak(0x06, 104, 48, 
+/* @__PURE__ */ oidNist(0x09));
+/**
+ * SHA3-512 hash function.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with SHA3-512.
+ * ```ts
+ * sha3_512(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const sha3_512 = /* @__PURE__ */ genKeccak(0x06, 72, 64, 
+/* @__PURE__ */ oidNist(0x0a));
+/**
+ * Keccak-224 hash function.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with Keccak-224.
+ * ```ts
+ * keccak_224(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const keccak_224 = /* @__PURE__ */ genKeccak(0x01, 144, 28);
+/**
+ * Keccak-256 hash function. Different from SHA3-256.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with Keccak-256.
+ * ```ts
+ * keccak_256(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const keccak_256 = /* @__PURE__ */ genKeccak(0x01, 136, 32);
+/**
+ * Keccak-384 hash function.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with Keccak-384.
+ * ```ts
+ * keccak_384(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const keccak_384 = /* @__PURE__ */ genKeccak(0x01, 104, 48);
+/**
+ * Keccak-512 hash function.
+ * @param msg - message bytes to hash
+ * @returns Digest bytes.
+ * @example
+ * Hash a message with Keccak-512.
+ * ```ts
+ * keccak_512(new Uint8Array([97, 98, 99]));
+ * ```
+ */
+const keccak_512 = /* @__PURE__ */ genKeccak(0x01, 72, 64);
+
+// ── art-613 ERC-4337 UserOperation logic (same algorithm as the .kernel.mjs compute(), browser copy) ──
+var CANONICAL_ENTRYPOINT = {
+  '0.6': '0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789',
+  '0.7': '0x0000000071727de22e5e9d8baf0edac6f37da032'
+};
+var PM_VALIDATION_GAS_OFFSET = 20;
+var PM_POSTOP_GAS_OFFSET = 36;
+var PM_DATA_OFFSET = 52;
+var KECCAK_EMPTY_EXPECT = 'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470';
+var KECCAK_ABC_EXPECT = '4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45';
+var UINT128_MAX = (1n << 128n) - 1n;
+
+function _verifyKeccakPrimitive() {
+  var empty = bytesToHex_(keccak_256(new Uint8Array(0)));
+  if (empty !== KECCAK_EMPTY_EXPECT) throw new Error('art-613 keccak_256 self-check FAILED (empty input): got ' + empty + ' expected ' + KECCAK_EMPTY_EXPECT);
+  var abc = bytesToHex_(keccak_256(utf8ToBytes('abc')));
+  if (abc !== KECCAK_ABC_EXPECT) throw new Error('art-613 keccak_256 self-check FAILED (abc vector): got ' + abc + ' expected ' + KECCAK_ABC_EXPECT);
+}
+
+function _stripHexPrefix(hex) { var s = String(hex == null ? '' : hex); return (s.startsWith('0x') || s.startsWith('0X')) ? s.slice(2) : s; }
+function _pad32Left(bytes) { var out = new Uint8Array(32); out.set(bytes, 32 - bytes.length); return out; }
+function _normalizeAddress(v) {
+  if (typeof v !== 'string') return null;
+  var s = _stripHexPrefix(v.trim());
+  if (!/^[0-9a-fA-F]{40}$/.test(s)) return null;
+  return '0x' + s.toLowerCase();
+}
+function _normalizeByteString(v) {
+  if (typeof v !== 'string') return null;
+  var s = _stripHexPrefix(v.trim());
+  if (s === '') return '0x';
+  if (!/^[0-9a-fA-F]*$/.test(s) || s.length % 2 !== 0) return null;
+  return '0x' + s.toLowerCase();
+}
+function _toUint256BigInt(v) {
+  try {
+    var bi;
+    if (typeof v === 'bigint') { bi = v; }
+    else if (typeof v === 'number') { if (!Number.isFinite(v) || !Number.isInteger(v)) return null; bi = BigInt(v); }
+    else if (typeof v === 'string') {
+      var s = v.trim();
+      if (s === '') return null;
+      if (/^0x[0-9a-fA-F]+$/.test(s)) bi = BigInt(s);
+      else if (/^[0-9]+$/.test(s)) bi = BigInt(s);
+      else return null;
+    } else { return null; }
+    if (bi < 0n || bi >= (1n << 256n)) return null;
+    return bi;
+  } catch (e) { return null; }
+}
+function _uint256Word(bi) { var hex = bi.toString(16); if (hex.length % 2) hex = '0' + hex; return _pad32Left(hexToBytes_(hex)); }
+function _addressWord(addrHex) { return _pad32Left(hexToBytes_(_stripHexPrefix(addrHex))); }
+function _bytesOf(byteStringHex) { var s = _stripHexPrefix(byteStringHex); return s === '' ? new Uint8Array(0) : hexToBytes_(s); }
+function _normalizeEntryPointVersion(v) {
+  if (typeof v === 'number') { if (v === 0.6) return '0.6'; if (v === 0.7) return '0.7'; return null; }
+  if (typeof v !== 'string') return null;
+  var s = v.trim().toLowerCase().replace(/^v/, '');
+  if (s === '0.6' || s === '0.6.0') return '0.6';
+  if (s === '0.7' || s === '0.7.0') return '0.7';
+  return null;
+}
+function _packTwoUint128(high, low) { return '0x' + bytesToHex_(_uint256Word((high << 128n) | low)); }
+
+var SCOPE_NOTE = 'Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself).';
+
+var NEVER_FETCHED = [
+  'L1 data fee / blob fee: never derived. Post-EIP-4844 it depends on the inclusion-time L1 basefee and blob basefee, neither of which is offline-derivable. Supply declaredL1DataFeeWei to include it in reconciliation.',
+  'block.basefee: never fetched. Supply declaredBaseFeePerGas to derive an effective gas price when maxFeePerGas and maxPriorityFeePerGas differ.',
+  'EntryPoint contract state: never read. Deposits, stakes, nonce-sequence validity, and prior spend are not consulted.',
+  'Chain state of any kind: no RPC, no indexer, no receipt lookup. actualGasUsed and actualGasCost are reconciled only as caller-declared values.'
+];
+
+function compute(pp) {
+  pp = (pp !== null && typeof pp === 'object') ? pp : {};
+  _verifyKeccakPrimitive();
+  var reasons = [];
+
+  var version = _normalizeEntryPointVersion(pp.entryPointVersion);
+  if (version === null) reasons.push('entryPointVersion is required and must be one of "0.6" or "0.7" (declared, never inferred -- the two versions hash different structs and use different prefund formulas, so a guess silently produces a wrong userOpHash)');
+
+  var entryPoint = _normalizeAddress(pp.entryPoint);
+  var chainId = _toUint256BigInt(pp.chainId);
+  var sender = _normalizeAddress(pp.sender);
+  var nonce = _toUint256BigInt(pp.nonce);
+  var initCode = _normalizeByteString(pp.initCode);
+  var callData = _normalizeByteString(pp.callData);
+  var paymasterAndData = _normalizeByteString(pp.paymasterAndData);
+  var callGasLimit = _toUint256BigInt(pp.callGasLimit);
+  var verificationGasLimit = _toUint256BigInt(pp.verificationGasLimit);
+  var preVerificationGas = _toUint256BigInt(pp.preVerificationGas);
+  var maxFeePerGas = _toUint256BigInt(pp.maxFeePerGas);
+  var maxPriorityFeePerGas = _toUint256BigInt(pp.maxPriorityFeePerGas);
+
+  if (!entryPoint) reasons.push('entryPoint is required and must be a 20-byte hex address (it is hashed into the userOpHash, so it is never defaulted)');
+  if (chainId === null) reasons.push('chainId is required and must be a non-negative uint256 (declared input, never a chain selector and never resolved)');
+  if (!sender) reasons.push('sender is required and must be a 20-byte hex address');
+  if (nonce === null) reasons.push('nonce is required and must be a non-negative uint256');
+  if (initCode === null) reasons.push('initCode is required and must be an even-length hex byte string ("0x" for none)');
+  if (callData === null) reasons.push('callData is required and must be an even-length hex byte string ("0x" for none)');
+  if (paymasterAndData === null) reasons.push('paymasterAndData is required and must be an even-length hex byte string ("0x" for none)');
+  if (callGasLimit === null) reasons.push('callGasLimit is required and must be a non-negative uint256');
+  if (verificationGasLimit === null) reasons.push('verificationGasLimit is required and must be a non-negative uint256');
+  if (preVerificationGas === null) reasons.push('preVerificationGas is required and must be a non-negative uint256');
+  if (maxFeePerGas === null) reasons.push('maxFeePerGas is required and must be a non-negative uint256');
+  if (maxPriorityFeePerGas === null) reasons.push('maxPriorityFeePerGas is required and must be a non-negative uint256');
+
+  if (version === '0.7') {
+    if (verificationGasLimit !== null && verificationGasLimit > UINT128_MAX) reasons.push('verificationGasLimit exceeds uint128 and cannot be packed into the v0.7 accountGasLimits word');
+    if (callGasLimit !== null && callGasLimit > UINT128_MAX) reasons.push('callGasLimit exceeds uint128 and cannot be packed into the v0.7 accountGasLimits word');
+    if (maxFeePerGas !== null && maxFeePerGas > UINT128_MAX) reasons.push('maxFeePerGas exceeds uint128 and cannot be packed into the v0.7 gasFees word');
+    if (maxPriorityFeePerGas !== null && maxPriorityFeePerGas > UINT128_MAX) reasons.push('maxPriorityFeePerGas exceeds uint128 and cannot be packed into the v0.7 gasFees word');
+  }
+
+  var declaredBaseFeePerGas = (pp.declaredBaseFeePerGas === undefined || pp.declaredBaseFeePerGas === null) ? null : _toUint256BigInt(pp.declaredBaseFeePerGas);
+  if (pp.declaredBaseFeePerGas !== undefined && pp.declaredBaseFeePerGas !== null && declaredBaseFeePerGas === null) reasons.push('declaredBaseFeePerGas was supplied but is not a non-negative uint256');
+  var declaredActualGasUsed = (pp.declaredActualGasUsed === undefined || pp.declaredActualGasUsed === null) ? null : _toUint256BigInt(pp.declaredActualGasUsed);
+  if (pp.declaredActualGasUsed !== undefined && pp.declaredActualGasUsed !== null && declaredActualGasUsed === null) reasons.push('declaredActualGasUsed was supplied but is not a non-negative uint256');
+  var declaredActualGasCostWei = (pp.declaredActualGasCostWei === undefined || pp.declaredActualGasCostWei === null) ? null : _toUint256BigInt(pp.declaredActualGasCostWei);
+  if (pp.declaredActualGasCostWei !== undefined && pp.declaredActualGasCostWei !== null && declaredActualGasCostWei === null) reasons.push('declaredActualGasCostWei was supplied but is not a non-negative uint256');
+  var declaredL1DataFeeWei = (pp.declaredL1DataFeeWei === undefined || pp.declaredL1DataFeeWei === null) ? null : _toUint256BigInt(pp.declaredL1DataFeeWei);
+  if (pp.declaredL1DataFeeWei !== undefined && pp.declaredL1DataFeeWei !== null && declaredL1DataFeeWei === null) reasons.push('declaredL1DataFeeWei was supplied but is not a non-negative uint256');
+  var reconciliationToleranceWei = (pp.reconciliationToleranceWei === undefined || pp.reconciliationToleranceWei === null) ? 0n : _toUint256BigInt(pp.reconciliationToleranceWei);
+  if (pp.reconciliationToleranceWei !== undefined && pp.reconciliationToleranceWei !== null && reconciliationToleranceWei === null) reasons.push('reconciliationToleranceWei was supplied but is not a non-negative uint256');
+
+  var user_op_echo = {
+    sender: sender,
+    nonce: nonce !== null ? nonce.toString() : null,
+    init_code: initCode,
+    call_data: callData,
+    paymaster_and_data: paymasterAndData,
+    call_gas_limit: callGasLimit !== null ? callGasLimit.toString() : null,
+    verification_gas_limit: verificationGasLimit !== null ? verificationGasLimit.toString() : null,
+    pre_verification_gas: preVerificationGas !== null ? preVerificationGas.toString() : null,
+    max_fee_per_gas: maxFeePerGas !== null ? maxFeePerGas.toString() : null,
+    max_priority_fee_per_gas: maxPriorityFeePerGas !== null ? maxPriorityFeePerGas.toString() : null
+  };
+  var canonicalForVersion = version !== null ? CANONICAL_ENTRYPOINT[version] : null;
+  var entry_point_echo = {
+    declared_version: version,
+    address: entryPoint,
+    canonical_address_for_declared_version: canonicalForVersion,
+    address_matches_canonical: (entryPoint !== null && canonicalForVersion !== null) ? (entryPoint === canonicalForVersion) : null
+  };
+
+  if (reasons.length > 0) {
+    return {
+      output_payload: {
+        verdict: 'INDETERMINATE',
+        reasons: reasons,
+        entry_point: entry_point_echo,
+        chain_id: chainId !== null ? chainId.toString() : null,
+        user_op: user_op_echo,
+        packed_words: null,
+        field_hashes: null,
+        packed_user_op_hash: null,
+        user_op_hash: null,
+        gas_accounting: null,
+        paymaster_reconciliation: null,
+        never_fetched: NEVER_FETCHED,
+        scope_note: SCOPE_NOTE
+      },
+      compliance_flags: ['ERC4337_USEROP_INDETERMINATE', 'ERC4337_MALFORMED_INPUT']
+    };
+  }
+
+  var initCodeHash = keccak_256(_bytesOf(initCode));
+  var callDataHash = keccak_256(_bytesOf(callData));
+  var paymasterAndDataHash = keccak_256(_bytesOf(paymasterAndData));
+
+  var packedBytes, packed_words;
+  if (version === '0.6') {
+    packedBytes = concatBytes_(
+      _addressWord(sender), _uint256Word(nonce), initCodeHash, callDataHash,
+      _uint256Word(callGasLimit), _uint256Word(verificationGasLimit), _uint256Word(preVerificationGas),
+      _uint256Word(maxFeePerGas), _uint256Word(maxPriorityFeePerGas), paymasterAndDataHash
+    );
+    packed_words = {
+      layout: 'v0.6 UserOperation -- abi.encode(address sender, uint256 nonce, bytes32 keccak(initCode), bytes32 keccak(callData), uint256 callGasLimit, uint256 verificationGasLimit, uint256 preVerificationGas, uint256 maxFeePerGas, uint256 maxPriorityFeePerGas, bytes32 keccak(paymasterAndData))',
+      word_count: 10, account_gas_limits: null, gas_fees: null
+    };
+  } else {
+    var accountGasLimits = _packTwoUint128(verificationGasLimit, callGasLimit);
+    var gasFees = _packTwoUint128(maxPriorityFeePerGas, maxFeePerGas);
+    packedBytes = concatBytes_(
+      _addressWord(sender), _uint256Word(nonce), initCodeHash, callDataHash,
+      hexToBytes_(_stripHexPrefix(accountGasLimits)), _uint256Word(preVerificationGas),
+      hexToBytes_(_stripHexPrefix(gasFees)), paymasterAndDataHash
+    );
+    packed_words = {
+      layout: 'v0.7 PackedUserOperation -- abi.encode(address sender, uint256 nonce, bytes32 keccak(initCode), bytes32 keccak(callData), bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes32 keccak(paymasterAndData))',
+      word_count: 8, account_gas_limits: accountGasLimits, gas_fees: gasFees
+    };
+  }
+
+  var packedUserOpHashBytes = keccak_256(packedBytes);
+  var userOpHashBytes = keccak_256(concatBytes_(packedUserOpHashBytes, _addressWord(entryPoint), _uint256Word(chainId)));
+
+  var pmBytes = _bytesOf(paymasterAndData);
+  var paymasterAddress = pmBytes.length >= 20 ? '0x' + bytesToHex_(pmBytes.slice(0, 20)) : null;
+  var paymasterPresent = pmBytes.length > 0;
+
+  var requiredGas, paymasterVerificationGasLimit = null, paymasterPostOpGasLimit = null;
+  var paymasterMultiplierApplied = null, paymasterFieldsNote = null;
+
+  if (version === '0.6') {
+    paymasterMultiplierApplied = paymasterPresent ? '3' : '1';
+    var mul = paymasterPresent ? 3n : 1n;
+    requiredGas = callGasLimit + verificationGasLimit * mul + preVerificationGas;
+  } else {
+    if (paymasterPresent) {
+      if (pmBytes.length >= PM_DATA_OFFSET) {
+        paymasterVerificationGasLimit = BigInt('0x' + bytesToHex_(pmBytes.slice(PM_VALIDATION_GAS_OFFSET, PM_POSTOP_GAS_OFFSET)));
+        paymasterPostOpGasLimit = BigInt('0x' + bytesToHex_(pmBytes.slice(PM_POSTOP_GAS_OFFSET, PM_DATA_OFFSET)));
+      } else {
+        paymasterFieldsNote = 'paymasterAndData is ' + pmBytes.length + ' bytes, shorter than the 52-byte v0.7 header that carries paymasterVerificationGasLimit and paymasterPostOpGasLimit. Those two limits are therefore not declared, and the required prefund below omits them -- it is a LOWER BOUND, not the EntryPoint figure.';
+      }
+    }
+    requiredGas = verificationGasLimit + callGasLimit + preVerificationGas
+      + (paymasterVerificationGasLimit === null ? 0n : paymasterVerificationGasLimit)
+      + (paymasterPostOpGasLimit === null ? 0n : paymasterPostOpGasLimit);
+  }
+  var requiredPrefund = requiredGas * maxFeePerGas;
+
+  var effectiveGasPrice = null, effectiveGasPriceBasis;
+  if (maxFeePerGas === maxPriorityFeePerGas) {
+    effectiveGasPrice = maxFeePerGas;
+    effectiveGasPriceBasis = 'legacy_equal_fee_caps -- maxFeePerGas equals maxPriorityFeePerGas, so the EntryPoint returns maxFeePerGas directly and no basefee is involved';
+  } else if (declaredBaseFeePerGas !== null) {
+    var withTip = maxPriorityFeePerGas + declaredBaseFeePerGas;
+    effectiveGasPrice = withTip < maxFeePerGas ? withTip : maxFeePerGas;
+    effectiveGasPriceBasis = 'declared_base_fee -- min(maxFeePerGas, maxPriorityFeePerGas + declaredBaseFeePerGas), using the CALLER-DECLARED basefee, never a fetched one';
+  } else {
+    effectiveGasPriceBasis = 'requires_declared_base_fee -- the fee caps differ, so the price depends on block.basefee, which this kernel never fetches. Supply declaredBaseFeePerGas.';
+  }
+
+  var gas_accounting = {
+    entry_point_version: version,
+    required_gas: requiredGas.toString(),
+    required_prefund_wei: requiredPrefund.toString(),
+    prefund_formula: version === '0.6'
+      ? 'v0.6: (callGasLimit + verificationGasLimit * paymasterMultiplier + preVerificationGas) * maxFeePerGas'
+      : 'v0.7: (verificationGasLimit + callGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas',
+    paymaster_present: paymasterPresent,
+    paymaster_address: paymasterAddress,
+    paymaster_multiplier_applied: paymasterMultiplierApplied,
+    paymaster_verification_gas_limit: paymasterVerificationGasLimit !== null ? paymasterVerificationGasLimit.toString() : null,
+    paymaster_post_op_gas_limit: paymasterPostOpGasLimit !== null ? paymasterPostOpGasLimit.toString() : null,
+    paymaster_fields_note: paymasterFieldsNote,
+    declared_base_fee_per_gas: declaredBaseFeePerGas !== null ? declaredBaseFeePerGas.toString() : null,
+    effective_gas_price_wei: effectiveGasPrice !== null ? effectiveGasPrice.toString() : null,
+    effective_gas_price_basis: effectiveGasPriceBasis
+  };
+
+  var missingForReconciliation = [];
+  if (declaredActualGasUsed === null) missingForReconciliation.push('declaredActualGasUsed');
+  if (declaredActualGasCostWei === null) missingForReconciliation.push('declaredActualGasCostWei');
+  if (effectiveGasPrice === null) missingForReconciliation.push('an effective gas price (supply declaredBaseFeePerGas)');
+
+  var paymaster_reconciliation;
+  if (missingForReconciliation.length > 0) {
+    paymaster_reconciliation = {
+      status: 'NOT_ATTEMPTED',
+      missing_declared_inputs: missingForReconciliation,
+      declared_actual_gas_used: declaredActualGasUsed !== null ? declaredActualGasUsed.toString() : null,
+      declared_actual_gas_cost_wei: declaredActualGasCostWei !== null ? declaredActualGasCostWei.toString() : null,
+      declared_l1_data_fee_wei: declaredL1DataFeeWei !== null ? declaredL1DataFeeWei.toString() : null,
+      recomputed_execution_cost_wei: null,
+      recomputed_total_charge_wei: null,
+      residual_wei: null,
+      tolerance_wei: reconciliationToleranceWei.toString(),
+      notes: ['Reconciliation was not attempted because the inputs above were not declared. This kernel never substitutes a fetched or assumed value for a missing declared one.']
+    };
+  } else {
+    var recomputedExecutionCost = declaredActualGasUsed * effectiveGasPrice;
+    var recomputedTotal = recomputedExecutionCost + (declaredL1DataFeeWei === null ? 0n : declaredL1DataFeeWei);
+    var residual = declaredActualGasCostWei - recomputedTotal;
+    var absResidual = residual < 0n ? -residual : residual;
+    var reconciled = absResidual <= reconciliationToleranceWei;
+    var notes = [];
+    if (declaredL1DataFeeWei === null) notes.push('No declaredL1DataFeeWei was supplied, so the recomputed total covers execution gas only. On rollups the charge commonly also includes an L1 data fee, which this kernel NEVER derives -- post-EIP-4844 it depends on the inclusion-time L1 basefee and blob basefee. A positive residual is consistent with an undeclared L1 data fee, and this kernel does not assert which.');
+    if (!reconciled) notes.push('The declared charge and the charge recomputed from declared inputs differ by more than the declared tolerance. This is a reported difference, not a finding of error: an undeclared fee component, a different effective gas price at inclusion time, or a postOp refund would each produce it.');
+    paymaster_reconciliation = {
+      status: reconciled ? 'RECONCILED' : 'RESIDUAL_UNEXPLAINED',
+      missing_declared_inputs: [],
+      declared_actual_gas_used: declaredActualGasUsed.toString(),
+      declared_actual_gas_cost_wei: declaredActualGasCostWei.toString(),
+      declared_l1_data_fee_wei: declaredL1DataFeeWei !== null ? declaredL1DataFeeWei.toString() : null,
+      recomputed_execution_cost_wei: recomputedExecutionCost.toString(),
+      recomputed_total_charge_wei: recomputedTotal.toString(),
+      residual_wei: residual.toString(),
+      tolerance_wei: reconciliationToleranceWei.toString(),
+      notes: notes
+    };
+  }
+
+  var output_payload = {
+    verdict: 'USEROP_RECOMPUTED',
+    reasons: [],
+    entry_point: entry_point_echo,
+    chain_id: chainId.toString(),
+    user_op: user_op_echo,
+    packed_words: packed_words,
+    field_hashes: {
+      init_code_hash: '0x' + bytesToHex_(initCodeHash),
+      call_data_hash: '0x' + bytesToHex_(callDataHash),
+      paymaster_and_data_hash: '0x' + bytesToHex_(paymasterAndDataHash)
+    },
+    packed_user_op_hash: '0x' + bytesToHex_(packedUserOpHashBytes),
+    user_op_hash: '0x' + bytesToHex_(userOpHashBytes),
+    gas_accounting: gas_accounting,
+    paymaster_reconciliation: paymaster_reconciliation,
+    never_fetched: NEVER_FETCHED,
+    scope_note: SCOPE_NOTE
+  };
+
+  var compliance_flags = ['ERC4337_USEROP_RECOMPUTED', 'ERC4337_ENTRYPOINT_V' + version.replace('.', '_')];
+  if (entry_point_echo.address_matches_canonical === false) compliance_flags.push('ERC4337_ENTRYPOINT_ADDRESS_NON_CANONICAL');
+  if (paymaster_reconciliation.status === 'RESIDUAL_UNEXPLAINED') compliance_flags.push('ERC4337_PAYMASTER_RESIDUAL_UNEXPLAINED');
+  if (paymaster_reconciliation.status === 'RECONCILED') compliance_flags.push('ERC4337_PAYMASTER_RECONCILED');
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+function _esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function _val(id) { return document.getElementById(id).value.trim(); }
+// A blank optional field means "not declared" and is OMITTED from policy_parameters, so the
+// kernel reports it as a named gap rather than treating it as a declared zero.
+function _optVal(pp, key, id) { var v = _val(id); if (v !== '') pp[key] = v; }
+
+function runCheck() {
+  var pp = {
+    entryPointVersion: _val('epVersion'),
+    entryPoint: _val('epAddress'),
+    chainId: _val('opChainId'),
+    sender: _val('opSender'),
+    nonce: _val('opNonce'),
+    initCode: _val('opInitCode'),
+    callData: _val('opCallData'),
+    paymasterAndData: _val('opPaymasterAndData'),
+    callGasLimit: _val('opCallGasLimit'),
+    verificationGasLimit: _val('opVerificationGasLimit'),
+    preVerificationGas: _val('opPreVerificationGas'),
+    maxFeePerGas: _val('opMaxFeePerGas'),
+    maxPriorityFeePerGas: _val('opMaxPriorityFeePerGas')
+  };
+  _optVal(pp, 'declaredBaseFeePerGas', 'opDeclaredBaseFee');
+  _optVal(pp, 'declaredActualGasUsed', 'recGasUsed');
+  _optVal(pp, 'declaredActualGasCostWei', 'recGasCost');
+  _optVal(pp, 'declaredL1DataFeeWei', 'recL1Fee');
+  _optVal(pp, 'reconciliationToleranceWei', 'recTolerance');
+
+  var result = compute(pp);
+  var op = result.output_payload, flags = result.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var computed = op.verdict === 'USEROP_RECOMPUTED';
+  var vBox = document.getElementById('verdictBox');
+  var vColor = computed ? 'var(--green)' : 'var(--warn)';
+  vBox.style.color = vColor; vBox.style.background = 'rgba(20,184,166,.08)'; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = computed ? 'USEROP RECOMPUTED' : 'INDETERMINATE';
+
+  document.getElementById('flagRow').innerHTML = flags.map(function(f){ return '<span class="badge ok">' + _esc(f) + '</span>'; }).join('');
+  document.getElementById('reasonsBox').innerHTML = (op.reasons || []).map(function(r){ return '<span class="badge fail">' + _esc(r) + '</span>'; }).join('');
+
+  document.getElementById('userOpHashBox').textContent = op.user_op_hash || '—';
+  document.getElementById('packedHashBox').textContent = op.packed_user_op_hash || '—';
+  document.getElementById('epVersionBox').textContent = op.entry_point.declared_version ? ('v' + op.entry_point.declared_version) : '—';
+  document.getElementById('wordCountBox').textContent = op.packed_words ? String(op.packed_words.word_count) : '—';
+  document.getElementById('accountGasLimitsBox').textContent = (op.packed_words && op.packed_words.account_gas_limits) || 'n/a (v0.6 has no packed word)';
+  document.getElementById('gasFeesBox').textContent = (op.packed_words && op.packed_words.gas_fees) || 'n/a (v0.6 has no packed word)';
+  var mc = op.entry_point.address_matches_canonical;
+  document.getElementById('epCanonicalBox').textContent = mc === null ? '—' : (mc ? 'yes' : 'no (declared address is hashed as given)');
+
+  var ga = op.gas_accounting;
+  document.getElementById('gasTable').innerHTML = !ga ? '<div class="q-hint">Not computed: the inputs were indeterminate.</div>' : [
+    ['Required gas', ga.required_gas],
+    ['Required prefund (wei)', ga.required_prefund_wei],
+    ['Prefund formula', ga.prefund_formula],
+    ['Paymaster present', String(ga.paymaster_present)],
+    ['Paymaster address', ga.paymaster_address || '—'],
+    ['v0.6 verificationGasLimit multiplier', ga.paymaster_multiplier_applied || 'n/a (v0.7)'],
+    ['paymasterVerificationGasLimit', ga.paymaster_verification_gas_limit || 'not declared'],
+    ['paymasterPostOpGasLimit', ga.paymaster_post_op_gas_limit || 'not declared'],
+    ['Declared basefee (wei)', ga.declared_base_fee_per_gas || 'not declared'],
+    ['Effective gas price (wei)', ga.effective_gas_price_wei || 'null (see basis)'],
+    ['Effective gas price basis', ga.effective_gas_price_basis]
+  ].map(function(r){ return '<div class="kv"><span class="kv-k">' + _esc(r[0]) + '</span><span class="kv-v">' + _esc(r[1]) + '</span></div>'; }).join('')
+    + (ga.paymaster_fields_note ? '<div class="q-hint">' + _esc(ga.paymaster_fields_note) + '</div>' : '');
+
+  var rc = op.paymaster_reconciliation;
+  document.getElementById('reconTable').innerHTML = !rc ? '<div class="q-hint">Not attempted: the inputs were indeterminate.</div>' : [
+    ['Status', rc.status],
+    ['Declared actualGasUsed', rc.declared_actual_gas_used || 'not declared'],
+    ['Declared actualGasCost (wei)', rc.declared_actual_gas_cost_wei || 'not declared'],
+    ['Declared L1 data fee (wei)', rc.declared_l1_data_fee_wei || 'not declared (never derived)'],
+    ['Recomputed execution cost (wei)', rc.recomputed_execution_cost_wei || '—'],
+    ['Recomputed total charge (wei)', rc.recomputed_total_charge_wei || '—'],
+    ['Residual (wei)', rc.residual_wei === null ? '—' : rc.residual_wei],
+    ['Tolerance (wei)', rc.tolerance_wei]
+  ].map(function(r){ return '<div class="kv"><span class="kv-k">' + _esc(r[0]) + '</span><span class="kv-v">' + _esc(r[1]) + '</span></div>'; }).join('')
+    + (rc.missing_declared_inputs.length ? '<div class="q-hint">Missing declared inputs: ' + _esc(rc.missing_declared_inputs.join('; ')) + '</div>' : '')
+    + rc.notes.map(function(n){ return '<div class="q-hint">' + _esc(n) + '</div>'; }).join('');
+
+  document.getElementById('neverFetchedBox').innerHTML = op.never_fetched.map(function(n){ return '<div class="q-hint">' + _esc(n) + '</div>'; }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'payment_policy',
+    tool_id: 'art-613-erc4337-userop-math', tool_version: '1.0.0',
+    generated_at: __generatedAtCapture, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-613-erc4337-userop-math.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
