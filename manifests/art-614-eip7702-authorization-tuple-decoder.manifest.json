@@ -1,0 +1,62 @@
+{
+  "tool_id": "art-614-eip7702-authorization-tuple-decoder",
+  "version": "1.0.0",
+  "title": "EIP-7702 Authorization-Tuple Decoder",
+  "description": "Recomputes the EIP-7702 authorization-tuple hash (keccak256(0x05 || rlp([chain_id, address, nonce])), the 'Set EOA account code' standard live on Ethereum mainnet since the Pectra upgrade, 2025-05-07), recovers the ECDSA signer from a caller-supplied signature, and reports the address the recovered signer is authorizing as its delegate. The tuple's own `address` field IS the delegate: the code the EOA is pointing itself at. This node stops at that address -- it never inspects, fetches, or judges the delegate contract's bytecode, and makes no safe/unsafe verdict about it. chain_id = 0 is EIP-7702-defined as a valid, deliberate cross-chain authorization (replayable on any chain) and is reported as such, never treated as malformed input. RLP encoding is hand-authored public-spec arithmetic (Ethereum Yellow Paper Appendix B); keccak256 and secp256k1 recovery come from the already-vendored, pinned noble-curves bundle, no new vendoring. Malformed or incomplete input produces a clean INDETERMINATE/RECOVERY_FAILED finding, never a thrown exception. Zero network calls: does not confirm the authorization was ever submitted on-chain, does not confirm the EOA's account nonce matches the declared nonce at any block, and makes no settlement claim.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["compliance_control", "eip-7702", "account-abstraction", "authorization-tuple", "ecdsa-recovery", "rlp", "crypto-primitive", "mcp:decode_eip7702_authorization_tuple"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "chainId": { "type": ["string", "number"], "description": "Authorization-tuple chain_id. Mandatory. 0 is spec-valid and means a cross-chain authorization, replayable on any chain -- never treated as an error." },
+      "address": { "type": "string", "description": "20-byte hex address. Mandatory. The delegate the EOA is authorizing itself to point at -- reported as a plain fact, never analyzed." },
+      "nonce": { "type": ["string", "number"], "description": "Authorization-tuple nonce -- non-negative integer. Mandatory." },
+      "signature": { "type": "string", "description": "Full signature hex: 64 bytes (r||s, recovery id supplied separately via v/yParity) or 65 bytes (r||s||v, recovery marker embedded). Alternative to r/s." },
+      "r": { "type": "string", "description": "32-byte hex signature r value. Used with s when signature is not supplied." },
+      "s": { "type": "string", "description": "32-byte hex signature s value. Used with r when signature is not supplied." },
+      "v": { "type": ["string", "number"], "description": "Recovery marker: raw bit (0/1) or legacy Ethereum (27/28). EIP-7702 authorization tuples natively carry yParity; v is accepted for callers who paste a v-style value by habit." },
+      "yParity": { "type": ["string", "number"], "description": "Recovery marker as a raw bit (0/1), the authorization tuple's native field name. Takes precedence over v/embedded signature byte if supplied." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "decode_eip7702_authorization_tuple",
+    "description": "Recomputes the EIP-7702 authorization-tuple hash from declared (chain_id, address, nonce), recovers the ECDSA signer, and reports the address-only fact of the delegate the EOA is authorizing. Never judges the delegate's code. chain_id=0 (cross-chain) is disclosed, not treated as an error. No hand-rolled crypto; recovery via the vendored, pinned noble-curves bundle. Malformed input produces a structured refusal, never a thrown error. No on-chain-submission or settlement claim.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "chainId": { "type": ["string", "number"] },
+        "address": { "type": "string" },
+        "nonce": { "type": ["string", "number"] },
+        "signature": { "type": "string" },
+        "r": { "type": "string" },
+        "s": { "type": "string" },
+        "v": { "type": ["string", "number"] },
+        "yParity": { "type": ["string", "number"] }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-614-eip7702-authorization-tuple-decoder.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } },
+      "chain_id": { "type": ["number", "null"] },
+      "cross_chain_authorization": { "type": ["boolean", "null"] },
+      "delegate_address": { "type": ["string", "null"] },
+      "nonce": { "type": ["number", "null"] },
+      "authorization_tuple_hash": { "type": ["string", "null"] },
+      "recovered_signer": { "type": ["string", "null"] },
+      "recovery_id": { "type": ["number", "null"] },
+      "recovery_id_source": { "type": ["string", "null"] },
+      "scope_note": { "type": "string" }
+    }
+  },
+  "source": "authored by ETHMATH-7702-1 per ETHMATH-WAVE-BUILD-SPEC.md section 5; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-614-eip7702-authorization-tuple-decoder.fixtures.json, each recovered-signer vector cross-checked against a from-scratch independent RLP + vendored-bundle oracle script (not this kernel's own compute()); category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest siblings: art-591-x402-signer-recovery-verifier, art-613-erc4337-userop-math)."
+}
