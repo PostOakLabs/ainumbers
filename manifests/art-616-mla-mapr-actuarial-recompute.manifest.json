@@ -1,0 +1,186 @@
+{
+  "tool_id": "art-616-mla-mapr-actuarial-recompute",
+  "version": "1.0.0",
+  "title": "MLA MAPR Actuarial Recompute",
+  "description": "Recomputes a Military Lending Act MAPR for closed-end credit by the Regulation Z actuarial method, from caller-supplied cash flows and charges. 32 CFR 232.4(c)(2)(i) says the closed-end MAPR is calculated following Regulation Z's own rules for the annual percentage rate, based on the wider charge set in 232.4(c)(1), so this node solves the Appendix J actuarial equation rather than a single-period ratio: the odd-days fraction is priced at simple interest per Appendix J (b)(6), only whole unit-periods compound, and the annual figure is the unit-period rate multiplied by the unit-periods in a year per (b)(1). Each supplied charge is classified against 232.4(c)(1) and (d) with its own paragraph citation, and an includable charge collected at consummation reduces the amount advanced; a Regulation Z finance charge already carried by the payment schedule is echoed and never deducted twice. The result is compared against the 36 percent limit in 232.4(b), with that limit and the $100 participation-fee figure in 232.4(c)(2)(ii)(B) held as declared constants a caller cannot move. A rate is reported only when a sign-change bracket was established and narrowed. Verify-only: this node does not determine covered-borrower status, reads no external record, and does not assert that a real transaction meets the Military Lending Act.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "military-lending-act",
+    "mapr",
+    "32-cfr-232",
+    "regulation-z",
+    "appendix-j",
+    "actuarial-apr",
+    "consumer-credit",
+    "mcp:recompute_mla_mapr_actuarial"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "loan_amount": {
+        "type": "number",
+        "description": "Amount advanced at consummation, before any charge is deducted. Used with payment_amount, num_payments, odd_days and unit_period_days as a shorthand for a level payment schedule; ignored when advances and payments are supplied explicitly."
+      },
+      "payment_amount": {
+        "type": "number",
+        "description": "Regular periodic payment amount, for the shorthand schedule."
+      },
+      "num_payments": {
+        "type": "number",
+        "description": "Total number of scheduled payments, for the shorthand schedule."
+      },
+      "periods_per_year": {
+        "type": "number",
+        "description": "Unit periods per year, w in Appendix J. 12 = monthly, 26 = biweekly, 52 = weekly. Appendix J (b)(1) annualizes by multiplying the unit-period rate by this number, never by compounding it."
+      },
+      "odd_days": {
+        "type": "number",
+        "description": "Days from consummation to the start of the first full unit period. 0 = a regular schedule."
+      },
+      "unit_period_days": {
+        "type": "number",
+        "description": "Days in one unit period, 30 for a monthly unit period. Divides odd_days to give the Appendix J fraction f."
+      },
+      "advances": {
+        "type": "array",
+        "description": "Explicit advance flows, each {amount, full_periods, fraction} in the Appendix J form: an integer count of whole unit-periods plus a fraction in [0,1). Supplying advances and payments together overrides the shorthand fields.",
+        "items": {
+          "type": "object"
+        }
+      },
+      "payments": {
+        "type": "array",
+        "description": "Explicit payment flows, same shape as advances.",
+        "items": {
+          "type": "object"
+        }
+      },
+      "mla_charges": {
+        "type": "array",
+        "description": "Charges to classify under 32 CFR 232.4(c)(1) and (d). Each entry is {charge_type, amount, is_credit_card_account, short_term_exception_claimed}. charge_type is one of credit_insurance_premium, single_premium_credit_insurance_charge, debt_cancellation_fee, debt_suspension_fee, credit_related_ancillary_product_fee, finance_charge, application_fee, participation_fee, other_credit_card_fee. An unrecognised type is echoed, excluded from the arithmetic, and flagged for manual review rather than guessed at.",
+        "items": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "recompute_mla_mapr_actuarial",
+    "description": "Recompute a closed-end Military Lending Act MAPR by the Regulation Z actuarial method over the 32 CFR 232.4(c)(1) charge set, and compare it against the 36 percent limit in 232.4(b). Returns a per-charge classification carrying its own paragraph citation, and refuses to report a rate it did not bracket.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "loan_amount": {
+          "type": "number"
+        },
+        "payment_amount": {
+          "type": "number"
+        },
+        "num_payments": {
+          "type": "number"
+        },
+        "periods_per_year": {
+          "type": "number"
+        },
+        "odd_days": {
+          "type": "number"
+        },
+        "unit_period_days": {
+          "type": "number"
+        },
+        "advances": {
+          "type": "array"
+        },
+        "payments": {
+          "type": "array"
+        },
+        "mla_charges": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-616-mla-mapr-actuarial-recompute.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "mapr_pct": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "mapr_cap_pct": {
+        "type": "number"
+      },
+      "exceeds_cap": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "periodic_rate": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "periods_per_year": {
+        "type": "number"
+      },
+      "num_advances": {
+        "type": "number"
+      },
+      "num_payments": {
+        "type": "number"
+      },
+      "advance_total": {
+        "type": "number"
+      },
+      "payment_total": {
+        "type": "number"
+      },
+      "amount_financed_mapr": {
+        "type": "number"
+      },
+      "prepaid_included_total": {
+        "type": "number"
+      },
+      "finance_charge_in_schedule_total": {
+        "type": "number"
+      },
+      "charge_breakdown": {
+        "type": "array"
+      },
+      "manual_review_required": {
+        "type": "boolean"
+      },
+      "participation_fee_open_end_no_balance_limit_usd": {
+        "type": "number"
+      },
+      "iterations": {
+        "type": "number"
+      },
+      "converged": {
+        "type": "boolean"
+      },
+      "bracketed": {
+        "type": "boolean"
+      },
+      "regulatory_basis": {
+        "type": "string"
+      },
+      "note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "authored by MLA-MAPR-K-2 per MLA-MAPR-BUILD-SPEC.md section 3.2; 32 CFR 232.4 and Appendix J to 12 CFR part 1026 were re-retrieved from the eCFR versioner API on 2026-08-14 and hashed under research/clause-snapshots/; output_schema derived by running the kernel's own compute() against the vectors in chaingraph/kernels/fixtures/art-616-mla-mapr-actuarial-recompute.fixtures.json; the per-kernel verification specification is research/MLA-MAPR-ACTUARIAL.spec.md, class B, property run complete and specification under review."
+}
