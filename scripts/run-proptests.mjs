@@ -51,14 +51,16 @@
 //   does not itself read or compare digests — that stays FV-COVERAGE-GATE-1's
 //   job, unbuilt here.
 
-import { existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync, execSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const PROPTESTS_DIR = resolve(REPO, 'chaingraph', 'kernels', '__proptests__');
+const KERNELS_DIR = resolve(REPO, 'chaingraph', 'kernels');
+const FIXTURES_DIR = resolve(KERNELS_DIR, 'fixtures');
 
 const argv = process.argv.slice(2);
 const outIdx = argv.indexOf('--out');
@@ -66,6 +68,9 @@ const OUT_FILE = outIdx !== -1 ? argv[outIdx + 1] : null;
 const baseIdx = argv.indexOf('--base');
 const BASE_REF = baseIdx !== -1 ? argv[baseIdx + 1] : null;
 const headIdx = argv.indexOf('--head');
+const DISCOVERY_LEG = argv.includes('--discovery-leg');
+const discoveryOutIdx = argv.indexOf('--discovery-out');
+const DISCOVERY_OUT = discoveryOutIdx !== -1 ? argv[discoveryOutIdx + 1] : null;
 const HEAD_REF = headIdx !== -1 ? argv[headIdx + 1] : null;
 
 function findPropertyFiles(dir) {
@@ -163,7 +168,99 @@ function runOne(filePath) {
   };
 }
 
-function main() {
+// FV-PBT-NASTIER-GEN-1 -- NON-BLOCKING discovery leg. Opt-in only (--discovery-leg),
+// never runs as part of the default (CI-gating) path above. Probes every floored
+// kernel's declared policy_parameters keys (derived from its own committed fixtures,
+// never invented) with the nastier generators in _pbt-common.mjs and reports what
+// happens -- it NEVER asserts pass/fail and ALWAYS exits 0, per the row's
+// "findings, not fixes" done-criterion: each finding routes to its own board row,
+// never a same-session fix, and never a same-session generator weakening.
+async function runDiscoveryLegMode() {
+  const pbtCommonPath = join(PROPTESTS_DIR, '_pbt-common.mjs');
+  const { rotatingSeed } = await import(pathToFileURL(pbtCommonPath).href);
+  const WORKER_PATH = join(HERE, 'pbt-discovery-leg-worker.mjs');
+  const WORKER_TIMEOUT_MS = 5000;
+
+  const files = findPropertyFiles(PROPTESTS_DIR);
+  const seed = rotatingSeed();
+  const allFindings = [];
+  let probed = 0;
+  let skippedNoBaseline = 0;
+  let loadErrors = 0;
+  let hangsOrCrashes = 0;
+
+  for (const file of files) {
+    const kernelId = kernelIdOf(file);
+    const kernelPath = join(KERNELS_DIR, `${kernelId}.kernel.mjs`);
+    const fixturesPath = join(FIXTURES_DIR, `${kernelId}.fixtures.json`);
+    if (!existsSync(kernelPath) || !existsSync(fixturesPath)) { skippedNoBaseline++; continue; }
+
+    let fixtures;
+    try {
+      fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+    } catch (err) {
+      loadErrors++;
+      allFindings.push({ kernelId, key: null, nastyDesc: null, outcome: { kind: 'load_error', message: `unreadable fixtures: ${String(err && err.message || err)}` } });
+      continue;
+    }
+    const hasBaseline = (fixtures.vectors || []).some((v) => Object.keys(v.policy_parameters || {}).length > 0);
+    if (!hasBaseline) { skippedNoBaseline++; continue; }
+
+    // Isolated per-kernel child process, same shape as the committed-seed floor
+    // runner above (runOne) -- a nasty value can hang or OOM a kernel, not just
+    // throw cleanly, and that reaction is itself a finding, never a reason to take
+    // the whole discovery run down.
+    const result = spawnSync(process.execPath, [WORKER_PATH, kernelId, kernelPath, fixturesPath, String(seed)], {
+      cwd: REPO,
+      encoding: 'utf8',
+      timeout: WORKER_TIMEOUT_MS,
+    });
+
+    if (result.error || result.status !== 0 || result.signal) {
+      hangsOrCrashes++;
+      const reason = result.signal ? `killed by ${result.signal} (timeout ${WORKER_TIMEOUT_MS}ms)` : (result.error ? String(result.error) : `exit ${result.status}`);
+      allFindings.push({ kernelId, key: null, nastyDesc: null, outcome: { kind: 'hang_or_crash', message: reason } });
+      continue;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse((result.stdout || '').trim().split('\n').pop());
+    } catch (err) {
+      loadErrors++;
+      allFindings.push({ kernelId, key: null, nastyDesc: null, outcome: { kind: 'load_error', message: `unparseable worker output: ${String(err && err.message || err)}` } });
+      continue;
+    }
+    if (parsed.workerError) {
+      loadErrors++;
+      allFindings.push({ kernelId, key: null, nastyDesc: null, outcome: { kind: 'load_error', message: parsed.workerError } });
+      continue;
+    }
+    probed++;
+    allFindings.push(...parsed.findings);
+  }
+
+  console.log(`run-proptests --discovery-leg: rotating seed ${seed} (day bucket).`);
+  console.log(`run-proptests --discovery-leg: ${probed}/${files.length} kernel(s) probed, ${skippedNoBaseline} skipped (no derivable declared-key baseline in committed fixtures), ${loadErrors} load error(s), ${hangsOrCrashes} hang/crash under a nasty value (timeout ${WORKER_TIMEOUT_MS}ms).`);
+  console.log(`run-proptests --discovery-leg: ${allFindings.length} finding(s).`);
+  for (const f of allFindings) {
+    const msg = f.outcome.message ? `: ${f.outcome.message}` : (f.outcome.violations ? `: ${JSON.stringify(f.outcome.violations)}` : '');
+    console.log(`  [FINDING] ${f.kernelId} key=${f.key ?? '(n/a)'} nasty=${f.nastyDesc ?? '(n/a)'} -> ${f.outcome.kind}${msg}`);
+  }
+  if (DISCOVERY_OUT) {
+    writeFileSync(DISCOVERY_OUT, JSON.stringify({ seed, probed, skippedNoBaseline, loadErrors, findings: allFindings }, null, 2) + '\n');
+    console.log(`run-proptests --discovery-leg: wrote findings to ${DISCOVERY_OUT}`);
+  }
+  console.log('run-proptests --discovery-leg: NON-BLOCKING leg -- exiting 0 regardless of findings. Route each finding to its own row; never fix here, never weaken a generator to make one disappear.');
+  process.exit(0);
+}
+
+async function main() {
+  if (DISCOVERY_LEG) {
+    await runDiscoveryLegMode();
+    return;
+  }
+
   const allFiles = findPropertyFiles(PROPTESTS_DIR);
   let files = allFiles;
 
@@ -234,4 +331,7 @@ function indent(s) {
     .join('\n');
 }
 
-main();
+main().catch((err) => {
+  console.error('run-proptests: uncaught error:', err);
+  process.exit(1);
+});
