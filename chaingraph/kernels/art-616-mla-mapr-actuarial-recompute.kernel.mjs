@@ -124,7 +124,17 @@ const CHARGE_TABLE = {
 
 // --- numeric helpers ---------------------------------------------------------
 
-function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
+// Number() invokes the argument's own coercion path, which throws outright for
+// an object with a null prototype or with valueOf and toString removed. A
+// kernel that throws on a malformed input is not total, so coercion is limited
+// to the primitive types that can carry a number and everything else falls back
+// to the caller-supplied default.
+function safeNum(v, def) {
+  const t = typeof v;
+  if (t !== 'number' && t !== 'string' && t !== 'boolean') return def;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
 
 // base^n for integer n >= 0, by exponentiation by squaring. Appendix J (b)(6)
 // keeps every exponent in this kernel an integer, so no fractional power is
@@ -150,7 +160,12 @@ function roundHalfUp(v, dp) {
   if (!Number.isFinite(v)) return 0;
   const f = powInt(10, dp);
   const s = v < 0 ? -1 : 1;
-  return s * Math.round(Math.abs(v) * f) / f;
+  const r = s * Math.round(Math.abs(v) * f) / f;
+  // Scaling by 10^dp can overflow to Infinity for a magnitude near the top of
+  // the double range, which would put a non-finite number in the payload. Any
+  // such magnitude is already far past 2^52, so it holds no fractional part and
+  // rounding it is the identity. Returning the input is both finite and exact.
+  return Number.isFinite(r) ? r : v;
 }
 
 // Internal intermediate precision for the periodic rate, declared step RND-3.
@@ -306,7 +321,13 @@ function solveActuarialRate(advances, payments, periods_per_year) {
 // --- charge classification ---------------------------------------------------
 
 function classifyCharge(raw) {
-  const charge_type = String(raw && raw.charge_type != null ? raw.charge_type : '');
+  // Only a string can name a charge type. Coercing an arbitrary value with
+  // String() is not safe here: an object with a null prototype, or one whose
+  // toString has been removed, throws on coercion, and a kernel that throws on
+  // a malformed input is not total. Anything that is not a string falls through
+  // to the unrecognised branch below, which names the problem rather than
+  // guessing at it.
+  const charge_type = raw && typeof raw.charge_type === 'string' ? raw.charge_type : '';
   const amount = safeNum(raw && raw.amount, 0);
   const is_credit_card_account = raw ? raw.is_credit_card_account === true : false;
   const short_term_exception_claimed = raw ? raw.short_term_exception_claimed === true : false;
