@@ -136,6 +136,62 @@ AINumbers taxonomy, not AP2 v0.2 vocabulary.** The schema treats `mandate_type` 
 (NOT a hard enum): shipped nodes also use `agent_guardrail_mandate` (fit diagnostics) and `scheme_rule`,
 and the enum is not CI-enforced. New tools SHOULD prefer a §4 type where one fits.
 
+### §5.1 `pm:*` Prediction/Event-Market Provenance Extension (NORMATIVE-informative, OPTIONAL — new in v0.8.24)
+Extends the §5 vocabulary with seven `mandate_type` values for prediction/event-market provenance
+artifacts. Like §5 itself, this is a recommended-vocabulary addition, not a schema or enum change: no
+`$defs/artifact.required` edit, no `chaingraph_version` bump, and no new §15 gate — an implementation
+correct for v0.8.23 stays correct, and a verifier ignorant of `pm:*` reads these artifacts as any other
+open-string-`mandate_type` artifact it already handles. Full registration rationale, worked payload
+examples, and the ADR are in `PM-MANDATE-EXTENSION.md` (this directory) — this section is the normative
+vocabulary entry; that document is the informative proposal record.
+
+**Scope boundary (load-bearing).** This extension registers a **provenance format** for market
+lifecycle events. It defines no oracle, no settlement rail, no matching engine, and no on-chain
+deployment — none of that is buildable under this repo's constraints (§0), and none of it is implied by
+registering these seven `mandate_type` values. A tool_id under the `pm:` prefix that only builds/validates/
+displays these artifacts is in scope; a tool that resolves markets, matches orders, or moves funds is not,
+regardless of `mandate_type`.
+
+**Three agnosticism properties (normative to this extension).** Each `pm:*` artifact MUST remain:
+- **Settlement-mechanism-agnostic** — `market_definition.settlement_mode` is `"on_chain"` or `"off_chain"`;
+  neither this section nor any `pm:*` artifact structurally favors one.
+- **Identity-agnostic** — every artifact referencing a party uses `participant_ref`, an opaque string
+  accepting a `did:key`, a wallet address, or an opaque account id. No field assumes crypto-native identity.
+- **Outcome-structure-agnostic** — `market_definition.outcomes` is an array of two or more entries. No
+  `pm:*` artifact carries a bare `side: "YES"|"NO"` field or otherwise structurally assumes a binary market.
+
+**Resolution enters as an external attested input, never as an OCG computation.** A `resolution_certificate`
+artifact's outcome is a claim OCG *records*, not one OCG *computes* — the same relationship §23 already
+defines for any external oracle. The resolving party's attestation (a SECO-style threshold signature, a
+regulated resolution desk's signed determination, or any other resolver's signed output) attaches via
+`audit_signature` (§16) or `input_attestations` (§23), pointing at the `resolution_evidence` artifact's
+`evidence_root`. `chain.parent_hashes` links a `resolution_certificate` to its `resolution_evidence`
+artifact the same way it links a `trade_execution` to its parent `trade_order`s (§4) — a general pattern,
+not `pm:*`-specific.
+
+**Prohibited language (normative, Corda-tripwire discipline).** No `pm:*` artifact, schema comment, or
+prose describing this extension may use "accept" or "finality" to describe what OCG does with a resolution
+or a settlement. `pm:settlement`'s `output_payload` is a **verify-only payout recompute** — the prescribed
+arithmetic applied to an already-resolved outcome and the recorded `all_positions` — never an operative
+transfer of funds, never an ordering or matching duty, spec-only or otherwise. An implementation that reads
+`settlement`'s `output_payload.payouts` as authorization to move value has misread this section.
+
+| Artifact | `tool_id` prefix | `mandate_type` | `policy_parameters` (illustrative) | `output_payload` (illustrative) |
+|---|---|---|---|---|
+| Market Definition | `pm:define_market` | `market_definition` | `question, outcomes[] (2+), settlement_asset, settlement_mode ("on_chain"\|"off_chain"), trading_rules, fee_rules, resolution_source_profile, resolution_window` | `market_id, start_time, end_time` |
+| Order | `pm:order` | `trade_order` | `market_id, outcome_selected, quantity, price_limit, timestamp, participant_ref, signature` | `order_id, status` |
+| Trade Execution | `pm:trade` | `trade_execution` | `buy_order_execution_hash, sell_order_execution_hash, match_quantity, match_price` | `trade_id, filled_quantity, timestamp` |
+| Position Update | `pm:position` | `position_update` | `trade_execution_hash, participant_ref` | `new_position: {outcome: quantity, ...}` |
+| Resolution Evidence | `pm:evidence_root` | `resolution_evidence` | `attester_signatures[], evidence_hash, resolution_method` | `evidence_root: hash` |
+| Resolution Certificate | `pm:resolver` | `resolution_certificate` | `evidence_root_execution_hash` | `outcome, rationale (optional)` |
+| Settlement | `pm:settlement` | `settlement` | `market_definition_hash, outcome, all_positions` | `payouts: {participant_ref: amount, ...}` |
+
+`chain.parent_hashes` links: `trade_execution` → its two parent `trade_order`s; `position_update` → its
+parent `trade_execution`; `resolution_certificate` → its parent `resolution_evidence`; `settlement` → its
+parent `market_definition` and the `resolution_certificate` whose outcome it recomputes payouts from.
+`execution_hash` for every `pm:*` artifact follows the unmodified §4 canonicalization; mutable fields
+(timestamps, assigned IDs) are excluded from the preimage exactly as §4 already requires generally.
+
 ## §7 DCAT 3.0 Graph Index
 
 The Graph Index (chaingraph.json) is the machine-discoverable catalog of a vendor's OpenChainGraph-conformant tools. v0.2 expresses it as a W3C DCAT 3.0 catalog, making it crawlable by data portals, regulatory reporting platforms, and semantic web processors — without removing any existing fields.
@@ -3394,7 +3450,22 @@ present when the object is present; `kernel_digest` equal to `audit_signature.bu
 finding.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **v0.8.23 (2026-08-11 — SPEC-TEXT PASS adding §27.14 Cure records and
+See `standard/CHANGELOG.md`. **v0.8.24 (2026-08-13 — SPEC-TEXT PASS adding §5.1 pm:* Prediction/
+Event-Market Provenance Extension, staged by `PM-OCG-SCHEMA-SPEC-1` carrying the
+`SECO-OCG-Prediction-Market-Scoping.md` §4.1 ratified scoping and Tim's 2026-08-13 provenance-layer-only
+ruling; the record `spec_version` stays at whatever `chaingraph.json` carries until the next coordinated
+K landing bumps it, same separation as every prior text pass):** §5.1 registers seven `mandate_type`
+values (`market_definition, trade_order, trade_execution, position_update, resolution_evidence,
+resolution_certificate, settlement`) under the `pm:` tool_id prefix for prediction/event-market
+provenance artifacts. Settlement-mechanism-agnostic, identity-agnostic, and outcome-structure-agnostic
+by construction; resolution enters as an external attested input via §16/§23, never as an OCG
+computation; `settlement`'s `output_payload` is a verify-only payout recompute, never an operative
+transfer, ordering, or matching duty (Corda-tripwire discipline — no accept/finality language anywhere
+in the section). Purely additive: no `$defs/artifact.required` change, `chaingraph_version` stays
+`"0.4.0"`, no new §15 gate (mirrors §5's own not-CI-enforced status), every existing artifact stays
+byte-identical. No kernel, tool, or `chaingraph.json` touched by this pass — documentation only. Full
+proposal + ADR + illustrative payloads in `PM-MANDATE-EXTENSION.md` (same directory).
+**v0.8.23 (2026-08-11 — SPEC-TEXT PASS adding §27.14 Cure records and
 itemized deltas, staged by `RECEIPT-DELTA-CURE-1` carrying the 2026-08-10 robert-persona mechanism
 adjudication; the record `spec_version` stays at whatever `chaingraph.json` carries until the next
 coordinated K landing bumps it, same separation as every prior text pass):** §27.14 adds `cure`, a
