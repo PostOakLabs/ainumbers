@@ -407,9 +407,26 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // fix) but it stays deferred and unproven, so it is outside this gate's denominator entirely.
   // Measured both sides, not assumed: 458/575 fresh + 117 stale on the base commit dd9adac9,
   // 464/581 fresh + 117 stale after.
-  assert(total === 581, `expected 581 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 464, `expected 464 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 117, `expected 117 stale (unchanged -- the 6 assembled nodes all enter fresh, ASSEMBLE-LAND-BATCH-0811-C), got ${stale.length}`);
+  // 581 -> 584 post-ETHMATH-ASSEMBLE-LAND-1 (2026-08-14): the batch assembled art-598, art-613 and
+  // art-614, and locally merged the held drafts carrying art-607's (#1231), art-613's (#1241),
+  // art-614's (#1244) and art-284's (#1239) groth16 receipts. Denominator moves by exactly 3, and
+  // the three are NOT the three nodes assembled: art-613 and art-614 enter proven with the receipts
+  // from #1241/#1244, and art-607 enters proven because #1231 attached a receipt to a node that was
+  // already assembled and deferred on main. art-598 assembled DEFERRED -- unproven, so it never
+  // enters this gate's denominator at all (it is also what holds the §18 deferred count at exactly
+  // its ceiling of 3: art-590, art-594, art-598). art-284 was already in the denominator and does
+  // not move it.
+  // Fresh moves by 4 -- one MORE than the denominator -- and the extra one is art-284:
+  // ASSEMBLE-LAND-BATCH-0811-B put art-284 into the STALE set (its kernel was converted to vendored
+  // noble Ed25519 with no re-prove, so its committed receipt predated its own bytes), and
+  // ART284-REPROVE-0812-1's fresh receipt is written against those bytes, so art-284 LEAVES stale
+  // and enters fresh. Stale therefore drops by exactly 1. Verified node-by-node on both sides:
+  // art-284 reads stale on the base commit and fresh after; no other node changes set.
+  // Measured both sides, not assumed: 464/581 fresh + 117 stale on the base commit 2ea48605,
+  // 468/584 fresh + 116 stale after.
+  assert(total === 584, `expected 584 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 468, `expected 468 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (art-284 leaves the stale set on its re-prove, ETHMATH-ASSEMBLE-LAND-1), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

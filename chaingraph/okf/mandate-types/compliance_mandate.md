@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-316"]
+tags: ["compliance_mandate", "count-317"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-316 tool(s) in this mandate-type group:
+317 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -323,6 +323,7 @@ status: stable
 - [Proof-of-Reserves Verifier](../tools/art-584-proof-of-reserves-verifier.md)
 - [Sanctions Screening Evidence Pack](../tools/art-585-sanctions-screening-evidence-pack.md)
 - [FinP2P Ledger Proof Verifier](../tools/art-587-finp2p-ledger-proof-verifier.md)
+- [Input Attestation Verifier](../tools/art-598-input-attestation-verifier.md)
 - [MiCA Register Presence Check](../tools/art-602-mica-register-presence-check.md)
 - [Stablecoin Reserve 3-Source Recompute](../tools/art-603-stablecoin-reserve-3source-recompute.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
