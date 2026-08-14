@@ -550,6 +550,7 @@ import * as art609    from './art-609-jwks-pinned-directory-check.kernel.mjs';
 import * as art61     from './art-61-x402-batch-settlement-reconciler.kernel.mjs';
 import * as art610    from './art-610-erc4626-vault-share-math.kernel.mjs';
 import * as art611    from './art-611-erc7540-async-vault-request-accounting.kernel.mjs';
+import * as art613    from './art-613-erc4337-userop-math.kernel.mjs';
 import * as art615    from './art-615-mla-charge-inclusion-classifier.kernel.mjs';
 import * as art618    from './art-618-naic-clo-rbc-factor-calculator.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
@@ -1156,6 +1157,7 @@ export const KERNELS = {
   'art-61-x402-batch-settlement-reconciler':                    art61,
   'art-610-erc4626-vault-share-math':                           art610,
   'art-611-erc7540-async-vault-request-accounting':             art611,
+  'art-613-erc4337-userop-math':                                art613,
   'art-615-mla-charge-inclusion-classifier':                    art615,
   'art-618-naic-clo-rbc-factor-calculator':                     art618,
   'art-62-ap2-payment-receipt-verifier':                        art62,
