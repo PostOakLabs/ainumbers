@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (600 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (603 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6232,6 +6232,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-598-input-attestation-verifier",
+    "display_name": "Input Attestation Verifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-598-input-attestation-verifier.html",
+    "description": "Verify SPEC.md §23 input_attestations entries -- vc-2.0, c2pa-manifest, rfc3161-snapshot, zktls -- against a target artifact's policy_parame",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-599-gleif-snapshot-digest",
     "display_name": "GLEIF Snapshot Digest",
     "mandate_type": "cryptographic_mandate",
@@ -6383,6 +6393,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "payment_policy",
     "url": "https://ainumbers.co/chaingraph/art-611-erc7540-async-vault-request-accounting.html",
     "description": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state. ERC-7540 (Final, Created 2023-10-18, CC0-1.0) ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-613-erc4337-userop-math",
+    "display_name": "ERC-4337 UserOperation Math",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.html",
+    "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-614-eip7702-authorization-tuple-decoder",
+    "display_name": "EIP-7702 Authorization-Tuple Decoder",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-614-eip7702-authorization-tuple-decoder.html",
+    "description": "Recomputes the EIP-7702 authorization-tuple hash (keccak256(0x05 || rlp([chain_id, address, nonce])), the 'Set EOA account code' standard li",
     "consumes": [],
     "feeds": [],
     "status": "live"
