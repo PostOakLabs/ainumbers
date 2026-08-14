@@ -177,7 +177,7 @@ export async function verifyAuthoringFiles(paths, { floorExists, kernelExists, r
 // step, and this gate must see it on the push that adds it, not one push later). Returns [{tool_id}].
 // A node id with no shard file on disk yet, or whose shard has status !== 'live', is out of scope (same
 // "not yet a coverage subject" reasoning gen-kernel-identity.mjs --shard applies).
-function deriveLiveKernels() {
+export function deriveLiveKernels() {
   if (!existsSync(META_PATH)) return { liveKernels: [], note: `no chaingraph.meta.json at ${META_PATH}` };
   const meta = JSON.parse(readFileSync(META_PATH, 'utf8'));
   const orderIds = meta.order?.nodes ?? [];

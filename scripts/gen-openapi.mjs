@@ -33,7 +33,7 @@ const { negotiated_protocol_version: MCP_PROTOCOL_VERSION } =
   JSON.parse(readFileSync(resolve(repoRoot, 'data', 'mcp-protocol-version.json'), 'utf8'))
 
 // Derive counts once — used for the OpenAPI description and docs/index.html sentinels.
-const C = deriveCounts()
+const C = await deriveCounts()
 
 // ── 1. Read all manifests ────────────────────────────────────────────────────
 const manifestsDir = join(repoRoot, 'manifests')
