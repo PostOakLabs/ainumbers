@@ -27,9 +27,10 @@
 //       in only to resolve types) is pre-existing debt by definition — it is
 //       reported to the log for visibility, never counted toward failure.
 //   (2) A NARROW, NAMED ALLOWLIST for the one deliberate, permanent gap this
-//       repo accepts: `chaingraph/kernels/__proptests__/*.proptest.mjs` floor
-//       files use Node builtins (`node:fs`, `node:path`, `node:url`, `process`)
-//       to read fixtures at test time, and this repo installs no `@types/node`
+//       repo accepts: any `.mjs` under `chaingraph/kernels/__proptests__/`
+//       (floor files, their shared helpers, and helper selftests alike) uses
+//       Node builtins (`node:fs`, `node:path`, `node:url`, `process`) to read
+//       fixtures at test time, and this repo installs no `@types/node`
 //       — SO #47 (2026-08-11) exempts that package narrowly, but it is not
 //       reachable in a zero-`package.json` repo without `npm install` (SO #10
 //       hard ban); see the DENOISE PASS note above for the measured reason.
@@ -111,8 +112,14 @@ export function normalizePath(p) {
 
 // isAllowlistedNodeGlobal — pure predicate for rule (2). Exported so a test
 // can hit both the true and false branch without invoking tsc.
+// Scoped to the DIRECTORY, not an enumerated filename or suffix — any
+// `.mjs` under PROPTEST_DIR (floor files, shared helpers, their selftests)
+// hits the same no-@types/node gap and needs the same allowlist. A
+// filename/suffix list re-breaks on the next shared helper (JSDOC-GATE-
+// ALLOWLIST-FIX-1, 2026-08-14: `_pbt-common.mjs` + `.selftest.mjs` were
+// excluded by the old `.proptest.mjs`-only suffix check).
 export function isAllowlistedNodeGlobal(path, code, message) {
-  if (!path.startsWith(PROPTEST_DIR) || !path.endsWith('.proptest.mjs')) return false;
+  if (!path.startsWith(PROPTEST_DIR) || !path.endsWith('.mjs')) return false;
   return NODE_GLOBAL_ALLOWLIST.some((rule) => rule.code === code && rule.pattern.test(message));
 }
 
