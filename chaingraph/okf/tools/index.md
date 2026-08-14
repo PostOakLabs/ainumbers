@@ -537,6 +537,7 @@ status: stable
 - [Web Bot Auth Nonce & Replay-Window Checker](./art-593-webbotauth-nonce-replay-check.md) — `check_webbotauth_nonce_replay`
 - [Tempo MPP Voucher & Receipt Verifier](./art-594-tempo-mpp-voucher-receipt-verifier.md) — `verify_tempo_mpp_voucher`
 - [C2PA AI/ML Assertion Decoder](./art-597-c2pa-aiml-assertion-decoder.md) — `decode_c2pa_aiml_assertions`
+- [Input Attestation Verifier](./art-598-input-attestation-verifier.md) — `verify_input_attestations`
 - [GLEIF Snapshot Digest](./art-599-gleif-snapshot-digest.md) — `digest_gleif_snapshot`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [LEI Relationship Consistency Checker](./art-600-lei-relationship-consistency.md) — `check_lei_relationship_consistency`
@@ -551,6 +552,8 @@ status: stable
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md) — `reconcile_x402_batch_settlement`
 - [ERC-4626 Vault Share Math](./art-610-erc4626-vault-share-math.md) — `recompute_erc4626_vault_share_math`
 - [ERC-7540 Async-Vault Request Accounting](./art-611-erc7540-async-vault-request-accounting.md) — `recompute_erc7540_request_accounting`
+- [ERC-4337 UserOperation Math](./art-613-erc4337-userop-math.md) — `recompute_erc4337_userop_math`
+- [EIP-7702 Authorization-Tuple Decoder](./art-614-eip7702-authorization-tuple-decoder.md) — `decode_eip7702_authorization_tuple`
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`
 - [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md) — `run_ai_act_highrisk_fit`

@@ -140,9 +140,9 @@ ok(threw, '(delegated) verifySeal() throws for receiptFormat:"stark" — vendor-
 //     the other four — its journal cannot be cross-checked against a published fixture vector by
 //     construction (its real input is a private witness); that one leg is skipped for it, stated inline,
 //     matching check-recompute-equality.mjs's own pre-existing §25 exclusion.
-//   - art-607 — the DEFERRED exemplar (compute_proof_ready:"deferred"). ART607-GUEST-ERROR-1 diagnosed why
-//     it cannot be proven today (an eager top-level TextEncoder call the zkVM guest lacks). Included so
-//     this suite also asserts the deferred path classifies honestly — never silently read as proven.
+//   - the DEFERRED exemplars are DERIVED from the graph, not pinned by name (see the deferred block at the
+//     bottom of this file for why art-607 stopped being that pin). This suite asserts the deferred path
+//     classifies honestly — never silently read as proven.
 //
 // Every receipt is read from chaingraph.json (the Graph Index — the same place a real consumer reads it
 // from) or the kernel's own dedicated fixture file, never re-derived or invented. kernel_digest is
@@ -215,12 +215,24 @@ for (const { id, note, privateInput } of SAMPLE) {
   ok(verifySeal(emptiedJournal) === false, `(widened:${id}) emptied journal.output ({}) is REJECTED — the async-vacuous class`);
 }
 
-// ── the deferred exemplar — must classify honestly, never silently read as proven ──
-const deferredNode = nodeById('art-607-erc1967-proxy-slot-classifier');
-ok(!deferredNode.compute_proof, '(widened:deferred) art-607 carries no compute_proof');
-const deferredVerdict = classifyNode(deferredNode);
-ok(deferredVerdict.state === 'deferred', `(widened:deferred) art-607 classifies as "deferred" (got "${deferredVerdict.state}")`);
-ok(deferredVerdict.problems.length === 0, `(widened:deferred) art-607's deferral is well-formed (real, non-placeholder deferred_reason) — ${deferredVerdict.problems.join('; ')}`);
+// ── the deferred exemplars — must classify honestly, never silently read as proven ──
+// DERIVED, not pinned (ETHMATH-ASSEMBLE-LAND-1, 2026-08-14). This block named art-607 by hand until
+// ART607-PROVE-1 attached its receipt: the assertion "art-607 carries no compute_proof" then went red
+// on a node that had just been FIXED, and the suite blocked the very land that fixed it. The deferred
+// set is transient by design (§18 steady-state — every deferred node is queued to be proven), so any
+// exemplar pinned by name is a landmine armed for whoever proves that node next. The exemplars are now
+// read from the graph: whatever classifies deferred today must do so honestly — no compute_proof
+// present, and a real, non-placeholder deferred_reason. An empty deferred set is a legitimate state
+// (it means everything is proven) and asserts nothing.
+const deferredNodes = CG.nodes.filter((n) => n.gpu !== true && classifyNode(n).state === 'deferred');
+console.log(`  · (widened:deferred) ${deferredNodes.length} node(s) classify deferred today: ${deferredNodes.map((n) => n.tool_id).join(', ') || '(none)'}`);
+for (const deferredNode of deferredNodes) {
+  const id = deferredNode.tool_id;
+  ok(!deferredNode.compute_proof, `(widened:deferred) ${id} carries no compute_proof`);
+  const deferredVerdict = classifyNode(deferredNode);
+  ok(deferredVerdict.state === 'deferred', `(widened:deferred) ${id} classifies as "deferred" (got "${deferredVerdict.state}")`);
+  ok(deferredVerdict.problems.length === 0, `(widened:deferred) ${id}'s deferral is well-formed (real, non-placeholder deferred_reason) — ${deferredVerdict.problems.join('; ')}`);
+}
 
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all compute-proof (§18) assertions passed');
 process.exit(fail ? 1 : 0);

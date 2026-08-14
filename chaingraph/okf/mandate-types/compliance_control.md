@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-66"]
+tags: ["compliance_control", "count-67"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-66 tool(s) in this mandate-type group:
+67 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -78,3 +78,4 @@ status: stable
 - [ERC-165 Interface ID Verifier](../tools/art-606-erc165-interface-id-verifier.md)
 - [ERC-1967 Proxy Slot Classifier](../tools/art-607-erc1967-proxy-slot-classifier.md)
 - [JWKS Pinned-Directory Check](../tools/art-609-jwks-pinned-directory-check.md)
+- [EIP-7702 Authorization-Tuple Decoder](../tools/art-614-eip7702-authorization-tuple-decoder.md)

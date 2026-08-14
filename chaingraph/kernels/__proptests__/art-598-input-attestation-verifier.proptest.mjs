@@ -1,12 +1,19 @@
 // art-598-input-attestation-verifier.proptest.mjs — FV property-test FLOOR (FVFLOOR-BACKFILL-0811-1).
-// kernel_digest_at_authoring: sha256:88666175859cec277cf7e5ab8ff81475eb15e07e188f4d05c6f0b8139e5d075d
+// kernel_digest_at_authoring: sha256:91ced776d50f3ea42ea291b34a35b65afc7e7fe6cd2caa78b967671358618c9b
 // human_sign_off: PENDING
 //
-// RE-STAMPED (ART598-DEASYNC-1, 2026-08-13): the kernel's compute() was converted from async
-// (crypto.subtle) to synchronous (vendored noble ed25519 + inlined sha256) — see the kernel's own
-// ASYNC -> SYNC CONVERSION header comment. output_payload is demonstrated byte-identical for every
-// fixture vector against the pre-conversion kernel (ART598-DEASYNC-1 check-off), so this floor's
-// checks below did not need to change, only the digest header they pin to.
+// RE-STAMPED (ETHMATH-ASSEMBLE-LAND-1, 2026-08-14): the kernel's compute() was converted from async
+// (crypto.subtle) to synchronous (vendored noble ed25519 + inlined sha256) by ART598-DEASYNC-1 — see
+// the kernel's own ASYNC -> SYNC CONVERSION header comment. output_payload is demonstrated
+// byte-identical for every fixture vector against the pre-conversion kernel (ART598-DEASYNC-1
+// check-off), so this floor's checks below did not need to change, only the digest header they pin
+// to. ART598-DEASYNC-1 wrote that intent into this comment block but left the digest line itself at
+// the pre-conversion value (sha256:88666175…), and FV-COVERAGE-GATE-1 caught it the moment the shard
+// was assembled and the gate stopped skipping the draft — a header asserting a re-stamp that had not
+// happened is the self-attested-provenance shape SO #34 names. The value above was recomputed here
+// from the kernel bytes via sourceDigest() and cross-checked against the node shard's
+// compute_images[0].image_id (two independent artifacts, same digest), and this floor was executed
+// green against that same kernel before the stamp was moved.
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md section 3, class C -- multi-format structural
 // verification with an async compute()). NOT a proof, NOT Dafny.
