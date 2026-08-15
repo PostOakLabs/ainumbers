@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (603 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (605 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6413,6 +6413,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-614-eip7702-authorization-tuple-decoder.html",
     "description": "Recomputes the EIP-7702 authorization-tuple hash (keccak256(0x05 || rlp([chain_id, address, nonce])), the 'Set EOA account code' standard li",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-616-mla-mapr-actuarial-recompute",
+    "display_name": "MLA MAPR Actuarial Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-616-mla-mapr-actuarial-recompute.html",
+    "description": "Recomputes a Military Lending Act MAPR for closed-end credit by the Regulation Z actuarial method, from caller-supplied cash flows and charg",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-618-naic-clo-rbc-factor-calculator",
+    "display_name": "NAIC CLO/CBO/CDO Tranche RBC Factor Calculator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-618-naic-clo-rbc-factor-calculator.html",
+    "description": "Recomputes the NAIC Life RBC per-tranche capital charge for CLO/CBO/CDO bond tranches against the LR002 Column (2) factor grid adopted by th",
     "consumes": [],
     "feeds": [],
     "status": "live"
