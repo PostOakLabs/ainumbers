@@ -23,6 +23,58 @@ os.chdir(ROOT)
 BASE_URL = "https://ainumbers.co"
 TODAY = datetime.date.today().isoformat()   # e.g. 2026-06-02
 
+
+# ── GENERATOR-NOOP-STABILITY-1 ────────────────────────────────────────────────
+# The single write path for every file this script emits. It closes two churn
+# classes that made an SO #28 regen conflict with every concurrent PR:
+#
+#   1. LINE ENDINGS. `open(path, 'w')` is TEXT mode, so on Windows Python
+#      translates every '\n' to '\r\n'. This repo pins LF (.gitattributes:
+#      `* text=auto eol=lf`), so a clean checkout has zero CR bytes and a single
+#      regen from a Windows session rewrote all 7 files this script owns —
+#      index.html, tools.html, llms.txt, sitemap-adjacent MCP descriptors —
+#      end to end, CRLF. Whole-file rewrites of exactly the shared, high-traffic
+#      derived surfaces SO #35 is about. `newline=''` disables the translation,
+#      so output is LF on Windows and Linux alike.
+#
+#   2. DATE STAMPS. Three fields here carry date.today(): catalog.json
+#      "generated", server.json "last_updated", and llms.txt's "Tool count as
+#      of" line. They change once per DAY by construction, so two PRs
+#      regenerated on different days conflicted on files whose substantive
+#      content was identical. `prior_date` preserves the stamp already on disk
+#      when the candidate output is otherwise byte-identical to it — the stamp
+#      then means "when these counts last changed", which is a fact, instead of
+#      "when someone last ran the generator", which was not one.
+#
+# Returns True if it actually wrote. An unchanged file is left ALONE (mtime
+# included), never rewritten with its own bytes.
+def write_stable(path, new_text, prior_date=None):
+    try:
+        with open(path, encoding='utf-8', newline='') as f:
+            old = f.read()
+    except FileNotFoundError:
+        old = None
+    if old is not None:
+        if old == new_text:
+            return False
+        # Substituting the on-disk date back into the candidate and getting the
+        # on-disk file byte-for-byte proves the date was the ONLY difference.
+        if prior_date and prior_date != TODAY and new_text.replace(TODAY, prior_date) == old:
+            return False
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(new_text)
+    return True
+
+
+def dump_json_stable(path, obj, prior_date=None):
+    return write_stable(path, json.dumps(obj, indent=2, ensure_ascii=True) + '\n', prior_date)
+
+
+def read_json(path):
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
+
+
 # ── natural sort key so 01 < 02 < 10 < 100 and named/rbe/pf slugs group sensibly ──
 def natkey(slug):
     return [int(t) if t.isdigit() else t for t in re.split(r'(\d+)', slug)]
@@ -108,9 +160,11 @@ def main():
         "tool_count": n,
         "tools": entries,
     }
-    json.dump(catalog, open('mcp/catalog.json', 'w', encoding='utf-8'),
-              indent=2, ensure_ascii=True)
-    open('mcp/catalog.json', 'a', encoding='utf-8').write('\n')
+    try:
+        _prior_generated = read_json('mcp/catalog.json').get('generated')
+    except Exception:
+        _prior_generated = None
+    dump_json_stable('mcp/catalog.json', catalog, prior_date=_prior_generated)
 
     # ── get mcp.live from counts.mjs (SSOT) via subprocess ──
     import subprocess as _sp
@@ -119,7 +173,8 @@ def main():
     mcp_live = _counts.get('mcp.live', n)   # fallback to n if counts.mjs fails
 
     # ── mcp/server.json ──
-    sj = json.load(open('mcp/server.json', encoding='utf-8'))
+    sj = read_json('mcp/server.json')
+    _prior_last_updated = sj.get('last_updated')
     # tool_count = n_tools (count of tools/*.html = browser tools), NOT n (manifest count). The MCP
     # registry descriptor + every public meta/og/schema tag advertise the browser-tool count; the
     # extra manifests are derived/short-form with no page. verify-counts.mjs gates this field against
@@ -133,12 +188,10 @@ def main():
                          f"real-time payments, e-invoicing (Peppol/ViDA), agentic payment protocols "
                          f"(AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. "
                          f"All tools are client-side — zero PII, zero server calls.")
-    json.dump(sj, open('mcp/server.json', 'w', encoding='utf-8'),
-              indent=2, ensure_ascii=True)
-    open('mcp/server.json', 'a', encoding='utf-8').write('\n')
+    dump_json_stable('mcp/server.json', sj, prior_date=_prior_last_updated)
 
     # ── .well-known/mcp.json ──
-    wk = json.load(open('.well-known/mcp.json', encoding='utf-8'))
+    wk = read_json('.well-known/mcp.json')
     for s in wk.get('servers', []):
         if s.get('id') == 'ainumbers-fintech-suite':
             s['tool_count'] = n_tools   # browser-tool count, not manifest count — see server.json note above
@@ -150,12 +203,13 @@ def main():
             s['description'] = (f"Live MCP endpoint ({mcp_live} tools) — chainable OCG compute nodes, "
                                 f"flagship browser tool widgets, and catalog search. "
                                 f"Streamable HTTP at https://mcp.ainumbers.co/mcp, no auth.")
-    json.dump(wk, open('.well-known/mcp.json', 'w', encoding='utf-8'),
-              indent=2, ensure_ascii=True)
-    open('.well-known/mcp.json', 'a', encoding='utf-8').write('\n')
+    dump_json_stable('.well-known/mcp.json', wk)
 
     # ── llms.txt (text — targeted replacements) ──
-    llms = open('llms.txt', encoding='utf-8').read()
+    with open('llms.txt', encoding='utf-8', newline='') as _f:
+        llms = _f.read()
+    _m = re.search(r"Tool count as of ([0-9-]+):", llms)
+    _prior_llms_date = _m.group(1) if _m else None
     # regex-based so the script works regardless of the previous counts
     llms = re.sub(r"suite of \d+ browser-based fintech tools", f"suite of {n_tools} browser-based fintech tools", llms)
     llms = re.sub(r"tool grid \(\d+ tools\)", f"tool grid ({n_tools} tools)", llms)
@@ -168,22 +222,24 @@ def main():
     repl = []
     for a, b in repl:
         llms = llms.replace(a, b)
-    open('llms.txt', 'w', encoding='utf-8').write(llms)
+    write_stable('llms.txt', llms, prior_date=_prior_llms_date)
 
     # ── tools.html (catalog spoke — registry header + filter count) ──
     import re as _re
-    thtml = open('tools.html', encoding='utf-8').read()
+    with open('tools.html', encoding='utf-8', newline='') as _f:
+        thtml = _f.read()
     thtml = thtml.replace("Suite-Wide Tool Manifest Registry · 265 tools",
                           f"Suite-Wide Tool Manifest Registry · {n} tools")
     thtml = _re.sub(r'<span class="filter-count" id="fc-all">\d+</span>',
                     f'<span class="filter-count" id="fc-all">{n_tools}</span>', thtml)
-    open('tools.html', 'w', encoding='utf-8').write(thtml)
+    write_stable('tools.html', thtml)
 
     # ── index.html (hub spoke — preserve sentinel format in "Browse all N tools" CTA) ──
-    ihtml = open('index.html', encoding='utf-8').read()
+    with open('index.html', encoding='utf-8', newline='') as _f:
+        ihtml = _f.read()
     ihtml = _re.sub(r'Browse all (?:<!--COUNT:tools\.browser-->\d+<!--/COUNT-->|\d+) tools →',
                     f'Browse all <!--COUNT:tools.browser-->{n_tools}<!--/COUNT--> tools →', ihtml)
-    open('index.html', 'w', encoding='utf-8').write(ihtml)
+    write_stable('index.html', ihtml)
 
     # ── report ──
     print(f"catalog.json regenerated: {n} entries (tool_count={n})")

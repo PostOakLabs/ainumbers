@@ -75,7 +75,19 @@ function upsertComputeImages(blockTxt, tool_id, digest) {
     let arr;
     try { arr = JSON.parse(m[2]); } catch { throw new Error(`bad compute_images JSON in ${tool_id}`); }
     const kept = arr.filter((i) => i.system !== 'sha256-source');
-    const merged = [JSON.parse(entry), ...kept];
+    // GENERATOR-NOOP-STABILITY-1: `valid_from` on an EXISTING entry is a historical fact —
+    // "this exact source digest has been published since <date>" — and this generator has
+    // no basis to restate it. Re-stamping the VALID_FROM constant over it moved 32 shards'
+    // dates BACKWARDS (e.g. 2026-07-19 -> 2026-07-10) on every run, and the date is
+    // load-bearing downstream: scripts/gen-euc-register.mjs derives each register entry's
+    // published `data_vintage` and `last_validated` from max(compute_images[].valid_from).
+    // So: same digest ⇒ keep the recorded date. A digest that actually MOVED is a new
+    // identity and takes VALID_FROM, exactly as before — this narrows what the generator
+    // overwrites, it does not narrow what it detects (proven by mutation in the row).
+    const prior = arr.find((i) => i.system === 'sha256-source');
+    const normId = (d) => (typeof d === 'string' && d.startsWith('sha256:')) ? d : 'sha256:' + d;
+    const validFrom = (prior && prior.valid_from && normId(prior.image_id) === digest) ? prior.valid_from : VALID_FROM;
+    const merged = [{ system: 'sha256-source', image_id: digest, valid_from: validFrom }, ...kept];
     const newLine = `\n${indent}"compute_images": [${merged.map((i) => JSON.stringify(i)).join(',')}],`;
     return { out: blockTxt.slice(0, m.index) + newLine + blockTxt.slice(m.index + m[0].length), kind: 'replaced' };
   }
@@ -178,7 +190,7 @@ async function runShardMode(mode, onlyId, registered) {
   }
 
   // --- WRITE (shard mode) ---
-  let stamped = 0, inserted = 0, replaced = 0;
+  let stamped = 0, inserted = 0, replaced = 0, unchanged = 0;
   const touched = [];
   for (const { id, shardPath, raw, n } of inScope) {
     let upsert;
@@ -195,12 +207,29 @@ async function runShardMode(mode, onlyId, registered) {
       process.exit(4);
     }
 
+    // GENERATOR-NOOP-STABILITY-1 — NO-OP GUARD, the fix for the 181-shard reformat class.
+    // upsertComputeImages() rebuilds the compute_images line unconditionally, in its own
+    // one-line-per-array style. Shard files on disk are pretty-printed, so a shard whose
+    // digest was ALREADY correct still got its formatting rewritten: 181 shards churned on
+    // every SO #28 regen with not one byte of semantic change (measured by
+    // board/done/NODE-REG-UNBLOCK-1.md, which reverted them by hand). Since every row that
+    // adds a node runs this chain, those 181 files collided between concurrent PRs whose
+    // real changes were disjoint — the systemic cause of the 2026-08-15 rebase storm.
+    // Compare CANONICALLY (parsed JSON, so indentation and line breaks are invisible while
+    // key order, array order and values are not), and if nothing moved, leave the file
+    // entirely alone — original formatting and original mtime both intact. A genuine digest
+    // change still writes, exactly as before; see the mutation proof in the row's check-off.
+    if (JSON.stringify(JSON.parse(raw)) === JSON.stringify(afterObj)) {
+      unchanged++;
+      continue;
+    }
+
     writeFileSync(shardPath, upsert.out);
     if (upsert.kind === 'inserted') inserted++; else replaced++;
     stamped++;
     touched.push(id);
   }
-  console.log(`✓ §17 stamped ${stamped} shard(s) directly: ${inserted} inserted, ${replaced} merged into existing compute_images. chaingraph.json untouched. Run ASSEMBLE+LAND to fold into the monolith, then --check to verify.`);
+  console.log(`✓ §17 stamped ${stamped} shard(s) directly: ${inserted} inserted, ${replaced} merged into existing compute_images. ${unchanged} shard(s) already current — left untouched. chaingraph.json untouched. Run ASSEMBLE+LAND to fold into the monolith, then --check to verify.`);
   if (touched.length) console.log('  shards written: ' + touched.join(', '));
   if (skipped.length) console.log(`  ${skipped.length} shard(s) out of scope, skipped.`);
 }
@@ -300,6 +329,14 @@ const strip = (o) => {
 if (JSON.stringify(strip(JSON.parse(before))) !== JSON.stringify(strip(JSON.parse(JSON.stringify(afterObj))))) {
   console.error('✗ SAFETY: stamped chaingraph.json differs beyond the sha256-source compute_images entries — aborting, no write.');
   process.exit(4);
+}
+
+// GENERATOR-NOOP-STABILITY-1: same no-op guard as shard mode above. Canonical compare
+// (parsed JSON — formatting invisible, values and ordering not); nothing moved ⇒ nothing
+// written, so chaingraph.json keeps its bytes AND its mtime.
+if (before === JSON.stringify(afterObj)) {
+  console.log(`✓ §17 all ${inScope.length} in-scope node(s) already carry a current sha256-source digest — chaingraph.json left untouched.`);
+  process.exit(0);
 }
 
 writeFileSync(CGPATH, out);

@@ -168,6 +168,20 @@ function main() {
   }
 
   mkdirSync(OUT_DIR, { recursive: true });
+  // GENERATOR-NOOP-STABILITY-1: write ONLY on a genuine content change, preserving the
+  // prior generated_at when nothing substantive moved. Identical predicate to the
+  // --check branch above, which already excludes generated_at — before this, --check
+  // reported "OK" while a re-run still rewrote the file with a fresh wall-clock stamp,
+  // so gate and writer disagreed about what "current" meant, and every SO #28 regen put
+  // chaingraph/clause-edges/index.json (and, downstream, chaingraph/clause-edge-report.html,
+  // which renders this very stamp) into conflict with every sibling PR.
+  let priorReport = null;
+  try { priorReport = JSON.parse(readFileSync(OUT_FILE, 'utf8')); } catch { /* missing/unparseable -> write fresh */ }
+  const substantive = (r) => { const { generated_at: _s, ...rest } = r; return JSON.stringify(rest); };
+  if (priorReport && substantive(priorReport) === substantive(report)) {
+    console.log(`gen-clause-edge-report: swept ${clauses.length} clause(s) from ${NODES_DIR}, found ${edges.length} typed edge(s), ${orphans.length} orphan(s). Unchanged — chaingraph/clause-edges/index.json left untouched.`);
+    return;
+  }
   writeFileSync(OUT_FILE, JSON.stringify(report, null, 2) + '\n');
   console.log(`gen-clause-edge-report: swept ${clauses.length} clause(s) from ${NODES_DIR}, found ${edges.length} typed edge(s), ${orphans.length} orphan(s). Wrote chaingraph/clause-edges/index.json`);
 }

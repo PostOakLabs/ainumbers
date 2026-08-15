@@ -625,7 +625,12 @@ for (const chain of cg.chains) {
       if (disk !== content) stale.push({ name: chain.name, reason: 'stale' });
     }
   } else {
-    writeFileSync(runnerPath, content, 'utf8');
+    // GENERATOR-NOOP-STABILITY-1: don't rewrite a runner with the bytes it already has.
+    // Same comparison CHECK_MODE makes two lines up, so "stale" and "needs writing" are
+    // one predicate rather than two that can drift apart. injectRunnerLink() was already
+    // no-op-safe (it returns early on its own <!-- runner-link-injected --> marker).
+    const disk = existsSync(runnerPath) ? readFileSync(runnerPath, 'utf8') : null;
+    if (disk !== content) writeFileSync(runnerPath, content, 'utf8');
     // inject run button into chain page
     const chainPagePath = resolve(REPO, 'chaingraph/chains', chain.name + '.html');
     if (injectRunnerLink(chain.name, chainPagePath)) injected++;

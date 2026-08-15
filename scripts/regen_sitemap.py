@@ -177,9 +177,25 @@ def main():
         print(f"(pass --apply to write {sitemap_path})\n")
         print(output)
     else:
-        with open(sitemap_path, "w", encoding="utf-8") as f:
-            f.write(output)
-        print(f"Written: {sitemap_path}")
+        # GENERATOR-NOOP-STABILITY-1 — two fixes in one write:
+        #   newline="" : text mode translates '\n' to '\r\n' on Windows, so every regen
+        #                from a Windows session rewrote all ~1850 lines of sitemap.xml as
+        #                CRLF against a repo pinned to LF (.gitattributes
+        #                `* text=auto eol=lf`) — a whole-file conflict with every
+        #                concurrent PR, for zero content change.
+        #   unchanged  : never rewrite a file with the bytes it already has; an unchanged
+        #                mtime is the point. (Per-path lastmod dates were already
+        #                preserved by load_existing_lastmods() above — that "only
+        #                genuinely new entries get TODAY" rule is the precedent this row
+        #                generalises to the other date-stamping generators.)
+        with open(sitemap_path, encoding="utf-8", newline="") as f:
+            existing = f.read()
+        if existing == output:
+            print(f"Unchanged: {sitemap_path} left untouched")
+        else:
+            with open(sitemap_path, "w", encoding="utf-8", newline="") as f:
+                f.write(output)
+            print(f"Written: {sitemap_path}")
         print(f"  {tool_count} tools, {guide_count} guides, {cg_count} chaingraph, {total} total URLs")
 
 
