@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Summa MST Inclusion Checker · ART-620 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Paste a Merkle-sum-tree root and an inclusion proof to verify membership and local balance-sum consistency, entirely offline. Client-side. Zero PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-620-summa-mst-inclusion-checker.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.id-warn{font-size:.66rem;color:var(--warn);line-height:1.5;margin:6px 0 12px}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.field-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:200px}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.field input{background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 6px;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.tbl select,.tbl input{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.3rem .4rem;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.9rem;cursor:pointer}
+.del-btn:hover{color:var(--red)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>›</span>
+      <span style="color:var(--gold)">ART-620 · Summa MST Inclusion Checker</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-620</div>
+  <h1>Summa MST Inclusion Checker</h1>
+  <p class="sub">Paste a published Merkle-sum-tree root (hash + sum) and an inclusion proof for one leaf. The node independently recomputes both the hash chain and the sum chain from the leaf to the root over the pasted proof path, rejecting any negative balance or any value exceeding a declared MAX_BALANCE domain bound anywhere along it, the mitigation Summa's own circuit applies with a RangeCheckChip against the Merkle-sum-tree negative-balance-cancellation attack described in Maxwell's eprint 2022/043 &sect;4.1, applied here at the application layer instead of inside a ZK circuit. Verify-only: reports inclusion and local sum-consistency, never a solvency claim.</p>
+  <div style="margin-bottom:6px"><span class="flag">Summa MST</span><span class="flag">Proof-of-Reserves</span><span class="flag">Merkle Sum Tree</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data - use synthetic or anonymised inputs only.</div>
+  <div class="id-warn">⚠ The leaf identifier field must be an opaque, already-hashed account identifier - never a raw username, account number, or email.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>This tool verifies a SHA-256 Merkle sum tree, not Summa's own Poseidon-hashed production circuit output - it is a from-scratch, non-ZK reimplementation of the documented pattern (Apache-2.0 OR MIT, pattern only, no code vendored), not an interop layer with any specific vendor's published root. Inclusion + local range-check passing means this leaf, and the values along its path, are internally consistent and non-negative - it is NOT a statement that every other leaf in the tree is well-formed, and it is NEVER a statement that the reserve is solvent. All balance/sum arithmetic uses BigInt; MAX_BALANCE is a verification parameter you control, not the thing being verified.</div>
+  <div class="card">
+    <div class="section-head">Published Root</div>
+    <div class="field-row">
+      <div class="field"><label>Root Hash (hex)</label><input type="text" id="rootHash"></div>
+      <div class="field"><label>Root Sum (decimal)</label><input type="text" id="rootSum"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-head">Leaf &amp; Proof</div>
+    <div class="field-row">
+      <div class="field"><label>Leaf ID (opaque hex)</label><input type="text" id="leafId"></div>
+      <div class="field"><label>Leaf Balance (decimal)</label><input type="text" id="leafBalance"></div>
+      <div class="field"><label>MAX_BALANCE bound (decimal)</label><input type="text" id="maxBalance" value="1000000000000000000"></div>
+    </div>
+    <table class="tbl" id="pathTable">
+      <thead><tr><th style="min-width:80px">Side</th><th style="min-width:240px">Sibling Hash</th><th style="min-width:120px">Sibling Sum</th><th></th></tr></thead>
+      <tbody id="pathBody"></tbody>
+    </table>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn-2" onclick="addPathRow()">+ Add Path Step</button>
+      <button onclick="run()">Run</button>
+    </div>
+  </div>
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div id="verdictDiv"></div>
+      <table class="tbl" id="rootTbl"></table>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button class="btn-2" onclick="exportArtifact()">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col"><div class="footer-col-label">Platform</div><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="openchain-graph-spec.html">Spec v0.8.13</a><a href="openchain-graph-explainer.html">OCG Explainer</a><a href="ocg-sandbox.html">Sandbox</a></div>
+      <div class="footer-col"><div class="footer-col-label">Guides</div><a href="guide-iso20022.html">ISO 20022 Profile</a><a href="guide-otel.html">OpenTelemetry</a></div>
+      <div class="footer-col"><div class="footer-col-label">Data &amp; Artifacts</div><a href="chaingraph.json" target="_blank">chaingraph.json</a><a href="../openapi.json" target="_blank">openapi.json</a><a href="../sitemap.html">Sitemap</a></div>
+      <div class="footer-col"><div class="footer-col-label">Network</div><a href="../tools.html">All Tools</a><a href="../mcp.html">MCP Docs</a><a href="../about.html">About</a><a href="../contact.html">Contact</a></div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={tool_id:"art-620-summa-mst-inclusion-checker",version:"1.0.0",title:"Summa MST Inclusion Checker",mcp_tool_definition:{name:"verify_summa_mst_inclusion",description:"Verifies a Merkle-sum-tree inclusion proof for one leaf against a published root: recomputes both the hash chain and the sum chain independently, and rejects negative or over-bound balances anywhere in the path.",inputSchema:{type:"object",properties:{root:{type:"object"},proof:{type:"object"},max_balance:{type:"string"}},required:["root","proof"]}},ap2_export:true,chaingraph:true};
+const MAX_PATH_DEPTH=64;
+const RESIDUAL_LIMITATION_NOTE='This checks inclusion and local range-consistency of the ONE leaf and its proof path only. It does not and cannot prove every other leaf in the tree obeyed the same range check - only the tree operator\'s own construction process (or a full ZK proof over the whole tree, which this tool does not implement) can guarantee that globally. This is never a statement that the reserve is solvent.';
+const VERIFY_ONLY_NOTE='Verify-only: this tool reports "this leaf\'s inclusion in the published tree is verified" or "verification failed: <reason>" - never "reserves are sufficient", "solvent", or an audit opinion.';
+function stripHexPrefix(h){return String(h??'').replace(/^(sha256:|0x)/i,'').toLowerCase();}
+function isHex(s){return typeof s==='string'&&s.length>0&&/^[0-9a-f]+$/i.test(s);}
+function parseDecimalBigInt(v){if(typeof v!=='string'&&typeof v!=='number')return null;const s=String(v);if(!/^-?\d+$/.test(s))return null;try{return BigInt(s);}catch(e){return null;}}
+async function sha256Hex(str){const bytes=new TextEncoder().encode(str);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function leafHash(id,balanceStr){return sha256Hex(id+'|'+balanceStr);}
+async function middleHash(sumStr,hL,hR){return sha256Hex(sumStr+'|'+hL+'|'+hR);}
+async function compute(pp){
+  const proof=pp.proof||{};const leafIn=proof.leaf||{};const pathIn=Array.isArray(proof.path)?proof.path:[];const rootIn=pp.root||{};
+  const maxBalanceStrIn=typeof pp.max_balance==='string'?pp.max_balance:'1000000000000000000';
+  const maxBalance=parseDecimalBigInt(maxBalanceStrIn);
+  const compliance_flags={SUMMA_MST_VERIFY_ONLY:true};
+  function finalize(verdict,reason,extra){
+    if(verdict==='VERIFIED')compliance_flags.SUMMA_MST_INCLUSION_VERIFIED=true;else compliance_flags.SUMMA_MST_INCLUSION_NOT_VERIFIED=true;
+    return {output_payload:Object.assign({verdict,reason:reason??null,computed_root:null,
+      declared_root:{hash:stripHexPrefix(rootIn.hash),sum:rootIn.sum!=null?String(rootIn.sum):null},
+      leaf:{id:typeof leafIn.id==='string'?leafIn.id:null,balance:leafIn.balance!=null?String(leafIn.balance):null},
+      path_length:pathIn.length,max_balance_used:maxBalanceStrIn,
+      residual_limitation_note:RESIDUAL_LIMITATION_NOTE,verify_only_note:VERIFY_ONLY_NOTE},extra||{}),compliance_flags};
+  }
+  if(maxBalance===null||maxBalance<0n)return finalize('NOT_VERIFIED','malformed_proof: max_balance must be a non-negative decimal string');
+  if(pathIn.length>MAX_PATH_DEPTH)return finalize('NOT_VERIFIED','malformed_proof: path depth '+pathIn.length+' exceeds the '+MAX_PATH_DEPTH+'-level bound');
+  if(!isHex(leafIn.id)||String(leafIn.id).length>128)return finalize('NOT_VERIFIED','malformed_proof: leaf.id must be an opaque hex identifier');
+  const leafBalance=parseDecimalBigInt(leafIn.balance);
+  if(leafBalance===null)return finalize('NOT_VERIFIED','malformed_proof: leaf.balance must be a decimal-string BigInt');
+  const rootHashDeclared=stripHexPrefix(rootIn.hash);
+  const rootSumDeclared=parseDecimalBigInt(rootIn.sum);
+  if(!isHex(rootHashDeclared)||rootSumDeclared===null)return finalize('NOT_VERIFIED','malformed_proof: root.hash/root.sum missing or malformed');
+  for(const step of pathIn){
+    if(step==null||(step.side!=='left'&&step.side!=='right'))return finalize('NOT_VERIFIED','malformed_proof: path step missing a valid side (left|right)');
+    if(!isHex(step.sibling_hash))return finalize('NOT_VERIFIED','malformed_proof: path step sibling_hash missing or malformed');
+    if(parseDecimalBigInt(step.sibling_sum)===null)return finalize('NOT_VERIFIED','malformed_proof: path step sibling_sum must be a decimal-string BigInt');
+  }
+  const balanceStr=leafIn.balance!=null?String(leafIn.balance):'';
+  if(leafBalance<0n)return finalize('NOT_VERIFIED','negative_balance_at_path_index_0');
+  if(leafBalance>maxBalance)return finalize('NOT_VERIFIED','balance_exceeds_max_balance_at_path_index_0');
+  let current={hash:await leafHash(leafIn.id,balanceStr),sum:leafBalance};
+  for(let i=0;i<pathIn.length;i++){
+    const idx=i+1;const step=pathIn[i];
+    const siblingHash=stripHexPrefix(step.sibling_hash);const siblingSum=parseDecimalBigInt(step.sibling_sum);
+    if(siblingSum<0n)return finalize('NOT_VERIFIED','negative_balance_at_path_index_'+idx);
+    if(siblingSum>maxBalance)return finalize('NOT_VERIFIED','balance_exceeds_max_balance_at_path_index_'+idx);
+    const combinedSum=current.sum+siblingSum;
+    const combinedHash=step.side==='left'?await middleHash(combinedSum.toString(),siblingHash,current.hash):await middleHash(combinedSum.toString(),current.hash,siblingHash);
+    if(combinedSum>maxBalance)return finalize('NOT_VERIFIED','balance_exceeds_max_balance_at_path_index_'+idx);
+    current={hash:combinedHash,sum:combinedSum};
+  }
+  const hashMatch=current.hash===rootHashDeclared;const sumMatch=current.sum===rootSumDeclared;
+  const computed_root={hash:current.hash,sum:current.sum.toString()};const declared_root={hash:rootHashDeclared,sum:rootSumDeclared.toString()};
+  if(!hashMatch)return finalize('NOT_VERIFIED','hash_mismatch',{computed_root,declared_root});
+  if(!sumMatch)return finalize('NOT_VERIFIED','sum_mismatch',{computed_root,declared_root});
+  return finalize('VERIFIED',null,{computed_root,declared_root});
+}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const digest=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+function rowHtml(t){t=t||{side:'right',sibling_hash:'',sibling_sum:''};
+  return '<tr><td><select class="side"><option value="left"'+(t.side==='left'?' selected':'')+'>left</option><option value="right"'+(t.side!=='left'?' selected':'')+'>right</option></select></td>'+
+  '<td><input type="text" class="shash" value="'+(t.sibling_hash||'')+'"></td>'+
+  '<td><input type="text" class="ssum" value="'+(t.sibling_sum||'')+'"></td>'+
+  '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()">✕</button></td></tr>';
+}
+function addPathRow(t){document.getElementById('pathBody').insertAdjacentHTML('beforeend',rowHtml(t));}
+function getPath(){return Array.from(document.querySelectorAll('#pathBody tr')).map(r=>({side:r.querySelector('.side').value,sibling_hash:r.querySelector('.shash').value.trim(),sibling_sum:r.querySelector('.ssum').value.trim()}));}
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
+async function run(){
+  const pp={root:{hash:document.getElementById('rootHash').value.trim(),sum:document.getElementById('rootSum').value.trim()},
+    proof:{leaf:{id:document.getElementById('leafId').value.trim(),balance:document.getElementById('leafBalance').value.trim()},path:getPath()},
+    max_balance:document.getElementById('maxBalance').value.trim()||'1000000000000000000'};
+  const {output_payload,compliance_flags}=await compute(pp);
+  const rawHash=await executionHashLocal(pp,output_payload);
+  const execHash='sha256:'+rawHash;
+  const generatedAt=new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:'compliance_mandate',tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,generated_at:generatedAt,execution_hash:execHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload,compliance_flags,audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
+  renderResults(output_payload,execHash,artifact);
+  document.getElementById('ap2ExportBtn').disabled=false;
+}
+function renderResults(op,execHash,artifact){
+  const ok=op.verdict==='VERIFIED';
+  document.getElementById('verdictDiv').innerHTML='<div class="verdict '+(ok?'pass':'fail')+'">'+(ok?'✓ VERIFIED - this leaf\'s inclusion in the published tree is verified, and the local sum chain is consistent.':'✗ NOT VERIFIED - '+(op.reason||'unknown reason'))+'</div>'+
+    '<div class="info-box">'+op.residual_limitation_note+'</div><div class="info-box">'+op.verify_only_note+'</div>';
+  document.getElementById('rootTbl').innerHTML='<thead><tr><th></th><th>Hash</th><th>Sum</th></tr></thead><tbody>'+
+    '<tr><td>Computed</td><td style="word-break:break-all">'+(op.computed_root?op.computed_root.hash:'-')+'</td><td>'+(op.computed_root?op.computed_root.sum:'-')+'</td></tr>'+
+    '<tr><td>Declared root</td><td style="word-break:break-all">'+(op.declared_root.hash||'-')+'</td><td>'+(op.declared_root.sum||'-')+'</td></tr></tbody>';
+  document.getElementById('execHash').textContent=execHash;
+  document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+function exportAP2(){if(!_lastArtifact)return;const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastHash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags};dl(JSON.stringify(ap2,null,2),'art-620-policy-mandate.json','application/json');}
+function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),'art-620-artifact.json','application/json');}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+document.getElementById('rootHash').value='5d967f108c4cc8e9ea17607ac5d0454655967e2657ad77cefc295903e0aae551';
+document.getElementById('rootSum').value='300';
+document.getElementById('leafId').value='aa11';
+document.getElementById('leafBalance').value='100';
+addPathRow({side:'right',sibling_hash:'3a0a2ec5cce1770bde00fe2db329d42aaa99b8ee041692a8e40a897586ad1f0b',sibling_sum:'200'});
+</script>
+</body>
+</html>
