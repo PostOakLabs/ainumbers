@@ -60,9 +60,39 @@
  * visible text names `counter_signed_receipt`, never sitewide (COSIGN_VOCAB_BAN
  * / cosignVocabHits()). See BILAT-CSR-LINT-1.
  *
+ * H5 insider-register + AI-vocabulary + H1 ",-not" density (COPY-HALLMARK-
+ * METRICS-1, 2026-08-15, per research/COPY-HUMANIZE-AUDIT-SCOPING-2026-08-14.md
+ * + Tim's easy-tells-only ruling 2026-08-14): three more baseline+ratchet
+ * buckets, same shape as jargon/bold above — a file may not exceed its
+ * baselined count, files absent from the baseline must be within the default.
+ *   - INSIDER_TERMS (bucket "insider"): process-diary/insider register on a
+ *     public page ("Tim's", "self-disclosed", "adjudicat-", "this row") plus a
+ *     heuristic spec/WU-codename pattern (ALL-CAPS-word chain ending in a bare
+ *     1-2-digit number, e.g. "COPY-HALLMARK-METRICS-1"). The codename heuristic
+ *     false-positives on real standard names (ML-DSA-44, CC-BY-4) — those exact
+ *     prefixes are excluded; remaining noise is absorbed by the baseline, never
+ *     a zero-tolerance ban (measured 2026-08-15: a naive version hit 230
+ *     matches across licenses/regs/algorithm names before narrowing).
+ *   - AI_VOCAB (bucket "aiVocab"): Wikipedia's "signs of AI writing" vocabulary
+ *     list, narrowed to terms with zero legitimate hits on this site as of
+ *     2026-08-15 (crucial, pivotal, underscore-as-verb, showcase, foster,
+ *     boast, "dive into", "in the realm of", "indelible mark", spearhead,
+ *     myriad, plethora). "showcase" was considered and DROPPED — it collides
+ *     with the literal "POL Showcase" nav link on every tool page (measured
+ *     2026-08-15: ~60 false positives). "leverage" and "robust" were considered
+ *     and DROPPED —
+ *     both are ordinary finance/eng vocabulary on this site ("leverage ratio",
+ *     "robust error handling"), not AI tells; a hard ban would fight every
+ *     future writer on the exact domain this site is about.
+ *   - H1_NOTX density (bucket "notX", numeric, DEFAULT cap not a zero-tolerance
+ *     ban): the ", not X" defensive-negation reflex. "One per section stays
+ *     legal" per the style contract (CONTRACT.md §1.4 / research doc rule 2) —
+ *     DEFAULT_NOTX_CAP tolerates a few before requiring a baseline entry.
+ *
  * Usage:
  *   node scripts/check-copy-hallmarks.mjs            # gate (preflight + CI)
- *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold baseline
+ *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold/insider/aiVocab/notX baseline
+ *   node scripts/check-copy-hallmarks.mjs --report   # write the Tier-1 H1+H5 remediation ranking to workspace-root research/
  *
  * Style rule of record: CONTRACT.md §1.4 (reader-facing copy).
  *
@@ -70,13 +100,23 @@
  * em-dash; its exact string is stripped before counting so it neither fails the
  * gate nor blocks new tools. Changing the banner itself is a CONTRACT decision.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, relative, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE_PATH = resolve(REPO, 'scripts', 'copy-hallmarks-baseline.json');
 const UPDATE = process.argv.includes('--update');
+// --report is local/dev-only (COPY-HALLMARK-METRICS-1): writes the Tier-1
+// H1+H5 remediation ranking to WORKSPACE-ROOT research/ (never repo/research/,
+// per workspace CLAUDE.md's path-ambiguity trap). Never invoked by preflight
+// or CI — CI clones only repo/, so a workspace-root parent directory does not
+// exist there; this is a side effect of a deliberate local run, not the gate.
+const REPORT = process.argv.includes('--report');
+const WORKSPACE_RESEARCH = resolve(REPO, '..', 'research');
+// Tier-1 per the scoping doc: root-level pages, chaingraph/ explainers/hubs/
+// guides, guides/, disclosures/. Tier-2 (tools/) still counted, just labeled.
+const TIER1_RE = /^(?:[^/]+\.html|chaingraph\/(?!kernels\/)[^/]+\.html|chaingraph\/(?:chains|guides)\/[^/]+\.html|guides\/[^/]+\.html|disclosures\/[^/]+\.html)$/;
 
 // Double-escaped HTML entities (ENTITY-DOUBLE-ESCAPE-1, 2026-08-09): a source
 // value that already carries an entity (e.g. "&amp;" for a literal "&") gets
@@ -104,6 +144,59 @@ const JARGON = [
   [/\bW-[A-F]\b/g, 'W-x badge code'],
   [/\bD0\b/g, 'D0 badge code'],
 ];
+// H5 insider-register terms (COPY-HALLMARK-METRICS-1) — baseline+ratchet,
+// own bucket (kept separate from JARGON above) so the Tier-1 report can total
+// H1+H5 without double-counting build-code hits it doesn't own.
+const WU_CODE_EXEMPT = /^(?:ML-DSA-|ML-KEM-|CC-BY-)/;
+const WU_CODE = /\b[A-Z]{2,}(?:-[A-Z]{1,}){1,3}-\d{1,2}\b/g;
+const INSIDER_TERMS = [
+  [/\bTim['’]s\b/g, "Tim's"],
+  [/\bself-disclosed\b/gi, 'self-disclosed'],
+  [/\badjudicat\w*/gi, 'adjudicat-'],
+  [/\bthis row\b/gi, 'this row'],
+];
+export function insiderHits(text) {
+  const hits = [];
+  for (const [re, label] of INSIDER_TERMS) {
+    const m = text.match(re) || [];
+    if (m.length) hits.push(`${label} ×${m.length}`);
+  }
+  const codes = (text.match(WU_CODE) || []).filter((m) => !WU_CODE_EXEMPT.test(m));
+  if (codes.length) hits.push(`spec/WU codename ×${codes.length} (${[...new Set(codes)].slice(0, 3).join(', ')})`);
+  return hits;
+}
+// H5-adjacent: Wikipedia "signs of AI writing" vocabulary, narrowed to terms
+// with zero legitimate hits on this site (see file header comment).
+const AI_VOCAB = [
+  [/\bcrucial(?:ly)?\b/gi, 'crucial'],
+  [/\bpivotal\b/gi, 'pivotal'],
+  [/\bunderscor(?:e|es|ed|ing)\b/gi, 'underscore (verb)'],
+  [/\bfoster(?:s|ed|ing)?\b/gi, 'foster'],
+  [/\bboast(?:s|ed|ing)?\b/gi, 'boast'],
+  [/\bdive\s+into\b/gi, 'dive into'],
+  [/\bin\s+the\s+realm\s+of\b/gi, 'in the realm of'],
+  [/\bindelible\s+mark\b/gi, 'indelible mark'],
+  [/\bspearhead(?:s|ed|ing)?\b/gi, 'spearhead'],
+  [/\bmyriad\b/gi, 'myriad'],
+  [/\bplethora\b/gi, 'plethora'],
+];
+export function aiVocabHits(text) {
+  const hits = [];
+  for (const [re, label] of AI_VOCAB) {
+    const m = text.match(re) || [];
+    if (m.length) hits.push(`${label} ×${m.length}`);
+  }
+  return hits;
+}
+// H1: the ", not X" defensive-negation reflex + "; it is not" sibling form.
+// DEFAULT_NOTX_CAP tolerates a few before a file needs a baseline entry — the
+// style contract allows "one per section", and most pages have 2+ sections.
+const NOTX = /,\s+not\s+(?:a|an|the|som\w+|only|merely)?\s?[\w-]+/gi;
+const SEMI_NOT = /;\s*it is not/gi;
+const DEFAULT_NOTX_CAP = 3;
+export function notXCount(text) {
+  return (text.match(NOTX) || []).length + (text.match(SEMI_NOT) || []).length;
+}
 // Blocking, zero-tolerance, no baseline (COPYTELL-SWEEP-1) — HIGH-PRECISION twotone family.
 const TWOTONE_HIGHPRECISION = /\b(?:is|are|was|were) not (?:a|an|the )?[\w-]+\.\s+(?:It|They|This|That) (?:is|are)\b/g;
 // Advisory only, PERMANENTLY — heuristic, catches legitimate 3-item lists too often for a hard gate.
@@ -273,7 +366,7 @@ function proseHtml(html) {
 }
 
 /** Human-visible text: proseHtml() with all remaining tags stripped too. */
-function visibleText(html) {
+export function visibleText(html) {
   return proseHtml(html).replace(/<[^>]+>/g, ' ');
 }
 
@@ -312,6 +405,9 @@ for (const file of htmlFiles(REPO)) {
   const triad = (text.match(TRIAD) || []).length;
   const cosignVocab = cosignVocabHits(text);
   const loadbearing = (text.match(LOADBEARING) || []).length;
+  const insider = insiderHits(text);
+  const aiVocab = aiVocabHits(text);
+  const notX = notXCount(text);
 
   const hallmarks = [];
   // Italic/bold emphasis in HEADINGS (h1-h6) is now a blocking tell too (Tim
@@ -363,8 +459,8 @@ for (const file of htmlFiles(REPO)) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse };
+  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || notX) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, notX };
   }
 }
 
@@ -374,7 +470,20 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 let cgEmdash = 0;
 for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
 for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {} };
+if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], notX: 0 };
+
+if (REPORT) {
+  const date = process.env.COPY_HALLMARK_REPORT_DATE || new Date().toISOString().slice(0, 10);
+  const ranked = Object.entries(findings)
+    .map(([rel, f]) => ({ file: rel, tier: TIER1_RE.test(rel) ? 1 : 2, notX: f.notX, insider: f.insider.length, h1PlusH5: f.notX + f.insider.length, insiderDetail: f.insider }))
+    .filter((r) => r.h1PlusH5 > 0)
+    .sort((a, b) => b.h1PlusH5 - a.h1PlusH5 || a.file.localeCompare(b.file));
+  if (!existsSync(WORKSPACE_RESEARCH)) mkdirSync(WORKSPACE_RESEARCH, { recursive: true });
+  const outPath = resolve(WORKSPACE_RESEARCH, `copy-hallmark-report-${date}.json`);
+  writeFileSync(outPath, JSON.stringify({ generated: date, metric: 'H1 (,-not density) + H5 (insider-register) per page, descending', ranked }, null, 2) + '\n');
+  console.log(`copy-hallmarks: report written to ${outPath} (${ranked.length} page(s) with H1/H5 hits, ${ranked.filter((r) => r.tier === 1).length} Tier-1).`);
+  process.exit(0);
+}
 
 if (UPDATE) {
   const baseline = {};
@@ -382,10 +491,12 @@ if (UPDATE) {
     // Overuse debt: only counts that exceed the cap need shielding.
     const overDebt = {};
     for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
-    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length;
+    const notXDebt = f.notX > DEFAULT_NOTX_CAP ? f.notX : 0;
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + (notXDebt ? 1 : 0);
     if (debt) {
-      baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold };
+      baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length };
       if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
+      if (notXDebt) baseline[rel].notX = notXDebt;
     }
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
@@ -399,13 +510,24 @@ const improvements = [];
 const advisories = [];
 
 for (const [rel, f] of Object.entries(findings)) {
-  const b = baseline[rel] || { emdash: 0, jargon: 0, bold: 0 };
+  const b = baseline[rel] || { emdash: 0, jargon: 0, bold: 0, insider: 0, aiVocab: 0 };
   const bBold = b.bold || 0;
+  const bInsider = b.insider || 0;
+  const bAiVocab = b.aiVocab || 0;
   if (f.emdash > b.emdash) failures.push(`${rel}: ${f.emdash} em-dash(es) in visible text (baseline ${b.emdash})`);
   else if (f.emdash < b.emdash) improvements.push(`${rel}: em-dash ${b.emdash} -> ${f.emdash}`);
   if (f.jargon.length > b.jargon) failures.push(`${rel}: build jargon in visible text: ${f.jargon.join('; ')} (baseline ${b.jargon})`);
   if (f.bold > bBold) failures.push(`${rel}: ${f.bold} bold/strong hit(s) in visible text (baseline ${bBold})`);
   else if (f.bold < bBold) improvements.push(`${rel}: bold ${bBold} -> ${f.bold}`);
+  if (f.insider.length > bInsider) failures.push(`${rel}: insider-register hit(s): ${f.insider.join('; ')} (baseline ${bInsider})`);
+  else if (f.insider.length < bInsider) improvements.push(`${rel}: insider-register ${bInsider} -> ${f.insider.length}`);
+  if (f.aiVocab.length > bAiVocab) failures.push(`${rel}: AI-vocabulary hit(s): ${f.aiVocab.join('; ')} (baseline ${bAiVocab})`);
+  else if (f.aiVocab.length < bAiVocab) improvements.push(`${rel}: AI-vocabulary ${bAiVocab} -> ${f.aiVocab.length}`);
+  {
+    const allowedNotX = b.notX != null ? b.notX : DEFAULT_NOTX_CAP;
+    if (f.notX > allowedNotX) failures.push(`${rel}: ${f.notX} ",-not X" defensive-negation hit(s) — over cap (max ${allowedNotX})`);
+    else if (b.notX != null && f.notX < b.notX) improvements.push(`${rel}: ",-not X" density ${b.notX} -> ${f.notX}`);
+  }
   // Overuse: allowed = baselined count if shielded, else OVERUSE_CAP. Ratchet down.
   const bOver = b.overuse || {};
   for (const [k, v] of Object.entries(f.overuse || {})) {
