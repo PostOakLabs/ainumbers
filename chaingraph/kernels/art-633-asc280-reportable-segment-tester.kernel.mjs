@@ -81,7 +81,13 @@ function roundReport(v) {
 // exact-boundary input compares as MEETING the threshold. Computing num/den, rounding,
 // and comparing to 0.10 or 0.75 would not be reliable at the boundary.
 function meetsThreshold(num, den, p, q) {
-  return num * q >= den * p;
+  const left = num * q;
+  const right = den * p;
+  // Currency magnitudes never reach the overflow boundary in practice, but if either side of the
+  // cross product does overflow to a non-finite value the comparison is no longer meaningful, so
+  // fall back to the ordinary ratio comparison rather than returning a confidently wrong verdict.
+  if (!Number.isFinite(left) || !Number.isFinite(right)) return (num / den) >= (p / q);
+  return left >= right;
 }
 
 // One 10 percent test. Returns a fully-formed result object; never divides by a
@@ -102,16 +108,21 @@ function runTest(id, numerator, denominator, denominatorBasis) {
       note: 'Denominator is zero or non-positive, so no ratio exists. Reported as not_assessable rather than as failing the threshold -- a segment cannot be shown to be below a threshold that does not exist.',
     };
   }
+  // A denominator small enough relative to the numerator makes the ratio itself overflow to a
+  // non-finite value. The VERDICT is still exact in that case because cross multiplication does
+  // not overflow there, so the threshold decision is kept and only the reported ratio is withheld.
+  // Emitting Infinity into the payload would be the dishonest option.
   const ratio = num / den;
+  const ratioFinite = Number.isFinite(ratio);
   return {
     test: id,
     numerator: num,
     denominator: den,
-    ratio,
-    ratio_pct: roundReport(ratio * 100),
+    ratio: ratioFinite ? ratio : null,
+    ratio_pct: ratioFinite ? roundReport(ratio * 100) : null,
     threshold_met: meetsThreshold(num, den, 1, 10),
     denominator_basis: denominatorBasis,
-    note: null,
+    note: ratioFinite ? null : 'The denominator is too small relative to the numerator for the ratio to be representable as a finite number, so no ratio is reported. The threshold verdict itself is unaffected and exact: it is decided by cross multiplication, which does not overflow at these magnitudes.',
   };
 }
 
@@ -195,15 +206,16 @@ export function compute(pp) {
     };
   } else {
     const ratio = reportableExternal / consolidatedRevenue;
+    const ratioFinite = Number.isFinite(ratio);
     const satisfied = meetsThreshold(reportableExternal, consolidatedRevenue, 3, 4);
     coverage = {
       reportable_external_revenue: reportableExternal,
       total_consolidated_revenue: consolidatedRevenue,
-      coverage_ratio: ratio,
-      coverage_pct: roundReport(ratio * 100),
+      coverage_ratio: ratioFinite ? ratio : null,
+      coverage_pct: ratioFinite ? roundReport(ratio * 100) : null,
       coverage_satisfied: satisfied,
       additional_segments_required: !satisfied,
-      note: null,
+      note: ratioFinite ? null : 'Total consolidated revenue is too small relative to the reportable external revenue for the coverage ratio to be representable as a finite number, so no ratio is reported. The coverage verdict itself is unaffected and exact, being decided by cross multiplication.',
     };
   }
 
