@@ -32,6 +32,9 @@
 //                                                           doing its job)
 //   node scripts/check-fv-pilot-badge.mjs --list           print every pilot record + its derived state
 //   node scripts/check-fv-pilot-badge.mjs --json            machine-readable derivation, one line per record
+//   node scripts/check-fv-pilot-badge.mjs --check           exit 1 if any record's evidence_vector is
+//                                                           shape/gate-invalid (FV-EVIDENCE-VECTOR-1);
+//                                                           badge freshness itself never fails this way
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -68,6 +71,62 @@ export async function classifyPilotStatus(record, kernelSource, sourceDigestFn) 
   return { tool_id: record.tool_id, badge: true, state: 'fresh', class: record.class, label: record.label, reason: 'kernel_digest_at_authoring matches sourceDigest() of the current kernel' };
 }
 
+// ── validateEvidenceVector ───────────────────────────────────────────────────────────────────────
+// FV-EVIDENCE-VECTOR-1. Pure shape/existence validator, never a re-execution engine. Every field that
+// claims a script must name one, and that script must actually exist in this repo -- a field pointing at
+// nothing (a typo, a path in a different repo, an invented gate) fails here. This does NOT re-run the
+// named gates and re-derive their counts; it catches fabrication and drift in the vector's own shape, the
+// mechanical bar this row's positive control asks for (SO #34: never trust a self-attested value with no
+// re-runnable gate). existsFn is injectable so the selftest never touches real disk.
+export function validateEvidenceVector(record, { existsFn = existsSync, repoRoot = REPO } = {}) {
+  const errors = [];
+  const ev = record.evidence_vector;
+  if (ev == null || typeof ev !== 'object') {
+    return { valid: false, errors: ['evidence_vector is missing or not an object'] };
+  }
+
+  const gatePath = (p) => resolve(repoRoot, p);
+  function checkGate(path, label) {
+    if (typeof path !== 'string' || path.trim() === '') { errors.push(`${label}: gate is missing or not a string`); return; }
+    if (!existsFn(gatePath(path))) { errors.push(`${label}: gate "${path}" does not exist in this repo`); }
+  }
+
+  if (ev.authoritative_vectors != null) {
+    const av = ev.authoritative_vectors;
+    if (!Number.isInteger(av.count) || av.count < 0) errors.push('authoritative_vectors.count must be a non-negative integer');
+    if (typeof av.source !== 'string' || av.source.trim() === '') errors.push('authoritative_vectors.source must be a non-empty string');
+    checkGate(av.gate, 'authoritative_vectors');
+  }
+
+  if (ev.oracle_independence != null && !['structural', 'none'].includes(ev.oracle_independence)) {
+    errors.push(`oracle_independence must be "structural" or "none", got "${ev.oracle_independence}"`);
+  }
+
+  if (ev.metamorphic_relations != null) {
+    if (!Array.isArray(ev.metamorphic_relations)) {
+      errors.push('metamorphic_relations must be an array');
+    } else {
+      ev.metamorphic_relations.forEach((rel, i) => {
+        if (typeof rel.relation !== 'string' || rel.relation.trim() === '') errors.push(`metamorphic_relations[${i}].relation must be a non-empty string`);
+        if (!Number.isInteger(rel.cases) || rel.cases < 0) errors.push(`metamorphic_relations[${i}].cases must be a non-negative integer`);
+        if (!Number.isInteger(rel.divergences) || rel.divergences < 0) errors.push(`metamorphic_relations[${i}].divergences must be a non-negative integer`);
+        checkGate(rel.gate, `metamorphic_relations[${i}]`);
+      });
+    }
+  }
+
+  if (ev.machine_proof != null) {
+    const ALLOWED_KINDS = new Set(['dafny', 'enumeration', 'property+hand-proof']);
+    if (!ALLOWED_KINDS.has(ev.machine_proof.kind)) errors.push(`machine_proof.kind must be one of dafny/enumeration/property+hand-proof, got "${ev.machine_proof.kind}"`);
+  }
+
+  if (ev.human_signature != null) {
+    if (!['signed', 'none'].includes(ev.human_signature.status)) errors.push(`human_signature.status must be "signed" or "none", got "${ev.human_signature.status}"`);
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // ── deriveFvPilotBadges ──────────────────────────────────────────────────────────────────────────
 // Reads every chaingraph/fv-pilot/*.json record, recomputes freshness against the live kernel tree.
 // readKernelSource/sourceDigestFn are injectable for testing.
@@ -78,7 +137,9 @@ export async function deriveFvPilotBadges(readKernelSource, sourceDigestFn) {
   for (const f of files) {
     const record = JSON.parse(readFileSync(resolve(PILOT_DIR, f), 'utf8'));
     const kernelSource = readKernelSource(record.tool_id);
-    out.push(await classifyPilotStatus(record, kernelSource, sourceDigestFn));
+    const status = await classifyPilotStatus(record, kernelSource, sourceDigestFn);
+    status.evidenceVector = validateEvidenceVector(record);
+    out.push(status);
   }
   return out.sort((a, b) => a.tool_id.localeCompare(b.tool_id));
 }
@@ -101,8 +162,16 @@ if (IS_MAIN) {
   } else if (process.argv.includes('--list')) {
     for (const r of results) {
       console.log(r.badge ? `  BADGE:   ${r.tool_id} — class ${r.class} — ${r.label}` : `  DROPPED: ${r.tool_id} — ${r.state} — ${r.reason}`);
+      console.log(r.evidenceVector?.valid ? `           evidence_vector: valid` : `           evidence_vector: INVALID — ${r.evidenceVector?.errors?.join('; ')}`);
     }
   }
+  const evInvalid = results.filter((r) => !r.evidenceVector?.valid);
   console.log(`\nFV pilot badges (4-kernel pilot, distinct from PBT-floor tier) — ${fresh.length}/${results.length} badge-eligible, ${dropped.length} dropped.`);
+  console.log(`Evidence vectors — ${results.length - evInvalid.length}/${results.length} valid.`);
+  if (evInvalid.length) {
+    for (const r of evInvalid) console.error(`  ✗ ${r.tool_id}: ${r.evidenceVector.errors.join('; ')}`);
+  }
+  // Plain invocation stays informational (exit 0 always, unchanged contract); --check is the CI gate.
+  if (process.argv.includes('--check') && evInvalid.length) process.exit(1);
   process.exit(0);
 }

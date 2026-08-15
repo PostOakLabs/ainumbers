@@ -39,7 +39,7 @@ const MARK_END = '<!-- FV-PILOT-BADGE:END -->';
 
 // Method-transparency hover copy — no "certified"/"guaranteed"/assurance-grade language, no individual
 // named. Links to methods.html for the full scope + assumptions writeup, never restates it here.
-const HOVER_TEXT = 'Part of a small formal-verification pilot (4 kernels). Method transparency only, not a compliance certification -- see methods.html for scope and assumptions.';
+const HOVER_TEXT = 'Part of a small formal-verification pilot (4 kernels): proved against a mechanically validated spec. Method transparency only, not a compliance certification -- see methods.html for scope and assumptions.';
 
 function badgeHtml(r) {
   const safeLabel = r.label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
