@@ -1,5 +1,44 @@
 #!/usr/bin/env python3
 """
+DEPRECATED — DO NOT RUN. REPLACED BY: scripts/regen-sitemap.mjs
+================================================================
+Quarantined 2026-08-15 by SITEMAP-RIVAL-GENERATOR-1. Renamed rather than
+removed so the history of what the sitemap generator used to be stays readable;
+nothing in the repo executes it.
+
+WHY IT LOST — this script and scripts/regen-sitemap.mjs both claimed to
+regenerate sitemap.xml, and they disagreed. Measured on origin/main at
+909975f8, this script emitted 1806 URLs against the .mjs generator's 1829:
+
+  * SCOPE. It walks only tools/, guides/ and chaingraph/. The .mjs generator
+    reads scripts/published-dirs.json, which also lists disclosures/, docs/,
+    ledger/, trust/ and attestations/ — five whole sections this script omits
+    entirely.
+  * ROOT PAGES. Its "Core Pages" block is a hardcoded 7-entry string literal
+    frozen at 2026-07-16. published-dirs.json carries 18 root pages, so this
+    script drops methods, security, start, credits, suggest, helm,
+    helm-walkthrough, helm-technical-design, deadline-wall, workpaper-index
+    and oim-viewer.
+  * SERIALIZATION. Its Core Pages block is multi-line indented XML while every
+    other entry (and all of the .mjs output) is one <url> per line, so even the
+    URLs both generators agree on differ byte-for-byte.
+
+Net: it dropped 23 live, on-disk published pages and added none. Running it
+turned two gates red at once — `node scripts/regen-sitemap.mjs --check`, the
+freshness gate wired into preflight, and scripts/verify_repo.py check_sitemap,
+which reported "12 file(s) missing from sitemap.xml".
+
+The .mjs generator is canonical because it shares scripts/published-dirs.json
+with verify_repo.py's check_sitemap gate, so generator and gate cannot
+scope-drift apart independently (DISCOVER-1 D-1/D-2) — the exact failure this
+script embodies.
+
+The GENERATOR-NOOP-STABILITY-1 newline='' and write-only-on-change fixes below
+are retained deliberately: if anyone ever does run this file, it must not also
+CRLF-rewrite sitemap.xml end to end against a repo pinned to LF.
+
+--- original header follows ---
+
 regen_sitemap.py — V4 compliance fix + S2 maintenance tool
 Regenerates repo/sitemap.xml from the live filesystem.
 
