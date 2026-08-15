@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ICS23 Proof Verifier · T585 · AINumbers.co</title>
+<meta name="description" content="Paste an ICS23 ExistenceProof or NonExistenceProof from a Cosmos or IBC chain query, pick one of three pinned ProofSpec presets, and verify it entirely offline in your browser. Names the exact check that failed. Zero network calls, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/585-ics23-proof-verifier.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ICS23 Proof Verifier · T585","url":"https://ainumbers.co/tools/585-ics23-proof-verifier.html","description":"Offline verifier for ICS23 declarative Merkle existence and non-existence proofs against three build-time-pinned ProofSpec presets (iavl, tendermint, smt). Runs entirely in the browser with no network calls.","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "585-ics23-proof-verifier",
+  "version": "1.0.0",
+  "title": "ICS23 Proof Verifier",
+  "description": "Offline verifier for ICS23 declarative Merkle proofs. Paste an ExistenceProof or NonExistenceProof in proofs.proto JSON shape, supply the root hash and the key being claimed, pick one of three build-time-pinned ProofSpec presets, and the page verifies it entirely client-side and names the exact check that failed. No free-text spec input by design.",
+  "category": "cat-11",
+  "tags": ["ICS23", "IBC", "Cosmos", "Merkle proof", "existence proof", "non-existence proof", "ProofSpec", "iavl", "tendermint", "smt", "offline verifier", "zero network"],
+  "audience": ["engineer", "auditor", "compliance", "risk"],
+  "input_schema": {"type":"object","properties":{"proofInput":{"type":"string","description":"ExistenceProof or NonExistenceProof JSON in proofs.proto shape"},"rootInput":{"type":"string","description":"Expected commitment root, hex"},"keyInput":{"type":"string","description":"Key whose presence or absence is being claimed"},"specInput":{"type":"string","description":"Pinned ProofSpec preset: iavl, tendermint or smt"}},"required":["proofInput","rootInput","keyInput","specInput"]},
+  "output_schema": {"type":"object","properties":{"verification_report":{"type":"object","description":"verdict plus a per-step check list naming the exact failing check"}}},
+  "mcp_tool_definition": {"name":"verify_ics23_proof","description":"Verifies an ICS23 existence or non-existence Merkle proof against a commitment root and one of three pinned ProofSpec presets, entirely offline.","inputSchema":{"type":"object","properties":{"proofInput":{"type":"string"},"rootInput":{"type":"string"},"keyInput":{"type":"string"},"specInput":{"type":"string"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/585-ics23-proof-verifier.html","function_name":"verifyProofUI","timeout_ms":5000},
+  "ap2_export": false,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+code{font-family:'JetBrains Mono',monospace;font-size:.92em;color:var(--bright)}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:#2DD4BF}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.7rem);color:var(--white);max-width:800px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:730px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.fence{border:1px solid var(--red);border-left:3px solid var(--red);background:rgba(239,68,68,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.78rem;color:var(--body);line-height:1.75;border-radius:var(--radius)}
+.fence-label{display:block;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-hint{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);line-height:1.6}
+.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.7rem .85rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;min-height:250px;resize:vertical;line-height:1.65}
+.form-group input,.form-group select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.55rem .8rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace}
+.form-group textarea:focus,.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--teal)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+@media(max-width:700px){.field-row{grid-template-columns:1fr}}
+.key-row{display:flex;gap:.5rem}
+.key-row input{flex:1;min-width:0}
+.key-row select{flex-shrink:0}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);color:var(--body);transition:all .2s}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;margin-bottom:1rem}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+@media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.sg-cell{background:var(--bg-3);padding:.9rem 1rem;text-align:center}
+.sg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sg-val{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--bright)}
+.sg-ok{color:var(--green)}.sg-bad{color:var(--red)}
+
+.check-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem}
+.check-row{display:flex;align-items:flex-start;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.45rem .6rem;background:var(--bg-4);border-radius:4px}
+.check-mark{flex-shrink:0;width:1.1rem}
+.check-pass .check-mark{color:var(--green)}.check-fail .check-mark{color:var(--red)}.check-skip .check-mark{color:var(--muted)}
+.check-name{color:var(--bright);min-width:230px;flex-shrink:0}
+@media(max-width:760px){.check-row{flex-wrap:wrap}.check-name{min-width:0}}
+.check-detail{color:var(--body);word-break:break-word}
+.check-fail .check-detail{color:var(--red)}
+.check-skip .check-name,.check-skip .check-detail{color:var(--muted)}
+
+.spec-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.spec-table th{text-align:left;color:var(--muted);font-weight:400;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem .6rem;border-bottom:1px solid var(--border)}
+.spec-table td{padding:.45rem .6rem;border-bottom:1px solid var(--border);color:var(--text)}
+.spec-table tr:last-child td{border-bottom:none}
+.table-wrap{overflow-x:auto}
+
+.errbox{display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--red);line-height:1.6}
+.note{font-size:.72rem;color:var(--muted);line-height:1.7;margin-top:.9rem;padding:.65rem .9rem;background:var(--bg-4);border-left:3px solid var(--border-2);border-radius:4px}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:#2DD4BF}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-585</span></div>
+    <div class="nav-right"><a href="../tools.html#cat-11" class="nav-cta">Category &#8594;</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T585 &middot; DLT &amp; Tokenization &middot; ICS23 Vector Commitments &middot; Verify-only</div>
+    <h1>ICS23 Proof Verifier</h1>
+    <p class="hero-desc">Paste an ICS23 <code>ExistenceProof</code> or <code>NonExistenceProof</code> exactly as a Cosmos or IBC chain returns it, add the commitment root and the key you are checking, and pick one of three pinned <code>ProofSpec</code> presets. The page recomputes the Merkle root and every spec-conformance check in your browser and names the specific check that failed. Nothing is uploaded and nothing is stored.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">ICS 023</span>
+      <span class="hero-badge badge-gold">iavl &middot; tendermint &middot; smt</span>
+      <span class="hero-badge badge-purple">Offline</span>
+      <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <div class="fence">
+      <span class="fence-label" style="font-weight:600">Scope fence &ndash; read before use</span>
+      A PASS verdict proves one narrow thing: the pasted proof is internally well formed under the selected pinned <code>ProofSpec</code>, and the Merkle root recomputed from its own leaf and inner operations equals the root hash you supplied. It does <span style="color:var(--bright)">not</span> tell you the root hash is the right one. A proof is only as good as the root it is checked against, so the root must come from a source you already trust, such as a light-client header you verified separately or a chain state you queried yourself. This page cannot fetch or validate a root for you, by design, because it never opens a network connection. The <code>ProofSpec</code> is never read from the pasted proof: it is chosen from three build-time-pinned constants, which is the structural fix for the October 2022 forged-membership finding VSA-2022-103, where a proof carrying its own spec could declare a forged shape legal.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="sec-label">Verify a Proof</div>
+    <div class="panel">
+      <div class="panel-label">Proof, root and key</div>
+      <div class="panel-body">
+        <div class="fixture-row">
+          <button class="btn-fixture" onclick="loadExample('exist')">Load existence proof (expect PASS)</button>
+          <button class="btn-fixture" onclick="loadExample('nonexist')">Load non-existence proof (expect PASS)</button>
+          <button class="btn-fixture" onclick="loadExample('tamperInner')">Tampered inner op (expect FAIL &middot; spec)</button>
+          <button class="btn-fixture" onclick="loadExample('tamperValue')">Tampered value (expect FAIL &middot; root)</button>
+          <button class="btn-fixture" onclick="clearAll()">Clear</button>
+        </div>
+
+        <div class="form-group">
+          <label for="proofInput">Proof JSON</label>
+          <div class="form-hint">A <code>CommitmentProof</code> envelope (<code>{"exist": ...}</code> or <code>{"nonexist": ...}</code>) or a bare proof object. Field names follow <code>proofs.proto</code>, so a response copied straight out of a gRPC or REST query pastes in unchanged. Byte fields may be base64 or 0x-prefixed hex; enums may be names or numbers.</div>
+          <textarea id="proofInput" spellcheck="false" placeholder="Paste an ExistenceProof or NonExistenceProof here, or load one of the vectors above."></textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="form-group">
+            <label for="rootInput">Commitment root (hex)</label>
+            <input id="rootInput" type="text" spellcheck="false" placeholder="494b16e3a64a85df...">
+          </div>
+          <div class="form-group">
+            <label for="specInput">ProofSpec preset</label>
+            <select id="specInput">
+              <option value="tendermint">tendermint</option>
+              <option value="iavl">iavl</option>
+              <option value="smt">smt</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="keyInput">Key being claimed</label>
+          <div class="form-hint">The key whose presence or absence you are checking. It is also carried inside the proof; supplying it here is what binds the verdict to the key you actually care about.</div>
+          <div class="key-row">
+            <input id="keyInput" type="text" spellcheck="false" placeholder="513334656d766f39447145585735325257523835">
+            <select id="keyEncInput">
+              <option value="hex">hex</option>
+              <option value="text">text</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="run-btn" id="runBtn" onclick="verifyProofUI()">Verify Proof &#8594;</button>
+        <div id="errBox" class="errbox"></div>
+      </div>
+    </div>
+
+    <div id="resultPanel"></div>
+
+    <div class="sec-label" id="presets">The Three Pinned Presets</div>
+    <div class="panel">
+      <div class="panel-label">ProofSpec constants, transcribed from the cosmos/ics23 reference implementation</div>
+      <div class="panel-body">
+        <div class="table-wrap">
+          <table class="spec-table">
+            <thead><tr><th>Field</th><th>iavl</th><th>tendermint</th><th>smt</th></tr></thead>
+            <tbody id="specTableBody"></tbody>
+          </table>
+        </div>
+        <div class="note">There is no free-text spec input on this page and no custom-spec path in the code. That is deliberate. A <code>ProofSpec</code> supplied alongside the proof it constrains can simply declare a forged shape legal, which is the shape of the VSA-2022-103 finding, so the spec is always one of the three constants above, chosen by you rather than by the proof.</div>
+      </div>
+    </div>
+
+    <div class="sec-label">What Each Check Means</div>
+    <div class="panel">
+      <div class="panel-label">Reading the result rows</div>
+      <div class="panel-body">
+        <div class="table-wrap">
+          <table class="spec-table">
+            <thead><tr><th>Check</th><th>What a failure means</th></tr></thead>
+            <tbody>
+              <tr><td>Leaf shape accepted by spec</td><td>The leaf operation's hash, prehash and length settings, or its prefix, are not the ones the selected preset requires. A proof from a different tree shape produces this.</td></tr>
+              <tr><td>Inner ops accepted by spec</td><td>An inner operation's prefix or suffix falls outside the preset's bounds, its depth is out of range, or its prefix begins with the leaf prefix. That last case is the domain-separation violation VSA-2022-103 exploited.</td></tr>
+              <tr><td>Key matches the proof</td><td>The key you supplied is not the key this proof is about.</td></tr>
+              <tr><td>Root recomputes to the supplied root</td><td>Hashing the leaf and walking the inner operations produces a different root. The proof does not belong to that state.</td></tr>
+              <tr><td>Key strictly between the neighbours</td><td>For a non-existence proof, the claimed key is not strictly inside the gap the two neighbour proofs describe. A non-strict comparison here would let someone prove the absence of a key that is present.</td></tr>
+              <tr><td>Neighbours leave no gap</td><td>The left and right proofs are not adjacent leaves, or the single-sided proof is not actually the leftmost or rightmost leaf, so an unproven key could sit between them.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">The verdict row at the bottom of a result is the authoritative one: it is the return value of the same <code>verifyExistence</code> and <code>verifyNonExistence</code> functions shipped in <code>chaingraph/kernels/ics23-verify.mjs</code>, which this page carries inline so it stays a single self-contained file. The rows above it attribute a failure to a step; they never override the verdict.</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../tools/620-summa-mst-inclusion-checker.html">Summa MST Inclusion Checker</a>
+      <a href="../credits.html">Credits</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   ICS23-CORE v1 — INLINE PORT of chaingraph/kernels/ics23-verify.mjs.
+   SSOT: chaingraph/kernels/ics23-verify.mjs. The body below is that module
+   transcribed verbatim with only the `export` keywords removed (the site has no
+   build step, so a tool page cannot import a module and stay a single
+   self-contained file). Do NOT "improve" the algorithm here — fix the SSOT
+   module, re-run node chaingraph/kernels/ics23-verify.test.mjs, then re-paste.
+
+   Browser compatibility, confirmed at build time rather than assumed: the module
+   hashes exclusively through globalThis.crypto.subtle.digest('SHA-256', bytes),
+   which is the Web Crypto API and is what Node 18+ exposes too — nothing in the
+   module touches a Node-only API (no node:crypto, no Buffer, no fs). It needs a
+   secure context, so https:// or http://localhost; a file:// open has no
+   crypto.subtle and the page says so instead of failing silently.
+══════════════════════════════════════════════════════════════════════════════ */
+const ICS23 = (function () {
+'use strict';
+
+const HashOp = Object.freeze({ NO_HASH: 0, SHA256: 1 });
+const LengthOp = Object.freeze({ NO_PREFIX: 0, VAR_PROTO: 1 });
+
+const EMPTY = new Uint8Array(0);
+
+async function sha256(bytes) {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return new Uint8Array(digest);
+}
+
+function concatBytes(...arrs) {
+  const total = arrs.reduce((n, a) => n + a.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const a of arrs) { out.set(a, offset); offset += a.length; }
+  return out;
+}
+
+function bytesEqual(a, b) {
+  const ab = a ?? EMPTY, bb = b ?? EMPTY;
+  if (ab.length !== bb.length) return false;
+  for (let i = 0; i < ab.length; i++) if (ab[i] !== bb[i]) return false;
+  return true;
+}
+
+// Byte-lexicographic comparison (Go bytes.Compare semantics). STRICT ordering is the caller's
+// job (BUILD-SPEC §4 step 2) — this function only reports order, never equality tolerance.
+function compareBytes(a, b) {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return a.length - b.length;
+}
+
+function prefixStartsWith(haystack, needle) {
+  const n = needle ?? EMPTY;
+  if (n.length === 0) return true;
+  if (haystack.length < n.length) return false;
+  for (let i = 0; i < n.length; i++) if (haystack[i] !== n[i]) return false;
+  return true;
+}
+
+function encodeVarintProto(n) {
+  const out = [];
+  let l = n;
+  while (l >= 0x80) { out.push((l & 0x7f) | 0x80); l >>>= 7; }
+  out.push(l);
+  return new Uint8Array(out);
+}
+
+async function doHash(hashOp, data) {
+  if (hashOp === HashOp.SHA256) return sha256(data);
+  throw new Error(`ics23-verify: unsupported HashOp ${hashOp} — the three pinned presets (iavl/tendermint/smt) need only SHA256`);
+}
+
+async function doHashOrNoop(hashOp, data) {
+  if (hashOp === HashOp.NO_HASH || hashOp === undefined) return data;
+  return doHash(hashOp, data);
+}
+
+function doLengthOp(lengthOp, data) {
+  switch (lengthOp ?? LengthOp.NO_PREFIX) {
+    case LengthOp.NO_PREFIX: return data;
+    case LengthOp.VAR_PROTO: return concatBytes(encodeVarintProto(data.length), data);
+    default:
+      throw new Error(`ics23-verify: unsupported LengthOp ${lengthOp} — the three pinned presets need only NO_PREFIX/VAR_PROTO`);
+  }
+}
+
+async function prepareLeafData(hashOp, lengthOp, data) {
+  const hashed = await doHashOrNoop(hashOp, data);
+  return doLengthOp(lengthOp, hashed);
+}
+
+const LeafOp = {
+  // leafHash = hash(prefix || lengthOp(prehashKey(key)) || lengthOp(prehashValue(value)))
+  async apply(op, key, value) {
+    if (!key || key.length === 0) throw new Error('ics23-verify: leaf op needs key');
+    if (!value || value.length === 0) throw new Error('ics23-verify: leaf op needs value');
+    const pkey = await prepareLeafData(op.prehash_key, op.length, key);
+    const pvalue = await prepareLeafData(op.prehash_value, op.length, value);
+    return doHash(op.hash, concatBytes(op.prefix ?? EMPTY, pkey, pvalue));
+  },
+};
+
+const InnerOp = {
+  // nextHash = hash(prefix || child || suffix)
+  async apply(op, child) {
+    if (!child || child.length === 0) throw new Error('ics23-verify: inner op needs child value');
+    return doHash(op.hash, concatBytes(op.prefix ?? EMPTY, child, op.suffix ?? EMPTY));
+  },
+};
+
+const IAVL_SPEC = Object.freeze({
+  name: 'iavl',
+  leaf_spec: Object.freeze({
+    hash: HashOp.SHA256, prehash_key: HashOp.NO_HASH, prehash_value: HashOp.SHA256,
+    length: LengthOp.VAR_PROTO, prefix: Uint8Array.of(0x00),
+  }),
+  inner_spec: Object.freeze({
+    child_order: Object.freeze([0, 1]), min_prefix_length: 4, max_prefix_length: 12,
+    child_size: 33, empty_child: EMPTY, hash: HashOp.SHA256,
+  }),
+  max_depth: 0, min_depth: 0, prehash_key_before_comparison: false,
+});
+
+const TENDERMINT_SPEC = Object.freeze({
+  name: 'tendermint',
+  leaf_spec: Object.freeze({
+    hash: HashOp.SHA256, prehash_key: HashOp.NO_HASH, prehash_value: HashOp.SHA256,
+    length: LengthOp.VAR_PROTO, prefix: Uint8Array.of(0x00),
+  }),
+  inner_spec: Object.freeze({
+    child_order: Object.freeze([0, 1]), min_prefix_length: 1, max_prefix_length: 1,
+    child_size: 32, empty_child: EMPTY, hash: HashOp.SHA256,
+  }),
+  max_depth: 0, min_depth: 0, prehash_key_before_comparison: false,
+});
+
+const SMT_SPEC = Object.freeze({
+  name: 'smt',
+  leaf_spec: Object.freeze({
+    hash: HashOp.SHA256, prehash_key: HashOp.SHA256, prehash_value: HashOp.SHA256,
+    length: LengthOp.NO_PREFIX, prefix: Uint8Array.of(0x00),
+  }),
+  inner_spec: Object.freeze({
+    child_order: Object.freeze([0, 1]), min_prefix_length: 1, max_prefix_length: 1,
+    child_size: 32, empty_child: new Uint8Array(32), hash: HashOp.SHA256,
+  }),
+  max_depth: 256, min_depth: 0, prehash_key_before_comparison: true,
+});
+
+// over-declares equality (matches go/proof.go SpecEquals), used only to decide whether a spec's
+// tree-specific hardening pass (validateIavlOps / validateTendermintOps) applies — never to accept
+// spec bytes from a caller.
+function specEquals(a, b) {
+  const al = a.leaf_spec, bl = b.leaf_spec;
+  const leafEq = al.hash === bl.hash && al.prehash_key === bl.prehash_key
+    && al.prehash_value === bl.prehash_value && al.length === bl.length;
+  const ai = a.inner_spec, bi = b.inner_spec;
+  const innerEq = ai.hash === bi.hash && ai.min_prefix_length === bi.min_prefix_length
+    && ai.max_prefix_length === bi.max_prefix_length && ai.child_size === bi.child_size
+    && (ai.child_order?.length ?? 0) === (bi.child_order?.length ?? 0);
+  return leafEq && innerEq;
+}
+
+function readUvarint(bytes, pos) {
+  let result = 0n, shift = 0n, b;
+  do {
+    if (pos >= bytes.length) throw new Error('ics23-verify: failed to read IAVL varint (truncated)');
+    b = bytes[pos]; pos++;
+    result |= BigInt(b & 0x7f) << shift;
+    shift += 7n;
+  } while (b & 0x80);
+  return [result, pos];
+}
+
+// Go's encoding/binary ReadVarint: zigzag-decoded signed varint.
+function readVarintZigzag(bytes, pos) {
+  const [ux, next] = readUvarint(bytes, pos);
+  let x = ux >> 1n;
+  if (ux & 1n) x = -x - 1n;
+  return [x, next];
+}
+
+function validateIavlOps(op, layerNum) {
+  const prefix = op.prefix ?? EMPTY;
+  let pos = 0, height, size, version;
+  [height, pos] = readVarintZigzag(prefix, pos);
+  if (height < 0n || height < BigInt(layerNum)) {
+    throw new Error(`ics23-verify: IAVL height (${height}) must be non-negative and >= layer number (${layerNum})`);
+  }
+  [size, pos] = readVarintZigzag(prefix, pos);
+  if (size < 0n) throw new Error('ics23-verify: IAVL size must be non-negative');
+  [version, pos] = readVarintZigzag(prefix, pos);
+  if (version < 0n) throw new Error('ics23-verify: IAVL version must be non-negative');
+  const remLen = prefix.length - pos;
+  if (layerNum === 0) {
+    if (remLen !== 0) throw new Error(`ics23-verify: expected remaining IAVL prefix length to be 0, got ${remLen}`);
+    if (height !== 0n) throw new Error('ics23-verify: expected IAVL leaf node height to be 0');
+    if (size !== 1n) throw new Error('ics23-verify: expected IAVL leaf node size to be 1');
+  } else {
+    if (remLen !== 1 && remLen !== 34) {
+      throw new Error(`ics23-verify: remainder of IAVL prefix must be length 1 or 34, got ${remLen}`);
+    }
+    if (op.hash !== HashOp.SHA256) throw new Error('ics23-verify: IAVL inner hash op must be SHA256');
+  }
+}
+
+function validateTendermintOps(op) {
+  const prefix = op.prefix ?? EMPTY;
+  if (prefix.length === 0) throw new Error('ics23-verify: tendermint inner op prefix must not be empty');
+  const innerPrefix = Uint8Array.of(1);
+  const suffix = op.suffix;
+  if (suffix !== undefined && suffix.length > 0) {
+    if (!bytesEqual(prefix, innerPrefix)) {
+      throw new Error('ics23-verify: expected tendermint inner op prefix to be exactly [1] when a suffix is present');
+    }
+  }
+  if (!prefixStartsWith(prefix, innerPrefix)) {
+    throw new Error('ics23-verify: expected tendermint inner op prefix to begin with [1]');
+  }
+}
+
+function checkLeafAgainstSpec(leaf, spec) {
+  const ls = spec.leaf_spec;
+  if ((leaf.hash ?? HashOp.NO_HASH) !== ls.hash) throw new Error(`ics23-verify: leaf unexpected HashOp: ${leaf.hash}`);
+  if ((leaf.prehash_key ?? HashOp.NO_HASH) !== ls.prehash_key) throw new Error(`ics23-verify: leaf unexpected PrehashKey: ${leaf.prehash_key}`);
+  if ((leaf.prehash_value ?? HashOp.NO_HASH) !== ls.prehash_value) throw new Error(`ics23-verify: leaf unexpected PrehashValue: ${leaf.prehash_value}`);
+  if ((leaf.length ?? LengthOp.NO_PREFIX) !== ls.length) throw new Error(`ics23-verify: leaf unexpected LengthOp: ${leaf.length}`);
+  if (!prefixStartsWith(leaf.prefix ?? EMPTY, ls.prefix)) throw new Error('ics23-verify: leaf prefix does not start with spec.LeafSpec.prefix');
+  if (specEquals(spec, IAVL_SPEC)) validateIavlOps(leaf, 0);
+}
+
+function checkInnerAgainstSpec(inner, spec, layerNum) {
+  const is = spec.inner_spec;
+  if ((inner.hash ?? HashOp.NO_HASH) !== is.hash) throw new Error(`ics23-verify: inner unexpected HashOp: ${inner.hash}`);
+  if (specEquals(spec, IAVL_SPEC)) validateIavlOps(inner, layerNum);
+  if (specEquals(spec, TENDERMINT_SPEC)) validateTendermintOps(inner);
+
+  // ⛔⛔ THE 2022 FIX, restated as code: an inner node's prefix must be structurally
+  // distinguishable from a leaf's, so a forged inner-op can never be reinterpreted as a leaf.
+  if (prefixStartsWith(inner.prefix ?? EMPTY, spec.leaf_spec.prefix)) {
+    throw new Error('ics23-verify: inner prefix starts with spec.LeafSpec.prefix (domain-separation violation)');
+  }
+
+  const prefixLen = (inner.prefix ?? EMPTY).length;
+  if (prefixLen < is.min_prefix_length) throw new Error(`ics23-verify: innerOp prefix too short (${prefixLen})`);
+  const maxLeftChildBytes = (is.child_order.length - 1) * is.child_size;
+  if (prefixLen > is.max_prefix_length + maxLeftChildBytes) throw new Error(`ics23-verify: innerOp prefix too long (${prefixLen})`);
+  if (is.child_size <= 0) throw new Error('ics23-verify: spec.InnerSpec.child_size must be >= 1');
+  if (is.max_prefix_length >= is.min_prefix_length + is.child_size) {
+    throw new Error('ics23-verify: spec.InnerSpec.max_prefix_length must be < min_prefix_length + child_size');
+  }
+  const suffixLen = (inner.suffix ?? EMPTY).length;
+  if (suffixLen % is.child_size !== 0) throw new Error('ics23-verify: innerOp suffix malformed (not a multiple of child_size)');
+}
+
+// existenceProof: {key, value, leaf: LeafOp, path: [InnerOp]}
+function checkAgainstSpec(existenceProof, spec) {
+  const leaf = existenceProof.leaf;
+  if (!leaf) throw new Error('ics23-verify: existence proof needs a defined LeafOp');
+  checkLeafAgainstSpec(leaf, spec);
+
+  const path = existenceProof.path ?? [];
+  const minDepth = spec.min_depth ?? 0;
+  if (minDepth > 0 && path.length < minDepth) throw new Error(`ics23-verify: innerOps depth too short: ${path.length}`);
+  const maxDepth = spec.max_depth > 0 ? spec.max_depth : 128;
+  if (path.length > maxDepth) throw new Error(`ics23-verify: innerOps depth too long: ${path.length}`);
+
+  let layerNum = 1;
+  for (const inner of path) {
+    checkInnerAgainstSpec(inner, spec, layerNum);
+    layerNum++;
+  }
+}
+
+async function calculateRoot(proof) {
+  let res = await LeafOp.apply(proof.leaf, proof.key, proof.value);
+  for (const step of proof.path ?? []) {
+    res = await InnerOp.apply(step, res);
+  }
+  return res;
+}
+
+async function verifyExistence(proof, spec, root, key, value) {
+  checkAgainstSpec(proof, spec);
+  if (!bytesEqual(key, proof.key)) throw new Error('ics23-verify: provided key does not match proof');
+  if (!bytesEqual(value, proof.value)) throw new Error('ics23-verify: provided value does not match proof');
+  const calculated = await calculateRoot(proof);
+  if (!bytesEqual(root, calculated)) throw new Error('ics23-verify: calculated root does not match provided root');
+  return true;
+}
+
+async function keyForComparison(spec, key) {
+  if (!spec.prehash_key_before_comparison) return key;
+  return doHashOrNoop(spec.leaf_spec.prehash_key, key);
+}
+
+function getPosition(order, branch) {
+  const idx = order.indexOf(branch);
+  if (idx === -1) throw new Error(`ics23-verify: branch ${branch} not found in child_order ${order}`);
+  return idx;
+}
+
+function getPadding(spec, branch) {
+  const idx = getPosition(spec.child_order, branch);
+  const leadingBytes = idx * spec.child_size;
+  const minPrefix = leadingBytes + spec.min_prefix_length;
+  const maxPrefix = leadingBytes + spec.max_prefix_length;
+  const suffix = (spec.child_order.length - 1 - idx) * spec.child_size;
+  return { minPrefix, maxPrefix, suffix };
+}
+
+function hasPadding(op, minPrefix, maxPrefix, suffix) {
+  const prefixLen = (op.prefix ?? EMPTY).length;
+  if (prefixLen < minPrefix || prefixLen > maxPrefix) return false;
+  return (op.suffix ?? EMPTY).length === suffix;
+}
+
+function orderFromPadding(spec, inner) {
+  for (let branch = 0; branch < spec.child_order.length; branch++) {
+    const { minPrefix, maxPrefix, suffix } = getPadding(spec, branch);
+    if (hasPadding(inner, minPrefix, maxPrefix, suffix)) return branch;
+  }
+  throw new Error('ics23-verify: cannot find any valid spacing for this inner node');
+}
+
+function leftBranchesAreEmpty(spec, op) {
+  const idx = orderFromPadding(spec, op);
+  const leftBranches = idx;
+  if (leftBranches === 0) return false;
+  const prefix = op.prefix ?? EMPTY;
+  const actualPrefix = prefix.length - leftBranches * spec.child_size;
+  if (actualPrefix < 0) return false;
+  for (let i = 0; i < leftBranches; i++) {
+    const bidx = getPosition(spec.child_order, i);
+    const from = actualPrefix + bidx * spec.child_size;
+    if (!bytesEqual(spec.empty_child, prefix.slice(from, from + spec.child_size))) return false;
+  }
+  return true;
+}
+
+function rightBranchesAreEmpty(spec, op) {
+  const idx = orderFromPadding(spec, op);
+  const rightBranches = spec.child_order.length - 1 - idx;
+  if (rightBranches === 0) return false;
+  const suffix = op.suffix ?? EMPTY;
+  if (suffix.length !== rightBranches * spec.child_size) return false;
+  for (let i = 0; i < rightBranches; i++) {
+    const bidx = getPosition(spec.child_order, i);
+    const from = bidx * spec.child_size;
+    if (!bytesEqual(spec.empty_child, suffix.slice(from, from + spec.child_size))) return false;
+  }
+  return true;
+}
+
+// Reads padding rules from the pinned spec.InnerSpec (never hardcoded, never proof-derived —
+// BUILD-SPEC §4's named implementation trap).
+function isLeftMost(spec, path) {
+  const { minPrefix, maxPrefix, suffix } = getPadding(spec, 0);
+  for (const step of path) {
+    if (!hasPadding(step, minPrefix, maxPrefix, suffix) && !leftBranchesAreEmpty(spec, step)) return false;
+  }
+  return true;
+}
+
+function isRightMost(spec, path) {
+  const last = spec.child_order.length - 1;
+  const { minPrefix, maxPrefix, suffix } = getPadding(spec, last);
+  for (const step of path) {
+    if (!hasPadding(step, minPrefix, maxPrefix, suffix) && !rightBranchesAreEmpty(spec, step)) return false;
+  }
+  return true;
+}
+
+function isLeftStep(spec, left, right) {
+  const leftIdx = orderFromPadding(spec, left);
+  const rightIdx = orderFromPadding(spec, right);
+  return rightIdx === leftIdx + 1;
+}
+
+function isLeftNeighbor(spec, leftPath, rightPath) {
+  if (leftPath.length === 0 || rightPath.length === 0) {
+    throw new Error('ics23-verify: neighbor check needs non-empty inner paths on both sides');
+  }
+  const left = leftPath.slice();
+  const right = rightPath.slice();
+  let topleft = left.pop();
+  let topright = right.pop();
+  while (bytesEqual(topleft.prefix, topright.prefix) && bytesEqual(topleft.suffix, topright.suffix)) {
+    if (left.length === 0 || right.length === 0) {
+      throw new Error('ics23-verify: neighbor check ran out of common path before diverging');
+    }
+    topleft = left.pop();
+    topright = right.pop();
+  }
+  if (!isLeftStep(spec, topleft, topright)) return false;
+  if (!isRightMost(spec, left)) return false;
+  if (!isLeftMost(spec, right)) return false;
+  return true;
+}
+
+// nonExistenceProof: {key, left: ExistenceProof|null, right: ExistenceProof|null}
+async function verifyNonExistence(proof, spec, root, key) {
+  let leftKey = null, rightKey = null;
+  if (proof.left) {
+    await verifyExistence(proof.left, spec, root, proof.left.key, proof.left.value);
+    leftKey = proof.left.key;
+  }
+  if (proof.right) {
+    await verifyExistence(proof.right, spec, root, proof.right.key, proof.right.value);
+    rightKey = proof.right.key;
+  }
+  if (!leftKey && !rightKey) throw new Error('ics23-verify: both left and right proofs missing');
+
+  // ⛔⛔ STRICT lexicographic range-check (BUILD-SPEC §4 step 2) — a non-strict comparison here
+  // would allow "proving" absence of a key that is actually present.
+  const cmpKey = await keyForComparison(spec, key);
+  if (rightKey) {
+    const cmpRight = await keyForComparison(spec, rightKey);
+    if (compareBytes(cmpKey, cmpRight) >= 0) throw new Error('ics23-verify: key is not strictly left of right proof');
+  }
+  if (leftKey) {
+    const cmpLeft = await keyForComparison(spec, leftKey);
+    if (compareBytes(cmpKey, cmpLeft) <= 0) throw new Error('ics23-verify: key is not strictly right of left proof');
+  }
+
+  if (!leftKey) {
+    if (!isLeftMost(spec.inner_spec, proof.right.path ?? [])) {
+      throw new Error('ics23-verify: left proof missing, right proof must be left-most');
+    }
+  } else if (!rightKey) {
+    if (!isRightMost(spec.inner_spec, proof.left.path ?? [])) {
+      throw new Error('ics23-verify: right proof missing, left proof must be right-most');
+    }
+  } else {
+    if (!isLeftNeighbor(spec.inner_spec, proof.left.path ?? [], proof.right.path ?? [])) {
+      throw new Error('ics23-verify: left and right proofs are not adjacent (no gap proven between them)');
+    }
+  }
+  return true;
+}
+
+/* End of the verbatim port. Everything above this line is chaingraph/kernels/
+   ics23-verify.mjs. The object below exposes it, including the module-private
+   step functions, so the UI can attribute a failure to a named step WITHOUT
+   re-implementing any of the logic it is attributing. */
+return {
+  HashOp, LengthOp, LeafOp, InnerOp,
+  IAVL_SPEC, TENDERMINT_SPEC, SMT_SPEC,
+  checkAgainstSpec, checkLeafAgainstSpec, checkInnerAgainstSpec,
+  calculateRoot, verifyExistence, verifyNonExistence,
+  isLeftMost, isRightMost, isLeftNeighbor,
+  keyForComparison, compareBytes, bytesEqual,
+};
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   T585 UI — parsing (proofs.proto JSON to the plain objects the port expects),
+   staged diagnostics, and rendering. No verification logic lives here: every
+   verdict comes from an ICS23.* call above.
+══════════════════════════════════════════════════════════════════════════════ */
+'use strict';
+
+const SPECS = { iavl: ICS23.IAVL_SPEC, tendermint: ICS23.TENDERMINT_SPEC, smt: ICS23.SMT_SPEC };
+
+/* ── byte + enum decoding ──────────────────────────────────────────────────── */
+
+function hexToBytes(hex, label) {
+  const s = hex.replace(/^0x/i, '').replace(/\s+/g, '');
+  if (s.length === 0) return new Uint8Array(0);
+  if (s.length % 2 !== 0) throw new Error(label + ': hex string has an odd number of digits');
+  if (!/^[0-9a-fA-F]+$/.test(s)) throw new Error(label + ': not valid hex');
+  const out = new Uint8Array(s.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(s.substr(i * 2, 2), 16);
+  return out;
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function b64ToBytes(b64, label) {
+  const s = b64.replace(/-/g, '+').replace(/_/g, '/').replace(/\s+/g, '');
+  let bin;
+  try { bin = atob(s); } catch (e) { throw new Error(label + ': not valid base64'); }
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// proofs.proto byte fields arrive base64-encoded in canonical protobuf JSON. 0x-prefixed
+// hex is accepted too, because several chain explorers hand out proofs that way.
+function fieldBytes(v, label) {
+  if (v === undefined || v === null) return undefined;
+  if (v instanceof Uint8Array) return v;
+  if (Array.isArray(v)) return Uint8Array.from(v);
+  if (typeof v !== 'string') throw new Error(label + ': expected a base64 or 0x-hex string');
+  if (v.trim() === '') return new Uint8Array(0);
+  if (/^0x[0-9a-fA-F]*$/.test(v.trim())) return hexToBytes(v, label);
+  return b64ToBytes(v, label);
+}
+
+// Full proofs.proto enums. Values outside the two the presets use are mapped, not rejected
+// here, so an unsupported op is refused by the spec check with its own message rather than
+// by the parser guessing.
+const HASH_NAMES = {
+  NO_HASH: 0, SHA256: 1, SHA512: 2, KECCAK: 3, RIPEMD160: 4,
+  BITCOIN: 5, SHA512_256: 6, BLAKE2B_512: 7, BLAKE2S_256: 8, BLAKE3: 9,
+};
+const LENGTH_NAMES = {
+  NO_PREFIX: 0, VAR_PROTO: 1, VAR_RLP: 2, FIXED32_BIG: 3, FIXED32_LITTLE: 4,
+  FIXED64_BIG: 5, FIXED64_LITTLE: 6, REQUIRE_32_BYTES: 7, REQUIRE_64_BYTES: 8,
+};
+
+function enumValue(v, names, label) {
+  if (v === undefined || v === null) return 0;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') {
+    const k = v.trim().toUpperCase();
+    if (k in names) return names[k];
+    if (/^\d+$/.test(k)) return parseInt(k, 10);
+  }
+  throw new Error(label + ': unrecognised enum value ' + JSON.stringify(v));
+}
+
+// Accept both the snake_case proto field names and the lowerCamelCase a gRPC gateway emits.
+function pick(obj, snake, camel) {
+  if (obj == null) return undefined;
+  if (snake in obj) return obj[snake];
+  if (camel in obj) return obj[camel];
+  return undefined;
+}
+
+/* ── proofs.proto JSON to the plain objects the port expects ───────────────── */
+
+function parseLeafOp(o, label) {
+  if (o == null || typeof o !== 'object') throw new Error(label + ': missing or malformed leaf op');
+  return {
+    hash: enumValue(o.hash, HASH_NAMES, label + '.hash'),
+    prehash_key: enumValue(pick(o, 'prehash_key', 'prehashKey'), HASH_NAMES, label + '.prehash_key'),
+    prehash_value: enumValue(pick(o, 'prehash_value', 'prehashValue'), HASH_NAMES, label + '.prehash_value'),
+    length: enumValue(o.length, LENGTH_NAMES, label + '.length'),
+    prefix: fieldBytes(o.prefix, label + '.prefix') ?? new Uint8Array(0),
+  };
+}
+
+function parseInnerOp(o, label) {
+  if (o == null || typeof o !== 'object') throw new Error(label + ': malformed inner op');
+  const op = {
+    hash: enumValue(o.hash, HASH_NAMES, label + '.hash'),
+    prefix: fieldBytes(o.prefix, label + '.prefix') ?? new Uint8Array(0),
+  };
+  const suffix = fieldBytes(o.suffix, label + '.suffix');
+  if (suffix !== undefined) op.suffix = suffix;
+  return op;
+}
+
+function parseExistenceProof(o, label) {
+  if (o == null || typeof o !== 'object') throw new Error(label + ': malformed existence proof');
+  const path = o.path ?? [];
+  if (!Array.isArray(path)) throw new Error(label + '.path: expected an array of inner ops');
+  return {
+    key: fieldBytes(o.key, label + '.key') ?? new Uint8Array(0),
+    value: fieldBytes(o.value, label + '.value') ?? new Uint8Array(0),
+    leaf: parseLeafOp(o.leaf, label + '.leaf'),
+    path: path.map((p, i) => parseInnerOp(p, label + '.path[' + i + ']')),
+  };
+}
+
+function parseNonExistenceProof(o, label) {
+  const out = { key: fieldBytes(o.key, label + '.key') ?? new Uint8Array(0), left: null, right: null };
+  if (o.left != null) out.left = parseExistenceProof(o.left, label + '.left');
+  if (o.right != null) out.right = parseExistenceProof(o.right, label + '.right');
+  return out;
+}
+
+// Unwrap the usual response envelopes before deciding what kind of proof this is.
+function unwrap(obj) {
+  let node = obj, depth = 0;
+  while (node && typeof node === 'object' && depth < 5) {
+    if ('exist' in node || 'nonexist' in node || 'leaf' in node || 'left' in node || 'right' in node
+      || 'batch' in node || 'compressed' in node) return node;
+    const next = node.proof ?? node.commitment_proof ?? node.commitmentProof ?? node.result ?? node.response;
+    if (next == null || typeof next !== 'object') return node;
+    node = next; depth++;
+  }
+  return node;
+}
+
+function parseProofDocument(text) {
+  let obj;
+  try { obj = JSON.parse(text); } catch (e) { throw new Error('The proof is not valid JSON: ' + e.message); }
+  if (obj == null || typeof obj !== 'object') throw new Error('The proof must be a JSON object.');
+  const node = unwrap(obj);
+  if (node.batch != null || node.compressed != null) {
+    throw new Error('This is a batch or compressed CommitmentProof. Paste a single exist or nonexist proof instead.');
+  }
+  if (node.exist != null) return { kind: 'exist', proof: parseExistenceProof(node.exist, 'exist') };
+  if (node.nonexist != null) return { kind: 'nonexist', proof: parseNonExistenceProof(node.nonexist, 'nonexist') };
+  if (node.leaf != null) return { kind: 'exist', proof: parseExistenceProof(node, 'proof') };
+  if (node.left != null || node.right != null) return { kind: 'nonexist', proof: parseNonExistenceProof(node, 'proof') };
+  throw new Error('Could not find an exist or nonexist proof in that JSON. Expected a CommitmentProof envelope or a bare proof with a leaf, left or right field.');
+}
+
+/* ── staged diagnostics ────────────────────────────────────────────────────── */
+
+function attempt(fn) {
+  try { const v = fn(); return { ok: true, value: v }; }
+  catch (e) { return { ok: false, error: e.message || String(e) }; }
+}
+
+async function attemptAsync(fn) {
+  try { const v = await fn(); return { ok: true, value: v }; }
+  catch (e) { return { ok: false, error: e.message || String(e) }; }
+}
+
+function row(name, status, detail) { return { name: name, status: status, detail: detail }; }
+
+async function existenceChecks(proof, spec, root, key, prefix) {
+  const rows = [];
+  const p = prefix ? prefix + ' ' : '';
+  const leafRes = attempt(() => ICS23.checkLeafAgainstSpec(proof.leaf, spec));
+  rows.push(row(p + 'Leaf shape accepted by spec', leafRes.ok ? 'pass' : 'fail',
+    leafRes.ok ? 'leaf prefix ' + bytesToHex(proof.leaf.prefix || new Uint8Array(0)) + ', hash SHA256' : leafRes.error));
+
+  if (!leafRes.ok) {
+    rows.push(row(p + 'Inner ops accepted by spec', 'skip', 'not reached: the leaf was already rejected'));
+  } else {
+    const specRes = attempt(() => ICS23.checkAgainstSpec(proof, spec));
+    rows.push(row(p + 'Inner ops accepted by spec', specRes.ok ? 'pass' : 'fail',
+      specRes.ok ? (proof.path.length + ' inner ops within the preset bounds, none starting with the leaf prefix') : specRes.error));
+  }
+
+  const keyOk = ICS23.bytesEqual(key, proof.key);
+  rows.push(row(p + 'Key matches the proof', keyOk ? 'pass' : 'fail',
+    keyOk ? bytesToHex(proof.key) : 'proof key is ' + bytesToHex(proof.key) + ', you supplied ' + bytesToHex(key)));
+
+  const rootRes = await attemptAsync(() => ICS23.calculateRoot(proof));
+  if (!rootRes.ok) {
+    rows.push(row(p + 'Root recomputes to the supplied root', 'fail', rootRes.error));
+  } else {
+    const rootOk = ICS23.bytesEqual(root, rootRes.value);
+    rows.push(row(p + 'Root recomputes to the supplied root', rootOk ? 'pass' : 'fail',
+      'recomputed ' + bytesToHex(rootRes.value)));
+  }
+  return rows;
+}
+
+async function nonExistenceChecks(proof, spec, root, key) {
+  let rows = [];
+  const sides = [];
+  if (proof.left) sides.push('left');
+  if (proof.right) sides.push('right');
+  rows.push(row('Neighbour proofs present', sides.length ? 'pass' : 'fail',
+    sides.length ? sides.join(' and ') : 'a non-existence proof needs at least one neighbour'));
+
+  if (proof.left) rows = rows.concat(await existenceChecks(proof.left, spec, root, proof.left.key, 'Left neighbour:'));
+  if (proof.right) rows = rows.concat(await existenceChecks(proof.right, spec, root, proof.right.key, 'Right neighbour:'));
+
+  const rangeRes = await attemptAsync(async () => {
+    const cmpKey = await ICS23.keyForComparison(spec, key);
+    if (proof.right) {
+      const cmpRight = await ICS23.keyForComparison(spec, proof.right.key);
+      if (ICS23.compareBytes(cmpKey, cmpRight) >= 0) throw new Error('the key is not strictly left of the right neighbour');
+    }
+    if (proof.left) {
+      const cmpLeft = await ICS23.keyForComparison(spec, proof.left.key);
+      if (ICS23.compareBytes(cmpKey, cmpLeft) <= 0) throw new Error('the key is not strictly right of the left neighbour');
+    }
+    return true;
+  });
+  rows.push(row('Key strictly between the neighbours', rangeRes.ok ? 'pass' : 'fail',
+    rangeRes.ok ? 'strict byte-lexicographic comparison on both sides' : rangeRes.error));
+
+  const inner = spec.inner_spec;
+  let gapRes, gapLabel;
+  if (proof.left && proof.right) {
+    gapLabel = 'Neighbours leave no gap';
+    gapRes = attempt(() => {
+      if (!ICS23.isLeftNeighbor(inner, proof.left.path ?? [], proof.right.path ?? [])) {
+        throw new Error('the two neighbours are not adjacent leaves, so an unproven key could sit between them');
+      }
+      return 'the two proofs are adjacent leaves';
+    });
+  } else if (proof.right) {
+    gapLabel = 'Right neighbour is the leftmost leaf';
+    gapRes = attempt(() => {
+      if (!ICS23.isLeftMost(inner, proof.right.path ?? [])) throw new Error('the right proof is not the leftmost leaf');
+      return 'nothing sits to its left';
+    });
+  } else {
+    gapLabel = 'Left neighbour is the rightmost leaf';
+    gapRes = attempt(() => {
+      if (!ICS23.isRightMost(inner, proof.left.path ?? [])) throw new Error('the left proof is not the rightmost leaf');
+      return 'nothing sits to its right';
+    });
+  }
+  rows.push(row(gapLabel, gapRes.ok ? 'pass' : 'fail', gapRes.ok ? gapRes.value : gapRes.error));
+  return rows;
+}
+
+/* ── rendering ─────────────────────────────────────────────────────────────── */
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function showError(msg) {
+  const box = document.getElementById('errBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+  document.getElementById('resultPanel').innerHTML = '';
+}
+
+function clearError() {
+  const box = document.getElementById('errBox');
+  box.textContent = '';
+  box.style.display = 'none';
+}
+
+function renderResult(state) {
+  const rowsHtml = state.rows.map(function (r) {
+    const cls = r.status === 'pass' ? 'check-pass' : (r.status === 'fail' ? 'check-fail' : 'check-skip');
+    const mark = r.status === 'pass' ? '&#10003;' : (r.status === 'fail' ? '&#10007;' : '&#8212;');
+    return '<div class="check-row ' + cls + '">'
+      + '<span class="check-mark">' + mark + '</span>'
+      + '<span class="check-name">' + esc(r.name) + '</span>'
+      + '<span class="check-detail">' + esc(r.detail) + '</span>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('resultPanel').innerHTML =
+    '<div class="sec-label">Result</div>'
+    + '<div class="panel"><div class="panel-label">Verification report</div><div class="panel-body">'
+    + '<div class="verdict ' + (state.pass ? 'pass' : 'fail') + '" id="verdictBanner">'
+    + (state.pass ? '&#10003; PASS &middot; ' : '&#10007; FAIL &middot; ') + esc(state.verdictText) + '</div>'
+    + '<div class="summary-grid">'
+    + '<div class="sg-cell"><div class="sg-lbl">Proof type</div><div class="sg-val">' + esc(state.kindLabel) + '</div></div>'
+    + '<div class="sg-cell"><div class="sg-lbl">ProofSpec preset</div><div class="sg-val">' + esc(state.specName) + '</div></div>'
+    + '<div class="sg-cell"><div class="sg-lbl">Inner ops</div><div class="sg-val">' + esc(state.depth) + '</div></div>'
+    + '<div class="sg-cell"><div class="sg-lbl">Checks failed</div><div class="sg-val ' + (state.failed ? 'sg-bad' : 'sg-ok') + '">' + state.failed + '</div></div>'
+    + '</div>'
+    + '<div class="check-list">' + rowsHtml + '</div>'
+    + '<div class="note">' + esc(state.note) + '</div>'
+    + '</div></div>';
+}
+
+/* ── the run function ──────────────────────────────────────────────────────── */
+
+async function verifyProofUI() {
+  clearError();
+  if (!(globalThis.crypto && globalThis.crypto.subtle)) {
+    showError('This page hashes with the Web Crypto API, which browsers only expose in a secure context. Open it over https, or over http://localhost if you are running it locally.');
+    return;
+  }
+
+  const specName = document.getElementById('specInput').value;
+  const spec = SPECS[specName];
+  if (!spec) { showError('Pick one of the three pinned ProofSpec presets.'); return; }
+
+  let parsed, root, key;
+  try {
+    const proofText = document.getElementById('proofInput').value.trim();
+    if (!proofText) throw new Error('Paste a proof first, or load one of the vectors above.');
+    parsed = parseProofDocument(proofText);
+    root = hexToBytes(document.getElementById('rootInput').value, 'Commitment root');
+    if (root.length === 0) throw new Error('Commitment root: supply the root hash the proof should verify against.');
+    const keyRaw = document.getElementById('keyInput').value.trim();
+    if (!keyRaw) throw new Error('Key being claimed: supply the key whose presence or absence you are checking.');
+    key = document.getElementById('keyEncInput').value === 'text'
+      ? new TextEncoder().encode(keyRaw)
+      : hexToBytes(keyRaw, 'Key being claimed');
+  } catch (e) {
+    showError(e.message || String(e));
+    return;
+  }
+
+  // The authoritative verdict: the same call an offline script would make.
+  const verdict = parsed.kind === 'exist'
+    ? await attemptAsync(() => ICS23.verifyExistence(parsed.proof, spec, root, key, parsed.proof.value))
+    : await attemptAsync(() => ICS23.verifyNonExistence(parsed.proof, spec, root, key));
+
+  // Diagnostics: attribute the outcome to a named step. These never change the verdict.
+  const rows = parsed.kind === 'exist'
+    ? await existenceChecks(parsed.proof, spec, root, key, '')
+    : await nonExistenceChecks(parsed.proof, spec, root, key);
+
+  rows.push(row(
+    parsed.kind === 'exist' ? 'verifyExistence() verdict' : 'verifyNonExistence() verdict',
+    verdict.ok ? 'pass' : 'fail',
+    verdict.ok ? 'returned true' : verdict.error,
+  ));
+
+  const depth = parsed.kind === 'exist'
+    ? String(parsed.proof.path.length)
+    : [parsed.proof.left, parsed.proof.right].filter(Boolean).map((p) => p.path.length).join(' / ');
+
+  renderResult({
+    pass: verdict.ok,
+    verdictText: verdict.ok
+      ? (parsed.kind === 'exist'
+        ? 'the proof binds this key to the supplied root under the ' + specName + ' spec'
+        : 'the proof shows this key is absent from the tree with the supplied root')
+      : verdict.error,
+    kindLabel: parsed.kind === 'exist' ? 'ExistenceProof' : 'NonExistenceProof',
+    specName: specName,
+    depth: depth || '0',
+    failed: rows.filter((r) => r.status === 'fail').length,
+    rows: rows,
+    note: parsed.kind === 'exist'
+      ? 'The value is read from the proof itself, so the value comparison inside verifyExistence is not an independent check here. What binds the proof to state you trust is the root comparison, and what binds it to the thing you asked about is the key you supplied.'
+      : 'A non-existence proof is two existence proofs plus a gap argument. Both neighbours must verify against the same root, the claimed key must sit strictly between them, and their paths must be adjacent so nothing unproven can hide in the gap.',
+  });
+}
+window.verifyProofUI = verifyProofUI;
+
+/* ── example vectors ───────────────────────────────────────────────────────── */
+
+/* These two are published test vectors from cosmos/ics23's own testdata
+   (tendermint/exist_middle.json and tendermint/nonexist_middle.json), decoded
+   from their hex protobuf into the proofs.proto JSON shape a chain query
+   returns. They are also two of the 18 vectors chaingraph/kernels/
+   ics23-verify.test.mjs replays against the SSOT module. */
+const EXAMPLES = {
+  exist: {
+    spec: 'tendermint',
+    root: '494b16e3a64a85df143b2881bdd3ec94c3f8e18b343e8ff9c2d61afd05d040c8',
+    key: '513334656d766f39447145585735325257523835',
+    proof: {
+      exist: {
+        key: 'UTM0ZW12bzlEcUVYVzUyUldSODU=',
+        value: 'dmFsdWVfZm9yX1EzNGVtdm85RHFFWFc1MlJXUjg1',
+        leaf: { hash: 'SHA256', prehash_key: 'NO_HASH', prehash_value: 'SHA256', length: 'VAR_PROTO', prefix: 'AA==' },
+        path: [
+          { hash: 'SHA256', prefix: 'AeIx13U4Dy1mNlHiE8xyZmDizgovLp7hLLt98yKUEEqM' },
+          { hash: 'SHA256', prefix: 'AQ==', suffix: 'FK8ZTGNQAjblLMKQqyQkT6s5pSDs5+IPqT9Mn/gMZiY=' },
+          { hash: 'SHA256', prefix: 'AXlm0urTRBjbLqoEwN/7kxaAXooNQh0ScMiVTDXuMiE4' },
+          { hash: 'SHA256', prefix: 'AXIzniCkm7Fnlamb2QW0f5nEXl5anmt/siPcj+Z1Hhva' },
+          { hash: 'SHA256', prefix: 'AQ==', suffix: 'U90ezCX/kGoO9Ns37gaPPYrW0dSZE+77hHpnWmgcX/o=' },
+          { hash: 'SHA256', prefix: 'AQ==', suffix: '3pD5lRoZSXvn44ngKqeeJvr3cIDnQOh0MkmhelN/KH0=' },
+          { hash: 'SHA256', prefix: 'Aa1OU+mBr8WnHjSrDE/7zPG0aEFNnQk5vQjtvSRhvJRK' },
+          { hash: 'SHA256', prefix: 'AQ==', suffix: 'm0z4nDmVud1m1YqwiIRrLGtZxSxtEOwddZyp6ape71w=' },
+          { hash: 'SHA256', prefix: 'ATkooHi9Zqs5SfWxhGttNU29wZaKQWYHx9kVVcomcWZn' },
+          { hash: 'SHA256', prefix: 'AQ==', suffix: '0tgs+JFbmub5LH6uND430xKs4F5lTOR6zfV9ClSQuHM=' },
+        ],
+      },
+    },
+  },
+  nonexist: {
+    spec: 'tendermint',
+    root: '4bf28d948566078c5ebfa86db7471c1541eab834f539037075b9f9e3b1c72cfc',
+    key: '544f31483668784a4b667136547a56767649ffff',
+    proof: {
+      nonexist: {
+        key: 'VE8xSDZoeEpLZnE2VHpWdnZJ//8=',
+        left: {
+          key: 'VE8xSDZoeEpLZnE2VHpWdnZJd0c=',
+          value: 'dmFsdWVfZm9yX1RPMUg2aHhKS2ZxNlR6VnZ2SXdH',
+          leaf: { hash: 'SHA256', prehash_key: 'NO_HASH', prehash_value: 'SHA256', length: 'VAR_PROTO', prefix: 'AA==' },
+          path: [
+            { hash: 'SHA256', prefix: 'AUPhnLXl2rAXc0yqeKLivMu0eXt9xakavqtjDGb6axYl' },
+            { hash: 'SHA256', prefix: 'AbV1QEobtCsP74rn8heviK7HaffWa1vEspE+dNZRNlRz' },
+            { hash: 'SHA256', prefix: 'AXwi3FDoZvmh3OUX6gFiEWHOzXD0vc0CS1o5J0ahyNwm' },
+            { hash: 'SHA256', prefix: 'AVeBBTRPLJjDI7oLjKMedaqiuGXMOJaB4wCxTRwgcTeW' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'iVwHDBRUbs739cs6S9of1Dag/5kZD5C9A3y+r1Ky/8E=' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: '91cfygasQ4fD6uVGnBUkJ7eXq7VfqYcn6svVwckbX7Q=' },
+            { hash: 'SHA256', prefix: 'AVBW5kcvjlxcm4iBxfDklgHp7KMfPhdmqmnC3JxtkRK+' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'bHRDlVbF7bWqaTr0ENNxjbthPTd5ny9Oj/MEqL/jNRs=' },
+            { hash: 'SHA256', prefix: 'ASUwFDNMe4zXhDaXlVT3iQ89wclxkl6jG0j8cpzReccB' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'uBwZrUtdjRX3FrkVGb9609biKJ+QYf0lkqhDHql4Bv4=' },
+          ],
+        },
+        right: {
+          key: 'VE9DM0RoMVBmT3ZldThYUWZjV3g=',
+          value: 'dmFsdWVfZm9yX1RPQzNEaDFQZk92ZXU4WFFmY1d4',
+          leaf: { hash: 'SHA256', prehash_key: 'NO_HASH', prehash_value: 'SHA256', length: 'VAR_PROTO', prefix: 'AA==' },
+          path: [
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'QV1M+u0L/JisMqzCGahRe/oZg6Fcx0LosvhgFnSEvUY=' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'mNhT2cwO4dIWJSf2YPK5CrVbE+VTTxt3U+xIHXkB0+w=' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'tRE+YADFQRt8+m/Qm2dSpD3g/NOVHtOxVNFi3rUyJKI=' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'jOGM1yzINRHLj/cGQz8vpCCMhbn0yNDtcaYU8kuJrmw=' },
+            { hash: 'SHA256', prefix: 'AcYRJE/mtf2kJXYVkC6yTBTvzZcIx8h10axehndnqh6r' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: '91cfygasQ4fD6uVGnBUkJ7eXq7VfqYcn6svVwckbX7Q=' },
+            { hash: 'SHA256', prefix: 'AVBW5kcvjlxcm4iBxfDklgHp7KMfPhdmqmnC3JxtkRK+' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'bHRDlVbF7bWqaTr0ENNxjbthPTd5ny9Oj/MEqL/jNRs=' },
+            { hash: 'SHA256', prefix: 'ASUwFDNMe4zXhDaXlVT3iQ89wclxkl6jG0j8cpzReccB' },
+            { hash: 'SHA256', prefix: 'AQ==', suffix: 'uBwZrUtdjRX3FrkVGb9609biKJ+QYf0lkqhDHql4Bv4=' },
+          ],
+        },
+      },
+    },
+  },
+};
+
+function loadExample(which) {
+  clearError();
+  document.getElementById('resultPanel').innerHTML = '';
+  const base = (which === 'nonexist') ? EXAMPLES.nonexist : EXAMPLES.exist;
+  const doc = JSON.parse(JSON.stringify(base.proof));
+
+  if (which === 'tamperInner') {
+    // Flip the first inner op's prefix from 0x01... to 0x02..., so it no longer begins with
+    // the byte the tendermint tree requires. The spec check rejects it before any hashing.
+    doc.exist.path[0].prefix = 'AuIx13U4Dy1mNlHiE8xyZmDizgovLp7hLLt98yKUEEqM';
+  } else if (which === 'tamperValue') {
+    // Change one byte of the stored value. Every op is still spec-legal, so the proof only
+    // falls over at the root comparison.
+    doc.exist.value = 'dmFsdWVfZm9yX1EzNGVtdm85RHFFWFc1MlJXUjg2';
+  }
+
+  document.getElementById('proofInput').value = JSON.stringify(doc, null, 2);
+  document.getElementById('rootInput').value = base.root;
+  document.getElementById('keyInput').value = base.key;
+  document.getElementById('keyEncInput').value = 'hex';
+  document.getElementById('specInput').value = base.spec;
+}
+window.loadExample = loadExample;
+
+function clearAll() {
+  clearError();
+  document.getElementById('proofInput').value = '';
+  document.getElementById('rootInput').value = '';
+  document.getElementById('keyInput').value = '';
+  document.getElementById('resultPanel').innerHTML = '';
+}
+window.clearAll = clearAll;
+
+/* ── the preset table, rendered from the pinned constants themselves ────────── */
+
+function renderSpecTable() {
+  const hashName = (v) => (v === ICS23.HashOp.SHA256 ? 'SHA256' : 'NO_HASH');
+  const lenName = (v) => (v === ICS23.LengthOp.VAR_PROTO ? 'VAR_PROTO' : 'NO_PREFIX');
+  const specs = [ICS23.IAVL_SPEC, ICS23.TENDERMINT_SPEC, ICS23.SMT_SPEC];
+  const fields = [
+    ['leaf hash', (s) => hashName(s.leaf_spec.hash)],
+    ['leaf prehash_key', (s) => hashName(s.leaf_spec.prehash_key)],
+    ['leaf prehash_value', (s) => hashName(s.leaf_spec.prehash_value)],
+    ['leaf length', (s) => lenName(s.leaf_spec.length)],
+    ['leaf prefix', (s) => '0x' + bytesToHex(s.leaf_spec.prefix)],
+    ['inner child_order', (s) => '[' + s.inner_spec.child_order.join(', ') + ']'],
+    ['inner min_prefix_length', (s) => String(s.inner_spec.min_prefix_length)],
+    ['inner max_prefix_length', (s) => String(s.inner_spec.max_prefix_length)],
+    ['inner child_size', (s) => String(s.inner_spec.child_size)],
+    ['inner empty_child', (s) => (s.inner_spec.empty_child.length ? s.inner_spec.empty_child.length + ' zero bytes' : 'empty')],
+    ['max_depth', (s) => (s.max_depth > 0 ? String(s.max_depth) : 'unbounded')],
+    ['prehash_key_before_comparison', (s) => (s.prehash_key_before_comparison ? 'yes' : 'no')],
+  ];
+  document.getElementById('specTableBody').innerHTML = fields.map(function (f) {
+    return '<tr><td>' + esc(f[0]) + '</td>' + specs.map((s) => '<td>' + esc(f[1](s)) + '</td>').join('') + '</tr>';
+  }).join('');
+}
+renderSpecTable();
+</script>
+
+<script>
+var MANIFEST = {
+  "tool_id": "585-ics23-proof-verifier",
+  "version": "1.0.0",
+  "title": "ICS23 Proof Verifier",
+  "description": "Offline verifier for ICS23 declarative Merkle proofs. Paste an ExistenceProof or NonExistenceProof in proofs.proto JSON shape, supply the root hash and the key being claimed, pick one of three build-time-pinned ProofSpec presets, and the page verifies it entirely client-side and names the exact check that failed.",
+  "category": "cat-11",
+  "tags": ["ICS23", "IBC", "Cosmos", "Merkle proof", "existence proof", "non-existence proof", "ProofSpec", "iavl", "tendermint", "smt", "offline verifier", "zero network"],
+  "audience": ["engineer", "auditor", "compliance", "risk"],
+  "mcp_tool_definition": {
+    "name": "verify_ics23_proof",
+    "description": "Verifies an ICS23 existence or non-existence Merkle proof against a commitment root and one of three pinned ProofSpec presets, entirely offline.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "proofInput": { "type": "string" },
+        "rootInput": { "type": "string" },
+        "keyInput": { "type": "string" },
+        "specInput": { "type": "string" }
+      }
+    }
+  },
+  "execution": { "type": "browser-javascript", "entry": "tools/585-ics23-proof-verifier.html", "function_name": "verifyProofUI", "timeout_ms": 5000 },
+  "ap2_export": false,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser"
+};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.innerHTML='&#9650;';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.innerHTML='&#9660;';}}
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'verifyProofUI',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  applyFields(fields);
+  if(/[#&]run=1/.test(h))runTool();
+}
+window.AINBridge={version:'1.1',apply:applyFields,run:runTool,
+  getMandate:function(){return null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
