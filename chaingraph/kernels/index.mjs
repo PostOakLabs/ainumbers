@@ -561,6 +561,7 @@ import * as art620    from './art-620-summa-mst-inclusion-checker.kernel.mjs';
 import * as art63     from './art-63-agent-service-metering-modeler.kernel.mjs';
 import * as art633    from './art-633-asc280-reportable-segment-tester.kernel.mjs';
 import * as art634    from './art-634-codm-expense-significance-classifier.kernel.mjs';
+import * as art635    from './art-635-rate-rec-5pct-threshold-classifier.kernel.mjs';
 import * as art64     from './art-64-ai-act-highrisk-fit-diagnostic.kernel.mjs';
 import * as art65     from './art-65-ai-conformity-pack-builder.kernel.mjs';
 import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
@@ -1174,6 +1175,7 @@ export const KERNELS = {
   'art-63-agent-service-metering-modeler':                      art63,
   'art-633-asc280-reportable-segment-tester':                   art633,
   'art-634-codm-expense-significance-classifier':               art634,
+  'art-635-rate-rec-5pct-threshold-classifier':                 art635,
   'art-64-ai-act-highrisk-fit-diagnostic':                      art64,
   'art-65-ai-conformity-pack-builder':                          art65,
   'art-66-fria-postmarket-monitoring-builder':                  art66,
