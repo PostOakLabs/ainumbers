@@ -1,0 +1,146 @@
+{
+  "tool_id": "dise-readiness-gap-analyzer",
+  "version": "1.0.0",
+  "title": "DISE Readiness Gap Analyzer",
+  "description": "Reads a DISE caption-to-category coverage matrix (the T581 matrix builder's output, or a caller-pasted equivalent) and classifies every required-category by income-statement-caption cell as no_coverage, partial_coverage or full_coverage. Ranks the gaps by materiality when dollar amounts are supplied, otherwise by declared category order, and returns a plain-English remediation note for each gap. Verify-only: it measures coverage of the pasted mapping and never asserts that a disclosure requirement has been met.",
+  "category": "cat-2",
+  "tags": [
+    "DISE",
+    "readiness",
+    "gap analysis",
+    "segment reporting",
+    "ASC 280",
+    "ASU 2023-07",
+    "chart of accounts",
+    "expense disaggregation"
+  ],
+  "audience": [
+    "controller",
+    "technical accounting",
+    "financial reporting",
+    "compliance"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": ["required_categories", "captions", "coverage_rows"],
+    "properties": {
+      "required_categories": {
+        "type": "array",
+        "description": "Natural-expense categories the entity has determined it must report separately. Caller-declared: no fixed FASB enum is enforced.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "category": {"type": "string"},
+            "amount": {"type": "number", "description": "Optional annual amount used to rank gaps by materiality"}
+          }
+        }
+      },
+      "captions": {
+        "type": "array",
+        "description": "Income statement captions in scope, each optionally carrying a total balance",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "balance": {"type": "number"}
+          }
+        }
+      },
+      "coverage_rows": {
+        "type": "array",
+        "description": "Caption plus category coverage rows, matching the matrix builder's output shape",
+        "items": {
+          "type": "object",
+          "properties": {
+            "caption": {"type": "string"},
+            "category": {"type": "string"},
+            "rows": {"type": "number", "description": "Mapped trial balance row count for that caption and category"},
+            "amount": {"type": "number", "description": "Optional mapped dollar amount"}
+          }
+        }
+      },
+      "threshold_pct": {
+        "type": "number",
+        "description": "Dollar coverage percentage at or above which a caption counts as fully mapped. Default 95."
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "cells": {
+        "type": "array",
+        "description": "Every required-category by caption cell with its classification",
+        "items": {
+          "type": "object",
+          "properties": {
+            "category": {"type": "string"},
+            "caption": {"type": "string"},
+            "status": {"type": "string", "enum": ["no_coverage", "partial_coverage", "full_coverage"]},
+            "mapped_tb_rows": {"type": "number"},
+            "mapped_amount": {"type": "number"},
+            "caption_coverage_pct": {"type": ["number", "null"]},
+            "assessment_basis": {"type": "string", "enum": ["rows_only", "rows_and_dollars"]},
+            "exposure": {"type": "number"},
+            "exposure_basis": {"type": "string", "enum": ["category_amount", "caption_balance", "none"]},
+            "remediation": {"type": "string"}
+          }
+        }
+      },
+      "gaps": {
+        "type": "array",
+        "description": "Cells that are not full_coverage, ranked, each carrying a remediation note",
+        "items": {"type": "object"}
+      },
+      "caption_coverage": {"type": "array", "items": {"type": "object"}},
+      "extra_mapped_categories": {"type": "array", "items": {"type": "string"}},
+      "unrecognised_coverage_captions": {"type": "array", "items": {"type": "string"}},
+      "ranking_basis": {"type": "string", "enum": ["materiality", "category"]},
+      "summary": {
+        "type": "object",
+        "properties": {
+          "required_categories": {"type": "number"},
+          "captions": {"type": "number"},
+          "cells_assessed": {"type": "number"},
+          "no_coverage": {"type": "number"},
+          "partial_coverage": {"type": "number"},
+          "full_coverage": {"type": "number"},
+          "readiness_pct": {"type": "number"}
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "analyze_dise_readiness_gaps",
+    "description": "Classifies every required-DISE-category by income-statement-caption cell as no_coverage, partial_coverage or full_coverage from a pasted coverage matrix, ranks the gaps by materiality or category, and returns a plain-English remediation note for each. Browser-based, client-side only, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["required_categories", "captions", "coverage_rows"],
+      "properties": {
+        "required_categories": {
+          "type": "array",
+          "description": "Categories the entity has determined it must be able to report separately"
+        },
+        "captions": {
+          "type": "array",
+          "description": "Income statement captions in scope, optionally with total balances"
+        },
+        "coverage_rows": {
+          "type": "array",
+          "description": "Caption plus category coverage rows from the matrix builder"
+        },
+        "threshold_pct": {
+          "type": "number",
+          "description": "Dollar coverage percentage at or above which a caption counts as fully mapped. Default 95."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/582-dise-readiness-gap-analyzer.html",
+    "function_name": "runGapAnalysis",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true
+}
