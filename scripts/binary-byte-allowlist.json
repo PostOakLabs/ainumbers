@@ -1,0 +1,31 @@
+{
+  "_README": {
+    "reason": "BINARY-BYTE-GATE-1 allowlist. Every entry shields a DELIBERATE control byte found by the 2026-08-15 estate sweep and must carry a written `reason` — an entry without one fails the gate. Ratchet: a listed file may carry at most the listed count of each listed byte, may carry no byte value that is not listed, and an unlisted file must be clean. There is deliberately NO --update flag; adding an entry costs a human sentence. Keys are repo-relative paths with forward slashes. `_README` is inert: it declares no `bytes`, so it shields nothing.",
+    "bytes": {}
+  },
+
+  "tools/05-invoice-a2a-suite.html": {
+    "reason": "DELIBERATE, spec-mandated binary data. The raw 0x01 sits inside the 32-byte PDF standard-security-handler padding string (28 BF 4E 5E 4E 75 8A 41 64 00 4E 56 FF FA 01 08 2E 2E 00 B6 D0 68 3E 80 2F 0C A9 FE 64 53 69 7A) in the inlined pdfkit/FPDF encryption code — the source cites foliojs/pdfkit lib/security.js and fpdf.org/en/script/script37.php directly above it. The constant is fixed by the PDF specification: changing any byte of it breaks PDF encryption. Neighbouring bytes of the same constant are written as \\0, \\b and \\f escapes; the minifier emitted this one raw. Never fix, never rewrite.",
+    "bytes": { "0x01": 1 }
+  },
+
+  "chaingraph/kernels/__proptests__/_pbt-common.mjs": {
+    "reason": "DELIBERATE fuzz corpus. NASTY_STRINGS is the shared adversarial-input vector list every property test draws from, and a NUL byte is one of the inputs it exists to feed a kernel — one bare NUL entry plus one embedded mid-string ('yes\\0no'), each annotated in place. Removing them would silently narrow the property-testing floor. Escaping them would move this file's bytes, which the FV floor digest gates read.",
+    "bytes": { "0x00": 2 }
+  },
+
+  "chaingraph/kernels/__proptests__/_pbt-common.selftest.mjs": {
+    "reason": "DELIBERATE, and the control that proves the entry above. This selftest asserts NASTY_STRINGS still contains a NUL byte; the assertion is written with the literal character it is asserting about. If this byte disappeared the selftest could pass over a corpus that had quietly lost its NUL vector.",
+    "bytes": { "0x00": 1 }
+  },
+
+  "scripts/check-node-surface-parity.mjs": {
+    "reason": "DELIBERATE separator, written raw rather than escaped. Two NULs build a dedup key by joining three user-visible strings — `${path}<NUL>${kernelLiteral}<NUL>${pageLiteral}` — with a byte that cannot occur inside any of the three, so distinct triples can never collide into one key. Semantics are correct; only the spelling is raw where '\\u0000' would read better. Left untouched by BINARY-BYTE-GATE-1 because it is deliberate, not stray.",
+    "bytes": { "0x00": 2 }
+  },
+
+  "chaingraph/kernels/validate-ha-records.test.mjs": {
+    "reason": "DELIBERATE sentinel, written raw rather than escaped. Used as the fallback in `vm.startsWith(record.identity?.id || '<NUL>')` — a value chosen because no real verification-method id can start with it, so a record missing an identity id can never accidentally satisfy the prefix check. Semantics are correct; only the spelling is raw where '\\u0000' would read better. Left untouched by BINARY-BYTE-GATE-1 because it is deliberate, not stray (the row's rule: fix unambiguous stray bytes, escalate anything that looks deliberate).",
+    "bytes": { "0x00": 1 }
+  }
+}

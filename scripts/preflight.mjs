@@ -91,6 +91,16 @@ const TOUCHED_FLOOR_FILES = touchedFloorFiles();
 
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
+  // BINARY-BYTE-GATE-1 runs FIRST, ahead of the JS syntax gate, on purpose.
+  // The syntax gate is structurally BLIND to this class: DISE-SEG-T-2 shipped a
+  // raw NUL inside a JS string delimiter in tools/582 and check_tools.js was
+  // green both before and after the fix, because a NUL in a string literal is
+  // valid JavaScript. Worse, that NUL makes the file read as BINARY to grep and
+  // ripgrep, so every grep-based gate below silently stops matching it. A file
+  // that has gone invisible to the instruments must be caught before anything
+  // downstream reports a green it cannot actually see.
+  ['Binary/control bytes (BINARY-BYTE-GATE-1)', 'node scripts/check-binary-bytes.mjs'],
+  ['Binary-byte gate fixture proof', 'node scripts/check-binary-bytes.test.mjs'],
   ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
   ['Kernel JS syntax',             'node chaingraph/kernels/syntax-check.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
