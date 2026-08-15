@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (605 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (609 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6222,6 +6222,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-595-ap2-cartmandate-hashchain-builder",
+    "display_name": "AP2 CartMandate Hash-Chain Builder",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/chaingraph/art-595-ap2-cartmandate-hashchain-builder.html",
+    "description": "Builds an illustrative Google AP2 CartMandate Verifiable Digital Credential (VDC) skeleton whose credentialSubject carries a deterministic h",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-597-c2pa-aiml-assertion-decoder",
     "display_name": "C2PA AI/ML Assertion Decoder",
     "mandate_type": "compliance_control",
@@ -6418,6 +6428,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-615-mla-charge-inclusion-classifier",
+    "display_name": "MLA Charge-Inclusion Classifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-615-mla-charge-inclusion-classifier.html",
+    "description": "Closed-set lookup of whether a charge type must be included in the Military Lending Act MAPR under 32 CFR 232.4(c) and 232.4(d), returning i",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-616-mla-mapr-actuarial-recompute",
     "display_name": "MLA MAPR Actuarial Recompute",
     "mandate_type": "compliance_mandate",
@@ -6438,6 +6458,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-619-ccd2-aprc-annex3-recompute",
+    "display_name": "CCD2 Annex III APRC Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-619-ccd2-aprc-annex3-recompute.html",
+    "description": "Recomputes the EU Directive (EU) 2023/2225 (CCD2) annual percentage rate of charge (APRC) from a caller-supplied drawdown/repayment schedule",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-62-ap2-payment-receipt-verifier",
     "display_name": "AP2 PaymentReceipt Verifier & HNP Guardrail",
     "mandate_type": "attestation_mandate",
@@ -6450,6 +6480,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-01-ap2-mandate-chain-validator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-620-summa-mst-inclusion-checker",
+    "display_name": "Summa MST Inclusion Checker",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-620-summa-mst-inclusion-checker.html",
+    "description": "Paste a published Merkle-sum-tree root (hash + sum) and an inclusion proof for one leaf; verifies membership AND local balance-sum-chain con",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

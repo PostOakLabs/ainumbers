@@ -536,6 +536,7 @@ status: stable
 - [x402 Domain & Nonce Window Checker](./art-592-x402-domain-nonce-window-checker.md) — `check_x402_domain_nonce_window`
 - [Web Bot Auth Nonce & Replay-Window Checker](./art-593-webbotauth-nonce-replay-check.md) — `check_webbotauth_nonce_replay`
 - [Tempo MPP Voucher & Receipt Verifier](./art-594-tempo-mpp-voucher-receipt-verifier.md) — `verify_tempo_mpp_voucher`
+- [AP2 CartMandate Hash-Chain Builder](./art-595-ap2-cartmandate-hashchain-builder.md) — `build_ap2_cartmandate_hashchain`
 - [C2PA AI/ML Assertion Decoder](./art-597-c2pa-aiml-assertion-decoder.md) — `decode_c2pa_aiml_assertions`
 - [Input Attestation Verifier](./art-598-input-attestation-verifier.md) — `verify_input_attestations`
 - [GLEIF Snapshot Digest](./art-599-gleif-snapshot-digest.md) — `digest_gleif_snapshot`
@@ -554,9 +555,12 @@ status: stable
 - [ERC-7540 Async-Vault Request Accounting](./art-611-erc7540-async-vault-request-accounting.md) — `recompute_erc7540_request_accounting`
 - [ERC-4337 UserOperation Math](./art-613-erc4337-userop-math.md) — `recompute_erc4337_userop_math`
 - [EIP-7702 Authorization-Tuple Decoder](./art-614-eip7702-authorization-tuple-decoder.md) — `decode_eip7702_authorization_tuple`
+- [MLA Charge-Inclusion Classifier](./art-615-mla-charge-inclusion-classifier.md) — `classify_mla_charge_inclusion`
 - [MLA MAPR Actuarial Recompute](./art-616-mla-mapr-actuarial-recompute.md) — `recompute_mla_mapr_actuarial`
 - [NAIC CLO/CBO/CDO Tranche RBC Factor Calculator](./art-618-naic-clo-rbc-factor-calculator.md) — `calculate_naic_clo_rbc_factor`
+- [CCD2 Annex III APRC Recompute](./art-619-ccd2-aprc-annex3-recompute.md) — `recompute_ccd2_aprc_annex3`
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`
+- [Summa MST Inclusion Checker](./art-620-summa-mst-inclusion-checker.md) — `verify_summa_mst_inclusion`
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`
 - [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md) — `run_ai_act_highrisk_fit`
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md) — `build_ai_conformity_pack`
