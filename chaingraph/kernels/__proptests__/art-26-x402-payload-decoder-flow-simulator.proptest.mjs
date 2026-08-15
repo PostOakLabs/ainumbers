@@ -1,5 +1,5 @@
 // art-26-x402-payload-decoder-flow-simulator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C8-1).
-// kernel_digest_at_authoring: sha256:3e47e2ed8b75c0eacebb1bad77f5deb167321634e9040fc3f7cadc125b7090b3
+// kernel_digest_at_authoring: sha256:24dadadd4a0901134a41d251fcac134657970dc8015251d06ab4757f1bcaf17e
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny — blanket

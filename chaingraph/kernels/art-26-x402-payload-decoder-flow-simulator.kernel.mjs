@@ -14,12 +14,66 @@ export const meta = {
 const KNOWN_SCHEMES = ['exact', 'upto'];
 const KNOWN_NETWORKS = ['base', 'base-sepolia', 'polygon', 'arbitrum', 'solana', 'world', 'avalanche'];
 
+// Lenient UTF-8 decode matching Node's `Buffer.toString('utf8')` -- substitutes
+// U+FFFD for any ill-formed byte sequence instead of throwing (non-fatal, unlike
+// TextDecoder's default). Byte-range table per the WHATWG Encoding Standard.
+function _decodeUtf8Lenient(bytes) {
+  var out = '';
+  var i = 0;
+  var n = bytes.length;
+  while (i < n) {
+    var b0 = bytes[i];
+    if (b0 < 0x80) { out += String.fromCharCode(b0); i += 1; continue; }
+    var need, cp, lo1, hi1;
+    if (b0 >= 0xc2 && b0 <= 0xdf) { need = 1; cp = b0 & 0x1f; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xe0) { need = 2; cp = b0 & 0x0f; lo1 = 0xa0; hi1 = 0xbf; }
+    else if (b0 >= 0xe1 && b0 <= 0xec) { need = 2; cp = b0 & 0x0f; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xed) { need = 2; cp = b0 & 0x0f; lo1 = 0x80; hi1 = 0x9f; }
+    else if (b0 >= 0xee && b0 <= 0xef) { need = 2; cp = b0 & 0x0f; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xf0) { need = 3; cp = b0 & 0x07; lo1 = 0x90; hi1 = 0xbf; }
+    else if (b0 >= 0xf1 && b0 <= 0xf3) { need = 3; cp = b0 & 0x07; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xf4) { need = 3; cp = b0 & 0x07; lo1 = 0x80; hi1 = 0x8f; }
+    else { out += '�'; i += 1; continue; }
+    var ok = (i + need < n);
+    if (ok) {
+      for (var k = 1; k <= need && ok; k++) {
+        var bk = bytes[i + k];
+        var lo = (k === 1) ? lo1 : 0x80;
+        var hi = (k === 1) ? hi1 : 0xbf;
+        if (bk < lo || bk > hi) { ok = false; break; }
+        cp = (cp << 6) | (bk & 0x3f);
+      }
+    }
+    if (!ok) { out += '�'; i += 1; continue; }
+    if (cp <= 0xffff) { out += String.fromCharCode(cp); }
+    else {
+      cp -= 0x10000;
+      out += String.fromCharCode(0xd800 + (cp >> 10), 0xdc00 + (cp & 0x3ff));
+    }
+    i += need + 1;
+  }
+  return out;
+}
+
 function tryBase64Decode(s) {
   // Strip header prefix if present
   s = s.trim().replace(/^[A-Za-z0-9-]+:\s*/, '');
   s = s.replace(/-/g, '+').replace(/_/g, '/');
   while (s.length % 4) s += '=';
   try {
+    // The zkVM guest never provides `Buffer` (confirmed via the chaingraph/vm
+    // QuickJS-ng harness, SILENT-DEGRADE-FIX-1-2026-08-14: the unconditional
+    // `Buffer.from` call threw ReferenceError, caught by this function's own
+    // try/catch, silently returning null for every base64 input on the guest --
+    // even genuinely valid x402 payloads -- which downstream reports as "Could
+    // not decode input" instead of the correct decoded verdict). `atob` IS
+    // available on the guest (art-124 precedent); take that branch first.
+    if (globalThis.atob) {
+      var bin = globalThis.atob(s);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return _decodeUtf8Lenient(bytes);
+    }
     return Buffer.from(s, 'base64').toString('utf8');
   } catch {
     return null;
