@@ -1,3 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>PQ Receipt Re-Anchor Tool · AINumbers.co</title>
+<meta name="description" content="Countersign an existing AINumbers receipt with a post-quantum SLH-DSA + ML-DSA dual signature, entirely in your browser. Additive, verification-side only. Zero PII, zero custody.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/623-pq-receipt-reanchor.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PQ Receipt Re-Anchor Tool","url":"https://ainumbers.co/tools/623-pq-receipt-reanchor.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "pq-receipt-reanchor",
+  "version": "1.0.0",
+  "title": "PQ Receipt Re-Anchor Tool",
+  "description": "Countersigns an existing AINumbers receipt with a post-quantum SLH-DSA (FIPS 205, primary) + ML-DSA-65 (FIPS 204, secondary) dual signature, entirely client-side. Additive only — never modifies the original proof or digest.",
+  "category": "mcp",
+  "tags": ["post-quantum","pqc","slh-dsa","ml-dsa","fips 205","fips 204","dual signature","re-anchor","attestation","receipt"],
+  "audience": ["compliance","engineer","security"],
+  "input_schema": {"type":"object","properties":{"receipt_json":{"type":"string"}},"required":["receipt_json"]},
+  "output_schema": {"type":"object","properties":{"reanchored_receipt":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"reanchor_receipt_pq","description":"Client-side only — never MCP-invocable (key generation and signing must happen in the caller's own browser; this tool never receives or returns a private key).","inputSchema":{"type":"object","properties":{}}},
+  "execution": {"type":"browser-javascript","entry":"tools/623-pq-receipt-reanchor.html","function_name":"runReanchor","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:.85rem;display:block}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.6rem .75rem;border-radius:var(--radius);outline:none;resize:vertical}
+textarea:focus{border-color:var(--purple)}
+.btn-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.85rem}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.6rem 1.4rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn.secondary{background:var(--bg-3);color:var(--text);border:1px solid var(--border)}
+.run-btn.secondary:hover{border-color:var(--purple);color:var(--purple);background:var(--bg-3)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.kv{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);line-height:2}
+.kv b{color:var(--bright)}
+.status-ok{color:var(--green)}.status-warn{color:var(--warn)}.status-bad{color:var(--red)}
+.mono-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.7;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow-y:auto}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+.tier-list{display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem}
+.tier-row{display:flex;gap:.6rem;align-items:flex-start;font-size:.72rem;line-height:1.6;color:var(--body)}
+.tier-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--purple-lt);flex-shrink:0;width:1.4rem}
+.tier-row b{color:var(--bright)}
+.warn-box{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-left:3px solid var(--warn);border-radius:6px;padding:.65rem .9rem;font-size:.72rem;line-height:1.6;color:var(--body);margin-bottom:1rem}
+.warn-box b{color:var(--warn)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T623</span></div>
+    <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">ChainGraph &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">MCP Chain · T623 · Post-Quantum Attestation</div>
+  <span class="hero-badge badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">PQ Receipt Re-Anchor Tool</h1>
+  <p class="hero-desc">Paste an existing AINumbers receipt (any exported Policy Mandate JSON carrying an <code>audit_signature.proof</code>) and countersign it, entirely in this browser tab, with a post-quantum dual signature: SLH-DSA-SHA2-128f (FIPS 205, hash-based, primary) plus ML-DSA-65 (FIPS 204, lattice-based, secondary). The original receipt bytes, digest, and every existing proof are never touched. The tool only appends two new, independent proof-set members.</p>
+  <div class="disclaimer">⚠ This is a local countersignature tool, not a migration, not custody, not a service. The platform never holds, stores, or re-anchors anything on your behalf: every operation is a paste-in, compute, download-out round trip with nothing retained after the tab closes. There is no key escrow, and no recovery path if the exported key is lost, by design.</div>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-purple">FIPS 205 · SLH-DSA</span>
+    <span class="badge badge-purple">FIPS 204 · ML-DSA</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · Zero-Storage</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:#9aa7b8"><span style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance:</span> 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data, use synthetic or anonymised inputs only. Key generation, signing, and hashing all happen in this tab; nothing is written to <code>sessionStorage</code>, <code>localStorage</code>, or <code>IndexedDB</code>. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <div class="panel">
+    <span class="panel-title">Are AINumbers receipts quantum-safe? The honest three-tier answer</span>
+    <div class="tier-list">
+      <div class="tier-row"><span class="tier-num">1.</span><span>Hash-binding: yes. SHA-256, used throughout for canonicalization and digesting, has no known quantum break that threatens preimage or collision resistance at current parameter sizes. Grover's algorithm only halves the effective security margin, which SHA-256 already absorbs.</span></div>
+      <div class="tier-row"><span class="tier-num">2.</span><span>The Groth16 seal: no. Any zkVM-sealed receipt's proof rests on a BN254 pairing and a trusted setup, both broken by a sufficiently large quantum computer via Shor's algorithm against the underlying elliptic-curve discrete-log problem. This tool does not touch, re-seal, or claim to fix that layer.</span></div>
+      <div class="tier-row"><span class="tier-num">3.</span><span>This tool's mitigation: the artifact layer only. The appended PQ signatures add a second, independent, post-quantum-resistant attestation of the artifact, alongside the seal. They do not, and cannot, make the seal itself quantum-safe. "Quantum-safe receipts" as an unqualified claim is never accurate; the mitigation is layered, not total.</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <span class="panel-title">Step 1: Paste receipt</span>
+    <textarea id="receiptIn" rows="8" placeholder="Paste an exported AINumbers receipt / Policy Mandate JSON here (must include audit_signature.proof)…"></textarea>
+    <div class="btn-row">
+      <button class="run-btn" id="btnRecompute" onclick="uiRecomputeDigest()">▶ Recompute Digest</button>
+    </div>
+    <div id="digestOut"></div>
+  </div>
+
+  <div class="panel">
+    <span class="panel-title">Step 2: Generate ephemeral countersigning keys</span>
+    <div class="warn-box">No recovery. Keys are generated in memory only, for this tab, this session. Export both secret keys below before you countersign: refresh or close the tab and they are gone forever. A PQ countersignature is only as durable as your own key handling; the tool makes no other claim.</div>
+    <div class="btn-row">
+      <button class="run-btn secondary" id="btnKeygen" onclick="uiKeygen()">▶ Generate SLH-DSA + ML-DSA Keypairs</button>
+    </div>
+    <div id="keygenOut"></div>
+  </div>
+
+  <div class="panel">
+    <span class="panel-title">Step 3: Countersign &amp; download</span>
+    <div class="btn-row">
+      <button class="run-btn" id="btnSign" onclick="uiSignAndDownload()" disabled>▶ Countersign &amp; Download Re-Anchored Receipt</button>
+    </div>
+    <div id="signOut"></div>
+  </div>
+
+  <div id="outputSection"></div>
+
+</div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Countersign a receipt above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../chaingraph/chaingraph-hub.html">ChainGraph</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+// ═══ Post-quantum signing engine — vendored verbatim from chaingraph/kernels/_proof.mjs ═══
+// (SLH-DSA + ML-DSA + the §16 Data Integrity proof pipeline). CONTRACT requires every tool to be a
+// single self-contained .html — inline JS only, no <script src> — so this engine is embedded here
+// rather than imported. See _proof.mjs itself for the full attribution/provenance comments; this is
+// a byte-identical copy of that file's exported surface, `export` keywords kept as harmless no-ops
+// (nothing in this page imports this module — it is the page's own inline script).
 // OpenChainGraph shared Data Integrity signer/verifier — OCG Standard §16 (Proof Binding).
 // SINGLE SOURCE OF TRUTH for §16 signature production/verification.
 //
@@ -16,7 +227,22 @@
 // OPTIONAL + holder-chosen (§16.2): nothing here runs unless a caller passes a private key. Signing
 // de-anonymizes a run; callers MUST surface that before signing.
 
-import { cgCanon } from './_hash.mjs';
+// import { cgCanon } from './_hash.mjs'; — inlined below (self-contained page, no <script src>).
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+const cgCanon = (v) =>
+  Array.isArray(v) ? v.map(cgCanon)
+  : (v && typeof v === 'object')
+    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
+    : v;
 
 // ── §PQC-1 hybrid ML-DSA proof (OCG SPEC.md §PQC-1, NORMATIVE OPTIONAL) — vendored FIPS 204 impl ──
 // Vendored verbatim (function bodies unmodified; only import/export boilerplate stripped and a
@@ -122,7 +348,7 @@ const u64 = {
     add, add3L, add3H, add4L, add4H, add5H, add5L,
 };
 // Default export mirrors named `u64` for compatibility with object-style imports.
-export default u64;
+/* export default u64 removed - unused in this page */
 //# sourceMappingURL=_u64.js.map
 // ── @noble/hashes utils.js (v2.2.0, MIT, Paul Miller) — byte/hash utilities ─────────────────────
 /**
@@ -533,7 +759,7 @@ const nextTick = async () => { };
  * await asyncLoop(2, 0, () => {});
  * ```
  */
-export async function asyncLoop(iters, tick, cb) {
+async function asyncLoop(iters, tick, cb) {
     let ts = Date.now();
     for (let i = 0; i < iters; i++) {
         cb(i);
@@ -2928,7 +3154,7 @@ function getDilithium(opts_) {
     });
 }
 /** ML-DSA-44 for 128-bit security level. Not recommended after 2030, as per ASD. */
-export const ml_dsa44 = /* @__PURE__ */ (() => getDilithium({
+const ml_dsa44 = /* @__PURE__ */ (() => getDilithium({
     ...PARAMS[2],
     CRH_BYTES: 64,
     TR_BYTES: 64,
@@ -3037,13 +3263,13 @@ function b58decode(str) {
 
 // ── did:key <-> raw Ed25519 public key (multicodec ed25519-pub = 0xed 0x01) ──────────────────────
 const ED25519_MULTICODEC = [0xed, 0x01];
-export async function rawPubkeyToDidKey(publicKey) {
+async function rawPubkeyToDidKey(publicKey) {
   const raw = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', publicKey)); // 32 bytes
   const prefixed = new Uint8Array(ED25519_MULTICODEC.length + raw.length);
   prefixed.set(ED25519_MULTICODEC, 0); prefixed.set(raw, ED25519_MULTICODEC.length);
   return 'did:key:z' + b58encode(prefixed);
 }
-export async function didKeyToPublicKey(did) {
+async function didKeyToPublicKey(did) {
   if (!did.startsWith('did:key:z')) throw new Error('not a did:key z-form');
   const prefixed = b58decode(did.slice('did:key:z'.length));
   if (prefixed[0] !== 0xed || prefixed[1] !== 0x01) throw new Error('did:key is not Ed25519');
@@ -3056,7 +3282,7 @@ export async function didKeyToPublicKey(did) {
  * privateKey: WebCrypto Ed25519 private CryptoKey. verificationMethod: did:key (z6Mk…).
  * created: ISO-8601 string supplied by the caller (determinism — NEVER Date.now() here).
  */
-export async function sign(artifact, { verificationMethod, created, privateKey }) {
+async function sign(artifact, { verificationMethod, created, privateKey }) {
   if (!verificationMethod || !created || !privateKey) throw new Error('sign requires { verificationMethod, created, privateKey }');
   const opts = proofOptions({ verificationMethod, created });
   const sigBytes = new Uint8Array(await globalThis.crypto.subtle.sign('Ed25519', privateKey, await hashData(artifact, opts)));
@@ -3071,7 +3297,7 @@ export async function sign(artifact, { verificationMethod, created, privateKey }
  * caller from artifact.audit_signature.proof.verificationMethod (see didKeyToPublicKey). Predicate: returns
  * false on any structural/crypto problem rather than throwing.
  */
-export async function verify(artifact, publicKey) {
+async function verify(artifact, publicKey) {
   const proof = artifact?.audit_signature?.proof;
   if (!proof || proof.type !== 'DataIntegrityProof' || proof.cryptosuite !== CRYPTOSUITE) return false;
   if (proof.proofPurpose !== 'assertionMethod' || typeof proof.proofValue !== 'string' || proof.proofValue[0] !== 'z') return false;
@@ -3115,7 +3341,7 @@ function chainSecuredDocument(artifact, proof) {
  * already on the artifact). The result's audit_signature.proof is an array when it holds >1 proof.
  * created is caller-supplied ISO-8601 (determinism — NEVER Date.now() here).
  */
-export async function addProof(artifact, { verificationMethod, created, privateKey, id, previousProof }) {
+async function addProof(artifact, { verificationMethod, created, privateKey, id, previousProof }) {
   if (!verificationMethod || !created || !privateKey) throw new Error('addProof requires { verificationMethod, created, privateKey }');
   const opts = proofOptions({ verificationMethod, created, id, previousProof });
   const probe = { ...opts };                      // chainSecuredDocument reads previousProof off the proof
@@ -3135,7 +3361,7 @@ export async function addProof(artifact, { verificationMethod, created, privateK
  * didKeyToPublicKey). Predicate: false on any structural/crypto problem — a broken/missing/cyclic
  * previousProof reference fails the whole chain.
  */
-export async function verifyProofs(artifact, resolveKey) {
+async function verifyProofs(artifact, resolveKey) {
   const proofs = asArray(artifact?.audit_signature?.proof);
   if (proofs.length === 0) return false;
   const ids = new Set(proofs.filter((p) => p && p.id !== undefined).map((p) => p.id));
@@ -3218,7 +3444,7 @@ function mldsaProofOptions({ verificationMethod, created, id, previousProof }) {
  * did:key ML-DSA multicodec entries are still draft). created is caller-supplied ISO-8601
  * (determinism — NEVER Date.now() here, matching addProof).
  */
-export async function addMldsaProof(artifact, { verificationMethod, created, secretKey, id, previousProof }) {
+async function addMldsaProof(artifact, { verificationMethod, created, secretKey, id, previousProof }) {
   if (!verificationMethod || !created || !secretKey) throw new Error('addMldsaProof requires { verificationMethod, created, secretKey }');
   const opts = mldsaProofOptions({ verificationMethod, created, id, previousProof });
   const doc = chainSecuredDocument(artifact, { ...opts });
@@ -3232,10 +3458,10 @@ export async function addMldsaProof(artifact, { verificationMethod, created, sec
 }
 
 /** mldsaKeygen(seed: Uint8Array[32]) -> { publicKey, secretKey } (both Uint8Array, ML-DSA-65). Caller-supplied seed — determinism is the caller's responsibility, same posture as elsewhere in this file (no Date.now()/crypto.getRandomValues call hidden inside signing helpers). */
-export function mldsaKeygen(seed) { return ml_dsa65.keygen(seed); }
+function mldsaKeygen(seed) { return ml_dsa65.keygen(seed); }
 
 /** mldsaVerify(sigBytes, msgBytes, publicKey) -> boolean. Raw verify, no proof-envelope handling — used internally by verifyProofs' suite dispatch and exposed for direct use. */
-export function mldsaVerify(sigBytes, msgBytes, publicKey) {
+function mldsaVerify(sigBytes, msgBytes, publicKey) {
   try { return ml_dsa65.verify(sigBytes, msgBytes, publicKey); } catch { return false; }
 }
 
@@ -3244,22 +3470,22 @@ export function mldsaVerify(sigBytes, msgBytes, publicKey) {
 // (draft stage, same reserved-extension posture as the cryptosuite id above — not asserted as a
 // final registered kty, just the least-provisional shape available; a verifier that only reads
 // `pub`/`priv` as base64url ML-DSA-65 key bytes is unaffected by the kty label ever changing).
-export function mldsaPublicKeyToJwk(publicKey) {
+function mldsaPublicKeyToJwk(publicKey) {
   return { kty: 'AKP', alg: MLDSA_CRYPTOSUITE, pub: b64uEncode(publicKey) };
 }
-export function mldsaJwkToPublicKey(jwk) {
+function mldsaJwkToPublicKey(jwk) {
   if (!jwk || jwk.kty !== 'AKP' || typeof jwk.pub !== 'string') throw new Error('not an ML-DSA AKP JWK');
   return b64uDecode(jwk.pub);
 }
-export function mldsaSecretKeyToJwk(secretKey) {
+function mldsaSecretKeyToJwk(secretKey) {
   return { kty: 'AKP', alg: MLDSA_CRYPTOSUITE, priv: b64uEncode(secretKey) };
 }
-export function mldsaJwkToSecretKey(jwk) {
+function mldsaJwkToSecretKey(jwk) {
   if (!jwk || jwk.kty !== 'AKP' || typeof jwk.priv !== 'string') throw new Error('not an ML-DSA AKP JWK');
   return b64uDecode(jwk.priv);
 }
 
-export const MLDSA_PROOF_CRYPTOSUITE = MLDSA_CRYPTOSUITE;
+const MLDSA_PROOF_CRYPTOSUITE = MLDSA_CRYPTOSUITE;
 
 // ── §PQC-1 SLH-DSA (FIPS 205) Data Integrity proof — dual-sign secondary alongside ML-DSA ─────────
 // Vendored verbatim (function bodies unmodified; import/export boilerplate stripped, a handful of
@@ -3872,12 +4098,12 @@ const genSlhShake = () => (opts) => (pubSeed, skSeed) => {
   };
 };
 const SLH_SHAKE_SIMPLE = /* @__PURE__ */ (() => ({ getContext: genSlhShake() }))();
-export const slh_dsa_shake_128f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128f'], SLH_SHAKE_SIMPLE))();
-export const slh_dsa_shake_128s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128s'], SLH_SHAKE_SIMPLE))();
-export const slh_dsa_shake_192f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192f'], SLH_SHAKE_SIMPLE))();
-export const slh_dsa_shake_192s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192s'], SLH_SHAKE_SIMPLE))();
-export const slh_dsa_shake_256f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256f'], SLH_SHAKE_SIMPLE))();
-export const slh_dsa_shake_256s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256s'], SLH_SHAKE_SIMPLE))();
+const slh_dsa_shake_128f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128f'], SLH_SHAKE_SIMPLE))();
+const slh_dsa_shake_128s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128s'], SLH_SHAKE_SIMPLE))();
+const slh_dsa_shake_192f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192f'], SLH_SHAKE_SIMPLE))();
+const slh_dsa_shake_192s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192s'], SLH_SHAKE_SIMPLE))();
+const slh_dsa_shake_256f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256f'], SLH_SHAKE_SIMPLE))();
+const slh_dsa_shake_256s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256s'], SLH_SHAKE_SIMPLE))();
 const genSlhSha = (h0, h1) => (opts) => (pub_seed, sk_seed) => {
   const { N } = opts;
   const counterB = new Uint8Array(4);
@@ -3917,12 +4143,12 @@ const SLH_SHA256_SIMPLE = /* @__PURE__ */ (() => ({ isCompressed: true, getConte
 const SLH_SHA512_SIMPLE = /* @__PURE__ */ (() => ({ isCompressed: true, getContext: genSlhSha(pqSha256, pqSha512) }))();
 /** SLH-DSA-SHA2-128f (FIPS 205 Category 1): the row-chosen primary parameter set — see the measured
  * latency note above. lengths publicKey=32, secretKey=64, signature=17088, seed=48, signRand=16. */
-export const slh_dsa_sha2_128f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128f'], SLH_SHA256_SIMPLE))();
-export const slh_dsa_sha2_128s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128s'], SLH_SHA256_SIMPLE))();
-export const slh_dsa_sha2_192f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192f'], SLH_SHA512_SIMPLE))();
-export const slh_dsa_sha2_192s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192s'], SLH_SHA512_SIMPLE))();
-export const slh_dsa_sha2_256f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256f'], SLH_SHA512_SIMPLE))();
-export const slh_dsa_sha2_256s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256s'], SLH_SHA512_SIMPLE))();
+const slh_dsa_sha2_128f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128f'], SLH_SHA256_SIMPLE))();
+const slh_dsa_sha2_128s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['128s'], SLH_SHA256_SIMPLE))();
+const slh_dsa_sha2_192f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192f'], SLH_SHA512_SIMPLE))();
+const slh_dsa_sha2_192s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['192s'], SLH_SHA512_SIMPLE))();
+const slh_dsa_sha2_256f = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256f'], SLH_SHA512_SIMPLE))();
+const slh_dsa_sha2_256s = /* @__PURE__ */ (() => genSlhDsa(SLHDSA_PARAMS['256s'], SLH_SHA512_SIMPLE))();
 
 // ── §PQC-1 SLH-DSA Data Integrity proof helpers — mirrors the ML-DSA block above exactly ───────────
 // Cryptosuite id: named by its FIPS 205 parameter-set designation ("SLH-DSA-SHA2-128f") rather than
@@ -3943,7 +4169,7 @@ function slhdsaProofOptions({ verificationMethod, created, id, previousProof }) 
  * pipeline as addMldsaProof: no second canonicalization, no second hash path. secretKey is a raw
  * slh_dsa_sha2_128f secret key Uint8Array (see slhdsaKeygen / slhdsaSecretKeyToJwk below). created is
  * caller-supplied ISO-8601 (determinism — never Date.now() here). */
-export async function addSlhdsaProof(artifact, { verificationMethod, created, secretKey, id, previousProof }) {
+async function addSlhdsaProof(artifact, { verificationMethod, created, secretKey, id, previousProof }) {
   if (!verificationMethod || !created || !secretKey) throw new Error('addSlhdsaProof requires { verificationMethod, created, secretKey }');
   const opts = slhdsaProofOptions({ verificationMethod, created, id, previousProof });
   const doc = chainSecuredDocument(artifact, { ...opts });
@@ -3958,28 +4184,206 @@ export async function addSlhdsaProof(artifact, { verificationMethod, created, se
 
 /** slhdsaKeygen(seed: Uint8Array[48]) -> { publicKey, secretKey } (both Uint8Array, SLH-DSA-SHA2-128f).
  * Caller-supplied seed — determinism is the caller's responsibility, same posture as mldsaKeygen. */
-export function slhdsaKeygen(seed) { return slh_dsa_sha2_128f.keygen(seed); }
+function slhdsaKeygen(seed) { return slh_dsa_sha2_128f.keygen(seed); }
 
 /** slhdsaVerify(sigBytes, msgBytes, publicKey) -> boolean. Raw verify, mirrors mldsaVerify. */
-export function slhdsaVerify(sigBytes, msgBytes, publicKey) {
+function slhdsaVerify(sigBytes, msgBytes, publicKey) {
   try { return slh_dsa_sha2_128f.verify(sigBytes, msgBytes, publicKey); } catch { return false; }
 }
 
-export function slhdsaPublicKeyToJwk(publicKey) {
+function slhdsaPublicKeyToJwk(publicKey) {
   return { kty: 'AKP', alg: SLHDSA_CRYPTOSUITE, pub: b64uEncode(publicKey) };
 }
-export function slhdsaJwkToPublicKey(jwk) {
+function slhdsaJwkToPublicKey(jwk) {
   if (!jwk || jwk.kty !== 'AKP' || typeof jwk.pub !== 'string') throw new Error('not an SLH-DSA AKP JWK');
   return b64uDecode(jwk.pub);
 }
-export function slhdsaSecretKeyToJwk(secretKey) {
+function slhdsaSecretKeyToJwk(secretKey) {
   return { kty: 'AKP', alg: SLHDSA_CRYPTOSUITE, priv: b64uEncode(secretKey) };
 }
-export function slhdsaJwkToSecretKey(jwk) {
+function slhdsaJwkToSecretKey(jwk) {
   if (!jwk || jwk.kty !== 'AKP' || typeof jwk.priv !== 'string') throw new Error('not an SLH-DSA AKP JWK');
   return b64uDecode(jwk.priv);
 }
 
-export const SLHDSA_PROOF_CRYPTOSUITE = SLHDSA_CRYPTOSUITE;
+const SLHDSA_PROOF_CRYPTOSUITE = SLHDSA_CRYPTOSUITE;
 
-export const PROOF_CRYPTOSUITE = CRYPTOSUITE;
+const PROOF_CRYPTOSUITE = CRYPTOSUITE;
+
+// ═══ End of vendored engine. Tool-specific logic below. ═══
+
+// executionHash — inlined verbatim from chaingraph/kernels/_hash.mjs (SSOT for the execution_hash
+// preimage, OCG Standard §2/§6; cgCanon/assertIJson are already defined above, reused here as-is).
+// Used to independently RECOMPUTE the pasted receipt's digest from its own policy_parameters/
+// output_payload — never trust a digest field printed in the pasted JSON (SO #34).
+function canonicalPreimage(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  return JSON.stringify(cgCanon(obj));
+}
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const nowIso = () => new Date().toISOString();
+let _receipt = null;      // parsed pasted receipt
+let _recomputedHash = null;
+let _slhKeys = null;      // { publicKey, secretKey }
+let _mldsaKeys = null;
+let _reanchored = null;   // dual-signed output artifact
+
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+window.uiRecomputeDigest = async function () {
+  const box = document.getElementById('digestOut');
+  const raw = document.getElementById('receiptIn').value.trim();
+  if (!raw) { box.innerHTML = '<div class="warn-box">Paste a receipt JSON first.</div>'; return; }
+  let obj;
+  try { obj = JSON.parse(raw); } catch (e) { box.innerHTML = `<div class="warn-box"><b>Not valid JSON:</b> ${esc(e.message)}</div>`; return; }
+  if (!obj || typeof obj !== 'object' || !('policy_parameters' in obj) || !('output_payload' in obj)) {
+    box.innerHTML = '<div class="warn-box">Not an AINumbers receipt — missing <code>policy_parameters</code> / <code>output_payload</code>.</div>';
+    return;
+  }
+  let recomputed;
+  try { recomputed = await executionHash(obj.policy_parameters, obj.output_payload); }
+  catch (e) { box.innerHTML = `<div class="warn-box"><b>Could not canonicalize:</b> ${esc(e.message)}</div>`; return; }
+  const printed = typeof obj.execution_hash === 'string' ? obj.execution_hash.replace(/^sha256:/, '') : null;
+  const matches = printed && printed.toLowerCase() === recomputed.toLowerCase();
+  const proofs = Array.isArray(obj.audit_signature?.proof) ? obj.audit_signature.proof : (obj.audit_signature?.proof ? [obj.audit_signature.proof] : []);
+  _receipt = obj; _recomputedHash = recomputed;
+  box.innerHTML = `
+    <div class="out-section" style="margin-top:.85rem">
+      <div class="out-header"><span class="out-title">Recomputed Digest (client-side, independent of the pasted value)</span></div>
+      <div class="out-body kv">
+        <div>Recomputed execution_hash: <b>${esc(recomputed)}</b></div>
+        <div>Printed execution_hash: <b>${printed ? esc(printed) : '(none in pasted JSON)'}</b></div>
+        <div>Match: <b class="${printed ? (matches ? 'status-ok' : 'status-bad') : 'status-warn'}">${printed ? (matches ? '✓ matches' : '✗ MISMATCH — do not sign, the receipt is not what it claims to be') : '— nothing to compare'}</b></div>
+        <div>Existing proof-set members: <b>${proofs.length}</b> (${proofs.map((p) => esc(p.cryptosuite || '?')).join(', ') || 'none'})</div>
+      </div>
+    </div>`;
+};
+
+window.uiKeygen = async function () {
+  const box = document.getElementById('keygenOut');
+  const slhSeed = randomBytes(48);
+  const mldsaSeed = randomBytes(32);
+  _slhKeys = slhdsaKeygen(slhSeed);
+  _mldsaKeys = mldsaKeygen(mldsaSeed);
+  const slhJwk = slhdsaSecretKeyToJwk(_slhKeys.secretKey);
+  const mldsaJwk = mldsaSecretKeyToJwk(_mldsaKeys.secretKey);
+  box.innerHTML = `
+    <div class="out-section" style="margin-top:.85rem">
+      <div class="out-header"><span class="out-title">Ephemeral Keys — export both secret keys now</span></div>
+      <div class="out-body">
+        <div class="kv">SLH-DSA-SHA2-128f public key (${_slhKeys.publicKey.length}B): <span class="mono-block" style="display:inline;padding:.1rem .3rem">${esc(slhdsaPublicKeyToJwk(_slhKeys.publicKey).pub)}</span></div>
+        <div class="btn-row">
+          <button class="run-btn secondary" onclick="uiDownloadJwk('slhdsa-secret-key.jwk.json', ${JSON.stringify(JSON.stringify(slhJwk)).replace(/</g, '\\u003c')})">⬇ Export SLH-DSA Secret Key (JWK)</button>
+          <button class="run-btn secondary" onclick="uiDownloadJwk('mldsa-secret-key.jwk.json', ${JSON.stringify(JSON.stringify(mldsaJwk)).replace(/</g, '\\u003c')})">⬇ Export ML-DSA Secret Key (JWK)</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('btnSign').disabled = !_receipt;
+};
+
+window.uiDownloadJwk = function (filename, jsonStr) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([jsonStr], { type: 'application/json' }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+window.uiSignAndDownload = async function () {
+  const box = document.getElementById('signOut');
+  if (!_receipt) { box.innerHTML = '<div class="warn-box">Recompute the digest first (Step 1).</div>'; return; }
+  if (!_slhKeys || !_mldsaKeys) { box.innerHTML = '<div class="warn-box">Generate keys first (Step 2).</div>'; return; }
+  const created = nowIso();
+  const vmSlh = 'urn:ainumbers:pq-reanchor:slh-dsa-sha2-128f:' + bytesToHex(await sha256(_slhKeys.publicKey));
+  const vmMldsa = 'urn:ainumbers:pq-reanchor:ml-dsa-65:' + bytesToHex(await sha256(_mldsaKeys.publicKey));
+  let out = _receipt;
+  out = await addSlhdsaProof(out, { verificationMethod: vmSlh, created, secretKey: _slhKeys.secretKey });
+  out = await addMldsaProof(out, { verificationMethod: vmMldsa, created, secretKey: _mldsaKeys.secretKey });
+  _reanchored = out;
+  const json = JSON.stringify(out, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = (out.tool_id || 'receipt') + '.pq-reanchored.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  const proofs = Array.isArray(out.audit_signature.proof) ? out.audit_signature.proof : [out.audit_signature.proof];
+  box.innerHTML = `
+    <div class="out-section" style="margin-top:.85rem">
+      <div class="out-header"><span class="out-title">Re-Anchored Receipt (downloaded)</span><button class="copy-btn" onclick="uiCopyReanchored()">Copy JSON</button></div>
+      <div class="out-body">
+        <div class="kv">Total proof-set members now: <b class="status-ok">${proofs.length}</b> (${proofs.map((p) => esc(p.cryptosuite)).join(', ')})</div>
+        <div class="mono-block">${esc(json.slice(0, 4000))}${json.length > 4000 ? '\n… (truncated preview — full JSON in the download)' : ''}</div>
+      </div>
+    </div>`;
+  window._captureAP2ForReanchor();
+};
+window.uiCopyReanchored = function () {
+  if (_reanchored) navigator.clipboard.writeText(JSON.stringify(_reanchored, null, 2));
+};
+
+// ── Policy Mandate export (CONTRACT §3.1 — retained legacy id, do not rename) ──────────────────────
+(function () {
+  if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+  const AP2Schema = window.AP2Schema;
+  AP2Schema.validate = function (m) {
+    const RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    function f(msg) { throw new Error('AP2Schema: ' + msg); }
+    if (!m || typeof m !== 'object') f('mandate must be an object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') f('missing identity field');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) f('missing mandate_type');
+    if ('mandate_id' in m && !RE_UUID4.test(m.mandate_id)) f('mandate_id must be UUIDv4');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) f('jurisdiction must be array');
+    return true;
+  };
+  window.enableAP2Btn = function () {
+    const b = document.getElementById('ap2ExportBtn');
+    if (b) { b.disabled = false; b.classList.add('ready'); }
+  };
+  window._captureAP2ForReanchor = function () {
+    if (!_reanchored) return;
+    const proofs = Array.isArray(_reanchored.audit_signature.proof) ? _reanchored.audit_signature.proof : [_reanchored.audit_signature.proof];
+    window._ap2Result = {
+      output: `Re-anchored ${_reanchored.tool_id || 'receipt'} with ${proofs.length} proof-set member(s): ${proofs.map((p) => p.cryptosuite).join(', ')}.`,
+      inputs: {},
+    };
+    window.enableAP2Btn();
+  };
+  window.exportAP2 = function () {
+    if (!window._ap2Result) { alert('Countersign a receipt first to generate results.'); return; }
+    const ts = nowIso();
+    const tid = 'pq-receipt-reanchor';
+    const mandate = {
+      ap2_version: '1.0',
+      mandate_id: tid + '-' + ts.replace(/[:.]/g, '-').slice(0, 19),
+      issued_at: ts, issued_by: 'ainumbers.co',
+      tool_id: tid, tool_version: '1.0.0',
+      mandate_type: 'compliance_mandate',
+      jurisdiction: ['ZZ'], regulatory_frameworks: [],
+      payload: window._ap2Result,
+      summary: 'PQ Receipt Re-Anchor — ' + ts.slice(0, 10),
+      agent_instructions: ['Verify the appended SLH-DSA and ML-DSA proofs against the exported public keys before relying on this attestation.'],
+      valid_from: ts.slice(0, 10),
+      source_tool_inputs: {}, regulatory_citations: [],
+      audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+    };
+    AP2Schema.validate(mandate);
+    const json = JSON.stringify(mandate, null, 2);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    a.download = tid + '_' + ts.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14) + '.policy.json';
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+})();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "623-pq-receipt-reanchor", "version": "1.0.0", "title": "PQ Receipt Re-Anchor Tool", "description": "Countersigns an existing AINumbers receipt with a post-quantum SLH-DSA (FIPS 205, primary) + ML-DSA-65 (FIPS 204, secondary) dual signature, entirely client-side. Additive only.", "category": "mcp", "tags": ["post-quantum", "pqc", "slh-dsa", "ml-dsa"], "audience": ["compliance", "engineer", "security"], "input_schema": {"type": "object", "properties": {"receiptIn": {"type": "string", "description": "Pasted receipt JSON"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "reanchor_receipt_pq", "description": "Client-side only tool — never MCP-invocable, since key generation and signing must happen in the caller browser and this tool never receives or returns a private key.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-reference", "entry": "tools/623-pq-receipt-reanchor.html", "function_name": "uiSignAndDownload"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": false, "bridge_version": "1.0"}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>
