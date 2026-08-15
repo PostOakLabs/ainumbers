@@ -185,15 +185,18 @@ function checkP1_totality() {
 function probeP1b_nullProtoBoundary() {
   const np = Object.create(null);
   const base = { root: { hash: 'ab', sum: '0' }, proof: { leaf: { id: 'aa', balance: '0' }, path: [] } };
+  // Objects, not [label, fn] tuples: tsc --checkJs infers a tuple array's element type as the UNION
+  // (string | function), so destructuring it yields a non-callable `mutate` and the jsdoc-checkjs
+  // gate fails with TS2349. A property per field keeps each type single.
   const slots = [
-    ['root.hash', (p) => { p.root.hash = np; }],
-    ['root.sum', (p) => { p.root.sum = np; }],
-    ['proof.leaf.balance', (p) => { p.proof.leaf.balance = np; }],
-    ['proof.leaf.id', (p) => { p.proof.leaf.id = np; }],
-    ['whole pp (nullProtoClone)', (p) => { Object.assign(p, nullProtoClone(base)); }],
+    { slot: 'root.hash', mutate: (p) => { p.root.hash = np; } },
+    { slot: 'root.sum', mutate: (p) => { p.root.sum = np; } },
+    { slot: 'proof.leaf.balance', mutate: (p) => { p.proof.leaf.balance = np; } },
+    { slot: 'proof.leaf.id', mutate: (p) => { p.proof.leaf.id = np; } },
+    { slot: 'whole pp (nullProtoClone)', mutate: (p) => { Object.assign(p, nullProtoClone(base)); } },
   ];
   const observed = [];
-  for (const [slot, mutate] of slots) {
+  for (const { slot, mutate } of slots) {
     const pp = JSON.parse(JSON.stringify(base));
     mutate(pp);
     try { compute(pp); observed.push(`${slot}: returns normally`); }
