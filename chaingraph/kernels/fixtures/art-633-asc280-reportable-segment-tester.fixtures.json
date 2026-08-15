@@ -1,0 +1,971 @@
+{
+  "tool_id": "art-633-asc280-reportable-segment-tester",
+  "note": "Fixture-oracle independence (FORMALVERIF-BUILD-SPEC.md 3d): neither ASC 280-10-50-12/50-14 nor their source text at FASB Statement No. 131 paragraphs 18 and 20 carries a worked numeric example, so there is no published golden set to copy. Golden values are derived by CLOSED-FORM CONSTRUCTION solved forward: the target ratio is chosen first and the numerator and denominator are then picked to realize it exactly, which is the opposite direction from the kernel's own computation (given numerator and denominator, classify). Every decision-bearing expectation (threshold_met per test, the disjunction, coverage_satisfied, not_assessable states, denominator_side_used) was hand-derived from the retrieved clause BEFORE the kernel was run, and is re-asserted independently of the stored payload by the PB-series properties in the proptest. Denominators are integer-friendly so the constructed boundary ratios are exact in IEEE-754, except the float-trap vector which is deliberately not. human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "revenue-test-exact-10pct-boundary-met",
+      "policy_parameters": {
+        "segment_revenue_external": 60,
+        "segment_revenue_intersegment": 40,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": 10,
+        "combined_profit_of_profitable_segments": 200,
+        "combined_loss_of_loss_segments": -50,
+        "segment_assets": 400,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 675,
+        "total_consolidated_revenue": 900,
+        "aggregation_similar_products_services": true,
+        "aggregation_similar_production_processes": true,
+        "aggregation_similar_customer_type": true,
+        "aggregation_similar_distribution_methods": true,
+        "aggregation_similar_regulatory_environment": true,
+        "reportable_segment_count": 4
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": true,
+        "tests_met": [
+          "revenue"
+        ],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 100,
+            "denominator": 1000,
+            "ratio": 0.1,
+            "ratio_pct": 10,
+            "threshold_met": true,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 10,
+            "denominator": 200,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": 10,
+            "abs_profit_side": 200,
+            "abs_loss_side": 50,
+            "denominator_side_used": "profit_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 400,
+            "denominator": 5000,
+            "ratio": 0.08,
+            "ratio_pct": 8,
+            "threshold_met": false,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 675,
+          "total_consolidated_revenue": 900,
+          "coverage_ratio": 0.75,
+          "coverage_pct": 75,
+          "coverage_satisfied": true,
+          "additional_segments_required": false,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": true,
+          "aggregation_similar_production_processes": true,
+          "aggregation_similar_customer_type": true,
+          "aggregation_similar_distribution_methods": true,
+          "aggregation_similar_regulatory_environment": true
+        },
+        "unanswered_aggregation_criteria": [],
+        "management_judgment_required": false,
+        "aggregation_criteria_answered_count": 5,
+        "aggregation_criteria_met_count": 5,
+        "majority_of_criteria_met": true,
+        "reportable_segment_count": 4,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "Constructed so the revenue numerator is exactly one tenth of its denominator: 60 external plus 40 intersegment is 100, against 1000. The clause threshold is inclusive (10 percent or more), so exactly 10.000 percent MEETS it. Profit or loss is 10 against a denominator of max(|200|,|-50|) = 200, which is 5 percent and does not meet. Assets are 400 against 5000, which is 8 percent and does not meet. The disjunction is therefore true on the revenue test alone. Coverage is 675 against 900, exactly 75 percent, which the clause treats as satisfied. All numbers chosen to be exactly representable so the boundary is a real boundary and not a rounding artifact."
+    },
+    {
+      "name": "revenue-test-just-below-10pct-not-met",
+      "policy_parameters": {
+        "segment_revenue_external": 59,
+        "segment_revenue_intersegment": 40,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": 10,
+        "combined_profit_of_profitable_segments": 200,
+        "combined_loss_of_loss_segments": -50,
+        "segment_assets": 400,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 674,
+        "total_consolidated_revenue": 900,
+        "aggregation_similar_products_services": true,
+        "aggregation_similar_production_processes": false,
+        "aggregation_similar_customer_type": true,
+        "aggregation_similar_distribution_methods": false,
+        "aggregation_similar_regulatory_environment": false,
+        "reportable_segment_count": 4
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": false,
+        "tests_met": [],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 99,
+            "denominator": 1000,
+            "ratio": 0.099,
+            "ratio_pct": 9.9,
+            "threshold_met": false,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 10,
+            "denominator": 200,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": 10,
+            "abs_profit_side": 200,
+            "abs_loss_side": 50,
+            "denominator_side_used": "profit_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 400,
+            "denominator": 5000,
+            "ratio": 0.08,
+            "ratio_pct": 8,
+            "threshold_met": false,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 674,
+          "total_consolidated_revenue": 900,
+          "coverage_ratio": 0.7488888888888889,
+          "coverage_pct": 74.888889,
+          "coverage_satisfied": false,
+          "additional_segments_required": true,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": true,
+          "aggregation_similar_production_processes": false,
+          "aggregation_similar_customer_type": true,
+          "aggregation_similar_distribution_methods": false,
+          "aggregation_similar_regulatory_environment": false
+        },
+        "unanswered_aggregation_criteria": [],
+        "management_judgment_required": false,
+        "aggregation_criteria_answered_count": 5,
+        "aggregation_criteria_met_count": 2,
+        "majority_of_criteria_met": false,
+        "reportable_segment_count": 4,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "The same construction as the boundary vector with one unit removed from external revenue: 99 against 1000 is 9.9 percent, below the inclusive threshold. No test is met, so the segment is not reportable on quantitative grounds. Coverage is 674 against 900, roughly 74.889 percent, which is below 75 percent, so additional segments are required. Aggregation answers are a mixed true/false set with no nulls, so no management judgment is outstanding and the met count is 2 of 5, which is not a majority."
+    },
+    {
+      "name": "profit-loss-denominator-is-greater-absolute-side-not-the-net",
+      "policy_parameters": {
+        "segment_revenue_external": 50,
+        "segment_revenue_intersegment": 0,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": 50,
+        "combined_profit_of_profitable_segments": 1000,
+        "combined_loss_of_loss_segments": -900,
+        "segment_assets": 100,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 675,
+        "total_consolidated_revenue": 900,
+        "aggregation_similar_products_services": true,
+        "aggregation_similar_production_processes": true,
+        "aggregation_similar_customer_type": true,
+        "aggregation_similar_distribution_methods": true,
+        "aggregation_similar_regulatory_environment": null,
+        "reportable_segment_count": 3
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": false,
+        "tests_met": [],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 50,
+            "denominator": 1000,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 50,
+            "denominator": 1000,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": 50,
+            "abs_profit_side": 1000,
+            "abs_loss_side": 900,
+            "denominator_side_used": "profit_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 100,
+            "denominator": 5000,
+            "ratio": 0.02,
+            "ratio_pct": 2,
+            "threshold_met": false,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 675,
+          "total_consolidated_revenue": 900,
+          "coverage_ratio": 0.75,
+          "coverage_pct": 75,
+          "coverage_satisfied": true,
+          "additional_segments_required": false,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": true,
+          "aggregation_similar_production_processes": true,
+          "aggregation_similar_customer_type": true,
+          "aggregation_similar_distribution_methods": true,
+          "aggregation_similar_regulatory_environment": null
+        },
+        "unanswered_aggregation_criteria": [
+          "nature of the regulatory environment, if applicable (280-10-50-11(e))"
+        ],
+        "management_judgment_required": true,
+        "aggregation_criteria_answered_count": 4,
+        "aggregation_criteria_met_count": 4,
+        "majority_of_criteria_met": true,
+        "reportable_segment_count": 3,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "THE VECTOR THAT DISCRIMINATES THE CORRECT DENOMINATOR FROM THE PLAUSIBLE WRONG ONE. The profitable side sums to 1000 and the loss side to -900. The clause denominator is the greater of the two in absolute amount, which is 1000, so a segment profit of 50 gives 5 percent and does NOT meet the threshold. An implementation that netted the two sides together would use 100 as the denominator, get 50 percent, and wrongly flag this segment as reportable. Revenue is 50 of 1000 (5 percent) and assets 100 of 5000 (2 percent), so under the correct reading no test is met and the segment is not reportable. The regulatory-environment criterion is null, which is unanswered rather than false, so management judgment is outstanding."
+    },
+    {
+      "name": "profit-loss-loss-side-dominant-absolute-value-symmetry",
+      "policy_parameters": {
+        "segment_revenue_external": 50,
+        "segment_revenue_intersegment": 0,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": -300,
+        "combined_profit_of_profitable_segments": 500,
+        "combined_loss_of_loss_segments": -3000,
+        "segment_assets": 100,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 675,
+        "total_consolidated_revenue": 900,
+        "aggregation_similar_products_services": false,
+        "aggregation_similar_production_processes": false,
+        "aggregation_similar_customer_type": false,
+        "aggregation_similar_distribution_methods": false,
+        "aggregation_similar_regulatory_environment": false,
+        "reportable_segment_count": 6
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": true,
+        "tests_met": [
+          "profit_or_loss"
+        ],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 50,
+            "denominator": 1000,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 300,
+            "denominator": 3000,
+            "ratio": 0.1,
+            "ratio_pct": 10,
+            "threshold_met": true,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": -300,
+            "abs_profit_side": 500,
+            "abs_loss_side": 3000,
+            "denominator_side_used": "loss_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 100,
+            "denominator": 5000,
+            "ratio": 0.02,
+            "ratio_pct": 2,
+            "threshold_met": false,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 675,
+          "total_consolidated_revenue": 900,
+          "coverage_ratio": 0.75,
+          "coverage_pct": 75,
+          "coverage_satisfied": true,
+          "additional_segments_required": false,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": false,
+          "aggregation_similar_production_processes": false,
+          "aggregation_similar_customer_type": false,
+          "aggregation_similar_distribution_methods": false,
+          "aggregation_similar_regulatory_environment": false
+        },
+        "unanswered_aggregation_criteria": [],
+        "management_judgment_required": false,
+        "aggregation_criteria_answered_count": 5,
+        "aggregation_criteria_met_count": 0,
+        "majority_of_criteria_met": false,
+        "reportable_segment_count": 6,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "The loss side dominates: max(|500|, |-3000|) is 3000, taken from the loss side. The candidate segment reports a LOSS of 300, and the clause takes the absolute amount of the segment's profit or loss, so the numerator is 300 and the ratio is exactly 10 percent, which meets the inclusive threshold. A segment reporting a PROFIT of 300 against the identical totals must classify identically, which is the sign-symmetry property asserted separately in the proptest. The segment is reportable on the profit-or-loss test alone."
+    },
+    {
+      "name": "assets-test-alone-trips-the-disjunction",
+      "policy_parameters": {
+        "segment_revenue_external": 50,
+        "segment_revenue_intersegment": 0,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": 10,
+        "combined_profit_of_profitable_segments": 200,
+        "combined_loss_of_loss_segments": -50,
+        "segment_assets": 500,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 675,
+        "total_consolidated_revenue": 900,
+        "aggregation_similar_products_services": true,
+        "aggregation_similar_production_processes": true,
+        "aggregation_similar_customer_type": false,
+        "aggregation_similar_distribution_methods": true,
+        "aggregation_similar_regulatory_environment": true,
+        "reportable_segment_count": 5
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": true,
+        "tests_met": [
+          "assets"
+        ],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 50,
+            "denominator": 1000,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 10,
+            "denominator": 200,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": 10,
+            "abs_profit_side": 200,
+            "abs_loss_side": 50,
+            "denominator_side_used": "profit_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 500,
+            "denominator": 5000,
+            "ratio": 0.1,
+            "ratio_pct": 10,
+            "threshold_met": true,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 675,
+          "total_consolidated_revenue": 900,
+          "coverage_ratio": 0.75,
+          "coverage_pct": 75,
+          "coverage_satisfied": true,
+          "additional_segments_required": false,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": true,
+          "aggregation_similar_production_processes": true,
+          "aggregation_similar_customer_type": false,
+          "aggregation_similar_distribution_methods": true,
+          "aggregation_similar_regulatory_environment": true
+        },
+        "unanswered_aggregation_criteria": [],
+        "management_judgment_required": false,
+        "aggregation_criteria_answered_count": 5,
+        "aggregation_criteria_met_count": 4,
+        "majority_of_criteria_met": true,
+        "reportable_segment_count": 5,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "Revenue is 5 percent and profit or loss is 5 percent, both below threshold, while assets are exactly 500 of 5000, which is exactly 10 percent and meets the inclusive threshold. Because the clause is a disjunction, one test is sufficient and the segment is reportable. Confirms the assets denominator is the combined assets of all operating segments and that a single passing test carries the verdict. Four of five aggregation criteria answered true, which is a majority."
+    },
+    {
+      "name": "all-three-tests-below-threshold-not-reportable",
+      "policy_parameters": {
+        "segment_revenue_external": 30,
+        "segment_revenue_intersegment": 20,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": 5,
+        "combined_profit_of_profitable_segments": 200,
+        "combined_loss_of_loss_segments": -50,
+        "segment_assets": 100,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 675,
+        "total_consolidated_revenue": 900,
+        "aggregation_similar_products_services": true,
+        "aggregation_similar_production_processes": true,
+        "aggregation_similar_customer_type": true,
+        "aggregation_similar_distribution_methods": true,
+        "aggregation_similar_regulatory_environment": true,
+        "reportable_segment_count": 4
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": false,
+        "tests_met": [],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 50,
+            "denominator": 1000,
+            "ratio": 0.05,
+            "ratio_pct": 5,
+            "threshold_met": false,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 5,
+            "denominator": 200,
+            "ratio": 0.025,
+            "ratio_pct": 2.5,
+            "threshold_met": false,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": 5,
+            "abs_profit_side": 200,
+            "abs_loss_side": 50,
+            "denominator_side_used": "profit_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 100,
+            "denominator": 5000,
+            "ratio": 0.02,
+            "ratio_pct": 2,
+            "threshold_met": false,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 675,
+          "total_consolidated_revenue": 900,
+          "coverage_ratio": 0.75,
+          "coverage_pct": 75,
+          "coverage_satisfied": true,
+          "additional_segments_required": false,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": true,
+          "aggregation_similar_production_processes": true,
+          "aggregation_similar_customer_type": true,
+          "aggregation_similar_distribution_methods": true,
+          "aggregation_similar_regulatory_environment": true
+        },
+        "unanswered_aggregation_criteria": [],
+        "management_judgment_required": false,
+        "aggregation_criteria_answered_count": 5,
+        "aggregation_criteria_met_count": 5,
+        "majority_of_criteria_met": true,
+        "reportable_segment_count": 4,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "A clean negative across all three tests: revenue 50 of 1000 is 5 percent, profit or loss 5 of 200 is 2.5 percent, assets 100 of 5000 is 2 percent. None meets the inclusive 10 percent threshold, so the disjunction is false and no test is not_assessable. Coverage remains satisfied at exactly 75 percent, which confirms the coverage test is independent of the candidate segment's own classification."
+    },
+    {
+      "name": "zero-denominators-report-not-assessable-never-below-threshold",
+      "policy_parameters": {
+        "segment_revenue_external": 100,
+        "segment_revenue_intersegment": 0,
+        "combined_revenue_all_reported_segments": 0,
+        "segment_profit_or_loss": 100,
+        "combined_profit_of_profitable_segments": 0,
+        "combined_loss_of_loss_segments": 0,
+        "segment_assets": 100,
+        "combined_assets_all_segments": 0,
+        "reportable_external_revenue": 100,
+        "total_consolidated_revenue": 0,
+        "aggregation_similar_products_services": null,
+        "aggregation_similar_production_processes": null,
+        "aggregation_similar_customer_type": null,
+        "aggregation_similar_distribution_methods": null,
+        "aggregation_similar_regulatory_environment": null,
+        "reportable_segment_count": null
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": false,
+        "tests_met": [],
+        "tests_not_assessable": [
+          "revenue",
+          "profit_or_loss",
+          "assets"
+        ],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 100,
+            "denominator": 0,
+            "ratio": null,
+            "ratio_pct": null,
+            "threshold_met": "not_assessable",
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": "Denominator is zero or non-positive, so no ratio exists. Reported as not_assessable rather than as failing the threshold -- a segment cannot be shown to be below a threshold that does not exist."
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 100,
+            "denominator": 0,
+            "ratio": null,
+            "ratio_pct": null,
+            "threshold_met": "not_assessable",
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": "Denominator is zero or non-positive, so no ratio exists. Reported as not_assessable rather than as failing the threshold -- a segment cannot be shown to be below a threshold that does not exist.",
+            "segment_profit_or_loss_signed": 100,
+            "abs_profit_side": 0,
+            "abs_loss_side": 0,
+            "denominator_side_used": null
+          },
+          {
+            "test": "assets",
+            "numerator": 100,
+            "denominator": 0,
+            "ratio": null,
+            "ratio_pct": null,
+            "threshold_met": "not_assessable",
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": "Denominator is zero or non-positive, so no ratio exists. Reported as not_assessable rather than as failing the threshold -- a segment cannot be shown to be below a threshold that does not exist."
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 100,
+          "total_consolidated_revenue": 0,
+          "coverage_ratio": null,
+          "coverage_pct": null,
+          "coverage_satisfied": "not_assessable",
+          "additional_segments_required": "not_assessable",
+          "note": "Total consolidated revenue is zero or non-positive, so no coverage ratio exists. Reported as not_assessable rather than as failing the 75 percent test."
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": null,
+          "aggregation_similar_production_processes": null,
+          "aggregation_similar_customer_type": null,
+          "aggregation_similar_distribution_methods": null,
+          "aggregation_similar_regulatory_environment": null
+        },
+        "unanswered_aggregation_criteria": [
+          "nature of the products and services (280-10-50-11(a))",
+          "nature of the production processes (280-10-50-11(b))",
+          "type or class of customer (280-10-50-11(c))",
+          "methods used to distribute products or provide services (280-10-50-11(d))",
+          "nature of the regulatory environment, if applicable (280-10-50-11(e))"
+        ],
+        "management_judgment_required": true,
+        "aggregation_criteria_answered_count": 0,
+        "aggregation_criteria_met_count": 0,
+        "majority_of_criteria_met": false,
+        "reportable_segment_count": null,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "Every denominator is zero, including both sides of the profit-or-loss test, and consolidated revenue is zero. Each of the three tests and the coverage test must report not_assessable rather than false: a segment cannot be shown to be below a threshold that does not exist, and no division is performed. This is the locked position DISE-SEG-T-3 established for the sibling pack and is reused here rather than re-derived. The disjunction is false because no test returned true, and every aggregation criterion is unanswered so management judgment is outstanding across all five."
+    },
+    {
+      "name": "float-trap-exact-tenth-that-division-would-miss",
+      "policy_parameters": {
+        "segment_revenue_external": 0.3,
+        "segment_revenue_intersegment": 0,
+        "combined_revenue_all_reported_segments": 3,
+        "segment_profit_or_loss": 0,
+        "combined_profit_of_profitable_segments": 0,
+        "combined_loss_of_loss_segments": 0,
+        "segment_assets": 0,
+        "combined_assets_all_segments": 0,
+        "reportable_external_revenue": 0.75,
+        "total_consolidated_revenue": 1,
+        "aggregation_similar_products_services": null,
+        "aggregation_similar_production_processes": true,
+        "aggregation_similar_customer_type": true,
+        "aggregation_similar_distribution_methods": true,
+        "aggregation_similar_regulatory_environment": true,
+        "reportable_segment_count": 2
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": true,
+        "tests_met": [
+          "revenue"
+        ],
+        "tests_not_assessable": [
+          "profit_or_loss",
+          "assets"
+        ],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 0.3,
+            "denominator": 3,
+            "ratio": 0.09999999999999999,
+            "ratio_pct": 10,
+            "threshold_met": true,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 0,
+            "denominator": 0,
+            "ratio": null,
+            "ratio_pct": null,
+            "threshold_met": "not_assessable",
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": "Denominator is zero or non-positive, so no ratio exists. Reported as not_assessable rather than as failing the threshold -- a segment cannot be shown to be below a threshold that does not exist.",
+            "segment_profit_or_loss_signed": 0,
+            "abs_profit_side": 0,
+            "abs_loss_side": 0,
+            "denominator_side_used": null
+          },
+          {
+            "test": "assets",
+            "numerator": 0,
+            "denominator": 0,
+            "ratio": null,
+            "ratio_pct": null,
+            "threshold_met": "not_assessable",
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": "Denominator is zero or non-positive, so no ratio exists. Reported as not_assessable rather than as failing the threshold -- a segment cannot be shown to be below a threshold that does not exist."
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 0.75,
+          "total_consolidated_revenue": 1,
+          "coverage_ratio": 0.75,
+          "coverage_pct": 75,
+          "coverage_satisfied": true,
+          "additional_segments_required": false,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": null,
+          "aggregation_similar_production_processes": true,
+          "aggregation_similar_customer_type": true,
+          "aggregation_similar_distribution_methods": true,
+          "aggregation_similar_regulatory_environment": true
+        },
+        "unanswered_aggregation_criteria": [
+          "nature of the products and services (280-10-50-11(a))"
+        ],
+        "management_judgment_required": true,
+        "aggregation_criteria_answered_count": 4,
+        "aggregation_criteria_met_count": 4,
+        "majority_of_criteria_met": true,
+        "reportable_segment_count": 2,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "The arithmetic boundary case the rounding declaration exists for. The true ratio of 0.3 to 3 is exactly one tenth, so the clause's inclusive threshold is met. Evaluating it as 0.3/3 >= 0.10 in IEEE-754 yields 0.09999999999999999 and reports NOT met, which is wrong. The kernel compares 0.3*10 >= 3 instead, which is true, so the boundary classifies correctly. Assets and profit or loss have zero denominators here and must report not_assessable, so this vector also pins that a not_assessable test does not block a different test from carrying the disjunction. Coverage is 0.75 of 1, exactly 75 percent, satisfied."
+    },
+    {
+      "name": "aggregation-criteria-partly-unanswered-management-judgment-required",
+      "policy_parameters": {
+        "segment_revenue_external": 200,
+        "segment_revenue_intersegment": 0,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": -60,
+        "combined_profit_of_profitable_segments": 400,
+        "combined_loss_of_loss_segments": -600,
+        "segment_assets": 800,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 700,
+        "total_consolidated_revenue": 1000,
+        "aggregation_similar_products_services": true,
+        "aggregation_similar_production_processes": false,
+        "aggregation_similar_customer_type": null,
+        "aggregation_similar_distribution_methods": true,
+        "aggregation_similar_regulatory_environment": null,
+        "reportable_segment_count": 7
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": true,
+        "tests_met": [
+          "revenue",
+          "profit_or_loss",
+          "assets"
+        ],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 200,
+            "denominator": 1000,
+            "ratio": 0.2,
+            "ratio_pct": 20,
+            "threshold_met": true,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 60,
+            "denominator": 600,
+            "ratio": 0.1,
+            "ratio_pct": 10,
+            "threshold_met": true,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": -60,
+            "abs_profit_side": 400,
+            "abs_loss_side": 600,
+            "denominator_side_used": "loss_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 800,
+            "denominator": 5000,
+            "ratio": 0.16,
+            "ratio_pct": 16,
+            "threshold_met": true,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 700,
+          "total_consolidated_revenue": 1000,
+          "coverage_ratio": 0.7,
+          "coverage_pct": 70,
+          "coverage_satisfied": false,
+          "additional_segments_required": true,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": true,
+          "aggregation_similar_production_processes": false,
+          "aggregation_similar_customer_type": null,
+          "aggregation_similar_distribution_methods": true,
+          "aggregation_similar_regulatory_environment": null
+        },
+        "unanswered_aggregation_criteria": [
+          "type or class of customer (280-10-50-11(c))",
+          "nature of the regulatory environment, if applicable (280-10-50-11(e))"
+        ],
+        "management_judgment_required": true,
+        "aggregation_criteria_answered_count": 3,
+        "aggregation_criteria_met_count": 2,
+        "majority_of_criteria_met": false,
+        "reportable_segment_count": 7,
+        "practical_limit_consideration_advised": false,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "Aggregation criteria are echoed exactly as supplied and never computed: two true, one false, two null. Management judgment is outstanding because at least one criterion is unanswered, and the two unanswered criteria are named rather than silently treated as false. Answered count is 3 and met count is 2, so met count is not a majority of the five criteria. The segment itself is reportable on all three tests (20 percent revenue, 10 percent profit or loss against a loss-side denominator of 600, and 16 percent assets), and coverage of 700 against 1000 is 70 percent, below 75, so additional segments are required."
+    },
+    {
+      "name": "practical-limit-advisory-above-ten-reportable-segments",
+      "policy_parameters": {
+        "segment_revenue_external": 150,
+        "segment_revenue_intersegment": 0,
+        "combined_revenue_all_reported_segments": 1000,
+        "segment_profit_or_loss": 30,
+        "combined_profit_of_profitable_segments": 200,
+        "combined_loss_of_loss_segments": -50,
+        "segment_assets": 300,
+        "combined_assets_all_segments": 5000,
+        "reportable_external_revenue": 900,
+        "total_consolidated_revenue": 1000,
+        "aggregation_similar_products_services": true,
+        "aggregation_similar_production_processes": true,
+        "aggregation_similar_customer_type": true,
+        "aggregation_similar_distribution_methods": true,
+        "aggregation_similar_regulatory_environment": true,
+        "reportable_segment_count": 12
+      },
+      "output_payload": {
+        "is_reportable_by_quantitative_threshold": true,
+        "tests_met": [
+          "revenue",
+          "profit_or_loss"
+        ],
+        "tests_not_assessable": [],
+        "tests": [
+          {
+            "test": "revenue",
+            "numerator": 150,
+            "denominator": 1000,
+            "ratio": 0.15,
+            "ratio_pct": 15,
+            "threshold_met": true,
+            "denominator_basis": "Combined revenue, internal and external, of all reported operating segments (280-10-50-12(a)).",
+            "note": null
+          },
+          {
+            "test": "profit_or_loss",
+            "numerator": 30,
+            "denominator": 200,
+            "ratio": 0.15,
+            "ratio_pct": 15,
+            "threshold_met": true,
+            "denominator_basis": "The greater, in absolute amount, of the combined reported profit of all operating segments that did not report a loss and the combined reported loss of all operating segments that did report a loss (280-10-50-12(b)).",
+            "note": null,
+            "segment_profit_or_loss_signed": 30,
+            "abs_profit_side": 200,
+            "abs_loss_side": 50,
+            "denominator_side_used": "profit_side"
+          },
+          {
+            "test": "assets",
+            "numerator": 300,
+            "denominator": 5000,
+            "ratio": 0.06,
+            "ratio_pct": 6,
+            "threshold_met": false,
+            "denominator_basis": "Combined assets of all operating segments (280-10-50-12(c)).",
+            "note": null
+          }
+        ],
+        "coverage_75_pct": {
+          "reportable_external_revenue": 900,
+          "total_consolidated_revenue": 1000,
+          "coverage_ratio": 0.9,
+          "coverage_pct": 90,
+          "coverage_satisfied": true,
+          "additional_segments_required": false,
+          "note": null
+        },
+        "aggregation_criteria": {
+          "aggregation_similar_products_services": true,
+          "aggregation_similar_production_processes": true,
+          "aggregation_similar_customer_type": true,
+          "aggregation_similar_distribution_methods": true,
+          "aggregation_similar_regulatory_environment": true
+        },
+        "unanswered_aggregation_criteria": [],
+        "management_judgment_required": false,
+        "aggregation_criteria_answered_count": 5,
+        "aggregation_criteria_met_count": 5,
+        "majority_of_criteria_met": true,
+        "reportable_segment_count": 12,
+        "practical_limit_consideration_advised": true,
+        "threshold_pct": 10,
+        "coverage_threshold_pct": 75,
+        "comparison_basis": "inclusive: 10 percent or more meets the threshold, and at least 75 percent satisfies coverage. Compared by exact cross multiplication on unrounded inputs; reported percentages are rounded to 6 decimal places for display only, strictly after every comparison.",
+        "rounding_steps": "none before comparison. Display rounding to 6 decimal places is applied only to reported percentages and never feeds a decision.",
+        "oracle": "declared -- clause silent",
+        "regulatory_basis": "ASC 280-10-50-12 (quantitative thresholds), 280-10-50-14 (75 percent coverage) and 280-10-50-11 (aggregation criteria), source text FASB Statement No. 131 paragraphs 18, 20 and 17. ASU 2023-07 (November 2023) does not amend these paragraphs: its amendment instruction covers 280-10-50-17, 50-20 through 50-22, 50-24, 50-28 through 50-30 and 50-32 through 50-36, plus added 50-26A through 50-26C and 50-28A through 50-28C, linked to transition paragraph 280-10-65-1.",
+        "note": "Verify-only classifier for ONE caller-declared candidate segment against caller-declared totals. It does not identify operating segments, does not aggregate them, does not decide the chief-operating-decision-maker question, and does not assert that an entity segment note is compliant. The three 10 percent tests each carry their own denominator and are reported separately; the profit-or-loss denominator is the greater in absolute amount of the profitable side and the loss side, never the two netted together. Aggregation criteria are echoed back exactly as supplied and are never computed by this node; an unanswered criterion raises management_judgment_required rather than being read as false. A zero or non-positive denominator reports not_assessable, never a failing threshold. Authoritative form of these rules is the FASB Codification, which was not directly reachable at build time; the basis chain is stated in research/DISE-SEG-K-1.spec.md."
+      },
+      "fixture_oracle_note": "Twelve reportable segments trips the non-binding practical-limit advisory that FASB Statement No. 131 paragraph 24 frames as a consideration once the count rises above ten. It is emitted as an advisory flag only and never changes any threshold verdict: the segment is still reportable on revenue (15 percent) and profit or loss (15 percent), assets are 6 percent and below, and coverage of 900 against 1000 is 90 percent and satisfied."
+    }
+  ]
+}
