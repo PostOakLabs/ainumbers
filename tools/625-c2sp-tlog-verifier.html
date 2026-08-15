@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>C2SP Transparency Log Verifier · AINumbers.co</title>
+<meta name="description" content="Paste a C2SP checkpoint (signed note), an RFC 6962 inclusion proof, and a tlog-policy trust policy, then verify the log signature, witness cosignature quorum, and inclusion path entirely offline in the browser. Zero network calls. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/625-c2sp-tlog-verifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"C2SP Transparency Log Verifier","url":"https://ainumbers.co/tools/625-c2sp-tlog-verifier.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "625-c2sp-tlog-verifier",
+  "version": "1.0.0",
+  "title": "C2SP Transparency Log Verifier",
+  "description": "Verifies a C2SP checkpoint (signed note) and an RFC 6962 inclusion proof against a tlog-policy trust policy, entirely in the browser with zero network calls.",
+  "category": "mcp",
+  "tags": ["C2SP","transparency log","checkpoint","signed note","tlog-cosignature","RFC 6962","inclusion proof","tlog-policy","tlog-tiles","Sigsum"],
+  "audience": ["engineer","compliance","security"],
+  "input_schema": {"type":"object","properties":{"checkpoint":{"type":"string"},"policy":{"type":"string"},"proof":{"type":"object"},"tile_path":{"type":"string"}},"required":["checkpoint","policy","proof"]},
+  "output_schema": {"type":"object","properties":{"ALL_PASS":{"type":"boolean"}}},
+  "mcp_tool_definition": {"name":"verify_c2sp_tlog_checkpoint","description":"Verifies a C2SP checkpoint signed note, its witness cosignature quorum against a tlog-policy trust policy, and an RFC 6962 inclusion proof against the checkpoint root.","inputSchema":{"type":"object","properties":{"checkpoint":{"type":"string"},"policy":{"type":"string"},"proof":{"type":"object"},"tile_path":{"type":"string"}},"required":["checkpoint","policy","proof"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/625-c2sp-tlog-verifier.html","function_name":"runVerifier","timeout_ms":3000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:760px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.field-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem}
+.field{display:flex;flex-direction:column;gap:.25rem;flex:1;min-width:180px}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .55rem;border-radius:3px;outline:none;width:100%}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.ta{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.6;padding:.55rem .65rem;border-radius:3px;outline:none;resize:vertical}
+.ta:focus{border-color:var(--teal)}
+.hint{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);line-height:1.6;margin-top:.35rem}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.35rem .8rem;border-radius:3px}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);word-break:break-all;vertical-align:top}
+.st{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;padding:.15rem .5rem;border:1px solid;border-radius:3px;white-space:nowrap}
+.st-pass{color:var(--green);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.07)}
+.st-fail{color:var(--red);border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.07)}
+.st-na{color:var(--muted);border-color:var(--border);background:var(--bg-3)}
+.st-info{color:var(--gold);border-color:rgba(212,168,71,.35);background:rgba(212,168,71,.07)}
+.verdict{border-radius:var(--radius);padding:.6rem .9rem;margin-bottom:.75rem;font-size:.78rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.note-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.7;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;margin-top:.5rem}
+.json-block{font-family:'JetBrains Mono',monospace;font-size:.6rem;line-height:1.6;color:var(--text);background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.75rem .9rem;overflow-x:auto;white-space:pre}
+.errbox{display:none;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--red);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:4px;padding:.55rem .8rem;margin-top:.75rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);margin-bottom:1px}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-625</span></div>
+  <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">MCP &amp; Agentic Commerce · T625 · C2SP transparency logs</div>
+  <h1 class="tool-title">C2SP Transparency Log Verifier</h1>
+  <p class="hero-desc">Paste a C2SP checkpoint (a signed note carrying an origin, a tree size, and a Merkle root), an RFC 6962 inclusion proof, and the trust policy you want it judged against, then verify all three offline in your browser. The tool parses the note framing, matches every signature line against the keys named in a C2SP tlog-policy file, verifies the log signature and each witness cosignature under the tlog-cosignature construction, evaluates the policy quorum rule, and replays the inclusion path to see whether it reconstructs the root the checkpoint claims. It ships with the vetted Sigsum sigsum-generic-2025-1 policy and a Rekor quorum-none policy inline, and it accepts your own pasted policy text instead.</p>
+  <div class="disclaimer">⚠ A pass means the pasted bytes are internally consistent with the trust policy you supplied: the log signature and the cosignature quorum verify, and the proof path reconstructs the claimed root. It does not tell you that the log is honest, that the checkpoint is the latest one, that the log has not split its view between clients, or that the entry the leaf commits to means what a submitter says it means. Split-view detection needs a second, independent observation of the same log, which this page never fetches.</div>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">C2SP</span>
+    <span class="badge badge-gold">RFC 6962</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="fixture-row">
+    <button class="btn-fixture" onclick="loadFixture('pass')">Load real Sigsum vector (expect ALL_PASS)</button>
+    <button class="btn-fixture" onclick="loadFixture('tampered')">Load tampered leaf (expect FAIL &middot; inclusion)</button>
+    <button class="btn-fixture" onclick="clearAll()">Clear</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">1 &middot; Trust policy (C2SP tlog-policy)</div>
+    <div class="field-row">
+      <div class="field" style="max-width:340px"><label>Preset</label>
+        <select id="policySel" onchange="applyPreset()">
+          <option value="sigsum">sigsum-generic-2025-1 (2-of-3 witness quorum)</option>
+          <option value="rekor">rekor-pinned (quorum none)</option>
+          <option value="custom">Paste your own tlog-policy text</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="policyText" class="ta" rows="9" spellcheck="false"></textarea>
+    <div class="hint">Grammar: <code>log &lt;key&gt; [url]</code>, <code>witness &lt;name&gt; &lt;key&gt; [url]</code>, <code>group &lt;name&gt; &lt;all|any|k&gt; &lt;member&gt;...</code>, <code>quorum &lt;name|none&gt;</code>. Keys are read either as a signed-note vkey (<code>name+keyid+base64</code>) or as bare hex, which is how the two policy files in this repository store them. Editing the text below is what the verifier reads, so a preset is only a starting point.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">2 &middot; Checkpoint (signed note text)</div>
+    <textarea id="cpInput" class="ta" rows="10" spellcheck="false" placeholder="origin&#10;tree size&#10;base64 root hash&#10;&#10;(signature lines, each starting with an em dash)"></textarea>
+    <div class="hint">The note body is the origin line, the tree size, the base64 root hash, any extension lines, a blank line, then one signature line per signer. Every signature line's base64 value starts with a 4-byte key hint; a cosignature adds an 8-byte big-endian timestamp before its 64-byte Ed25519 signature.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">3 &middot; Inclusion proof (RFC 6962)</div>
+    <div class="field-row">
+      <div class="field" style="max-width:260px"><label>Leaf input mode</label>
+        <select id="leafMode">
+          <option value="hash">Leaf hash (hex, already 0x00-prefixed and hashed)</option>
+          <option value="bytes">Raw leaf bytes (hex, hashed here)</option>
+        </select>
+      </div>
+      <div class="field" style="max-width:170px"><label>Leaf index (0-based)</label><input type="text" id="leafIndex" spellcheck="false"></div>
+    </div>
+    <div class="field" style="margin-bottom:.75rem"><label>Leaf value (hex)</label><input type="text" id="leafValue" spellcheck="false"></div>
+    <div class="field"><label>Sibling path, one hex hash per line, bottom up</label>
+      <textarea id="pathInput" class="ta" rows="7" spellcheck="false"></textarea>
+    </div>
+    <div class="hint">The tree size and root hash come from the checkpoint above, never from a separate field, because the whole point of the check is whether the path reconstructs the root that the log and its witnesses actually signed.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">4 &middot; Tile-addressed path (optional, tlog-tiles)</div>
+    <div class="field"><label>Tile path</label><input type="text" id="tilePath" spellcheck="false" placeholder="tile/0/x001/234.p/67 or tile/entries/232.p/133"></div>
+    <div class="hint">Optional. For a log that publishes tiles rather than a point inclusion-proof endpoint, paste the tile path the leaf was read from. The tool decodes the level, the x-separated tile index, and any partial-tile width, then checks that a level-0 or entries tile really is the one holding the leaf index above. Leave blank to skip.</div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:1rem">
+    <button class="run-btn" onclick="runVerifier()">▶ Verify Checkpoint &amp; Proof</button>
+  </div>
+  <div id="errBox" class="errbox"></div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../tools/568-ocg-receipt-verifier.html">OCG Receipt Verifier</a>
+      <a href="../tools/624-vcjcs-envelope-verifier.html">VC-JCS Envelope Verifier</a>
+      <a href="../credits.html">Credits</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* ---------------------------------------------------------------------------
+ * C2SP verification primitives.
+ *
+ * Ported from chaingraph/kernels/c2sp-tlog-verify.mjs (the shared module built
+ * by C2SP-TLOG-VERIFY-MODULE-1). That module was written browser-safe on
+ * purpose: Uint8Array + globalThis.crypto.subtle + atob/btoa, no Buffer and no
+ * node:crypto import, so the byte helpers, the RFC 6962 walk, parseSignedNote,
+ * formatCheckpoint and toCosignedData below are the module's own function
+ * bodies, unchanged. A single self-contained page cannot import a module (no
+ * network calls after load, CONTRACT §1.1), so this file is the browser copy of
+ * one implementation, not a second implementation. If the module changes, this
+ * block is what has to move with it.
+ *
+ * Specs, re-read at build time 2026-08-15 from the C2SP repository:
+ *   tlog-checkpoint  checkpoint = signed note with origin/size/root lines
+ *   signed-note      note framing, key ID = SHA-256(name || 0x0A || type || key)[:4]
+ *   tlog-cosignature type 0x04, value = key ID(4) || timestamp(8, big endian) || sig(64),
+ *                    signed over "cosignature/v1\ntime <n>\n" + the note body
+ *   tlog-policy      log / witness / group / quorum lines, "quorum none" legal
+ *   tlog-tiles       <prefix>/tile/<L>/<N>[.p/<W>], N in zero-padded 3-digit
+ *                    groups with x prefixes, full tile 256 hashes wide
+ * Each of those five is published as an editor's copy that carries no version
+ * string of its own, so nothing here quotes one.
+ * ------------------------------------------------------------------------- */
+
+const ED25519_SIG_LEN = 64;
+const COSIG_BLOB_LEN = 72; /* 8-byte timestamp + 64-byte signature, after the key hint */
+const TILE_HEIGHT = 256;
+const SIGSUM_ORIGIN_PREFIX = 'sigsum.org/v1/tree/';
+const SIGTYPE_ED25519 = 0x01;
+const SIGTYPE_COSIGNATURE = 0x04;
+
+function bytesToHex(bytes){return Array.from(bytes).map((b)=>b.toString(16).padStart(2,'0')).join('');}
+function hexToBytes(hex){const out=new Uint8Array(hex.length/2);for(let i=0;i<out.length;i++)out[i]=parseInt(hex.substr(i*2,2),16);return out;}
+function bytesToBase64(bytes){let bin='';for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);return btoa(bin);}
+function base64ToBytes(b64){const bin=atob(b64);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+function concatBytes(parts){const total=parts.reduce((n,p)=>n+p.length,0);const out=new Uint8Array(total);let off=0;for(const p of parts){out.set(p,off);off+=p.length;}return out;}
+function bytesEqual(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}
+
+async function sha256(...parts){const digest=await crypto.subtle.digest('SHA-256',concatBytes(parts));return new Uint8Array(digest);}
+async function hashLeafNode(data){return sha256(new Uint8Array([0x00]),data);}
+async function hashInteriorNode(left,right){return sha256(new Uint8Array([0x01]),left,right);}
+
+/* RFC 6962 section 2.1.3.2 inclusion-proof walk, iterative form. */
+async function verifyInclusion({leaf,index,size,root,path}){
+  let r=leaf;let fn=index;let p=path;
+  for(let sn=size-1;sn>0;fn=Math.floor(fn/2),sn=Math.floor(sn/2)){
+    const isOdd=(fn&1)===1;
+    if(isOdd){ if(!p.length)return false; r=await hashInteriorNode(p[0],r); p=p.slice(1); }
+    else if(fn<sn){ if(!p.length)return false; r=await hashInteriorNode(r,p[0]); p=p.slice(1); }
+  }
+  return bytesEqual(r,root);
+}
+
+function formatCheckpoint(origin,size,rootHash,extensionLines=[]){
+  const rootB64=bytesToBase64(rootHash);
+  const ext=extensionLines.length?extensionLines.map((l)=>l+'\n').join(''):'';
+  return origin+'\n'+size+'\n'+rootB64+'\n'+ext;
+}
+
+function parseSignedNote(text){
+  const lines=text.split('\n');
+  if(lines.length<4)throw new Error('signed-note: too few lines for a checkpoint (need origin/size/root + blank + signature)');
+  const origin=lines[0];
+  const size=Number(lines[1]);
+  if(!Number.isInteger(size)||size<0)throw new Error('signed-note: malformed size line: '+lines[1]);
+  const rootHash=base64ToBytes(lines[2]);
+  let i=3;
+  const extensionLines=[];
+  while(i<lines.length&&lines[i]!==''){extensionLines.push(lines[i]);i++;}
+  if(i>=lines.length)throw new Error('signed-note: no blank separator before signature block');
+  const noteText=lines.slice(0,i).join('\n')+'\n';
+  const cosignatures=[];
+  for(let k=i+1;k<lines.length;k++){
+    const line=lines[k];
+    if(!line)continue;
+    if(!line.startsWith('— '))continue;
+    const parts=line.split(' ');
+    const name=parts[1];
+    const sigBytes=base64ToBytes(parts[2]);
+    if(sigBytes.length<4)throw new Error('signed-note: cosignature for '+name+' too short to hold a 4-byte key hint');
+    cosignatures.push({name,keyIdHex:bytesToHex(sigBytes.subarray(0,4)),sigBytes:sigBytes.subarray(4)});
+  }
+  return {origin,size,rootHash,extensionLines,noteText,cosignatures};
+}
+
+function toCosignedData(origin,size,rootHash,timestamp,namespace='cosignature/v1'){
+  return namespace+'\ntime '+timestamp+'\n'+formatCheckpoint(origin,size,rootHash);
+}
+
+/* ---------------------------------------------------------------------------
+ * Trust policies, shipped inline as string constants, transcribed at build time
+ * from chaingraph/policies/*.tlog-policy in this repository. They are never
+ * fetched: a verifier that downloads its own trust root has no trust root.
+ * ------------------------------------------------------------------------- */
+
+const POLICY_SIGSUM = `# sigsum-generic-2025-1, the trust policy vetted by the Sigsum project.
+# Transcribed from chaingraph/policies/sigsum-generic-2025-1.tlog-policy.
+log 0ec7e16843119b120377a73913ac6acbc2d03d82432e2c36b841b09a95841f25 https://seasalp.glasklar.is
+log f00c159663d09bbda6131ee1816863b6adcacfe80b0b288000b11aba8fe38314 https://ginkgo.tlog.mullvad.net
+
+witness witness.glasklar.is            b2106db9065ec97f25e09c18839216751a6e26d8ed8b41e485a563d3d1498536
+witness witness.mullvad.net            15d6d0141543247b74bab3c1076372d9c894f619c376d64b29aa312cc00f61ad
+witness tillitis.se/tillitis-witness-1 076be8c9ee7ea60916f0df3608c945d7730082ecb37749dad2c9ed339fea770c
+
+# Requiring 2 of 3 balances security against availability.
+group quorum-rule 2 witness.glasklar.is witness.mullvad.net tillitis.se/tillitis-witness-1
+
+quorum quorum-rule
+`;
+
+const POLICY_REKOR = `# rekor-pinned, transcribed from chaingraph/policies/rekor-pinned.tlog-policy.
+# Rekor runs a single log with no witness cosigning, which tlog-policy covers
+# with a bare "quorum none" line. The key is the log's SPKI DER bytes in hex
+# (ECDSA P-256), a named deviation from the vkey wrapping, documented in that
+# policy file. This page verifies Ed25519 signature lines only, so a Rekor
+# checkpoint's own ECDSA signature reports as unmatched rather than valid.
+log 3059301306072a8648ce3d020106082a8648ce3d03010703420004d86d98fb6b5a6dd4d5e41706881231d1af5f005c2b9016e62d21ad92ce0bdea5fac98634cee7c19e10bc52bfe2cb9e468563fff40fdb6362e10b7d0cf7e458b7 https://rekor.sigstore.dev
+
+quorum none
+`;
+
+/* ---------------------------------------------------------------------------
+ * tlog-policy parsing. A key token is either a signed-note vkey
+ * (name+keyid+base64(type||key)) or bare hex, which is how both policy files in
+ * this repository store keys today.
+ * ------------------------------------------------------------------------- */
+
+function parseKeyToken(token){
+  if(token.includes('+')){
+    const parts=token.split('+');
+    if(parts.length<3)return null;
+    const raw=base64ToBytes(parts[parts.length-1]);
+    return {keyHex:bytesToHex(raw.subarray(1)),sigType:raw[0],vkeyName:parts.slice(0,parts.length-2).join('+')};
+  }
+  if(!/^[0-9a-f]+$/i.test(token)||token.length%2!==0)return null;
+  return {keyHex:token.toLowerCase(),sigType:null,vkeyName:null};
+}
+
+function parsePolicy(text){
+  const logs=[];const witnesses=[];const groups={};let quorum=null;const errors=[];
+  const lines=String(text||'').split('\n');
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i].replace(/#.*$/,'').trim();
+    if(!line)continue;
+    const p=line.split(/\s+/);
+    if(p[0]==='log'){
+      const k=parseKeyToken(p[1]||'');
+      if(!k){errors.push('line '+(i+1)+': unreadable log key');continue;}
+      logs.push({name:k.vkeyName||('log['+logs.length+']'),keyHex:k.keyHex,url:p[2]||null});
+    }else if(p[0]==='witness'){
+      const k=parseKeyToken(p[2]||'');
+      if(!k){errors.push('line '+(i+1)+': unreadable witness key');continue;}
+      witnesses.push({name:p[1],keyHex:k.keyHex,url:p[3]||null});
+    }else if(p[0]==='group'){
+      if(p.length<3){errors.push('line '+(i+1)+': group needs a name and a threshold');continue;}
+      groups[p[1]]={threshold:p[2],members:p.slice(3)};
+    }else if(p[0]==='quorum'){
+      quorum=p[1]||null;
+    }else{
+      errors.push('line '+(i+1)+': unrecognised directive "'+p[0]+'"');
+    }
+  }
+  return {logs,witnesses,groups,quorum,errors};
+}
+
+/* Recursive quorum evaluation. A member is satisfied when it is a witness whose
+ * cosignature verified, or a nested group that is itself satisfied. */
+function evalQuorum(name,groups,satisfied,seen){
+  seen=seen||new Set();
+  if(name==='none')return {met:true,rule:'none',counted:0,required:0};
+  if(satisfied.has(name))return {met:true,rule:'witness '+name,counted:1,required:1};
+  const g=groups[name];
+  if(!g)return {met:false,rule:'unknown group or witness "'+name+'"',counted:0,required:0};
+  if(seen.has(name))return {met:false,rule:'cyclic group reference at "'+name+'"',counted:0,required:0};
+  seen.add(name);
+  let counted=0;
+  for(const m of g.members){ if(evalQuorum(m,groups,satisfied,seen).met)counted++; }
+  const n=g.members.length;
+  let required;
+  if(g.threshold==='all')required=n;
+  else if(g.threshold==='any')required=1;
+  else required=Number(g.threshold);
+  if(!Number.isInteger(required))return {met:false,rule:'group '+name+' has a non-numeric threshold "'+g.threshold+'"',counted,required:0};
+  return {met:counted>=required,rule:'group '+name+' requires '+required+' of '+n,counted,required};
+}
+
+/* --------------------------------------------------------------------------- */
+
+async function keyIdHex(name,sigType,keyHex){
+  const h=await sha256(new TextEncoder().encode(name),new Uint8Array([0x0a]),new Uint8Array([sigType]),hexToBytes(keyHex));
+  return bytesToHex(h.subarray(0,4));
+}
+
+let ED_IMPORT_ERROR=null;
+async function importEd25519(keyHex){
+  try{
+    return await crypto.subtle.importKey('raw',hexToBytes(keyHex),{name:'Ed25519'},false,['verify']);
+  }catch(e){
+    ED_IMPORT_ERROR=String(e&&e.message||e);
+    return null;
+  }
+}
+async function edVerify(key,sig,msgBytes){
+  try{ return await crypto.subtle.verify({name:'Ed25519'},key,sig,msgBytes); }
+  catch(e){ ED_IMPORT_ERROR=String(e&&e.message||e); return false; }
+}
+
+/* tlog-tiles path decoding: <prefix>/tile/<L>/<N>[.p/<W>], N in zero-padded
+ * 3-digit groups where every group but the last carries an x prefix. */
+function parseTilePath(raw){
+  const s=String(raw||'').trim().replace(/^\/+/,'');
+  const m=s.match(/(?:^|\/)tile\/(entries|\d{1,2})\/(.+)$/);
+  if(!m)return {ok:false,error:'not a tlog-tiles path: expected .../tile/<level or entries>/<index>'};
+  const level=m[1];
+  if(level!=='entries'&&(!/^(0|[1-9]\d?)$/.test(level)||Number(level)>63))return {ok:false,error:'tile level must be entries or a decimal 0 to 63 with no leading zeroes'};
+  let rest=m[2];let width=null;
+  const pi=rest.indexOf('.p/');
+  if(pi!==-1){
+    const w=rest.slice(pi+3);
+    rest=rest.slice(0,pi);
+    if(!/^([1-9]\d{0,2})$/.test(w)||Number(w)<1||Number(w)>255)return {ok:false,error:'partial-tile width must be a decimal 1 to 255'};
+    width=Number(w);
+  }
+  const groups=rest.split('/');
+  let digits='';
+  for(let i=0;i<groups.length;i++){
+    const g=groups[i];
+    const last=i===groups.length-1;
+    if(last){ if(!/^\d{3}$/.test(g))return {ok:false,error:'final tile index group must be exactly 3 digits'}; digits+=g; }
+    else { if(!/^x\d{3}$/.test(g))return {ok:false,error:'non-final tile index group must be x plus 3 digits'}; digits+=g.slice(1); }
+  }
+  const index=Number(digits);
+  if(!Number.isInteger(index))return {ok:false,error:'tile index did not decode to an integer'};
+  return {ok:true,level,index,width,path:s};
+}
+
+/* ---------------------------------------------------------------------------
+ * The verification itself. The result object mirrors what register-sigsum.mjs's
+ * `verify` command already emits (per-field booleans plus one ALL_PASS), so a
+ * reader comparing the page against the command-line path sees the same names.
+ * ------------------------------------------------------------------------- */
+
+async function verifyAll(input){
+  ED_IMPORT_ERROR=null;
+  const r={
+    noteParses:false,origin:null,size:null,rootHashHex:null,extensionLines:[],
+    policyLogs:0,policyWitnesses:0,policyErrors:[],
+    logKeyPinned:false,logName:null,logSignatureValid:false,logKeyIdMatch:null,
+    originMatchesPinnedLog:null,
+    witnessCosignaturesValid:0,witnessCosignatureDetail:[],unmatchedSignatureLines:[],
+    quorumRule:null,witnessQuorumMet:false,
+    leafHashHex:null,inclusionProofValid:false,pathLength:0,
+    tilePathValid:null,tileCoversLeaf:null,tileDetail:null,
+    ed25519Available:true,
+    ALL_PASS:false,
+  };
+
+  const policy=parsePolicy(input.policy);
+  r.policyLogs=policy.logs.length;
+  r.policyWitnesses=policy.witnesses.length;
+  r.policyErrors=policy.errors;
+
+  let note;
+  try{ note=parseSignedNote(input.checkpoint); }
+  catch(e){ r.noteParseError=String(e&&e.message||e); return r; }
+  r.noteParses=true;
+  r.origin=note.origin;
+  r.size=note.size;
+  r.rootHashHex=bytesToHex(note.rootHash);
+  r.extensionLines=note.extensionLines;
+
+  const enc=new TextEncoder();
+  const noteBytes=enc.encode(note.noteText);
+
+  /* Signature lines. Each line is tried as a log signature first, then as a
+   * witness cosignature. The 4-byte key hint is reported but never trusted as
+   * the match: a 32-bit hint is a lookup aid, the Ed25519 signature is the
+   * binding, and the note body it covers carries the origin, size and root. */
+  const satisfied=new Set();
+  for(const line of note.cosignatures){
+    let handled=false;
+    if(line.sigBytes.length===ED25519_SIG_LEN){
+      for(const log of policy.logs){
+        const key=await importEd25519(log.keyHex);
+        if(!key)continue;
+        if(await edVerify(key,line.sigBytes,noteBytes)){
+          r.logKeyPinned=true;
+          r.logName=log.url||log.name;
+          r.logSignatureValid=true;
+          r.logKeyIdMatch=(await keyIdHex(line.name,SIGTYPE_ED25519,log.keyHex))===line.keyIdHex;
+          if(note.origin.startsWith(SIGSUM_ORIGIN_PREFIX)){
+            const derived=SIGSUM_ORIGIN_PREFIX+bytesToHex(await sha256(hexToBytes(log.keyHex)));
+            r.originMatchesPinnedLog=derived===note.origin;
+          }
+          handled=true;break;
+        }
+      }
+    }
+    if(!handled&&line.sigBytes.length===COSIG_BLOB_LEN){
+      let ts=0n;
+      for(const b of line.sigBytes.subarray(0,8))ts=ts*256n+BigInt(b);
+      const sig=line.sigBytes.subarray(8);
+      for(const w of policy.witnesses){
+        if(w.name!==line.name)continue;
+        const key=await importEd25519(w.keyHex);
+        if(!key)continue;
+        const msg=toCosignedData(note.origin,note.size,note.rootHash,ts.toString());
+        const ok=await edVerify(key,sig,enc.encode(msg));
+        r.witnessCosignatureDetail.push({name:w.name,matched:true,valid:ok,timestamp:ts.toString(),keyIdMatch:(await keyIdHex(w.name,SIGTYPE_COSIGNATURE,w.keyHex))===line.keyIdHex});
+        if(ok){ r.witnessCosignaturesValid++; satisfied.add(w.name); }
+        handled=true;break;
+      }
+    }
+    if(!handled)r.unmatchedSignatureLines.push(line.name);
+  }
+
+  const q=evalQuorum(policy.quorum||'none',policy.groups,satisfied);
+  r.quorumRule=q.rule;
+  r.witnessQuorumMet=q.met;
+  r.quorumCounted=q.counted;
+  r.quorumRequired=q.required;
+
+  /* Inclusion proof against the checkpoint's own size and root. */
+  const path=String(input.pathText||'').split('\n').map((l)=>l.trim()).filter(Boolean);
+  r.pathLength=path.length;
+  for(const h of path){ if(!/^[0-9a-f]+$/i.test(h)||h.length%2!==0){ r.inclusionError='sibling path entry is not hex: '+h; break; } }
+  const leafRaw=String(input.leafValue||'').trim().replace(/^0x/i,'');
+  if(!r.inclusionError&&(!/^[0-9a-f]*$/i.test(leafRaw)||leafRaw.length===0||leafRaw.length%2!==0))r.inclusionError='leaf value is not an even-length hex string';
+  const index=Number(input.leafIndex);
+  if(!r.inclusionError&&(!Number.isInteger(index)||index<0||index>=note.size))r.inclusionError='leaf index must be an integer in 0 to '+(note.size-1);
+  if(!r.inclusionError){
+    const leafHash=input.leafMode==='bytes'?await hashLeafNode(hexToBytes(leafRaw)):hexToBytes(leafRaw);
+    r.leafHashHex=bytesToHex(leafHash);
+    if(leafHash.length!==32){ r.inclusionError='leaf hash must be 32 bytes'; }
+    else{
+      r.inclusionProofValid=await verifyInclusion({leaf:leafHash,index,size:note.size,root:note.rootHash,path:path.map(hexToBytes)});
+    }
+  }
+
+  /* Optional tile path. */
+  const tileRaw=String(input.tilePath||'').trim();
+  if(tileRaw){
+    const t=parseTilePath(tileRaw);
+    r.tilePathValid=t.ok;
+    if(!t.ok){ r.tileDetail=t.error; r.tileCoversLeaf=false; }
+    else{
+      const expected=Math.floor(index/TILE_HEIGHT);
+      const offset=index%TILE_HEIGHT;
+      if(t.level==='0'||t.level==='entries'){
+        const indexOk=t.index===expected;
+        const widthOk=t.width===null?true:offset<t.width;
+        r.tileCoversLeaf=indexOk&&widthOk;
+        r.tileDetail='level '+t.level+', tile index '+t.index+(t.width===null?' (full, 256 wide)':' (partial, '+t.width+' wide)')+
+          ', covers leaves '+(t.index*TILE_HEIGHT)+' to '+(t.index*TILE_HEIGHT+(t.width===null?TILE_HEIGHT:t.width)-1)+
+          '; leaf '+index+' expects tile index '+expected+' at offset '+offset;
+      }else{
+        r.tileCoversLeaf=null;
+        r.tileDetail='level '+t.level+', tile index '+t.index+(t.width===null?' (full)':' (partial, '+t.width+' wide)')+'; leaf coverage is only checked for level 0 and entries tiles';
+      }
+    }
+  }
+
+  r.ed25519Available=ED_IMPORT_ERROR===null||r.logSignatureValid||r.witnessCosignaturesValid>0;
+  if(!r.ed25519Available)r.ed25519Error=ED_IMPORT_ERROR;
+
+  r.ALL_PASS=r.noteParses&&r.logKeyPinned&&r.logSignatureValid&&r.witnessQuorumMet&&r.inclusionProofValid&&
+    (r.originMatchesPinnedLog!==false)&&(r.tilePathValid===null||(r.tilePathValid===true&&r.tileCoversLeaf!==false));
+  return r;
+}
+
+/* --------------------------------------------------------------------------- */
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function badge(state,label){return '<span class="st st-'+state+'">'+label+'</span>';}
+function stRow(name,state,label,detail){return '<tr><td>'+esc(name)+'</td><td>'+badge(state,label)+'</td><td>'+detail+'</td></tr>';}
+function bool(v){return v?['pass','PASS']:['fail','FAIL'];}
+
+async function runVerifier(){
+  const err=document.getElementById('errBox');
+  err.style.display='none';
+  if(!(window.crypto&&crypto.subtle)){
+    err.textContent='This browser exposes no Web Crypto API on this page. Load the page over https or localhost.';
+    err.style.display='block';return;
+  }
+  const input={
+    policy:document.getElementById('policyText').value,
+    checkpoint:document.getElementById('cpInput').value,
+    leafMode:document.getElementById('leafMode').value,
+    leafValue:document.getElementById('leafValue').value,
+    leafIndex:document.getElementById('leafIndex').value.trim(),
+    pathText:document.getElementById('pathInput').value,
+    tilePath:document.getElementById('tilePath').value,
+  };
+  let r;
+  try{ r=await verifyAll(input); }
+  catch(e){ err.textContent='Verification could not run: '+String(e&&e.message||e); err.style.display='block'; return; }
+  render(r,input);
+}
+
+function render(r,input){
+  const rows=[];
+  if(!r.noteParses){
+    rows.push(stRow('Checkpoint note parses','fail','FAIL',esc(r.noteParseError||'unknown parse error')));
+  }else{
+    rows.push(stRow('Checkpoint note parses','pass','PASS','origin <code>'+esc(r.origin)+'</code>, tree size '+r.size+', root <code>'+esc(r.rootHashHex)+'</code>'));
+    const lk=bool(r.logKeyPinned);
+    rows.push(stRow('Log key is in the trust policy',lk[0],lk[1],r.logKeyPinned?'matched '+esc(r.logName||''):'no policy log key verified any 64-byte signature line'));
+    const ls=bool(r.logSignatureValid);
+    rows.push(stRow('Log signature over the note',ls[0],ls[1],r.logSignatureValid?('key hint '+(r.logKeyIdMatch?'matches':'does not match, which the signed-note spec permits since a hint is not a binding')):'no valid log signature line found'));
+    if(r.originMatchesPinnedLog===null)rows.push(stRow('Origin derived from the pinned key','na','N/A','origin does not use the Sigsum origin scheme, so there is nothing to derive'));
+    else rows.push(stRow('Origin derived from the pinned key',...bool(r.originMatchesPinnedLog),r.originMatchesPinnedLog?'checkpoint origin equals the origin computed from the matched log key':'checkpoint origin does not match the origin computed from the matched log key'));
+    const wq=bool(r.witnessQuorumMet);
+    rows.push(stRow('Witness cosignature quorum',wq[0],wq[1],esc(r.quorumRule||'')+', satisfied by '+r.witnessCosignaturesValid+' verified cosignature'+(r.witnessCosignaturesValid===1?'':'s')));
+    const ip=bool(r.inclusionProofValid);
+    rows.push(stRow('Inclusion proof reconstructs the root',ip[0],ip[1],r.inclusionError?esc(r.inclusionError):('leaf hash <code>'+esc(r.leafHashHex||'')+'</code>, index '+esc(input.leafIndex)+', '+r.pathLength+' sibling hashes')));
+    if(r.tilePathValid===null)rows.push(stRow('Tile-addressed path','na','N/A','no tile path supplied'));
+    else if(!r.tilePathValid)rows.push(stRow('Tile-addressed path','fail','FAIL',esc(r.tileDetail||'')));
+    else if(r.tileCoversLeaf===null)rows.push(stRow('Tile-addressed path','info','INFO',esc(r.tileDetail||'')));
+    else rows.push(stRow('Tile-addressed path',...bool(r.tileCoversLeaf),esc(r.tileDetail||'')));
+  }
+
+  const wd=r.witnessCosignatureDetail.map((w)=>'<tr><td>'+esc(w.name)+'</td><td>'+badge(w.valid?'pass':'fail',w.valid?'VALID':'INVALID')+'</td><td>timestamp '+esc(w.timestamp)+', key hint '+(w.keyIdMatch?'matches':'differs')+'</td></tr>').join('');
+  const unmatched=r.unmatchedSignatureLines.length
+    ? '<div class="note-box">'+r.unmatchedSignatureLines.length+' signature line'+(r.unmatchedSignatureLines.length===1?'':'s')+' matched no key in the policy and were ignored: '+esc(r.unmatchedSignatureLines.join(', '))+'. A checkpoint routinely carries cosignatures from witnesses outside a given policy, so this is normal and does not lower the quorum count.</div>'
+    : '';
+  const edWarn=r.ed25519Available?'':'<div class="note-box">This browser rejected the Ed25519 key import ('+esc(r.ed25519Error||'')+'), so no signature could be checked here. Signature results above are not evidence either way. Ed25519 in the Web Crypto API is available in current Chrome, Firefox and Safari.</div>';
+  const policyErr=r.policyErrors.length?'<div class="note-box">Trust policy warnings: '+esc(r.policyErrors.join(' · '))+'</div>':'';
+
+  document.getElementById('outputSection').innerHTML=
+    '<div class="out-section">'+
+      '<div class="out-header"><span class="out-title">Verification result</span></div>'+
+      '<div class="out-body">'+
+        '<div class="verdict '+(r.ALL_PASS?'pass':'fail')+'">'+(r.ALL_PASS
+          ? '✓ ALL_PASS &middot; every check below passed against the trust policy you supplied.'
+          : '✗ NOT ALL_PASS &middot; at least one check below did not pass. Read the row that failed before drawing any conclusion about the log.')+'</div>'+
+        '<table class="result-table"><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
+        (wd?'<div style="margin-top:1rem"><table class="result-table"><thead><tr><th>Witness</th><th>Cosignature</th><th>Detail</th></tr></thead><tbody>'+wd+'</tbody></table></div>':'')+
+        unmatched+policyErr+edWarn+
+        '<div class="note-box">Policy read: '+r.policyLogs+' log key'+(r.policyLogs===1?'':'s')+', '+r.policyWitnesses+' witness key'+(r.policyWitnesses===1?'':'s')+'. Nothing on this page opened a network connection to produce this result.</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="out-section">'+
+      '<div class="out-header"><span class="out-title">Result object</span></div>'+
+      '<div class="out-body"><div class="json-block">'+esc(JSON.stringify(r,null,2))+'</div></div>'+
+    '</div>';
+  window._lastResult=r;
+  window._lastInputs=input;
+}
+
+/* ---------------------------------------------------------------------------
+ * Demo vectors. The passing one is real public Sigsum transparency-log data:
+ * the record this estate registered with the seasalp log at leaf index 59524 of
+ * a 59525-entry tree, reassembled into its C2SP checkpoint note framing. The
+ * log signature and all three witness cosignatures below are the genuine
+ * signatures those operators produced; nothing here is synthetic. The tampered
+ * vector flips one byte of the leaf hash and changes nothing else, which is why
+ * the signature rows stay green while the inclusion row goes red.
+ * ------------------------------------------------------------------------- */
+
+const DEMO_CHECKPOINT=[
+'sigsum.org/v1/tree/44ad38f8226ff9bd27629a41e55df727308d0a1cd8a2c31d3170048ac1dd22a1',
+'59525',
+'Hevas+trn9Gkbv6UFkJvG9NmI1GCd5D2Jpn6i3ILte4=',
+'',
+'— sigsum.org/v1/tree/44ad38f8226ff9bd27629a41e55df727308d0a1cd8a2c31d3170048ac1dd22a1 aCtJ2/hbCrNwiAbnpB+hgQs0ysHGxReO/AMIqr8333ugsXccHl9XQL319HqvmGyPlYkZhJJk380jZ7bO/5Du94A0og4=',
+'— witness.glasklar.is kK2A5gAAAABqe1R05rRUX1rhBoqvWN7Se1hdYIuDDx6Wb3yh+FhJIJ6YeFRvwqv3d2GAZ71JJzJZ0YN0T0E2wQ5LyIzBQWbx40+XCA==',
+'— witness.mullvad.net DjXQTQAAAABqe1R0/X9UELEWOtEHEo3IkkEoLPqv9v5qe3Wu8coWeCFiN/lZif9J8wkl8g7MVkMebgx1kKLEzgjRF6wd2UXro1yeCA==',
+'— tillitis.se/tillitis-witness-1 kkZpSgAAAABqe1R08HrOiH97eXvFFdHY+AkSVy3hYx/YXFIl3hOP1L0ZCn7VPl9CTbk2gN+otUSXyy6goOWxgllK4jLg4moEDPYnBA==',
+''].join('\n');
+
+const DEMO_LEAF_HASH='a804791713af278e0f91af1ec0f800c5362bc21c5a9bc0f1b73eb016040d3cc0';
+const DEMO_LEAF_HASH_TAMPERED='a804791713af278e0f91af1ec0f800c5362bc21c5a9bc0f1b73eb016040d3cc1';
+const DEMO_PATH=[
+'08209176f88dce0a79637f9e0726171937243d52041402e2a22e5ffa0a25fa36',
+'9c33cf78a0dbadc5e3144dab515a82b11113a4ac79475cf6111b07bd5ea81fed',
+'ad86d288ac0d40799debd6d4deac1e5479323019ed74a8de8ceabb079dda3ed5',
+'1fc9804ab91d30a93d0151c1cbf72768c5d6966642f0c49161ed3ccc68fe5b60',
+'a963c87f350f84a08cc8ba85db84dc4ceedb7381a7a43ec09f537fb14e87b1a7',
+'de044b87840ca91151f7bf64908851698ae4e905e5d9114f2779aa1112c21a0e'].join('\n');
+const DEMO_INDEX='59524';
+/* Level-0 tile holding leaf 59524 in a 59525-leaf tree: index 232 covers leaves
+ * 59392 to 59524, so the tile is partial at width 133. Sigsum does not publish
+ * tiles, so this path is derived from the index and size to exercise the
+ * decoder, not copied from a tile endpoint. */
+const DEMO_TILE='tile/0/232.p/133';
+
+function applyPreset(){
+  const v=document.getElementById('policySel').value;
+  if(v==='sigsum')document.getElementById('policyText').value=POLICY_SIGSUM;
+  else if(v==='rekor')document.getElementById('policyText').value=POLICY_REKOR;
+  else document.getElementById('policyText').value='';
+}
+
+function loadFixture(which){
+  document.getElementById('policySel').value='sigsum';
+  document.getElementById('policyText').value=POLICY_SIGSUM;
+  document.getElementById('cpInput').value=DEMO_CHECKPOINT;
+  document.getElementById('leafMode').value='hash';
+  document.getElementById('leafValue').value=which==='tampered'?DEMO_LEAF_HASH_TAMPERED:DEMO_LEAF_HASH;
+  document.getElementById('leafIndex').value=DEMO_INDEX;
+  document.getElementById('pathInput').value=DEMO_PATH;
+  document.getElementById('tilePath').value=DEMO_TILE;
+  document.getElementById('outputSection').innerHTML='';
+  document.getElementById('errBox').style.display='none';
+}
+
+function clearAll(){
+  document.getElementById('cpInput').value='';
+  document.getElementById('leafValue').value='';
+  document.getElementById('leafIndex').value='';
+  document.getElementById('pathInput').value='';
+  document.getElementById('tilePath').value='';
+  document.getElementById('outputSection').innerHTML='';
+  document.getElementById('errBox').style.display='none';
+}
+
+applyPreset();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "625-c2sp-tlog-verifier", "version": "1.0.0", "title": "C2SP Transparency Log Verifier", "description": "Verifies a C2SP checkpoint signed note, its witness cosignature quorum against a tlog-policy trust policy, and an RFC 6962 inclusion proof against the checkpoint root, entirely offline in the browser.", "category": "mcp", "tags": ["C2SP","transparency log","checkpoint","signed note","tlog-cosignature","RFC 6962","inclusion proof","tlog-policy","tlog-tiles","Sigsum"], "audience": ["engineer","compliance","security"], "input_schema": {"type":"object","properties":{"checkpoint":{"type":"string"},"policy":{"type":"string"},"proof":{"type":"object"},"tile_path":{"type":"string"}},"required":["checkpoint","policy","proof"]}, "output_schema": {"type":"object","properties":{"ALL_PASS":{"type":"boolean"}}}, "mcp_tool_definition": {"name": "verify_c2sp_tlog_checkpoint", "description": "Verifies a C2SP checkpoint signed note, its witness cosignature quorum against a tlog-policy trust policy, and an RFC 6962 inclusion proof against the checkpoint root.", "inputSchema": {"type":"object","properties":{"checkpoint":{"type":"string"},"policy":{"type":"string"},"proof":{"type":"object"},"tile_path":{"type":"string"}},"required":["checkpoint","policy","proof"]}}, "execution": {"type": "browser-reference", "entry": "tools/625-c2sp-tlog-verifier.html", "function_name": "runVerifier"}, "ap2_export": false, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>
