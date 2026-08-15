@@ -115,6 +115,10 @@ nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);backgroun
 .num{text-align:right;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright);white-space:nowrap}
 .mono-cell{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright);white-space:nowrap}
 .sub-cell{font-size:.64rem;color:var(--muted);line-height:1.5;display:block;margin-top:.15rem;white-space:normal}
+.wrap-cell{white-space:normal}
+.seq-table{min-width:940px}
+.seq-table td{white-space:nowrap}
+.seq-table td.wrap-cell{white-space:normal}
 .pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;border:1px solid;white-space:nowrap;display:inline-block}
 .pill-yes{color:var(--teal);border-color:rgba(20,184,166,.35);background:var(--teal-dim)}
 .pill-no{color:var(--muted);border-color:var(--border);background:transparent}
@@ -336,7 +340,7 @@ var ASU_TABLE = [
     label: 'ASU 2023-07',
     topic: 'Segment Reporting (Topic 280)',
     subject: 'Improvements to reportable segment disclosures',
-    applies_to: 'Public entities within the scope of Topic 280',
+    applies_to: 'Public entities in Topic 280 scope',
     annual_after: '2023-12-15',
     interim_after: '2024-12-15',
     other_entities_annual_after: null,
@@ -350,7 +354,7 @@ var ASU_TABLE = [
     label: 'ASU 2023-09',
     topic: 'Income Taxes (Topic 740)',
     subject: 'Improvements to income tax disclosures',
-    applies_to: 'Public business entities, with a later date for other entities',
+    applies_to: 'Public business entities, others later',
     annual_after: '2024-12-15',
     interim_after: null,
     other_entities_annual_after: '2025-12-15',
@@ -649,9 +653,9 @@ function renderResult(r, caveats){
 
   /* per-Update sequence */
   out.push('<div class="out-section"><div class="out-header"><span class="out-title">Update Sequence for This Fiscal Year</span></div><div class="out-body">');
-  out.push('<div class="empty-note">Annual and interim are reported separately because several of these Updates start at different times for the two. A test reading not stated means the Update sets no separate interim effective date, which is not the same as not yet.</div>');
-  out.push('<div class="tbl-scroll"><table class="result-table">' +
-    '<thead><tr><th style="min-width:230px">Update</th><th>Applies To</th><th>Annual</th><th>Interim</th><th>First Affected Annual Period</th><th>First Interim Coverage</th></tr></thead><tbody>');
+  out.push('<div class="empty-note">Annual and interim are reported separately because several of these Updates start at different times for the two. The date under each result is the day a period must begin after for that leg to apply. A test reading not stated means the Update sets no separate interim effective date, which is not the same as not yet. First interim coverage names the annual period whose interims are the first ones reached.</div>');
+  out.push('<div class="tbl-scroll"><table class="result-table seq-table">' +
+    '<thead><tr><th style="min-width:220px">Update</th><th style="min-width:150px">Applies To</th><th style="min-width:120px">Annual</th><th style="min-width:120px">Interim</th><th style="min-width:125px">First Affected Annual Period</th><th style="min-width:125px">First Interim Coverage</th></tr></thead><tbody>');
 
   r.updates.forEach(function(u){
     var annualPill = u.binding_annual
@@ -666,12 +670,12 @@ function renderResult(r, caveats){
     var fi = u.first_affected_interim_host_period;
 
     out.push('<tr' + (u.is_annual_adoption_year ? ' class="row-flagged"' : '') + '>' +
-      '<td class="mono-cell">' + esc(u.label) + '<span class="sub-cell">' + esc(u.topic) + '. ' + esc(u.subject) + '.</span></td>' +
-      '<td>' + esc(u.applies_to) + '</td>' +
-      '<td>' + annualPill + '<span class="sub-cell">periods beginning after ' + human(parseYMD(u.annual_effective_for_periods_beginning_after)) + '</span></td>' +
-      '<td>' + interimPill + '<span class="sub-cell">' + (u.interim_effective_for_periods_beginning_after ? 'within periods beginning after ' + human(parseYMD(u.interim_effective_for_periods_beginning_after)) : 'no separate interim date stated') + '</span></td>' +
-      '<td class="mono-cell">' + (fa ? human(parseYMD(fa.start)) + ' to ' + human(parseYMD(fa.end)) : 'n/a') + '</td>' +
-      '<td class="mono-cell">' + (fi ? 'interims within ' + human(parseYMD(fi.start)) + ' to ' + human(parseYMD(fi.end)) : 'not stated') + '</td></tr>');
+      '<td class="mono-cell wrap-cell">' + esc(u.label) + '<span class="sub-cell">' + esc(u.topic) + '. ' + esc(u.subject) + '.</span></td>' +
+      '<td class="wrap-cell">' + esc(u.applies_to) + '</td>' +
+      '<td>' + annualPill + '<span class="sub-cell">after ' + human(parseYMD(u.annual_effective_for_periods_beginning_after)) + '</span></td>' +
+      '<td>' + interimPill + '<span class="sub-cell">' + (u.interim_effective_for_periods_beginning_after ? 'after ' + human(parseYMD(u.interim_effective_for_periods_beginning_after)) : 'none stated') + '</span></td>' +
+      '<td class="mono-cell">' + periodCell(fa, 'n/a') + '</td>' +
+      '<td class="mono-cell">' + periodCell(fi, 'not stated') + '</td></tr>');
   });
   out.push('</tbody></table></div></div></div>');
 
@@ -719,6 +723,13 @@ function renderResult(r, caveats){
     '<div class="memo-block" id="memoBlock">' + esc(buildMemo(r)) + '</div></div></div>');
 
   g('outputSection').innerHTML = out.join('');
+}
+
+/* A period rendered on two lines, so the column stays narrow enough that
+ * the last column of the sequence table is not pushed out of view. */
+function periodCell(p, emptyText){
+  if (!p) return esc(emptyText);
+  return human(parseYMD(p.start)) + '<span class="sub-cell">to ' + human(parseYMD(p.end)) + '</span>';
 }
 
 function tile(n, label){
