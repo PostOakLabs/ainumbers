@@ -1,0 +1,147 @@
+{
+  "tool_id": "disclosure-effective-date-sequencer",
+  "version": "1.0.0",
+  "title": "Disclosure Effective Date Sequencer",
+  "description": "Maps a fiscal year end and SEC filer status to the FASB Accounting Standards Updates tracked by the disclosure readiness pack that bind for that fiscal year. The annual requirement and the interim requirement are reported separately, because several of these Updates start at different times for the two, and each Update's first affected annual period and first interim coverage are named for the entity's own fiscal calendar rather than assumed to be a December year end. Effective dates are carried as dated observations read from the Board's published Updates on 2026-08-15, each with its transition paragraph, so any figure can be rechecked at source. Verify-only: it sequences which Updates reach a period and never asserts that an adoption or a disclosure requirement has been met.",
+  "category": "cat-2",
+  "tags": [
+    "ASU 2023-07",
+    "ASU 2023-09",
+    "ASU 2024-03",
+    "ASU 2025-01",
+    "DISE",
+    "effective date",
+    "segment reporting",
+    "income tax disclosure",
+    "fiscal year",
+    "disclosure readiness"
+  ],
+  "audience": [
+    "technical accounting",
+    "financial reporting",
+    "controllership",
+    "compliance"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": ["fiscal_year_end", "filer_status"],
+    "properties": {
+      "fiscal_year_end": {
+        "type": "string",
+        "description": "Last day of the fiscal year being assessed, as YYYY-MM-DD. The first day of that year is derived as the day after the previous year end, with February clamped so a leap-day year end does not produce an invalid previous year end."
+      },
+      "fiscal_year_start_override": {
+        "type": ["string", "null"],
+        "description": "First day of that fiscal year, as YYYY-MM-DD, for a 52 or 53 week filer whose year start is not a fixed calendar date. Null derives the start from the year end. A supplied override is used in place of the derived date and is reported as the basis."
+      },
+      "filer_status": {
+        "type": "string",
+        "enum": ["large_accelerated", "accelerated", "non_accelerated", "smaller_reporting"],
+        "description": "SEC filer status. All four describe a public business entity, and none of the tracked Updates sets its effective date by filer status, so this value is carried through for the record and does not change the sequence."
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "entity": {
+        "type": "object",
+        "description": "The fiscal calendar the sequence was measured against",
+        "properties": {
+          "fiscal_year_end": {"type": "string"},
+          "fiscal_year_start": {"type": "string"},
+          "fiscal_year_start_basis": {"type": "string", "enum": ["derived_from_year_end", "override_supplied"]},
+          "fiscal_year_length_days": {"type": "number"},
+          "calendar_year_end": {"type": "boolean"},
+          "filer_status": {"type": "string"},
+          "filer_status_label": {"type": "string"},
+          "entity_class": {"type": "string", "enum": ["public_business_entity"]}
+        }
+      },
+      "updates": {
+        "type": "array",
+        "description": "One entry per tracked Accounting Standards Update, in table order",
+        "items": {
+          "type": "object",
+          "properties": {
+            "asu": {"type": "string"},
+            "label": {"type": "string"},
+            "topic": {"type": "string"},
+            "subject": {"type": "string"},
+            "applies_to": {"type": "string"},
+            "pack_role": {"type": "string", "enum": ["core", "pipeline"]},
+            "pack_note": {"type": "string"},
+            "annual_effective_for_periods_beginning_after": {"type": "string"},
+            "interim_effective_for_periods_beginning_after": {"type": ["string", "null"], "description": "Null means the Update states no separate interim effective date, which is a distinct answer from not yet binding"},
+            "other_entities_annual_after": {"type": ["string", "null"]},
+            "transition_paragraph": {"type": ["string", "null"]},
+            "early_adoption_permitted": {"type": "boolean"},
+            "binding_annual": {"type": "boolean"},
+            "binding_interim": {"type": ["boolean", "null"]},
+            "first_affected_annual_period": {"type": ["object", "null"], "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+            "first_affected_interim_host_period": {"type": ["object", "null"], "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+            "is_annual_adoption_year": {"type": "boolean"},
+            "is_interim_adoption_year": {"type": "boolean"},
+            "filer_status_changes_this_date": {"type": "boolean", "description": "False for every tracked Update. Present so a caller can see the answer rather than infer it."}
+          }
+        }
+      },
+      "caveats": {
+        "type": "array",
+        "description": "Named conditions that affect how the sequence should be read, including the dated-observation status of the table, the absence of any filer status dependency, and a non calendar year end",
+        "items": {"type": "string"}
+      },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "updates_tracked": {"type": "number"},
+          "binding_annual": {"type": "number"},
+          "binding_interim": {"type": "number"},
+          "first_annual_adoption_this_year": {"type": "number"},
+          "not_yet_binding": {"type": "number"},
+          "boundary_rule": {"type": "string", "enum": ["strictly_after_stated_date"]},
+          "table_retrieved": {"type": "string"},
+          "table_source": {"type": "string"}
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "sequence_disclosure_effective_dates",
+    "description": "Returns which tracked FASB Accounting Standards Updates bind for a given fiscal year end and SEC filer status, separating the annual requirement from the interim requirement and naming each Update's first affected period for the entity's fiscal calendar. Browser-based, client-side only, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["fiscal_year_end", "filer_status"],
+      "properties": {
+        "fiscal_year_end": {
+          "type": "string",
+          "description": "Last day of the fiscal year being assessed, as YYYY-MM-DD"
+        },
+        "fiscal_year_start_override": {
+          "type": ["string", "null"],
+          "description": "First day of that fiscal year, for 52 or 53 week filers whose year start is not a fixed calendar date"
+        },
+        "filer_status": {
+          "type": "string",
+          "enum": ["large_accelerated", "accelerated", "non_accelerated", "smaller_reporting"],
+          "description": "SEC filer status. All four are public business entities."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/584-disclosure-effective-date-sequencer.html",
+    "function_name": "runDisclosureSequencer",
+    "timeout_ms": 3000
+  },
+  "regulatory_citations": [
+    "ASC 280-10-65-1 (transition and effective date for ASU 2023-07, segment reporting)",
+    "ASC 740-10-65-9 (transition and effective date for ASU 2023-09, income tax disclosures)",
+    "ASC 220-40-65-1(a) (transition and effective date for ASU 2024-03 as amended by ASU 2025-01, disaggregation of income statement expenses)",
+    "ASC 326-10-65-6 (transition and effective date for ASU 2025-05, credit losses for accounts receivable and contract assets)"
+  ],
+  "ap2_export": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser"
+}
