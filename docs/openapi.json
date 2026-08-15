@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1123 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1124 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -840,6 +840,9 @@
       "name": "MSS"
     },
     {
+      "name": "MST"
+    },
+    {
       "name": "March 2026 proposal"
     },
     {
@@ -856,6 +859,9 @@
     },
     {
       "name": "Merkle receipt"
+    },
+    {
+      "name": "Merkle sum tree"
     },
     {
       "name": "Merkle tree"
@@ -1189,6 +1195,9 @@
     },
     {
       "name": "Stripe"
+    },
+    {
+      "name": "Summa"
     },
     {
       "name": "T+1"
@@ -2206,6 +2215,9 @@
     },
     {
       "name": "crypto"
+    },
+    {
+      "name": "crypto exchange"
     },
     {
       "name": "crypto inventory"
@@ -4765,6 +4777,9 @@
     },
     {
       "name": "verifiable-credentials"
+    },
+    {
+      "name": "verification"
     },
     {
       "name": "verification of payee"
@@ -40950,6 +40965,88 @@
         },
         "x-mcp-tool-name": "calculate_naic_clo_rbc_factor",
         "x-tool-url": "https://ainumbers.co/tools/618-naic-clo-rbc-factor-calculator.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/verify_summa_mst_inclusion": {
+      "post": {
+        "operationId": "verify_summa_mst_inclusion",
+        "summary": "Summa MST Inclusion Checker",
+        "description": "Paste a published Merkle-sum-tree root (hash + sum) and an inclusion proof for one leaf, verify membership AND local balance-sum-chain consistency, entirely offline. Independently recomputes both the hash chain and the sum chain and rejects any negative balance or over-bound value anywhere in the path, closing the Maxwell eprint 2022/043 'broken MST' hazard at the application layer. Verify-only: never a solvency or reserve-sufficiency claim.\n\n**Tool URL:** https://ainumbers.co/tools/620-summa-mst-inclusion-checker.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "Summa",
+          "proof-of-reserves",
+          "Merkle sum tree",
+          "MST",
+          "inclusion proof",
+          "solvency",
+          "crypto exchange",
+          "verification"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "root",
+                  "proof"
+                ],
+                "properties": {
+                  "root": {
+                    "type": "object",
+                    "description": "{hash, sum}"
+                  },
+                  "proof": {
+                    "type": "object",
+                    "description": "{leaf:{id,balance}, path:[{side,sibling_hash,sibling_sum}]}"
+                  },
+                  "max_balance": {
+                    "type": "string",
+                    "description": "Decimal-string BigInt domain bound"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verdict": {
+                      "type": "string",
+                      "description": "VERIFIED or NOT_VERIFIED"
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "computed_root": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "declared_root": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_summa_mst_inclusion",
+        "x-tool-url": "https://ainumbers.co/tools/620-summa-mst-inclusion-checker.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
