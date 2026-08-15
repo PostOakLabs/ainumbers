@@ -283,6 +283,12 @@ const GATES = [
   // (Bun + QuickJS legs) genuinely needs those runtimes and stays CI-only.
   ['Engine-parity node-leg (crash guard)', 'node scripts/check-engine-parity.mjs'],
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
+  // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
+  // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
+  // controls that flip each fact and require the verdict to move. Hard here because a red
+  // selftest means the tool itself is broken — same shape as the "FV floor coverage fixture
+  // proof" entry above. The checker's own chain verdicts stay ADVISORY (block below).
+  ['Chain L1 edge-contract selftest (CHAIN-FV-L1-1)', 'node scripts/check-chain-edge-contracts.selftest.mjs'],
 ];
 
 let failed = null;
@@ -366,6 +372,21 @@ try {
     console.log('   batched ASSEMBLE+LAND vendor run lands. That window is expected, not breakage.');
   }
 } catch { /* advisory best-effort only — never let it affect preflight's exit code */ }
+
+// ── Advisory (non-blocking): L1 chain edge contracts ────────────────────────
+// CHAIN-FV-L1-1. Ladder level L1 = "edge contracts machine-checked" — ⛔ NOT
+// "formally verified" (L2 contract composition and L3 end-to-end properties are
+// separate, unbuilt levels). Reports the per-chain verdict spread so a new or
+// re-ordered chain that contradicts the node consumes/feeds map is visible
+// pre-push. ADVISORY BY DESIGN, exit 0 always: the live baseline carries known
+// L1-fail chains, and promotion to a hard gate is a SEPARATE later decision to
+// be taken once that baseline is triaged — never a side effect of this line.
+process.stdout.write('▶ L1 chain edge contracts (advisory) … ');
+try {
+  const out = execSync('node scripts/check-chain-edge-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  const s = JSON.parse(out).summary;
+  console.log(`${s['L1-pass']} pass / ${s['L1-fail']} fail / ${s['L1-indeterminate']} indeterminate across ${s.chains_walked} chains (${s.edges_decided}/${s.edges_total} edges decided)`);
+} catch { console.log('(advisory check unavailable — skipped)'); }
 
 // ── Advisory (non-blocking): version-prose drift ────────────────────────────
 // The version-of-record gate (spec-version-consistency) enforces the <meta>
