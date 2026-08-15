@@ -33,7 +33,12 @@ const BASELINE = process.env.NAV_BASELINE ? resolve(process.env.NAV_BASELINE)
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
 
 // Sibling git worktrees + tooling dirs are foreign checkouts, not site content.
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'worktrees', '.claude']);
+// '.wt' is the canonical worktree dir per workspace-root CLAUDE.md ("Worktrees live
+// under AINumbers/.wt/, .worktrees/, or .claude/worktrees/") — a live sibling worktree
+// checked out there (e.g. repo/.wt/<wu>/) is a full repo copy and must be excluded the
+// same way '.claude'/'worktrees' already are, or every page in it double-counts as an
+// island/reachable-baseline entry for someone else's in-progress WU.
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'worktrees', '.claude', '.wt']);
 
 function collect(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {

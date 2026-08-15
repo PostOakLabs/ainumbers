@@ -209,7 +209,10 @@ const BADGE_ELEMENT = /<(span|div|a|p)\b[^>]*\bclass\s*=\s*["'][^"']*\b(?:badge|
 const CONTROL_ELEMENT = /<(button|div|span)\b[^>]*\bclass\s*=\s*["'][^"']*\b(?:btn|icon)\b[^"']*["'][^>]*>[\s\S]*?<\/\1>/gi;
 const BUTTON_TAG = /<button\b[^>]*>[\s\S]*?<\/button>/gi;
 
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'scripts', '.claude']);
+// '.wt'/'worktrees' are sibling git worktree checkouts (canonical locations per
+// workspace-root CLAUDE.md), not site content — same exclusion check-nav-reachability.mjs
+// applies, needed here too or a live sibling worktree's copy of every page double-counts.
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'scripts', '.claude', '.wt', 'worktrees']);
 
 function htmlFiles(dir, out = []) {
   for (const name of readdirSync(dir)) {
