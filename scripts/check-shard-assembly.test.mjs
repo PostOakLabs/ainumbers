@@ -40,6 +40,57 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const GATE_SRC = resolve(__dirname, 'check-shard-assembly.mjs')
 const LIB_SRC = resolve(__dirname, 'lib-shard-order.mjs')
 
+// ── CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1) ────────────────
+// Git EXPORTS GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE, GIT_PREFIX, ...) to
+// every hook it runs. This file is wired into scripts/preflight.mjs, which the
+// pre-push hook invokes, so any child spawned here with a copied process.env
+// inherits a GIT_DIR pointing at the OUTER repository — and every git call
+// below then operates on that repo instead of its throwaway fixture.
+//
+// That is not merely a test failure. Measured 2026-08-15: standalone this file
+// reports 14 passed / 0 failed, and with GIT_DIR set it reports 0 passed /
+// 14 failed. Worse, `git init --bare` under an inherited GIT_DIR re-initialises
+// THAT gitdir and sets core.bare=true, which is how a single run of this file
+// disabled the shared checkout and all 56 worktrees estate-wide. The env leak
+// is therefore the safety half of this harness, not only the correctness half.
+//
+// CI could never have caught it: scripts-verify.yml runs preflight as an
+// ordinary step with no GIT_DIR, so the entry is green in CI and red in every
+// hook — STANDING-ORDERS #34b (a gate must run in the environment of the thing
+// it validates) one step sideways.
+//
+// THE METHOD IS AN ALLOWLIST, NOT COPY-AND-DELETE. Deleting the four or five
+// git variables we know about today leaves the next one to reintroduce the
+// leak; building the child env from an explicit list excludes every GIT_* — and
+// anything else not named here — by construction. Names are matched
+// case-insensitively so Windows' own casing is preserved on the way out.
+const CHILD_ENV_ALLOWLIST = [
+  // POSIX + Node runtime essentials
+  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
+  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
+  // Windows runtime essentials (git.exe and node.exe both need these)
+  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
+  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
+  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
+  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
+  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
+  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
+  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
+  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
+]
+const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()))
+
+// Builds the env for every child process this harness spawns. `extra` is
+// applied last so a case can still set what it deliberately means to set
+// (commit dates, GIT_CEILING_DIRECTORIES, the gate's own base-ref vars).
+function childEnv(extra = {}) {
+  const env = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (ALLOWED.has(key.toLowerCase()) && value !== undefined) env[key] = value
+  }
+  return { ...env, ...extra }
+}
+
 let passed = 0
 let failed = 0
 const cleanup = []
@@ -63,7 +114,7 @@ function git(cwd, args) {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_AUTHOR_DATE: '2026-08-15T00:00:00Z', GIT_COMMITTER_DATE: '2026-08-15T00:00:00Z' },
+    env: childEnv({ GIT_AUTHOR_DATE: '2026-08-15T00:00:00Z', GIT_COMMITTER_DATE: '2026-08-15T00:00:00Z' }),
   })
 }
 
@@ -98,7 +149,11 @@ function makeFixture() {
   cleanup.push(tmp)
   const originDir = join(tmp, 'origin.git')
   const work = join(tmp, 'work')
-  execFileSync('git', ['init', '--bare', '-q', '-b', 'main', originDir], { stdio: 'ignore' })
+  // Routed through git() rather than a raw execFileSync so this file has
+  // exactly ONE git spawn site, and therefore exactly one place that could
+  // ever leak an inherited GIT_DIR again. This is the specific call that
+  // re-initialised the shared repo gitdir on 2026-08-15.
+  git(tmp, ['init', '--bare', '-q', '-b', 'main', originDir])
   mkdirSync(work, { recursive: true })
   git(work, ['init', '-q', '-b', 'main'])
 
@@ -127,7 +182,9 @@ function runGate(work, args = [], env = {}) {
       cwd: work,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, GITHUB_BASE_REF: '', SHARD_ASSEMBLY_BASE_REF: '', ...env },
+      // The gate itself shells out to git, so its env must be scrubbed too —
+      // otherwise the leak simply moves one process further down.
+      env: childEnv({ GITHUB_BASE_REF: '', SHARD_ASSEMBLY_BASE_REF: '', ...env }),
     })
     return { status: 0, out }
   } catch (e) {
