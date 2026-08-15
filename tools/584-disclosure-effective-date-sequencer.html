@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Disclosure Effective Date Sequencer &middot; AINumbers.co</title>
+<meta name="description" content="Enter a fiscal year end and filer status and see which FASB Accounting Standards Updates in the disclosure readiness pack bind for that year, annually and for interims, with each entity's first affected period. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/584-disclosure-effective-date-sequencer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Disclosure Effective Date Sequencer","url":"https://ainumbers.co/tools/584-disclosure-effective-date-sequencer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "disclosure-effective-date-sequencer",
+  "version": "1.0.0",
+  "title": "Disclosure Effective Date Sequencer",
+  "description": "Maps a fiscal year end and filer status to the FASB Accounting Standards Updates tracked by the disclosure readiness pack that bind for that fiscal year, separating the annual requirement from the interim requirement and naming each Update's first affected period for the entity.",
+  "category": "cat-2",
+  "tags": ["ASU 2023-07","ASU 2023-09","ASU 2024-03","ASU 2025-01","DISE","effective date","segment reporting","income tax disclosure","fiscal year"],
+  "audience": ["technical accounting","financial reporting","controllership","compliance"],
+  "input_schema": {"type":"object","properties":{"fiscal_year_end":{"type":"string"},"fiscal_year_start_override":{"type":["string","null"]},"filer_status":{"type":"string"}},"required":["fiscal_year_end","filer_status"]},
+  "output_schema": {"type":"object","properties":{"entity":{"type":"object"},"updates":{"type":"array"},"caveats":{"type":"array"},"summary":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"sequence_disclosure_effective_dates","description":"Returns which tracked FASB Accounting Standards Updates bind for a given fiscal year end and filer status, annually and for interim periods, with each Update's first affected period.","inputSchema":{"type":"object","properties":{"fiscal_year_end":{"type":"string","description":"Last day of the fiscal year being assessed, as YYYY-MM-DD"},"fiscal_year_start_override":{"type":["string","null"],"description":"First day of that fiscal year, for 52 or 53 week filers whose year start is not a fixed calendar date"},"filer_status":{"type":"string","enum":["large_accelerated","accelerated","non_accelerated","smaller_reporting"],"description":"SEC filer status. All four are public business entities."}},"required":["fiscal_year_end","filer_status"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/584-disclosure-effective-date-sequencer.html","function_name":"runDisclosureSequencer","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;
+  --border:#1E2F4A;--border-2:#263855;
+  --muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0BC48;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1080px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1080px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-right{display:flex;align-items:center;gap:.5rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.15rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{padding:2rem 0 4rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.7rem .95rem;font-size:.72rem;line-height:1.7;margin:0 0 1.25rem;color:#9aa7b8}
+.scope-label{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
+.panel-title-wrap{display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.1rem 1.25rem}
+.field-hint{font-size:.64rem;color:var(--muted);margin:.5rem 0 .85rem;line-height:1.6}
+.fld-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.9rem}
+.fld{display:flex;flex-direction:column;gap:.3rem}
+.fld label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.fld input,.fld select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.42rem .55rem;border-radius:3px;width:100%;outline:none}
+.fld input:focus,.fld select:focus{border-color:var(--teal)}
+.fld .sub{font-size:.6rem;color:var(--muted);line-height:1.5}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.85rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.9rem}
+.run-btn:hover{background:var(--teal-lt)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.1rem 1.25rem}
+.verdict{display:flex;align-items:center;gap:.9rem;padding:.9rem 1.15rem;border-radius:var(--radius);border:1px solid;margin-bottom:1.1rem;flex-wrap:wrap}
+.verdict-ok{background:var(--teal-dim);border-color:rgba(20,184,166,.35)}
+.verdict-warn{background:var(--warn-dim);border-color:rgba(245,158,11,.35)}
+.verdict-icon{font-family:'JetBrains Mono',monospace;font-size:1.1rem;flex-shrink:0}
+.verdict-ok .verdict-icon{color:var(--teal)}
+.verdict-warn .verdict-icon{color:var(--warn)}
+.verdict-text{font-size:.75rem;color:var(--text);line-height:1.7}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem}
+.stat-tile{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem .9rem}
+.stat-n{font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--bright);line-height:1.25}
+.stat-l{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.3rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.45rem .65rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr.row-flagged td{background:rgba(20,184,166,.05)}
+.num{text-align:right;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright);white-space:nowrap}
+.mono-cell{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright);white-space:nowrap}
+.sub-cell{font-size:.64rem;color:var(--muted);line-height:1.5;display:block;margin-top:.15rem;white-space:normal}
+.pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;border:1px solid;white-space:nowrap;display:inline-block}
+.pill-yes{color:var(--teal);border-color:rgba(20,184,166,.35);background:var(--teal-dim)}
+.pill-no{color:var(--muted);border-color:var(--border);background:transparent}
+.pill-first{color:var(--gold);border-color:rgba(212,168,71,.35);background:var(--gold-dim)}
+.pill-na{color:var(--purple);border-color:rgba(155,114,245,.35);background:var(--purple-dim)}
+.tbl-scroll{overflow-x:auto}
+.caveat-list{display:flex;flex-direction:column;gap:.5rem}
+.caveat-item{display:flex;gap:.6rem;align-items:flex-start;padding:.6rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius)}
+.caveat-item.sev-high{border-left-color:var(--red)}
+.caveat-item.sev-info{border-left-color:var(--border-2)}
+.caveat-icon{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);flex-shrink:0;padding-top:.15rem;min-width:26px}
+.caveat-text{font-size:.72rem;color:var(--text);line-height:1.7}
+.empty-note{font-size:.72rem;color:var(--body);padding:.4rem 0 .7rem;line-height:1.7}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;font-size:.66rem}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.results-export-row{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--teal);border-radius:var(--radius);padding:.75rem 1rem;margin-top:1.5rem}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:#162340}
+#ainSendVerifyBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;opacity:.85;transition:opacity .2s}
+#ainSendVerifyBtn:hover{opacity:1}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+<!-- AIN-canon-2026-05-29 -->
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+    </a>
+    <div class="nav-trail">
+      <a href="../tools.html">All Tools</a><span class="nav-sep">/</span>
+      <span style="color:var(--text)">T584 &middot; Disclosure Effective Date Sequencer</span>
+    </div>
+    <div class="nav-right">
+      <a href="../tools.html" class="nav-pill">&larr; All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T584 &middot; Cat-2 &middot; Disclosure Readiness / FASB Effective Dates &middot; Lookup Tool</div>
+    <h1>Disclosure Effective Date Sequencer</h1>
+    <p class="hero-desc">Enter the fiscal year you are closing and your SEC filer status, and this worksheet works out which of the Accounting Standards Updates tracked by the disclosure readiness pack bind for that year. It separates the annual requirement from the interim requirement, because several of these Updates start at different times for the two, and it names the first period each Update actually reaches for your fiscal calendar rather than assuming a December year end. Companion to <a href="581-dise-caption-category-matrix-builder.html">T581</a>, <a href="582-dise-readiness-gap-analyzer.html">T582</a> and <a href="583-taxes-paid-jurisdiction-threshold-calc.html">T583</a>.</p>
+    <div class="hero-meta">
+      <span class="badge badge-teal">Lookup Tool &middot; No Chaingraph Node</span>
+      <span class="badge badge-gold">ASU 2023-07 &middot; 2023-09 &middot; 2024-03 &middot; 2025-01</span>
+      <span class="badge badge-purple">Policy Mandate Export</span>
+      <span class="badge badge-muted">Client-Side &middot; Zero PII &middot; CC BY 4.0</span>
+    </div>
+  </div>
+</section>
+
+<div class="tool-body">
+  <div class="container">
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="scope-note"><span class="scope-label">Where the dates come from, and what this page does not claim:</span> the effective dates in the table below were read on 2026-08-15 from the Financial Accounting Standards Board's own published Updates, retrieved as PDFs from the Board's content host after its main site refused automated requests. Each row records the transition paragraph the Update links to, so any date here can be checked against the pronouncement itself. Two things are worth stating plainly. First, these are dated observations rather than a standing promise: ASU 2024-03's effective date has already moved once, by ASU 2025-01, which is exactly the kind of amendment this page exists to track, so re-check the Board's Update index before relying on a date for a filing decision. Second, the output is verify-only. It sequences which Updates reach your fiscal year on the dates recorded here; it does not audit your adoption, does not tell you that a disclosure is complete, and does not account for an early adoption you may already have elected. Deterministic logic, no inference, zero PII.</div>
+
+    <!-- PANEL 1: entity fiscal calendar -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title-wrap"><span class="panel-num">Step 01</span><span class="panel-title">Fiscal Year Being Assessed</span></div>
+      </div>
+      <div class="panel-body">
+        <div class="field-hint">Enter the last day of the fiscal year you want sequenced. The first day of that year is derived as the day after the previous year end, which is what an effective date phrased as periods beginning after a given date is measured against. If you are a 52 or 53 week filer whose year does not start on a fixed calendar date, set the actual first day yourself in the override field and that value is used instead.</div>
+        <div class="fld-grid">
+          <div class="fld">
+            <label for="fyeInput">Fiscal Year End</label>
+            <input type="date" id="fyeInput" value="2027-12-31">
+            <span class="sub">Last day of the year being assessed.</span>
+          </div>
+          <div class="fld">
+            <label for="fysInput">Fiscal Year Start Override</label>
+            <input type="date" id="fysInput" value="">
+            <span class="sub">Optional. Leave blank to derive it from the year end.</span>
+          </div>
+        </div>
+        <div class="preset-row">
+          <button class="preset-btn" onclick="applyPreset('2027-12-31')">Calendar Year 2027</button>
+          <button class="preset-btn" onclick="applyPreset('2026-12-31')">Calendar Year 2026</button>
+          <button class="preset-btn" onclick="applyPreset('2028-06-30')">June Year End 2028</button>
+          <button class="preset-btn" onclick="applyPreset('2027-09-30')">September Year End 2027</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: filer status -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title-wrap"><span class="panel-num">Step 02</span><span class="panel-title">Filer Status</span></div>
+      </div>
+      <div class="panel-body">
+        <div class="field-hint">Filer status is carried through the sequence and recorded in the export. Read the result honestly on this point: all four of these statuses describe a public business entity, and none of the Updates tracked here sets a different effective date by filer status. Filer status moves your filing deadlines, not these dates. The result panel says so explicitly rather than implying a dependency that does not exist.</div>
+        <div class="fld-grid">
+          <div class="fld">
+            <label for="filerInput">SEC Filer Status</label>
+            <select id="filerInput">
+              <option value="large_accelerated">Large accelerated filer</option>
+              <option value="accelerated">Accelerated filer</option>
+              <option value="non_accelerated">Non accelerated filer</option>
+              <option value="smaller_reporting">Smaller reporting company</option>
+            </select>
+            <span class="sub">All four are public business entities.</span>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runDisclosureSequencer()">&#9654; Sequence Effective Dates</button>
+      </div>
+    </div>
+
+    <div id="outputSection"></div>
+
+  </div>
+</div>
+
+<section style="border-top:1px solid var(--border);margin-top:1.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:0;padding-bottom:1.5rem">
+  <div class="results-export-row">
+    <button id="ainSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this Policy Mandate">&#10145; Send to Verify</button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="logo" style="text-decoration:none">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ------------------------------------------------------------------
+ * T584 - Disclosure Effective Date Sequencer
+ *
+ * WHAT THIS COMPUTES
+ *   (fiscal_year_end, filer_status) -> the list of tracked FASB
+ *   Accounting Standards Updates that bind for that fiscal year,
+ *   split into an annual leg and an interim leg, plus the first
+ *   period each Update reaches for this entity's fiscal calendar.
+ *
+ * CONVERGENCE DUTY (stated here deliberately, so a later session
+ * reading this shipped file does not have to re-derive the intent)
+ *   The decision tree below is keyed exactly as
+ *       (fye, filer_status) -> binding ASU list
+ *   which is the shape the planned shared accounting-infrastructure
+ *   registry kernel targets. Every AINumbers tool is a single
+ *   self-contained page with no runtime imports, so there is no code
+ *   dependency between this tool and that kernel and none can be
+ *   created later. What can converge is the SHAPE. If that registry
+ *   pattern is adopted more broadly, only ASU_TABLE below needs to be
+ *   sourced differently. The OUTPUT CONTRACT (the `updates` array and
+ *   its per-Update fields, the `entity` block, `caveats`, `summary`)
+ *   must not change when that happens, because callers and the Policy
+ *   Mandate export are written against it. Treat ASU_TABLE as the
+ *   implementation detail and everything below renderResult as the
+ *   published surface.
+ *
+ * SOURCE OF THE DATES
+ *   Read 2026-08-15 from the Board's own published Updates, retrieved
+ *   as PDFs from its content host (the main site refuses automated
+ *   requests). Facts only: dates, scope and transition paragraph. No
+ *   Update text is reproduced here. Each row carries its transition
+ *   paragraph so the figure can be checked at source.
+ *
+ * BOUNDARY HANDLING
+ *   An effective date phrased as "periods beginning after <date>" is
+ *   a STRICT inequality. A fiscal year beginning exactly on the stated
+ *   date is not after it. Comparisons run on UTC epoch milliseconds
+ *   built with Date.UTC so no local timezone can shift a boundary day.
+ * ------------------------------------------------------------------ */
+
+function g(id){return document.getElementById(id);}
+
+function esc(s){
+  s = String(s == null ? '' : s);
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ---------- the tracked table (implementation detail, see header) ----------
+ * annual_after / interim_after are the "periods beginning after" dates.
+ * interim_after === null  means the Update states no separate interim
+ * effective date, which is a real and distinct answer from "not yet".
+ */
+var ASU_TABLE = [
+  {
+    id: '2023-07',
+    label: 'ASU 2023-07',
+    topic: 'Segment Reporting (Topic 280)',
+    subject: 'Improvements to reportable segment disclosures',
+    applies_to: 'Public entities within the scope of Topic 280',
+    annual_after: '2023-12-15',
+    interim_after: '2024-12-15',
+    other_entities_annual_after: null,
+    transition_paragraph: '280-10-65-1',
+    early_adoption: true,
+    pack_role: 'core',
+    pack_note: 'Adds the significant segment expense disclosure and the other segment items line. It does not change the 10 percent and 75 percent reportable segment thresholds.'
+  },
+  {
+    id: '2023-09',
+    label: 'ASU 2023-09',
+    topic: 'Income Taxes (Topic 740)',
+    subject: 'Improvements to income tax disclosures',
+    applies_to: 'Public business entities, with a later date for other entities',
+    annual_after: '2024-12-15',
+    interim_after: null,
+    other_entities_annual_after: '2025-12-15',
+    transition_paragraph: '740-10-65-9',
+    early_adoption: true,
+    pack_role: 'core',
+    pack_note: 'Carries the rate reconciliation threshold and the jurisdiction level income taxes paid disaggregation that T583 computes. The Update states an annual effective date and no separate interim one.'
+  },
+  {
+    id: '2024-03',
+    label: 'ASU 2024-03, as clarified by ASU 2025-01',
+    topic: 'Income Statement, Reporting Comprehensive Income (Subtopic 220-40)',
+    subject: 'Disaggregation of income statement expenses',
+    applies_to: 'Public business entities only',
+    annual_after: '2026-12-15',
+    interim_after: '2027-12-15',
+    other_entities_annual_after: null,
+    transition_paragraph: '220-40-65-1(a)',
+    early_adoption: true,
+    pack_role: 'core',
+    pack_note: 'The disaggregation requirement T581 and T582 map a chart of accounts against. ASU 2025-01 amended this paragraph specifically so a non calendar year end entity would not read its first adoption as landing in an interim period.'
+  },
+  {
+    id: '2025-05',
+    label: 'ASU 2025-05',
+    topic: 'Financial Instruments, Credit Losses (Topic 326)',
+    subject: 'Measurement of credit losses for accounts receivable and contract assets',
+    applies_to: 'All entities',
+    annual_after: '2025-12-15',
+    interim_after: '2025-12-15',
+    other_entities_annual_after: null,
+    transition_paragraph: '326-10-65-6',
+    early_adoption: true,
+    pack_role: 'pipeline',
+    pack_note: 'Tracked as a pipeline item so the sequence is complete for the period. It is a measurement practical expedient rather than one of the disclosure disaggregation standards this pack computes against.'
+  },
+  {
+    id: '2025-06',
+    label: 'ASU 2025-06',
+    topic: 'Intangibles, Goodwill and Other, Internal-Use Software (Subtopic 350-40)',
+    subject: 'Targeted improvements to the accounting for internal-use software',
+    applies_to: 'All entities',
+    annual_after: '2027-12-15',
+    interim_after: '2027-12-15',
+    other_entities_annual_after: null,
+    transition_paragraph: null,
+    early_adoption: true,
+    pack_role: 'pipeline',
+    pack_note: 'Tracked as a pipeline item. It changes when internal-use software costs start being capitalised rather than adding a disclosure disaggregation. Early adoption is permitted as of the beginning of an annual reporting period.'
+  }
+];
+
+var TABLE_RETRIEVED = '2026-08-15';
+var TABLE_SOURCE = 'FASB published Accounting Standards Updates, retrieved as PDFs from the Board content host';
+
+var FILER_LABEL = {
+  large_accelerated: 'Large accelerated filer',
+  accelerated: 'Accelerated filer',
+  non_accelerated: 'Non accelerated filer',
+  smaller_reporting: 'Smaller reporting company'
+};
+
+/* ---------- UTC-only date helpers ---------- */
+
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function parseYMD(s){
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s == null ? '' : s).trim());
+  if (!m) return null;
+  var y = +m[1], mo = +m[2], d = +m[3];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  if (d > daysInMonth(y, mo)) return null;
+  return {y:y, m:mo, d:d};
+}
+
+function daysInMonth(y, m){ return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+
+function ms(p){ return Date.UTC(p.y, p.m - 1, p.d); }
+
+function addYearsClamped(p, n){
+  var y = p.y + n;
+  return {y:y, m:p.m, d:Math.min(p.d, daysInMonth(y, p.m))};
+}
+
+function addDays(p, n){
+  var t = new Date(ms(p) + n * 86400000);
+  return {y:t.getUTCFullYear(), m:t.getUTCMonth() + 1, d:t.getUTCDate()};
+}
+
+function iso(p){
+  if (!p) return null;
+  return p.y + '-' + String(p.m).padStart(2,'0') + '-' + String(p.d).padStart(2,'0');
+}
+
+function human(p){
+  if (!p) return 'n/a';
+  return MONTHS[p.m - 1] + ' ' + p.d + ', ' + p.y;
+}
+
+/* Derive the first day of the fiscal year ending on `fye`: the day
+ * after the previous fiscal year end, with February clamped so a
+ * leap-day year end does not produce an invalid previous year end. */
+function deriveStart(fye){ return addDays(addYearsClamped(fye, -1), 1); }
+
+/* First fiscal year, on this entity's recurring start month and day,
+ * whose START is strictly after `threshold`. */
+function firstPeriodBeginningAfter(startMD, threshold){
+  for (var y = threshold.y - 2; y <= threshold.y + 4; y++){
+    var cand = {y:y, m:startMD.m, d:Math.min(startMD.d, daysInMonth(y, startMD.m))};
+    if (ms(cand) > ms(threshold)) return cand;
+  }
+  return null;
+}
+
+function periodEndFor(start){ return addDays(addYearsClamped(start, 1), -1); }
+
+/* ---------- input readers ---------- */
+
+function applyPreset(v){
+  g('fyeInput').value = v;
+  g('fysInput').value = '';
+}
+
+function readInputs(){
+  return {
+    fiscal_year_end: g('fyeInput').value,
+    fiscal_year_start_override: g('fysInput').value ? g('fysInput').value : null,
+    filer_status: g('filerInput').value
+  };
+}
+
+/* ---------- core sequencing ---------- */
+
+function runDisclosureSequencer(){
+  var input = readInputs();
+
+  var fye = parseYMD(input.fiscal_year_end);
+  if (!fye){
+    g('outputSection').innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Input Needed</span></div>' +
+      '<div class="out-body"><div class="empty-note">Enter a valid fiscal year end date in Step 01 before sequencing.</div></div></div>';
+    window._result = null;
+    return;
+  }
+
+  var override = input.fiscal_year_start_override ? parseYMD(input.fiscal_year_start_override) : null;
+  var derived = deriveStart(fye);
+  var fys = override || derived;
+
+  var caveats = [];
+
+  if (override && ms(override) >= ms(fye)){
+    caveats.push({severity:'high', text:'The fiscal year start override (' + human(override) + ') is not earlier than the fiscal year end (' + human(fye) + '). The sequence below still uses the override you entered, but the period it describes is not a fiscal year. Correct one of the two dates before reading the result.'});
+  }
+
+  var spanDays = Math.round((ms(fye) - ms(fys)) / 86400000) + 1;
+  if (override && (spanDays < 350 || spanDays > 380)){
+    caveats.push({severity:'high', text:'The override produces a period of ' + spanDays + ' days. A 52 or 53 week fiscal year runs 364 or 371 days, so check the start date before relying on which Updates are reported as binding.'});
+  }
+
+  var isCalendar = (fye.m === 12 && fye.d === 31);
+
+  var updates = ASU_TABLE.map(function(a){
+    var annualThresh = parseYMD(a.annual_after);
+    var interimThresh = a.interim_after ? parseYMD(a.interim_after) : null;
+
+    var bindingAnnual = ms(fys) > ms(annualThresh);
+    var bindingInterim = interimThresh ? (ms(fys) > ms(interimThresh)) : null;
+
+    var firstAnnualStart = firstPeriodBeginningAfter(fys, annualThresh);
+    var firstAnnualEnd = firstAnnualStart ? periodEndFor(firstAnnualStart) : null;
+
+    var firstInterimHostStart = interimThresh ? firstPeriodBeginningAfter(fys, interimThresh) : null;
+    var firstInterimHostEnd = firstInterimHostStart ? periodEndFor(firstInterimHostStart) : null;
+
+    var isAdoptionYear = firstAnnualStart != null && ms(firstAnnualStart) === ms(fys);
+    var isInterimAdoptionYear = firstInterimHostStart != null && ms(firstInterimHostStart) === ms(fys);
+
+    return {
+      asu: a.id,
+      label: a.label,
+      topic: a.topic,
+      subject: a.subject,
+      applies_to: a.applies_to,
+      pack_role: a.pack_role,
+      pack_note: a.pack_note,
+      annual_effective_for_periods_beginning_after: a.annual_after,
+      interim_effective_for_periods_beginning_after: a.interim_after,
+      other_entities_annual_after: a.other_entities_annual_after,
+      transition_paragraph: a.transition_paragraph,
+      early_adoption_permitted: a.early_adoption,
+      binding_annual: bindingAnnual,
+      binding_interim: bindingInterim,
+      first_affected_annual_period: firstAnnualStart ? {start: iso(firstAnnualStart), end: iso(firstAnnualEnd)} : null,
+      first_affected_interim_host_period: firstInterimHostStart ? {start: iso(firstInterimHostStart), end: iso(firstInterimHostEnd)} : null,
+      is_annual_adoption_year: isAdoptionYear,
+      is_interim_adoption_year: isInterimAdoptionYear,
+      filer_status_changes_this_date: false
+    };
+  });
+
+  var bindingAnnualCount = updates.filter(function(u){ return u.binding_annual; }).length;
+  var bindingInterimCount = updates.filter(function(u){ return u.binding_interim === true; }).length;
+  var adoptionYearCount = updates.filter(function(u){ return u.is_annual_adoption_year; }).length;
+  var notYetCount = updates.filter(function(u){ return !u.binding_annual; }).length;
+
+  /* ---- caveats that are always true of this table, stated once ---- */
+
+  caveats.push({severity:'info', text:'Filer status does not move any date in this table. All four statuses offered in Step 02 describe a public business entity, and none of the tracked Updates sets its effective date by SEC filer status. Filer status governs filing deadlines. The status you selected (' + FILER_LABEL[input.filer_status] + ') is carried into the export for the record and changes nothing in the sequence.'});
+
+  if (!isCalendar){
+    caveats.push({severity:'med', text:'This is a non calendar fiscal year end, which is precisely the case ASU 2025-01 was issued to clarify. Under the original wording of ASU 2024-03 a non calendar year end entity could read its first adoption as falling in an interim period rather than an annual one. The sequence above measures each Update against the first day of the fiscal year, which is what the clarified wording requires.'});
+  }
+
+  if (override){
+    caveats.push({severity:'med', text:'A fiscal year start override was supplied (' + human(fys) + ') and was used in place of the date derived from the year end (' + human(derived) + '). Every binding test above was measured against the override.'});
+  }
+
+  var noInterim = updates.filter(function(u){ return u.binding_interim === null; });
+  if (noInterim.length){
+    caveats.push({severity:'info', text:noInterim.map(function(u){ return u.label; }).join(' and ') + ' states an annual effective date and no separate interim one, so the interim column reads not stated rather than not yet. Those are different answers and the table keeps them apart.'});
+  }
+
+  caveats.push({severity:'info', text:'Early adoption is permitted for every Update tracked here, so an entity may already be applying one that this sequence reports as not yet binding. This page does not model an early adoption election.'});
+
+  var pipeline = updates.filter(function(u){ return u.pack_role === 'pipeline'; });
+  if (pipeline.length){
+    caveats.push({severity:'info', text:pipeline.map(function(u){ return u.label; }).join(' and ') + ' are carried as pipeline items so the period is sequenced completely. They are not disclosure disaggregation standards of the kind the rest of this pack computes against.'});
+  }
+
+  caveats.push({severity:'med', text:'These dates are a dated observation taken on ' + TABLE_RETRIEVED + ', not a standing guarantee. ASU 2024-03 has already had its effective date amended once, by ASU 2025-01. Re-check the published Update index against the transition paragraphs listed below before relying on any of this for a filing decision.'});
+
+  var result = {
+    entity: {
+      fiscal_year_end: iso(fye),
+      fiscal_year_start: iso(fys),
+      fiscal_year_start_basis: override ? 'override_supplied' : 'derived_from_year_end',
+      fiscal_year_length_days: spanDays,
+      calendar_year_end: isCalendar,
+      filer_status: input.filer_status,
+      filer_status_label: FILER_LABEL[input.filer_status],
+      entity_class: 'public_business_entity'
+    },
+    updates: updates,
+    caveats: caveats.map(function(c){ return c.text; }),
+    summary: {
+      updates_tracked: updates.length,
+      binding_annual: bindingAnnualCount,
+      binding_interim: bindingInterimCount,
+      first_annual_adoption_this_year: adoptionYearCount,
+      not_yet_binding: notYetCount,
+      boundary_rule: 'strictly_after_stated_date',
+      table_retrieved: TABLE_RETRIEVED,
+      table_source: TABLE_SOURCE
+    }
+  };
+
+  window._result = result;
+  renderResult(result, caveats);
+}
+
+/* ---------- rendering ---------- */
+
+function renderResult(r, caveats){
+  var s = r.summary, e = r.entity;
+  var out = [];
+
+  var verdictClass = s.first_annual_adoption_this_year > 0 ? 'verdict-warn' : 'verdict-ok';
+  var verdictIcon = s.first_annual_adoption_this_year > 0 ? '&#9888;' : '&#10003;';
+  var verdictText;
+  if (s.first_annual_adoption_this_year > 0){
+    verdictText = 'The fiscal year running ' + human(parseYMD(e.fiscal_year_start)) + ' to ' + human(parseYMD(e.fiscal_year_end)) +
+      ' is the first affected annual period for ' + s.first_annual_adoption_this_year + ' of the ' + s.updates_tracked +
+      ' tracked Updates, and ' + s.binding_annual + ' bind annually in total. Adoption year mechanics apply to the ones marked first year below.';
+  } else if (s.binding_annual > 0){
+    verdictText = s.binding_annual + ' of the ' + s.updates_tracked + ' tracked Updates bind annually for the fiscal year running ' +
+      human(parseYMD(e.fiscal_year_start)) + ' to ' + human(parseYMD(e.fiscal_year_end)) + ', and none of them reaches its first affected period in this year.';
+  } else {
+    verdictText = 'None of the ' + s.updates_tracked + ' tracked Updates binds for the fiscal year running ' +
+      human(parseYMD(e.fiscal_year_start)) + ' to ' + human(parseYMD(e.fiscal_year_end)) + ' on the dates recorded below. The first affected period for each one is named in the table.';
+  }
+
+  out.push('<div class="out-section"><div class="out-header"><span class="out-title">Sequence Result</span>' +
+    '<span class="stat-l" style="margin:0">Year start ' + (e.fiscal_year_start_basis === 'override_supplied' ? 'from override' : 'derived from year end') + '</span></div><div class="out-body">');
+
+  out.push('<div class="verdict ' + verdictClass + '"><span class="verdict-icon">' + verdictIcon + '</span><span class="verdict-text">' + verdictText + '</span></div>');
+
+  out.push('<div class="stat-grid">' +
+    tile(human(parseYMD(e.fiscal_year_start)), 'Fiscal Year Start') +
+    tile(human(parseYMD(e.fiscal_year_end)), 'Fiscal Year End') +
+    tile(s.binding_annual + ' of ' + s.updates_tracked, 'Binding Annually') +
+    tile(s.binding_interim + ' of ' + s.updates_tracked, 'Binding for Interims') +
+    tile(s.first_annual_adoption_this_year, 'First Year of Adoption') +
+    tile(s.not_yet_binding, 'Not Yet Binding') +
+    '</div>');
+  out.push('</div></div>');
+
+  /* per-Update sequence */
+  out.push('<div class="out-section"><div class="out-header"><span class="out-title">Update Sequence for This Fiscal Year</span></div><div class="out-body">');
+  out.push('<div class="empty-note">Annual and interim are reported separately because several of these Updates start at different times for the two. A test reading not stated means the Update sets no separate interim effective date, which is not the same as not yet.</div>');
+  out.push('<div class="tbl-scroll"><table class="result-table">' +
+    '<thead><tr><th style="min-width:230px">Update</th><th>Applies To</th><th>Annual</th><th>Interim</th><th>First Affected Annual Period</th><th>First Interim Coverage</th></tr></thead><tbody>');
+
+  r.updates.forEach(function(u){
+    var annualPill = u.binding_annual
+      ? (u.is_annual_adoption_year ? '<span class="pill pill-first">Binding, First Year</span>' : '<span class="pill pill-yes">Binding</span>')
+      : '<span class="pill pill-no">Not Yet</span>';
+    var interimPill;
+    if (u.binding_interim === null) interimPill = '<span class="pill pill-na">Not Stated</span>';
+    else if (u.binding_interim) interimPill = u.is_interim_adoption_year ? '<span class="pill pill-first">Binding, First Year</span>' : '<span class="pill pill-yes">Binding</span>';
+    else interimPill = '<span class="pill pill-no">Not Yet</span>';
+
+    var fa = u.first_affected_annual_period;
+    var fi = u.first_affected_interim_host_period;
+
+    out.push('<tr' + (u.is_annual_adoption_year ? ' class="row-flagged"' : '') + '>' +
+      '<td class="mono-cell">' + esc(u.label) + '<span class="sub-cell">' + esc(u.topic) + '. ' + esc(u.subject) + '.</span></td>' +
+      '<td>' + esc(u.applies_to) + '</td>' +
+      '<td>' + annualPill + '<span class="sub-cell">periods beginning after ' + human(parseYMD(u.annual_effective_for_periods_beginning_after)) + '</span></td>' +
+      '<td>' + interimPill + '<span class="sub-cell">' + (u.interim_effective_for_periods_beginning_after ? 'within periods beginning after ' + human(parseYMD(u.interim_effective_for_periods_beginning_after)) : 'no separate interim date stated') + '</span></td>' +
+      '<td class="mono-cell">' + (fa ? human(parseYMD(fa.start)) + ' to ' + human(parseYMD(fa.end)) : 'n/a') + '</td>' +
+      '<td class="mono-cell">' + (fi ? 'interims within ' + human(parseYMD(fi.start)) + ' to ' + human(parseYMD(fi.end)) : 'not stated') + '</td></tr>');
+  });
+  out.push('</tbody></table></div></div></div>');
+
+  /* what each Update is, in pack terms */
+  out.push('<div class="out-section"><div class="out-header"><span class="out-title">What Each Update Carries</span></div><div class="out-body"><div class="tbl-scroll"><table class="result-table">' +
+    '<thead><tr><th style="min-width:180px">Update</th><th>Role in This Pack</th><th>Note</th></tr></thead><tbody>');
+  r.updates.forEach(function(u){
+    out.push('<tr><td class="mono-cell">' + esc(u.label) + '</td>' +
+      '<td>' + (u.pack_role === 'core' ? '<span class="pill pill-yes">Core</span>' : '<span class="pill pill-no">Pipeline</span>') + '</td>' +
+      '<td style="white-space:normal">' + esc(u.pack_note) + '</td></tr>');
+  });
+  out.push('</tbody></table></div></div></div>');
+
+  /* provenance */
+  out.push('<div class="out-section"><div class="out-header"><span class="out-title">Where Each Date Came From</span></div><div class="out-body">');
+  out.push('<div class="empty-note">Source: ' + esc(s.table_source) + ', read ' + esc(s.table_retrieved) + '. Facts only, no Update text is reproduced on this page. Check any figure against the transition paragraph named here.</div>');
+  out.push('<div class="tbl-scroll"><table class="result-table">' +
+    '<thead><tr><th style="min-width:180px">Update</th><th>Annual, Periods Beginning After</th><th>Interim, Periods Beginning After</th><th>Other Than Public Business Entities</th><th>Transition Paragraph</th></tr></thead><tbody>');
+  r.updates.forEach(function(u){
+    out.push('<tr><td class="mono-cell">' + esc(u.label) + '</td>' +
+      '<td class="mono-cell">' + human(parseYMD(u.annual_effective_for_periods_beginning_after)) + '</td>' +
+      '<td class="mono-cell">' + (u.interim_effective_for_periods_beginning_after ? human(parseYMD(u.interim_effective_for_periods_beginning_after)) : 'not stated') + '</td>' +
+      '<td class="mono-cell">' + (u.other_entities_annual_after ? human(parseYMD(u.other_entities_annual_after)) : 'same as above') + '</td>' +
+      '<td class="mono-cell">' + (u.transition_paragraph ? esc(u.transition_paragraph) : 'not captured') + '</td></tr>');
+  });
+  out.push('</tbody></table></div></div></div>');
+
+  /* caveats */
+  out.push('<div class="out-section"><div class="out-header"><span class="out-title">Caveats</span></div><div class="out-body">');
+  if (!caveats.length){
+    out.push('<div class="empty-note">No caveats.</div>');
+  } else {
+    out.push('<div class="caveat-list">');
+    caveats.forEach(function(c, i){
+      var cls = c.severity === 'high' ? ' sev-high' : (c.severity === 'info' ? ' sev-info' : '');
+      out.push('<div class="caveat-item' + cls + '"><span class="caveat-icon">' + String(i + 1).padStart(2, '0') + '</span><span class="caveat-text">' + esc(c.text) + '</span></div>');
+    });
+    out.push('</div>');
+  }
+  out.push('</div></div>');
+
+  /* memo */
+  out.push('<div class="out-section"><div class="out-header"><span class="out-title">Sequencing Memo</span>' +
+    '<button class="copy-btn" onclick="copyMemo()">&#128203; Copy</button></div><div class="out-body">' +
+    '<div class="memo-block" id="memoBlock">' + esc(buildMemo(r)) + '</div></div></div>');
+
+  g('outputSection').innerHTML = out.join('');
+}
+
+function tile(n, label){
+  return '<div class="stat-tile"><div class="stat-n">' + esc(String(n)) + '</div><div class="stat-l">' + esc(label) + '</div></div>';
+}
+
+function buildMemo(r){
+  var s = r.summary, e = r.entity;
+  var lines = [];
+  lines.push('DISCLOSURE EFFECTIVE DATE SEQUENCE');
+  lines.push('Fiscal year: ' + human(parseYMD(e.fiscal_year_start)) + ' to ' + human(parseYMD(e.fiscal_year_end)) +
+    ' (' + (e.fiscal_year_start_basis === 'override_supplied' ? 'start supplied as an override' : 'start derived from the year end') + ')');
+  lines.push('Filer status: ' + e.filer_status_label + '. Entity class: public business entity.');
+  lines.push('Effective dates read ' + s.table_retrieved + '. Boundary rule: strictly after the stated date.');
+  lines.push('');
+  lines.push('BINDING FOR THIS FISCAL YEAR');
+  var bound = r.updates.filter(function(u){ return u.binding_annual; });
+  if (!bound.length){
+    lines.push('  None of the tracked Updates binds annually for this year.');
+  } else {
+    bound.forEach(function(u){
+      lines.push('  ' + u.label + ' (' + u.topic + ')');
+      lines.push('    annual: binding' + (u.is_annual_adoption_year ? ', first affected year' : '') +
+        '. interim: ' + (u.binding_interim === null ? 'no separate interim date stated' : (u.binding_interim ? 'binding' + (u.is_interim_adoption_year ? ', first affected year' : '') : 'not yet')));
+    });
+  }
+  lines.push('');
+  lines.push('NOT YET BINDING, WITH FIRST AFFECTED PERIOD');
+  var pending = r.updates.filter(function(u){ return !u.binding_annual; });
+  if (!pending.length){
+    lines.push('  None. Every tracked Update already binds annually.');
+  } else {
+    pending.forEach(function(u){
+      var fa = u.first_affected_annual_period;
+      lines.push('  ' + u.label + ': first annual period ' +
+        (fa ? human(parseYMD(fa.start)) + ' to ' + human(parseYMD(fa.end)) : 'n/a'));
+    });
+  }
+  lines.push('');
+  lines.push('SOURCE PER UPDATE');
+  r.updates.forEach(function(u){
+    lines.push('  ' + u.label + ': annual after ' + human(parseYMD(u.annual_effective_for_periods_beginning_after)) +
+      ', interim ' + (u.interim_effective_for_periods_beginning_after ? 'after ' + human(parseYMD(u.interim_effective_for_periods_beginning_after)) : 'not stated') +
+      ', transition paragraph ' + (u.transition_paragraph ? u.transition_paragraph : 'not captured'));
+  });
+  if (r.caveats.length){
+    lines.push('');
+    lines.push('CAVEATS');
+    r.caveats.forEach(function(c, i){ lines.push('  ' + (i + 1) + '. ' + c); });
+  }
+  lines.push('');
+  lines.push('Sequenced locally from the fiscal calendar entered. This worksheet reports which Updates reach the period on the dates recorded above and does not assert that any adoption or disclosure requirement has been met.');
+  return lines.join('\n');
+}
+
+function copyMemo(){
+  var el = g('memoBlock');
+  if (!el) return;
+  var t = el.textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t);
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+  }
+}
+</script>
+
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"584-disclosure-effective-date-sequencer","version":"1.0.0","title":"Disclosure Effective Date Sequencer","description":"Maps a fiscal year end and filer status to the FASB Accounting Standards Updates tracked by the disclosure readiness pack that bind for that fiscal year, separating the annual requirement from the interim requirement and naming each Update first affected period for the entity.","category":"cat-2","tags":["ASU 2023-07","ASU 2023-09","ASU 2024-03","ASU 2025-01","DISE","effective date","segment reporting","income tax disclosure","fiscal year"],"audience":["technical accounting","financial reporting","controllership","compliance"],"input_schema":{"type":"object","properties":{"fiscal_year_end":{"type":"string"},"fiscal_year_start_override":{"type":["string","null"]},"filer_status":{"type":"string"}}},"output_schema":{"type":"object","properties":{"entity":{"type":"object"},"updates":{"type":"array"},"caveats":{"type":"array"},"summary":{"type":"object"}}},"mcp_tool_definition":{"name":"sequence_disclosure_effective_dates","description":"Returns which tracked FASB Accounting Standards Updates bind for a given fiscal year end and filer status, annually and for interim periods, with each Update first affected period. Browser-based, client-side only, zero PII.","inputSchema":{"type":"object","properties":{"fiscal_year_end":{"type":"string","description":"Last day of the fiscal year being assessed, as YYYY-MM-DD"},"fiscal_year_start_override":{"type":["string","null"],"description":"First day of that fiscal year, for 52 or 53 week filers"},"filer_status":{"type":"string","enum":["large_accelerated","accelerated","non_accelerated","smaller_reporting"],"description":"SEC filer status. All four are public business entities."}}}},"execution":{"type":"browser-reference","entry":"tools/584-disclosure-effective-date-sequencer.html","function_name":"runDisclosureSequencer"},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser"}');
+function toggleMfst(){
+  var b = g('mfstBody'), a = g('mfstArr');
+  if (b.style.display === 'none' || b.style.display === ''){
+    b.style.display = 'block'; if (a) a.textContent = '▲';
+    g('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else {
+    b.style.display = 'none'; if (a) a.textContent = '▼';
+  }
+}
+</script>
+
+<script>
+(function(){
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m){
+  var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){ throw new Error('AP2Schema: ' + msg); }
+  if (!m || typeof m !== 'object') _f('mandate must be an object');
+  if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _f('missing identity field');
+  if (typeof m.mandate_type !== 'string' || !m.mandate_type) _f('missing mandate_type');
+  if ('mandate_id' in m && !RE_UUID4.test(m.mandate_id)) _f('mandate_id must be UUIDv4');
+  if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn = function(){
+  var b = document.getElementById('ap2ExportBtn');
+  if (b){ b.disabled = false; b.classList.add('ready'); }
+};
+window._lastMandate = null;
+window.exportAP2 = function(){
+  if (!window._result_ready){ alert('Sequence the effective dates above first.'); return; }
+  var r = window._lastResultForExport;
+  var ts = new Date().toISOString();
+  var tid = 'disclosure-effective-date-sequencer';
+  var s = r && r.summary ? r.summary : {};
+  var e = r && r.entity ? r.entity : {};
+  var mandate = {
+    mandate_id: 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){ var v = Math.random()*16|0; return (c === 'x' ? v : (v & 0x3 | 0x8)).toString(16); }),
+    issued_at: ts, issued_by: 'ainumbers.co',
+    tool_id: tid, tool_version: '1.0.0',
+    mandate_type: 'disclosure_template',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['ASU 2023-07', 'ASU 2023-09', 'ASU 2024-03', 'ASU 2025-01', 'ASU 2025-05', 'ASU 2025-06'],
+    payload: r,
+    summary: 'Effective date sequence for the fiscal year ending ' + (e.fiscal_year_end || 'n/a') + ': ' +
+      (s.binding_annual == null ? 0 : s.binding_annual) + ' of ' + (s.updates_tracked == null ? 0 : s.updates_tracked) +
+      ' tracked Updates bind annually, ' + (s.binding_interim == null ? 0 : s.binding_interim) + ' bind for interim periods.',
+    agent_instructions: ['Treat every effective date in the payload as a dated observation read on ' + (s.table_retrieved || 'the recorded date') + ', not a standing fact. Measure an effective date phrased as periods beginning after a given day as a strict inequality against the first day of the fiscal year. Do not infer a filer status dependency: none of the tracked Updates sets its effective date by SEC filer status.'],
+    valid_from: ts.slice(0,10),
+    source_tool_inputs: {
+      fiscal_year_end: e.fiscal_year_end || null,
+      fiscal_year_start: e.fiscal_year_start || null,
+      fiscal_year_start_basis: e.fiscal_year_start_basis || null,
+      filer_status: e.filer_status || null
+    },
+    regulatory_citations: [
+      'ASC 280-10-65-1 (transition and effective date for ASU 2023-07)',
+      'ASC 740-10-65-9 (transition and effective date for ASU 2023-09)',
+      'ASC 220-40-65-1(a) (transition and effective date for ASU 2024-03 as amended by ASU 2025-01)',
+      'ASC 326-10-65-6 (transition and effective date for ASU 2025-05)'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  AP2Schema.validate(mandate);
+  window._lastMandate = mandate;
+  var json = JSON.stringify(mandate, null, 2);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = tid + '_' + ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14) + '.policy.json';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+window._result_ready = false;
+var _origRun = window.runDisclosureSequencer;
+window.runDisclosureSequencer = function(){
+  _origRun();
+  if (window._result){
+    window._result_ready = true;
+    window._lastResultForExport = window._result;
+    window.enableAP2Btn();
+  }
+};
+window.apSendToVerify = function(){
+  if (!window._lastMandate){ alert('Export a Policy Mandate first (or run the tool, then Export).'); return; }
+  var json; try { json = JSON.stringify(window._lastMandate); } catch(e){ return; }
+  var target = new URL('../chaingraph/verify.html', window.location.href).href;
+  var win = window.open(target, '_blank');
+  if (!win) return;
+  var sent = false;
+  function onReady(ev){
+    if (ev.origin !== window.location.origin) return;
+    if (ev.source !== win) return;
+    var d = ev.data;
+    if (!d || typeof d !== 'object' || d.type !== 'ain-handoff-ready/v1') return;
+    if (sent) return; sent = true;
+    window.removeEventListener('message', onReady);
+    win.postMessage({type:'ain-handoff/v1', kind:'policy-mandate', mandate: json}, window.location.origin);
+  }
+  window.addEventListener('message', onReady);
+  setTimeout(function(){ window.removeEventListener('message', onReady); }, 10000);
+};
+window.AINBridge = {
+  version: '1.1',
+  getMandate: function(){ return window._lastMandate; }
+};
+})();
+</script>
+</body>
+</html>
