@@ -158,5 +158,54 @@ await test('OBSERVED RED — a fully self-consistent but UNPINNED log identity i
   assert(status !== 0, `expected non-zero exit, got ${status}`);
 });
 
+// ── 4. .tlog-policy FILE MATCHES THE JS PIN, BYTE-FOR-BYTE (C2SP-TLOG-POLICY-FILE-1) ──
+// Wiring choice (b) per BUILD-SPEC §3: register-sigsum.mjs keeps LOGS/WITNESSES/
+// WITNESS_QUORUM_THRESHOLD as the enforced values (simpler than a runtime
+// tlog-policy parser for one policy instance); this test is the byte-identity
+// proof that chaingraph/policies/sigsum-generic-2025-1.tlog-policy encodes the
+// SAME log/witness/quorum set, so the checked-in artifact can never silently
+// drift from what verify() actually enforces.
+
+function parseTlogPolicyLogsWitnessesQuorum(text) {
+  const logs = [];
+  const witnesses = [];
+  let quorumThreshold = null;
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const parts = line.split(/\s+/);
+    if (parts[0] === 'log') logs.push(parts[1]);
+    else if (parts[0] === 'witness') witnesses.push({ name: parts[1], keyHex: parts[2] });
+    else if (parts[0] === 'group') quorumThreshold = Number(parts[2]);
+  }
+  return { logs, witnesses, quorumThreshold };
+}
+
+await test('sigsum-generic-2025-1.tlog-policy encodes the identical log/witness/quorum set as the JS pin', () => {
+  const policyPath = resolve(HERE, '../chaingraph/policies/sigsum-generic-2025-1.tlog-policy');
+  const policyText = readFileSync(policyPath, 'utf8');
+  const { logs, witnesses, quorumThreshold } = parseTlogPolicyLogsWitnessesQuorum(policyText);
+
+  const scriptSource = readFileSync(SCRIPT, 'utf8');
+  const LOG_PUBLIC_KEY_HEX = scriptSource.match(/^const LOG_PUBLIC_KEY_HEX = '([0-9a-f]{64})';/m)[1];
+  const jsLogKeys = scriptSource.match(/^const LOGS = \[([\s\S]*?)\n\];/m)[1]
+    .replace(/LOG_PUBLIC_KEY_HEX/g, `'${LOG_PUBLIC_KEY_HEX}'`)
+    .match(/keyHex: '([0-9a-f]{64})'/g).map((m) => m.match(/'([0-9a-f]{64})'/)[1]);
+  const jsWitnessKeys = scriptSource.match(/^const WITNESSES = \[([\s\S]*?)\n\];/m)[1]
+    .match(/keyHex: '([0-9a-f]{64})'/g).map((m) => m.match(/'([0-9a-f]{64})'/)[1]);
+  const jsQuorum = Number(scriptSource.match(/^const WITNESS_QUORUM_THRESHOLD = (\d+);/m)[1]);
+
+  assert(logs.length === 2 && jsLogKeys.length === 2, `expected 2 logs in both, got policy=${logs.length} js=${jsLogKeys.length}`);
+  assert(logs.every((k) => jsLogKeys.includes(k)), `policy log keys ${JSON.stringify(logs)} must be a subset of JS LOGS ${JSON.stringify(jsLogKeys)}`);
+  assert(jsLogKeys.every((k) => logs.includes(k)), `JS LOGS keys ${JSON.stringify(jsLogKeys)} must be a subset of policy log keys ${JSON.stringify(logs)}`);
+
+  assert(witnesses.length === 3 && jsWitnessKeys.length === 3, `expected 3 witnesses in both, got policy=${witnesses.length} js=${jsWitnessKeys.length}`);
+  const policyWitnessKeys = witnesses.map((w) => w.keyHex);
+  assert(policyWitnessKeys.every((k) => jsWitnessKeys.includes(k)), `policy witness keys ${JSON.stringify(policyWitnessKeys)} must be a subset of JS WITNESSES ${JSON.stringify(jsWitnessKeys)}`);
+  assert(jsWitnessKeys.every((k) => policyWitnessKeys.includes(k)), `JS WITNESSES keys ${JSON.stringify(jsWitnessKeys)} must be a subset of policy witness keys ${JSON.stringify(policyWitnessKeys)}`);
+
+  assert(quorumThreshold === jsQuorum, `expected policy group threshold (${quorumThreshold}) === WITNESS_QUORUM_THRESHOLD (${jsQuorum})`);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

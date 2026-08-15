@@ -108,5 +108,33 @@ test('OBSERVED RED — tampering the checkpoint cosignature breaks checkpointSig
   assert(status !== 0, `expected non-zero exit, got ${status}`);
 });
 
+// ── 3. rekor-pinned.tlog-policy MATCHES THE JS PIN, BYTE-FOR-BYTE (C2SP-TLOG-POLICY-FILE-1) ──
+// Wiring choice (b) per BUILD-SPEC §3: register-rekor.mjs keeps REKOR_PUBLIC_KEY_PEM/
+// REKOR_LOG_ID as the enforced values; this test proves
+// chaingraph/policies/rekor-pinned.tlog-policy's "log <hex> <url>" line encodes
+// the SAME SPKI DER key (as bare hex — the named vkey-encoding deviation the
+// policy file's own header comment documents) plus a "quorum none" line, so the
+// checked-in artifact can never silently drift from what verify() enforces.
+
+test('rekor-pinned.tlog-policy encodes the identical pinned log key + quorum-none as the JS pin', () => {
+  const policyPath = resolve(HERE, '../chaingraph/policies/rekor-pinned.tlog-policy');
+  const policyText = readFileSync(policyPath, 'utf8');
+  const logLine = policyText.split('\n').find((l) => l.trim().startsWith('log '));
+  const quorumLine = policyText.split('\n').find((l) => l.trim().startsWith('quorum '));
+  assert(logLine, 'expected a "log <hex> <url>" line in the policy file');
+  assert(quorumLine, 'expected a "quorum ..." line in the policy file');
+  const [, policyKeyHex, policyUrl] = logLine.trim().split(/\s+/);
+  assert(quorumLine.trim() === 'quorum none', `expected "quorum none", got: ${quorumLine.trim()}`);
+
+  const scriptSource = readFileSync(SCRIPT, 'utf8');
+  const pem = scriptSource.match(/REKOR_PUBLIC_KEY_PEM = `([\s\S]*?)`;/)[1];
+  const b64 = pem.replace(/-----BEGIN PUBLIC KEY-----/, '').replace(/-----END PUBLIC KEY-----/, '').replace(/\s+/g, '');
+  const derHex = Buffer.from(b64, 'base64').toString('hex');
+  const jsUrl = scriptSource.match(/const REKOR_URL = '([^']+)';/)[1];
+
+  assert(policyKeyHex === derHex, `expected policy log key to equal REKOR_PUBLIC_KEY_PEM's DER hex, got mismatch:\n  policy: ${policyKeyHex}\n  js:     ${derHex}`);
+  assert(policyUrl === jsUrl, `expected policy log url ${policyUrl} === REKOR_URL ${jsUrl}`);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
