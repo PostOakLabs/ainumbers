@@ -268,3 +268,82 @@ jobs:
         if: steps.floor-files.outputs.count == '0'
         shell: bash
         run: echo "No floor files changed in this diff — skipping (scoped-to-diff gate, never a full-estate sweep)."
+
+  # FV-ATTEST-PROVENANCE-1 (2026-08-15): GitHub artifact attestations
+  # (actions/attest) over the FV artifacts this workflow just gated — chaingraph.json,
+  # every *.receipt.json, and the §18 compute-proof baseline. Runs only on push to
+  # main (needs: land-verify, so it only attests a commit that already passed every
+  # gate above) — never on pull_request, where a fork PR cannot hold id-token/attestations
+  # write anyway. SO #8 pre-authorizes actions/attest directly (not the thin
+  # attest-build-provenance wrapper); SO #31 requires full-commit-SHA action pins and
+  # job-level (not workflow-level) least-privilege permissions — both applied below.
+  #
+  # Scope honesty (research/FV-SIGNING-AUTOMATION-2026-08-13.md §stack-3): this covers
+  # PUBLIC repos only (GitHub's free-plan Sigstore identity). The private prover repo is
+  # NOT covered here — that's the SSHSIG + Sigsum lanes' job. Provenance is a PROCESS
+  # claim ("this workflow, at this commit, produced this artifact") — never a review
+  # claim; no copy anywhere may present it as one.
+  attest-fv-artifacts:
+    name: actions/attest — FV artifact provenance
+    needs: land-verify
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build FV-artifact checksums manifest
+        # subject-checksums (not subject-path) so ~300+ receipts + chaingraph.json +
+        # the compute-proof baseline become ONE attestation over ONE named batch,
+        # rather than one attestation per file. Standard `sha256sum` two-space format,
+        # repo-root-relative paths, sorted for a deterministic manifest byte-for-byte.
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > fv-artifact-checksums.txt
+          sha256sum chaingraph/chaingraph.json scripts/compute-proof-baseline.json \
+            >> fv-artifact-checksums.txt
+          find chaingraph -name '*.receipt.json' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum >> fv-artifact-checksums.txt
+          echo "Manifest covers $(wc -l < fv-artifact-checksums.txt) FV artifact(s):"
+          cat fv-artifact-checksums.txt
+
+      - name: Generate build provenance attestation
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: fv-artifact-checksums.txt
+
+      - name: Fetch trusted root for offline verification
+        # gh attestation trusted-root fetches Sigstore's current TUF root ONCE, here, in
+        # CI, and writes it to a local file. Every subsequent `gh attestation verify
+        # --custom-trusted-root` call — including one run by a maintainer offline, days
+        # later, from a downloaded bundle — needs no live TUF/Sigstore network fetch of
+        # its own; only the artifact + bundle + this root file. Aligns with SO #0
+        # (survives-the-maintainer: a deterministic offline verifier, not a live service).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh attestation trusted-root > trusted_root.jsonl
+
+      - name: Demonstrate offline verify (representative subject — chaingraph.json)
+        # One artifact from the attested batch, verified purely from the downloaded
+        # bundle + the trusted-root file fetched above — no attestation lookup over the
+        # network. This exact command (see PR body) is what an outside verifier runs
+        # against a downloaded bundle + chaingraph.json, offline.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          gh attestation verify chaingraph/chaingraph.json \
+            --bundle "$BUNDLE_PATH" \
+            --owner PostOakLabs \
+            --custom-trusted-root trusted_root.jsonl
