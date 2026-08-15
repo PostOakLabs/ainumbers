@@ -65,6 +65,13 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
+import {
+  hashLeafNode as sharedHashLeafNode,
+  hashInteriorNode as sharedHashInteriorNode,
+  verifyInclusion as sharedVerifyInclusion,
+  formatCheckpoint as sharedFormatCheckpoint,
+  toCosignedData as sharedToCosignedData,
+} from '../chaingraph/kernels/c2sp-tlog-verify.mjs';
 
 const subtle = webcrypto.subtle;
 
@@ -148,33 +155,17 @@ const TREE_LEAF_NAMESPACE = 'sigsum.org/v1/tree-leaf';
 const SUBMIT_TOKEN_NAMESPACE = 'sigsum.org/v1/submit-token';
 
 // ---------------------------------------------------------------------------
-// RFC 6962 Merkle primitives — Sigsum's own leaf/interior framing
-// (pkg/merkle/merkle.go: 0x00-prefixed leaf, 0x01-prefixed interior; same
-// algorithm family as register-rekor.mjs, independent implementation here
-// so this file stays self-contained per fence discipline).
+// RFC 6962 Merkle primitives + inclusion-proof walk — imported from the
+// shared C2SP module (C2SP-TLOG-VERIFY-MODULE-1), not reimplemented here.
+// Thin Buffer-returning wrappers so the rest of this file (which calls
+// .toString('hex') / Buffer.compare on the results) needs no other changes.
 // ---------------------------------------------------------------------------
 
 async function sha256(...parts) { return Buffer.from(await subtle.digest('SHA-256', Buffer.concat(parts))); }
-async function hashLeafNode(b) { return sha256(Buffer.from([0x00]), b); }
-async function hashInteriorNode(l, r) { return sha256(Buffer.from([0x01]), l, r); }
-
-// RFC 9162 §2.1.3.2 inclusion-proof verification, iterative form — mirrors
-// sigsum-go's merkle.VerifyInclusion exactly (isOdd(fn) => left sibling on
-// path; fn<sn => right sibling on path).
+async function hashLeafNode(b) { return Buffer.from(await sharedHashLeafNode(b)); }
+async function hashInteriorNode(l, r) { return Buffer.from(await sharedHashInteriorNode(l, r)); }
 async function verifyInclusion({ leaf, index, size, root, path }) {
-  let r = leaf;
-  let fn = index;
-  for (let sn = size - 1; sn > 0; fn = Math.floor(fn / 2), sn = Math.floor(sn / 2)) {
-    const isOdd = (fn & 1) === 1;
-    if (isOdd) {
-      r = await hashInteriorNode(path[0], r);
-      path = path.slice(1);
-    } else if (fn < sn) {
-      r = await hashInteriorNode(r, path[0]);
-      path = path.slice(1);
-    }
-  }
-  return Buffer.compare(r, root) === 0;
+  return sharedVerifyInclusion({ leaf, index, size, root, path });
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +190,7 @@ async function leafToBinary({ checksum, signature, keyHash }) {
 // ---------------------------------------------------------------------------
 
 function formatCheckpoint(origin, size, rootHash) {
-  return `${origin}\n${size}\n${rootHash.toString('base64')}\n`;
+  return sharedFormatCheckpoint(origin, size, rootHash);
 }
 
 async function sigsumCheckpointOrigin(logPublicKeyBytes) {
@@ -208,7 +199,7 @@ async function sigsumCheckpointOrigin(logPublicKeyBytes) {
 }
 
 function toCosignedData(origin, size, rootHash, timestamp) {
-  return `${COSIGNATURE_NAMESPACE}\ntime ${timestamp}\n${formatCheckpoint(origin, size, rootHash)}`;
+  return sharedToCosignedData(origin, size, rootHash, timestamp, COSIGNATURE_NAMESPACE);
 }
 
 // ---------------------------------------------------------------------------
