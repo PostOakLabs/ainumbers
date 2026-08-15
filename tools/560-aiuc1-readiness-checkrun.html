@@ -451,6 +451,71 @@ renderSteps();
   }
 </script>
 <script>
+/* VCJCS-ENVELOPE v1 — W3C VC 2.0 Data Integrity envelope (VCJCS-ENVELOPE-BUILD-SPEC.md §2-§4).
+   Wraps an ALREADY-VALIDATED Policy Mandate in a `proof` block after AP2Schema.validate()
+   passes (below) — never re-derives or replaces execution_hash, computed above unchanged.
+   No new crypto dependency: Ed25519 via native WebCrypto (crypto.subtle {name:'Ed25519'}),
+   the same primitive already shipped in tools/510-digital-asset-regulatory-classifier.html's
+   OCG §16 proof binding. Reuses cgCanon (RFC 8785/JCS path) defined above — one canon path,
+   never a second one.
+   eddsa-jcs-2022 hashing per VC-DI-EDDSA §3.3.4: hashData = SHA-256(JCS(proofConfig)) ||
+   SHA-256(JCS(unsecuredDocument)); sign hashData with Ed25519 (RFC 8032) per §3.3.6.
+   did:key per the DID Key Method spec: multicodec 0xed01 prefix + base58btc(pubkey) (§4).
+   attestation_grade is always 'machine-policy' here — a client-side ephemeral signing key,
+   never a claim of human review (spec §5).
+   Normative references, sha256-pinned (workspace-root research/clause-snapshots/, per the
+   estate's existing normative-reference pinning pattern, e.g. art-618's kernel comment):
+     VC-DATA-MODEL-2.0 (w3.org/TR/vc-data-model-2.0/)  sha256:a9196a3d0b6601356c4e127bad24f8c7f2c17f6ed22e41b35755a910104156f8
+     VC-DATA-INTEGRITY (w3.org/TR/vc-data-integrity/)  sha256:ba5c4baf13fe3bab3ebd95ab6650d6fe83720e254b383bb444b4fbbae7bcf4fe
+     VC-DI-ECDSA / ecdsa-jcs-2019 (w3.org/TR/vc-di-ecdsa/) sha256:790f86cee2574a6398be9cc6794e01210ab40622a35ec514a1f043c344eec107
+     VC-DI-EDDSA / eddsa-jcs-2022 (w3.org/TR/vc-di-eddsa/) sha256:d404f372131a0e237d85aa3a6887aa54acadb862714d73e7b001ba789b5716eb
+*/
+(function(){
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){
+    var z=0;while(z<bytes.length&&bytes[z]===0)z++;
+    var d=[0];
+    for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}
+    var s='';for(var k=0;k<z;k++)s+='1';
+    for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];
+    return s;
+  }
+  var ED25519_MULTICODEC=[0xed,0x01];
+  function jcsBytes(o){return new TextEncoder().encode(JSON.stringify(cgCanon(o)));}
+  function sha256(bytes){return crypto.subtle.digest('SHA-256',bytes).then(function(d){return new Uint8Array(d);});}
+  function didKeyFromPublicKey(pub){
+    return crypto.subtle.exportKey('raw',pub).then(function(raw){
+      raw=new Uint8Array(raw);
+      var prefixed=new Uint8Array(ED25519_MULTICODEC.length+raw.length);
+      prefixed.set(ED25519_MULTICODEC,0);prefixed.set(raw,ED25519_MULTICODEC.length);
+      var mb='z'+b58e(prefixed);
+      return 'did:key:'+mb+'#'+mb;
+    });
+  }
+  function eddsaJcsSign(unsecuredDocument,proofOptions,privateKey){
+    return Promise.all([sha256(jcsBytes(proofOptions)),sha256(jcsBytes(unsecuredDocument))]).then(function(hashes){
+      var proofConfigHash=hashes[0],transformedDocumentHash=hashes[1];
+      var hashData=new Uint8Array(proofConfigHash.length+transformedDocumentHash.length);
+      hashData.set(proofConfigHash,0);hashData.set(transformedDocumentHash,proofConfigHash.length);
+      return crypto.subtle.sign('Ed25519',privateKey,hashData);
+    }).then(function(sigBuf){return 'z'+b58e(new Uint8Array(sigBuf));});
+  }
+  window.vcjcsWrapAndSign=async function(mandate){
+    var kp=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+    var vm=await didKeyFromPublicKey(kp.publicKey);
+    var unsecuredDocument=Object.assign({},mandate,{
+      '@context':['https://www.w3.org/ns/credentials/v2'],
+      type:['VerifiableCredential','AINumbersExecutionArtifact'],
+      attestation_grade:'machine-policy'
+    });
+    var created=new Date().toISOString().replace(/\.\d+Z$/,'Z');
+    var proofOptions={type:'DataIntegrityProof',cryptosuite:'eddsa-jcs-2022',created:created,verificationMethod:vm,proofPurpose:'assertionMethod'};
+    var proofValue=await eddsaJcsSign(unsecuredDocument,proofOptions,kp.privateKey);
+    return Object.assign({},unsecuredDocument,{proof:Object.assign({},proofOptions,{proofValue:proofValue})});
+  };
+})();
+</script>
+<script>
 /* AP2 Policy Mandate Export — CONTRACT §3-§4. Retained legacy identifiers (ap2ExportBtn / AP2Schema) — do not rename. */
 (function(){
 if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
@@ -469,12 +534,12 @@ window.enableAP2Btn=function(){
   var b=document.getElementById('ap2ExportBtn');
   if(b){b.disabled=false;b.classList.add('ready');}
 };
-window.exportAP2=function(){
+window.exportAP2=async function(){
   if(!lastBundle){alert('Produce a readiness bundle first to generate a Policy Mandate.');return;}
   var ts=new Date().toISOString();
   var tid='560-aiuc1-readiness-checkrun';
   var mandate={
-    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    mandate_id:crypto.randomUUID(),
     issued_at:ts,issued_by:'ainumbers.co',
     tool_id:tid,
     tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
@@ -489,7 +554,8 @@ window.exportAP2=function(){
     audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
   };
   AP2Schema.validate(mandate);
-  var json=JSON.stringify(mandate,null,2);
+  var signed=await window.vcjcsWrapAndSign(mandate);
+  var json=JSON.stringify(signed,null,2);
   var a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
   a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
