@@ -1,5 +1,6 @@
 {
-  "_comment": "INLINESYNC-1 — one entry per hand-synced SSOT/inline-copy pair. check-inline-ssot-sync.mjs reads this manifest and applies ONE general algorithm (per `mode`) to every pair, same doctrine as scripts/published-dirs.json driving regen-sitemap.mjs: generator/gate share one manifest so they can't drift apart independently. Do not hand-add a 4th pair without also re-deriving its consumer count the way research/PROOFSYNC-GATE-SCOPE-1-2026-08-02.md and board row INLINESYNC-1 did.",
+  "_comment": "INLINESYNC-1 — one entry per hand-synced SSOT/inline-copy pair. check-inline-ssot-sync.mjs reads this manifest and applies ONE general algorithm (per `mode`) to every pair, same doctrine as scripts/published-dirs.json driving regen-sitemap.mjs: generator/gate share one manifest so they can't drift apart independently. Do not hand-add a pair without also re-deriving its consumer count the way research/PROOFSYNC-GATE-SCOPE-1-2026-08-02.md and board row INLINESYNC-1 did.",
+  "_comment_codeOnly": "INLINE-SSOT-PORTS-GATE-1 added mode `codeOnly` for whole-MODULE inline ports: a self-contained tool page cannot import, so the port strips `export` keywords and omits the module's section banners, and a byte-compare therefore fails on a CORRECT port (which is why `wholeFileBlock` could not express these pairs). A codeOnly pair names its consumer page plus the unique region markers delimiting the ported block; the gate compares both sides after removing ONLY comments, ES-module linkage and insignificant whitespace — never identifiers, numeric literals, string contents, operators or control flow. See the normalizer contract in check-inline-ssot-sync.mjs and the executable negative controls in check-inline-ssot-sync.fixtures.mjs (`--self-test`). A missing consumer file, or a missing/ambiguous region marker, is a FAILURE and never a silent pass (STANDING-ORDERS #34c). codeOnly pairs take NO baseline exception: after normalization a difference is by construction a code difference, and in a verifier that is the defect this mode exists to find.",
   "pairs": [
     {
       "id": "secured",
@@ -23,7 +24,28 @@
       "ssotFile": "chaingraph/kernels/fix-hash-scheme.mjs",
       "mode": "line",
       "trigger": "function __ocgCanon(v)",
+      "_note_order": "keep codeOnly pairs after the byte-compare pairs — purely cosmetic, the gate is order-independent.",
       "note": "The conceptual SSOT is chaingraph/kernels/_hash.mjs's cgCanon export, but _hash.mjs is an ES module (const arrow, export syntax) and can never be byte-identical to a global inline <script> function statement by construction. fix-hash-scheme.mjs's OCG_BLOCK is the repo's own existing, already-shipped transcription of that same algorithm into exactly this inline shape ('byte-equivalent to kernels/_hash.mjs and worker.mjs cgCanon' per its own comment, injected by that script's Scheme-A auto-fix) -- extracting the canonical line FROM that file (read-only, never edited by this gate) means this manifest carries zero hand-typed copies of the string itself and reuses the one generator the codebase already had for this exact shape, rather than re-deriving or re-typing a fourth copy."
+    },
+    {
+      "id": "ics23Verify",
+      "label": "ICS23 declarative Merkle proof verifier (whole module, ported inline into tools/585)",
+      "ssotFile": "chaingraph/kernels/ics23-verify.mjs",
+      "mode": "codeOnly",
+      "consumers": [
+        {
+          "file": "tools/585-ics23-proof-verifier.html",
+          "startMarker": "const ICS23 = (function () {\n'use strict';",
+          "endMarker": "/* End of the verbatim port."
+        }
+      ],
+      "note": "ICS23-VERIFY-TOOL-1 ported this module's function bodies inline because a single self-contained page cannot import (CONTRACT §1.1, zero network calls after load), and verified the port byte-identical to the SSOT under a code-only diff at authoring time — with nothing mechanically holding it there afterwards. The module carries the VSA-2022-103 domain-separation fix (checkInnerAgainstSpec's leaf-prefix rejection plus the exact min/max prefix-length and child-size bounds), so a silent divergence here is a verifier that returns PASS on a forged proof the fixed module rejects. The region markers bracket exactly the ported block: the page's own banner says everything between them is the module, and the UI code after `End of the verbatim port` is deliberately outside the comparison because it is page-specific presentation, not verification logic. The port's `'use strict';` sits inside the startMarker rather than being normalized away — an ES module is implicitly strict and a script-context IIFE is not, so the directive is a real statement the module does not have, and excluding it by delimiter is honest where a normalizer rule would be a licence to ignore stray directives."
     }
-  ]
+  ],
+  "_unregistered_pending_adjudication": {
+    "pair": "chaingraph/kernels/c2sp-tlog-verify.mjs -> tools/625-c2sp-tlog-verifier.html",
+    "status": "NOT REGISTERED — deliberately, pending adjudication. Recorded here so the gap stays visible instead of looking like coverage.",
+    "why": "INLINE-SSOT-PORTS-GATE-1 built the codeOnly mode to register this pair too, then measured it and found the tool page is a RE-TRANSCRIPTION of the module rather than a verbatim port. Whitespace aside, the port differs from the module in ways the normalizer must NOT mask, and registering it would either red the estate on a pre-existing condition or force the normalizer wide enough to be worthless. Enumerated, complete: (1) globalThis.crypto.subtle -> crypto.subtle in sha256(); (2) TWO added `if (!p.length) return false;` guards inside verifyInclusion's loop — a real BEHAVIORAL difference (the module throws where the page returns false), which board/done/C2SP-TLOG-VERIFY-TOOL-1.md declares as a deliberate 'one named guard'; (3) five template literals rewritten as string concatenation in formatCheckpoint, parseSignedNote and toCosignedData; (4) a dropped trailing comma in the cosignatures.push object literal. Item (2) is precisely what scripts/inline-ssot-sync-baseline.json may never shield ('NEVER used to shield a behavioral difference'), so a pinned-variant escape hatch is not available either.",
+    "next": "Adjudicate which side moves: either re-port tools/625 verbatim from the module and hoist its short-path guard into the module (so both sides keep it), or restate the page's block as a declared derivative with its own SSOT. Either outcome is a tool-page or kernel edit, both outside INLINE-SSOT-PORTS-GATE-1's fence, which is why this row reported rather than fixed it (STANDING-ORDERS #25). Registering the pair is then a one-entry manifest change: mode codeOnly, startMarker 'const SIGTYPE_COSIGNATURE = 0x04;', endMarker the '* Trust policies,' banner opener — both verified unique, and the mode itself is already proven against this pair."
+  }
 }
