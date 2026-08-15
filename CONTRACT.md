@@ -322,7 +322,7 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - [ ] Input validation covers empty, negative, non-numeric, malformed
 - [ ] Export output matches Tier system contract
 - [ ] Complex logic & payments math are inline-commented
-- [ ] `python scripts/regen_sitemap.py --apply` run after adding any new tool or guide (Amendment A2.3)
+- [ ] `node scripts/regen-sitemap.mjs` run after adding any new tool or guide, leaving `node scripts/regen-sitemap.mjs --check` green (Amendment A2.3; supersedes `python scripts/regen_sitemap.py --apply`, quarantined as `scripts/regen_sitemap.py.DEPRECATED` for scanning only `tools/`, `guides/` and `chaingraph/` and silently dropping every published page outside that scope)
 
 ### 6.2 Pre-Merge Validation Pipeline
 **`node scripts/check_tools.js` is the BLOCKING first gate** — it parses every tool's inline JavaScript and exits non-zero if any `<script>` has a syntax error. NEVER commit or merge tool HTML while it reports a failure; run `node scripts/locate_errors.js` to pinpoint each break. (Added 2026-06-11 after a structural JS edit silently deleted live code in dozens of tools — syntax errors are invisible until a user hits them.)
