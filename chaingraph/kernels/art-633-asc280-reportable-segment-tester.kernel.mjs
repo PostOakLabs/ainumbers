@@ -55,8 +55,13 @@ export const meta = {
 
 const NOT_ASSESSABLE = 'not_assessable';
 
-// Display precision only. Applied strictly AFTER every comparison; never an input to one.
-const REPORT_DP = 6;
+// Display precision only (6 decimal places). Applied strictly AFTER every comparison; never an
+// input to one. The scale is a literal rather than an exponentiation call: the exponent is a
+// compile-time constant, so the call bought nothing, and leaving it out keeps this kernel
+// genuinely free of transcendentals. That matters twice over -- the determinism lint bans
+// unallowlisted transcendentals, and GPU-CYCLE-PREFLIGHT-1's static pre-screen treats them as a
+// SLOW indicator, so a decorative call would have misrepresented this kernel's proving cost.
+const REPORT_SCALE = 1000000;
 
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 
@@ -66,13 +71,13 @@ function toBoolOrNull(v) {
   return null;
 }
 
-// Round to REPORT_DP decimal places, half away from zero. Display only.
+// Round to 6 decimal places, half away from zero. Display only.
 function roundReport(v) {
   if (!Number.isFinite(v)) return null;
-  const scale = Math.pow(10, REPORT_DP);
-  const scaled = v * scale;
+  const scaled = v * REPORT_SCALE;
+  if (!Number.isFinite(scaled)) return null;
   const sign = scaled < 0 ? -1 : 1;
-  return (sign * Math.round(Math.abs(scaled))) / scale;
+  return (sign * Math.round(Math.abs(scaled))) / REPORT_SCALE;
 }
 
 // Threshold compare by EXACT CROSS MULTIPLICATION against a rational threshold p/q.
