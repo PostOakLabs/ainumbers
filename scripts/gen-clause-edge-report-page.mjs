@@ -243,6 +243,17 @@ function main() {
     console.log('gen-clause-edge-report-page --check: OK, clause-edge-report.html is fresh.');
     return;
   }
+  // GENERATOR-NOOP-STABILITY-1: don't rewrite a file with the bytes it already has.
+  // The stamp this page renders now holds steady (gen-clause-edge-report.mjs preserves
+  // generated_at across a no-op run), so an unchanged run really is a no-op here — and
+  // an unchanged mtime is the point: a rewritten-identical file still looks touched to
+  // build tooling and to anyone reading `ls -l` for what a regen actually did.
+  let current = null;
+  try { current = readFileSync(outPath, 'utf8'); } catch { /* missing -> write fresh */ }
+  if (current === html) {
+    console.log('gen-clause-edge-report-page: chaingraph/clause-edge-report.html already current — left untouched.');
+    return;
+  }
   writeFileSync(outPath, html);
   console.log('gen-clause-edge-report-page: wrote chaingraph/clause-edge-report.html');
 }
