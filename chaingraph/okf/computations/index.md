@@ -556,6 +556,8 @@ status: stable
 - [ERC-7540 Async-Vault Request Accounting](./art-611-erc7540-async-vault-request-accounting.md)
 - [ERC-4337 UserOperation Math](./art-613-erc4337-userop-math.md)
 - [EIP-7702 Authorization-Tuple Decoder](./art-614-eip7702-authorization-tuple-decoder.md)
+- [MLA MAPR Actuarial Recompute](./art-616-mla-mapr-actuarial-recompute.md)
+- [NAIC CLO/CBO/CDO Tranche RBC Factor Calculator](./art-618-naic-clo-rbc-factor-calculator.md)
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md)
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md)
 - [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md)

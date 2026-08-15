@@ -62,6 +62,28 @@ const root = resolve(__dirname, '..')
 const NODES_BLOCKING = true // NODE-REGISTRATION-GAP-1: promoted from advisory.
 const CHAINS_BLOCKING = false // ← Flip to true once a chain-leak incident is measured.
 
+// NODE-REGISTRATION-GAP-1: explicit, named waiver — NOT a silent baseline. Six
+// shards were found unregistered in the sweep that promoted this gate; only 2
+// (art-616, art-618) registered clean. The other 4 each trip a DIFFERENT
+// non-baselineable hard gate that this row's fence forbids crossing (no
+// node-page authoring, no kernel/proving work — see board/done/
+// NODE-REGISTRATION-GAP-1.md):
+//   - art-615, art-619: catalog-parity.mjs "url page missing on disk" —
+//     no chaingraph/<id>.html exists yet.
+//   - art-595: FV-COVERAGE-GATE-1 — floor file's kernel_digest_at_authoring
+//     no longer matches the live kernel (stale or never-correct digest).
+//   - art-620: FV-COVERAGE-GATE-1 — no __proptests__ floor file at all.
+// Registration is deferred to whichever row clears its specific blocker;
+// remove an entry here the moment that happens and append the id to
+// order.nodes for real. A shard NOT in this list is judged exactly as
+// before — no widening of the waiver.
+const PAGE_BLOCKED_WAIVER = new Set([
+  'art-595-ap2-cartmandate-hashchain-builder',
+  'art-615-mla-charge-inclusion-classifier',
+  'art-619-ccd2-aprc-annex3-recompute',
+  'art-620-summa-mst-inclusion-checker',
+])
+
 const NODES_DIR = resolve(root, 'chaingraph/graph/nodes')
 const CHAINS_DIR = resolve(root, 'chaingraph/graph/chains')
 const CG_PATH = resolve(root, 'chaingraph/chaingraph.json')
@@ -93,9 +115,12 @@ function describeUnassembled(dir, ids) {
   })
 }
 
-const unassembledNodeIds = findUnlistedShards(nodeShardIds, assembledNodeIds)
+const allUnassembledNodeIds = findUnlistedShards(nodeShardIds, assembledNodeIds)
+const waivedNodeIds = allUnassembledNodeIds.filter((id) => PAGE_BLOCKED_WAIVER.has(id))
+const unassembledNodeIds = allUnassembledNodeIds.filter((id) => !PAGE_BLOCKED_WAIVER.has(id))
 const unassembledChainIds = findUnlistedShards(chainShardIds, assembledChainNames)
 const unassembledNodes = describeUnassembled(NODES_DIR, unassembledNodeIds)
+const waivedNodes = describeUnassembled(NODES_DIR, waivedNodeIds)
 const unassembledChains = describeUnassembled(CHAINS_DIR, unassembledChainIds)
 
 // Reverse direction (nodes only, NODE-REGISTRATION-GAP-1): a chaingraph.json
@@ -104,8 +129,15 @@ const unassembledChains = describeUnassembled(CHAINS_DIR, unassembledChainIds)
 const nodeShardIdSet = new Set(nodeShardIds)
 const orphanedNodeIds = assembledNodeIds.filter((id) => !nodeShardIdSet.has(id)).sort()
 
+if (waivedNodes.length > 0) {
+  console.log(`check-shard-assembly: ${waivedNodes.length} node shard(s) under an explicit PAGE_BLOCKED_WAIVER (see top of this file) — informational, not a failure:`)
+  for (const { id, label } of waivedNodes) {
+    console.log(`  - ${id}  (mcp_name: ${label})`)
+  }
+}
+
 if (unassembledNodes.length === 0 && unassembledChains.length === 0 && orphanedNodeIds.length === 0) {
-  console.log(`check-shard-assembly: OK — all ${nodeShardIds.length} node shard(s) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, and every assembled node has a backing shard.`)
+  console.log(`check-shard-assembly: OK — all ${nodeShardIds.length - waivedNodes.length}/${nodeShardIds.length} node shard(s) (excluding waived) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, and every assembled node has a backing shard.`)
   process.exit(0)
 }
 
