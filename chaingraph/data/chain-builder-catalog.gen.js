@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (609 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (612 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6505,6 +6505,36 @@ window.CHAINBUILDER_CATALOG = [
       "art-03-x402-settlement-modeler",
       "ml-03-timeseries-anomaly-detector"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-633-asc280-reportable-segment-tester",
+    "display_name": "ASC 280 Reportable Segment Tester",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-633-asc280-reportable-segment-tester.html",
+    "description": "Applies the ASC 280-10-50-12 quantitative thresholds to one caller-declared candidate operating segment and computes the ASC 280-10-50-14 se",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-634-codm-expense-significance-classifier",
+    "display_name": "CODM Significant Expense Classifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-634-codm-expense-significance-classifier.html",
+    "description": "Classifies one candidate segment expense under the significant expense principle that ASU 2023-07 added to ASC 280, returning whether it is ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-635-rate-rec-5pct-threshold-classifier",
+    "display_name": "Rate Reconciliation 5% Threshold Classifier",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-635-rate-rec-5pct-threshold-classifier.html",
+    "description": "Applies the quantitative 5 percent threshold of ASC 740-10-50-12A(b), as amended by FASB Accounting Standards Update No. 2023-09, to one can",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
