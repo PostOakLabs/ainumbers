@@ -139,7 +139,7 @@ const GATES = [
   // `--no-verify` bypass — the pre-push hook (and this gate) simply doesn't run
   // if a push skips hooks.
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
-  ['Unassembled-shard scan (ASSEMBLE-COVER-1 + CHAINORDER-GATE-1, advisory)', 'node scripts/check-shard-assembly.mjs'],
+  ['Node/chain shard registration (NODE-REGISTRATION-GAP-1, node case blocking)', 'node scripts/check-shard-assembly.mjs'],
   ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Nav reachability (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
