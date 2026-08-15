@@ -1,0 +1,37 @@
+---
+type: DecisionTool
+title: "MLA Charge-Inclusion Classifier"
+description: "Closed-set lookup of whether a charge type must be included in the Military Lending Act MAPR under 32 CFR 232.4(c) and 232.4(d), returning included_in_mapr as true, false or conditional together with the exact paragraph cited and a plain basis sentence. The domain is 9 charge types x is_credit_card_account x short_term_exception_claimed = 36 states, every one of them enumerated. Three charge types return conditional because the regulation's own worked examples at 232.4(d)(4)(iii) run the same fee twice and reach opposite answers on facts a charge type cannot express. The single cell the closed set cannot resolve, an application fee with the 232.4(c)(1)(iii)(B) short-term carve-out claimed, sets manual_review_required and names the three missing predicates rather than guessing. conditional_limit_usd reports the $100 per annum figure of 232.4(c)(2)(ii)(B) on the participation-fee credit-card cells: it NAMES that figure and never compares it to an amount, because 232.4(c)(2)(ii)(B) withdraws the limit for a bona fide participation fee under paragraph (d) and 232.4(d)(3)(iv) gives a $400 fee as potentially reasonable. Performs no arithmetic at all: no ratio, no scale, no threshold compare, no rounding. Zero network calls: does not determine covered-borrower status, does not compute a MAPR, does not compare anything to the 36 percent limit of 232.4(b), and does not decide whether a fee is bona fide or reasonable under 232.4(d)(1) and 232.4(d)(3)."
+resource: https://ainumbers.co/chaingraph/art-615-mla-charge-inclusion-classifier.html
+tags: ["compliance_mandate", "wave-99", "mcp:classify_mla_charge_inclusion"]
+timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-615-mla-charge-inclusion-classifier.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-615-mla-charge-inclusion-classifier.html
+    title: "public tool page"
+---
+
+# MLA Charge-Inclusion Classifier
+
+> Exports a decision via MCP `classify_mla_charge_inclusion` — mandate type `compliance_mandate`.
+
+## Inputs
+
+Typed `inputSchema` — see [tool page](https://ainumbers.co/chaingraph/art-615-mla-charge-inclusion-classifier.html).
+
+## Outputs
+
+A hash-anchored OpenChainGraph artifact (decision, not context).
+
+## Chains
+
+**Consumes:** _none (root node)_
+
+**Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-615-mla-charge-inclusion-classifier.md) — §10.2.

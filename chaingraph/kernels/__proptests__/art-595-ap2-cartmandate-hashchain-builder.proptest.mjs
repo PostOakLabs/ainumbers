@@ -1,6 +1,20 @@
 // art-595-ap2-cartmandate-hashchain-builder.proptest.mjs — FV property-test FLOOR (FVFLOOR-BACKFILL-0811-1).
-// kernel_digest_at_authoring: sha256:b9526bd9d11751897ad71cec4085caa94ee924404c7dfaeba53bf8de3c484c5c
+// kernel_digest_at_authoring: sha256:b0b1ed06bbeb16d1227f7073af8e46c323bff835b503b0d2f3a7231baa44803e
 // human_sign_off: PENDING
+//
+// DIGEST RE-STAMP (NODE-REG-UNBLOCK-1, 2026-08-15). The previous stamp,
+// sha256:b9526bd9d11751897ad71cec4085caa94ee924404c7dfaeba53bf8de3c484c5c, was NOT fabricated: it is
+// the real sourceDigest() of kernel revision adb17b0a (BUILD-AP2-CARTMANDATE-1, #1194), the revision
+// this floor was authored against on 2026-08-12. ART595-ART590-UTF8-FIX-1 (acb34854, 2026-08-13) then
+// removed the absent-TextEncoder dependency from the kernel and moved its digest. That is
+// FV-FLOOR-DIGEST-STALE-1 cause (a), honest drift, NOT cause (b) -- established by recomputing
+// sourceDigest() over every git revision of the kernel file and finding the recorded value matched
+// adb17b0a exactly, rather than by assuming a cause from the mismatch alone (the gate's own comment
+// warns that a mismatch cannot distinguish the two).
+//
+// The stamp above was re-derived from the CURRENT kernel BYTES with the gate's own printed command,
+// never hand-edited to match, and this floor was re-executed green against that same current kernel
+// before the re-stamp: fixture oracle 4/4, P1/P2/P3/P4 220 trials, 0 violations.
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md section 3, class B -- straight-line hash-chain
 // arithmetic, no probability/statistics). NOT a proof, NOT Dafny.
