@@ -399,12 +399,31 @@ if (CHECK) {
   }
   console.log(`generate-okf --check: okf/ is fresh (${files.size} files match chaingraph.json).`);
 } else {
-  rmSync(OUT, { recursive: true, force: true });
+  // GENERATOR-NOOP-STABILITY-1: was rmSync(OUT, recursive) + rewrite-everything, which
+  // re-created all 1256 bundle files on every SO #28 regen even when not one byte moved.
+  // Content-identical, so it never showed up in `git status` — but it is still 1256 files
+  // whose mtime says they changed, which is what makes "what did this regen actually do?"
+  // unanswerable and defeats anything downstream that keys off file times.
+  // Now: delete exactly the orphans (the same set --check reports above, from the same
+  // listExistingFiles() walk — one definition of "orphaned", not two), and write only the
+  // files whose content genuinely differs. Everything else is left ALONE.
   mkdirSync(resolve(OUT, 'tools'), { recursive: true });
   mkdirSync(resolve(OUT, 'mandate-types'), { recursive: true });
   if (attested.length) mkdirSync(resolve(OUT, 'computations'), { recursive: true });
-  for (const [relPath, content] of files) {
-    writeFileSync(resolve(OUT, relPath), content);
+  let onDisk = [];
+  try { onDisk = listExistingFiles(OUT); } catch { /* okf/ doesn't exist yet */ }
+  let removed = 0;
+  for (const relPath of onDisk) {
+    if (!files.has(relPath)) { rmSync(resolve(OUT, relPath), { force: true }); removed++; }
   }
-  console.log(`OKF bundle written to ${OUT}: ${live.length} tool concepts, ${groups.size} mandate-type groups, ${attested.length} attested computations.`);
+  let written = 0;
+  for (const [relPath, content] of files) {
+    const path = resolve(OUT, relPath);
+    let current = null;
+    try { current = readFileSync(path, 'utf8'); } catch { /* missing -> write */ }
+    if (current === content) continue;
+    writeFileSync(path, content);
+    written++;
+  }
+  console.log(`OKF bundle at ${OUT}: ${live.length} tool concepts, ${groups.size} mandate-type groups, ${attested.length} attested computations. Wrote ${written} changed file(s), removed ${removed} orphan(s), left ${files.size - written} unchanged file(s) untouched.`);
 }
