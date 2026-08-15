@@ -230,9 +230,12 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
  * purpose: Uint8Array + globalThis.crypto.subtle + atob/btoa, no Buffer and no
  * node:crypto import, so the byte helpers, the RFC 6962 walk, parseSignedNote,
  * formatCheckpoint and toCosignedData below are the module's own function
- * bodies, unchanged. A single self-contained page cannot import a module (no
- * network calls after load, CONTRACT §1.1), so this file is the browser copy of
- * one implementation, not a second implementation. If the module changes, this
+ * bodies, unchanged but for one added guard: verifyInclusion returns false on a
+ * short sibling path where the module would throw, because a person pasting a
+ * proof by hand can supply too few hashes and that is a FAIL to report, not a
+ * crash. A single self-contained page cannot import a module (no network calls
+ * after load, CONTRACT §1.1), so this file is the browser copy of one
+ * implementation, not a second implementation. If the module changes, this
  * block is what has to move with it.
  *
  * Specs, re-read at build time 2026-08-15 from the C2SP repository:
@@ -418,6 +421,11 @@ async function keyIdHex(name,sigType,keyHex){
 
 let ED_IMPORT_ERROR=null;
 async function importEd25519(keyHex){
+  /* A policy key that is not 32 bytes is simply not an Ed25519 key (the pinned
+   * Rekor entry, for one, stores 91 bytes of ECDSA SPKI DER). Skipping it is a
+   * fact about the key, never a fact about the browser, so it must not raise
+   * the "no Ed25519 here" flag that a real capability gap raises. */
+  if(keyHex.length!==64)return null;
   try{
     return await crypto.subtle.importKey('raw',hexToBytes(keyHex),{name:'Ed25519'},false,['verify']);
   }catch(e){
@@ -539,7 +547,11 @@ async function verifyAll(input){
     if(!handled)r.unmatchedSignatureLines.push(line.name);
   }
 
-  const q=evalQuorum(policy.quorum||'none',policy.groups,satisfied);
+  /* A policy with no quorum line at all is incomplete, not permissive. Reading
+   * a missing rule as "quorum none" would hand a free pass to exactly the input
+   * most likely to be malformed, so it fails instead. */
+  const q=policy.quorum?evalQuorum(policy.quorum,policy.groups,satisfied)
+    :{met:false,rule:'trust policy carries no quorum line, so no quorum rule could be applied',counted:0,required:0};
   r.quorumRule=q.rule;
   r.witnessQuorumMet=q.met;
   r.quorumCounted=q.counted;
