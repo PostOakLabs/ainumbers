@@ -41,19 +41,78 @@
  * other code changes needed — it is already wired into preflight.mjs's
  * GATES array.
  *
+ * ──────────────────────────────────────────────────────────────────────────
+ * SHARD-GATE-PRE-ASSEMBLE-1 (2026-08-15) — BRANCH AWARENESS.
+ *
+ * The node promotion above was correct and the waiver emptying that followed
+ * it (NODE-REG-UNBLOCK-1) was correct, but composed they made every
+ * BRAND-NEW shard row RED BY CONSTRUCTION on its own branch: the shard file
+ * exists, chaingraph.json does not list it yet, and writing chaingraph.json /
+ * chaingraph.meta.json / running assemble-chaingraph.mjs are ALL forbidden to
+ * a class-K shard row (RIDER-KERNEL.md, STANDING-ORDERS #6 and #35). The row
+ * could not satisfy the gate without breaking its own fence, so DISE-SEG-K-1
+ * (PR #1281) and DISE-SEG-K-2 (PR #1282) both pushed with `--no-verify` under
+ * SO #27 — and `--no-verify` was becoming the standing path for an entire row
+ * class, which switches the pre-push hook off for everything else those
+ * pushes carry.
+ *
+ * The distinction this gate now draws, from git rather than from any field a
+ * shard writes about itself (SO #34: recompute from the primary source, never
+ * read the claim off the artifact under test):
+ *
+ *   - shard file ABSENT from the base ref (origin/main) ⇒ it has never been
+ *     published, so nothing downstream can be relying on it. It is a
+ *     mid-flight shard awaiting its ASSEMBLE-LAND. Reported PENDING-ASSEMBLE,
+ *     loudly, and NOT a failure.
+ *   - shard file PRESENT on the base ref and still unregistered ⇒ this is the
+ *     original NODE-REGISTRATION-GAP-1 leak, the one that cost six nodes.
+ *     Still RED. Unchanged, unweakened, and the only reason the pending case
+ *     can be exempted at all is that it is provably disjoint from this one.
+ *
+ * TWO GUARDS keep the exemption from eating the check it is carved out of:
+ *
+ *   (1) FAIL CLOSED ON AN UNRESOLVABLE BASE (SO #34c — a missing result is a
+ *       distinct state, never a green one). If git is unavailable, the repo
+ *       is not a git checkout, no base ref resolves, or the base tree reads
+ *       back empty, NOTHING is exempted: every unassembled node shard is RED
+ *       exactly as before this change. A shallow CI checkout therefore gets
+ *       the strict pre-2026-08-15 behaviour, not a free pass.
+ *   (2) NO EXEMPTION ON AN ASSEMBLING BRANCH. If the branch's own commits (or
+ *       its working tree) modify chaingraph.json or chaingraph.meta.json, the
+ *       branch IS the assembler — ASSEMBLE-LAND, or a local merge of a batch
+ *       of shard PRs. For it, "not on main yet" is not an excuse but a
+ *       description of the job it is holding: an unregistered shard on an
+ *       assembling branch is RED. This closes the window branch awareness
+ *       would otherwise open, because the assembling push is precisely the
+ *       push that puts a shard onto main. Derived over merge-base..worktree,
+ *       so a branch that has merely fallen behind main is NOT mistaken for an
+ *       assembler.
+ *
+ * Override for an unusual checkout: `--base-ref <ref>`, or the environment
+ * variable SHARD_ASSEMBLY_BASE_REF. This NAMES the ref to compare against; it
+ * cannot suppress anything, because a shard present at that ref is still RED.
+ * Deliberately NOT a persisted waiver list and deliberately NOT a per-shard
+ * `--expect-pending` escape — NODE-REG-UNBLOCK-1 spent a whole row emptying
+ * the last waiver set, and a flag a row passes to quiet a blocking gate is
+ * the same object with a shorter lifetime.
+ * ──────────────────────────────────────────────────────────────────────────
+ *
  * Set diff logic lives in lib-shard-order.mjs (pure, unit-tested against a
  * reproduction of the PACKS-SEC16-1 case — see lib-shard-order.test.mjs) so
  * the same function backs both the node check (unchanged behavior) and the
- * new chain check.
+ * chain check. The branch-awareness split is proven end to end against real
+ * throwaway git repositories in check-shard-assembly.test.mjs.
  *
- * Zero-dep, node: builtins only (site repo is ZERO-DEP).
+ * Zero-dep, node: builtins only (site repo is ZERO-DEP). git is shelled to
+ * the same way the rest of this tree shells to it — same trust tier as node.
  *
- * Usage: node scripts/check-shard-assembly.mjs
+ * Usage: node scripts/check-shard-assembly.mjs [--base-ref <ref>]
  */
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execFileSync } from 'node:child_process'
 import { findUnlistedShards } from './lib-shard-order.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -81,11 +140,125 @@ const CHAINS_BLOCKING = false // ← Flip to true once a chain-leak incident is 
 // gate that the adding row's fence genuinely forbids crossing, and it must be paired with an owning
 // board row that will remove it. ⛔ A waiver with no owning row is how a temporary exception becomes
 // permanent — that is exactly the drift this row existed to undo.
+//
+// ⚠ SHARD-GATE-PRE-ASSEMBLE-1 did NOT re-populate this set and did not need to: the mid-flight-shard
+// case it fixed is DERIVED from git, per shard, per run, and expires by itself the moment the shard
+// reaches the base ref. A derived distinction cannot go stale the way a written-down name does.
 const PAGE_BLOCKED_WAIVER = new Set([])
 
 const NODES_DIR = resolve(root, 'chaingraph/graph/nodes')
 const CHAINS_DIR = resolve(root, 'chaingraph/graph/chains')
 const CG_PATH = resolve(root, 'chaingraph/chaingraph.json')
+
+const NODES_DIR_REL = 'chaingraph/graph/nodes'
+const CG_REL = 'chaingraph/chaingraph.json'
+const META_REL = 'chaingraph/chaingraph.meta.json'
+
+// ── git helpers ───────────────────────────────────────────────────────────
+// Each returns null / false rather than throwing, so an environment without
+// git degrades to the strict pre-branch-awareness behaviour (guard 1) instead
+// of crashing the gate.
+
+function git(args) {
+  try {
+    return execFileSync('git', args, {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+  } catch {
+    return null
+  }
+}
+
+function gitOk(args) {
+  try {
+    execFileSync('git', args, { cwd: root, stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function parseBaseRefArg(argv) {
+  const i = argv.indexOf('--base-ref')
+  if (i !== -1 && argv[i + 1]) return { ref: argv[i + 1], why: '--base-ref' }
+  const eq = argv.find((a) => a.startsWith('--base-ref='))
+  if (eq) return { ref: eq.slice('--base-ref='.length), why: '--base-ref' }
+  if (process.env.SHARD_ASSEMBLY_BASE_REF) {
+    return { ref: process.env.SHARD_ASSEMBLY_BASE_REF, why: 'SHARD_ASSEMBLY_BASE_REF' }
+  }
+  return null
+}
+
+// Candidate base refs, most authoritative first. GITHUB_BASE_REF is set on a
+// pull_request event; it only helps when the checkout actually fetched that
+// branch (fetch-depth: 0), and when it did not, resolution fails and guard
+// (1) takes over.
+function baseRefCandidates() {
+  const explicit = parseBaseRefArg(process.argv.slice(2))
+  if (explicit) return [explicit]
+  const out = [{ ref: 'origin/main', why: 'default' }]
+  if (process.env.GITHUB_BASE_REF) {
+    out.push({ ref: `origin/${process.env.GITHUB_BASE_REF}`, why: 'GITHUB_BASE_REF' })
+  }
+  return out
+}
+
+// Shard ids present in `dirRel` at `ref`, recomputed from the git object
+// store — never read from the working tree, which is the thing under test.
+function shardIdsAtRef(ref, dirRel) {
+  const out = git(['ls-tree', '--name-only', ref, '--', `${dirRel}/`])
+  if (out === null) return null
+  const ids = out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.endsWith('.json'))
+    .map((l) => l.slice(l.lastIndexOf('/') + 1, -'.json'.length))
+  // An empty listing means we resolved something that is not this repo's main
+  // line (or a tree with no shard directory at all). Treat that as
+  // unresolvable rather than as "no shard has ever been published" — the
+  // latter reading would exempt every shard in the tree at once.
+  return ids.length === 0 ? null : new Set(ids)
+}
+
+function resolveBase() {
+  const attempted = []
+  if (!gitOk(['rev-parse', '--is-inside-work-tree'])) {
+    return { base: null, attempted, reason: 'not a git work tree (or git unavailable)' }
+  }
+  for (const cand of baseRefCandidates()) {
+    const sha = git(['rev-parse', '--verify', '--quiet', `${cand.ref}^{commit}`])
+    if (!sha) {
+      attempted.push(`${cand.ref} (${cand.why}) — ref does not resolve`)
+      continue
+    }
+    const ids = shardIdsAtRef(cand.ref, NODES_DIR_REL)
+    if (!ids) {
+      attempted.push(`${cand.ref} (${cand.why}) — resolved, but ${NODES_DIR_REL}/ is empty at that ref`)
+      continue
+    }
+    const when = (git(['log', '-1', '--format=%cI', cand.ref]) || '').trim()
+    return {
+      base: { ref: cand.ref, why: cand.why, sha: sha.trim().slice(0, 12), when, ids },
+      attempted,
+      reason: null,
+    }
+  }
+  return { base: null, attempted, reason: 'no candidate base ref resolved' }
+}
+
+// Guard (2). "Is this branch doing assembly work?" — measured over
+// merge-base..working-tree so a branch that has merely fallen behind main
+// (and therefore carries an older chaingraph.json) is not mistaken for one
+// that is rewriting it.
+function branchIsAssembling(baseRef) {
+  const mb = git(['merge-base', baseRef, 'HEAD'])
+  if (!mb) return true // cannot tell ⇒ assume assembler ⇒ no exemption.
+  return !gitOk(['diff', '--quiet', mb.trim(), '--', CG_REL, META_REL])
+}
+
+// ── shard sets on disk vs assembled ───────────────────────────────────────
 
 function shardIdsOnDisk(dir) {
   return readdirSync(dir)
@@ -116,17 +289,53 @@ function describeUnassembled(dir, ids) {
 
 const allUnassembledNodeIds = findUnlistedShards(nodeShardIds, assembledNodeIds)
 const waivedNodeIds = allUnassembledNodeIds.filter((id) => PAGE_BLOCKED_WAIVER.has(id))
-const unassembledNodeIds = allUnassembledNodeIds.filter((id) => !PAGE_BLOCKED_WAIVER.has(id))
+const candidateNodeIds = allUnassembledNodeIds.filter((id) => !PAGE_BLOCKED_WAIVER.has(id))
 const unassembledChainIds = findUnlistedShards(chainShardIds, assembledChainNames)
-const unassembledNodes = describeUnassembled(NODES_DIR, unassembledNodeIds)
 const waivedNodes = describeUnassembled(NODES_DIR, waivedNodeIds)
 const unassembledChains = describeUnassembled(CHAINS_DIR, unassembledChainIds)
 
 // Reverse direction (nodes only, NODE-REGISTRATION-GAP-1): a chaingraph.json
 // node whose shard file is absent from disk — a registry entry with no
 // backing shard. Chains carry no reverse check (no incident measured yet).
+// NOT branch-aware, deliberately: assembly cannot proceed at all without the
+// file, so there is no mid-flight reading of this state.
 const nodeShardIdSet = new Set(nodeShardIds)
 const orphanedNodeIds = assembledNodeIds.filter((id) => !nodeShardIdSet.has(id)).sort()
+
+// ── branch-aware split of the unassembled node shards ─────────────────────
+// Consulted only when there is something to classify, so the common clean run
+// costs no git at all.
+
+let pendingNodeIds = []
+let leakedNodeIds = candidateNodeIds
+let baseNote = null
+
+if (candidateNodeIds.length > 0) {
+  const { base, attempted, reason } = resolveBase()
+  if (!base) {
+    baseNote =
+      `check-shard-assembly: BASE REF UNRESOLVED (${reason}) — FAILING CLOSED, no shard is treated as ` +
+      `mid-flight (SO #34c: a missing result is a distinct state, never a green one).` +
+      (attempted.length ? `\n  attempted: ${attempted.join('; ')}` : '') +
+      `\n  Pass --base-ref <ref> (or set SHARD_ASSEMBLY_BASE_REF) if this checkout names its main line differently.`
+  } else if (branchIsAssembling(base.ref)) {
+    baseNote =
+      `check-shard-assembly: base ${base.ref} @ ${base.sha}${base.when ? ` (${base.when})` : ''} — but this ` +
+      `branch MODIFIES ${CG_REL} or ${META_REL}, so it is an ASSEMBLING branch and gets NO mid-flight ` +
+      `exemption: registering every shard it carries is exactly its job (SHARD-GATE-PRE-ASSEMBLE-1 guard 2).`
+  } else {
+    pendingNodeIds = candidateNodeIds.filter((id) => !base.ids.has(id))
+    leakedNodeIds = candidateNodeIds.filter((id) => base.ids.has(id))
+    baseNote =
+      `check-shard-assembly: branch-aware split against ${base.ref} @ ${base.sha}` +
+      `${base.when ? ` (${base.when})` : ''}, resolved via ${base.why}; ${base.ids.size} node shard(s) published there.`
+  }
+}
+
+const pendingNodes = describeUnassembled(NODES_DIR, pendingNodeIds)
+const unassembledNodes = describeUnassembled(NODES_DIR, leakedNodeIds)
+
+// ── report ────────────────────────────────────────────────────────────────
 
 if (waivedNodes.length > 0) {
   console.log(`check-shard-assembly: ${waivedNodes.length} node shard(s) under an explicit PAGE_BLOCKED_WAIVER (see top of this file) — informational, not a failure:`)
@@ -135,8 +344,19 @@ if (waivedNodes.length > 0) {
   }
 }
 
+if (baseNote) console.log(baseNote)
+
+if (pendingNodes.length > 0) {
+  console.log(`check-shard-assembly: PENDING-ASSEMBLE — ${pendingNodes.length} node shard(s) present on this branch but ABSENT from the base ref, so they are mid-flight shards awaiting ASSEMBLE-LAND, not a registration leak:`)
+  for (const { id, label } of pendingNodes) {
+    console.log(`  - ${id}  (mcp_name: ${label})  [new on this branch]`)
+  }
+  console.log('check-shard-assembly: PENDING-ASSEMBLE is INFORMATIONAL, and it is not a pass for the shard itself — ASSEMBLE-LAND must still append the id(s) to chaingraph.meta.json order.nodes and re-run scripts/assemble-chaingraph.mjs. The moment such a shard reaches the base ref unregistered, this gate turns RED on it.')
+}
+
 if (unassembledNodes.length === 0 && unassembledChains.length === 0 && orphanedNodeIds.length === 0) {
-  console.log(`check-shard-assembly: OK — all ${nodeShardIds.length - waivedNodes.length}/${nodeShardIds.length} node shard(s) (excluding waived) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, and every assembled node has a backing shard.`)
+  const accountedFor = nodeShardIds.length - waivedNodes.length - pendingNodes.length
+  console.log(`check-shard-assembly: OK — all ${accountedFor}/${nodeShardIds.length} node shard(s) (excluding ${waivedNodes.length} waived, ${pendingNodes.length} pending-assemble) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, and every assembled node has a backing shard.`)
   process.exit(0)
 }
 
