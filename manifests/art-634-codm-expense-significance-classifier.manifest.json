@@ -1,0 +1,63 @@
+{
+  "tool_id": "art-634-codm-expense-significance-classifier",
+  "version": "1.0.0",
+  "title": "CODM Significant Expense Classifier",
+  "description": "Classifies one candidate segment expense under the significant expense principle that ASU 2023-07 added to ASC 280. Returns whether the expense is separately disclosable under ASC 280-10-50-26A, whether it folds into other segment items under ASC 280-10-50-26B and through which buckets, or whether it sits outside the principle entirely, plus whether ASC 280-10-50-22 separately requires it, the exact paragraphs cited and a plain basis sentence. ASU 2023-07 closes no list of expense category names and states no quantitative significance benchmark, so category name is not an input and significance arrives as a caller declared judgment that this node never computes. The declared domain is 4 booleans x 10 values of the ASC 280-10-50-22 specified item enum, being its 9 live subparagraphs with (i) superseded by ASU 2015-01 plus none, for 160 states, all enumerated. Performs no arithmetic: no ratio, no scale, no threshold compare, no rounding.",
+  "category": "chaingraph",
+  "tags": ["compliance_mandate", "segment-reporting", "asc-280", "asu-2023-07", "significant-expense-principle", "codm", "other-segment-items", "exhaustive-enumeration", "mcp:classify_codm_expense_significance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "included_in_segment_profit_measure": { "type": "boolean", "description": "True means the expense is included in the reported measure of segment profit or loss. This is the gate ASC 280-10-50-26A opens on, and the only input whose false value places a candidate outside the significant expense principle. Default false." },
+      "regularly_provided_to_codm": { "type": "boolean", "description": "True means the expense is regularly provided to the chief operating decision maker in the segment level information. First limb of ASC 280-10-50-26A. Also the input that decides ASC 280-10-50-26B(a) membership, and one of the two routes into an ASC 280-10-50-22 duty. Default false." },
+      "easily_computable_from_codm_information": { "type": "boolean", "description": "True means the expense amount is easily computable from information regularly provided to the chief operating decision maker, for example cost of sales from a revenue amount and a gross margin amount. Second limb of ASC 280-10-50-26A, per ASC 280-10-55-15A and 55-15B. Disjunctive with regularly_provided_to_codm, never a substitute test. Default false." },
+      "assessed_significant": { "type": "boolean", "description": "The entity's own ASC 280-10-50-26A significance judgment, weighing qualitative and quantitative factors. Caller declared. This node computes no benchmark because the Update states none, and the field is deliberately not named as a threshold for that reason. Default false." },
+      "specified_item_50_22": { "type": "string", "description": "One of ten closed enum values: none, revenues_from_external_customers, intersegment_revenues, interest_revenue, interest_expense, depreciation_depletion_amortization, unusual_items, equity_in_net_income_of_equity_method_investees, income_tax_expense_or_benefit, significant_noncash_items_other_than_dda. These are the 9 live specified items of ASC 280-10-50-22, subparagraphs (a) through (j) with (i) superseded by ASU 2015-01, plus none. A value outside this set is echoed, flagged as outside the declared domain, and treated as none for disposition. Default none." }
+    },
+    "required": []
+  },
+  "mcp_tool_definition": {
+    "name": "classify_codm_expense_significance",
+    "description": "Classifies one candidate segment expense under the ASU 2023-07 significant expense principle in ASC 280. Returns must_disclose_separately_50_26A, folds_into_other_segment_items_50_26B with the applicable ASC 280-10-50-26B buckets, outside_significant_expense_principle, separate_disclosure_required_50_22, the paragraphs cited and a basis sentence. Takes the significance assessment as a caller judgment and computes no benchmark, because the Update states none. Performs no arithmetic.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "included_in_segment_profit_measure": { "type": "boolean" },
+        "regularly_provided_to_codm": { "type": "boolean" },
+        "easily_computable_from_codm_information": { "type": "boolean" },
+        "assessed_significant": { "type": "boolean" },
+        "specified_item_50_22": { "type": "string" }
+      },
+      "required": []
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-634-codm-expense-significance-classifier.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "included_in_segment_profit_measure": { "type": "boolean" },
+      "regularly_provided_to_codm": { "type": "boolean" },
+      "easily_computable_from_codm_information": { "type": "boolean" },
+      "assessed_significant": { "type": "boolean" },
+      "specified_item_50_22": { "type": "string" },
+      "input_outside_declared_domain": { "type": "boolean" },
+      "evaluated_under_50_26A": { "type": "boolean" },
+      "must_disclose_separately_50_26A": { "type": "boolean" },
+      "folds_into_other_segment_items_50_26B": { "type": "boolean" },
+      "other_segment_items_buckets": { "type": "array", "items": { "type": "string" } },
+      "outside_significant_expense_principle": { "type": "boolean" },
+      "separate_disclosure_required_50_22": { "type": "boolean" },
+      "citation": { "type": "string" },
+      "basis": { "type": "string" },
+      "segment_level_duties_not_decided_here": { "type": "string" },
+      "bucket_c_scope_note": { "type": "string" }
+    }
+  },
+  "source": "authored by DISE-SEG-K-2. The paragraph structure applied here is ASU 2023-07's own amendments to ASC 280, retrieved independently at claim time on 2026-08-15 from https://storage.fasb.org/ASU%202023-07.pdf, HTTP 200, 596371 bytes, pinned at sha256:9f26ab8f95365fb301746f7c75f502815be727c6e12a8d8f72e4ea7a58dc45ea; snapshot at research/clause-snapshots/ASU-2023-07-fasb-DISE-SEG-K-2-2026-08-15.pdf at the workspace root, never inside this repository. Per-kernel spec at research/DISE-SEG-K-2.spec.md, human_sign_off PENDING: enumeration run complete, specification under review. The 7-category expense enum carried as a design placeholder in the parent build spec was NOT adopted: that list is the natural expense category vocabulary of ASU 2024-03, a different Update, and ASU 2023-07 closes no category name list at all, so a 56-state enumeration would have proven a domain the Update does not define. Golden fixtures derive from the Update's own worked examples at ASC 280-10-55-15B, 55-15C, 55-15G, 55-17A, 50-26B(d) and 50-24 per FORMALVERIF-BUILD-SPEC.md section 3d preference 1, not generated from the same clause reading that produced the spec, and each vector's disposition was hand-derived from the clause before generation with generation aborting on disagreement; output_schema derived by running the kernel's own compute() against the vectors in chaingraph/kernels/fixtures/art-634-codm-expense-significance-classifier.fixtures.json."
+}
