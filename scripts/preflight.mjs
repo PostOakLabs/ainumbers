@@ -204,6 +204,7 @@ const GATES = [
   // if a push skips hooks.
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Node/chain shard registration (NODE-REGISTRATION-GAP-1, node case blocking)', 'node scripts/check-shard-assembly.mjs'],
+  ['Branch-aware shard-registration proof (SHARD-GATE-PRE-ASSEMBLE-1)', 'node scripts/check-shard-assembly.test.mjs'],
   ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   ['Nav reachability (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
