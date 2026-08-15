@@ -1,0 +1,90 @@
+{
+  "tool_id": "621-summa-mst-liability-aggregator",
+  "version": "1.0.0",
+  "title": "Summa MST Liability Aggregator",
+  "description": "Given up to 16 (id, balance) leaf entries, deterministically builds a SHA-256 Merkle-sum-tree and emits the root commitment {hash, sum} plus every leaf's full inclusion proof. Applies Maxwell's (eprint 2022/043) mandatory range-check mitigation on the input side before building the tree. Pattern-borrowed from Summa (PSE)'s proof-of-reserves node layout, no code vendored. The generator counterpart to the MST inclusion checker (art-620) -- its proofs are consumable directly as that tool's input. Verify-only: commits to whatever balances it is given, never asserts they reflect real reserves.",
+  "category": "cryptography",
+  "tags": [
+    "merkle sum tree",
+    "proof of reserves",
+    "summa",
+    "MST",
+    "inclusion proof",
+    "SHA-256",
+    "liability aggregation"
+  ],
+  "audience": [
+    "compliance",
+    "engineering",
+    "risk"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": ["leaves"],
+    "properties": {
+      "leaves": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "description": "1-16 leaf entries. More than 16 is a declared-invalid-input error, never a larger tree.",
+        "items": {
+          "type": "object",
+          "required": ["id", "balance"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Opaque, already-hashed account identifier. Never a raw username, account number, or email -- zero-PII."
+            },
+            "balance": {
+              "type": "string",
+              "description": "Non-negative decimal string, parsed as BigInt. Never a JSON number (precision loss above 2^53)."
+            }
+          }
+        }
+      },
+      "max_balance": {
+        "type": "string",
+        "description": "Optional declared MAX_BALANCE domain bound as a decimal string. Any leaf balance above it is rejected. Defaults to 1000000000000000 (10^15 base units) if omitted."
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "valid": { "type": "boolean" },
+      "error": { "type": ["string", "null"] },
+      "leaf_count": { "type": "number" },
+      "tree_depth": { "type": "number" },
+      "max_balance": { "type": "string" },
+      "root": { "type": ["object", "null"] },
+      "proofs": { "type": "array" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "aggregate_summa_mst_liabilities",
+    "description": "Builds a SHA-256 Merkle-sum-tree over up to 16 (id, balance) leaves and emits the root commitment plus every leaf's inclusion proof, after rejecting negative or over-bound balances on the input side. Verify-only.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["leaves"],
+      "properties": {
+        "leaves": {
+          "type": "array",
+          "description": "Array of {id, balance} (balance as a decimal string), 1-16 entries."
+        },
+        "max_balance": {
+          "type": "string",
+          "description": "Optional declared MAX_BALANCE decimal-string bound."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-621-summa-mst-liability-aggregator.html",
+    "function_name": "run",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

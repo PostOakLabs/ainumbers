@@ -556,6 +556,7 @@ import * as art615    from './art-615-mla-charge-inclusion-classifier.kernel.mjs
 import * as art616    from './art-616-mla-mapr-actuarial-recompute.kernel.mjs';
 import * as art618    from './art-618-naic-clo-rbc-factor-calculator.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
+import * as art621    from './art-621-summa-mst-liability-aggregator.kernel.mjs';
 import * as art63     from './art-63-agent-service-metering-modeler.kernel.mjs';
 import * as art64     from './art-64-ai-act-highrisk-fit-diagnostic.kernel.mjs';
 import * as art65     from './art-65-ai-conformity-pack-builder.kernel.mjs';
@@ -1165,6 +1166,7 @@ export const KERNELS = {
   'art-616-mla-mapr-actuarial-recompute':                       art616,
   'art-618-naic-clo-rbc-factor-calculator':                     art618,
   'art-62-ap2-payment-receipt-verifier':                        art62,
+  'art-621-summa-mst-liability-aggregator':                     art621,
   'art-63-agent-service-metering-modeler':                      art63,
   'art-64-ai-act-highrisk-fit-diagnostic':                      art64,
   'art-65-ai-conformity-pack-builder':                          art65,
