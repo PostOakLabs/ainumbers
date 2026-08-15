@@ -61,6 +61,10 @@ const EXPECTED_DISAGG = {
 // Every finite double is exactly a rational. Doubling is exact in IEEE-754, so this terminates with
 // an exact {n, d} and never rounds. Doubles of magnitude >= 2^52 are already integers, so the loop
 // only runs for fractional values and cannot overflow.
+/**
+ * @param {number} x a finite IEEE-754 double
+ * @returns {{ n: bigint, d: bigint }} the exact rational value of `x`, denominator positive
+ */
 function doubleToRational(x) {
   if (x === 0) return { n: 0n, d: 1n };
   let num = x;
@@ -69,10 +73,20 @@ function doubleToRational(x) {
   return { n: BigInt(num), d: 1n << k };
 }
 
+/**
+ * @param {bigint} v
+ * @returns {bigint}
+ */
 function absBig(v) { return v < 0n ? -v : v; }
 
 // TRUE verdict: |E| >= |P * R| / 2000, decided exactly.
 // Cross multiplied over positive denominators: |En| * 2000 * Pd * Rd >= |Pn| * |Rn| * Ed.
+/**
+ * @param {number} E
+ * @param {number} P
+ * @param {number} R
+ * @returns {boolean}
+ */
 function exactCrosses(E, P, R) {
   const e = doubleToRational(E);
   const p = doubleToRational(P);
@@ -468,13 +482,21 @@ function checkP12_negativeControls() {
     EXACT_BOUNDARY_BASES.map(({ P, R }) => ({ label: 'neg', E: Math.abs((P * R) / 2000), P: -Math.abs(P), R })),
   );
 
-  for (const [name, mutant] of [['A_signed_comparison', mutantA], ['B_netted_denominator', mutantB], ['C_round_before_compare', mutantC]]) {
+  // Held as objects rather than [string, fn] tuples: a tuple array widens to
+  // (string | fn)[] under --checkJs and the call site then reads as non-callable.
+  const mutants = [
+    { name: 'A_signed_comparison', fn: mutantA },
+    { name: 'B_netted_denominator', fn: mutantB },
+    { name: 'C_round_before_compare', fn: mutantC },
+  ];
+  for (const { name, fn } of mutants) {
     checked++;
     let caught = false;
     for (const v of probes) {
       const truth = exactCrosses(v.E, v.P, v.R);
+      /** @type {boolean | null} */
       let m;
-      try { m = mutant(v.E, v.P, v.R); } catch { m = null; }
+      try { m = fn(v.E, v.P, v.R); } catch { m = null; }
       if (m !== truth) { caught = true; break; }
     }
     if (!caught) { violations++; detail.push(`mutant ${name} was NOT discriminated`); }
