@@ -11,6 +11,35 @@
  * are intentionally omitted — they don't fail the build. Stops on first failure.
  *
  * Worker repo (mcp-apps-poc) has its OWN CI gates — this is the SITE preflight.
+ *
+ * ── MODES ───────────────────────────────────────────────────────────────────
+ *   node scripts/preflight.mjs
+ *       DEFAULT, UNCHANGED: fail-fast. Stops at the first red gate, exits 1, and
+ *       reports nothing about the gates behind it. This is what CI
+ *       (scripts-verify.yml), the pre-push hook and assemble-land.mjs run, and
+ *       every line of that path is deliberately left exactly as it was.
+ *
+ *   node scripts/preflight.mjs --keep-going
+ *       Runs EVERY gate, collects every result, prints a per-gate
+ *       PASS / FAIL / DID-NOT-RUN list with totals derived from the gate list at
+ *       runtime, and exits 1 if any unwaived gate failed.
+ *
+ *   node scripts/preflight.mjs --expect-red <gate-id>
+ *       Declares a gate expected to be red on THIS invocation. Matched
+ *       case-insensitively as a substring of the gate label; repeatable; implies
+ *       --keep-going. The declaration is named in the output and lives only in
+ *       this argv — there is deliberately NO waiver file, because a persisted
+ *       waiver accumulates silently, which is the defect this flag answers
+ *       rather than a second copy of it. An id matching no gate is a hard error.
+ *
+ * WHY --keep-going EXISTS (PREFLIGHT-KEEPGOING-1). On a shard branch a
+ * hash-moving CGSHARD-1 red is expected BY CONSTRUCTION, and that gate sits
+ * early in the list, so a fail-fast run proves nothing at all about the gates
+ * behind it — while still LOOKING like preflight ran. STABLECOIN-3SRC-D-1 hit
+ * exactly that and had to extract the gate list and run every gate by hand to
+ * get real coverage. A command that stops proves nothing about what it never
+ * reached, so under --keep-going "did not run" is reported as its own category
+ * and is NEVER folded into "passed" (SO #34c: absence of a red is not a pass).
  */
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -27,6 +56,22 @@ const env = { ...process.env, PYTHONIOENCODING: 'utf-8' }; // Windows: python ga
 const changedIdx = process.argv.indexOf('--changed');
 const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
 const BUDGET_MS = 60_000;
+
+// PREFLIGHT-KEEPGOING-1 — run-all / report-all mode. STRICTLY ADDITIVE: with
+// neither flag present KEEP_GOING is false, and every branch below that reads it
+// collapses to exactly the code that was there before. Same gate list, same order,
+// same fail-fast point, same exit code, same stdout on the default path.
+const KEEP_GOING_FLAG = process.argv.includes('--keep-going');
+// --expect-red <gate-id>, repeatable. PER-INVOCATION ONLY — resolved against the
+// gate labels at startup, named in the output, and gone when the process exits.
+// No file is read or written; nothing carries into the next run.
+const EXPECT_RED = process.argv.reduce((acc, a, i) => {
+  if (a === '--expect-red' && process.argv[i + 1]) acc.push(process.argv[i + 1]);
+  return acc;
+}, []);
+const KEEP_GOING = KEEP_GOING_FLAG || EXPECT_RED.length > 0;
+const expectedRedFor = (label) =>
+  EXPECT_RED.find((id) => label.toLowerCase().includes(id.toLowerCase())) || null;
 
 // HELMGATE-DECOUPLE-1 (2026-07-31): the 4 helm drift/freshness gates below
 // assert helm.html against helm/version.json + helm/guide-freshness.json —
@@ -118,7 +163,8 @@ const GATES = [
   // baselined, and the flag makes even a NEW one report rather than block. A gate
   // that reds main on a pre-existing condition gets switched off; this one is here
   // to be read. Drop --warn-only once the baseline is worked down.
-  ['Page determinism (preimage-reachable, warn-only)', 'node scripts/check-page-determinism.mjs --warn-only'],
+  ['Page determinism (preimage-reachable, warn-only)', 'node scripts/check-page-determinism.mjs --warn-only',
+    { note: 'runs with --warn-only, which exits 0 even on a new defect — a green here reports, it does not verdict' }],
   ['Page determinism gate controls', 'node scripts/check-page-determinism.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
@@ -224,7 +270,10 @@ const GATES = [
   ['FV floor digest authoring — touched files only (FV-FLOOR-DIGEST-GATE-1)',
     TOUCHED_FLOOR_FILES.length
       ? `node scripts/check-fv-floor-coverage.mjs --verify-authoring ${TOUCHED_FLOOR_FILES.map((f) => `"${f}"`).join(' ')}`
-      : 'node -e "1"'],
+      : 'node -e "1"',
+    TOUCHED_FLOOR_FILES.length
+      ? null
+      : { notRun: 'this push touches no __proptests__ floor file, so the authoring check had nothing to examine' }],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
@@ -256,7 +305,8 @@ const GATES = [
     ['Helm release/version drift (HELM-RELEASE-DRIFT-GATES-1)', 'node scripts/check-helm-version-drift.mjs'],
     ['Helm release/version drift fixture proof', 'node scripts/check-helm-version-drift.test.mjs'],
   ] : [
-    ['Helm gates (HELMGATE-DECOUPLE-1: no helm-path changes, skipped)', 'node -e "1"'],
+    ['Helm gates (HELMGATE-DECOUPLE-1: no helm-path changes, skipped)', 'node -e "1"',
+      { notRun: 'HELMGATE-DECOUPLE-1 scoping — this push touches no helm path, so the drift gates were not executed' }],
   ]),
   ['§20 anchor binding (unit)',    'node chaingraph/kernels/anchor-binding.test.mjs'],
   ['§13.12 SD-JWT round-trip',     'node chaingraph/exporters/sd-export-roundtrip.test.mjs'],
@@ -308,11 +358,54 @@ const GATES = [
   ['Chain L1 edge-contract selftest (CHAIN-FV-L1-1)', 'node scripts/check-chain-edge-contracts.selftest.mjs'],
 ];
 
+// The one inline gate that lives below the loop rather than in GATES. Named once
+// here so the totals can be derived from the real run list instead of a literal.
+const MFSTSEC_LABEL = 'mfstSec presence (every tool)';
+// PREFLIGHT-KEEPGOING-1: the run list is GATES plus that inline check. DERIVED at
+// runtime — a gate added to GATES raises this by itself, and nothing anywhere
+// hardcodes how many gates preflight runs.
+const RUN_LIST_SIZE = GATES.length + 1;
+
+// PREFLIGHT-KEEPGOING-1: an --expect-red id that matches no gate would waive
+// nothing while reading as diligence, so it is a hard error before any gate runs.
+if (EXPECT_RED.length) {
+  const labels = [...GATES.map(([l]) => l), MFSTSEC_LABEL];
+  const unmatched = EXPECT_RED.filter((id) => !labels.some((l) => l.toLowerCase().includes(id.toLowerCase())));
+  if (unmatched.length) {
+    console.error(`❌ --expect-red: no gate label matches ${unmatched.map((u) => `"${u}"`).join(', ')}.`);
+    console.error('   Match is a case-insensitive SUBSTRING of the gate label (e.g. "CGSHARD-1").');
+    console.error('   Fix the id or drop the flag — a declaration that waives nothing is worse than none.');
+    process.exit(2);
+  }
+}
+
 let failed = null;
 const timings = []; // [label, ms]
+// PREFLIGHT-KEEPGOING-1: per-gate outcome ledger — { label, state, ms, note }.
+// state ∈ PASS | FAIL | EXPECTED-RED | DID-NOT-RUN. Written on every path, read
+// ONLY by the --keep-going summary, so it cannot affect default behaviour.
+const results = [];
+let waivedCount = 0;
 const suiteStart = Date.now();
 
-for (const [label, cmd] of GATES) {
+if (KEEP_GOING) {
+  console.log('▶ preflight --keep-going: running EVERY gate and collecting every result.');
+  console.log('  (the default no-flag run is unchanged and still stops at the first red)');
+  if (EXPECT_RED.length) {
+    console.log(`  --expect-red declared for THIS invocation only: ${EXPECT_RED.join(', ')}`);
+  }
+  console.log('');
+}
+
+for (const [label, cmd, meta] of GATES) {
+  // A slot the runner itself replaced with a no-op (helm scoping, no touched floor
+  // files) DID NOT RUN. Under --keep-going say exactly that; a no-op's exit 0 is
+  // absence of a result, never a pass.
+  if (KEEP_GOING && meta?.notRun) {
+    console.log(`⊘ ${label} … DID NOT RUN`);
+    results.push({ label, state: 'DID-NOT-RUN', ms: 0, note: meta.notRun });
+    continue;
+  }
   process.stdout.write(`▶ ${label} … `);
   const t0 = Date.now();
   try {
@@ -320,19 +413,35 @@ for (const [label, cmd] of GATES) {
     const ms = Date.now() - t0;
     timings.push([label, ms]);
     console.log(`✓ (${ms}ms)`);
+    const declared = KEEP_GOING ? expectedRedFor(label) : null;
+    results.push({
+      label,
+      state: 'PASS',
+      ms,
+      note: declared ? `declared --expect-red ${declared} but PASSED — the declaration was unnecessary` : meta?.note,
+    });
   } catch (e) {
     const ms = Date.now() - t0;
     timings.push([label, ms]);
-    console.log(`✗ (${ms}ms)`);
+    const declared = KEEP_GOING ? expectedRedFor(label) : null;
+    console.log(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
     const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
     console.log('\n' + out.trim() + '\n');
-    failed = label;
-    break;
+    results.push({
+      label,
+      state: declared ? 'EXPECTED-RED' : 'FAIL',
+      ms,
+      note: declared ? `red, waived for this invocation only by --expect-red ${declared}` : meta?.note,
+    });
+    if (failed === null) failed = label; // where a fail-fast run stops
+    if (!KEEP_GOING) break;
   }
 }
 
 // mfstSec presence — every tool HTML must carry the manifest panel (CI hard gate).
-if (!failed) {
+// `!failed` keeps the default fail-fast path identical; `|| KEEP_GOING` is what
+// makes the run-all mode actually run all.
+if (!failed || KEEP_GOING) {
   process.stdout.write('▶ mfstSec presence (every tool) … ');
   const t0 = Date.now();
   const missing = readdirSync(resolve(REPO, 'tools'))
@@ -341,11 +450,19 @@ if (!failed) {
   const ms = Date.now() - t0;
   timings.push(['mfstSec presence (every tool)', ms]);
   if (missing.length) {
-    console.log(`✗ (${ms}ms)`);
+    const declared = KEEP_GOING ? expectedRedFor(MFSTSEC_LABEL) : null;
+    console.log(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
     console.log('\nTools missing the mfstSec manifest panel:\n  ' + missing.join('\n  ') + '\n');
-    failed = 'mfstSec presence';
+    results.push({
+      label: MFSTSEC_LABEL,
+      state: declared ? 'EXPECTED-RED' : 'FAIL',
+      ms,
+      note: declared ? `red, waived for this invocation only by --expect-red ${declared}` : undefined,
+    });
+    if (failed === null) failed = 'mfstSec presence';
   } else {
     console.log(`✓ (${ms}ms)`);
+    results.push({ label: MFSTSEC_LABEL, state: 'PASS', ms });
   }
 }
 
@@ -359,7 +476,62 @@ if (totalMs > BUDGET_MS) {
   console.log('    (advisory only — not a hard fail; wall-clock budgets are machine-dependent)');
 }
 
-if (failed) {
+// ── PREFLIGHT-KEEPGOING-1: run-all summary ──────────────────────────────────
+// Only reached with --keep-going / --expect-red. The default path skips this
+// entire block and falls straight through to the unchanged fail-fast exit below.
+if (KEEP_GOING) {
+  const of = (state) => results.filter((r) => r.state === state);
+  const passed = of('PASS');
+  const hardFails = of('FAIL');
+  const waived = of('EXPECTED-RED');
+  const didNotRun = of('DID-NOT-RUN');
+  waivedCount = waived.length;
+
+  const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
+  const rule = '─'.repeat(78);
+  console.log(`\n${rule}`);
+  console.log('KEEP-GOING SUMMARY — every gate reached, nothing masked by an earlier red');
+  console.log(rule);
+  for (const r of results) {
+    console.log(`  ${pad(r.state, 13)}${String(r.ms).padStart(7)}ms  ${r.label}`);
+    if (r.note) console.log(`                             ↳ ${r.note}`);
+  }
+  console.log(rule);
+  console.log('TOTALS — derived from the gate list at runtime, never hardcoded');
+  console.log(`  gates in the run list ...... ${RUN_LIST_SIZE}  (GATES array + the inline ${MFSTSEC_LABEL} check)`);
+  console.log(`  results recorded ........... ${results.length}`);
+  console.log(`  PASS ....................... ${passed.length}`);
+  console.log(`  FAIL (unwaived) ............ ${hardFails.length}`);
+  console.log(`  EXPECTED-RED (waived) ...... ${waived.length}${waived.length ? `   [declared this run: ${EXPECT_RED.join(', ')}]` : ''}`);
+  console.log(`  DID NOT RUN ................ ${didNotRun.length}   ⛔ its own category — never counted as a pass`);
+  const accounted = passed.length + hardFails.length + waived.length + didNotRun.length;
+  console.log(`  accounted for .............. ${accounted}`);
+  console.log(rule);
+
+  if (failed) {
+    const firstRed = results.findIndex((r) => r.state === 'FAIL' || r.state === 'EXPECTED-RED');
+    console.log(`  A bare fail-fast run would have STOPPED at: ${results[firstRed].label}`);
+    console.log(`  and would have reported nothing about the ${results.length - firstRed - 1} gate(s) after it.`);
+    console.log(rule);
+  }
+
+  // FAIL CLOSED (SO #34c): a result count that does not reconcile with the run
+  // list means gates went unrecorded, and an unrecorded gate is not a green one.
+  if (results.length !== RUN_LIST_SIZE || accounted !== results.length) {
+    console.error(`\n❌ preflight --keep-going: RESULT ACCOUNTING MISMATCH — ${RUN_LIST_SIZE} gate(s) in the run list, ${results.length} result(s) recorded, ${accounted} categorised.`);
+    console.error('   Some gate produced no result, so this run proves nothing. Treat it as unverified.');
+    process.exit(1);
+  }
+
+  if (hardFails.length) {
+    console.error(`\n❌ preflight --keep-going FAILED: ${hardFails.length} unwaived gate(s) red (of ${RUN_LIST_SIZE} in the run list).`);
+    for (const r of hardFails) console.error(`   ✗ ${r.label}`);
+    console.error('   Fix these before pushing (each would have failed CI).');
+    process.exit(1);
+  }
+}
+
+if (failed && !KEEP_GOING) {
   console.error(`\n❌ preflight FAILED at: ${failed}. Fix it before pushing (this would have failed CI).`);
   process.exit(1);
 }
@@ -417,4 +589,11 @@ try {
   console.log('see `node chaingraph/standard/spec-version-consistency.mjs --remnants` after any spec-version bump');
 } catch { console.log('(advisory check unavailable — skipped)'); }
 
-console.log('\n✅ preflight PASSED — all hard CI gates green. Safe to push.');
+if (KEEP_GOING && waivedCount) {
+  // Reached only via --expect-red: every gate ran, the declared one(s) are still
+  // red, and saying "PASSED" here would be the exact overclaim this mode removes.
+  console.log(`\n⚠️  preflight COMPLETE — every gate reached; ${waivedCount} DECLARED-RED gate(s) waived (${EXPECT_RED.join(', ')}), every other gate green.`);
+  console.log('   This is NOT an unqualified pass. The waived gate(s) above are still red.');
+} else {
+  console.log('\n✅ preflight PASSED — all hard CI gates green. Safe to push.');
+}
