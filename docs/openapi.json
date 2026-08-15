@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1129 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1130 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1990,6 +1990,9 @@
     },
     {
       "name": "chargeback"
+    },
+    {
+      "name": "chart of accounts"
     },
     {
       "name": "check hold"
@@ -41047,6 +41050,188 @@
         },
         "x-mcp-tool-name": "build_dise_caption_category_matrix",
         "x-tool-url": "https://ainumbers.co/tools/581-dise-caption-category-matrix-builder.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/analyze_dise_readiness_gaps": {
+      "post": {
+        "operationId": "analyze_dise_readiness_gaps",
+        "summary": "DISE Readiness Gap Analyzer",
+        "description": "Reads a DISE caption-to-category coverage matrix (the T581 matrix builder's output, or a caller-pasted equivalent) and classifies every required-category by income-statement-caption cell as no_coverage, partial_coverage or full_coverage. Ranks the gaps by materiality when dollar amounts are supplied, otherwise by declared category order, and returns a plain-English remediation note for each gap. Verify-only: it measures coverage of the pasted mapping and never asserts that a disclosure requirement has been met.\n\n**Tool URL:** https://ainumbers.co/tools/582-dise-readiness-gap-analyzer.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "DISE",
+          "readiness",
+          "gap analysis",
+          "segment reporting",
+          "ASC 280",
+          "ASU 2023-07",
+          "chart of accounts",
+          "expense disaggregation"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "required_categories",
+                  "captions",
+                  "coverage_rows"
+                ],
+                "properties": {
+                  "required_categories": {
+                    "type": "array",
+                    "description": "Categories the entity has determined it must be able to report separately"
+                  },
+                  "captions": {
+                    "type": "array",
+                    "description": "Income statement captions in scope, optionally with total balances"
+                  },
+                  "coverage_rows": {
+                    "type": "array",
+                    "description": "Caption plus category coverage rows from the matrix builder"
+                  },
+                  "threshold_pct": {
+                    "type": "number",
+                    "description": "Dollar coverage percentage at or above which a caption counts as fully mapped. Default 95."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cells": {
+                      "type": "array",
+                      "description": "Every required-category by caption cell with its classification",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "caption": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "no_coverage",
+                              "partial_coverage",
+                              "full_coverage"
+                            ]
+                          },
+                          "mapped_tb_rows": {
+                            "type": "number"
+                          },
+                          "mapped_amount": {
+                            "type": "number"
+                          },
+                          "caption_coverage_pct": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "assessment_basis": {
+                            "type": "string",
+                            "enum": [
+                              "rows_only",
+                              "rows_and_dollars"
+                            ]
+                          },
+                          "exposure": {
+                            "type": "number"
+                          },
+                          "exposure_basis": {
+                            "type": "string",
+                            "enum": [
+                              "category_amount",
+                              "caption_balance",
+                              "none"
+                            ]
+                          },
+                          "remediation": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "gaps": {
+                      "type": "array",
+                      "description": "Cells that are not full_coverage, ranked, each carrying a remediation note",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "caption_coverage": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "extra_mapped_categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "unrecognised_coverage_captions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "ranking_basis": {
+                      "type": "string",
+                      "enum": [
+                        "materiality",
+                        "category"
+                      ]
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "required_categories": {
+                          "type": "number"
+                        },
+                        "captions": {
+                          "type": "number"
+                        },
+                        "cells_assessed": {
+                          "type": "number"
+                        },
+                        "no_coverage": {
+                          "type": "number"
+                        },
+                        "partial_coverage": {
+                          "type": "number"
+                        },
+                        "full_coverage": {
+                          "type": "number"
+                        },
+                        "readiness_pct": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "analyze_dise_readiness_gaps",
+        "x-tool-url": "https://ainumbers.co/tools/582-dise-readiness-gap-analyzer.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
