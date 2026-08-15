@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Summa MST Inclusion Checker · AINumbers.co</title>
+<meta name="description" content="Paste a Merkle-sum-tree root and an inclusion proof to verify membership and local balance-sum consistency, entirely offline. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/620-summa-mst-inclusion-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Summa MST Inclusion Checker","url":"https://ainumbers.co/tools/620-summa-mst-inclusion-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "620-summa-mst-inclusion-checker",
+  "version": "1.0.0",
+  "title": "Summa MST Inclusion Checker",
+  "description": "Paste a published Merkle-sum-tree root (hash + sum) and an inclusion proof for one leaf, verify membership AND local balance-sum-chain consistency, entirely offline. Independently recomputes both the hash chain and the sum chain and rejects any negative balance or over-bound value anywhere in the path.",
+  "category": "cat-compliance",
+  "tags": ["Summa","proof-of-reserves","Merkle sum tree","MST","inclusion proof"],
+  "audience": ["compliance","engineer","risk"],
+  "input_schema": {"type":"object","properties":{"root":{"type":"object"},"proof":{"type":"object"},"max_balance":{"type":"string"}},"required":["root","proof"]},
+  "output_schema": {"type":"object","properties":{"verdict":{"type":"string"},"reason":{"type":["string","null"]}}},
+  "mcp_tool_definition": {"name":"verify_summa_mst_inclusion","description":"Verifies a Merkle-sum-tree inclusion proof for one leaf against a published root: recomputes both the hash chain and the sum chain independently.","inputSchema":{"type":"object","properties":{"root":{"type":"object"},"proof":{"type":"object"},"max_balance":{"type":"string"}},"required":["root","proof"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/620-summa-mst-inclusion-checker.html","function_name":"runChecker","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.field-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem}
+.field{display:flex;flex-direction:column;gap:.25rem;flex:1;min-width:180px}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .55rem;border-radius:3px;outline:none;width:100%}
+.field input:focus{border-color:var(--teal)}
+.id-warn{font-size:.66rem;color:var(--warn);line-height:1.5;margin:.35rem 0 0}
+.tbl{width:100%;border-collapse:collapse;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .55rem;border-bottom:1px solid var(--border);text-align:left}
+.tbl td{padding:.4rem .55rem;border-bottom:1px solid var(--border)}
+.tbl select,.tbl input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.3rem .4rem;border-radius:3px}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.9rem}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px}
+.add-row-btn:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);word-break:break-all}
+.verdict{border-radius:var(--radius);padding:.6rem .9rem;margin-bottom:.75rem;font-size:.78rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.note-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.7;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;margin-top:.5rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);margin-bottom:1px}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-620</span></div>
+  <div class="nav-right"><a href="../chaingraph/art-620-summa-mst-inclusion-checker.html" class="nav-cta">ChainGraph Node &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Compliance &amp; Proof-of-Reserves · T620 · Merkle Sum Tree</div>
+  <h1 class="tool-title">Summa MST Inclusion Checker</h1>
+  <p class="hero-desc">Paste a published Merkle-sum-tree root (hash + sum) and an inclusion proof for one account, verifies membership AND that the balance-sum chain is internally consistent, entirely offline. Independently recomputes both the hash chain and the sum chain from the leaf to the root, and rejects any negative balance or any value exceeding a declared MAX_BALANCE bound anywhere in the path, closing the Merkle-sum-tree negative-balance-cancellation attack described in Maxwell's eprint 2022/043 §4.1 the way Summa's own circuit does, applied here at the application layer.</p>
+  <div class="disclaimer">⚠ This tool verifies inclusion and local sum-consistency of ONE leaf against ONE published root. It never asserts that reserves are sufficient, that an exchange is solvent, or that a checked proof constitutes an audit, and it cannot detect a problem in any OTHER leaf not covered by this proof path.</div>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">Summa MST</span>
+    <span class="badge badge-gold">Proof-of-Reserves</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="scope-note" style="background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-left:3px solid #14b8a6;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><span style="color:#14b8a6;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance:</span> 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data - use synthetic or anonymised inputs only. This checker verifies a SHA-256 Merkle sum tree, not Summa's own Poseidon-hashed production circuit output - it is a from-scratch, non-ZK reimplementation of the documented pattern, not an interop layer with any specific vendor's published root. All balance/sum arithmetic uses BigInt; the declared MAX_BALANCE bound is a verification parameter you control, not the thing being verified. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data - use synthetic or anonymised inputs only.</div>
+  <div class="id-warn">⚠ The leaf identifier field must be an opaque, already-hashed account identifier (a commitment the exchange published, or a synthetic ID), never a raw username, account number, or email.</div>
+
+  <div class="panel">
+    <div class="panel-title">Published Root</div>
+    <div class="field-row">
+      <div class="field"><label>Root Hash (hex)</label><input type="text" id="rootHash"></div>
+      <div class="field"><label>Root Sum (decimal)</label><input type="text" id="rootSum"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Leaf &amp; Proof</div>
+    <div class="field-row">
+      <div class="field"><label>Leaf ID (opaque hex, never a real identifier)</label><input type="text" id="leafId"></div>
+      <div class="field"><label>Leaf Balance (decimal)</label><input type="text" id="leafBalance"></div>
+      <div class="field"><label>MAX_BALANCE bound (decimal)</label><input type="text" id="maxBalance" value="1000000000000000000"></div>
+    </div>
+    <table class="tbl" id="pathTable">
+      <thead><tr><th style="min-width:90px">Sibling Side</th><th style="min-width:260px">Sibling Hash (hex)</th><th style="min-width:140px">Sibling Sum (decimal)</th><th></th></tr></thead>
+      <tbody id="pathBody"></tbody>
+    </table>
+    <div style="display:flex;gap:.75rem;margin-top:.75rem">
+      <button class="add-row-btn" onclick="addPathRow()">+ Add Path Step</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runChecker()">▶ Verify Inclusion</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../chaingraph/art-620-summa-mst-inclusion-checker.html">ChainGraph Node</a>
+      <a href="../credits.html">Credits</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+const MAX_PATH_DEPTH = 64;
+const RESIDUAL_LIMITATION_NOTE = 'This checks inclusion and local range-consistency of the ONE leaf and its proof path only. It does not and cannot prove every other leaf in the tree obeyed the same range check - only the tree operator\'s own construction process (or a full ZK proof over the whole tree, which this tool does not implement) can guarantee that globally. This is never a statement that the reserve is solvent.';
+const VERIFY_ONLY_NOTE = 'Verify-only: this tool reports "this leaf\'s inclusion in the published tree is verified" or "verification failed: <reason>" - never "reserves are sufficient", "solvent", or an audit opinion.';
+
+function stripHexPrefix(h){return String(h??'').replace(/^(sha256:|0x)/i,'').toLowerCase();}
+function isHex(s){return typeof s==='string'&&s.length>0&&/^[0-9a-f]+$/i.test(s);}
+function parseDecimalBigInt(v){
+  if(typeof v!=='string'&&typeof v!=='number')return null;
+  const s=String(v);
+  if(!/^-?\d+$/.test(s))return null;
+  try{return BigInt(s);}catch(e){return null;}
+}
+async function sha256Hex(str){
+  const bytes=new TextEncoder().encode(str);
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function leafHash(id,balanceStr){return sha256Hex(id+'|'+balanceStr);}
+async function middleHash(sumStr,hashLeft,hashRight){return sha256Hex(sumStr+'|'+hashLeft+'|'+hashRight);}
+
+async function compute(pp){
+  const proof=pp.proof||{};
+  const leafIn=proof.leaf||{};
+  const pathIn=Array.isArray(proof.path)?proof.path:[];
+  const rootIn=pp.root||{};
+  const maxBalanceStrIn=typeof pp.max_balance==='string'?pp.max_balance:'1000000000000000000';
+  const maxBalance=parseDecimalBigInt(maxBalanceStrIn);
+  const compliance_flags={SUMMA_MST_VERIFY_ONLY:true};
+
+  function finalize(verdict,reason,extra){
+    if(verdict==='VERIFIED')compliance_flags.SUMMA_MST_INCLUSION_VERIFIED=true;
+    else compliance_flags.SUMMA_MST_INCLUSION_NOT_VERIFIED=true;
+    return {output_payload:Object.assign({
+      verdict,reason:reason??null,
+      computed_root:null,
+      declared_root:{hash:stripHexPrefix(rootIn.hash),sum:rootIn.sum!=null?String(rootIn.sum):null},
+      leaf:{id:typeof leafIn.id==='string'?leafIn.id:null,balance:leafIn.balance!=null?String(leafIn.balance):null},
+      path_length:pathIn.length,
+      max_balance_used:maxBalanceStrIn,
+      residual_limitation_note:RESIDUAL_LIMITATION_NOTE,
+      verify_only_note:VERIFY_ONLY_NOTE,
+    },extra||{}),compliance_flags};
+  }
+
+  if(maxBalance===null||maxBalance<0n)return finalize('NOT_VERIFIED','malformed_proof: max_balance must be a non-negative decimal string');
+  if(pathIn.length>MAX_PATH_DEPTH)return finalize('NOT_VERIFIED','malformed_proof: path depth '+pathIn.length+' exceeds the '+MAX_PATH_DEPTH+'-level bound');
+  if(!isHex(leafIn.id)||String(leafIn.id).length>128)return finalize('NOT_VERIFIED','malformed_proof: leaf.id must be an opaque hex identifier');
+
+  const leafBalance=parseDecimalBigInt(leafIn.balance);
+  if(leafBalance===null)return finalize('NOT_VERIFIED','malformed_proof: leaf.balance must be a decimal-string BigInt');
+
+  const rootHashDeclared=stripHexPrefix(rootIn.hash);
+  const rootSumDeclared=parseDecimalBigInt(rootIn.sum);
+  if(!isHex(rootHashDeclared)||rootSumDeclared===null)return finalize('NOT_VERIFIED','malformed_proof: root.hash/root.sum missing or malformed');
+
+  for(const step of pathIn){
+    if(step==null||(step.side!=='left'&&step.side!=='right'))return finalize('NOT_VERIFIED','malformed_proof: path step missing a valid side (left|right)');
+    if(!isHex(step.sibling_hash))return finalize('NOT_VERIFIED','malformed_proof: path step sibling_hash missing or malformed');
+    if(parseDecimalBigInt(step.sibling_sum)===null)return finalize('NOT_VERIFIED','malformed_proof: path step sibling_sum must be a decimal-string BigInt');
+  }
+
+  const balanceStr=leafIn.balance!=null?String(leafIn.balance):'';
+  if(leafBalance<0n)return finalize('NOT_VERIFIED','negative_balance_at_path_index_0');
+  if(leafBalance>maxBalance)return finalize('NOT_VERIFIED','balance_exceeds_max_balance_at_path_index_0');
+
+  let current={hash:await leafHash(leafIn.id,balanceStr),sum:leafBalance};
+
+  for(let i=0;i<pathIn.length;i++){
+    const idx=i+1;
+    const step=pathIn[i];
+    const siblingHash=stripHexPrefix(step.sibling_hash);
+    const siblingSum=parseDecimalBigInt(step.sibling_sum);
+    if(siblingSum<0n)return finalize('NOT_VERIFIED','negative_balance_at_path_index_'+idx);
+    if(siblingSum>maxBalance)return finalize('NOT_VERIFIED','balance_exceeds_max_balance_at_path_index_'+idx);
+
+    const combinedSum=current.sum+siblingSum;
+    const combinedHash=step.side==='left'
+      ? await middleHash(combinedSum.toString(),siblingHash,current.hash)
+      : await middleHash(combinedSum.toString(),current.hash,siblingHash);
+
+    if(combinedSum>maxBalance)return finalize('NOT_VERIFIED','balance_exceeds_max_balance_at_path_index_'+idx);
+    current={hash:combinedHash,sum:combinedSum};
+  }
+
+  const hashMatch=current.hash===rootHashDeclared;
+  const sumMatch=current.sum===rootSumDeclared;
+  const computed_root={hash:current.hash,sum:current.sum.toString()};
+  const declared_root={hash:rootHashDeclared,sum:rootSumDeclared.toString()};
+
+  if(!hashMatch)return finalize('NOT_VERIFIED','hash_mismatch',{computed_root,declared_root});
+  if(!sumMatch)return finalize('NOT_VERIFIED','sum_mismatch',{computed_root,declared_root});
+  return finalize('VERIFIED',null,{computed_root,declared_root});
+}
+
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const digest=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+function rowHtml(t){t=t||{side:'right',sibling_hash:'',sibling_sum:''};
+  return '<tr><td><select class="side"><option value="left"'+(t.side==='left'?' selected':'')+'>left</option><option value="right"'+(t.side!=='left'?' selected':'')+'>right</option></select></td>'+
+  '<td><input type="text" class="shash" value="'+(t.sibling_hash||'')+'"></td>'+
+  '<td><input type="text" class="ssum" value="'+(t.sibling_sum||'')+'"></td>'+
+  '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()">✕</button></td></tr>';
+}
+function addPathRow(t){document.getElementById('pathBody').insertAdjacentHTML('beforeend',rowHtml(t));}
+function getPath(){return Array.from(document.querySelectorAll('#pathBody tr')).map(r=>({
+  side:r.querySelector('.side').value,
+  sibling_hash:r.querySelector('.shash').value.trim(),
+  sibling_sum:r.querySelector('.ssum').value.trim(),
+}));}
+
+async function runChecker(){
+  const pp={
+    root:{hash:document.getElementById('rootHash').value.trim(),sum:document.getElementById('rootSum').value.trim()},
+    proof:{leaf:{id:document.getElementById('leafId').value.trim(),balance:document.getElementById('leafBalance').value.trim()},path:getPath()},
+    max_balance:document.getElementById('maxBalance').value.trim()||'1000000000000000000',
+  };
+  const {output_payload}=await compute(pp);
+  const ok=output_payload.verdict==='VERIFIED';
+  document.getElementById('outputSection').innerHTML=`
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Verification Result</span></div>
+      <div class="out-body">
+        <div class="verdict ${ok?'pass':'fail'}">${ok?"✓ VERIFIED - this leaf's inclusion in the published tree is verified, and the local sum chain is consistent.":'✗ NOT VERIFIED - '+(output_payload.reason||'unknown reason')}</div>
+        <table class="result-table">
+          <thead><tr><th></th><th>Hash</th><th>Sum</th></tr></thead>
+          <tbody>
+            <tr><td>Computed</td><td>${output_payload.computed_root?output_payload.computed_root.hash:'-'}</td><td>${output_payload.computed_root?output_payload.computed_root.sum:'-'}</td></tr>
+            <tr><td>Declared root</td><td>${output_payload.declared_root.hash||'-'}</td><td>${output_payload.declared_root.sum||'-'}</td></tr>
+          </tbody>
+        </table>
+        <div class="note-box">${output_payload.residual_limitation_note}</div>
+        <div class="note-box">${output_payload.verify_only_note}</div>
+      </div>
+    </div>`;
+  window._lastResult=output_payload;
+  window._lastInputs=pp;
+  window.enableAP2Btn&&window.enableAP2Btn();
+}
+
+// Pre-filled worked example: 2-leaf tree, leaf A id=aa11 balance=100, sibling
+// leaf B (id=bb22 balance=200) on the right. Root: hash computed by the
+// kernel's own compute(), sum=300. Same vector as the K-1 golden fixtures.
+document.getElementById('rootHash').value='5d967f108c4cc8e9ea17607ac5d0454655967e2657ad77cefc295903e0aae551';
+document.getElementById('rootSum').value='300';
+document.getElementById('leafId').value='aa11';
+document.getElementById('leafBalance').value='100';
+addPathRow({side:'right',sibling_hash:'3a0a2ec5cce1770bde00fe2db329d42aaa99b8ee041692a8e40a897586ad1f0b',sibling_sum:'200'});
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "620-summa-mst-inclusion-checker", "version": "1.0.0", "title": "Summa MST Inclusion Checker", "description": "Paste a published Merkle-sum-tree root and an inclusion proof for one leaf, verify membership AND local balance-sum-chain consistency, entirely offline.", "category": "compliance", "tags": ["Summa","proof-of-reserves","Merkle sum tree","MST"], "audience": ["compliance","engineer","risk"], "input_schema": {"type":"object","properties":{"root":{"type":"object"},"proof":{"type":"object"},"max_balance":{"type":"string"}},"required":["root","proof"]}, "output_schema": {"type":"object","properties":{}}, "mcp_tool_definition": {"name": "verify_summa_mst_inclusion", "description": "Verifies a Merkle-sum-tree inclusion proof for one leaf against a published root: recomputes both the hash chain and the sum chain independently.", "inputSchema": {"type":"object","properties":{"root":{"type":"object"},"proof":{"type":"object"},"max_balance":{"type":"string"}},"required":["root","proof"]}}, "execution": {"type": "browser-reference", "entry": "tools/620-summa-mst-inclusion-checker.html", "function_name": "runChecker"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+<script>
+/* AP2 Policy Mandate Export - Phase 15 · CONTRACT §3–§4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window.exportAP2=function(){
+  if(!window._lastResult){alert('Run the tool first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid='620-summa-mst-inclusion-checker';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:'1.0.0',
+    mandate_type:'compliance_mandate',
+    jurisdiction:['ZZ'],regulatory_frameworks:['Voluntary Merkle-sum PoR attestation (Summa report structure)'],
+    payload:{output:window._lastResult,inputs:window._lastInputs},
+    summary:'Summa MST Inclusion Checker - verification '+ts.slice(0,10),
+    agent_instructions:['This records inclusion and local sum-consistency of ONE leaf only - never a solvency determination. Review the verdict and reason before relying on it.'],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+</body>
+</html>
