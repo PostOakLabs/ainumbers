@@ -1,5 +1,5 @@
 // art-633-asc280-reportable-segment-tester — class-B PROPERTY-TEST harness (DISE-SEG-K-1).
-// kernel_digest_at_authoring: sha256:8bc3555025ec420d732bd26d7adfaba1d27866b97c2eb0420f0bb273852128cf
+// kernel_digest_at_authoring: sha256:861ca3919713e8e7e4d57042aa48f9399e5094c1f1abc550d686ea8c9fcc8487
 // spec: research/DISE-SEG-K-1.spec.md
 // human_sign_off: PENDING
 //
