@@ -269,20 +269,20 @@ jobs:
         shell: bash
         run: echo "No floor files changed in this diff — skipping (scoped-to-diff gate, never a full-estate sweep)."
 
-  # FV-ATTEST-PROVENANCE-1 (2026-08-15): GitHub artifact attestations
-  # (actions/attest) over the FV artifacts this workflow just gated — chaingraph.json,
-  # every *.receipt.json, and the §18 compute-proof baseline. Runs only on push to
-  # main (needs: land-verify, so it only attests a commit that already passed every
-  # gate above) — never on pull_request, where a fork PR cannot hold id-token/attestations
-  # write anyway. SO #8 pre-authorizes actions/attest directly (not the thin
-  # attest-build-provenance wrapper); SO #31 requires full-commit-SHA action pins and
-  # job-level (not workflow-level) least-privilege permissions — both applied below.
+  # GitHub artifact attestations (actions/attest) over the FV artifacts this
+  # workflow just gated — chaingraph.json, every *.receipt.json, and the §18
+  # compute-proof baseline. Runs only on push to main (needs: land-verify, so
+  # it only attests a commit that already passed every gate above) — never on
+  # pull_request, where a fork PR cannot hold id-token/attestations write
+  # anyway. Calls actions/attest directly (not the thin attest-build-provenance
+  # wrapper), full-commit-SHA pinned, with least-privilege permissions scoped
+  # to this JOB rather than the whole workflow.
   #
-  # Scope honesty (research/FV-SIGNING-AUTOMATION-2026-08-13.md §stack-3): this covers
-  # PUBLIC repos only (GitHub's free-plan Sigstore identity). The private prover repo is
-  # NOT covered here — that's the SSHSIG + Sigsum lanes' job. Provenance is a PROCESS
-  # claim ("this workflow, at this commit, produced this artifact") — never a review
-  # claim; no copy anywhere may present it as one.
+  # Scope honesty: this covers PUBLIC repos only (GitHub's free-plan Sigstore
+  # identity). The private prover repo is NOT covered here — that needs a
+  # separate signing lane. Provenance is a PROCESS claim ("this workflow, at
+  # this commit, produced this artifact") — never a review claim; no copy
+  # anywhere may present it as one.
   attest-fv-artifacts:
     name: actions/attest — FV artifact provenance
     needs: land-verify
@@ -327,8 +327,8 @@ jobs:
         # CI, and writes it to a local file. Every subsequent `gh attestation verify
         # --custom-trusted-root` call — including one run by a maintainer offline, days
         # later, from a downloaded bundle — needs no live TUF/Sigstore network fetch of
-        # its own; only the artifact + bundle + this root file. Aligns with SO #0
-        # (survives-the-maintainer: a deterministic offline verifier, not a live service).
+        # its own; only the artifact + bundle + this root file — a deterministic
+        # offline verifier, not a live service dependency.
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh attestation trusted-root > trusted_root.jsonl
