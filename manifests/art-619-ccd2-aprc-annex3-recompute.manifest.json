@@ -1,0 +1,75 @@
+{
+  "tool_id": "art-619-ccd2-aprc-annex3-recompute",
+  "version": "1.0.0",
+  "title": "CCD2 Annex III APRC Recompute",
+  "description": "Recomputes the EU Directive (EU) 2023/2225 (CCD2) annual percentage rate of charge (APRC) from a caller-supplied drawdown/repayment schedule against Annex III Part I's basic equation, solved by bracketed bisection for the rate X. Reports converged, bracketed, iterations_used and residual_at_convergence as honesty fields alongside aprc_pct, rounded to at least one decimal place per Annex III Part I remark (d), half-up on the next digit. Verify-only: does not determine CCD2 applicability and does not assert compliance.",
+  "category": "chaingraph",
+  "tags": ["compliance_mandate", "ccd2", "eu-2023-2225", "annex-iii", "aprc", "consumer-credit", "bisection-solver", "mcp:recompute_ccd2_aprc_annex3"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "drawdowns": {
+        "type": "array",
+        "description": "Array of drawdown flows. Each: {amount, full_periods, fraction} where full_periods is a whole count of years and fraction is a fraction of a year in [0,1) since the first drawdown (Annex III Part I's t_k), or the shorthand {amount, t_years}. At least one drawdown at t=0 is expected by Annex III Part I remark (b).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "amount": { "type": "number" },
+            "full_periods": { "type": "number" },
+            "fraction": { "type": "number" },
+            "t_years": { "type": "number" }
+          }
+        }
+      },
+      "repayments": {
+        "type": "array",
+        "description": "Array of repayment/charge flows, same {amount, full_periods, fraction} or {amount, t_years} shape as drawdowns (Annex III Part I's D_l/s_l).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "amount": { "type": "number" },
+            "full_periods": { "type": "number" },
+            "fraction": { "type": "number" },
+            "t_years": { "type": "number" }
+          }
+        }
+      }
+    },
+    "required": ["drawdowns", "repayments"]
+  },
+  "mcp_tool_definition": {
+    "name": "recompute_ccd2_aprc_annex3",
+    "description": "Recomputes the CCD2 Directive (EU) 2023/2225 Annex III APRC from a drawdown/repayment schedule by bracketed bisection on Annex III Part I's present-value-equality equation. Returns aprc_pct (rounded per Annex III Part I remark (d)), converged, bracketed, iterations_used, residual_at_convergence. Reports non-convergence honestly rather than guessing. Verify-only, no compliance determination.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "drawdowns": { "type": "array", "description": "Array of {amount, full_periods, fraction} or {amount, t_years}" },
+        "repayments": { "type": "array", "description": "Array of {amount, full_periods, fraction} or {amount, t_years}" }
+      },
+      "required": ["drawdowns", "repayments"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-619-ccd2-aprc-annex3-recompute.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "aprc_pct": { "type": ["number", "null"] },
+      "converged": { "type": "boolean" },
+      "bracketed": { "type": "boolean" },
+      "iterations_used": { "type": "number" },
+      "residual_at_convergence": { "type": ["number", "null"] },
+      "num_drawdowns": { "type": "number" },
+      "num_repayments": { "type": "number" },
+      "drawdown_total": { "type": "number" },
+      "repayment_total": { "type": "number" },
+      "total_charge": { "type": "number" }
+    }
+  },
+  "source": "authored by CCD2-APRC-K-1 per CCD2-APRC-BUILD-SPEC.md sections 1-4, 7 and FORMALVERIF-BUILD-SPEC.md sections 3, 5, 6.B, 7. Clause text (Article 30 + Annex III Parts I-II) retrieved at claim time on 2026-08-14 directly from the EUR-Lex Official Journal PDF for CELEX 32023L2225 (https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32023L2225), pinned at sha256:b07e524551c73d6b7b548ff5555786d5d24f9bf7892b2c653f3c6eac0a19e49a; snapshot at research/clause-snapshots/CCD2-ART30-ANNEX-III-2026-08-14.txt. Per-kernel spec at research/CCD2-APRC-ANNEX3.spec.md, human_sign_off PENDING: property run complete, specification under review. Golden fixtures derive from closed-form algebra solved forward (given a target X, the flow amount satisfying Annex III Part I's equation is solved analytically and verified by direct substitution) -- a computation direction opposite to this kernel's own bisection search, per FORMALVERIF-BUILD-SPEC.md section 3d preference 3, since Annex III carries no worked numeric example of its own; output_schema derived by running the kernel's own compute() against the vectors in chaingraph/kernels/fixtures/art-619-ccd2-aprc-annex3-recompute.fixtures.json."
+}

@@ -555,6 +555,7 @@ import * as art614    from './art-614-eip7702-authorization-tuple-decoder.kernel
 import * as art615    from './art-615-mla-charge-inclusion-classifier.kernel.mjs';
 import * as art616    from './art-616-mla-mapr-actuarial-recompute.kernel.mjs';
 import * as art618    from './art-618-naic-clo-rbc-factor-calculator.kernel.mjs';
+import * as art619    from './art-619-ccd2-aprc-annex3-recompute.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
 import * as art620    from './art-620-summa-mst-inclusion-checker.kernel.mjs';
 import * as art63     from './art-63-agent-service-metering-modeler.kernel.mjs';
@@ -1165,6 +1166,7 @@ export const KERNELS = {
   'art-615-mla-charge-inclusion-classifier':                    art615,
   'art-616-mla-mapr-actuarial-recompute':                       art616,
   'art-618-naic-clo-rbc-factor-calculator':                     art618,
+  'art-619-ccd2-aprc-annex3-recompute':                         art619,
   'art-62-ap2-payment-receipt-verifier':                        art62,
   'art-620-summa-mst-inclusion-checker':                        art620,
   'art-63-agent-service-metering-modeler':                      art63,
