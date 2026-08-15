@@ -62,27 +62,26 @@ const root = resolve(__dirname, '..')
 const NODES_BLOCKING = true // NODE-REGISTRATION-GAP-1: promoted from advisory.
 const CHAINS_BLOCKING = false // ← Flip to true once a chain-leak incident is measured.
 
-// NODE-REGISTRATION-GAP-1: explicit, named waiver — NOT a silent baseline. Six
-// shards were found unregistered in the sweep that promoted this gate; only 2
-// (art-616, art-618) registered clean. The other 4 each trip a DIFFERENT
-// non-baselineable hard gate that this row's fence forbids crossing (no
-// node-page authoring, no kernel/proving work — see board/done/
-// NODE-REGISTRATION-GAP-1.md):
-//   - art-615, art-619: catalog-parity.mjs "url page missing on disk" —
-//     no chaingraph/<id>.html exists yet.
-//   - art-595: FV-COVERAGE-GATE-1 — floor file's kernel_digest_at_authoring
-//     no longer matches the live kernel (stale or never-correct digest).
-//   - art-620: FV-COVERAGE-GATE-1 — no __proptests__ floor file at all.
-// Registration is deferred to whichever row clears its specific blocker;
-// remove an entry here the moment that happens and append the id to
-// order.nodes for real. A shard NOT in this list is judged exactly as
-// before — no widening of the waiver.
-const PAGE_BLOCKED_WAIVER = new Set([
-  'art-595-ap2-cartmandate-hashchain-builder',
-  'art-615-mla-charge-inclusion-classifier',
-  'art-619-ccd2-aprc-annex3-recompute',
-  'art-620-summa-mst-inclusion-checker',
-])
+// EMPTY, AND THAT IS THE POINT — the waiver is fully discharged (NODE-REG-UNBLOCK-1, 2026-08-15).
+//
+// HISTORY, kept so the mechanism is not mistaken for dead code. NODE-REGISTRATION-GAP-1 found six
+// unregistered shards in the sweep that promoted this gate to blocking; only 2 (art-616, art-618)
+// registered clean. The other 4 each tripped a DIFFERENT non-baselineable hard gate that that row's
+// fence forbade crossing, so they were waivered HERE, by name, with the blocking gate stated per
+// node — never a silent baseline:
+//   - art-615, art-619: catalog-parity.mjs "url page missing on disk" (no chaingraph/<id>.html).
+//   - art-595: FV-COVERAGE-GATE-1, floor digest no longer matched the live kernel.
+//   - art-620: FV-COVERAGE-GATE-1, no __proptests__ floor file at all.
+// NODE-REG-UNBLOCK-1 cleared all four blockers for real (pages authored, digest re-stamped from
+// kernel bytes after re-executing the floor green, missing floor authored) and registered all four,
+// removing each entry only once its own blocker was fixed. 609/609 shards are now assembled.
+//
+// KEEP THIS SET EMPTY. An entry here suppresses a BLOCKING gate, so adding one is a real reduction
+// in coverage: it is legitimate only for a shard whose blocker is a named, non-baselineable hard
+// gate that the adding row's fence genuinely forbids crossing, and it must be paired with an owning
+// board row that will remove it. ⛔ A waiver with no owning row is how a temporary exception becomes
+// permanent — that is exactly the drift this row existed to undo.
+const PAGE_BLOCKED_WAIVER = new Set([])
 
 const NODES_DIR = resolve(root, 'chaingraph/graph/nodes')
 const CHAINS_DIR = resolve(root, 'chaingraph/graph/chains')
