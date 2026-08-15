@@ -1,0 +1,95 @@
+{
+  "tool_id": "c2sp-tlog-verifier",
+  "version": "1.0.0",
+  "title": "C2SP Transparency Log Verifier",
+  "description": "Verifies a C2SP checkpoint (signed note) and an RFC 6962 inclusion proof against a C2SP tlog-policy trust policy, entirely client-side. Parses the note framing, matches every signature line against the policy's log and witness keys, verifies the log signature and each tlog-cosignature, evaluates the policy quorum rule, replays the inclusion path against the root the checkpoint carries, and optionally decodes a tlog-tiles path to confirm it is the tile holding the leaf.",
+  "category": "mcp",
+  "tags": [
+    "C2SP",
+    "transparency log",
+    "checkpoint",
+    "signed note",
+    "tlog-cosignature",
+    "RFC 6962",
+    "inclusion proof",
+    "tlog-policy",
+    "tlog-tiles",
+    "Sigsum",
+    "Rekor",
+    "offline verifier"
+  ],
+  "audience": [
+    "engineer",
+    "security",
+    "compliance"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": ["checkpoint", "policy", "proof"],
+    "properties": {
+      "checkpoint": {
+        "type": "string",
+        "description": "C2SP checkpoint as signed-note text: origin, tree size, base64 root hash, optional extension lines, a blank line, then one signature line per signer"
+      },
+      "policy": {
+        "type": "string",
+        "description": "C2SP tlog-policy text (log / witness / group / quorum lines). Keys are read as a signed-note vkey or as bare hex"
+      },
+      "proof": {
+        "type": "object",
+        "description": "RFC 6962 inclusion proof for one leaf against the checkpoint's own tree size and root",
+        "properties": {
+          "leaf_mode": {"type": "string", "enum": ["hash", "bytes"]},
+          "leaf_value": {"type": "string", "description": "Hex leaf hash, or hex raw leaf bytes when leaf_mode is bytes"},
+          "leaf_index": {"type": "integer", "minimum": 0},
+          "path": {"type": "array", "items": {"type": "string"}, "description": "Bottom-up sibling hashes, hex"}
+        }
+      },
+      "tile_path": {
+        "type": "string",
+        "description": "Optional tlog-tiles path, <prefix>/tile/<L>/<N>[.p/<W>], checked for consistency with the leaf index"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "noteParses": {"type": "boolean"},
+      "origin": {"type": ["string", "null"]},
+      "size": {"type": ["integer", "null"]},
+      "rootHashHex": {"type": ["string", "null"]},
+      "logKeyPinned": {"type": "boolean"},
+      "logSignatureValid": {"type": "boolean"},
+      "originMatchesPinnedLog": {"type": ["boolean", "null"]},
+      "witnessCosignaturesValid": {"type": "integer"},
+      "witnessCosignatureDetail": {"type": "array", "items": {"type": "object"}},
+      "quorumRule": {"type": ["string", "null"]},
+      "witnessQuorumMet": {"type": "boolean"},
+      "inclusionProofValid": {"type": "boolean"},
+      "tilePathValid": {"type": ["boolean", "null"]},
+      "tileCoversLeaf": {"type": ["boolean", "null"]},
+      "ALL_PASS": {"type": "boolean"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "verify_c2sp_tlog_checkpoint",
+    "description": "Verifies a C2SP checkpoint signed note, its witness cosignature quorum against a tlog-policy trust policy, and an RFC 6962 inclusion proof against the checkpoint root. Browser-based, client-side only, zero network calls, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["checkpoint", "policy", "proof"],
+      "properties": {
+        "checkpoint": {"type": "string", "description": "C2SP checkpoint as signed-note text"},
+        "policy": {"type": "string", "description": "C2SP tlog-policy text naming the log and witness keys and the quorum rule"},
+        "proof": {"type": "object", "description": "RFC 6962 inclusion proof: leaf value, leaf index, bottom-up sibling path"},
+        "tile_path": {"type": "string", "description": "Optional tlog-tiles path for the tile the leaf was read from"}
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/625-c2sp-tlog-verifier.html",
+    "function_name": "runVerifier",
+    "timeout_ms": 3000
+  },
+  "ap2_export": false
+}
