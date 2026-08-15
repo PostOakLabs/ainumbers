@@ -41,6 +41,12 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
+import {
+  hashLeafNode as sharedHashLeafNode,
+  hashInteriorNode as sharedHashInteriorNode,
+  verifyInclusion as sharedVerifyInclusion,
+  parseSignedNote,
+} from '../chaingraph/kernels/c2sp-tlog-verify.mjs';
 
 const subtle = webcrypto.subtle;
 const REKOR_URL = 'https://rekor.sigstore.dev';
@@ -59,15 +65,16 @@ kBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw==
 const REKOR_LOG_ID = 'c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d';
 
 // ---------------------------------------------------------------------------
-// RFC 9162 (RFC 6962) Merkle primitives — mirrors export-scitt.mjs's verifier
-// algorithm (leafHash = sha256(0x00||data), nodeHash = sha256(0x01||l||r),
-// same audit-path combine logic) so both files agree on tree semantics
-// without importing each other (fence keeps this file self-contained).
+// RFC 9162 (RFC 6962) Merkle primitives + inclusion-proof walk — imported
+// from the shared C2SP module (C2SP-TLOG-VERIFY-MODULE-1), not reimplemented
+// here. Thin wrappers: hashLeafNode/hashInteriorNode return Buffer (rest of
+// this file calls .toString('hex')/Buffer.compare on the results); verifyInclusion
+// maps this file's field names onto the shared module's leaf/index/size/path shape.
 // ---------------------------------------------------------------------------
 
 async function sha256(...parts) { return Buffer.from(await subtle.digest('SHA-256', Buffer.concat(parts))); }
-async function leafHash(data) { return sha256(Buffer.from([0x00]), data); }
-async function nodeHash(l, r) { return sha256(Buffer.from([0x01]), l, r); }
+async function leafHash(data) { return Buffer.from(await sharedHashLeafNode(data)); }
+async function nodeHash(l, r) { return Buffer.from(await sharedHashInteriorNode(l, r)); }
 
 async function buildMerkleTree(leaves) {
   const hashes = await Promise.all(leaves.map(leafHash));
@@ -80,25 +87,16 @@ async function buildMerkleTree(leaves) {
   return { root, size: hashes.length };
 }
 
-// RFC 9162 §2.1.3.2 audit-path verification, iterative form.
 async function verifyInclusion({ leafHash: lh, index, treeSize, auditPath, root }) {
-  let fn = index, sn = treeSize - 1;
-  let r = lh;
-  for (const sibling of auditPath) {
-    if (fn % 2 === 1 || fn === sn) {
-      r = await nodeHash(sibling, r);
-      while (fn % 2 === 0 && fn !== 0) { fn = Math.floor(fn / 2); sn = Math.floor(sn / 2); }
-    } else {
-      r = await nodeHash(r, sibling);
-    }
-    fn = Math.floor(fn / 2); sn = Math.floor(sn / 2);
-  }
-  return sn === 0 && Buffer.compare(r, root) === 0;
+  return sharedVerifyInclusion({ leaf: lh, index, size: treeSize, root, path: auditPath });
 }
 
 // ---------------------------------------------------------------------------
 // C2SP tlog-checkpoint (signed note) verification — origin/size/root lines +
-// a "— <name> <base64(4-byte keyID hint || DER signature)>" cosignature line.
+// a "— <name> <base64(4-byte keyID hint || DER signature)>" cosignature line,
+// parsed by the shared module's parseSignedNote (signed-note.md framing);
+// only the ECDSA-specific DER->P1363 conversion below is Rekor's own, since
+// Sigsum's Ed25519 cosignatures need no such conversion.
 // Pinned to tlog-checkpoint/v1.0.0 semantics (SPEC.md §20.2 attribution).
 // ---------------------------------------------------------------------------
 
@@ -121,26 +119,20 @@ function rekorSpkiDer() {
 }
 
 async function verifyCheckpoint(checkpointText, expectedRootHex) {
-  const lines = checkpointText.split('\n');
-  const origin = lines[0];
-  const treeSize = Number(lines[1]);
-  const rootB64 = lines[2];
-  const rootHex = Buffer.from(rootB64, 'base64').toString('hex');
-  const cosigLine = lines.find((l) => l.startsWith('— ')); // U+2014 EM DASH, per C2SP note format
-  if (!cosigLine) throw new Error('checkpoint: no cosignature line found');
-  const sigB64 = cosigLine.split(' ').pop();
-  const sigRaw = Buffer.from(sigB64, 'base64');
-  const keyIdHint = sigRaw.subarray(0, 4).toString('hex');
-  const sigDer = sigRaw.subarray(4);
+  const note = parseSignedNote(checkpointText);
+  const { origin, size: treeSize, rootHash } = note;
+  const rootHex = Buffer.from(rootHash).toString('hex');
+  const cosig = note.cosignatures[0];
+  if (!cosig) throw new Error('checkpoint: no cosignature line found');
+  const sigDer = Buffer.from(cosig.sigBytes);
 
   const der = rekorSpkiDer();
   const keyHash = (await sha256(der)).toString('hex');
   if (keyHash !== REKOR_LOG_ID) throw new Error(`pinned Rekor key mismatch: expected logID ${REKOR_LOG_ID}, pinned key hashes to ${keyHash}`);
-  if (!keyHash.startsWith(keyIdHint)) throw new Error(`checkpoint cosignature key-id hint ${keyIdHint} does not match pinned key ${keyHash.slice(0, 8)}`);
+  if (!keyHash.startsWith(cosig.keyIdHex)) throw new Error(`checkpoint cosignature key-id hint ${cosig.keyIdHex} does not match pinned key ${keyHash.slice(0, 8)}`);
 
-  const noteText = lines.slice(0, 3).join('\n') + '\n';
   const pub = await subtle.importKey('spki', der, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
-  const sigOk = await subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, derToP1363(sigDer), Buffer.from(noteText, 'utf8'));
+  const sigOk = await subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, derToP1363(sigDer), Buffer.from(note.noteText, 'utf8'));
 
   const rootMatches = expectedRootHex === undefined || rootHex === expectedRootHex;
   return { origin, treeSize, rootHex, sigOk, rootMatches };
