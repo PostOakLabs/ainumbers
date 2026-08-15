@@ -1,0 +1,86 @@
+{
+  "tool_id": "626-gir-data-point-completeness-analyzer",
+  "version": "1.0.0",
+  "title": "GIR Data-Point Completeness Analyzer",
+  "description": "Declare the GloBE Information Return data points your own systems can populate, together with the facts that switch conditional points on, and get back a per-point map of populated, partial and missing entries plus a coverage figure over the declared inventory. The data-point structure is taken from the OECD GloBE Information Return (January 2025), Annex A1, at the granularity of that publication's own numbered sub-tables. Readiness mapping only: it does not compose a return, does not render GIR XML, and never states that a return may be submitted.",
+  "category": "treasury",
+  "tags": ["GloBE", "Pillar Two", "GIR", "data points", "gap analysis", "OECD", "minimum tax", "readiness"],
+  "audience": ["tax", "compliance", "finance"],
+  "input_schema": {
+    "type": "object",
+    "required": ["declared_inventory", "declared_facts"],
+    "properties": {
+      "declared_inventory": {
+        "type": "array",
+        "description": "Data points the filer declares they can populate: [{id, status}] where status is populated, partial or missing. Anything absent is treated as missing.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "description": "GIR data-point reference, e.g. 1.3.2.1.10 or 3.2.2.3.a" },
+            "status": { "type": "string", "enum": ["populated", "partial", "missing"] }
+          }
+        }
+      },
+      "declared_facts": {
+        "type": "object",
+        "description": "Boolean facts declared by the filer that make conditional data points applicable, e.g. sh_tcbcr, transition_year, qdmtt, iir, utpr, initial_phase, intl_shipping."
+      },
+      "gir_schema_version": {
+        "type": "string",
+        "description": "The GIR structure the inventory was mapped against. A declared, versioned input, never a fixed constant."
+      },
+      "reporting_fiscal_year_label": {
+        "type": "string",
+        "description": "Free-text label for the Reporting Fiscal Year, echoed back only."
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "gir_structure_declared": { "type": "string" },
+      "total_points_in_structure": { "type": "integer" },
+      "applicable_points": { "type": "integer" },
+      "populated": { "type": "integer" },
+      "partial": { "type": "integer" },
+      "missing": { "type": "integer" },
+      "not_applicable": { "type": "integer" },
+      "conditional_points_applicable": { "type": "integer" },
+      "coverage_over_declared_inventory_pct": {
+        "type": "number",
+        "description": "Populated over applicable, as a percentage. A coverage count over the declared inventory, never a readiness verdict."
+      },
+      "unrecognised_references": {
+        "type": "array",
+        "description": "Input references that matched no data point in the declared structure, reported rather than silently dropped."
+      },
+      "points": {
+        "type": "array",
+        "description": "Per data point: reference, label, requirement (always or conditional), the named condition, whether the condition was declared, applicability, and declared status."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "analyze_gir_data_point_completeness",
+    "description": "Maps a filer-declared data inventory against the GloBE Information Return (January 2025) Annex A1 data-point structure and reports which points are populated, partial, missing, or not applicable, naming the condition behind every conditional point. Returns a coverage count over the declared inventory. Does not compose a GIR, does not render GIR XML, and does not evaluate any amount.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["declared_inventory", "declared_facts"],
+      "properties": {
+        "declared_inventory": { "type": "array", "description": "[{id, status}] with status populated, partial or missing" },
+        "declared_facts": { "type": "object", "description": "Boolean facts that switch conditional data points on" },
+        "gir_schema_version": { "type": "string", "description": "Declared GIR structure identifier" },
+        "reporting_fiscal_year_label": { "type": "string", "description": "Optional free-text label" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/626-gir-data-point-completeness-analyzer.html",
+    "function_name": "runAnalyzer",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
