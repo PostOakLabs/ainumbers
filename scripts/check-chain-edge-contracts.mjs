@@ -50,6 +50,24 @@
 // ⚠ --report takes an ABSOLUTE path. By default this script writes NOTHING — the report belongs at
 //   workspace-root research/, which is OUTSIDE this repo (SO #3b: a bare `research/` resolves against
 //   cwd and has already misfiled internal docs into the public repo). Refusing to guess is the point.
+//
+// ── MEASURED PRECISION (CHAIN-FV-L1-PRECISION-1) ────────────────────────────────────────────────
+// A red here is a LEAD, not a defect — SO #25 confirm/deny pair before any fix. Every one of this
+// checker's hard findings has now been through at least one such pair; see PRECISION below (derived
+// at run time from ADJUDICATED_EDGES, never hardcoded — grep that constant for the sourcing).
+//
+// DATA-COUPLED vs NAME-ONLY: a hard finding is further classified by whether the consumer kernel's
+// own source demonstrably reads the ONE field the live chain executor (`run_chain` in
+// mcp-apps-poc/worker.mjs) actually threads from one step's output into the next — `execution_hash`,
+// via `parent_hashes` (chain-of-custody, the OCG "consumes ANY ChainGraph artifact" pattern). Every
+// other same-named field is supplied by the caller independently per step (`run_chain` builds each
+// step's policy_parameters from `inputs[tool_id]` / a fixture, NEVER from the previous step's
+// output_payload — read it yourself, that line has no exception) — so a shared field name that is
+// not `execution_hash` was never actually delivered producer-to-consumer by anything in this estate,
+// no matter how the consumer's own code happens to use its own caller-supplied value of the same
+// name. A NAME-ONLY finding downgrades to INFO (still reported, never dropped — SO #34c's "absence
+// is not a pass" mirrored: an unclassifiable edge, kernel source missing, stays a HARD finding).
+// See classifyCoupling() below.
 
 import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
@@ -170,6 +188,7 @@ export function checkEdge(fromId, toId, ctx) {
         if (!typesCompatible(pt, ct)) {
           findings.push({
             code: 'type-conflict',
+            field: k,
             detail: `field "${k}": ${fromId} emits [${pt.join('|')}], ${toId} expects [${ct.join('|')}]`,
           });
         }
@@ -226,6 +245,106 @@ export function checkChain(chain, ctx) {
     decided_edges: edges.length - undecidedEdges.length,
     findings,
     edges,
+  };
+}
+
+/* ─────────────── DATA-COUPLED vs NAME-ONLY classifier (CHAIN-FV-L1-PRECISION-1) ─────────────── */
+//
+// ⛔ HEURISTIC PROXY for Tim's by-hand semantic judgement, NOT a re-adjudication — SO #25 confirm/
+// deny pairs stay the ground truth for any specific edge. This exists to encode, mechanically, the
+// ONE real distinguishing fact both settled false-positive verdicts rested on: the field never
+// actually arrived from the producer. See the file-header note for the run_chain evidence.
+//
+// DELIBERATELY CONSERVATIVE (mirrors SO #34c "absence is not a pass"): a finding classifies
+// NAME-ONLY only on POSITIVE evidence (kernel source read, no execution_hash access found). No
+// kernel source available at all → UNCLASSIFIED, and UNCLASSIFIED stays a HARD finding, exactly
+// like DATA-COUPLED — it is never silently downgraded for lack of evidence.
+
+export const ENVELOPE_COUPLING_FIELD = 'execution_hash';
+
+// A real property access or destructure of `execution_hash` — `.execution_hash`, `['execution_hash']`,
+// or `{ ...execution_hash... } = `. Source-text heuristic (this whole checker is one); false positives
+// inside a comment/string are accepted the same way the rest of this file accepts them.
+const EXECUTION_HASH_READ_RE = /\.\s*execution_hash\b|\[\s*['"]execution_hash['"]\s*\]|\{[^{}]*\bexecution_hash\b[^{}]*\}\s*=/;
+
+/** Classify a single finding's coupling from the CONSUMER's kernel source text (or null = unavailable). */
+export function classifyCoupling(consumerKernelSource) {
+  if (consumerKernelSource == null) return 'UNCLASSIFIED';
+  return EXECUTION_HASH_READ_RE.test(consumerKernelSource) ? 'DATA-COUPLED' : 'NAME-ONLY';
+}
+
+/**
+ * Re-derive a checkChain() result's verdict after classifying each finding. Pure — takes the
+ * ALREADY-COMPUTED chain result (from checkChain) plus a `kernelSourceOf(toolId) -> string|null`
+ * accessor, so the selftest can drive it with synthetic source text and never touch a real kernel.
+ * checkChain/checkEdge themselves are UNCHANGED by this — every existing control on them still
+ * proves what it proved before.
+ */
+export function classifyChainFindings(chainResult, kernelSourceOf) {
+  const findings = chainResult.findings.map((f) => ({
+    ...f,
+    coupling: classifyCoupling(kernelSourceOf ? kernelSourceOf(f.to) : null),
+  }));
+  const hard = findings.filter((f) => f.coupling !== 'NAME-ONLY');
+  const info = findings.filter((f) => f.coupling === 'NAME-ONLY');
+  const undecidedEdges = chainResult.edges.filter((e) => !e.decided);
+
+  let verdict, reasons;
+  if (hard.length) {
+    verdict = 'L1-fail';
+    reasons = [...new Set(hard.map((f) => f.code))].sort();
+  } else if (!chainResult.edges.length) {
+    verdict = 'L1-indeterminate';
+    reasons = ['no-edges-single-step-chain'];
+  } else if (undecidedEdges.length) {
+    verdict = 'L1-indeterminate';
+    reasons = [...new Set(undecidedEdges.flatMap((e) => e.undecided_reasons))].sort();
+  } else {
+    verdict = 'L1-pass';
+    reasons = [];
+  }
+
+  return { ...chainResult, verdict, reasons, findings: hard, info_findings: info };
+}
+
+/* ─────────────── measured precision (CHAIN-FV-L1-PRECISION-1, part 1) ─────────────── */
+//
+// The three SO #25 confirm/deny pairs settled so far (board/done/*). Cluster A
+// (CLUSTERA-AP2-CONFIRM-1 / CLUSTERA-AP2-DENY-1) had NOT landed as of this row's build
+// (2026-08-16) — fold it in as a fourth entry once both halves are in board/done/, per the row's
+// own instruction; do not guess its outcome in the meantime.
+//
+// ⛔ These are OUTCOMES, not re-adjudications — each cites the settled board rows it encodes.
+export const ADJUDICATED_EDGES = [
+  {
+    id: 'cry-04-merkle-batch-verifier -> cry-05-agent-action-audit-trail-aggregator',
+    edge_count: 1,
+    verdict: 'TP',
+    source: 'CRY-EDGE-CONFIRM-1 (CONFIRMED) + CRY-EDGE-DENY-1 (NOT-REFUTED) + CRY-EDGE-FEEDS-LAND-1 (fixed, PR #1305)',
+  },
+  {
+    id: 'edge #6: art-497-validator-change-control-receipt.as_of -> art-496-l1-continuous-fee-runway.as_of',
+    edge_count: 1,
+    verdict: 'FP',
+    source: 'EDGE6-TYPECONFLICT-CONFIRM-1 (CONFIRMED type conflict but DENIED as runtime break) + EDGE6-TYPECONFLICT-DENY-1 (REFUTED)',
+  },
+  {
+    id: 'Cluster B: 505-tokenized-collateral-eligibility-checker hub (#7, #8, #9, #13)',
+    edge_count: 4,
+    verdict: 'FP-hub',
+    source: 'CLUSTERB-505-CONFIRM-1 (INDETERMINATE, no consistent reading) + CLUSTERB-505-DENY-1 (REFUTED all 4, hub hypothesis)',
+  },
+];
+
+/** Ratio derived from ADJUDICATED_EDGES — never hardcoded, so it moves when a fixture is added/changed. */
+export function measuredPrecision(fixtures = ADJUDICATED_EDGES) {
+  const adjudicatedEdges = fixtures.reduce((s, f) => s + f.edge_count, 0);
+  const genuineDefects = fixtures.filter((f) => f.verdict === 'TP').reduce((s, f) => s + f.edge_count, 0);
+  return {
+    genuine_defects: genuineDefects,
+    adjudicated_edges: adjudicatedEdges,
+    ratio: `${genuineDefects}/${adjudicatedEdges}`,
+    pairs: fixtures.map((f) => ({ id: f.id, edge_count: f.edge_count, verdict: f.verdict, source: f.source })),
   };
 }
 
@@ -292,12 +411,26 @@ function loadEstate(root) {
   const hasSpecFile = (id) => propFiles.has(`${id}.proptest.mjs`);
   const hasFixtures = (id) => fixFiles.has(`${id}.fixtures.json`);
 
+  // CHAIN-FV-L1-PRECISION-1: real kernel source, for the DATA-COUPLED vs NAME-ONLY read-check.
+  // Read-only — never executed, only scanned as text. Missing file → null → classifyCoupling()
+  // reports UNCLASSIFIED, which stays a hard finding (never a silent downgrade).
+  const kernelDir = resolve(root, 'chaingraph/kernels');
+  const cacheKernelSrc = new Map();
+  function kernelSource(id) {
+    if (cacheKernelSrc.has(id)) return cacheKernelSrc.get(id);
+    let s = null;
+    try { s = readFileSync(resolve(kernelDir, `${id}.kernel.mjs`), 'utf8'); } catch { s = null; }
+    cacheKernelSrc.set(id, s);
+    return s;
+  }
+
   return {
     chaingraph: cg,
     sourceDigest: 'sha256:' + createHash('sha256').update(raw).digest('hex'),
     ctx: { adjacency, outSchema, inSchema },
     hasSpecFile,
     hasFixtures,
+    kernelSource,
   };
 }
 
@@ -318,19 +451,25 @@ function handoffMetric(chains, ctx) {
 }
 
 export function buildReport(root = ROOT) {
-  const { chaingraph, sourceDigest, ctx, hasSpecFile, hasFixtures } = loadEstate(root);
+  const { chaingraph, sourceDigest, ctx, hasSpecFile, hasFixtures, kernelSource } = loadEstate(root);
   const chains = chaingraph.chains || [];
 
-  const results = chains.map((c) => checkChain(c, ctx)).sort((a, b) => a.name.localeCompare(b.name));
+  const results = chains
+    .map((c) => checkChain(c, ctx))
+    .map((r) => classifyChainFindings(r, kernelSource))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const summary = { total_chains: chains.length, 'L1-pass': 0, 'L1-fail': 0, 'L1-indeterminate': 0 };
   const indeterminateReasons = {}, failCodes = {};
-  let edgesTotal = 0, edgesDecided = 0;
+  const couplingCounts = { 'DATA-COUPLED': 0, 'NAME-ONLY': 0, UNCLASSIFIED: 0 };
+  let edgesTotal = 0, edgesDecided = 0, infoFindingsTotal = 0;
   for (const r of results) {
     summary[r.verdict]++;
     edgesTotal += r.edge_count; edgesDecided += r.decided_edges;
     if (r.verdict === 'L1-indeterminate') for (const x of r.reasons) indeterminateReasons[x] = (indeterminateReasons[x] || 0) + 1;
     if (r.verdict === 'L1-fail') for (const f of r.findings) failCodes[f.code] = (failCodes[f.code] || 0) + 1;
+    for (const f of r.findings) couplingCounts[f.coupling] = (couplingCounts[f.coupling] || 0) + 1;
+    for (const f of r.info_findings) { couplingCounts[f.coupling] = (couplingCounts[f.coupling] || 0) + 1; infoFindingsTotal++; }
   }
 
   // L2-readiness ranking: fraction of a chain's distinct member kernels carrying a spec file.
@@ -353,6 +492,7 @@ export function buildReport(root = ROOT) {
     || a.chain.localeCompare(b.chain));
 
   const fullyReady = l2.filter((x) => x.spec_fraction === 1);
+  const precision = measuredPrecision();
 
   return {
     report: 'chain-fv-l1',
@@ -362,6 +502,21 @@ export function buildReport(root = ROOT) {
     advisory: true,
     chaingraph_version: chaingraph.version || null,
     chaingraph_source_digest: sourceDigest,
+    precision: {
+      note: 'a red is a lead, not a defect — SO #25 pair before any fix',
+      measured_as_of: '2026-08-16',
+      ratio: precision.ratio,
+      genuine_defects: precision.genuine_defects,
+      adjudicated_edges: precision.adjudicated_edges,
+      cluster_a_landed: false,
+      cluster_a_note: 'CLUSTERA-AP2-CONFIRM-1 / CLUSTERA-AP2-DENY-1 had not landed in board/done/ as of this build — fold in as a fourth fixture once both land, per the row instruction. Not guessed here.',
+      pairs: precision.pairs,
+    },
+    coupling_classification: {
+      note: 'DATA-COUPLED = consumer kernel demonstrably reads execution_hash (the one field run_chain actually threads step-to-step). NAME-ONLY = a matching field name never actually delivered producer-to-consumer; downgraded to INFO, never dropped. UNCLASSIFIED = kernel source unavailable, stays a HARD finding (absence of evidence is not a downgrade).',
+      counts: couplingCounts,
+      info_findings_total: infoFindingsTotal,
+    },
     summary: {
       ...summary,
       edges_total: edgesTotal,
@@ -384,6 +539,7 @@ export function buildReport(root = ROOT) {
       name: r.name, domain: r.domain, verdict: r.verdict, reasons: r.reasons,
       step_count: r.step_count, edge_count: r.edge_count, decided_edges: r.decided_edges,
       findings: r.findings,
+      info_findings: r.info_findings,
     })),
   };
 }
@@ -403,13 +559,16 @@ if (isMain) {
   if (asJson) {
     process.stdout.write(JSON.stringify(rep, null, 2) + '\n');
   } else if (!quiet) {
-    const s = rep.summary;
+    const s = rep.summary, p = rep.precision, cc = rep.coupling_classification;
     console.log('L1 chain edge-contract check (ADVISORY — ladder level L1, "edge contracts machine-checked")');
+    console.log(`  measured precision : ${p.ratio} genuine defects among SO #25-adjudicated edges (as of ${p.measured_as_of}${p.cluster_a_landed ? '' : ', Cluster A not yet landed'}${reportPath ? `, report: ${reportPath}` : ''})`);
+    console.log(`  ${p.note}`);
     console.log(`  chains walked      : ${s.chains_walked}/${s.total_chains} (skipped ${s.chains_skipped})`);
     console.log(`  L1-pass            : ${s['L1-pass']}`);
     console.log(`  L1-fail            : ${s['L1-fail']}`);
     console.log(`  L1-indeterminate   : ${s['L1-indeterminate']}  (never folded into pass)`);
     console.log(`  edges              : ${s.edges_decided}/${s.edges_total} decided`);
+    console.log(`  coupling           : DATA-COUPLED ${cc.counts['DATA-COUPLED']} / NAME-ONLY (INFO) ${cc.counts['NAME-ONLY']} / UNCLASSIFIED ${cc.counts.UNCLASSIFIED}`);
     if (Object.keys(rep.fail_code_counts).length) {
       console.log('  findings by code   :');
       for (const [k, v] of Object.entries(rep.fail_code_counts)) console.log(`      ${k}: ${v}`);

@@ -12,7 +12,10 @@
 //
 // Pure in-memory fixtures — this test NEVER reads or writes chaingraph.json, any manifest, or any
 // kernel. Run: node scripts/check-chain-edge-contracts.selftest.mjs
-import { checkChain, checkEdge, typesCompatible, induceSchema, schemaFromProperties } from './check-chain-edge-contracts.mjs';
+import {
+  checkChain, checkEdge, typesCompatible, induceSchema, schemaFromProperties,
+  classifyCoupling, classifyChainFindings, measuredPrecision, ADJUDICATED_EDGES, ENVELOPE_COUPLING_FIELD,
+} from './check-chain-edge-contracts.mjs';
 
 let failures = 0;
 function check(name, cond) {
@@ -166,6 +169,124 @@ console.log('── Control 8: schema derivation ──');
   check('a property with no declared type becomes unknown, not a guess', j.fields.q[0] === 'unknown');
   check('required list is preserved', j.required.includes('p'));
   check('a schema with no properties yields null (absent, not empty)', schemaFromProperties({ type: 'object' }) === null);
+}
+
+console.log('── Control 9: DATA-COUPLED vs NAME-ONLY classifier (CHAIN-FV-L1-PRECISION-1) ──');
+{
+  check('the envelope coupling field is execution_hash', ENVELOPE_COUPLING_FIELD === 'execution_hash');
+
+  // Modelled on the REAL cry-05 kernel: normalizeEntry() reads `el.execution_hash` off an artifact
+  // object. This is the genuinely DATA-COUPLED shape (CRY-EDGE-CONFIRM-1 / CRY-EDGE-DENY-1).
+  const cry05Like = `function normalizeEntry(el) { if (el && el.execution_hash) { return el.execution_hash; } }`;
+  check('a kernel reading .execution_hash classifies DATA-COUPLED', classifyCoupling(cry05Like) === 'DATA-COUPLED');
+
+  // Modelled on the REAL art-496 kernel: reads pp.as_of, a coincidentally same-named but never
+  // actually-delivered field (EDGE6-TYPECONFLICT-CONFIRM-1 / -DENY-1 — no chain runner even connects
+  // the two nodes, and the field is caller-supplied, never producer-delivered).
+  const art496Like = `function compute(pp) { const as_of = num(pp.as_of) ?? 0; return { as_of }; }`;
+  check('a kernel reading an unrelated same-named field (no execution_hash) classifies NAME-ONLY',
+    classifyCoupling(art496Like) === 'NAME-ONLY');
+
+  // Modelled on the REAL Cluster-B kernels (CLUSTERB-505-CONFIRM-1 / -DENY-1): zero real field
+  // overlap in either direction, no execution_hash reference anywhere.
+  const clusterBLike = `function compute(pp) { return { eligible: pp.collateral_type === 'tokenized' }; }`;
+  check('a kernel with zero coupling-field access classifies NAME-ONLY', classifyCoupling(clusterBLike) === 'NAME-ONLY');
+
+  check('no kernel source available classifies UNCLASSIFIED, never silently downgraded', classifyCoupling(null) === 'UNCLASSIFIED');
+  check('UNCLASSIFIED is not NAME-ONLY (absence of evidence never downgrades — SO #34c)',
+    classifyCoupling(null) !== 'NAME-ONLY');
+
+  // MUTATION (SO #34): strip the execution_hash access and the classification must flip.
+  const mutatedCry05 = cry05Like.replace(/execution_hash/g, 'unrelated_field');
+  check('MUTATION: removing the execution_hash access flips DATA-COUPLED -> NAME-ONLY',
+    classifyCoupling(mutatedCry05) === 'NAME-ONLY');
+
+  // Bracket and destructure access forms also count as a real read, not just dot-access.
+  check('bracket-notation access counts as a read', classifyCoupling(`x[pp['execution_hash']]`) === 'DATA-COUPLED');
+  check('destructure counts as a read', classifyCoupling(`const { execution_hash, tool_id } = artifact;`) === 'DATA-COUPLED');
+}
+
+console.log('── Control 10: classifyChainFindings — prove BOTH directions (row done-criterion) ──');
+{
+  // (a) A genuinely DATA-COUPLED contradiction must NOT be downgraded — cry-05's known-good shape.
+  {
+    const r = checkChain(
+      { name: 'fx-cry05-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] },
+      { adjacency: new Map([['fx-p', { consumes: [], feeds: [] }], ['fx-c', { consumes: [], feeds: ['fx-p'] }]]), outSchema: () => null, inSchema: () => null },
+    );
+    check('precondition: synthetic chain has one edge-inverted hard finding pre-classification',
+      r.findings.length === 1 && r.findings[0].code === 'edge-inverted');
+    const classified = classifyChainFindings(r, (id) => (id === 'fx-c' ? cry05LikeSource() : null));
+    check('DATA-COUPLED finding stays a HARD finding (not downgraded)', classified.findings.length === 1);
+    check('DATA-COUPLED finding is tagged correctly', classified.findings[0].coupling === 'DATA-COUPLED');
+    check('info_findings stays empty', classified.info_findings.length === 0);
+    check('chain verdict stays L1-fail', classified.verdict === 'L1-fail');
+  }
+
+  // (b) A NAME-ONLY match (edge #6's known shape) downgrades to INFO and the verdict recomputes.
+  {
+    const r = checkChain(
+      { name: 'fx-edge6-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] },
+      { adjacency: new Map([['fx-p', { consumes: [], feeds: [] }], ['fx-c', { consumes: [], feeds: ['fx-p'] }]]), outSchema: () => null, inSchema: () => null },
+    );
+    const classified = classifyChainFindings(r, (id) => (id === 'fx-c' ? art496LikeSource() : null));
+    check('NAME-ONLY finding is removed from the hard findings list', classified.findings.length === 0);
+    check('NAME-ONLY finding is reported as INFO, never dropped', classified.info_findings.length === 1);
+    check('info finding is tagged NAME-ONLY', classified.info_findings[0].coupling === 'NAME-ONLY');
+    check('chain verdict recomputes away from L1-fail once the only finding is NAME-ONLY',
+      classified.verdict !== 'L1-fail');
+  }
+
+  // (c) Cluster B's known shape: 4 edges around a hub, all NAME-ONLY — none downgrade individually
+  // wrong, all four move to info together (no partial credit that would misrepresent the pair).
+  {
+    const hubChain = checkChain(
+      { name: 'fx-clusterb-shape', steps: [{ tool_id: 'fx-a' }, { tool_id: 'fx-hub' }, { tool_id: 'fx-b' }] },
+      {
+        adjacency: new Map([
+          ['fx-a', { consumes: [], feeds: [] }],
+          ['fx-hub', { consumes: [], feeds: ['fx-a', 'fx-b'] }], // both directions declared inverted vs the chain
+          ['fx-b', { consumes: ['fx-hub'], feeds: [] }],
+        ]),
+        outSchema: () => null,
+        inSchema: () => null,
+      },
+    );
+    check('precondition: synthetic hub chain carries findings pre-classification', hubChain.findings.length >= 1);
+    const classified = classifyChainFindings(hubChain, () => clusterBLikeSource());
+    check('every finding in the hub chain classifies NAME-ONLY', classified.info_findings.every((f) => f.coupling === 'NAME-ONLY'));
+    check('none survive as hard findings', classified.findings.length === 0);
+  }
+}
+
+console.log('── Control 11: measured precision is DERIVED, not hardcoded, and is regression-tested ──');
+{
+  const p = measuredPrecision();
+  check('genuine defects is exactly the count of TP fixtures (cry-05 only, so far)', p.genuine_defects === 1);
+  check('adjudicated edges sums every fixture\'s edge_count (1 + 1 + 4 = 6)', p.adjudicated_edges === 6);
+  check('ratio string matches the derived numbers', p.ratio === '1/6');
+  check('Cluster A is not yet folded in (board/done/ CLUSTERA-AP2-* not present as of this build)',
+    !ADJUDICATED_EDGES.some((f) => f.id.toLowerCase().includes('ap2') || f.id.toLowerCase().includes('cluster a')));
+
+  // REGRESSION: if a future change silently reclassifies one of the three settled fixtures, the
+  // ratio MUST move — this is what makes precision a measured property, not a claim (the row's own
+  // done-criterion for part 3).
+  const mutated = ADJUDICATED_EDGES.map((f) => (f.id.startsWith('edge #6') ? { ...f, verdict: 'TP' } : f));
+  const mutatedP = measuredPrecision(mutated);
+  check('MUTATION: reclassifying edge #6 as a TP moves the ratio (2/6, not still 1/6)',
+    mutatedP.genuine_defects === 2 && mutatedP.ratio === '2/6');
+}
+
+/* Synthetic kernel-source fixtures for Control 10, modelled on (but not copied verbatim from) the
+ * real cry-05 / art-496 / Cluster-B kernels named in the adjudication rows. */
+function cry05LikeSource() {
+  return `function normalizeEntry(el) { if (el && el.execution_hash) { return el.execution_hash; } }`;
+}
+function art496LikeSource() {
+  return `function compute(pp) { const as_of = num(pp.as_of) ?? 0; return { as_of }; }`;
+}
+function clusterBLikeSource() {
+  return `function compute(pp) { return { eligible: pp.collateral_type === 'tokenized' }; }`;
 }
 
 console.log(failures === 0 ? '\n✓ chain edge-contract selftest: all controls passed' : `\n✗ ${failures} control(s) FAILED`);
