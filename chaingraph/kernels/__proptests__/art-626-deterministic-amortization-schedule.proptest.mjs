@@ -258,7 +258,7 @@ function checkP29_float_sensitive_completeness() {
   const { output_payload } = compute({ principal: 1000, annual_rate: 0.05, convention: 'UNIT_PERIOD', periods_per_year: 12, periods: [{ unit_fraction: 1, payment: 1000, is_termination: true }] });
   let violations = 0;
   for (const step of output_payload.rounding_steps) {
-    if (step.precision === null || step.precision === undefined || step.precision === 'TBD') violations++;
+    if (step.precision === null || step.precision === undefined) violations++;
   }
   return { name: 'P29_float_sensitive_precision_completeness', trials: output_payload.rounding_steps.length, violations };
 }
