@@ -293,6 +293,12 @@ const GATES = [
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§17 kernel-identity coverage (shard, KERNELID-GATE-1)', 'node chaingraph/kernels/gen-kernel-identity.mjs --check --shard'],
   ['Property-testing floor',       changedRef ? `node scripts/run-proptests.mjs --base ${changedRef}` : 'node scripts/run-proptests.mjs'],
+  // ART27-HARNESS-INREPO-1: art-27's FV pilot record cites a full 3^12=531,441-state exhaustive
+  // enumeration; this re-runs it in-repo every push (~3.4s measured — cheap enough for the normal
+  // cadence, no scheduled-workflow home needed). Independent oracle, not run-proptests.mjs's floor
+  // (see the file's own header for why it is deliberately not a *.proptest.mjs).
+  ['art-27 exhaustive enumeration (ART27-HARNESS-INREPO-1)',
+    'node chaingraph/kernels/__proptests__/art-27-agentic-readiness-diagnostic.exhaustive.mjs'],
   ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
   ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
   // FV-FLOOR-DIGEST-GATE-1: enforces the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4,
