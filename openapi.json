@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1137 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1138 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1216,6 +1216,9 @@
     },
     {
       "name": "SFDR"
+    },
+    {
+      "name": "SHA-256"
     },
     {
       "name": "SLA"
@@ -3285,6 +3288,9 @@
       "name": "liability"
     },
     {
+      "name": "liability aggregation"
+    },
+    {
       "name": "liability shift"
     },
     {
@@ -3487,6 +3493,9 @@
     },
     {
       "name": "merkle root"
+    },
+    {
+      "name": "merkle sum tree"
     },
     {
       "name": "merkle-sum"
@@ -3997,6 +4006,9 @@
     },
     {
       "name": "prompt_template"
+    },
+    {
+      "name": "proof of reserves"
     },
     {
       "name": "proof-of-reserves"
@@ -4711,6 +4723,9 @@
     },
     {
       "name": "suitability"
+    },
+    {
+      "name": "summa"
     },
     {
       "name": "surcharge"
@@ -42120,6 +42135,90 @@
         },
         "x-mcp-tool-name": "verify_summa_mst_inclusion",
         "x-tool-url": "https://ainumbers.co/tools/620-summa-mst-inclusion-checker.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/aggregate_summa_mst_liabilities": {
+      "post": {
+        "operationId": "aggregate_summa_mst_liabilities",
+        "summary": "Summa MST Liability Aggregator",
+        "description": "Given up to 16 (id, balance) leaf entries, deterministically builds a SHA-256 Merkle-sum-tree and emits the root commitment {hash, sum} plus every leaf's full inclusion proof. Applies Maxwell's (eprint 2022/043) mandatory range-check mitigation on the input side before building the tree. Pattern-borrowed from Summa (PSE)'s proof-of-reserves node layout, no code vendored. The generator counterpart to the MST inclusion checker (art-620) -- its proofs are consumable directly as that tool's input. Verify-only: commits to whatever balances it is given, never asserts they reflect real reserves.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-621-summa-mst-liability-aggregator.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "merkle sum tree",
+          "proof of reserves",
+          "summa",
+          "MST",
+          "inclusion proof",
+          "SHA-256",
+          "liability aggregation"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "leaves"
+                ],
+                "properties": {
+                  "leaves": {
+                    "type": "array",
+                    "description": "Array of {id, balance} (balance as a decimal string), 1-16 entries."
+                  },
+                  "max_balance": {
+                    "type": "string",
+                    "description": "Optional declared MAX_BALANCE decimal-string bound."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": {
+                      "type": "boolean"
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "leaf_count": {
+                      "type": "number"
+                    },
+                    "tree_depth": {
+                      "type": "number"
+                    },
+                    "max_balance": {
+                      "type": "string"
+                    },
+                    "root": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "proofs": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "aggregate_summa_mst_liabilities",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-621-summa-mst-liability-aggregator.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }

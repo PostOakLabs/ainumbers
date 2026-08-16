@@ -18,7 +18,7 @@ status: stable
 - [compliance_mandate](./compliance_mandate.md) (324)
 - [credit_assessment](./credit_assessment.md) (3)
 - [crypto_regulatory_mandate](./crypto_regulatory_mandate.md) (1)
-- [cryptographic_mandate](./cryptographic_mandate.md) (12)
+- [cryptographic_mandate](./cryptographic_mandate.md) (13)
 - [currency_basket_index](./currency_basket_index.md) (1)
 - [derivatives_margin_health](./derivatives_margin_health.md) (2)
 - [disclosure_template](./disclosure_template.md) (1)

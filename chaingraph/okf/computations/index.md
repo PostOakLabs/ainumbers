@@ -563,6 +563,7 @@ status: stable
 - [CCD2 Annex III APRC Recompute](./art-619-ccd2-aprc-annex3-recompute.md)
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md)
 - [Summa MST Inclusion Checker](./art-620-summa-mst-inclusion-checker.md)
+- [Summa MST Liability Aggregator](./art-621-summa-mst-liability-aggregator.md)
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md)
 - [ASC 280 Reportable Segment Tester](./art-633-asc280-reportable-segment-tester.md)
 - [CODM Significant Expense Classifier](./art-634-codm-expense-significance-classifier.md)

@@ -5832,6 +5832,51 @@ function _verifyVoucher(v) {
     domainVerifyingContract: verifyingContract, channelId: '0x' + channelId, onChainSettleNote: null };
 }
 
+// Strict UTF-8 decode, matching `new TextDecoder('utf-8',{fatal:true}).decode()` --
+// throws on any ill-formed byte sequence (unexpected continuation byte, overlong
+// encoding, surrogate-range codepoint, out-of-range leading byte, truncated
+// sequence at end of input) instead of silently substituting U+FFFD. The zkVM guest
+// never provides `TextDecoder` (confirmed via the chaingraph/vm QuickJS-ng harness,
+// SILENT-DEGRADE-FIX-1-2026-08-14: the prior `new TextDecoder(...)` call threw
+// ReferenceError inside this function's own try/catch, which silently substituted
+// `decodesUtf8: false` for EVERY input -- including genuinely-valid UTF-8 -- since
+// no fixture vector exercised this path). Byte-range table per the WHATWG Encoding
+// Standard's UTF-8 decoder (the same table `TextDecoder` implements).
+function _decodeUtf8Fatal(bytes) {
+  var out = '';
+  var i = 0;
+  var n = bytes.length;
+  while (i < n) {
+    var b0 = bytes[i];
+    if (b0 < 0x80) { out += String.fromCharCode(b0); i += 1; continue; }
+    var need, cp, lo1, hi1;
+    if (b0 >= 0xc2 && b0 <= 0xdf) { need = 1; cp = b0 & 0x1f; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xe0) { need = 2; cp = b0 & 0x0f; lo1 = 0xa0; hi1 = 0xbf; }
+    else if (b0 >= 0xe1 && b0 <= 0xec) { need = 2; cp = b0 & 0x0f; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xed) { need = 2; cp = b0 & 0x0f; lo1 = 0x80; hi1 = 0x9f; }
+    else if (b0 >= 0xee && b0 <= 0xef) { need = 2; cp = b0 & 0x0f; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xf0) { need = 3; cp = b0 & 0x07; lo1 = 0x90; hi1 = 0xbf; }
+    else if (b0 >= 0xf1 && b0 <= 0xf3) { need = 3; cp = b0 & 0x07; lo1 = 0x80; hi1 = 0xbf; }
+    else if (b0 === 0xf4) { need = 3; cp = b0 & 0x07; lo1 = 0x80; hi1 = 0x8f; }
+    else { throw new RangeError('invalid UTF-8 leading byte at offset ' + i); }
+    if (i + need >= n) throw new RangeError('truncated UTF-8 sequence at offset ' + i);
+    for (var k = 1; k <= need; k++) {
+      var bk = bytes[i + k];
+      var lo = (k === 1) ? lo1 : 0x80;
+      var hi = (k === 1) ? hi1 : 0xbf;
+      if (bk < lo || bk > hi) throw new RangeError('invalid UTF-8 continuation byte at offset ' + (i + k));
+      cp = (cp << 6) | (bk & 0x3f);
+    }
+    if (cp <= 0xffff) { out += String.fromCharCode(cp); }
+    else {
+      cp -= 0x10000;
+      out += String.fromCharCode(0xd800 + (cp >> 10), 0xdc00 + (cp & 0x3ff));
+    }
+    i += need + 1;
+  }
+  return out;
+}
+
 // ── Leg 2: TIP-20 memo structural validation ────────────────────────────────────────────────
 function _validateMemo(m) {
   m = (m !== null && typeof m === 'object') ? m : {};
@@ -5857,7 +5902,7 @@ function _validateMemo(m) {
       var end = bytes.length;
       while (end > 0 && bytes[end - 1] === 0) end -= 1;
       var trimmed = bytes.subarray(0, end);
-      var text = new TextDecoder('utf-8', { fatal: true }).decode(trimmed);
+      var text = _decodeUtf8Fatal(trimmed);
       decodesUtf8 = /^[\x20-\x7E]*$/.test(text) ? true : (text.length > 0);
     } catch (e) { decodesUtf8 = false; }
   }

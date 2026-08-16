@@ -1,5 +1,5 @@
 // art-26-x402-payload-decoder-flow-simulator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C8-1).
-// kernel_digest_at_authoring: sha256:3e47e2ed8b75c0eacebb1bad77f5deb167321634e9040fc3f7cadc125b7090b3
+// kernel_digest_at_authoring: sha256:24dadadd4a0901134a41d251fcac134657970dc8015251d06ab4757f1bcaf17e
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny — blanket
@@ -62,7 +62,7 @@ function randomPayloadObj(rng) {
 function randomInput(rng) {
   const kind = pick(rng, ['payload_json', 'payload_b64', 'garbage', 'empty', 'request', 'response']);
   if (kind === 'payload_json') return JSON.stringify(randomPayloadObj(rng));
-  if (kind === 'payload_b64') return Buffer.from(JSON.stringify(randomPayloadObj(rng))).toString('base64');
+  if (kind === 'payload_b64') return btoa(JSON.stringify(randomPayloadObj(rng)));
   if (kind === 'garbage') return 'not json at all ' + Math.floor(rng() * 1e9);
   if (kind === 'empty') return '';
   if (kind === 'request') return JSON.stringify({ accepts: [], error: rng() < 0.5 ? 'err' : undefined });
@@ -120,8 +120,8 @@ const FORCED_CASES = [
   { label: 'non-object JSON (number)', header_or_payload: '42' },
   { label: 'PaymentPayload with zero findings issues', header_or_payload: JSON.stringify({ x402Version: 1, scheme: 'exact', network: 'base', payload: { signature: '0x1', authorization: { from: 'a', to: 'b', value: '1', validAfter: 1, validBefore: 2, nonce: 'n' } } }) },
   { label: 'validBefore <= validAfter (error case)', header_or_payload: JSON.stringify({ scheme: 'exact', network: 'base', payload: { signature: '0x1', authorization: { validAfter: 5, validBefore: 5 } } }) },
-  { label: 'huge base64 wrapper of minimal payload', header_or_payload: Buffer.from(JSON.stringify({ scheme: 'upto', network: 'polygon', payload: { signature: '0x1' } })).toString('base64') },
-  { label: 'header-prefixed base64 (X-PAYMENT: prefix)', header_or_payload: 'X-PAYMENT: ' + Buffer.from(JSON.stringify({ scheme: 'exact', network: 'base', payload: { signature: '0x1' } })).toString('base64') },
+  { label: 'huge base64 wrapper of minimal payload', header_or_payload: btoa(JSON.stringify({ scheme: 'upto', network: 'polygon', payload: { signature: '0x1' } })) },
+  { label: 'header-prefixed base64 (X-PAYMENT: prefix)', header_or_payload: 'X-PAYMENT: ' + btoa(JSON.stringify({ scheme: 'exact', network: 'base', payload: { signature: '0x1' } })) },
 ];
 function checkP4_forced() {
   const rows = [];
@@ -144,7 +144,7 @@ function checkP5_base64_metamorphic() {
   for (let i = 0; i < 2000; i++) {
     const obj = randomPayloadObj(rand);
     const jsonInput = JSON.stringify(obj);
-    const b64Input = Buffer.from(jsonInput).toString('base64');
+    const b64Input = btoa(jsonInput);
     const r1 = compute({ header_or_payload: jsonInput }).output_payload;
     const r2 = compute({ header_or_payload: b64Input }).output_payload;
     checked++;
