@@ -1,5 +1,7 @@
 // art-365-compute-globe-topup-tax.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C17-1).
-// kernel_digest_at_authoring: sha256:3a481b0f96d38911bf043f4c07e950e134cffdf35d28f76599693f41d753e22f
+// kernel_digest_at_authoring: sha256:13a6650112aa3c9d98d82f8b01e865c13a0a80fedbda70988c9d012207a66e89
+// (updated by ART365-GLOBE-FIX-1, 2026-08-16 -- prior digest sha256:3a481b0f... is now stale, the
+// kernel was fixed against ART365-DIVERGENCE-CONFIRM-1's four CONFIRMED divergences)
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

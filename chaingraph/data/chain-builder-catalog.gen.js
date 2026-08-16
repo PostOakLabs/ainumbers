@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (613 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (616 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6448,6 +6448,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-617-m3p-monthly-cap-calculator",
+    "display_name": "M3P Monthly Cap Calculator",
+    "mandate_type": "payment_policy",
+    "url": "https://ainumbers.co/tools/617-m3p-monthly-cap-calculator.html",
+    "description": "Recomputes the Medicare Prescription Payment Plan (M3P) maximum monthly cap under 42 CFR 423.137(c)(1)(i) (first month of participation) and",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-618-naic-clo-rbc-factor-calculator",
     "display_name": "NAIC CLO/CBO/CDO Tranche RBC Factor Calculator",
     "mandate_type": "compliance_control",
@@ -6502,6 +6512,26 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "art-620-summa-mst-inclusion-checker"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-626-deterministic-amortization-schedule",
+    "display_name": "Deterministic Amortization Schedule",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-626-deterministic-amortization-schedule.html",
+    "description": "Demonstrator node for the shared _amort.bundle.mjs kernel: a deterministic amortization-schedule engine over seven closed day-count conventi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-627-effective-date-rule-version-registry",
+    "display_name": "Effective-Date / Rule-Version Registry",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-627-effective-date-rule-version-registry.html",
+    "description": "Resolves which version of an accounting standard binds a given filer, entirely offline and client-side. The query is a triple: fiscal_year_e",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

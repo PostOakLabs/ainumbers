@@ -227,6 +227,11 @@ const GATES = [
   ['Node/chain shard registration (NODE-REGISTRATION-GAP-1, node case blocking)', 'node scripts/check-shard-assembly.mjs'],
   ['Branch-aware shard-registration proof (SHARD-GATE-PRE-ASSEMBLE-1)', 'node scripts/check-shard-assembly.test.mjs'],
   ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
+  // Rule-registry: the assembled table is an SO #35 single-writer derived artifact (ASSEMBLE-LAND
+  // only). --check recomputes every entry's source digest from the pinned snapshot bytes, so a
+  // shard row's entry file is verified here even while the table itself is still PENDING-ASSEMBLE.
+  ['Rule-registry table freshness (ACCT-RULEREG-K-1)', 'node scripts/gen-rule-registry.mjs --check'],
+  ['Rule-registry generator mutation control (SO #34)', 'node scripts/gen-rule-registry.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
   // Two nav gates, deliberately: the plain one is a CONTENT gate (a new page no
   // nav reaches) and is hard in every context; --baseline-check is the

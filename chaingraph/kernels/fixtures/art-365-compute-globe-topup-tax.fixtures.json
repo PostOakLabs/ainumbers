@@ -1,10 +1,10 @@
 {
   "tool_id": "art-365-compute-globe-topup-tax",
-  "note": "golden_hash filled by golden-parity.test.mjs --update. Worked example reproduces tools/473-globe-etr-jurisdiction-calculator.html default seed rows (DE/IE/SG) fed through tools/474-topup-tax-qdmtt-calculator.html allocation logic -- tool<->kernel parity per formula stage. Vector 1: DE parent, IIR collects the QDMTT-net residual. Vector 2: same jurisdictions, US parent -- IIR/UTPR exemption routes the residual to UTPR instead. Vector 3: zero-income jurisdiction edge (finite gate, ETR fallback).",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. ART365-GLOBE-FIX-1 (2026-08-16) rewrote vectors 2-5 and the note text of vectors 1/6 to correct four divergences from the pinned OECD Side-by-Side Package (Ch5) independently CONFIRMED by ART365-DIVERGENCE-CONFIRM-1: (1) SbS Safe Harbour deems Top-up Tax zero for BOTH IIR and UTPR, not routed to UTPR; (2) eligibility runs on a declared Central Record listing, never a hardcoded parentHq===US; (3) requires a declared Filing CE election; (4) does not apply before fiscal years commencing 1 January 2026.",
   "vectors": [
     {
       "name": "de_parent_iir_allocation",
-      "description": "DE/IE/SG at fy2026, parent_hq DE (not US-exempt): DE ETR 14% -> top_up 4.662, fully absorbed by QDMTT. IE ETR 10% -> top_up 9.374, fully absorbed by QDMTT. SG ETR 12% -> top_up 4.1508, no QDMTT enacted, so full residual routes to IIR (parent not US-exempt).",
+      "description": "DE/IE/SG at fy2026, parent_hq DE with no Central Record listing and no election declared: SbS Safe Harbour does not apply. DE ETR 14% -> top_up 4.662, fully absorbed by QDMTT. IE ETR 10% -> top_up 9.374, fully absorbed by QDMTT. SG ETR 12% -> top_up 4.1508, no QDMTT enacted, so full residual routes to IIR.",
       "policy_parameters": {
         "parent_hq": "DE",
         "fy": 2026,
@@ -45,6 +45,8 @@
         "parent_hq": "DE",
         "fy": 2026,
         "us_exempt": false,
+        "central_record_sbs": [],
+        "sbs_election": false,
         "jurisdictions": [
           {
             "jur": "DE",
@@ -114,20 +116,24 @@
         "total_utpr_collected": 0,
         "constants_version": "oecd-globe-sbie-2024-2027-transitional-v1",
         "globe_min_rate": 0.15,
-        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD side-by-side package US IIR/UTPR exemption (Jan 2026)",
-        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored."
+        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD/G20 Inclusive Framework Side-by-Side Package (approved/declassified 5 January 2026) Ch5 SbS Safe Harbour",
+        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them."
       },
       "compliance_flags": [
         "GLOBE_TOPUP_DUE"
       ],
-      "golden_hash": "bd5f130c95d28fe9e8900598291065cadbd0984ffab54a3c42106271b20734ea"
+      "golden_hash": "6fe94365311575cc1063107bcfd6f895d1186ebe8d223ec932f5e069a906c97b"
     },
     {
-      "name": "us_parent_utpr_allocation",
-      "description": "Same DE/IE/SG jurisdictions as vector 1, but parent_hq US: OECD Jan-2026 side-by-side package exempts the US parent from IIR, so SG residual (4.1508) routes to UTPR instead of IIR.",
+      "name": "sbs_eligible_parent_zero_topup",
+      "description": "ART365-GLOBE-FIX-1 (2026-08-16), replaces us_parent_utpr_allocation: SAME DE/IE/SG jurisdictions, parent_hq US, ON the Central Record for a Qualified SbS Regime, Filing CE election made, fy2026 (on/after the para-28 effective date). Ch5 box item 1 + para 8 deem the jurisdiction Top-up Tax ZERO for BOTH the IIR and the UTPR -- the OLD vector expected utpr_collected 4.1508 (residual re-routed to UTPR), CONFIRMED WRONG by ART365-DIVERGENCE-CONFIRM-1 claim 1; corrected expectation is iir_collected 0 AND utpr_collected 0 on every row. QDMTT collection (14.036 total) is unaffected.",
       "policy_parameters": {
         "parent_hq": "US",
         "fy": 2026,
+        "central_record_sbs": [
+          "US"
+        ],
+        "sbs_election": true,
         "jurisdictions": [
           {
             "jur": "DE",
@@ -165,6 +171,10 @@
         "parent_hq": "US",
         "fy": 2026,
         "us_exempt": true,
+        "central_record_sbs": [
+          "US"
+        ],
+        "sbs_election": true,
         "jurisdictions": [
           {
             "jur": "DE",
@@ -221,7 +231,7 @@
             "qdmtt_rate": 0,
             "qdmtt_collected": 0,
             "iir_collected": 0,
-            "utpr_collected": 4.1508
+            "utpr_collected": 0
           }
         ],
         "total_income": 850,
@@ -231,20 +241,398 @@
         "total_top_up_tax": 18.1868,
         "total_qdmtt_collected": 14.036,
         "total_iir_collected": 0,
-        "total_utpr_collected": 4.1508,
+        "total_utpr_collected": 0,
         "constants_version": "oecd-globe-sbie-2024-2027-transitional-v1",
         "globe_min_rate": 0.15,
-        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD side-by-side package US IIR/UTPR exemption (Jan 2026)",
-        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored."
+        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD/G20 Inclusive Framework Side-by-Side Package (approved/declassified 5 January 2026) Ch5 SbS Safe Harbour",
+        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them."
       },
       "compliance_flags": [
         "GLOBE_TOPUP_DUE"
       ],
-      "golden_hash": "b996907674b53ca0dda9279afbf8d8f482e20e052dd25b231d2306026384d4e1"
+      "golden_hash": "875ba1f4df84b263da2e8ce5afd99cca5f4ccb46de0d57b5cc1dd5274b07b145"
+    },
+    {
+      "name": "sbs_listed_no_election_not_exempt",
+      "description": "NEW (ART365-GLOBE-FIX-1): parent_hq US IS on the Central Record and fy2026 is effective, but sbs_election is NOT declared true (defaults false). Ch5 box item 1 / para 7: the safe harbour operates only at the election of the Filing CE -- absent an explicit election it does not apply, so SG residual (4.1508) falls back to ordinary IIR routing. Exercises fix 3.",
+      "policy_parameters": {
+        "parent_hq": "US",
+        "fy": 2026,
+        "central_record_sbs": [
+          "US"
+        ],
+        "jurisdictions": [
+          {
+            "jur": "DE",
+            "income": 500,
+            "taxes": 70,
+            "payroll": 200,
+            "assets": 300,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15
+          },
+          {
+            "jur": "IE",
+            "income": 200,
+            "taxes": 20,
+            "payroll": 80,
+            "assets": 100,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15
+          },
+          {
+            "jur": "SG",
+            "income": 150,
+            "taxes": 18,
+            "payroll": 60,
+            "assets": 120,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": false,
+            "qdmtt_rate": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "parent_hq": "US",
+        "fy": 2026,
+        "us_exempt": false,
+        "central_record_sbs": [
+          "US"
+        ],
+        "sbs_election": false,
+        "jurisdictions": [
+          {
+            "jur": "DE",
+            "income": 500,
+            "taxes": 70,
+            "payroll": 200,
+            "assets": 300,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 33.8,
+            "income_net_sbie": 466.2,
+            "etr": 0.14,
+            "below_min_etr": true,
+            "top_up_rate": 0.01,
+            "top_up_amount": 4.662,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15,
+            "qdmtt_collected": 4.662,
+            "iir_collected": 0,
+            "utpr_collected": 0
+          },
+          {
+            "jur": "IE",
+            "income": 200,
+            "taxes": 20,
+            "payroll": 80,
+            "assets": 100,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 12.52,
+            "income_net_sbie": 187.48,
+            "etr": 0.1,
+            "below_min_etr": true,
+            "top_up_rate": 0.05,
+            "top_up_amount": 9.374,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15,
+            "qdmtt_collected": 9.374,
+            "iir_collected": 0,
+            "utpr_collected": 0
+          },
+          {
+            "jur": "SG",
+            "income": 150,
+            "taxes": 18,
+            "payroll": 60,
+            "assets": 120,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 11.64,
+            "income_net_sbie": 138.36,
+            "etr": 0.12,
+            "below_min_etr": true,
+            "top_up_rate": 0.03,
+            "top_up_amount": 4.1508,
+            "qdmtt_enacted": false,
+            "qdmtt_rate": 0,
+            "qdmtt_collected": 0,
+            "iir_collected": 4.1508,
+            "utpr_collected": 0
+          }
+        ],
+        "total_income": 850,
+        "total_taxes": 108,
+        "aggregate_etr": 0.127059,
+        "low_etr_count": 3,
+        "total_top_up_tax": 18.1868,
+        "total_qdmtt_collected": 14.036,
+        "total_iir_collected": 4.1508,
+        "total_utpr_collected": 0,
+        "constants_version": "oecd-globe-sbie-2024-2027-transitional-v1",
+        "globe_min_rate": 0.15,
+        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD/G20 Inclusive Framework Side-by-Side Package (approved/declassified 5 January 2026) Ch5 SbS Safe Harbour",
+        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them."
+      },
+      "compliance_flags": [
+        "GLOBE_TOPUP_DUE"
+      ],
+      "golden_hash": "2ebb3f170933392bc96aa85337ab1b58256777bcf3632cd6ac61bf94607dd950"
+    },
+    {
+      "name": "sbs_election_without_central_record_listing",
+      "description": "NEW (ART365-GLOBE-FIX-1): parent_hq US has sbs_election true and fy2026 is effective, but central_record_sbs is empty -- US is NOT declared on the Central Record. Ch5 box item 6: eligibility runs on a Central Record listing of a Qualified SbS Regime, never a hardcoded jurisdiction (the publication names none across 88 pages) -- an election alone does not create eligibility, so ordinary IIR routing applies. Exercises fix 2 (the old kernel hardcoded parentHq===US and would have granted the exemption here).",
+      "policy_parameters": {
+        "parent_hq": "US",
+        "fy": 2026,
+        "sbs_election": true,
+        "jurisdictions": [
+          {
+            "jur": "DE",
+            "income": 500,
+            "taxes": 70,
+            "payroll": 200,
+            "assets": 300,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15
+          },
+          {
+            "jur": "IE",
+            "income": 200,
+            "taxes": 20,
+            "payroll": 80,
+            "assets": 100,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15
+          },
+          {
+            "jur": "SG",
+            "income": 150,
+            "taxes": 18,
+            "payroll": 60,
+            "assets": 120,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": false,
+            "qdmtt_rate": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "parent_hq": "US",
+        "fy": 2026,
+        "us_exempt": false,
+        "central_record_sbs": [],
+        "sbs_election": true,
+        "jurisdictions": [
+          {
+            "jur": "DE",
+            "income": 500,
+            "taxes": 70,
+            "payroll": 200,
+            "assets": 300,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 33.8,
+            "income_net_sbie": 466.2,
+            "etr": 0.14,
+            "below_min_etr": true,
+            "top_up_rate": 0.01,
+            "top_up_amount": 4.662,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15,
+            "qdmtt_collected": 4.662,
+            "iir_collected": 0,
+            "utpr_collected": 0
+          },
+          {
+            "jur": "IE",
+            "income": 200,
+            "taxes": 20,
+            "payroll": 80,
+            "assets": 100,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 12.52,
+            "income_net_sbie": 187.48,
+            "etr": 0.1,
+            "below_min_etr": true,
+            "top_up_rate": 0.05,
+            "top_up_amount": 9.374,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15,
+            "qdmtt_collected": 9.374,
+            "iir_collected": 0,
+            "utpr_collected": 0
+          },
+          {
+            "jur": "SG",
+            "income": 150,
+            "taxes": 18,
+            "payroll": 60,
+            "assets": 120,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 11.64,
+            "income_net_sbie": 138.36,
+            "etr": 0.12,
+            "below_min_etr": true,
+            "top_up_rate": 0.03,
+            "top_up_amount": 4.1508,
+            "qdmtt_enacted": false,
+            "qdmtt_rate": 0,
+            "qdmtt_collected": 0,
+            "iir_collected": 4.1508,
+            "utpr_collected": 0
+          }
+        ],
+        "total_income": 850,
+        "total_taxes": 108,
+        "aggregate_etr": 0.127059,
+        "low_etr_count": 3,
+        "total_top_up_tax": 18.1868,
+        "total_qdmtt_collected": 14.036,
+        "total_iir_collected": 4.1508,
+        "total_utpr_collected": 0,
+        "constants_version": "oecd-globe-sbie-2024-2027-transitional-v1",
+        "globe_min_rate": 0.15,
+        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD/G20 Inclusive Framework Side-by-Side Package (approved/declassified 5 January 2026) Ch5 SbS Safe Harbour",
+        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them."
+      },
+      "compliance_flags": [
+        "GLOBE_TOPUP_DUE"
+      ],
+      "golden_hash": "b092b13e70b311022870ab01cf00222a2c2d6446a0546fa819ad450ab3167e9d"
+    },
+    {
+      "name": "sbs_listed_elected_pre_2026_not_exempt",
+      "description": "NEW (ART365-GLOBE-FIX-1): parent_hq US is on the Central Record with sbs_election true, but fy2024 -- before the para-28 effective date (fiscal years commencing on or after 1 January 2026). The safe harbour does not affect pre-effective fiscal years, so ordinary IIR routing applies despite listing+election. Exercises fix 4 (the old kernel had no fy gate and returned us_exempt:true for fy2024).",
+      "policy_parameters": {
+        "parent_hq": "US",
+        "fy": 2024,
+        "central_record_sbs": [
+          "US"
+        ],
+        "sbs_election": true,
+        "jurisdictions": [
+          {
+            "jur": "DE",
+            "income": 500,
+            "taxes": 70,
+            "payroll": 200,
+            "assets": 300,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15
+          },
+          {
+            "jur": "IE",
+            "income": 200,
+            "taxes": 20,
+            "payroll": 80,
+            "assets": 100,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15
+          },
+          {
+            "jur": "SG",
+            "income": 150,
+            "taxes": 18,
+            "payroll": 60,
+            "assets": 120,
+            "sbie_payroll_rate": 0.094,
+            "qdmtt_enacted": false,
+            "qdmtt_rate": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "parent_hq": "US",
+        "fy": 2024,
+        "us_exempt": false,
+        "central_record_sbs": [
+          "US"
+        ],
+        "sbs_election": true,
+        "jurisdictions": [
+          {
+            "jur": "DE",
+            "income": 500,
+            "taxes": 70,
+            "payroll": 200,
+            "assets": 300,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 33.8,
+            "income_net_sbie": 466.2,
+            "etr": 0.14,
+            "below_min_etr": true,
+            "top_up_rate": 0.01,
+            "top_up_amount": 4.662,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15,
+            "qdmtt_collected": 4.662,
+            "iir_collected": 0,
+            "utpr_collected": 0
+          },
+          {
+            "jur": "IE",
+            "income": 200,
+            "taxes": 20,
+            "payroll": 80,
+            "assets": 100,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 12.52,
+            "income_net_sbie": 187.48,
+            "etr": 0.1,
+            "below_min_etr": true,
+            "top_up_rate": 0.05,
+            "top_up_amount": 9.374,
+            "qdmtt_enacted": true,
+            "qdmtt_rate": 0.15,
+            "qdmtt_collected": 9.374,
+            "iir_collected": 0,
+            "utpr_collected": 0
+          },
+          {
+            "jur": "SG",
+            "income": 150,
+            "taxes": 18,
+            "payroll": 60,
+            "assets": 120,
+            "sbie_payroll_rate": 0.094,
+            "sbie": 11.64,
+            "income_net_sbie": 138.36,
+            "etr": 0.12,
+            "below_min_etr": true,
+            "top_up_rate": 0.03,
+            "top_up_amount": 4.1508,
+            "qdmtt_enacted": false,
+            "qdmtt_rate": 0,
+            "qdmtt_collected": 0,
+            "iir_collected": 4.1508,
+            "utpr_collected": 0
+          }
+        ],
+        "total_income": 850,
+        "total_taxes": 108,
+        "aggregate_etr": 0.127059,
+        "low_etr_count": 3,
+        "total_top_up_tax": 18.1868,
+        "total_qdmtt_collected": 14.036,
+        "total_iir_collected": 4.1508,
+        "total_utpr_collected": 0,
+        "constants_version": "oecd-globe-sbie-2024-2027-transitional-v1",
+        "globe_min_rate": 0.15,
+        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD/G20 Inclusive Framework Side-by-Side Package (approved/declassified 5 January 2026) Ch5 SbS Safe Harbour",
+        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them."
+      },
+      "compliance_flags": [
+        "GLOBE_TOPUP_DUE"
+      ],
+      "golden_hash": "5e2949605a0503927ed7efa4f0c943c891c216e6705ed350057a979fc98fe234"
     },
     {
       "name": "zero_income_edge",
-      "description": "Single jurisdiction with zero GloBE income -- ETR falls back to 0 (no division by zero), below_min_etr true by definition, but income_net_sbie and top_up_amount both resolve to 0 since there is no income to tax.",
+      "description": "Single jurisdiction with zero GloBE income -- ETR falls back to 0, below_min_etr true by definition, income_net_sbie and top_up_amount both resolve to 0. UPDATED (ART365-GLOBE-FIX-1): parent_hq US with no declared Central Record listing or election is no longer automatically us_exempt:true (old hardcoded-US behaviour); result is unchanged (all zero) because there is no income to allocate either way.",
       "policy_parameters": {
         "parent_hq": "US",
         "fy": 2026,
@@ -261,7 +649,9 @@
       "output_payload": {
         "parent_hq": "US",
         "fy": 2026,
-        "us_exempt": true,
+        "us_exempt": false,
+        "central_record_sbs": [],
+        "sbs_election": false,
         "jurisdictions": [
           {
             "jur": "JP",
@@ -293,14 +683,14 @@
         "total_utpr_collected": 0,
         "constants_version": "oecd-globe-sbie-2024-2027-transitional-v1",
         "globe_min_rate": 0.15,
-        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD side-by-side package US IIR/UTPR exemption (Jan 2026)",
-        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored."
+        "regulatory_basis": "OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD/G20 Inclusive Framework Side-by-Side Package (approved/declassified 5 January 2026) Ch5 SbS Safe Harbour",
+        "note": "SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them."
       },
       "compliance_flags": [
         "GLOBE_ZERO_INCOME_JURISDICTION:JP",
         "GLOBE_TOPUP_DUE"
       ],
-      "golden_hash": "30a8da14e9d325682adfc451ffc0be0b74347559d00b2b5c07f382138768dbd7"
+      "golden_hash": "5d44c3ae716a0039993701c3cd6559282d773c681f6a5f5600a670df1710ee9b"
     }
   ]
 }

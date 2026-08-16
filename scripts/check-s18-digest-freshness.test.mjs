@@ -424,9 +424,22 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // art-284 reads stale on the base commit and fresh after; no other node changes set.
   // Measured both sides, not assumed: 464/581 fresh + 117 stale on the base commit 2ea48605,
   // 468/584 fresh + 116 stale after.
-  assert(total === 584, `expected 584 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 468, `expected 468 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (art-284 leaves the stale set on its re-prove, ETHMATH-ASSEMBLE-LAND-1), got ${stale.length}`);
+  // 584 -> 583 post-ASSEMBLE-KERNEL-BATCH-0815-2 (2026-08-16): ART365-GLOBE-FIX-1's kernel-digest-
+  // moving correctness fix (SO #36, four confirmed divergences against the pinned OECD Side-by-Side
+  // text) converted art-365 (compute_globe_topup_tax) from a genuinely PROVEN node back to
+  // compute_proof_ready:"deferred", removing its committed receipt. A node with no receipt at all is
+  // outside this gate's denominator entirely (the gate compares a committed receipt's journal digest
+  // against a recomputed one; there is nothing to compare once the receipt is gone), so the
+  // denominator drops by exactly 1 and fresh drops by exactly 1 (art-365 was fresh before the fix --
+  // its now-stale receipt was never left in place, SO #36's "fix and remove the receipt together"
+  // requirement -- it does not move into stale). The three other new nodes this same assemble
+  // registered (art-626, art-627, art-617) are all BRAND-NEW gpu:false and unproven, so none of them
+  // ever enters this gate's proven-node denominator either. Stale is unaffected.
+  // Measured both sides, not assumed: 468/584 fresh + 116 stale on the base commit ff9c1b10 (this
+  // row's starting point), 467/583 fresh + 116 stale after.
+  assert(total === 583, `expected 583 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 467, `expected 467 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-KERNEL-BATCH-0815-2 -- art-365 leaves the PROVEN set entirely, it does not enter stale), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
