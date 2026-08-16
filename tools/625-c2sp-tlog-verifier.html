@@ -228,13 +228,18 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
  * Ported from chaingraph/kernels/c2sp-tlog-verify.mjs (the shared module built
  * by C2SP-TLOG-VERIFY-MODULE-1). That module was written browser-safe on
  * purpose: Uint8Array + globalThis.crypto.subtle + atob/btoa, no Buffer and no
- * node:crypto import, so the byte helpers, the RFC 6962 walk, parseSignedNote,
- * formatCheckpoint and toCosignedData below are the module's own function
- * bodies, unchanged but for one added guard: verifyInclusion returns false on a
- * short sibling path where the module would throw, because a person pasting a
- * proof by hand can supply too few hashes and that is a FAIL to report, not a
- * crash. A single self-contained page cannot import a module (no network calls
- * after load, CONTRACT §1.1), so this file is the browser copy of one
+ * node:crypto import. The byte helpers, the RFC 6962 walk, parseSignedNote,
+ * formatCheckpoint and toCosignedData between the BEGIN/END markers below are
+ * the module's own function bodies, byte-verbatim apart from stripped `export`
+ * keywords, comments and whitespace (TOOLS625-SSOT-REPORT-1; registered pair
+ * "c2sp" in scripts/inline-ssot-sync-manifest.json, mode codeOnly, enforced by
+ * scripts/check-inline-ssot-sync.mjs). The module still throws on a too-short
+ * sibling path (an unguarded `p[0]` on an empty array) rather than returning
+ * false; runVerifier()'s own try/catch below is where that gets absorbed into
+ * a reported error instead of an uncaught page crash, so the short-path case
+ * stays handled without either side's behaviour diverging from the other's.
+ * A single self-contained page cannot import a module (no network calls after
+ * load, CONTRACT §1.1), so this file is the browser copy of one
  * implementation, not a second implementation. If the module changes, this
  * block is what has to move with it.
  *
@@ -257,63 +262,146 @@ const SIGSUM_ORIGIN_PREFIX = 'sigsum.org/v1/tree/';
 const SIGTYPE_ED25519 = 0x01;
 const SIGTYPE_COSIGNATURE = 0x04;
 
-function bytesToHex(bytes){return Array.from(bytes).map((b)=>b.toString(16).padStart(2,'0')).join('');}
-function hexToBytes(hex){const out=new Uint8Array(hex.length/2);for(let i=0;i<out.length;i++)out[i]=parseInt(hex.substr(i*2,2),16);return out;}
-function bytesToBase64(bytes){let bin='';for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);return btoa(bin);}
-function base64ToBytes(b64){const bin=atob(b64);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
-function concatBytes(parts){const total=parts.reduce((n,p)=>n+p.length,0);const out=new Uint8Array(total);let off=0;for(const p of parts){out.set(p,off);off+=p.length;}return out;}
-function bytesEqual(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}
+/* BEGIN c2sp-tlog-verify.mjs verbatim port. */
+// ---------------------------------------------------------------------------
+// Byte helpers (Uint8Array-based — no Buffer, browser-safe).
+// ---------------------------------------------------------------------------
 
-async function sha256(...parts){const digest=await crypto.subtle.digest('SHA-256',concatBytes(parts));return new Uint8Array(digest);}
-async function hashLeafNode(data){return sha256(new Uint8Array([0x00]),data);}
-async function hashInteriorNode(left,right){return sha256(new Uint8Array([0x01]),left,right);}
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
-/* RFC 6962 section 2.1.3.2 inclusion-proof walk, iterative form. */
-async function verifyInclusion({leaf,index,size,root,path}){
-  let r=leaf;let fn=index;let p=path;
-  for(let sn=size-1;sn>0;fn=Math.floor(fn/2),sn=Math.floor(sn/2)){
-    const isOdd=(fn&1)===1;
-    if(isOdd){ if(!p.length)return false; r=await hashInteriorNode(p[0],r); p=p.slice(1); }
-    else if(fn<sn){ if(!p.length)return false; r=await hashInteriorNode(r,p[0]); p=p.slice(1); }
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function concatBytes(parts) {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+function bytesEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// RFC 6962 §2.1 Merkle primitives — 0x00-prefixed leaf, 0x01-prefixed interior.
+// Identical algorithm both callers implemented independently before this row.
+// ---------------------------------------------------------------------------
+
+async function sha256(...parts) {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', concatBytes(parts));
+  return new Uint8Array(digest);
+}
+
+async function hashLeafNode(data) { return sha256(new Uint8Array([0x00]), data); }
+async function hashInteriorNode(left, right) { return sha256(new Uint8Array([0x01]), left, right); }
+
+// RFC 6962 §2.1.3.2 inclusion-proof verification, iterative form (mirrors
+// sigsum-go's merkle.VerifyInclusion: isOdd(fn) => left sibling on path;
+// fn<sn => right sibling on path). `size` = tree size (leaf count), `index` =
+// 0-based leaf index, `path` = bottom-up sibling hashes (the standard C2SP/
+// RFC 6962 audit-path ordering both Sigsum and Rekor/Trillian emit).
+async function verifyInclusion({ leaf, index, size, root, path }) {
+  let r = leaf;
+  let fn = index;
+  let p = path;
+  for (let sn = size - 1; sn > 0; fn = Math.floor(fn / 2), sn = Math.floor(sn / 2)) {
+    const isOdd = (fn & 1) === 1;
+    if (isOdd) {
+      r = await hashInteriorNode(p[0], r);
+      p = p.slice(1);
+    } else if (fn < sn) {
+      r = await hashInteriorNode(r, p[0]);
+      p = p.slice(1);
+    }
   }
-  return bytesEqual(r,root);
+  return bytesEqual(r, root);
 }
 
-function formatCheckpoint(origin,size,rootHash,extensionLines=[]){
-  const rootB64=bytesToBase64(rootHash);
-  const ext=extensionLines.length?extensionLines.map((l)=>l+'\n').join(''):'';
-  return origin+'\n'+size+'\n'+rootB64+'\n'+ext;
+// ---------------------------------------------------------------------------
+// tlog-checkpoint.md — checkpoint framing: "<origin>\n<size>\n<root-b64>\n"
+// plus optional extension lines, all per signed-note.md's note body grammar.
+// ---------------------------------------------------------------------------
+
+function formatCheckpoint(origin, size, rootHash, extensionLines = []) {
+  const rootB64 = bytesToBase64(rootHash);
+  const ext = extensionLines.length ? extensionLines.map((l) => `${l}\n`).join('') : '';
+  return `${origin}\n${size}\n${rootB64}\n${ext}`;
 }
 
-function parseSignedNote(text){
-  const lines=text.split('\n');
-  if(lines.length<4)throw new Error('signed-note: too few lines for a checkpoint (need origin/size/root + blank + signature)');
-  const origin=lines[0];
-  const size=Number(lines[1]);
-  if(!Number.isInteger(size)||size<0)throw new Error('signed-note: malformed size line: '+lines[1]);
-  const rootHash=base64ToBytes(lines[2]);
-  let i=3;
-  const extensionLines=[];
-  while(i<lines.length&&lines[i]!==''){extensionLines.push(lines[i]);i++;}
-  if(i>=lines.length)throw new Error('signed-note: no blank separator before signature block');
-  const noteText=lines.slice(0,i).join('\n')+'\n';
-  const cosignatures=[];
-  for(let k=i+1;k<lines.length;k++){
-    const line=lines[k];
-    if(!line)continue;
-    if(!line.startsWith('— '))continue;
-    const parts=line.split(' ');
-    const name=parts[1];
-    const sigBytes=base64ToBytes(parts[2]);
-    if(sigBytes.length<4)throw new Error('signed-note: cosignature for '+name+' too short to hold a 4-byte key hint');
-    cosignatures.push({name,keyIdHex:bytesToHex(sigBytes.subarray(0,4)),sigBytes:sigBytes.subarray(4)});
+// signed-note.md: a note is "<text body>\n\n— <name> <base64(sig)>\n..." where
+// each signature's base64 payload is keyHint(4 bytes) || raw-signature-bytes.
+// tlog-checkpoint.md's checkpoint IS a note whose text body is the origin/
+// size/root(/extension) lines above. Returns the note body fields plus every
+// cosignature line found, each split into its 4-byte key-ID hint and the
+// remaining (algorithm-specific — Ed25519 raw, ECDSA DER, etc.) signature
+// bytes; the caller verifies the signature with whatever algorithm its log
+// uses, this function only implements the wire FRAMING (C2SP-TLOG-VERIFY-
+// MODULE-1's "signed-note parsing" export).
+function parseSignedNote(text) {
+  const lines = text.split('\n');
+  if (lines.length < 4) throw new Error('signed-note: too few lines for a checkpoint (need origin/size/root + blank + signature)');
+  const origin = lines[0];
+  const size = Number(lines[1]);
+  if (!Number.isInteger(size) || size < 0) throw new Error(`signed-note: malformed size line: ${lines[1]}`);
+  const rootHash = base64ToBytes(lines[2]);
+
+  // Extension lines run until the blank separator line (signed-note.md: the
+  // note body is text lines, blank line, then "— name sig" signature lines).
+  let i = 3;
+  const extensionLines = [];
+  while (i < lines.length && lines[i] !== '') { extensionLines.push(lines[i]); i++; }
+  if (i >= lines.length) throw new Error('signed-note: no blank separator before signature block');
+  const noteText = lines.slice(0, i).join('\n') + '\n'; // exact bytes every signature covers
+
+  const cosignatures = [];
+  for (let k = i + 1; k < lines.length; k++) {
+    const line = lines[k];
+    if (!line) continue;
+    if (!line.startsWith('— ')) continue; // U+2014 EM DASH per signed-note.md
+    const parts = line.split(' ');
+    const name = parts[1];
+    const sigBytes = base64ToBytes(parts[2]);
+    if (sigBytes.length < 4) throw new Error(`signed-note: cosignature for ${name} too short to hold a 4-byte key hint`);
+    cosignatures.push({
+      name,
+      keyIdHex: bytesToHex(sigBytes.subarray(0, 4)),
+      sigBytes: sigBytes.subarray(4),
+    });
   }
-  return {origin,size,rootHash,extensionLines,noteText,cosignatures};
+
+  return { origin, size, rootHash, extensionLines, noteText, cosignatures };
 }
 
-function toCosignedData(origin,size,rootHash,timestamp,namespace='cosignature/v1'){
-  return namespace+'\ntime '+timestamp+'\n'+formatCheckpoint(origin,size,rootHash);
+// tlog-cosignature.md: the message a witness actually signs over a checkpoint.
+function toCosignedData(origin, size, rootHash, timestamp, namespace = 'cosignature/v1') {
+  return `${namespace}\ntime ${timestamp}\n${formatCheckpoint(origin, size, rootHash)}`;
 }
+/* END c2sp-tlog-verify.mjs verbatim port. Everything between the BEGIN/END
+ * markers above is chaingraph/kernels/c2sp-tlog-verify.mjs's own function
+ * bodies, byte-verbatim modulo stripped `export` keywords, comments and
+ * whitespace — see the sync gate note at the top of this script block. */
 
 /* ---------------------------------------------------------------------------
  * Trust policies, shipped inline as string constants, transcribed at build time
