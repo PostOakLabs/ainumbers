@@ -340,7 +340,7 @@ function validateSlice(slice) {
       if (FILER_STATUSES.indexOf(fs) === -1) {
         return { ok: false, error_code: 'SLICE_INVALID_FILER_STATUS', message: `entries[${i}] ("${e.standard_id}") declares filer_status "${_safeStr(fs)}", which is not in the closed enum` };
       }
-      const key = e.standard_id + ' ' + fs;
+      const key = e.standard_id + '|' + fs;
       if (Object.prototype.hasOwnProperty.call(seenKeys, key)) {
         return {
           ok: false, error_code: 'SLICE_DUPLICATE_ENTRY_KEY',

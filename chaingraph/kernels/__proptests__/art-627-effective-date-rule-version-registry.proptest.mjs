@@ -1,5 +1,5 @@
 // art-627-effective-date-rule-version-registry — class-B PROPERTY-TEST FLOOR.
-// kernel_digest_at_authoring: sha256:9ecd31910f34cfac918fea84b853105030317d54885299e5ca8e6bd2302c7de9
+// kernel_digest_at_authoring: sha256:64836000e9e411175a31ce378e45f464cb8dc8f398ed04f409d94f764265cfe5
 // spec: ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.2 (kernel spec) + Sec.4 (composition contract) +
 //       workspace-root research/ACCT-RULEREG-K-1.spec.md +
 //       research/clause-snapshots/ASU-2023-07-effective-date.excerpt.txt +
