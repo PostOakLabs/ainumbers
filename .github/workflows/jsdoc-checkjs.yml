@@ -32,17 +32,50 @@ on:
     paths:
       - 'chaingraph/kernels/**/*.mjs'
   pull_request:
+    # Always-report shape (2026-08-16): NO `paths:` filter here anymore —
+    # see scripts-verify.yml's identical comment. The `relevant` job below
+    # decides against scripts/ci-paths.json key "jsdoc-checkjs".
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'chaingraph/kernels/**/*.mjs'
 
 permissions:
   contents: read
 
 jobs:
+  relevant:
+    name: relevant
+    # Always-report shape: see scripts-verify.yml's identical job for the
+    # full rationale. Push events report hit=true unconditionally (the push
+    # `paths:` filter above already scoped dispatch).
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      hit: ${{ steps.check.outputs.hit }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Check path relevance
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-ci-relevant.mjs --key jsdoc-checkjs
+
   jsdoc-checkjs:
     name: tsc --checkJs on touched kernels
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    needs: relevant
+    # Always-report shape: also gated on needs.relevant.outputs.hit.
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.relevant.outputs.hit == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -121,3 +154,23 @@ jobs:
         if: steps.files.outputs.count == '0'
         shell: bash
         run: echo "No kernel files changed — skipping (incremental-only gate)."
+
+  jsdoc-checkjs-required:
+    name: jsdoc-checkjs / required
+    # Always-report shape: the check named in the branch ruleset. See
+    # scripts-verify.yml's identical reporter job for the full rationale.
+    needs: [relevant, jsdoc-checkjs]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Report
+        env:
+          RESULT: ${{ needs.jsdoc-checkjs.result }}
+        run: |
+          echo "jsdoc-checkjs result: $RESULT"
+          if [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
+            exit 1
+          fi
+          exit 0
