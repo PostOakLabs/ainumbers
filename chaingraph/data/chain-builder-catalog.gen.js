@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (616 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (617 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6530,6 +6530,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-627-effective-date-rule-version-registry.html",
     "description": "Resolves which version of an accounting standard binds a given filer, entirely offline and client-side. The query is a triple: fiscal_year_e",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-628-declarative-decision-tree-evaluator",
+    "display_name": "Declarative Decision-Tree Evaluator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-628-declarative-decision-tree-evaluator.html",
+    "description": "Evaluates a caller-supplied, hash-pinned decision tree against caller-supplied facts entirely offline, client-side. The tree is inert data -",
     "consumes": [],
     "feeds": [],
     "status": "live"
