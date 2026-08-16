@@ -84,6 +84,11 @@ const CI_ONLY = new Map([
   ["c2patool-oracle-compare.mjs",
     "needs a downloaded + sha256-verified c2patool RUST BINARY (c2patool-oracle.yml) — " +
     "not npx-fetchable like TypeScript, and this repo installs no CI-only binaries pre-push."],
+  ["check-ci-relevant.mjs",
+    "always-report CI shape's `relevant` job helper — decides whether a path-filtered " +
+    "pull_request should run its substantive job. Reads github.event.pull_request base/head " +
+    "SHAs from env:, meaningless outside an actual PR event; always exits 0 (never a pass/fail " +
+    "gate, so it has nothing preflight.mjs could usefully assert)."],
 ]);
 
 function nodeGates(text) {
