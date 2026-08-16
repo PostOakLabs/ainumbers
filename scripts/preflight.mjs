@@ -225,6 +225,8 @@ const GATES = [
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
+  ['Cited clause digest (CLAUSE-DIGEST-GATE-1, SPEC.md §30)', 'node scripts/check-clause-digest.mjs'],
+  ['Cited clause digest fixture proof', 'node scripts/check-clause-digest.test.mjs'],
   ['Chain composer-url existence (CHAINURL-GATE-1)', 'node scripts/check-chain-composer-urls.mjs'],
   ['Chain handoff-register regression (CHAINNARRATIVE-CLARIFY-1)', 'node scripts/check-chain-handoff-register.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
