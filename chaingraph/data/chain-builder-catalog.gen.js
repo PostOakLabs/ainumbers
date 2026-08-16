@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (612 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (613 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6490,6 +6490,18 @@ window.CHAINBUILDER_CATALOG = [
     "description": "Paste a published Merkle-sum-tree root (hash + sum) and an inclusion proof for one leaf; verifies membership AND local balance-sum-chain con",
     "consumes": [],
     "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-621-summa-mst-liability-aggregator",
+    "display_name": "Summa MST Liability Aggregator",
+    "mandate_type": "cryptographic_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-621-summa-mst-liability-aggregator.html",
+    "description": "Given up to 16 (id, balance) leaf entries, deterministically builds a SHA-256 Merkle-sum-tree (Summa's node layout: hash=H(id,balance) and s",
+    "consumes": [],
+    "feeds": [
+      "art-620-summa-mst-inclusion-checker"
+    ],
     "status": "live"
   },
   {
