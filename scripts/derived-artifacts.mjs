@@ -198,6 +198,17 @@ export const COVERED = [
     share: '15-27%',
   },
   {
+    id: 'rule-registry',
+    regen: 'node scripts/gen-rule-registry.mjs',
+    gate: 'node scripts/gen-rule-registry.mjs --check',
+    artifacts: ['chaingraph/kernels/data/rule-registry.json'],
+    // Measured 2026-08-16: only one commit to date has added an entry file
+    // (645f8a54, #1313) and it did NOT co-modify rule-registry.json — that
+    // omission is the incident this row exists to fix (RULEREG-TABLE-LAND-1).
+    // n=1, so 0% is the full available sample, not a rounded estimate.
+    share: '0% (n=1)',
+  },
+  {
     id: 'stats',
     regen: 'node scripts/sync-stats.mjs --fix',
     gate: 'node scripts/sync-stats.mjs',
