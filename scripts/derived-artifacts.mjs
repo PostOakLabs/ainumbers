@@ -84,7 +84,11 @@ export const COVERED = [
     id: 'openapi',
     regen: 'node scripts/gen-openapi.mjs',
     gate: 'node scripts/gen-openapi.mjs --check',
-    artifacts: ['openapi.json', 'docs/openapi.json', 'docs/index.html'],
+    // docs/catalog.json is a copy of mcp/catalog.json written by this same script
+    // (see scripts/gen-openapi.mjs's own header comment), not by regen_catalog.py —
+    // undeclared here until ASSEMBLE-ART628-1-FIX2 (2026-08-16), which is why it read
+    // as an "escaped" write the first time art-628's tool-count bump made it drift.
+    artifacts: ['openapi.json', 'docs/openapi.json', 'docs/catalog.json', 'docs/index.html'],
     share: '27%',
   },
   {
