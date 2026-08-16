@@ -15,6 +15,7 @@
 import {
   checkChain, checkEdge, typesCompatible, induceSchema, schemaFromProperties,
   classifyCoupling, classifyChainFindings, measuredPrecision, ADJUDICATED_EDGES, ENVELOPE_COUPLING_FIELD,
+  PROSE_ORACLE_CAVEAT,
 } from './check-chain-edge-contracts.mjs';
 
 let failures = 0;
@@ -223,22 +224,36 @@ console.log('── Control 10: classifyChainFindings — prove BOTH directions 
     check('chain verdict stays L1-fail', classified.verdict === 'L1-fail');
   }
 
-  // (b) A NAME-ONLY match (edge #6's known shape) downgrades to INFO and the verdict recomputes.
+  // (b) A NAME-ONLY match on edge #6's ACTUAL shape — type-conflict, not edge-inverted — downgrades
+  // to INFO and the verdict recomputes. (CHAIN-FV-L1-PRECISION-2: the downgrade is now scoped to
+  // type-conflict only — see Control 12 — so this fixture must use edge #6's real finding code to
+  // stay a faithful positive control.)
   {
-    const r = checkChain(
-      { name: 'fx-edge6-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] },
-      { adjacency: new Map([['fx-p', { consumes: [], feeds: [] }], ['fx-c', { consumes: [], feeds: ['fx-p'] }]]), outSchema: () => null, inSchema: () => null },
-    );
+    const ctx = makeCtx({
+      adjacency: { 'fx-p': { consumes: [], feeds: ['fx-c'] }, 'fx-c': { consumes: ['fx-p'], feeds: [] } },
+      out: { 'fx-p': { as_of: ['string', 'null'] } },
+      in: { 'fx-c': { as_of: ['number'] } },
+    });
+    const r = checkChain({ name: 'fx-edge6-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] }, ctx);
+    check('precondition: synthetic chain has one type-conflict hard finding pre-classification (edge #6\'s real code)',
+      r.findings.length === 1 && r.findings[0].code === 'type-conflict');
     const classified = classifyChainFindings(r, (id) => (id === 'fx-c' ? art496LikeSource() : null));
-    check('NAME-ONLY finding is removed from the hard findings list', classified.findings.length === 0);
+    check('NAME-ONLY type-conflict finding is removed from the hard findings list', classified.findings.length === 0);
     check('NAME-ONLY finding is reported as INFO, never dropped', classified.info_findings.length === 1);
     check('info finding is tagged NAME-ONLY', classified.info_findings[0].coupling === 'NAME-ONLY');
     check('chain verdict recomputes away from L1-fail once the only finding is NAME-ONLY',
       classified.verdict !== 'L1-fail');
   }
 
-  // (c) Cluster B's known shape: 4 edges around a hub, all NAME-ONLY — none downgrade individually
-  // wrong, all four move to info together (no partial credit that would misrepresent the pair).
+  // (c) Cluster B's REAL shape is edge-inverted (a hub node's declared direction vs. the chain's
+  // real step order), not type-conflict — CHAIN-FV-L1-PRECISION-2 measured this live (canton-margin-
+  // call, canton-mmf-collateral, canton-securities-lending, rhc-collateral-haircut, us-treasury-
+  // clearing all still carry the same edge-inverted finding against node 505). Because the NAME-ONLY
+  // downgrade is now scoped to type-conflict only, these correctly STAY hard findings post-fix — the
+  // CLUSTERB-505-* pair's FP-hub verdict lives in ADJUDICATED_EDGES (excluded from the genuine-
+  // defects numerator there), not as a live-classifier suppression. A hard finding is a lead, not an
+  // unconditional defect claim (the checker is advisory and always exits 0) — an already-adjudicated
+  // lead staying visible is correct, not a regression.
   {
     const hubChain = checkChain(
       { name: 'fx-clusterb-shape', steps: [{ tool_id: 'fx-a' }, { tool_id: 'fx-hub' }, { tool_id: 'fx-b' }] },
@@ -252,29 +267,109 @@ console.log('── Control 10: classifyChainFindings — prove BOTH directions 
         inSchema: () => null,
       },
     );
-    check('precondition: synthetic hub chain carries findings pre-classification', hubChain.findings.length >= 1);
+    check('precondition: synthetic hub chain carries edge-inverted findings pre-classification',
+      hubChain.findings.length >= 1 && hubChain.findings.every((f) => f.code === 'edge-inverted'));
     const classified = classifyChainFindings(hubChain, () => clusterBLikeSource());
-    check('every finding in the hub chain classifies NAME-ONLY', classified.info_findings.every((f) => f.coupling === 'NAME-ONLY'));
-    check('none survive as hard findings', classified.findings.length === 0);
+    check('edge-inverted hub findings are tagged NAME-ONLY (kernel source has zero coupling-field access)',
+      classified.findings.every((f) => f.coupling === 'NAME-ONLY'));
+    check('but STAY hard findings post-fix — edge-inverted is never eligible for the downgrade',
+      classified.findings.length === hubChain.findings.length && classified.info_findings.length === 0);
   }
 }
 
 console.log('── Control 11: measured precision is DERIVED, not hardcoded, and is regression-tested ──');
 {
   const p = measuredPrecision();
-  check('genuine defects is exactly the count of TP fixtures (cry-05 only, so far)', p.genuine_defects === 1);
-  check('adjudicated edges sums every fixture\'s edge_count (1 + 1 + 4 = 6)', p.adjudicated_edges === 6);
-  check('ratio string matches the derived numbers', p.ratio === '1/6');
-  check('Cluster A is not yet folded in (board/done/ CLUSTERA-AP2-* not present as of this build)',
-    !ADJUDICATED_EDGES.some((f) => f.id.toLowerCase().includes('ap2') || f.id.toLowerCase().includes('cluster a')));
+  check('genuine defects is exactly the count of TP fixtures (cry-05 + Cluster A edge #4)', p.genuine_defects === 2);
+  check('adjudicated edges sums every fixture\'s edge_count (1 + 1 + 4 + 5 Cluster A = 11)', p.adjudicated_edges === 11);
+  check('ratio string matches the derived numbers', p.ratio === '2/11');
+  check('Cluster A IS folded in (CHAIN-FV-L1-PRECISION-2)',
+    ADJUDICATED_EDGES.some((f) => f.id.toLowerCase().includes('cluster a')));
+  check('Cluster A contributes exactly one TP (edge #4), one distinct CONFIRM-ONLY FP (edge #2), three INDETERMINATE (#1/#3/#14)',
+    ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'TP').length === 1
+    && ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'FP-confirm-only').length === 1
+    && ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'INDETERMINATE').length === 3);
+  check('edge #2\'s FP class is DISTINCT from Cluster B\'s FP-hub class, not merged into it',
+    ADJUDICATED_EDGES.some((f) => f.verdict === 'FP-confirm-only') && ADJUDICATED_EDGES.some((f) => f.verdict === 'FP-hub'));
 
-  // REGRESSION: if a future change silently reclassifies one of the three settled fixtures, the
-  // ratio MUST move — this is what makes precision a measured property, not a claim (the row's own
-  // done-criterion for part 3).
+  // REGRESSION: if a future change silently reclassifies one of the settled fixtures, the ratio MUST
+  // move — this is what makes precision a measured property, not a claim (the row's own done-
+  // criterion for part 3).
   const mutated = ADJUDICATED_EDGES.map((f) => (f.id.startsWith('edge #6') ? { ...f, verdict: 'TP' } : f));
   const mutatedP = measuredPrecision(mutated);
-  check('MUTATION: reclassifying edge #6 as a TP moves the ratio (2/6, not still 1/6)',
-    mutatedP.genuine_defects === 2 && mutatedP.ratio === '2/6');
+  check('MUTATION: reclassifying edge #6 as a TP moves the ratio (3/11, not still 2/11)',
+    mutatedP.genuine_defects === 3 && mutatedP.ratio === '3/11');
+
+  const mutated2 = ADJUDICATED_EDGES.map((f) => (f.id.includes('Cluster A edge #4') ? { ...f, verdict: 'FP' } : f));
+  const mutatedP2 = measuredPrecision(mutated2);
+  check('MUTATION: flipping Cluster A edge #4 off TP moves the ratio (1/11, not still 2/11)',
+    mutatedP2.genuine_defects === 1 && mutatedP2.ratio === '1/11');
+}
+
+console.log('── Control 12: NAME-ONLY downgrade is scoped to type-conflict only (CHAIN-FV-L1-PRECISION-2) ──');
+{
+  // art-01-like: a real Cluster-A-shaped consumer that never reads execution_hash (art-01 reads
+  // caller-pasted intent/cart/payment JSON only) — modelled on, not copied from, the real kernel.
+  const art01Like = `function compute(pp) { return { mandate_ids: { intent: pp.intent, cart: pp.cart, payment: pp.payment } }; }`;
+  check('precondition: this source classifies NAME-ONLY under the raw execution_hash read-check',
+    classifyCoupling(art01Like) === 'NAME-ONLY');
+
+  // (a) An edge-inverted finding against this NAME-ONLY source must stay HARD — the Cluster-A
+  // edge-#4 shape: a confirmed true positive that the raw execution_hash heuristic alone would have
+  // wrongly downgraded.
+  {
+    const r = checkChain(
+      { name: 'fx-edge4-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] },
+      { adjacency: new Map([['fx-p', { consumes: [], feeds: [] }], ['fx-c', { consumes: [], feeds: ['fx-p'] }]]), outSchema: () => null, inSchema: () => null },
+    );
+    check('precondition: synthetic chain carries one edge-inverted finding pre-classification',
+      r.findings.length === 1 && r.findings[0].code === 'edge-inverted');
+    const classified = classifyChainFindings(r, (id) => (id === 'fx-c' ? art01Like : null));
+    check('edge-inverted finding against a NAME-ONLY-coupled consumer STAYS a hard finding (not downgraded)',
+      classified.findings.length === 1);
+    check('its coupling tag is still computed and reported as NAME-ONLY, for transparency', classified.findings[0].coupling === 'NAME-ONLY');
+    check('it is NOT duplicated into info_findings', classified.info_findings.length === 0);
+    check('chain verdict stays L1-fail', classified.verdict === 'L1-fail');
+  }
+
+  // (b) The SAME NAME-ONLY source against a type-conflict finding still downgrades — the eligible
+  // case is unaffected by the fix; only edge-inverted's eligibility changed.
+  {
+    const ctx = makeCtx({
+      adjacency: { 'fx-p': { consumes: [], feeds: ['fx-c'] }, 'fx-c': { consumes: ['fx-p'], feeds: [] } },
+      out: { 'fx-p': { as_of: ['string'] } },
+      in: { 'fx-c': { as_of: ['number'] } },
+    });
+    const r = checkChain({ name: 'fx-typeclash-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] }, ctx);
+    check('precondition: synthetic chain carries one type-conflict finding pre-classification',
+      r.findings.length === 1 && r.findings[0].code === 'type-conflict');
+    const classified = classifyChainFindings(r, (id) => (id === 'fx-c' ? art01Like : null));
+    check('type-conflict finding against a NAME-ONLY-coupled consumer DOES downgrade to INFO', classified.findings.length === 0);
+    check('it is reported as INFO, never dropped', classified.info_findings.length === 1);
+  }
+
+  // MUTATION (SO #34): the fix itself must be provable by mutation — restoring the OLD (uniform)
+  // downgrade rule on the same edge-inverted fixture must make it downgrade, proving the scoping
+  // restriction is what is actually doing the work, not some other code path.
+  {
+    const oldRuleHard = (finding) => finding.coupling !== 'NAME-ONLY'; // the PRECISION-1 rule, pre-fix
+    const r = checkChain(
+      { name: 'fx-edge4-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] },
+      { adjacency: new Map([['fx-p', { consumes: [], feeds: [] }], ['fx-c', { consumes: [], feeds: ['fx-p'] }]]), outSchema: () => null, inSchema: () => null },
+    );
+    const tagged = r.findings.map((f) => ({ ...f, coupling: classifyCoupling(art01Like) }));
+    check('MUTATION: under the OLD uniform rule this same finding WOULD have downgraded (proves the fix is load-bearing)',
+      tagged.filter(oldRuleHard).length === 0);
+  }
+}
+
+console.log('── Control 13: PROSE_ORACLE_CAVEAT is present and names its worked example (CHAIN-FV-L1-PRECISION-2) ──');
+{
+  check('caveat states prose is evidence, never an oracle', /evidence/i.test(PROSE_ORACLE_CAVEAT.note) && /oracle/i.test(PROSE_ORACLE_CAVEAT.note));
+  check('caveat names Cluster A edge #3 as its worked example', PROSE_ORACLE_CAVEAT.worked_example.includes('art-04') && PROSE_ORACLE_CAVEAT.worked_example.includes('art-32'));
+  check('caveat cites its source rows, not asserted from nothing', PROSE_ORACLE_CAVEAT.source.includes('CLUSTERA-AP2-DENY-1'));
+  check('caveat does not render a verdict on edge #3 (no CONFIRMED/DENIED/REFUTED language)',
+    !/\b(confirmed|refuted|denied)\b/i.test(PROSE_ORACLE_CAVEAT.note) && !/\b(confirmed|refuted|denied)\b/i.test(PROSE_ORACLE_CAVEAT.worked_example));
 }
 
 /* Synthetic kernel-source fixtures for Control 10, modelled on (but not copied verbatim from) the
