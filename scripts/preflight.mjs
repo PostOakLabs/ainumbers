@@ -374,6 +374,11 @@ const GATES = [
   // parity-manifest generation itself crash/error. The cross-engine byte diff
   // (Bun + QuickJS legs) genuinely needs those runtimes and stays CI-only.
   ['Engine-parity node-leg (crash guard)', 'node scripts/check-engine-parity.mjs'],
+  // Every workflow file must PARSE. An invalid one makes GitHub emit a zero-job failure run on
+  // every push to every branch (its branch filter is never evaluated) — measured 2026-08-16,
+  // derived-artifacts-regen.yml, eleven red runs in three hours. Parity below reads gate names
+  // out of these files, so it silently sees nothing when the YAML is broken.
+  ['Workflow YAML parses (on + jobs)', 'python scripts/check-workflow-yaml.py'],
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
