@@ -1,0 +1,66 @@
+{
+  "tool_id": "art-635-rate-rec-5pct-threshold-classifier",
+  "version": "1.0.0",
+  "title": "Rate Reconciliation 5% Threshold Classifier",
+  "description": "Applies the quantitative 5 percent threshold of ASC 740-10-50-12A(b), as amended by FASB Accounting Standards Update No. 2023-09, to one candidate rate reconciliation item. Returns the item as a percentage of the threshold base, a crossing flag, the separate disclosure consequence, and the disaggregation 740-10-50-12A(b) requires of the declared category. The comparison is taken in absolute amount on both sides per BC35 of the Update, corroborated by 740-10-50-12A(b)(2), which is what makes the test well defined for a loss making entity. The category enum has nine members: the eight closed by 740-10-50-12A(a) plus the item within none of them that 740-10-50-12A(b)(3) addresses. Verdicts are decided by exact cross multiplication on unrounded inputs, never by rounding a percentage and then comparing. A zero threshold base is reported as not assessable with a named caveat rather than divided silently, per BC38.",
+  "category": "chaingraph",
+  "tags": ["compliance_mandate", "asc-740", "income-tax-disclosures", "asu-2023-09", "rate-reconciliation", "five-percent-threshold", "property-tested", "mcp:classify_rate_rec_5pct_threshold"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "reconciling_item_category": { "type": "string", "description": "One of nine closed enum values: state_and_local_income_tax_net_of_federal, foreign_tax_effects, effect_of_changes_in_tax_laws_or_rates_enacted_current_period, effect_of_cross_border_tax_laws, tax_credits, changes_in_valuation_allowances, nontaxable_or_nondeductible_items, changes_in_unrecognized_tax_benefits, other_not_listed. The first eight are the categories closed by ASC 740-10-50-12A(a); other_not_listed is the item within none of them that 740-10-50-12A(b)(3) addresses. A value outside this set is reported with category_recognized false and is outside the declared domain." },
+      "reconciling_item_amount": { "type": "number", "description": "The SIGNED effect of one reconciling item, in reporting currency. Signed on input; the comparison takes its absolute value per BC35 of ASU 2023-09. Mandatory, finite." },
+      "pretax_income": { "type": "number", "description": "Income or loss from CONTINUING OPERATIONS before income taxes, signed, in reporting currency. A negative value is a loss and is fully assessable, not degenerate, because the threshold base is taken in absolute amount. Mandatory, finite." },
+      "statutory_rate_pct": { "type": "number", "description": "The applicable statutory federal or national income tax rate of the jurisdiction of domicile, expressed in percent, for example 21 for 21 percent. Caller declared and never derived by this node: per BC36 a foreign entity would normally use its own domicile rate, and an entity using any other rate must disclose that rate and its basis. Mandatory, finite, not negative." },
+      "entity_is_public_business_entity": { "type": "boolean", "description": "True where the filer is a public business entity, which is the scope on which ASC 740-10-50-12A opens. False routes to ASC 740-10-50-13, a qualitative requirement over the same categories with no numerical reconciliation, so must_disclose_separately can never be true. Default false." }
+    },
+    "required": ["reconciling_item_amount", "pretax_income", "statutory_rate_pct"]
+  },
+  "mcp_tool_definition": {
+    "name": "classify_rate_rec_5pct_threshold",
+    "description": "Applies the ASC 740-10-50-12A(b) 5 percent quantitative threshold, as amended by ASU 2023-09, to one rate reconciliation item. Returns pct_of_threshold_base, crosses_5pct_threshold, must_disclose_separately, the required disaggregation for the declared category, and a named caveat where the threshold base is degenerate. Comparison is absolute value on both sides per BC35.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "reconciling_item_category": { "type": "string" },
+        "reconciling_item_amount": { "type": "number" },
+        "pretax_income": { "type": "number" },
+        "statutory_rate_pct": { "type": "number" },
+        "entity_is_public_business_entity": { "type": "boolean" }
+      },
+      "required": ["reconciling_item_amount", "pretax_income", "statutory_rate_pct"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-635-rate-rec-5pct-threshold-classifier.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "reconciling_item_category": { "type": ["string", "null"] },
+      "category_recognized": { "type": "boolean" },
+      "reconciling_item_amount": { "type": ["number", "null"] },
+      "pretax_income": { "type": ["number", "null"] },
+      "statutory_rate_pct": { "type": ["number", "null"] },
+      "entity_is_public_business_entity": { "type": "boolean" },
+      "threshold_base_amount": { "type": ["number", "null"] },
+      "threshold_amount": { "type": ["number", "null"] },
+      "pct_of_threshold_base": { "type": ["number", "null"] },
+      "crosses_5pct_threshold": { "type": ["boolean", "null"] },
+      "must_disclose_separately": { "type": ["boolean", "null"] },
+      "required_disaggregation": { "type": ["string", "null"] },
+      "disaggregation_citation": { "type": ["string", "null"] },
+      "denominator_near_zero_caveat": { "type": ["string", "null"] },
+      "management_judgment_required": { "type": "boolean" },
+      "not_assessable_reason": { "type": ["string", "null"] },
+      "break_even_judgment_note": { "type": "string" },
+      "citation": { "type": "string" },
+      "basis": { "type": "string" }
+    }
+  },
+  "source": "authored by DISE-SEG-K-3 from primary text retrieved at claim time: FASB Accounting Standards Update No. 2023-09, Income Taxes (Topic 740): Improvements to Income Tax Disclosures, fetched from https://storage.fasb.org/ASU%202023-09.pdf on 2026-08-15, HTTP 200, 578461 bytes, sha256 97f987a1e86382de1c33210657b45cfd46bdea08ae95f6b3d727c988c3abe33a; snapshot at workspace-root research/clause-snapshots/ASU-2023-09-fasb-DISE-SEG-K-3-2026-08-15.pdf. Paragraphs read: ASC 740-10-50-12A, 50-12B, 50-12C, 50-13, the illustrations at 740-10-55-230 and 55-231, transition paragraph 740-10-65-9, and the basis for conclusions at BC35, BC36, BC37, BC38 and BC39. Per-kernel spec at research/DISE-SEG-K-3.spec.md, human_sign_off PENDING. Class B property-test floor per FORMALVERIF-BUILD-SPEC.md section 6.B, with IEEE-754 boundary values forced explicitly rather than sampled. Fixture vectors were hand derived from the clause before generation; output_schema derived by running the kernel's own compute() against chaingraph/kernels/fixtures/art-635-rate-rec-5pct-threshold-classifier.fixtures.json. No Update text is reproduced anywhere in this shard: paragraph references, dates, scope, category names and threshold values only."
+}

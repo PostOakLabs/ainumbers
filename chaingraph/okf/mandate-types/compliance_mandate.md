@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-321"]
+tags: ["compliance_mandate", "count-324"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-321 tool(s) in this mandate-type group:
+324 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -330,6 +330,9 @@ status: stable
 - [MLA MAPR Actuarial Recompute](../tools/art-616-mla-mapr-actuarial-recompute.md)
 - [CCD2 Annex III APRC Recompute](../tools/art-619-ccd2-aprc-annex3-recompute.md)
 - [Summa MST Inclusion Checker](../tools/art-620-summa-mst-inclusion-checker.md)
+- [ASC 280 Reportable Segment Tester](../tools/art-633-asc280-reportable-segment-tester.md)
+- [CODM Significant Expense Classifier](../tools/art-634-codm-expense-significance-classifier.md)
+- [Rate Reconciliation 5% Threshold Classifier](../tools/art-635-rate-rec-5pct-threshold-classifier.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)

@@ -562,6 +562,9 @@ status: stable
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`
 - [Summa MST Inclusion Checker](./art-620-summa-mst-inclusion-checker.md) — `verify_summa_mst_inclusion`
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`
+- [ASC 280 Reportable Segment Tester](./art-633-asc280-reportable-segment-tester.md) — `test_asc280_reportable_segment`
+- [CODM Significant Expense Classifier](./art-634-codm-expense-significance-classifier.md) — `classify_codm_expense_significance`
+- [Rate Reconciliation 5% Threshold Classifier](./art-635-rate-rec-5pct-threshold-classifier.md) — `classify_rate_rec_5pct_threshold`
 - [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md) — `run_ai_act_highrisk_fit`
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md) — `build_ai_conformity_pack`
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md) — `build_fria_monitoring_plan`
