@@ -557,11 +557,14 @@ status: stable
 - [EIP-7702 Authorization-Tuple Decoder](./art-614-eip7702-authorization-tuple-decoder.md) — `decode_eip7702_authorization_tuple`
 - [MLA Charge-Inclusion Classifier](./art-615-mla-charge-inclusion-classifier.md) — `classify_mla_charge_inclusion`
 - [MLA MAPR Actuarial Recompute](./art-616-mla-mapr-actuarial-recompute.md) — `recompute_mla_mapr_actuarial`
+- [M3P Monthly Cap Calculator](./art-617-m3p-monthly-cap-calculator.md) — `compute_m3p_monthly_cap`
 - [NAIC CLO/CBO/CDO Tranche RBC Factor Calculator](./art-618-naic-clo-rbc-factor-calculator.md) — `calculate_naic_clo_rbc_factor`
 - [CCD2 Annex III APRC Recompute](./art-619-ccd2-aprc-annex3-recompute.md) — `recompute_ccd2_aprc_annex3`
 - [AP2 PaymentReceipt Verifier & HNP Guardrail](./art-62-ap2-payment-receipt-verifier.md) — `verify_ap2_payment_receipt`
 - [Summa MST Inclusion Checker](./art-620-summa-mst-inclusion-checker.md) — `verify_summa_mst_inclusion`
 - [Summa MST Liability Aggregator](./art-621-summa-mst-liability-aggregator.md) — `aggregate_summa_mst_liabilities`
+- [Deterministic Amortization Schedule](./art-626-deterministic-amortization-schedule.md) — `compute_deterministic_amortization_schedule`
+- [Effective-Date / Rule-Version Registry](./art-627-effective-date-rule-version-registry.md) — `resolve_rule_version`
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`
 - [ASC 280 Reportable Segment Tester](./art-633-asc280-reportable-segment-tester.md) — `test_asc280_reportable_segment`
 - [CODM Significant Expense Classifier](./art-634-codm-expense-significance-classifier.md) — `classify_codm_expense_significance`
