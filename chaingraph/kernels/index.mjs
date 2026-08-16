@@ -559,6 +559,7 @@ import * as art619    from './art-619-ccd2-aprc-annex3-recompute.kernel.mjs';
 import * as art62     from './art-62-ap2-payment-receipt-verifier.kernel.mjs';
 import * as art620    from './art-620-summa-mst-inclusion-checker.kernel.mjs';
 import * as art621    from './art-621-summa-mst-liability-aggregator.kernel.mjs';
+import * as art626    from './art-626-deterministic-amortization-schedule.kernel.mjs';
 import * as art63     from './art-63-agent-service-metering-modeler.kernel.mjs';
 import * as art633    from './art-633-asc280-reportable-segment-tester.kernel.mjs';
 import * as art634    from './art-634-codm-expense-significance-classifier.kernel.mjs';
@@ -1174,6 +1175,7 @@ export const KERNELS = {
   'art-62-ap2-payment-receipt-verifier':                        art62,
   'art-620-summa-mst-inclusion-checker':                        art620,
   'art-621-summa-mst-liability-aggregator':                     art621,
+  'art-626-deterministic-amortization-schedule':                art626,
   'art-63-agent-service-metering-modeler':                      art63,
   'art-633-asc280-reportable-segment-tester':                   art633,
   'art-634-codm-expense-significance-classifier':               art634,
