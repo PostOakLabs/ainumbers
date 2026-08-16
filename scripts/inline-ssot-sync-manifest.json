@@ -40,12 +40,20 @@
         }
       ],
       "note": "ICS23-VERIFY-TOOL-1 ported this module's function bodies inline because a single self-contained page cannot import (CONTRACT §1.1, zero network calls after load), and verified the port byte-identical to the SSOT under a code-only diff at authoring time — with nothing mechanically holding it there afterwards. The module carries the VSA-2022-103 domain-separation fix (checkInnerAgainstSpec's leaf-prefix rejection plus the exact min/max prefix-length and child-size bounds), so a silent divergence here is a verifier that returns PASS on a forged proof the fixed module rejects. The region markers bracket exactly the ported block: the page's own banner says everything between them is the module, and the UI code after `End of the verbatim port` is deliberately outside the comparison because it is page-specific presentation, not verification logic. The port's `'use strict';` sits inside the startMarker rather than being normalized away — an ES module is implicitly strict and a script-context IIFE is not, so the directive is a real statement the module does not have, and excluding it by delimiter is honest where a normalizer rule would be a licence to ignore stray directives."
+    },
+    {
+      "id": "c2sp",
+      "label": "C2SP transparency-log verification primitives (whole module, ported inline into tools/625)",
+      "ssotFile": "chaingraph/kernels/c2sp-tlog-verify.mjs",
+      "mode": "codeOnly",
+      "consumers": [
+        {
+          "file": "tools/625-c2sp-tlog-verifier.html",
+          "startMarker": "/* BEGIN c2sp-tlog-verify.mjs verbatim port. */",
+          "endMarker": "/* END c2sp-tlog-verify.mjs verbatim port."
+        }
+      ],
+      "note": "TOOLS625-SSOT-REPORT-1 resolved the divergence INLINE-SSOT-PORTS-GATE-1 measured and left unregistered (see git history for the removed `_unregistered_pending_adjudication` record): the page's byte helpers, RFC 6962 walk, parseSignedNote, formatCheckpoint and toCosignedData were a re-transcription, not a verbatim port (globalThis.crypto.subtle -> crypto.subtle, two added short-path `if (!p.length) return false;` guards in verifyInclusion, five template literals rewritten as string concatenation, a dropped trailing comma). Per Tim's 2026-08-15 ruling, the module's own error contract stays untouched (throw on a too-short sibling path, via an unguarded `p[0]` on an empty array) and the page re-ports it byte-verbatim instead: no consumer of c2sp-tlog-verify.mjs behaviour changed, because the module was not edited. runVerifier()'s existing outer try/catch is what absorbs that throw into a reported error for a person who pastes too few sibling hashes, so the short-path case is still handled — just by the page's own error boundary rather than a page-local return-false inside the ported block itself. Consumers of the module enumerated at registration time: scripts/register-sigsum.mjs, scripts/register-rekor.mjs (both CLI, not kernels), and chaingraph/kernels/c2sp-tlog-verify.test.mjs; no `.kernel.mjs` kernel imports this module, so no execution_hash is in scope."
     }
-  ],
-  "_unregistered_pending_adjudication": {
-    "pair": "chaingraph/kernels/c2sp-tlog-verify.mjs -> tools/625-c2sp-tlog-verifier.html",
-    "status": "NOT REGISTERED — deliberately, pending adjudication. Recorded here so the gap stays visible instead of looking like coverage.",
-    "why": "INLINE-SSOT-PORTS-GATE-1 built the codeOnly mode to register this pair too, then measured it and found the tool page is a RE-TRANSCRIPTION of the module rather than a verbatim port. Whitespace aside, the port differs from the module in ways the normalizer must NOT mask, and registering it would either red the estate on a pre-existing condition or force the normalizer wide enough to be worthless. Enumerated, complete: (1) globalThis.crypto.subtle -> crypto.subtle in sha256(); (2) TWO added `if (!p.length) return false;` guards inside verifyInclusion's loop — a real BEHAVIORAL difference (the module throws where the page returns false), which board/done/C2SP-TLOG-VERIFY-TOOL-1.md declares as a deliberate 'one named guard'; (3) five template literals rewritten as string concatenation in formatCheckpoint, parseSignedNote and toCosignedData; (4) a dropped trailing comma in the cosignatures.push object literal. Item (2) is precisely what scripts/inline-ssot-sync-baseline.json may never shield ('NEVER used to shield a behavioral difference'), so a pinned-variant escape hatch is not available either.",
-    "next": "Adjudicate which side moves: either re-port tools/625 verbatim from the module and hoist its short-path guard into the module (so both sides keep it), or restate the page's block as a declared derivative with its own SSOT. Either outcome is a tool-page or kernel edit, both outside INLINE-SSOT-PORTS-GATE-1's fence, which is why this row reported rather than fixed it (STANDING-ORDERS #25). Registering the pair is then a one-entry manifest change: mode codeOnly, startMarker 'const SIGTYPE_COSIGNATURE = 0x04;', endMarker the '* Trust policies,' banner opener — both verified unique, and the mode itself is already proven against this pair."
-  }
+  ]
 }
