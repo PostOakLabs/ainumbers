@@ -31,35 +31,53 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execSync, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NODES_DIR = resolve(REPO, 'chaingraph', 'graph', 'nodes');
 const REGISTRY_PATH = resolve(REPO, 'chaingraph', 'standard', 'clause-snapshot-registry.json');
-const env = process.env;
+
+// Every git child spawned by this module scrubs inherited GIT_* vars (GIT_DIR, GIT_WORK_TREE,
+// GIT_INDEX_FILE, ...) from process.env before running. Git exports those to every hook it
+// invokes; this module accepts a `repo` argument that can legitimately differ from the ambient
+// hook's own repo (it is exported and exercised against throwaway sandboxes by
+// check-clause-digest.test.mjs), and an inherited GIT_DIR silently overrides `cwd` for git's
+// repo discovery — pointing every command here at the WRONG repository regardless of what
+// `repo` says. Measured while building this fix: an un-scrubbed version of this exact call
+// pattern, exercised from a test invoked by the pre-push hook, committed a throwaway sandbox's
+// tree onto the real working branch. Scrub unconditionally, not just in the test.
+function scrubbedEnv() {
+  const e = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (!/^GIT_/i.test(k) && v !== undefined) e[k] = v;
+  }
+  return e;
+}
+
+function git(repo, args) {
+  return execFileSync('git', args, { cwd: repo, env: scrubbedEnv(), stdio: ['ignore', 'pipe', 'ignore'] });
+}
 
 // Candidate base refs to diff against, most authoritative first — the SAME pattern
-// check-shard-assembly.mjs already proved (SCOPE-FIX-1, 2026-08-16): `@{u}` is the
-// WRONG ref. `@{u}` is a branch's OWN remote-tracking ref (e.g. `origin/acct-amort-k-1`),
-// which goes stale the moment that branch is rebased locally without a matching push —
-// merge-base(@{u}, HEAD) then lands far behind current origin/main, so the diff sweeps in
-// every file OTHER PRs landed on main since that stale point, and this gate falsely fails
-// them as "touched by this branch." Measured on REBASE-1290-1's real branch: @{u} resolved
-// to a merge-base 17 commits behind origin/main, pulling in art-633/634/635 from an
-// unrelated already-merged PR. origin/main is the actual integration target and is what
-// must be diffed against, in every environment.
+// check-shard-assembly.mjs already proved (2026-08-16): `@{u}` is the WRONG ref. `@{u}` is a
+// branch's OWN remote-tracking ref (e.g. `origin/acct-amort-k-1`), which goes stale the moment
+// that branch is rebased locally without a matching push — merge-base(@{u}, HEAD) then lands
+// far behind current origin/main, so the diff sweeps in every file OTHER PRs landed on main
+// since that stale point, and this gate falsely fails them as "touched by this branch."
+// Measured on a real rebased branch: @{u} resolved to a merge-base 17 commits behind
+// origin/main, pulling in unrelated already-merged node shards. origin/main is the actual
+// integration target and is what must be diffed against, in every environment.
 function resolveBaseRef(repo) {
   const candidates = [];
-  if (env.CLAUSE_DIGEST_BASE_REF) candidates.push(env.CLAUSE_DIGEST_BASE_REF);
+  if (process.env.CLAUSE_DIGEST_BASE_REF) candidates.push(process.env.CLAUSE_DIGEST_BASE_REF);
   candidates.push('origin/main');
-  if (env.GITHUB_BASE_REF) candidates.push(`origin/${env.GITHUB_BASE_REF}`);
+  if (process.env.GITHUB_BASE_REF) candidates.push(`origin/${process.env.GITHUB_BASE_REF}`);
   for (const ref of candidates) {
     try {
-      // execFileSync with an argv array, NOT execSync with a shell string: `^{commit}` is a
-      // cmd.exe escape sequence on Windows and gets silently mangled through a shell, which
-      // made resolveBaseRef fail closed on every Windows checkout during development of this
-      // fix. execFileSync passes argv straight to git with no shell in between.
-      execFileSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] });
+      // `^{commit}` is a cmd.exe escape sequence on Windows and gets silently mangled if this
+      // were run through a shell (execSync with a string) — execFileSync passes argv straight
+      // to git with no shell in between, which is why every call in this module uses it.
+      git(repo, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
       return ref;
     } catch { /* does not resolve in this checkout — try next candidate */ }
   }
@@ -70,19 +88,19 @@ export function touchedNodeFiles(repo = REPO) {
   const touched = new Set();
   const add = (out) => out.toString().split('\n').forEach((f) => f && touched.add(f.trim()));
   try {
-    add(execSync('git diff --name-only HEAD', { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }));
+    add(git(repo, ['diff', '--name-only', 'HEAD']));
   } catch { /* not a git repo / no HEAD yet — nothing tracked-modified */ }
   try {
-    add(execSync('git diff --name-only --cached', { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }));
+    add(git(repo, ['diff', '--name-only', '--cached']));
   } catch { /* nothing staged */ }
   try {
-    add(execSync('git ls-files --others --exclude-standard', { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }));
+    add(git(repo, ['ls-files', '--others', '--exclude-standard']));
   } catch { /* no untracked files */ }
   const baseRef = resolveBaseRef(repo);
   if (baseRef) {
     try {
-      const base = execSync(`git merge-base ${baseRef} HEAD`, { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      add(execSync(`git diff --name-only ${base} HEAD`, { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }));
+      const base = git(repo, ['merge-base', baseRef, 'HEAD']).toString().trim();
+      add(git(repo, ['diff', '--name-only', base, 'HEAD']));
     } catch { /* base resolved but diff failed — uncommitted/staged/untracked legs above still cover local work */ }
   } /* no candidate resolved (e.g. shallow checkout with no origin/main fetched) — same three legs still cover it */
   return touched;

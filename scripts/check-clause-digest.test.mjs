@@ -15,7 +15,40 @@ import { buildRegistryEntry, EXCERPT_MAX_BYTES } from '../chaingraph/standard/pi
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+
+// CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1's fix, same shape here). Git exports
+// GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/... to every hook it runs. This file is wired into
+// scripts/preflight.mjs, which the pre-push hook invokes — a child git spawned here with a
+// copied process.env inherits a GIT_DIR pointing at the OUTER repo, and every git call below
+// then operates on THAT repo instead of its throwaway sandbox. Measured while building this
+// fix: under the pre-push hook, an un-isolated version of this exact test committed its
+// sandbox's "work" tree onto the real worktree branch, mass-deleting the tracked tree in a
+// bogus commit (recovered with `git reset --hard`). An ALLOWLIST, not copy-and-delete, so the
+// next unnamed GIT_* variable is excluded by construction rather than missed by omission.
+const CHILD_ENV_ALLOWLIST = [
+  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
+  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
+  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
+  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
+  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
+  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
+  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
+  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
+  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
+  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
+];
+const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()));
+function childEnv(extra = {}) {
+  const e = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (ALLOWED.has(k.toLowerCase()) && v !== undefined) e[k] = v;
+  }
+  return { ...e, ...extra };
+}
+function git(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: childEnv() });
+}
 
 const out = [];
 let fail = 0;
@@ -120,7 +153,6 @@ log('— §30.2 granularity: pin-clause-snapshot.mjs refuses an over-cap excerpt
 
 log('— CLAUSE-DIGEST-SCOPE-FIX-1: touchedNodeFiles diffs against origin/main, not a stale @{u} —');
 {
-  const sh = (cmd, cwd) => execSync(cmd, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
   const rel = (f) => f.replace(/\\/g, '/');
   const root = mkdtempSync(join(tmpdir(), 'cdg-scope-'));
   try {
@@ -128,36 +160,35 @@ log('— CLAUSE-DIGEST-SCOPE-FIX-1: touchedNodeFiles diffs against origin/main, 
     const workDir = join(root, 'work');
     const otherDir = join(root, 'other');
 
-    sh(`git init --bare -q "${originDir}"`, root);
-    sh(`git clone -q "${originDir}" "${workDir}"`, root);
-    sh('git config user.email t@t.test', workDir);
-    sh('git config user.name t', workDir);
+    git(root, ['init', '--bare', '-q', '-b', 'main', originDir]);
+    git(root, ['clone', '-q', originDir, workDir]);
+    git(workDir, ['config', 'user.email', 't@t.test']);
+    git(workDir, ['config', 'user.name', 't']);
     mkdirSync(join(workDir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
     writeFileSync(join(workDir, 'chaingraph', 'graph', 'nodes', 'existing.json'), '{}');
-    sh('git add -A', workDir);
-    sh('git commit -q -m base', workDir);
-    sh('git push -q origin HEAD:main', workDir);
-    sh('git symbolic-ref HEAD refs/heads/main', originDir); // bare repo's HEAD must match the pushed branch or a later clone checks out nothing
+    git(workDir, ['add', '-A']);
+    git(workDir, ['commit', '-q', '-m', 'base']);
+    git(workDir, ['push', '-q', 'origin', 'HEAD:main']);
 
     // Cut a feature branch and push it — this is what makes @{u} exist and go stale.
-    sh('git checkout -q -b feature', workDir);
-    sh('git push -q -u origin feature', workDir);
+    git(workDir, ['checkout', '-q', '-b', 'feature']);
+    git(workDir, ['push', '-q', '-u', 'origin', 'feature']);
 
-    // Simulate an UNRELATED PR landing on main after the branch was cut (DISE-NODE-PAGES-LAND-1's shape).
-    sh(`git clone -q "${originDir}" "${otherDir}"`, root);
-    sh('git config user.email t@t.test', otherDir);
-    sh('git config user.name t', otherDir);
+    // Simulate an UNRELATED PR landing on main after the branch was cut (the DISE-NODE-PAGES-LAND-1 shape).
+    git(root, ['clone', '-q', originDir, otherDir]);
+    git(otherDir, ['config', 'user.email', 't@t.test']);
+    git(otherDir, ['config', 'user.name', 't']);
     writeFileSync(join(otherDir, 'chaingraph', 'graph', 'nodes', 'other.json'), '{}');
-    sh('git add -A', otherDir);
-    sh('git commit -q -m other-pr', otherDir);
-    sh('git push -q origin HEAD:main', otherDir);
+    git(otherDir, ['add', '-A']);
+    git(otherDir, ['commit', '-q', '-m', 'other-pr']);
+    git(otherDir, ['push', '-q', 'origin', 'HEAD:main']);
 
-    // The branch's OWN change, still sitting on the pre-other-pr base — mirrors ACCT-AMORT-K-1's
-    // real shape (rebased locally, @{u} left pointing at the earlier push).
+    // The branch's OWN change, still sitting on the pre-other-pr base — mirrors the real
+    // acct-amort-k-1 shape (rebased locally, @{u} left pointing at the earlier push).
     writeFileSync(join(workDir, 'chaingraph', 'graph', 'nodes', 'new.json'), '{}');
-    sh('git add -A', workDir);
-    sh('git commit -q -m branch-change', workDir);
-    sh('git fetch -q origin', workDir);
+    git(workDir, ['add', '-A']);
+    git(workDir, ['commit', '-q', '-m', 'branch-change']);
+    git(workDir, ['fetch', '-q', 'origin']);
 
     const touched = touchedNodeFiles(workDir);
     const has = (name) => [...touched].some((f) => rel(f).endsWith(name));
@@ -172,17 +203,16 @@ log('— CLAUSE-DIGEST-SCOPE-FIX-1: touchedNodeFiles diffs against origin/main, 
 
 log('— scoping: no origin/main resolvable (shallow/no-remote checkout) degrades gracefully, no crash —');
 {
-  const sh = (cmd, cwd) => execSync(cmd, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
   const rel = (f) => f.replace(/\\/g, '/');
   const root = mkdtempSync(join(tmpdir(), 'cdg-noremote-'));
   try {
-    sh('git init -q', root);
-    sh('git config user.email t@t.test', root);
-    sh('git config user.name t', root);
+    git(root, ['init', '-q']);
+    git(root, ['config', 'user.email', 't@t.test']);
+    git(root, ['config', 'user.name', 't']);
     mkdirSync(join(root, 'chaingraph', 'graph', 'nodes'), { recursive: true });
     writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'existing.json'), '{}');
-    sh('git add -A', root);
-    sh('git commit -q -m base', root);
+    git(root, ['add', '-A']);
+    git(root, ['commit', '-q', '-m', 'base']);
     writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'untracked.json'), '{}');
 
     let threw = false;
