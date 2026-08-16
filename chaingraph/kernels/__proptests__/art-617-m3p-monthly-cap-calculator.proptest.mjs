@@ -1,5 +1,5 @@
 // art-617-m3p-monthly-cap-calculator — class-A property-test FLOOR (fast CI sanity net).
-// kernel_digest_at_authoring: sha256:406da22d96eb7425d67b6a82aee34eb6fcd1c504d7e9a3dc3a61ee50b1df7fc9
+// kernel_digest_at_authoring: sha256:de0f2c827ca03f8101c1cb008207a577cc171246ad97a09d1e966bb29c9efd38
 // spec: research/M3P-CAP-BUILD-1-SPEC.md
 // human_sign_off: PENDING
 //

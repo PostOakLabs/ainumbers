@@ -52,7 +52,7 @@ const PLAN_YEAR_PARAMS = {
   2026: {
     annual_oop_threshold_cents: 210000,
     source: 'CMS Final CY 2026 Part D Redesign Program Instructions fact sheet',
-    source_digest: 'sha256:dab74d3ec4999f29553c9e74662162662685300e13984621e662739a445c8d8f',
+    source_digest: 'sha256:6eb8797d77cf892afb41f9fb5be0889ccc7504e770f323f7295c66f3ee49ac2d',
   },
 };
 const DEFAULT_PLAN_YEAR = 2026;
