@@ -1,0 +1,73 @@
+name: Automerge Label
+
+# Takes the `gh pr merge` step off every session. A session that finds a PR
+# green just labels it `automerge`; this workflow enables GitHub's own
+# auto-merge, and GitHub merges the PR itself once every required check
+# passes. No session runs `gh pr merge` again; Tim clicks nothing.
+#
+# WHY AN APP TOKEN, NOT GITHUB_TOKEN — same trap as derived-artifacts-regen.yml:
+# a GITHUB_TOKEN-authored merge is exempt from ruleset bypass and does not
+# fire `push: main` workflows, so deploy + derived-artifacts regen would
+# silently stop running on every automerged PR. Mint the same
+# ainumbers-spec-sync App installation token that regen uses, scoped to
+# pull-requests:write only (no contents write needed here — the merge itself
+# is done via `gh pr merge --auto`, not a push this job authors).
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  enable-automerge:
+    name: Enable auto-merge on labeled PR
+    if: github.event.label.name == 'automerge'
+    runs-on: ubuntu-latest
+    steps:
+      # Held-draft shard PRs must never auto-merge (board/STANDING-ORDERS.md
+      # -0.7) and a fork PR's head repo differs from the base repo, which the
+      # App token cannot push/merge across without a second grant — skip both.
+      - name: Guard draft and fork PRs
+        id: guard
+        env:
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "::notice title=Skipped::PR is a draft; auto-merge not enabled."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          elif [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::notice title=Skipped::PR head repo ($HEAD_REPO) differs from base repo ($BASE_REPO); auto-merge not enabled."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Mints a credential scoped to this one repo, pull-requests:write only,
+      # expiring with the job. Same App + same action pin as
+      # derived-artifacts-regen.yml and sync-chaingraph-spec.yml.
+      - name: Mint PR token
+        if: steps.guard.outputs.proceed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+
+      - name: Enable auto-merge
+        if: steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh pr merge "$PR" --auto --squash
+          gh pr comment "$PR" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed."
