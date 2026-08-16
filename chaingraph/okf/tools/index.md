@@ -565,6 +565,7 @@ status: stable
 - [Summa MST Liability Aggregator](./art-621-summa-mst-liability-aggregator.md) — `aggregate_summa_mst_liabilities`
 - [Deterministic Amortization Schedule](./art-626-deterministic-amortization-schedule.md) — `compute_deterministic_amortization_schedule`
 - [Effective-Date / Rule-Version Registry](./art-627-effective-date-rule-version-registry.md) — `resolve_rule_version`
+- [Declarative Decision-Tree Evaluator](./art-628-declarative-decision-tree-evaluator.md) — `evaluate_decision_tree`
 - [Agent-Service Metering & Marketplace Economics Modeler](./art-63-agent-service-metering-modeler.md) — `model_agent_service_metering`
 - [ASC 280 Reportable Segment Tester](./art-633-asc280-reportable-segment-tester.md) — `test_asc280_reportable_segment`
 - [CODM Significant Expense Classifier](./art-634-codm-expense-significance-classifier.md) — `classify_codm_expense_significance`

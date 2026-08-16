@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Declarative Decision-Tree Evaluator · ART-628 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Evaluate a caller-supplied, hash-pinned decision tree over a closed operator set, with citation mandatory on every node. Client-side. Zero PII.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-628-declarative-decision-tree-evaluator.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.76rem}
+.tbl th{font-family:'JetBrains Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 6px;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px;margin:10px 0}
+@media(max-width:640px){.field-grid{grid-template-columns:1fr}}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field select,.field input{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.err{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+.path-chip{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:var(--bg-3);border:1px solid var(--border-2);border-radius:4px;padding:.2rem .5rem;display:inline-block;margin:2px 3px 2px 0}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>›</span>
+      <span style="color:var(--gold)">ART-628 · Declarative Decision-Tree Evaluator</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-628</div>
+  <h1>Declarative Decision-Tree Evaluator</h1>
+  <p class="sub">Evaluates a caller-supplied, hash-pinned decision tree against caller-supplied facts entirely offline, client-side. The tree is inert data: one audited interpreter walks it over a closed operator set (eq, in, lt, lte, gt, gte, between, all_of, any_of, none_of), never eval, never a function-valued criterion. Every node in the tree, internal criteria included and not leaves only, must carry a citation to a pinned clause snapshot; a tree with any uncited node is rejected by the loader. The interpreter independently recomputes the tree's own <code>tree_digest</code> from its bytes and refuses to evaluate on a mismatch, never trusting the declared digest as an oracle for itself. Evaluation walks an explicit stack, not recursion, and acyclicity is checked at load, before any evaluation begins.</p>
+  <div style="margin-bottom:6px"><span class="flag">Decision Tree</span><span class="flag">Reg D Rule 501(a)</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>This kernel carries no embedded classification rules of its own. The demonstrator tree below is one caller-supplied example, the Reg D Rule 501(a) entity-type accredited-investor category test, citing 17 CFR 230.501(a)(1), (2), (3), (8) and (9). It is a category test only: the natural-person prongs and the two numeric-threshold entity prongs of Rule 501(a) (net worth, income, and the $5m "investments" definition's own numeric test) are out of scope for this demonstrator and are not evaluated here. Every criterion in this tree reads a bounded enum (boolean), so it was enumerated exhaustively: 2<sup>5</sup> = 32 combinations, 0 unexplained results. This tool does not reproduce CFR text and does not assert that any entity is in fact accredited. No formal correctness proof exists for this node yet; see the proof-status note below the results.</div>
+  <div class="card">
+    <div class="section-head">Demonstrator tree · Reg D Rule 501(a) entity-type category test</div>
+    <div class="muted-txt" style="margin-bottom:8px">Five declared boolean facts, each gating one CFR sub-paragraph in sequence. Answer each; the interpreter walks the tree from its root and stops at the first matching leaf.</div>
+    <div class="field-grid" id="factGrid"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="run()">Run</button>
+      <button class="btn-2" onclick="tamperDigest()">Tamper tree_digest (demo)</button>
+    </div>
+  </div>
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div id="pathDiv" style="margin-top:8px"></div>
+      <table class="tbl" id="citeTbl"></table>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. No formal correctness proof has been produced for this kernel; the result above is a deterministic recompute, verified by a property-test floor, not a proven one.</div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button class="btn-2" onclick="exportArtifact()">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col"><div class="footer-col-label">Platform</div><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="openchain-graph-spec.html">Spec v0.8.13</a><a href="openchain-graph-explainer.html">OCG Explainer</a><a href="ocg-sandbox.html">Sandbox</a></div>
+      <div class="footer-col"><div class="footer-col-label">Guides</div><a href="guide-iso20022.html">ISO 20022 Profile</a><a href="guide-otel.html">OpenTelemetry</a></div>
+      <div class="footer-col"><div class="footer-col-label">Data &amp; Artifacts</div><a href="chaingraph.json" target="_blank">chaingraph.json</a><a href="../openapi.json" target="_blank">openapi.json</a><a href="../sitemap.html">Sitemap</a></div>
+      <div class="footer-col"><div class="footer-col-label">Network</div><a href="../tools.html">All Tools</a><a href="../mcp.html">MCP Docs</a><a href="../about.html">About</a><a href="../contact.html">Contact</a></div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={tool_id:"art-628-declarative-decision-tree-evaluator",version:"1.0.0",title:"Declarative Decision-Tree Evaluator",mcp_tool_definition:{name:"evaluate_decision_tree",description:"Evaluates a caller-supplied, hash-pinned decision tree against caller-supplied facts. Closed operator set, citation mandatory on every node, tree_digest recomputed and checked fail-closed. Carries no classification rules of its own.",inputSchema:{type:"object",properties:{tree:{type:"object"},facts:{type:"object"}},required:["tree","facts"]}},ap2_export:true,chaingraph:true};
+
+/* ── demonstrator tree: Reg D Rule 501(a) entity-type category test — verbatim from the row's
+   fixture vectors, citing 17 CFR 230.501(a)(1)/(2)/(3)/(8)/(9). Class-A exhaustive N=32. ── */
+const CLAUSE_CITE={
+  a1:{clause:"17 CFR 230.501(a)(1)",source:"17 CFR 230.501(a)(1) (Regulation D, Securities Act of 1933, accredited investor definition)",source_digest:"0cd4295ba5a4b7192725f7dcf323d59c3e4f4768064b9a498f721504119279f6",snapshot_location:"research/clause-snapshots/17-cfr-230.501-a.snapshot.md"},
+  a2:{clause:"17 CFR 230.501(a)(2)",source:"17 CFR 230.501(a)(2) (Regulation D, Securities Act of 1933, accredited investor definition)",source_digest:"0cd4295ba5a4b7192725f7dcf323d59c3e4f4768064b9a498f721504119279f6",snapshot_location:"research/clause-snapshots/17-cfr-230.501-a.snapshot.md"},
+  a3:{clause:"17 CFR 230.501(a)(3)",source:"17 CFR 230.501(a)(3) (Regulation D, Securities Act of 1933, accredited investor definition)",source_digest:"0cd4295ba5a4b7192725f7dcf323d59c3e4f4768064b9a498f721504119279f6",snapshot_location:"research/clause-snapshots/17-cfr-230.501-a.snapshot.md"},
+  a8:{clause:"17 CFR 230.501(a)(8)",source:"17 CFR 230.501(a)(8) (Regulation D, Securities Act of 1933, accredited investor definition)",source_digest:"0cd4295ba5a4b7192725f7dcf323d59c3e4f4768064b9a498f721504119279f6",snapshot_location:"research/clause-snapshots/17-cfr-230.501-a.snapshot.md"},
+  a9:{clause:"17 CFR 230.501(a)(9)",source:"17 CFR 230.501(a)(9) (Regulation D, Securities Act of 1933, accredited investor definition)",source_digest:"0cd4295ba5a4b7192725f7dcf323d59c3e4f4768064b9a498f721504119279f6",snapshot_location:"research/clause-snapshots/17-cfr-230.501-a.snapshot.md"},
+  chapeau:{clause:"17 CFR 230.501(a)",source:"17 CFR 230.501(a) chapeau (categories are exhaustive: any person within any of the following categories)",source_digest:"0cd4295ba5a4b7192725f7dcf323d59c3e4f4768064b9a498f721504119279f6",snapshot_location:"research/clause-snapshots/17-cfr-230.501-a.snapshot.md"},
+};
+const DEMO_TREE={
+  tree_id:"reg-d-501a-entity-accredited-investor-category-test",
+  tree_version:"1.0.0",
+  tree_digest:"f61c62137ae8f90a43866df4e8cfbd122499c942599d3287813dc2fc71c0dd91",
+  root:"c_501a1",
+  nodes:{
+    c_501a1:{kind:"criterion",field:"is_501a1_institution",operator:"eq",operand:true,branches:{true:"leaf_501a1",false:"c_bdc"},citation:CLAUSE_CITE.a1},
+    c_bdc:{kind:"criterion",field:"is_private_bdc",operator:"eq",operand:true,branches:{true:"leaf_bdc",false:"c_501c3"},citation:CLAUSE_CITE.a2},
+    c_501c3:{kind:"criterion",field:"is_501c3_or_qualifying_entity_over_5m",operator:"eq",operand:true,branches:{true:"leaf_501c3",false:"c_equity"},citation:CLAUSE_CITE.a3},
+    c_equity:{kind:"criterion",field:"all_equity_owners_accredited",operator:"eq",operand:true,branches:{true:"leaf_equity",false:"c_catchall"},citation:CLAUSE_CITE.a8},
+    c_catchall:{kind:"criterion",field:"is_other_entity_investments_over_5m",operator:"eq",operand:true,branches:{true:"leaf_catchall",false:"leaf_not_accredited"},citation:CLAUSE_CITE.a9},
+    leaf_501a1:{kind:"leaf",verdict:"accredited",citation:CLAUSE_CITE.a1},
+    leaf_bdc:{kind:"leaf",verdict:"accredited",citation:CLAUSE_CITE.a2},
+    leaf_501c3:{kind:"leaf",verdict:"accredited",citation:CLAUSE_CITE.a3},
+    leaf_equity:{kind:"leaf",verdict:"accredited",citation:CLAUSE_CITE.a8},
+    leaf_catchall:{kind:"leaf",verdict:"accredited",citation:CLAUSE_CITE.a9},
+    leaf_not_accredited:{kind:"leaf",verdict:"not_accredited",citation:CLAUSE_CITE.chapeau},
+  }
+};
+const FACT_FIELDS=[
+  ['is_501a1_institution','is_501a1_institution — a 501(a)(1) institution (bank, insurance company, registered investment company, etc.)'],
+  ['is_private_bdc','is_private_bdc — a private business development company as defined in the Investment Advisers Act'],
+  ['is_501c3_or_qualifying_entity_over_5m','is_501c3_or_qualifying_entity_over_5m — a 501(c)(3) organization, corporation, LLC, or similar entity with total assets over $5 million, not formed for the purpose of the investment'],
+  ['all_equity_owners_accredited','all_equity_owners_accredited — every equity owner of this entity is itself an accredited investor'],
+  ['is_other_entity_investments_over_5m','is_other_entity_investments_over_5m — an entity of any type owning "investments" over $5 million, not formed for the purpose of the investment'],
+];
+
+/* ── closed operator set (mirrors chaingraph/kernels/_dtree.bundle.mjs's runTree(); the kernel is
+   the audited interpreter, this is the same algorithm run client-side for interactive display) ── */
+const CLOSED_OPERATORS=['eq','in','lt','lte','gt','gte','between','all_of','any_of','none_of'];
+const MAX_DEPTH=12, MAX_NODES=256, MAX_TREE_BYTES=65536;
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function sha256Hex(bytes){const dig=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function computeTreeDigest(tree){const stripped=Object.assign({},tree);delete stripped.tree_digest;const s=JSON.stringify(cgCanon(stripped));return sha256Hex(new TextEncoder().encode(s));}
+function validCitation(c){return !!c&&typeof c==='object'&&typeof c.clause==='string'&&c.clause.length>0&&typeof c.source==='string'&&c.source.length>0&&typeof c.source_digest==='string'&&c.source_digest.length>0&&typeof c.snapshot_location==='string'&&c.snapshot_location.length>0;}
+function validateTree(tree){
+  if(!tree||typeof tree!=='object')return{ok:false,error_code:'TREE_MISSING',message:'policy_parameters.tree is missing or not an object'};
+  const nodes=tree.nodes;
+  if(!nodes||typeof nodes!=='object'||Array.isArray(nodes))return{ok:false,error_code:'TREE_MISSING_NODES',message:'tree.nodes is missing or not an object'};
+  const nodeIds=Object.keys(nodes);
+  if(nodeIds.length===0)return{ok:false,error_code:'TREE_MISSING_NODES',message:'tree.nodes is empty'};
+  if(nodeIds.length>MAX_NODES)return{ok:false,error_code:'TREE_MAX_NODES_EXCEEDED',message:`tree has ${nodeIds.length} nodes, exceeds max_nodes=${MAX_NODES}`};
+  const byteLen=new TextEncoder().encode(JSON.stringify(tree)).length;
+  if(byteLen>MAX_TREE_BYTES)return{ok:false,error_code:'TREE_MAX_BYTES_EXCEEDED',message:`tree is ${byteLen} bytes, exceeds max_tree_bytes=${MAX_TREE_BYTES}`};
+  const rootId=tree.root;
+  if(typeof rootId!=='string'||!Object.prototype.hasOwnProperty.call(nodes,rootId))return{ok:false,error_code:'TREE_ROOT_NOT_FOUND',message:`tree.root "${String(rootId)}" is not a key of tree.nodes`};
+  for(const id of nodeIds){
+    const node=nodes[id];
+    if(!node||typeof node!=='object')return{ok:false,error_code:'TREE_INVALID_NODE',message:`node "${id}" is not an object`};
+    if(!validCitation(node.citation))return{ok:false,error_code:'TREE_UNCITED_NODE',message:`node "${id}" carries no valid citation — REJECTED BY THE LOADER`};
+    if(node.kind==='leaf'){
+      if(typeof node.verdict!=='string'||node.verdict.length===0)return{ok:false,error_code:'TREE_INVALID_LEAF',message:`leaf "${id}" missing a non-empty string verdict`};
+    }else if(node.kind==='criterion'){
+      if(!CLOSED_OPERATORS.includes(node.operator))return{ok:false,error_code:'TREE_INVALID_OPERATOR',message:`node "${id}" operator "${String(node.operator)}" is not in the closed operator set`};
+      if(typeof node.field!=='string'||node.field.length===0)return{ok:false,error_code:'TREE_INVALID_NODE',message:`node "${id}" missing a non-empty string field`};
+      const branches=node.branches;
+      if(!branches||typeof branches!=='object'||Array.isArray(branches))return{ok:false,error_code:'TREE_INVALID_BRANCHES',message:`node "${id}" missing branches`};
+      const bKeys=Object.keys(branches).slice().sort();
+      if(bKeys.length!==2||bKeys[0]!=='false'||bKeys[1]!=='true')return{ok:false,error_code:'TREE_INVALID_BRANCHES',message:`node "${id}" branches must be exactly {true, false}`};
+      if(!Object.prototype.hasOwnProperty.call(nodes,branches.true)||!Object.prototype.hasOwnProperty.call(nodes,branches.false))return{ok:false,error_code:'TREE_INVALID_BRANCHES',message:`node "${id}" branch target not found in tree.nodes`};
+    }else{
+      return{ok:false,error_code:'TREE_INVALID_NODE',message:`node "${id}" has unknown kind "${String(node.kind)}"`};
+    }
+  }
+  const stack=[{id:rootId,depth:1,path:new Set([rootId])}];
+  let maxDepthSeen=0,steps=0;const STEP_CAP=MAX_NODES*4;
+  while(stack.length>0){
+    steps++;
+    if(steps>STEP_CAP)return{ok:false,error_code:'TREE_CYCLE_DETECTED',message:'traversal step cap exceeded during acyclicity check'};
+    const frame=stack.pop();
+    if(frame.depth>maxDepthSeen)maxDepthSeen=frame.depth;
+    if(frame.depth>MAX_DEPTH)return{ok:false,error_code:'TREE_MAX_DEPTH_EXCEEDED',message:`depth ${frame.depth} at node "${frame.id}" exceeds max_depth=${MAX_DEPTH}`};
+    const node=nodes[frame.id];
+    if(node.kind==='criterion'){
+      for(const branchKey of['true','false']){
+        const nextId=node.branches[branchKey];
+        if(frame.path.has(nextId))return{ok:false,error_code:'TREE_CYCLE_DETECTED',message:`cycle detected: "${frame.id}" --${branchKey}--> "${nextId}"`};
+        const nextPath=new Set(frame.path);nextPath.add(nextId);
+        stack.push({id:nextId,depth:frame.depth+1,path:nextPath});
+      }
+    }
+  }
+  return{ok:true,max_depth_seen:maxDepthSeen,node_count:nodeIds.length,byte_length:byteLen};
+}
+function evalOperator(operator,factValue,operand){
+  const numOk=typeof factValue==='number'&&Number.isFinite(factValue);
+  switch(operator){
+    case'eq':return factValue===operand;
+    case'in':if(!Array.isArray(operand))return{error_code:'FACT_TYPE_MISMATCH',message:'operator "in" requires an array operand'};return operand.includes(factValue);
+    case'lt':if(!numOk||typeof operand!=='number')return{error_code:'FACT_TYPE_MISMATCH',message:'operator "lt" requires numeric field value and operand'};return factValue<operand;
+    case'lte':if(!numOk||typeof operand!=='number')return{error_code:'FACT_TYPE_MISMATCH',message:'operator "lte" requires numeric field value and operand'};return factValue<=operand;
+    case'gt':if(!numOk||typeof operand!=='number')return{error_code:'FACT_TYPE_MISMATCH',message:'operator "gt" requires numeric field value and operand'};return factValue>operand;
+    case'gte':if(!numOk||typeof operand!=='number')return{error_code:'FACT_TYPE_MISMATCH',message:'operator "gte" requires numeric field value and operand'};return factValue>=operand;
+    case'between':if(!Array.isArray(operand)||operand.length!==2||typeof operand[0]!=='number'||typeof operand[1]!=='number')return{error_code:'FACT_TYPE_MISMATCH',message:'operator "between" requires operand [lo, hi]'};if(!numOk)return{error_code:'FACT_TYPE_MISMATCH',message:'operator "between" requires a numeric field value'};return factValue>=operand[0]&&factValue<=operand[1];
+    case'all_of':if(!Array.isArray(factValue)||!Array.isArray(operand))return{error_code:'FACT_TYPE_MISMATCH',message:'operator "all_of" requires array field value and operand'};return operand.every(o=>factValue.includes(o));
+    case'any_of':if(!Array.isArray(factValue)||!Array.isArray(operand))return{error_code:'FACT_TYPE_MISMATCH',message:'operator "any_of" requires array field value and operand'};return operand.some(o=>factValue.includes(o));
+    case'none_of':if(!Array.isArray(factValue)||!Array.isArray(operand))return{error_code:'FACT_TYPE_MISMATCH',message:'operator "none_of" requires array field value and operand'};return!operand.some(o=>factValue.includes(o));
+    default:return{error_code:'TREE_INVALID_OPERATOR',message:`unknown operator "${String(operator)}"`};
+  }
+}
+async function runTree(pp){
+  pp=pp||{};
+  const tree=pp.tree;
+  const facts=(pp.facts&&typeof pp.facts==='object'&&!Array.isArray(pp.facts))?pp.facts:{};
+  const structural=validateTree(tree);
+  if(!structural.ok)return{verdict:null,error_code:structural.error_code,message:structural.message,matched_node_id:null,matched_citation:null,path:[],weight:null,tree_id:(tree&&typeof tree.tree_id==='string')?tree.tree_id:null,tree_version:(tree&&typeof tree.tree_version==='string')?tree.tree_version:null,tree_digest_recomputed:null};
+  const recomputedDigest=await computeTreeDigest(tree);
+  const declaredDigest=typeof tree.tree_digest==='string'?tree.tree_digest.toLowerCase():null;
+  if(declaredDigest===null||declaredDigest!==recomputedDigest.toLowerCase())return{verdict:null,error_code:'TREE_DIGEST_MISMATCH',message:`declared tree_digest "${String(tree.tree_digest)}" does not match recomputed digest "${recomputedDigest}" over the tree's own bytes`,matched_node_id:null,matched_citation:null,path:[],weight:null,tree_id:tree.tree_id,tree_version:tree.tree_version,tree_digest_recomputed:recomputedDigest};
+  let currentId=tree.root;const path=[currentId];let steps=0;const STEP_CAP=MAX_NODES+1;
+  while(true){
+    steps++;
+    if(steps>STEP_CAP)return{verdict:null,error_code:'TREE_EVAL_STEP_LIMIT_EXCEEDED',message:`evaluation exceeded ${STEP_CAP} steps`,matched_node_id:null,matched_citation:null,path,weight:null,tree_id:tree.tree_id,tree_version:tree.tree_version,tree_digest_recomputed:recomputedDigest};
+    const node=tree.nodes[currentId];
+    if(node.kind==='leaf')return{verdict:node.verdict,error_code:null,message:null,matched_node_id:currentId,matched_citation:node.citation,path,weight:(node.weight===undefined)?null:node.weight,tree_id:tree.tree_id,tree_version:tree.tree_version,tree_digest_recomputed:recomputedDigest};
+    const hasField=Object.prototype.hasOwnProperty.call(facts,node.field);
+    const factValue=hasField?facts[node.field]:undefined;
+    if(!hasField||factValue===undefined)return{verdict:null,error_code:'FACT_FIELD_MISSING',message:`facts.${node.field} is required by node "${currentId}" and was not provided`,matched_node_id:null,matched_citation:null,path,weight:null,tree_id:tree.tree_id,tree_version:tree.tree_version,tree_digest_recomputed:recomputedDigest};
+    const evalResult=evalOperator(node.operator,factValue,node.operand);
+    if(evalResult&&typeof evalResult==='object'&&evalResult.error_code)return{verdict:null,error_code:evalResult.error_code,message:`at node "${currentId}": ${evalResult.message}`,matched_node_id:null,matched_citation:null,path,weight:null,tree_id:tree.tree_id,tree_version:tree.tree_version,tree_digest_recomputed:recomputedDigest};
+    const outcomeKey=evalResult?'true':'false';
+    currentId=node.branches[outcomeKey];path.push(currentId);
+  }
+}
+async function compute(pp){
+  pp=pp||{};
+  const result=await runTree(pp);
+  const compliance_flags={DTREE_OPERATOR_SET_CLOSED:true,DTREE_TREE_IS_DATA_NOT_CODE:true};
+  if(result.error_code===null){compliance_flags.DTREE_EVAL_OK=true;}else{
+    compliance_flags.DTREE_EVAL_REJECTED=true;
+    if(result.error_code==='TREE_UNCITED_NODE')compliance_flags.DTREE_UNCITED_NODE_REJECTED=true;
+    if(result.error_code==='TREE_DIGEST_MISMATCH')compliance_flags.DTREE_DIGEST_MISMATCH_REJECTED=true;
+    if(result.error_code==='TREE_CYCLE_DETECTED')compliance_flags.DTREE_CYCLE_REJECTED=true;
+  }
+  const output_payload={verdict:result.verdict,error_code:result.error_code,message:result.message,matched_node_id:result.matched_node_id,matched_citation:result.matched_citation,path:result.path,weight:result.weight,tree_id:result.tree_id,tree_version:result.tree_version,tree_digest_recomputed:result.tree_digest_recomputed,bounds:{max_depth:MAX_DEPTH,max_nodes:MAX_NODES,max_tree_bytes:MAX_TREE_BYTES},closed_operator_set:CLOSED_OPERATORS,scope_note:"This kernel is a generic decision-tree interpreter. It carries no embedded classification rules of its own -- every call must supply its own {tree, facts} in policy_parameters. Any citation, verdict, or bound reported below comes entirely from the caller-supplied tree, never from anything hardcoded in this kernel."};
+  return{output_payload,compliance_flags};
+}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);return sha256Hex(buf);}
+
+function fieldRowHtml(key,label){return '<div class="field" style="grid-column:1 / -1"><label>'+label+'</label><select id="f_'+key+'"><option value="true">true</option><option value="false" selected>false</option></select></div>';}
+document.getElementById('factGrid').innerHTML=FACT_FIELDS.map(([k,l])=>fieldRowHtml(k,l)).join('');
+document.getElementById('f_is_501a1_institution').value='true';
+
+let _tamper=false;
+function tamperDigest(){_tamper=!_tamper;const b=event.target;b.textContent=_tamper?'Tamper tree_digest (ON — next run rejects)':'Tamper tree_digest (demo)';}
+
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
+async function run(){
+  const facts={};
+  for(const[k]of FACT_FIELDS)facts[k]=document.getElementById('f_'+k).value==='true';
+  const tree=JSON.parse(JSON.stringify(DEMO_TREE));
+  if(_tamper)tree.tree_digest='0000000000000000000000000000000000000000000000000000000000000';
+  const pp={tree,facts};
+  const{output_payload,compliance_flags}=await compute(pp);
+  const rawHash=await executionHashLocal(pp,output_payload);
+  const execHash='sha256:'+rawHash;
+  const generatedAt=new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:'compliance_mandate',tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,generated_at:generatedAt,execution_hash:execHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload,compliance_flags,audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
+  renderResults(output_payload,execHash,artifact);
+  document.getElementById('ap2ExportBtn').disabled=false;
+}
+function renderResults(op,execHash,artifact){
+  const rejected=op.error_code!==null;
+  document.getElementById('heroRow').innerHTML=
+    '<div class="hero-stat"><div class="hero-val" style="color:'+(rejected?'var(--red)':(op.verdict==='accredited'?'var(--green)':'var(--body)'))+'">'+(rejected?'REJECTED':String(op.verdict).toUpperCase())+'</div><div class="hero-lbl">Verdict</div></div>'+
+    '<div class="hero-stat"><div class="hero-val">'+op.path.length+'</div><div class="hero-lbl">Nodes Walked</div></div>'+
+    '<div class="hero-stat"><div class="hero-val" style="font-size:.85rem">'+(op.tree_digest_recomputed?op.tree_digest_recomputed.slice(0,12)+'…':'—')+'</div><div class="hero-lbl">tree_digest Recomputed</div></div>';
+  document.getElementById('verdictDiv').innerHTML=rejected
+    ? '<div class="verdict fail">✗ REJECTED — '+op.error_code+': '+op.message+'</div>'
+    : '<div class="verdict '+(op.verdict==='accredited'?'pass':'warn')+'">'+(op.verdict==='accredited'?'✓':'○')+' verdict: '+op.verdict+' (matched node "'+op.matched_node_id+'")</div>';
+  document.getElementById('pathDiv').innerHTML=op.path.length?('<span class="muted-txt">Evaluation path: </span>'+op.path.map(p=>'<span class="path-chip">'+p+'</span>').join('<span class="muted-txt">→</span>')):'';
+  if(op.matched_citation){
+    document.getElementById('citeTbl').innerHTML='<thead><tr><th>Clause</th><th>Source</th><th>Snapshot</th></tr></thead><tbody><tr><td>'+op.matched_citation.clause+'</td><td>'+op.matched_citation.source+'</td><td>'+op.matched_citation.snapshot_location+'</td></tr></tbody>';
+  }else{
+    document.getElementById('citeTbl').innerHTML='';
+  }
+  document.getElementById('execHash').textContent=execHash;
+  document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+function exportAP2(){if(!_lastArtifact)return;const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:'compliance_mandate',generated_at:_lastArtifact.generated_at,execution_hash:_lastHash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags};dl(JSON.stringify(ap2,null,2),'art-628-policy-mandate.json','application/json');}
+function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),'art-628-artifact.json','application/json');}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+</script>
+</body>
+</html>
