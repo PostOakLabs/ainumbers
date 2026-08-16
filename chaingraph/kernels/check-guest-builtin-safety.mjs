@@ -1,3 +1,11 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and this edit makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path filter,
+// landed 2026-08-16, watches the whole directory, not just *.kernel.mjs). Without
+// this it fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/) that would
+// block ANY future edit to any of the ~40 non-kernel .mjs scripts in this
+// directory, not something specific to this file's own logic.
 // check-guest-builtin-safety.mjs — GUEST-BUILTIN-GATE-1.
 //
 // vm-parity-gate.mjs (§24) runs every kernel through chaingraph/vm/kernel-vm.mjs, whose
@@ -30,6 +38,9 @@
 //   node check-guest-builtin-safety.mjs             report + exit 1 on any NEW (non-allowlisted)
 //                                                    guest-fatal finding or hard error.
 //   node check-guest-builtin-safety.mjs --report <path>   write the full JSON result to <path>.
+//   node check-guest-builtin-safety.mjs --only <tool-id>  KERNEL-PREFLIGHT-1: scope the run to
+//                                                    ONE kernel id (whole-estate run is unchanged
+//                                                    when this flag is absent).
 
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -42,6 +53,8 @@ const FIXDIR = resolve(HERE, 'fixtures');
 const KERNEL_VM_PATH = resolve(HERE, '../vm/kernel-vm.mjs');
 const reportIdx = process.argv.indexOf('--report');
 const reportPath = reportIdx !== -1 ? process.argv[reportIdx + 1] : null;
+const onlyIdx = process.argv.indexOf('--only');
+const ONLY_ID = onlyIdx !== -1 ? process.argv[onlyIdx + 1] : null;
 
 // ── DERIVE the absent-builtin set from kernel-vm.mjs's own prelude — never hand-typed ───────────
 // kernel-vm.mjs's DETERMINISM_PRELUDE guards every WHATWG/ECMA-262-absent global it polyfills
@@ -84,7 +97,13 @@ let checked = 0, passed = 0, guestFatal = 0, knownGuestFatal = 0, hardErrors = 0
 const findings = [];
 const knownHits = [];
 
-const toolIds = Object.keys(KERNELS);
+let toolIds = Object.keys(KERNELS);
+if (ONLY_ID) {
+  if (!toolIds.includes(ONLY_ID)) {
+    throw new Error(`check-guest-builtin-safety.mjs --only ${ONLY_ID}: no such kernel id in index.mjs.`);
+  }
+  toolIds = [ONLY_ID];
+}
 for (const id of toolIds) {
   const kernel = KERNELS[id];
   if (kernel?.meta?.gpu === true) { skippedGpu++; continue; } // out of scope, same as vm-parity-gate.mjs (§24.0)

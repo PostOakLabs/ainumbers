@@ -4,13 +4,25 @@
  * Guards against the W45 defect class: compute-less kernels pass golden-parity
  * (which only hashes fixture vectors) but fail the RISC0 guest with ocg_run code -3.
  */
-import { readdirSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const KERNELS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'chaingraph', 'kernels');
 
-const files = readdirSync(KERNELS_DIR).filter(f => f.endsWith('.kernel.mjs'));
+// --only <tool-id>: KERNEL-PREFLIGHT-1 scope to ONE kernel file (whole-estate run is
+// unchanged when this flag is absent).
+const onlyIdx = process.argv.indexOf('--only');
+const ONLY_ID = onlyIdx !== -1 ? process.argv[onlyIdx + 1] : null;
+
+let files = readdirSync(KERNELS_DIR).filter(f => f.endsWith('.kernel.mjs'));
+if (ONLY_ID) {
+  const target = `${ONLY_ID}.kernel.mjs`;
+  if (!existsSync(resolve(KERNELS_DIR, target))) {
+    throw new Error(`check-kernel-exports.mjs --only ${ONLY_ID}: no such kernel file chaingraph/kernels/${target}.`);
+  }
+  files = [target];
+}
 
 let failures = 0;
 for (const file of files) {
