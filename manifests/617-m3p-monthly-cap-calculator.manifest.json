@@ -1,0 +1,57 @@
+{
+  "tool_id": "617-m3p-monthly-cap-calculator",
+  "version": "1.0.0",
+  "title": "M3P Monthly Cap Calculator",
+  "description": "Recomputes the Medicare Prescription Payment Plan (M3P) maximum monthly cap under 42 CFR 423.137(c)(1)(i) (first month of participation) and (c)(1)(ii) (every subsequent month), verified by exhaustive enumeration over the full declared cents/months domain (4,830,023 states). The annual out-of-pocket threshold is a plan-year-indexed CMS figure, carried as a keyed, source-digested policy parameter rather than a bare constant -- CY2026 is $2,100. Rounding is declared half-up-to-the-cent, since the regulation states no explicit rounding rule for the division step; the declaration is backed by three independent CMS-sourced worked examples and implemented with exact integer arithmetic, never floating-point division. A caller-declared numerator or months value outside the declared domain is rejected with a named reason, never clamped or silently coerced. Verify-only: recomputes the formula from caller-declared inputs, does not track a real enrollee's true out-of-pocket accumulation, does not enroll anyone in M3P, and does not assert that any actual participant's bill is correct.",
+  "category": "personal-finance",
+  "tags": ["Medicare", "M3P", "Part D", "prescription payment plan", "CMS", "42 CFR 423.137", "out-of-pocket", "monthly cap"],
+  "audience": ["consumer", "compliance", "healthcare"],
+  "input_schema": {
+    "type": "object",
+    "required": ["branch", "months_remaining"],
+    "properties": {
+      "plan_year": { "type": "integer", "description": "Plan year the calculation applies to. Defaults to 2026 if omitted. Only 2026 is currently declared." },
+      "branch": { "type": "string", "enum": ["first_month", "subsequent_month"], "description": "Which formula applies: the first month of M3P participation, or every subsequent month." },
+      "incurred_TrOOP_cents": { "type": "integer", "description": "First month only: out-of-pocket costs already incurred this plan year, in cents. 0 to the annual threshold." },
+      "remaining_owed_cents": { "type": "integer", "description": "Subsequent month only: not-yet-billed out-of-pocket costs owed from a previous month, in cents." },
+      "newly_incurred_cents": { "type": "integer", "description": "Subsequent month only: additional out-of-pocket costs incurred this month, in cents." },
+      "months_remaining": { "type": "integer", "description": "Months remaining in the plan year, including the current month. 1-12 for first_month, 1-11 for subsequent_month." }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "valid_input": { "type": "boolean" },
+      "domain_errors": { "type": "array", "description": "Named reasons the input was rejected, if any" },
+      "numerator_cents": { "type": "integer" },
+      "cap_cents": { "type": "integer" },
+      "cap_dollars_display": { "type": "string" },
+      "rounding_mode": { "type": "string" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_m3p_monthly_cap",
+    "description": "Recomputes the CMS Medicare Prescription Payment Plan maximum monthly cap under 42 CFR 423.137(c)(1)(i)/(ii) from caller-declared numerator and months-remaining inputs, verified by exhaustive enumeration over the full declared 4,830,023-state domain. Returns the cap in cents and dollars, or a named domain-rejection reason. Use when an agent needs the CMS-formula monthly cap for a Medicare Part D enrollee participating in the payment plan.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["branch", "months_remaining"],
+      "properties": {
+        "plan_year": { "type": "integer" },
+        "branch": { "type": "string", "enum": ["first_month", "subsequent_month"] },
+        "incurred_TrOOP_cents": { "type": "integer" },
+        "remaining_owed_cents": { "type": "integer" },
+        "newly_incurred_cents": { "type": "integer" },
+        "months_remaining": { "type": "integer" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/617-m3p-monthly-cap-calculator.html",
+    "function_name": "runM3P",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
