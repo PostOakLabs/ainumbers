@@ -435,7 +435,52 @@ const nextTick = async () => { };
 function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new TypeError('string expected');
-    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
+    // Was `new Uint8Array(new TextEncoder().encode(str))`. Replaced -- the zkVM guest does not
+    // provide a working TextEncoder ANYWHERE, including inside compute() (confirmed via the
+    // chaingraph/vm QuickJS-ng harness with TextEncoder genuinely deleted post-prelude,
+    // TEXTENCODER-SWEEP-FIX-1-2026-08-13). This kernel was branched BEFORE that fix landed, so it
+    // carried the pre-fix noble utils body while art-606/art-607 already carry the corrected one
+    // on main; all five of its fixture vectors were guest-fatal here
+    // (ART612-GUEST-ERROR-1-2026-08-16, reproduced with check-guest-builtin-safety.mjs before the
+    // edit). ART607-EAGER-INIT-FIX-1's lesson applies to the sweep, not to a second fix here: the
+    // T1 (module top-level) and T2 (inside compute()) call sites in art-612 both funnel through
+    // THIS one function -- the EIP-712 typehash/domain constants at module scope and the runtime
+    // domain-separator rebuild in compute() -- so replacing the encoder itself, rather than any
+    // single call site, is what closes both levels. Pure-JS UTF-8 encoder, validated
+    // byte-identical to TextEncoder.encode across ASCII, 2/3/4-byte sequences, surrogate pairs,
+    // and lone surrogates (which TextEncoder replaces with U+FFFD, reproduced here) -- 22 named
+    // cases + 20,000 randomized fuzz cases against Node's native TextEncoder, zero mismatches
+    // (ART595-ART590-UTF8-FIX-1-2026-08-13); reused verbatim, not re-derived.
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code >= 0xd800 && code <= 0xdbff) {
+            const next = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+            if (next >= 0xdc00 && next <= 0xdfff) {
+                code = (code - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000;
+                i++;
+            }
+            else {
+                code = 0xfffd; // unpaired high surrogate
+            }
+        }
+        else if (code >= 0xdc00 && code <= 0xdfff) {
+            code = 0xfffd; // lone low surrogate
+        }
+        if (code < 0x80) {
+            bytes.push(code);
+        }
+        else if (code < 0x800) {
+            bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+        }
+        else if (code < 0x10000) {
+            bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+        else {
+            bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+        }
+    }
+    return Uint8Array.from(bytes);
 }
 /**
  * Helper for KDFs: consumes Uint8Array or string.
