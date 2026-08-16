@@ -6,9 +6,13 @@
  * text" structurally impossible. Does NOT and cannot make "retrieved and read wrongly" impossible —
  * see the SCOPE line this gate always prints, and SPEC.md §30.0.
  *
- * WHAT IT CHECKS, on every NEW-or-CHANGED chaingraph/graph/nodes/*.json shard (branch-aware — same
- * touched-file detection check-chain-citation.mjs already uses for chains; a PRE-EXISTING/untouched
- * node is never gated, only counted as a gap):
+ * WHAT IT CHECKS, on every NEW-or-CHANGED chaingraph/graph/nodes/*.json shard (branch-aware, diffed
+ * against origin/main — the check-shard-assembly.mjs base-ref pattern, NOT the `@{u}` pattern
+ * check-chain-citation.mjs still uses; CLAUSE-DIGEST-SCOPE-FIX-1, 2026-08-16, found `@{u}` produces
+ * a DIFFERENT verdict in the pre-push hook than in CI on the same commit — see that row for the
+ * measured false-positive. check-chain-citation.mjs carries the same latent defect and is reported,
+ * not fixed, here — it is outside this gate's fence. A PRE-EXISTING/untouched node is never gated,
+ * only counted as a gap):
  *   1. The node declares standards_basis: "implements_standard" | "not_applicable". Neither present
  *      on a touched node is a FAILURE — no silent default (SPEC.md §30.3).
  *   2. "not_applicable" requires nothing further (explicit, honest opt-out).
@@ -27,12 +31,40 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NODES_DIR = resolve(REPO, 'chaingraph', 'graph', 'nodes');
 const REGISTRY_PATH = resolve(REPO, 'chaingraph', 'standard', 'clause-snapshot-registry.json');
 const env = process.env;
+
+// Candidate base refs to diff against, most authoritative first — the SAME pattern
+// check-shard-assembly.mjs already proved (SCOPE-FIX-1, 2026-08-16): `@{u}` is the
+// WRONG ref. `@{u}` is a branch's OWN remote-tracking ref (e.g. `origin/acct-amort-k-1`),
+// which goes stale the moment that branch is rebased locally without a matching push —
+// merge-base(@{u}, HEAD) then lands far behind current origin/main, so the diff sweeps in
+// every file OTHER PRs landed on main since that stale point, and this gate falsely fails
+// them as "touched by this branch." Measured on REBASE-1290-1's real branch: @{u} resolved
+// to a merge-base 17 commits behind origin/main, pulling in art-633/634/635 from an
+// unrelated already-merged PR. origin/main is the actual integration target and is what
+// must be diffed against, in every environment.
+function resolveBaseRef(repo) {
+  const candidates = [];
+  if (env.CLAUSE_DIGEST_BASE_REF) candidates.push(env.CLAUSE_DIGEST_BASE_REF);
+  candidates.push('origin/main');
+  if (env.GITHUB_BASE_REF) candidates.push(`origin/${env.GITHUB_BASE_REF}`);
+  for (const ref of candidates) {
+    try {
+      // execFileSync with an argv array, NOT execSync with a shell string: `^{commit}` is a
+      // cmd.exe escape sequence on Windows and gets silently mangled through a shell, which
+      // made resolveBaseRef fail closed on every Windows checkout during development of this
+      // fix. execFileSync passes argv straight to git with no shell in between.
+      execFileSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] });
+      return ref;
+    } catch { /* does not resolve in this checkout — try next candidate */ }
+  }
+  return null;
+}
 
 export function touchedNodeFiles(repo = REPO) {
   const touched = new Set();
@@ -46,11 +78,13 @@ export function touchedNodeFiles(repo = REPO) {
   try {
     add(execSync('git ls-files --others --exclude-standard', { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }));
   } catch { /* no untracked files */ }
-  try {
-    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-    const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-    add(execSync(`git diff --name-only ${base} HEAD`, { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }));
-  } catch { /* no upstream configured — uncommitted/staged/untracked diff already covers local work */ }
+  const baseRef = resolveBaseRef(repo);
+  if (baseRef) {
+    try {
+      const base = execSync(`git merge-base ${baseRef} HEAD`, { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      add(execSync(`git diff --name-only ${base} HEAD`, { cwd: repo, env, stdio: ['ignore', 'pipe', 'ignore'] }));
+    } catch { /* base resolved but diff failed — uncommitted/staged/untracked legs above still cover local work */ }
+  } /* no candidate resolved (e.g. shallow checkout with no origin/main fetched) — same three legs still cover it */
   return touched;
 }
 

@@ -10,8 +10,12 @@
 //
 // Zero-dependency. Non-zero exit blocks.  node scripts/check-clause-digest.test.mjs
 
-import { validateNode } from './check-clause-digest.mjs';
+import { validateNode, touchedNodeFiles } from './check-clause-digest.mjs';
 import { buildRegistryEntry, EXCERPT_MAX_BYTES } from '../chaingraph/standard/pin-clause-snapshot.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execSync } from 'node:child_process';
 
 const out = [];
 let fail = 0;
@@ -112,6 +116,83 @@ log('— §30.2 granularity: pin-clause-snapshot.mjs refuses an over-cap excerpt
     buildRegistryEntry(small, { clause_path: '(a)', source_url: 'https://x', retrieved_at: 'not-a-date', registered_by: 'test', registered_at: '2026-08-15' });
   } catch { threw = true; }
   ok(threw, 'a non-ISO retrieved_at is refused');
+}
+
+log('— CLAUSE-DIGEST-SCOPE-FIX-1: touchedNodeFiles diffs against origin/main, not a stale @{u} —');
+{
+  const sh = (cmd, cwd) => execSync(cmd, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
+  const rel = (f) => f.replace(/\\/g, '/');
+  const root = mkdtempSync(join(tmpdir(), 'cdg-scope-'));
+  try {
+    const originDir = join(root, 'origin.git');
+    const workDir = join(root, 'work');
+    const otherDir = join(root, 'other');
+
+    sh(`git init --bare -q "${originDir}"`, root);
+    sh(`git clone -q "${originDir}" "${workDir}"`, root);
+    sh('git config user.email t@t.test', workDir);
+    sh('git config user.name t', workDir);
+    mkdirSync(join(workDir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+    writeFileSync(join(workDir, 'chaingraph', 'graph', 'nodes', 'existing.json'), '{}');
+    sh('git add -A', workDir);
+    sh('git commit -q -m base', workDir);
+    sh('git push -q origin HEAD:main', workDir);
+    sh('git symbolic-ref HEAD refs/heads/main', originDir); // bare repo's HEAD must match the pushed branch or a later clone checks out nothing
+
+    // Cut a feature branch and push it — this is what makes @{u} exist and go stale.
+    sh('git checkout -q -b feature', workDir);
+    sh('git push -q -u origin feature', workDir);
+
+    // Simulate an UNRELATED PR landing on main after the branch was cut (DISE-NODE-PAGES-LAND-1's shape).
+    sh(`git clone -q "${originDir}" "${otherDir}"`, root);
+    sh('git config user.email t@t.test', otherDir);
+    sh('git config user.name t', otherDir);
+    writeFileSync(join(otherDir, 'chaingraph', 'graph', 'nodes', 'other.json'), '{}');
+    sh('git add -A', otherDir);
+    sh('git commit -q -m other-pr', otherDir);
+    sh('git push -q origin HEAD:main', otherDir);
+
+    // The branch's OWN change, still sitting on the pre-other-pr base — mirrors ACCT-AMORT-K-1's
+    // real shape (rebased locally, @{u} left pointing at the earlier push).
+    writeFileSync(join(workDir, 'chaingraph', 'graph', 'nodes', 'new.json'), '{}');
+    sh('git add -A', workDir);
+    sh('git commit -q -m branch-change', workDir);
+    sh('git fetch -q origin', workDir);
+
+    const touched = touchedNodeFiles(workDir);
+    const has = (name) => [...touched].some((f) => rel(f).endsWith(name));
+
+    ok(has('new.json'), "the branch's own new node file IS touched");
+    ok(!has('other.json'), 'a file landed by an UNRELATED PR after the branch was cut is NOT falsely touched (the REBASE-1290-1 false positive)');
+    ok(!has('existing.json'), 'the untouched pre-existing node is NOT touched');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+log('— scoping: no origin/main resolvable (shallow/no-remote checkout) degrades gracefully, no crash —');
+{
+  const sh = (cmd, cwd) => execSync(cmd, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
+  const rel = (f) => f.replace(/\\/g, '/');
+  const root = mkdtempSync(join(tmpdir(), 'cdg-noremote-'));
+  try {
+    sh('git init -q', root);
+    sh('git config user.email t@t.test', root);
+    sh('git config user.name t', root);
+    mkdirSync(join(root, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+    writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'existing.json'), '{}');
+    sh('git add -A', root);
+    sh('git commit -q -m base', root);
+    writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'untracked.json'), '{}');
+
+    let threw = false;
+    let touched = new Set();
+    try { touched = touchedNodeFiles(root); } catch { threw = true; }
+    ok(!threw, 'no origin/main and no upstream at all — resolveBaseRef fails closed to null, function does not throw');
+    ok([...touched].some((f) => rel(f).endsWith('untracked.json')), 'the working-tree/staged/untracked legs still catch local work with no base ref');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 console.log(`\n${fail} failure(s) of ${out.filter((s) => s.startsWith('✓') || s.startsWith('✗')).length} assertion(s).`);
