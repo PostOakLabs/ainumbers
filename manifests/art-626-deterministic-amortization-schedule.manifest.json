@@ -1,0 +1,79 @@
+{
+  "tool_id": "art-626-deterministic-amortization-schedule",
+  "version": "1.0.0",
+  "title": "Deterministic Amortization Schedule",
+  "description": "Demonstrator node for the shared _amort.bundle.mjs kernel: a deterministic amortization-schedule engine over seven closed day-count conventions (six ISDA 2006 Definitions Section 4.16 calendar conventions plus UNIT_PERIOD for lease/revenue schedules). Computes period_fraction, periodic_rate, interest, principal_component and closing_balance per period via the effective-interest method, with a mandatory final-period plug bounded by a declared max_plug. Supports a bracketed-bisection rate solve scoped to UNIT_PERIOD, and mid-stream remeasurement as schedule segmentation with an asserted continuity_invariant. Not a wave-specific ASC 842 / ASC 606 / CECL tool -- a reusable shared kernel's demonstrator.",
+  "category": "chaingraph",
+  "tags": ["compliance_mandate", "amortization", "day-count-convention", "isda-2006-definitions", "effective-interest-method", "bisection-solver", "remeasurement", "mcp:compute_deterministic_amortization_schedule"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "principal": { "type": "number", "description": "Original principal balance." },
+      "annual_rate": { "type": "number", "description": "Nominal annual rate, expressed as a decimal (0.12 = 12%). Required for calendar day-count conventions; optional when solve_rate is true and convention is UNIT_PERIOD." },
+      "convention": { "type": "string", "enum": ["UNIT_PERIOD", "30_360_US", "30E_360", "30E_360_ISDA", "ACT_360", "ACT_365F", "ACT_ACT_ISDA"], "description": "Closed set of seven day-count conventions (build spec Sec 1.1). An eighth mode is never accepted." },
+      "periods_per_year": { "type": "number", "description": "Nominal periods per year (default 12). Used to derive UNIT_PERIOD's periodic rate from the annual rate; calendar conventions already express period_fraction as a fraction of a year and do not need it for that derivation." },
+      "periods": {
+        "type": "array",
+        "description": "Ordered period descriptors, max 600 (MAX_PERIODS). Calendar conventions: {start, end, payment, is_termination?} with ISO dates. UNIT_PERIOD: {unit_fraction?, payment, is_termination?}, unit_fraction defaulting to 1 (a whole period); a stub is a declared fraction in (0,1].",
+        "items": { "type": "object" }
+      },
+      "solve_rate": { "type": "boolean", "description": "If true and convention is UNIT_PERIOD, solves annual_rate by bracketed bisection against the periods[].payment stream instead of requiring a caller-supplied annual_rate. Not supported for calendar conventions (RATE_SOLVE_SCOPED_TO_UNIT_PERIOD)." },
+      "apply_final_plug": { "type": "boolean", "description": "Defaults to true. When true, rounding residue in the final period's closing_balance is absorbed into that period's principal_component, bounded by max_plug." },
+      "max_plug": { "type": "number", "description": "Declared bound on the final-period plug (default 1, one currency unit). A residue exceeding this is reported as FINAL_PLUG_EXCEEDS_BOUND rather than silently applied." },
+      "remeasurement": {
+        "type": "object",
+        "description": "Optional mid-stream remeasurement. {at_period_index, annual_rate?, convention?, periods_per_year?, periods}: the new segment opens at the prior segment's exact closing_balance at at_period_index.",
+        "properties": {
+          "at_period_index": { "type": "integer" },
+          "annual_rate": { "type": "number" },
+          "convention": { "type": "string" },
+          "periods_per_year": { "type": "number" },
+          "periods": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    "required": ["principal", "convention", "periods"]
+  },
+  "mcp_tool_definition": {
+    "name": "compute_deterministic_amortization_schedule",
+    "description": "Computes a deterministic amortization schedule via the effective-interest method over one of seven closed day-count conventions (ISDA 2006 Definitions Section 4.16 plus UNIT_PERIOD), with a bracketed-bisection rate solve (UNIT_PERIOD only), a mandatory final-period plug, and mid-stream remeasurement as schedule segmentation.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "principal": { "type": "number" },
+        "annual_rate": { "type": "number" },
+        "convention": { "type": "string" },
+        "periods_per_year": { "type": "number" },
+        "periods": { "type": "array" },
+        "solve_rate": { "type": "boolean" },
+        "apply_final_plug": { "type": "boolean" },
+        "max_plug": { "type": "number" },
+        "remeasurement": { "type": "object" }
+      },
+      "required": ["principal", "convention", "periods"]
+    }
+  },
+  "execution": {
+    "type": "server",
+    "entry": "chaingraph/kernels/art-626-deterministic-amortization-schedule.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "convention": { "type": ["string", "null"] },
+      "periods_per_year": { "type": "number" },
+      "schedule": { "type": ["array", "null"] },
+      "rate_solve": { "type": ["object", "null"] },
+      "final_plug": { "type": ["object", "null"] },
+      "remeasurement": { "type": ["object", "null"] },
+      "rounding_steps": { "type": "array" },
+      "bounds": { "type": "object" },
+      "day_count_source": { "type": ["string", "null"] },
+      "note": { "type": "string" }
+    }
+  },
+  "source": "authored by ACCT-AMORT-K-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec 0.1/1 and FORMALVERIF-BUILD-SPEC.md Sec 3/5/6.B/7. Six calendar day-count formulas retrieved at build time from the 2006 ISDA Definitions Section 4.16 (International Swaps and Derivatives Association, Inc.), Standard Chartered Bank's hosted copy at https://www.sc.com/en/uploads/sites/66/content/docs/2006-ISDA-Definitions.pdf, pages 11-13, snapshot at research/clause-snapshots/isda-2006-definitions-section-4.16.txt (sha256:d58d3558747aaba8e5207417482dd2a35ef11b2fadc9e07d8546c71a2bee8b59). UNIT_PERIOD's stub-fraction pricing reuses 12 CFR 1026 Appendix J (b)(6) as precedent (Consumer Financial Protection Bureau eregulations, https://www.consumerfinance.gov/rules-policy/regulations/1026/j/), snapshot at research/clause-snapshots/reg-z-appendix-j-b6-b7.txt (sha256:b523793b29e30669d51a91b8e093010d2b9ffeb35763f10cd20ea5fc8811a960). Per-kernel spec at research/ACCT-AMORT-K-1.spec.md, human_sign_off PENDING. Rate-solve bisection discipline reused from the existing art-215 kernel per the build spec's own instruction. Golden fixtures derive from hand-computed amortization arithmetic solved forward from the same formulas, verified by direct substitution against the kernel's own compute() output."
+}
