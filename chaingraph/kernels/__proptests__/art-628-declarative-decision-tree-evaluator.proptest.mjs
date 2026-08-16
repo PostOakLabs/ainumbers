@@ -326,6 +326,11 @@ function twoLeafTree(field, operator, operand) {
 }
 function checkP7_genericOperatorCorrectness() {
   let checked = 0, violations = 0;
+  // Explicit tuple typing: without it, the mixed-shape rows (operand varies
+  // string/number/array) widen every column — including the always-string
+  // field name at index 1 — into one shared union, which fails TS2464 at
+  // the `[field]` computed property below (field is always 'x' at runtime).
+  /** @type {Array<[string, string, *, *, string]>} */
   const cases = [
     ['in', 'x', ['a', 'b', 'c'], 'b', 'satisfied'], ['in', 'x', ['a', 'b', 'c'], 'z', 'not_satisfied'],
     ['lt', 'x', 10, 5, 'satisfied'], ['lt', 'x', 10, 10, 'not_satisfied'], ['lt', 'x', 10, 11, 'not_satisfied'],
@@ -345,6 +350,7 @@ function checkP7_genericOperatorCorrectness() {
   }
 
   // type-mismatch cases must produce FACT_TYPE_MISMATCH, never a silent boolean
+  /** @type {Array<[string, string, *, *]>} */
   const mismatches = [
     ['lt', 'x', 10, 'not-a-number'], ['between', 'x', [5, 10], 'nope'], ['all_of', 'x', ['a'], 'not-an-array'], ['in', 'x', 'not-an-array', 'a'],
   ];
