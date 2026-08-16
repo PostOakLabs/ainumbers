@@ -1,3 +1,11 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and this edit makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path filter,
+// landed 2026-08-16, watches the whole directory, not just *.kernel.mjs). Without
+// this it fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/) that would
+// block ANY future edit to any of the ~40 non-kernel .mjs scripts in this
+// directory, not something specific to this file's own logic.
 // lint-forbidden-hash.mjs — CI/pre-deploy guard. Fails (exit 1) if any live
 // ChainGraph tool reintroduces a non-canonical hashing pattern. This is the
 // regression gate: once the suite is on the single OCG canonical scheme, this
@@ -16,6 +24,12 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
 const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
+
+// --only <tool-id>: KERNEL-PREFLIGHT-1 scope to ONE node (whole-estate run is unchanged
+// when this flag is absent). A shard not yet assembled into chaingraph.json (PENDING-ASSEMBLE,
+// per RIDER-KERNEL) has no entry here yet — that is reported, not a lint failure.
+const onlyIdx = process.argv.indexOf('--only');
+const ONLY_ID = onlyIdx !== -1 ? process.argv[onlyIdx + 1] : null;
 
 // Banned patterns -> human reason. The OCG-CANON marker block is explicitly allowed.
 // NOTE: a literal "sha256:" prefix is a LEGITIMATE OCG convention (the spec emits
@@ -39,7 +53,10 @@ const BANNED = [
 ];
 
 let violations = 0;
+let matchedOnly = false;
 for (const n of (cg.nodes ?? [])) {
+  if (ONLY_ID && n.tool_id !== ONLY_ID) continue;
+  if (ONLY_ID) matchedOnly = true;
   if (n.status !== 'live') continue;
   let rel; try { rel = new URL(n.url).pathname.replace(/^\//, ''); } catch { rel = `chaingraph/${n.tool_id}.html`; }
   const abs = resolve(REPO, rel);
@@ -53,8 +70,14 @@ for (const n of (cg.nodes ?? [])) {
   }
 }
 
+if (ONLY_ID && !matchedOnly) {
+  console.log(`⊘ hash lint --only ${ONLY_ID}: not present in chaingraph.json (PENDING-ASSEMBLE shard) — nothing to lint yet, not a failure.`);
+  process.exit(0);
+}
 if (violations === 0) {
-  console.log('✓ hash lint clean — no forbidden canonicalization/hash patterns in any live node.');
+  console.log(ONLY_ID
+    ? `✓ hash lint clean for ${ONLY_ID}.`
+    : '✓ hash lint clean — no forbidden canonicalization/hash patterns in any live node.');
   process.exit(0);
 }
 console.error(`\n✗ ${violations} forbidden-hash violation(s). Run fix-hash-scheme.mjs and re-check.`);

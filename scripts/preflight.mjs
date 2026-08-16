@@ -163,6 +163,25 @@ function touchedKernelFilesForJsdoc() {
 }
 const TOUCHED_KERNEL_FILES_JSDOC = touchedKernelFilesForJsdoc();
 
+// KERNEL-PREFLIGHT-1: kernel ids touched by this push, derived from the SAME
+// TOUCHED_KERNEL_FILES_JSDOC set above (reused, not recomputed — one git-diff pass,
+// not two) — one kernel-preflight.mjs run per id, so push-time gets the SAME
+// per-kernel check a K session already ran while authoring (no drift between
+// author-time and push-time, per the row's own wiring requirement).
+function touchedKernelIdsFromJsdocSet(files) {
+  const KERNEL_RE = /^chaingraph\/kernels\/([^/]+)\.kernel\.mjs$/;
+  const PROPTEST_RE = /^chaingraph\/kernels\/__proptests__\/([^/]+)\.proptest\.mjs$/;
+  const ids = new Set();
+  for (const f of files) {
+    const k = f.match(KERNEL_RE);
+    if (k) ids.add(k[1]);
+    const p = f.match(PROPTEST_RE);
+    if (p) ids.add(p[1]);
+  }
+  return [...ids].sort();
+}
+const TOUCHED_KERNEL_IDS = touchedKernelIdsFromJsdocSet(TOUCHED_KERNEL_FILES_JSDOC);
+
 // SITEMAP-MAIN-REGEN-1 (SO #28 / SO #35): freshness gates for SHARED DERIVED
 // ARTIFACTS are ADVISORY in a PR context and BLOCKING in a main context.
 //
@@ -223,6 +242,15 @@ const GATES = [
   ['Quantization parity (§24.6)',  'node chaingraph/kernels/quantization-parity.test.mjs'],
   ['Seed replay (§24.6.2)',        'node chaingraph/kernels/seed-replay.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
+  // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
+  // above) — the FULL per-kernel composite (syntax/exports/hash-lint/guest-builtin/VM-
+  // parity/tsc/proptest-floor/registration/hub-categories/node-page/clause-digest), not
+  // just the tsc leg the JSDoc CheckJS gate above already covers. No-ops (DID-NOT-RUN
+  // under --keep-going) when this push touches no kernel/floor file.
+  ...(TOUCHED_KERNEL_IDS.length
+    ? TOUCHED_KERNEL_IDS.map((id) => [`Kernel preflight (${id})`, `node scripts/kernel-preflight.mjs ${id}`])
+    : [['Kernel preflight (KERNEL-PREFLIGHT-1: no kernel/floor file touched, skipped)', 'node -e "1"',
+        { notRun: 'KERNEL-PREFLIGHT-1 scoping — this push touches no chaingraph/kernels/*.kernel.mjs or __proptests__/*.proptest.mjs, so no per-kernel check was run' }]]),
   // WARN-ONLY BY DESIGN (PAGEDET-GATE-1): 28 pre-existing page defects are
   // baselined, and the flag makes even a NEW one report rather than block. A gate
   // that reds main on a pre-existing condition gets switched off; this one is here
