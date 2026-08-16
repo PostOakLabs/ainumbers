@@ -1,0 +1,95 @@
+{
+  "tool_id": "627-pillar-two-side-by-side-scope-classifier",
+  "version": "1.0.0",
+  "title": "Pillar Two Side-by-Side Scope Classifier",
+  "description": "Classifies a declared MNE group and jurisdiction fact pattern against the Qualified SbS Regime and Qualified UPE Regime conditions set out in Chapter 5 of the OECD Side-by-Side Package (Inclusive Framework on BEPS, approved and declassified 5 January 2026). Every verdict names the condition that governs it, and any fact the rule needs but the caller did not declare is reported as undeclared and sets manual_review_required rather than being defaulted or inferred. Rule thresholds, effective dates and Central Record listings are declared versioned inputs, never constants embedded in the page: the publication itself names no jurisdiction, and provides instead that qualifying jurisdictions are listed on the Central Record. Classification of the declared fact pattern only. It does not determine whether any group falls inside or outside the scope of anything, and it is not tax advice.",
+  "category": "treasury",
+  "tags": ["Pillar Two", "GloBE", "side-by-side", "SbS Safe Harbour", "UPE Safe Harbour", "Qualified SbS Regime", "Central Record", "IIR", "UTPR", "QDMTT", "OECD", "scope classification"],
+  "audience": ["tax", "treasury", "compliance", "finance"],
+  "input_schema": {
+    "type": "object",
+    "required": ["group_facts"],
+    "properties": {
+      "rule_parameters": {
+        "type": "object",
+        "description": "Declared, versioned rule parameters. Never constants in the page. A parameter change is a version bump made here.",
+        "properties": {
+          "parameter_set_version": { "type": "string", "description": "Identifier for the declared parameter set, e.g. oecd-sbs-package-2026-01-05" },
+          "min_statutory_cit_rate": { "type": "number", "description": "Minimum statutory nominal CIT rate percent, Ch5 box item 4(a)" },
+          "min_camt_qdmtt_rate": { "type": "number", "description": "Minimum QDMTT or corporate alternative minimum tax nominal rate percent, Ch5 box item 4(b)" },
+          "material_risk_etr_floor": { "type": "number", "description": "Effective rate floor used by the material-risk conditions, Ch5 box items 4(c) and 5(c)" },
+          "regime_enactment_cutoff": { "type": "string", "description": "Date by which the declared systems must have been enacted, Ch5 box item 3(d) and paragraph 38" },
+          "earliest_fiscal_year_start": { "type": "string", "description": "Earliest fiscal year commencement date for which the safe harbours are available, Ch5 box item 7 and paragraph 28" },
+          "central_record_sbs": { "type": "array", "description": "Jurisdiction codes the caller read off the Central Record as having a Qualified SbS Regime. Ships empty; the publication names no jurisdiction." },
+          "central_record_upe": { "type": "array", "description": "Jurisdiction codes the caller read off the Central Record as having a Qualified UPE Regime. Ships empty." },
+          "central_record_consulted": { "type": "string", "description": "Date the caller consulted the Central Record" }
+        }
+      },
+      "group_facts": {
+        "type": "object",
+        "description": "Declared facts about the MNE group.",
+        "properties": {
+          "upe_jurisdiction": { "type": "string", "description": "Jurisdiction code of the Ultimate Parent Entity. Location is determined applying Article 10.3 and is taken here as a declared fact." },
+          "fiscal_year_start": { "type": "string", "description": "Fiscal year commencement date" },
+          "sbs_election": { "type": "string", "enum": ["yes", "no", ""], "description": "Whether the Filing Constituent Entity made the SbS Safe Harbour election. Blank means not declared." },
+          "upe_election": { "type": "string", "enum": ["yes", "no", ""], "description": "Whether the Filing Constituent Entity made the UPE Safe Harbour election. Blank means not declared." }
+        }
+      },
+      "jurisdiction_facts": {
+        "type": "object",
+        "description": "Declared facts about the UPE jurisdiction's tax system. Any property omitted is reported as undeclared and raises manual_review_required.",
+        "properties": {
+          "statutory_cit_rate": { "type": "number", "description": "Statutory nominal CIT rate percent after preferential and sub-national adjustments" },
+          "camt_kind": { "type": "string", "enum": ["qdmtt", "camt", "neither", ""], "description": "Whether a QDMTT or a corporate alternative minimum tax on financial statement income is in place" },
+          "camt_rate": { "type": "number", "description": "Nominal rate percent of that QDMTT or CAMT" },
+          "camt_substantial_portion": { "type": "string", "enum": ["yes", "no", ""], "description": "Applies to a substantial portion of aggregate in-scope income" },
+          "no_material_risk_domestic": { "type": "string", "enum": ["yes", "no", ""], "description": "No material risk of a sub-floor effective rate on domestic operations" },
+          "comprehensive_foreign_regime": { "type": "string", "enum": ["yes", "no", ""], "description": "Comprehensive regime on the foreign income of all resident corporations" },
+          "cfc_active_passive_undistributed": { "type": "string", "enum": ["yes", "no", ""], "description": "Base includes active and passive branch and CFC income whether or not distributed" },
+          "limited_exclusions_only": { "type": "string", "enum": ["yes", "no", ""], "description": "Only limited income exclusions consistent with minimum taxation" },
+          "beps_mechanisms": { "type": "string", "enum": ["yes", "no", ""], "description": "Substantial unilateral mechanisms addressing BEPS risks" },
+          "no_material_risk_foreign": { "type": "string", "enum": ["yes", "no", ""], "description": "No material risk of a sub-floor effective rate on foreign operations" },
+          "ftc_for_qdmtt": { "type": "string", "enum": ["yes", "no", ""], "description": "Foreign tax credit allowed for QDMTTs on the same terms as any other creditable Covered Tax" },
+          "enactment_date": { "type": "string", "description": "Date the declared domestic and worldwide systems were enacted and in effect" }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "sbs_available": { "type": "string", "enum": ["MET", "NOT_MET", "ND"], "description": "SbS Safe Harbour conditions on the declared facts. ND means at least one needed fact was not declared." },
+      "upe_available": { "type": "string", "enum": ["MET", "NOT_MET", "ND"], "description": "UPE Safe Harbour conditions on the declared facts" },
+      "manual_review_required": { "type": "boolean", "description": "True whenever any condition could not be classified because a needed fact was absent, or two declared routes disagree" },
+      "undeclared_count": { "type": "integer", "description": "Number of conditions left unclassified for want of a declared fact" },
+      "sbs_group_conditions": { "type": "array", "description": "Per condition: reference, condition text, status, note" },
+      "upe_group_conditions": { "type": "array", "description": "Per condition: reference, condition text, status, note" },
+      "sbs_regime_conditions": { "type": "array", "description": "The four Qualified SbS Regime conditions, Ch5 box item 3" },
+      "upe_regime_conditions": { "type": "array", "description": "The Qualified UPE Regime conditions, Ch5 paragraph 34 box item 2 and paragraphs 37 to 38" },
+      "domestic": { "type": "array", "description": "The three eligible domestic tax system requirements, Ch5 box item 4" },
+      "worldwide": { "type": "array", "description": "The five eligible worldwide tax system requirements, Ch5 box item 5" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "classify_pillar_two_side_by_side_scope",
+    "description": "Classifies a declared MNE group and jurisdiction fact pattern against the Qualified SbS Regime and Qualified UPE Regime conditions in Chapter 5 of the OECD Side-by-Side Package (Inclusive Framework, approved 5 January 2026). Returns a per-condition verdict naming the governing condition, and sets manual_review_required whenever a fact the rule needs is absent, rather than defaulting or inferring it. Thresholds, effective dates and Central Record listings are declared versioned inputs. Classifies the declared fact pattern only: it does not determine whether any group falls inside or outside scope, and it is not tax advice.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["group_facts"],
+      "properties": {
+        "rule_parameters": { "type": "object", "description": "Declared versioned thresholds, dates and Central Record listings" },
+        "group_facts": { "type": "object", "description": "UPE jurisdiction, fiscal year commencement, and the two election flags" },
+        "jurisdiction_facts": { "type": "object", "description": "Declared facts about the UPE jurisdiction's domestic and worldwide tax systems" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/627-pillar-two-side-by-side-scope-classifier.html",
+    "function_name": "runClassifier",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
