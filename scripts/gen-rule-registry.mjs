@@ -412,14 +412,23 @@ function main() {
     process.exit(0);
   }
 
+  // Staleness is judged on table_digest (a canonical hash of entries+standards+schema_version),
+  // never on raw byte equality of the full file. source_verification's `mode` field
+  // (RECOMPUTED-FROM-BYTES vs SNAPSHOT-UNREACHABLE) reflects whether THIS process could reach
+  // workspace-root research/clause-snapshots/ -- which exists in a claimant's local workspace but
+  // never in the CI checkout (SO #3b: research/ is deliberately outside repo/, never vendored in).
+  // A byte-equality check would make the committed table permanently unreproducible: it can never
+  // match both a local regen (snapshots reachable) and CI's regen (snapshots absent) at once.
+  // table_digest excludes source_verification by construction (assembleTable() hashes only
+  // {entries, standards, schema_version}), so it is the host-independent freshness signal; the
+  // underlying digest verification against snapshot bytes already ran above (errors.length check)
+  // whenever this process could reach them, so weakening the byte-compare here does not weaken that.
   const onDisk = readFileSync(TABLE_PATH, 'utf8');
-  if (onDisk !== serialized) {
-    const diskParsed = (() => { try { return JSON.parse(onDisk); } catch { return null; } })();
+  const diskParsed = (() => { try { return JSON.parse(onDisk); } catch { return null; } })();
+  if (!diskParsed || diskParsed.table_digest !== table.table_digest) {
     console.error(`gen-rule-registry: FAIL — ${TABLE_REL} is STALE relative to ${ENTRY_DIR_REL}/.`);
-    if (diskParsed) {
-      console.error(`  on-disk table_digest:   ${diskParsed.table_digest}`);
-      console.error(`  regenerated table_digest: ${table.table_digest}`);
-    }
+    console.error(`  on-disk table_digest:   ${diskParsed ? diskParsed.table_digest : '(unparseable)'}`);
+    console.error(`  regenerated table_digest: ${table.table_digest}`);
     console.error('  Fix: ASSEMBLE-LAND runs `node scripts/gen-rule-registry.mjs` and commits the result. A shard row must NOT (SO #35).');
     process.exit(1);
   }
