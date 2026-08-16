@@ -92,10 +92,17 @@ jobs:
         run: node scripts/dead-link-check.mjs
 
       - name: Nav reachability gate (NAV-ISLAND-1 - no new island pages)
-        # Fails if a committed .html is reachable by no on-site nav path (only via
-        # sitemap/direct URL), vs scripts/nav-island-baseline.json. Redirect shims
-        # (meta-refresh / robots noindex) are auto-exempt.
-        #
+        # HARD in every context, PR and main alike. Fails if a committed .html is
+        # reachable by no on-site nav path (only via sitemap/direct URL) and is
+        # not in scripts/nav-island-baseline.json. Redirect shims (meta-refresh /
+        # robots noindex) are auto-exempt. A new island is a CONTENT defect the
+        # PR itself must fix (link the page from a hub) — the main-side regen
+        # cannot repair it, so it is never advisory. (Measured 2026-08-16: this
+        # step used to be advisory on PRs and PR #1309 shipped
+        # chaingraph/integrator-profile.html unlinked, green.)
+        run: node scripts/check-nav-reachability.mjs
+
+      - name: Nav-island baseline freshness (shared derived artifact)
         # nav-island-baseline.json is a SHARED DERIVED ARTIFACT — measured,
         # rewritten by 57% of page-adding commits. It is single-writer: the
         # Derived Artifacts Regen workflow on main owns it, and a PR branch must
@@ -113,7 +120,7 @@ jobs:
           # (zizmor template-injection), matching this repo's existing pattern.
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if node scripts/check-nav-reachability.mjs; then
+          if node scripts/check-nav-reachability.mjs --baseline-check; then
             exit 0
           fi
           if [ "$EVENT_NAME" = "pull_request" ]; then

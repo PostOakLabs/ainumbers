@@ -169,8 +169,15 @@ export const COVERED = [
     // The baseline is the allowlist of by-design island pages. A new page that
     // is reachable REMOVES entries; one that is not ADDS them. Either way the
     // baseline is shared state every page-adding shard rewrites.
-    regen: 'node scripts/check-nav-reachability.mjs --update',
-    gate: 'node scripts/check-nav-reachability.mjs',
+    // --prune, NOT --update: regen may only remove entries that became
+    // reachable. --update accepts every current island and would baseline an
+    // unlinked page within a minute of it landing (bot commit 130b63db did).
+    regen: 'node scripts/check-nav-reachability.mjs --prune',
+    // ⚠ --baseline-check ONLY. The plain command (new-island detection) is a
+    // content gate, hard in every context — it is NOT a derived-artifact gate
+    // and must never be listed here, or a PR that ships an unlinked page goes
+    // green (PR #1309, 2026-08-16, chaingraph/integrator-profile.html).
+    gate: 'node scripts/check-nav-reachability.mjs --baseline-check',
     artifacts: ['scripts/nav-island-baseline.json'],
     share: '57%',
   },

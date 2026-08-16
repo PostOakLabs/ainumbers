@@ -22,6 +22,23 @@
 //   - an island NOT in the baseline    -> FAIL (exit 1)   [the recurrence guard]
 //   - a baseline entry now reachable   -> WARN (prune)    [keeps baseline honest]
 // Flags: --init / --update  regenerate the baseline from current state, exit 0.
+//                           HUMAN use only: it ACCEPTS every current island.
+//        --prune            regen mode for derived-artifacts-regen.yml: removes
+//                           now-reachable entries, never adds. Exit 0.
+//        --baseline-check   the DERIVED-ARTIFACT freshness gate: exit 1 iff a
+//                           baseline entry is now reachable (baseline stale);
+//                           new islands are reported but do NOT fail here.
+//
+// ⚠ TWO GATES, TWO OWNERS — do not fold them back together. Measured 2026-08-16:
+// PR #1309 shipped chaingraph/integrator-profile.html with no inbound link, and
+// its PR CI stayed green because this whole command was registered as the
+// nav-island *derived-artifact* gate (advisory on a PR, since the baseline is
+// single-writer on main). But a NEW island is not derived drift — it is a
+// content defect the PR itself must fix, and the main-side regen cannot fix it
+// (--update would merely baseline the defect). So:
+//   plain (no flag)     -> new islands FAIL, hard, in EVERY context (PR + main)
+//   --baseline-check    -> stale baseline FAILS; advisory on PR, blocking on
+//                          main, repaired by derived-artifacts-regen.yml
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, relative, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +47,10 @@ const ROOT = process.env.NAV_ROOT ? resolve(process.env.NAV_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = process.env.NAV_BASELINE ? resolve(process.env.NAV_BASELINE)
   : join(ROOT, 'scripts', 'nav-island-baseline.json');
-const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
+const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update'
+  : process.argv.includes('--prune') ? 'prune'
+  : process.argv.includes('--baseline-check') ? 'baseline-check'
+  : 'check';
 
 // Sibling git worktrees + tooling dirs are foreign checkouts, not site content.
 // '.wt' is the canonical worktree dir per workspace-root CLAUDE.md ("Worktrees live
@@ -122,6 +142,45 @@ const baseSet = new Set(baseline);
 const isSet = new Set(islands);
 const created = islands.filter(p => !baseSet.has(p));      // NEW islands -> fail
 const pruned = baseline.filter(p => !isSet.has(p));         // now-reachable baseline -> warn
+
+if (MODE === 'prune') {
+  // The REGEN mode for the main-side derived-artifacts workflow. It may only
+  // REMOVE entries that became reachable — never ADD. `--update` accepts every
+  // current island, so an unlinked page that slipped onto main would be
+  // baselined by the bot within a minute (regen and html-verify run in
+  // parallel on push-to-main). Measured 2026-08-16: bot commit 130b63db
+  // accepted chaingraph/integrator-profile.html this way. Islands are a
+  // human decision (--update, deliberately, on main); pruning is mechanical.
+  const kept = baseline.filter(p => isSet.has(p));
+  if (created.length) {
+    console.warn(`nav-reachability(--prune): ${created.length} NEW island(s) NOT added — a new island is a content defect, fix the link (or a human runs --update deliberately):`);
+    for (const p of created) console.warn(`  ${p}`);
+  }
+  if (kept.length !== baseline.length) {
+    writeFileSync(BASELINE, JSON.stringify(kept, null, 2) + '\n');
+    console.log(`nav-reachability(--prune): removed ${baseline.length - kept.length} now-reachable entr(y/ies) -> ${rel(BASELINE)} (${kept.length} remain).`);
+  } else {
+    console.log(`nav-reachability(--prune): nothing to prune (${baseline.length} accepted island(s)).`);
+  }
+  process.exit(0);
+}
+
+if (MODE === 'baseline-check') {
+  // Derived-artifact freshness only. Stale baseline -> exit 1 (main-side regen
+  // repairs it). New islands are surfaced for the reader but belong to the
+  // plain gate, which is hard in every context.
+  if (created.length) {
+    console.warn(`nav-reachability(--baseline-check): ${created.length} NEW island(s) present — that is the PLAIN gate's failure, not this one's:`);
+    for (const p of created) console.warn(`  ${p}`);
+  }
+  if (pruned.length) {
+    console.error(`nav-reachability(--baseline-check): baseline STALE — ${pruned.length} entr(y/ies) now reachable; derived-artifacts-regen.yml prunes this on main (or --update locally on main only):`);
+    for (const p of pruned) console.error(`  ${p}`);
+    process.exit(1);
+  }
+  console.log(`nav-reachability(--baseline-check): OK — baseline fresh (${islands.length} accepted island(s)).`);
+  process.exit(0);
+}
 
 if (pruned.length) {
   console.warn(`nav-reachability: ${pruned.length} baseline entr(y/ies) now reachable — prune with --update:`);

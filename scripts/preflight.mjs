@@ -228,7 +228,12 @@ const GATES = [
   ['Branch-aware shard-registration proof (SHARD-GATE-PRE-ASSEMBLE-1)', 'node scripts/check-shard-assembly.test.mjs'],
   ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
-  ['Nav reachability (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
+  // Two nav gates, deliberately: the plain one is a CONTENT gate (a new page no
+  // nav reaches) and is hard in every context; --baseline-check is the
+  // derived-artifact freshness gate (advisory on PR, repaired on main). Folding
+  // them into one command let PR #1309 ship an unlinked page green.
+  ['Nav reachability — new islands (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
+  ['Nav-island baseline fresh (derived)', 'node scripts/check-nav-reachability.mjs --baseline-check'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
