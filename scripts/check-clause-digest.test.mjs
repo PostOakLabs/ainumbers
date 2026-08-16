@@ -10,8 +10,45 @@
 //
 // Zero-dependency. Non-zero exit blocks.  node scripts/check-clause-digest.test.mjs
 
-import { validateNode } from './check-clause-digest.mjs';
+import { validateNode, touchedNodeFiles } from './check-clause-digest.mjs';
 import { buildRegistryEntry, EXCERPT_MAX_BYTES } from '../chaingraph/standard/pin-clause-snapshot.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+// CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1's fix, same shape here). Git exports
+// GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/... to every hook it runs. This file is wired into
+// scripts/preflight.mjs, which the pre-push hook invokes — a child git spawned here with a
+// copied process.env inherits a GIT_DIR pointing at the OUTER repo, and every git call below
+// then operates on THAT repo instead of its throwaway sandbox. Measured while building this
+// fix: under the pre-push hook, an un-isolated version of this exact test committed its
+// sandbox's "work" tree onto the real worktree branch, mass-deleting the tracked tree in a
+// bogus commit (recovered with `git reset --hard`). An ALLOWLIST, not copy-and-delete, so the
+// next unnamed GIT_* variable is excluded by construction rather than missed by omission.
+const CHILD_ENV_ALLOWLIST = [
+  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
+  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
+  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
+  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
+  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
+  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
+  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
+  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
+  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
+  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
+];
+const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()));
+function childEnv(extra = {}) {
+  const e = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (ALLOWED.has(k.toLowerCase()) && v !== undefined) e[k] = v;
+  }
+  return { ...e, ...extra };
+}
+function git(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: childEnv() });
+}
 
 const out = [];
 let fail = 0;
@@ -112,6 +149,80 @@ log('— §30.2 granularity: pin-clause-snapshot.mjs refuses an over-cap excerpt
     buildRegistryEntry(small, { clause_path: '(a)', source_url: 'https://x', retrieved_at: 'not-a-date', registered_by: 'test', registered_at: '2026-08-15' });
   } catch { threw = true; }
   ok(threw, 'a non-ISO retrieved_at is refused');
+}
+
+log('— CLAUSE-DIGEST-SCOPE-FIX-1: touchedNodeFiles diffs against origin/main, not a stale @{u} —');
+{
+  const rel = (f) => f.replace(/\\/g, '/');
+  const root = mkdtempSync(join(tmpdir(), 'cdg-scope-'));
+  try {
+    const originDir = join(root, 'origin.git');
+    const workDir = join(root, 'work');
+    const otherDir = join(root, 'other');
+
+    git(root, ['init', '--bare', '-q', '-b', 'main', originDir]);
+    git(root, ['clone', '-q', originDir, workDir]);
+    git(workDir, ['config', 'user.email', 't@t.test']);
+    git(workDir, ['config', 'user.name', 't']);
+    mkdirSync(join(workDir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+    writeFileSync(join(workDir, 'chaingraph', 'graph', 'nodes', 'existing.json'), '{}');
+    git(workDir, ['add', '-A']);
+    git(workDir, ['commit', '-q', '-m', 'base']);
+    git(workDir, ['push', '-q', 'origin', 'HEAD:main']);
+
+    // Cut a feature branch and push it — this is what makes @{u} exist and go stale.
+    git(workDir, ['checkout', '-q', '-b', 'feature']);
+    git(workDir, ['push', '-q', '-u', 'origin', 'feature']);
+
+    // Simulate an UNRELATED PR landing on main after the branch was cut (the DISE-NODE-PAGES-LAND-1 shape).
+    git(root, ['clone', '-q', originDir, otherDir]);
+    git(otherDir, ['config', 'user.email', 't@t.test']);
+    git(otherDir, ['config', 'user.name', 't']);
+    writeFileSync(join(otherDir, 'chaingraph', 'graph', 'nodes', 'other.json'), '{}');
+    git(otherDir, ['add', '-A']);
+    git(otherDir, ['commit', '-q', '-m', 'other-pr']);
+    git(otherDir, ['push', '-q', 'origin', 'HEAD:main']);
+
+    // The branch's OWN change, still sitting on the pre-other-pr base — mirrors the real
+    // acct-amort-k-1 shape (rebased locally, @{u} left pointing at the earlier push).
+    writeFileSync(join(workDir, 'chaingraph', 'graph', 'nodes', 'new.json'), '{}');
+    git(workDir, ['add', '-A']);
+    git(workDir, ['commit', '-q', '-m', 'branch-change']);
+    git(workDir, ['fetch', '-q', 'origin']);
+
+    const touched = touchedNodeFiles(workDir);
+    const has = (name) => [...touched].some((f) => rel(f).endsWith(name));
+
+    ok(has('new.json'), "the branch's own new node file IS touched");
+    ok(!has('other.json'), 'a file landed by an UNRELATED PR after the branch was cut is NOT falsely touched (the REBASE-1290-1 false positive)');
+    ok(!has('existing.json'), 'the untouched pre-existing node is NOT touched');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+log('— scoping: no origin/main resolvable (shallow/no-remote checkout) degrades gracefully, no crash —');
+{
+  const rel = (f) => f.replace(/\\/g, '/');
+  const root = mkdtempSync(join(tmpdir(), 'cdg-noremote-'));
+  try {
+    git(root, ['init', '-q']);
+    git(root, ['config', 'user.email', 't@t.test']);
+    git(root, ['config', 'user.name', 't']);
+    mkdirSync(join(root, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+    writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'existing.json'), '{}');
+    git(root, ['add', '-A']);
+    git(root, ['commit', '-q', '-m', 'base']);
+    writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'untracked.json'), '{}');
+
+    let threw = false;
+    let touched = new Set();
+    try { touched = touchedNodeFiles(root); } catch { threw = true; }
+    ok(!threw, 'no origin/main and no upstream at all — resolveBaseRef fails closed to null, function does not throw');
+    ok([...touched].some((f) => rel(f).endsWith('untracked.json')), 'the working-tree/staged/untracked legs still catch local work with no base ref');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 console.log(`\n${fail} failure(s) of ${out.filter((s) => s.startsWith('✓') || s.startsWith('✗')).length} assertion(s).`);

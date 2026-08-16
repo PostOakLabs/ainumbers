@@ -18,6 +18,11 @@ on:
       - 'scripts/**'
       - 'chaingraph/vm/scripts/**'
       - 'chaingraph/graph/chains/**'
+      # check-clause-digest.mjs (2026-08-16) gates NEW/CHANGED chaingraph/graph/nodes/*.json
+      # shards, but this filter never included that path — PR #1291 added three non-compliant
+      # node shards and Scripts Verify never ran on that diff at all. "Green in CI" there meant
+      # "never dispatched," not "passed."
+      - 'chaingraph/graph/nodes/**'
       # any workflow edit runs the full preflight so check-workflow-gate-parity
       # sees a newly-added CI gate and fails if preflight doesn't also run it
       - '.github/workflows/**'
@@ -30,6 +35,8 @@ on:
       - 'scripts/**'
       - 'chaingraph/vm/scripts/**'
       - 'chaingraph/graph/chains/**'
+      # see push-trigger comment above (2026-08-16).
+      - 'chaingraph/graph/nodes/**'
       # any workflow edit runs the full preflight so check-workflow-gate-parity
       # sees a newly-added CI gate and fails if preflight doesn't also run it
       - '.github/workflows/**'
@@ -54,7 +61,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          fetch-depth: 1
+          # fetch-depth 0 (was 1, 2026-08-16): check-clause-digest.mjs needs to resolve origin/main
+          # and merge-base(origin/main, HEAD) to diff NEW/CHANGED node shards correctly. depth 1
+          # leaves origin/main unresolvable on a pull_request checkout (which fetches only the merge
+          # ref), silently degrading the gate to "0 touched, always green" — the same requirement
+          # land-verify.yml already solved this way.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node 20
