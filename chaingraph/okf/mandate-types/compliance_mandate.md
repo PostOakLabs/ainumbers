@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-326"]
+tags: ["compliance_mandate", "count-327"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-326 tool(s) in this mandate-type group:
+327 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -332,6 +332,7 @@ status: stable
 - [Summa MST Inclusion Checker](../tools/art-620-summa-mst-inclusion-checker.md)
 - [Deterministic Amortization Schedule](../tools/art-626-deterministic-amortization-schedule.md)
 - [Effective-Date / Rule-Version Registry](../tools/art-627-effective-date-rule-version-registry.md)
+- [Declarative Decision-Tree Evaluator](../tools/art-628-declarative-decision-tree-evaluator.md)
 - [ASC 280 Reportable Segment Tester](../tools/art-633-asc280-reportable-segment-tester.md)
 - [CODM Significant Expense Classifier](../tools/art-634-codm-expense-significance-classifier.md)
 - [Rate Reconciliation 5% Threshold Classifier](../tools/art-635-rate-rec-5pct-threshold-classifier.md)
