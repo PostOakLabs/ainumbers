@@ -56,6 +56,7 @@
  *   node scripts/derived-artifacts.mjs --context  # print "main" or "pr"
  */
 import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -178,8 +179,12 @@ export const COVERED = [
     // preflight already shells to python for check_index_sync.py.
     regen: 'python scripts/regen_catalog.py',
     gate: null, // no --check mode; check-catalog-parity.mjs covers orphans only
+    // Measured 2026-08-16 by running the generator in a clean worktree: it writes
+    // exactly these. Two phantom paths ('catalog.json', 'data/catalog.json') were
+    // listed here before and made `git add --pathspec-from-file` abort — see
+    // --check-paths, which now fails on any declared artifact absent from disk.
     artifacts: [
-      'catalog.json', 'data/catalog.json', 'mcp/catalog.json', 'mcp/server.json',
+      'mcp/catalog.json', 'mcp/server.json',
       '.well-known/mcp.json', 'llms.txt', 'tools.html', 'index.html',
     ],
     share: '15-27%',
@@ -254,6 +259,17 @@ export function advisoryGates() {
 }
 
 /**
+ * Declared artifacts that do not exist on disk. Must be empty: the regen workflow
+ * stages by this exact path list, and `git add` aborts the WHOLE command on a
+ * pathspec that matches nothing — so one phantom entry silently stages nothing,
+ * and the "escaped output" self-check then reports every real artifact as
+ * escaped. (Measured 2026-08-16, runs 31957347527 / 31958761151.)
+ */
+export function missingPaths() {
+  return coveredPaths().filter((p) => !existsSync(resolve(REPO, p)));
+}
+
+/**
  * Is this a MAIN context (gates block) or a PR context (gates warn)?
  *
  * ⚠ FAILS CLOSED. Anything undeterminable returns true — a gate stays BLOCKING
@@ -294,7 +310,21 @@ const isMain = process.argv[1] &&
 if (isMain) {
   const arg = process.argv[2];
   if (arg === '--paths') {
+    // Refuse to emit a pathspec that would abort `git add` — fail here, loudly,
+    // rather than let the workflow swallow the abort and misreport.
+    const missing = missingPaths();
+    if (missing.length) {
+      console.error(`✗ derived-artifacts --paths: ${missing.length} declared artifact(s) do not exist on disk:\n  ${missing.join('\n  ')}\n  Fix the SSOT entry (or run the generator that should create it).`);
+      process.exit(1);
+    }
     console.log(coveredPaths().join('\n'));
+  } else if (arg === '--check-paths') {
+    const missing = missingPaths();
+    if (missing.length) {
+      console.log(`✗ derived-artifacts: ${missing.length} declared artifact(s) missing on disk:\n  ${missing.join('\n  ')}`);
+      process.exit(1);
+    }
+    console.log(`✓ derived-artifacts: all ${coveredPaths().length} declared artifacts exist on disk.`);
   } else if (arg === '--context') {
     console.log(isMainContext() ? 'main' : 'pr');
   } else if (arg === '--regen') {
