@@ -68,6 +68,21 @@
 // name. A NAME-ONLY finding downgrades to INFO (still reported, never dropped — SO #34c's "absence
 // is not a pass" mirrored: an unclassifiable edge, kernel source missing, stays a HARD finding).
 // See classifyCoupling() below.
+//
+// ── SCOPE CORRECTION (CHAIN-FV-L1-PRECISION-2, Cluster A) ──────────────────────────────────────
+// The execution_hash read-check answers ONE question: "was THIS shared field actually delivered
+// producer-to-consumer?" That question is well-formed only for a `type-conflict` finding, which is
+// literally about a shared field. It is a CATEGORY MISMATCH for an `edge-inverted` finding, which
+// asserts something about chain COMPOSITION ORDER vs. the graph's own declared adjacency — no
+// specific field's delivery is in question at all. Measured live: with the downgrade applied
+// uniformly, every edge-inverted finding in the estate — including edge #4 (art-12↔art-01), a
+// CONFIRMED + NOT-REFUTED true positive per CLUSTERA-AP2-CONFIRM-1/-DENY-1 — silently disappeared
+// into INFO, because no downstream kernel in an edge-inverted pair happens to read execution_hash
+// UNLESS the defect is also (coincidentally, as with cry-05) an envelope-coupling one. A classifier
+// that downgrades a confirmed true positive is worse than none (the row's own words). ⇒ The
+// DATA-COUPLED/NAME-ONLY downgrade now applies ONLY to `type-conflict` findings. An `edge-inverted`
+// finding is NEVER eligible for the downgrade — its coupling tag is still computed and reported for
+// transparency, but it stays a HARD finding regardless of the tag. See classifyChainFindings() below.
 
 import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
@@ -280,13 +295,19 @@ export function classifyCoupling(consumerKernelSource) {
  * checkChain/checkEdge themselves are UNCHANGED by this — every existing control on them still
  * proves what it proved before.
  */
+// A finding is only eligible for the NAME-ONLY downgrade when it is literally about a shared
+// field's delivery — see the SCOPE CORRECTION note above. `edge-inverted` is a composition-order
+// claim, not a field-delivery claim, and is never eligible.
+const NAME_ONLY_ELIGIBLE_CODES = new Set(['type-conflict']);
+
 export function classifyChainFindings(chainResult, kernelSourceOf) {
   const findings = chainResult.findings.map((f) => ({
     ...f,
     coupling: classifyCoupling(kernelSourceOf ? kernelSourceOf(f.to) : null),
   }));
-  const hard = findings.filter((f) => f.coupling !== 'NAME-ONLY');
-  const info = findings.filter((f) => f.coupling === 'NAME-ONLY');
+  const isDowngraded = (f) => NAME_ONLY_ELIGIBLE_CODES.has(f.code) && f.coupling === 'NAME-ONLY';
+  const hard = findings.filter((f) => !isDowngraded(f));
+  const info = findings.filter(isDowngraded);
   const undecidedEdges = chainResult.edges.filter((e) => !e.decided);
 
   let verdict, reasons;
@@ -307,12 +328,12 @@ export function classifyChainFindings(chainResult, kernelSourceOf) {
   return { ...chainResult, verdict, reasons, findings: hard, info_findings: info };
 }
 
-/* ─────────────── measured precision (CHAIN-FV-L1-PRECISION-1, part 1) ─────────────── */
+/* ─────────────── measured precision (CHAIN-FV-L1-PRECISION-1 + -PRECISION-2) ─────────────── */
 //
-// The three SO #25 confirm/deny pairs settled so far (board/done/*). Cluster A
-// (CLUSTERA-AP2-CONFIRM-1 / CLUSTERA-AP2-DENY-1) had NOT landed as of this row's build
-// (2026-08-16) — fold it in as a fourth entry once both halves are in board/done/, per the row's
-// own instruction; do not guess its outcome in the meantime.
+// The SO #25 confirm/deny pairs settled so far (board/done/*), including Cluster A
+// (CLUSTERA-AP2-CONFIRM-1 / CLUSTERA-AP2-DENY-1, both landed 2026-08-16, folded in by
+// CHAIN-FV-L1-PRECISION-2). Do not re-adjudicate any of these — this file ENCODES settled
+// verdicts, it does not decide them.
 //
 // ⛔ These are OUTCOMES, not re-adjudications — each cites the settled board rows it encodes.
 export const ADJUDICATED_EDGES = [
@@ -334,7 +355,56 @@ export const ADJUDICATED_EDGES = [
     verdict: 'FP-hub',
     source: 'CLUSTERB-505-CONFIRM-1 (INDETERMINATE, no consistent reading) + CLUSTERB-505-DENY-1 (REFUTED all 4, hub hypothesis)',
   },
+  // ── Cluster A (art-01/art-32 hub reconciliation), CHAIN-FV-L1-PRECISION-2 ──
+  {
+    id: 'Cluster A edge #4: art-12-acp-checkout-conformance-validator -> art-01-ap2-mandate-chain-validator',
+    edge_count: 1,
+    verdict: 'TP',
+    source: 'CLUSTERA-AP2-CONFIRM-1 (CONFIRMED — art-12 hero prose + agentic-commerce-convergence real chain order agree, art-01 silent not contradicting) + CLUSTERA-AP2-DENY-1 (NOT-REFUTED — strongest of the 5, no counter-evidence found)',
+  },
+  {
+    id: 'Cluster A edge #2 (CONFIRM-ONLY false positive): art-01-ap2-mandate-chain-validator -> art-62-ap2-payment-receipt-verifier',
+    edge_count: 1,
+    verdict: 'FP-confirm-only',
+    source: 'CLUSTERA-AP2-CONFIRM-1 (CONFIRMED — art-62 hero states an explicit pre-trade/post-trade order) + CLUSTERA-AP2-DENY-1 (REFUTED — that temporal prose is scoped to one composition; a second named composition, agent-economy-payment-receipt, deliberately instantiates the reverse). A single-CONFIRM row would have shipped a fix here; the pair is what caught it.',
+  },
+  {
+    id: 'Cluster A edge #1: art-02-agent-spend-policy-simulator <-> art-01-ap2-mandate-chain-validator',
+    edge_count: 1,
+    verdict: 'INDETERMINATE',
+    source: 'CLUSTERA-AP2-CONFIRM-1 (PARTIALLY CONFIRMED, genuinely two-sided — both nodes self-declare and disagree) + CLUSTERA-AP2-DENY-1 (INDETERMINATE — genuine 1-1 tie in both prose and instantiation)',
+  },
+  {
+    id: 'Cluster A edge #3 (prose-may-be-wrong caveat): art-04-agent-identity-attestation-checker <-> art-32-a2a-agent-card-trust-chain-validator',
+    edge_count: 1,
+    verdict: 'INDETERMINATE',
+    source: 'CLUSTERA-AP2-CONFIRM-1 (INDETERMINATE, leans against the claim) + CLUSTERA-AP2-DENY-1 (INDETERMINATE — art-32\'s OWN hero prose textually claims the map\'s direction, directly contradicting an earlier reading that found "no direct textual match" for this edge; see PROSE_ORACLE_CAVEAT below)',
+  },
+  {
+    id: 'Cluster A edge #14 (outside claim mechanism): art-02-agent-spend-policy-simulator <-> art-04-agent-identity-attestation-checker',
+    edge_count: 1,
+    verdict: 'INDETERMINATE',
+    source: 'CLUSTERA-AP2-CONFIRM-1 (INDETERMINATE — outside the claim\'s mechanism, neither endpoint is a hub) + CLUSTERA-AP2-DENY-1 (INDETERMINATE, same reason — the proposed single mechanism structurally cannot reach this edge)',
+  },
 ];
+
+/* ─────────────── prose-is-evidence-not-an-oracle caveat (CHAIN-FV-L1-PRECISION-2) ─────────────── */
+//
+// This checker never treats hero/handoff prose as ground truth (see the handoff-prose advisory
+// metric above) — but CLUSTERA-AP2-DENY-1 surfaced a sharper case than "prose is merely descriptive
+// vocabulary": on Cluster A edge #3, art-32's OWN hero prose textually asserts the SAME direction
+// the declared chaingraph.json map already asserts, directly contradicting an earlier reading of
+// that same edge that found no textual match at all. Two independent readers of the identical prose
+// disagreed about what it says. ⇒ Prose is EVIDENCE for a human adjudicator to weigh, never an
+// ORACLE this or any automated checker can read as settled fact — this checker's own verdicts are
+// derived ONLY from chaingraph.json adjacency + schema/kernel-source read-checks, never from a
+// node's self-description, precisely because a node's own prose can itself be the thing that is
+// wrong, or be read two different ways by two careful readers.
+export const PROSE_ORACLE_CAVEAT = {
+  note: 'Handoff/hero prose is EVIDENCE, never an ORACLE. This checker\'s verdicts never read a node\'s own prose as ground truth — only declared chaingraph.json adjacency and schema/kernel-source read-checks decide a finding.',
+  worked_example: 'Cluster A edge #3 (art-04-agent-identity-attestation-checker <-> art-32-a2a-agent-card-trust-chain-validator): art-32\'s own hero prose textually claims the map\'s direction, contradicting an earlier reading of the SAME prose that reported no textual match for this edge at all.',
+  source: 'CLUSTERA-AP2-DENY-1 (research/CLUSTERA-AP2-DENY-2026-08-15.md, refutation case 5) vs. the earlier CLUSTERA-AP2-CONFIRM-1 reading it corrects',
+};
 
 /** Ratio derived from ADJUDICATED_EDGES — never hardcoded, so it moves when a fixture is added/changed. */
 export function measuredPrecision(fixtures = ADJUDICATED_EDGES) {
@@ -508,15 +578,16 @@ export function buildReport(root = ROOT) {
       ratio: precision.ratio,
       genuine_defects: precision.genuine_defects,
       adjudicated_edges: precision.adjudicated_edges,
-      cluster_a_landed: false,
-      cluster_a_note: 'CLUSTERA-AP2-CONFIRM-1 / CLUSTERA-AP2-DENY-1 had not landed in board/done/ as of this build — fold in as a fourth fixture once both land, per the row instruction. Not guessed here.',
+      cluster_a_landed: true,
+      cluster_a_note: 'CLUSTERA-AP2-CONFIRM-1 / CLUSTERA-AP2-DENY-1 landed 2026-08-16 and are folded in (CHAIN-FV-L1-PRECISION-2): edge #4 TP, edge #2 a second CONFIRM-ONLY false positive, edges #1/#3/#14 INDETERMINATE.',
       pairs: precision.pairs,
     },
     coupling_classification: {
-      note: 'DATA-COUPLED = consumer kernel demonstrably reads execution_hash (the one field run_chain actually threads step-to-step). NAME-ONLY = a matching field name never actually delivered producer-to-consumer; downgraded to INFO, never dropped. UNCLASSIFIED = kernel source unavailable, stays a HARD finding (absence of evidence is not a downgrade).',
+      note: 'DATA-COUPLED = consumer kernel demonstrably reads execution_hash (the one field run_chain actually threads step-to-step). NAME-ONLY = a matching field name never actually delivered producer-to-consumer — ONLY eligible to downgrade a type-conflict finding to INFO (never edge-inverted, a composition-order claim the field-delivery question cannot address — CHAIN-FV-L1-PRECISION-2). UNCLASSIFIED = kernel source unavailable, stays a HARD finding (absence of evidence is not a downgrade).',
       counts: couplingCounts,
       info_findings_total: infoFindingsTotal,
     },
+    prose_oracle_caveat: PROSE_ORACLE_CAVEAT,
     summary: {
       ...summary,
       edges_total: edgesTotal,
@@ -561,8 +632,9 @@ if (isMain) {
   } else if (!quiet) {
     const s = rep.summary, p = rep.precision, cc = rep.coupling_classification;
     console.log('L1 chain edge-contract check (ADVISORY — ladder level L1, "edge contracts machine-checked")');
-    console.log(`  measured precision : ${p.ratio} genuine defects among SO #25-adjudicated edges (as of ${p.measured_as_of}${p.cluster_a_landed ? '' : ', Cluster A not yet landed'}${reportPath ? `, report: ${reportPath}` : ''})`);
+    console.log(`  measured precision : ${p.ratio} genuine defects among SO #25-adjudicated edges (as of ${p.measured_as_of}${p.cluster_a_landed ? ', Cluster A folded in' : ', Cluster A not yet landed'}${reportPath ? `, report: ${reportPath}` : ''})`);
     console.log(`  ${p.note}`);
+    console.log(`  prose caveat       : ${rep.prose_oracle_caveat.note}`);
     console.log(`  chains walked      : ${s.chains_walked}/${s.total_chains} (skipped ${s.chains_skipped})`);
     console.log(`  L1-pass            : ${s['L1-pass']}`);
     console.log(`  L1-fail            : ${s['L1-fail']}`);
