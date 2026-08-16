@@ -3449,6 +3449,63 @@ present when the object is present; `kernel_digest` equal to `audit_signature.bu
 §18, this section **defaults OFF**: no node is required to adopt it, and its absence is never itself a
 finding.
 
+## §30 Cited Clause Digest — retrieval provenance (NORMATIVE, OPTIONAL — SPEC-TEXT PASS, record stays at whatever `chaingraph.json` carries, same text-pass/record-bump separation as §5.1/§14 above)
+A sealed, proven, published node (`art-365`) shipped routing behaviour the cited primary text never
+states, because it was built from secondary summaries after sessions wrongly concluded the publisher was
+unreachable (`ART365-DIVERGENCE-CONFIRM-1`). Nothing in the standard previously distinguished a node
+built from retrieved primary text from one built from nothing. §30 closes that specific gap: it makes
+**"built from nothing" structurally impossible** for a node that declares itself standards-implementing.
+
+**§30.0 Scope — honestly stated (NORMATIVE).** §30 proves retrieval happened. It does **NOT** prove the
+retrieved text was read correctly — `art-365`'s wrong routing would have passed a §30 gate, since a
+person can retrieve a clause and still misinterpret it. Any gate, doc, or output implementing §30 MUST
+say so plainly; a gate that oversells itself as catching misreading is worse than no gate, because it
+teaches readers to stop reading past green.
+
+**§30.1 The catalog fields (NORMATIVE — `$defs.citedClauseDigestEntry`).** A `chaingraph.json` `nodes[]`
+entry MAY declare `standards_basis` (`"implements_standard"` or `"not_applicable"`) and, when
+`"implements_standard"`, a non-empty `cited_clause_digest[]` array. Each entry is a retrieval-provenance
+record, REQUIRED members `digest` (a `sha256:`-prefixed content hash), `source_url`, `retrieved_at` (ISO
+date), and `clause_path` (the paragraph/section this node implements — e.g. `"(a)(2)"` or `"ASU 2023-09
+para 26"`); OPTIONAL `scheme`/`id` reuse §1.2's open-enum vocabulary. Both fields are hash-excluded
+catalog-only metadata — they are not part of any artifact's `execution_hash` preimage and this section
+defines no artifact-envelope change.
+
+**§30.2 Granularity — a whole-document digest is not a clause digest (NORMATIVE).** `digest` MUST be the
+sha256 of a clause-level snapshot **excerpt**, never a hash of an entire source document. A whole-PDF or
+whole-webpage digest asserts nothing about which clause a node actually implements and was explicitly
+rejected as insufficient by `FASB-RETRIEVAL-ROUTE-1`. This is enforced structurally, not by convention: a
+`digest` is only valid if it resolves to an entry in `chaingraph/standard/clause-snapshot-registry.json`,
+and the sole writer of that registry (`chaingraph/standard/pin-clause-snapshot.mjs`) refuses to register
+any excerpt above its size cap (20,000 bytes — a real paragraph/section excerpt; a whole regulatory
+instrument is not). The registry records digest + locator metadata only, never the retrieved text itself,
+so a copyrighted primary-source excerpt (e.g. a FASB ASU) is never committed to this public repository.
+
+**§30.3 In-scope declaration — explicit, never silent (NORMATIVE).** Not every node implements a
+published standard; some are pure math or format converters. A node declares itself in scope by setting
+`standards_basis: "implements_standard"`, or explicitly out of scope by setting
+`standards_basis: "not_applicable"`. There is no silent default: `check-clause-digest.mjs` REQUIRES one
+of the two values on every NEW or CHANGED node (branch-aware, the same detection
+`check-shard-assembly.mjs` uses), and a node carrying neither value fails the gate naming itself.
+
+**§30.4 Scope — new/changed nodes only (NORMATIVE).** Consistent with §28.5 and every other profile in
+this standard, §30 imposes no retrofit obligation. A pre-existing node with no `standards_basis`
+declaration is reported as a gap — a visible count, never a percentage, never backfilled — and is never
+itself a CI failure. Only a node NEW or CHANGED on the current branch, relative to its base ref, is
+gated.
+
+**§30.5 Conformance (NORMATIVE).** `check-clause-digest.mjs` (§15) proves three directions: (a) a
+new/changed in-scope node with no resolvable `cited_clause_digest` entry fails, naming the node; (b) a
+new/changed in-scope node whose entries all resolve to registered snapshots passes; (c) a `digest` that
+does not resolve to any `clause-snapshot-registry.json` entry fails — the case that matters, since a gate
+satisfied by an arbitrary string is theatre, not a control. Like every OPTIONAL profile in this standard,
+absence on an out-of-scope or pre-existing node carries no meaning and is fully conformant.
+
+**§30.6 Frozen-envelope invariance (NORMATIVE).** `standards_basis` and `cited_clause_digest` are
+OPTIONAL catalog-node properties, not artifact-envelope members. They move no `execution_hash`, add no
+`required[]` member to `$defs/artifact`, and impose no MUST-emit on any existing or future node. Measured
+against §0.4-FREEZE's three-condition bar, this is additive.
+
 ## §14 Changelog
 See `standard/CHANGELOG.md`. **v0.8.24 (2026-08-13 — SPEC-TEXT PASS adding §5.1 pm:* Prediction/
 Event-Market Provenance Extension, staged by `PM-OCG-SCHEMA-SPEC-1` carrying the
@@ -3752,6 +3809,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §21.6 ancestry_digest: bottom-up recompute over `{execution_hash, parent_ancestry_digests}` via the one `cgCanon` path, root uses `[]`, mutation-sensitive (an omitted/reordered/substituted ancestor MUST change the terminal digest — the exact `cgCanon`-object-not-string trap §PPH-1 already guards against, tested identically here), hash-EXCLUDED (byte-identical `execution_hash` with and without the member, both halves asserted), absence conformant + reported as no-claim, incomplete bundle reported as a distinct `incomplete-bundle` tier never conflated with `failed` | `ancestry-digest.test.mjs` (unit) + `schema-validate.mjs` (shape) | validate |
 | §20.3 retention profile: a verifier presented a hash-only survivor (leaf + inclusion proof + cosigned checkpoint, no body) reports `body-absent: anchored-hash-only`, never `verified`/`failed`; a `regulatory-N-years` fixture pruned before N elapses MUST fail a conformance check; `fixture`-class artifacts are NEVER eligible regardless of checkpoint state; top-level `retention_class` (§20.3.0, distinct from §23.4's per-attestation field of the same name) is hash-EXCLUDED (byte-identical `execution_hash` with and without the member); the tier is additive — an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18 | `retention-profile.test.mjs` | validate |
 | §STPFWD-1 forward decision-outcome mandate: a NEW gpu:false live node emits `haGatePolicy` (§27.4) at `/output_payload/decision/gate_policy` and `haRunState` (§27.10) at `/output_payload/decision/execution_state`, both closed enums unchanged and both inside the §4 preimage; silent about every node published before this section; no schema property, no `required[]` entry, no MUST-emit on an existing artifact — enforced at build time (repo scripts/check-compute-proof-coverage.mjs ratchet, cited §18) rather than by a second §15 gate, since every in-scope node is already required to be proven-or-explicitly-deferred before it can ship | `kernel-coverage.mjs --strict`, `compute-proof.test.mjs` | validate |
+| §30 cited clause digest: a `chaingraph.json` `nodes[]` entry NEW or CHANGED on the current branch MUST declare `standards_basis` (`implements_standard`\|`not_applicable`) — undeclared FAILS, no silent default (§30.3); `implements_standard` MUST carry >=1 `cited_clause_digest[]` entry whose `digest` resolves to a registered `chaingraph/standard/clause-snapshot-registry.json` entry — a non-resolving digest FAILS (§30.5c); registry entries are written only by `pin-clause-snapshot.mjs`, which refuses any excerpt exceeding the clause-level size cap (§30.2, whole-document digests structurally impossible); a PRE-EXISTING/untouched node is NEVER retro-gated, reported as a count only (§30.4); hash-excluded, no `execution_hash`/`required[]` change (§30.6); gate output states plainly it proves retrieval, not correct interpretation (§30.0) | `check-clause-digest.mjs`, `check-clause-digest.test.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

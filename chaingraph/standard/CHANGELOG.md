@@ -3,6 +3,26 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## §30 text pass — Cited Clause Digest (retrieval provenance)
+- **SPEC-TEXT PASS — not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
+  carries, same separation as the §5.1 pm:* pass above. Anchored on `board/done/ART365-DIVERGENCE-CONFIRM-1.md`,
+  `board/done/FASB-RETRIEVAL-ROUTE-1.md`, `board/done/PILLAR2-SIDEBYSIDE-T-1.md`.
+- **§30** adds two OPTIONAL catalog-node fields, `standards_basis` and `cited_clause_digest[]`, so a
+  node that declares itself standards-implementing carries machine-checkable proof it was derived from
+  retrieved primary text — closing the gap that let `art-365` ship routing behaviour its cited standard
+  never states. `digest` MUST be a clause-level excerpt hash (never whole-document), enforced by
+  registry membership against `chaingraph/standard/clause-snapshot-registry.json`, written only by
+  `chaingraph/standard/pin-clause-snapshot.mjs` (size-capped, so the source excerpt — never a
+  copyrighted whole instrument — is what gets hashed and only its metadata is ever committed).
+- **Scope, stated explicitly (§30.0).** Proves retrieval happened; does NOT prove correct interpretation.
+  `art-365`'s actual routing defect (a hardcoded `parentHq === 'US'` the standard never states) would
+  have passed this gate — a person can retrieve a clause and still choose wrongly.
+- **New/changed nodes only (§30.4).** No retrofit: existing nodes report as a visible gap count, never
+  a percentage, never a CI failure. Gate: `chaingraph/standard/check-clause-digest.mjs` (§15), wired
+  into `preflight.mjs`.
+- **Hash-excluded, envelope-frozen (§30.6).** Catalog-node metadata only; no artifact field, no
+  `execution_hash` preimage change, no `required[]` change.
+
 ## 0.9-draft — Control Plane Profile (§26)
 - **SPEC-TEXT PASS, draft label per estate convention — not a record bump.** `spec_version` of record
   stays 0.8.8; the draft label mirrors `SPEC-S26-CONTROL-PLANE-PROFILE-DRAFT.md`'s own header rather than
