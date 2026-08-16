@@ -1,3 +1,46 @@
+// art-627 — Effective-Date / Rule-Version Registry: pure resolution kernel.
+// ACCT-RULEREG-K-1, anchored on ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.0.1 (bundle + demonstrator
+// structure), Sec.2 (full kernel spec), Sec.4 (composition contract), Sec.5 (row-level
+// requirements) + RIDER-KERNEL.md (STANDING ORDER #6) + STANDING-ORDERS.md #34/#35 +
+// SPEC.md Sec.17/Sec.18/Sec.18.5.
+//
+// Job (build spec Sec.2): map (fiscal_year_end, filer_status, standard_id) onto the binding
+// annual/interim dates, the early-adoption flag, first_binding_period_end, transition_method and
+// the time-versioned parameter_set of a published accounting standard.
+//
+// THE REGISTRY IS DATA, DELIVERED IN policy_parameters — NEVER BAKED INTO THESE BYTES
+// (build spec Sec.2.3). This kernel embeds NO rule content of its own: no effective date, no
+// threshold, no standard. Every call supplies its own {query, registry_slice}. That ruling is
+// load-bearing and its alternative is a named trap: an embedded table would move kernel_digest on
+// every rule update, stale the receipt, and drop this node into STANDING ORDER #36 territory —
+// fix-and-re-prove in the same row, or do not touch the kernel — for a pure data change. Because
+// the slice arrives in policy_parameters, execution_hash binds the rule vintage through the
+// existing canonical preimage, and adding a rule entry never moves kernel_digest.
+//
+// The demonstrator standards this row exercises (FASB ASU 2023-07 Segment Reporting and ASU
+// 2023-09 Income Taxes) live ONLY in this kernel's fixtures, in the disjoint entry files under
+// chaingraph/kernels/data/rule-registry/, and in the pinned clause snapshots at workspace-root
+// research/clause-snapshots/ — never hardcoded here.
+//
+// IN-GUEST DIGEST ASSERTION, BOUNDED (build spec Sec.2.3): the kernel recomputes
+// sha256(canon(registry_slice)) and fails closed against the declared registry_digest. In-guest
+// hashing is a named static SLOW-suspect marker in GPU-CYCLE-PREFLIGHT-SPEC.md, and the resolution
+// is to BOUND the hashed object rather than drop the check: the kernel hashes only the SLICE it
+// consumes, max_slice_entries = 32, declared and enforced. The full-table -> slice binding is a
+// HOST-side gate (scripts/gen-rule-registry.mjs --check), deliberately outside the guest.
+//
+// float_sensitive: NO. Date and enum arithmetic only — integer arithmetic over parsed ISO
+// components, never `new Date()`, never a locale, never a timezone, and no transcendental anywhere
+// (SPEC.md Sec.18.5). A parameter_set value that a downstream consumer treats as a float is THAT
+// consumer's declaration: this kernel transports the value verbatim and must not round it.
+//
+// Pure: no DOM, no window, no network, no host crypto in compute() (GUEST-BUILTIN-GATE-1,
+// RIDER-KERNEL.md) — the inlined _ruleversion bundle below carries the validated pure-JS UTF-8
+// encoder and SHA-256 already proven guest-safe in art-199/200/206/210/280/584/620.
+
+import { executionHash } from './_hash.mjs';
+
+/* ===== inlined _ruleversion (RISC0 guest provides only _hash; bundle import is unavailable in-guest) ===== */
 // _ruleversion.bundle.mjs — effective-date / rule-version registry resolver, shared kernel infra.
 // ACCT-RULEREG-K-1, anchored on ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.2 (full kernel spec) +
 // Sec.4 (composition contract) + RIDER-KERNEL.md (STANDING ORDER #6).
@@ -614,14 +657,119 @@ return {
   resolve,
 };
 })();
+/* ===== END inlined _ruleversion ===== */
 
-export const FILER_STATUSES = _ruleversion.FILER_STATUSES;
-export const MAX_SLICE_ENTRIES = _ruleversion.MAX_SLICE_ENTRIES;
-export const MAX_PARAMETERS_PER_ENTRY = _ruleversion.MAX_PARAMETERS_PER_ENTRY;
-export const parseISODate = _ruleversion.parseISODate;
-export const computeSliceDigest = _ruleversion.computeSliceDigest;
-export const computeEntryDigest = _ruleversion.computeEntryDigest;
-export const validateSlice = _ruleversion.validateSlice;
-export const validateQuery = _ruleversion.validateQuery;
-export const resolve = _ruleversion.resolve;
-export default _ruleversion;
+const { resolve: resolveRuleVersion, validateSlice, FILER_STATUSES, MAX_SLICE_ENTRIES, MAX_PARAMETERS_PER_ENTRY } = _ruleversion;
+
+const TOOL_ID = 'art-627-effective-date-rule-version-registry';
+const TOOL_VERSION = '1.0.0';
+
+export const meta = {
+  tool_id: TOOL_ID,
+  tool_version: TOOL_VERSION,
+  mcp_name: 'resolve_rule_version',
+  mandate_type: 'compliance_mandate',
+  gpu: false,
+};
+
+const SCOPE_NOTE =
+  'This kernel is a generic effective-date and rule-version resolver. It carries no effective ' +
+  'date, threshold, or standard of its own -- every call must supply its own {query, ' +
+  'registry_slice} in policy_parameters. Every date, parameter value, citation and digest ' +
+  'reported below comes entirely from the caller-supplied slice, never from anything hardcoded ' +
+  'in this kernel. A resolved parameter value is transported verbatim and is never rounded: a ' +
+  'value a downstream consumer treats as a float is that consumer declaration, not this one.';
+
+/**
+ * compute(pp) — resolve one (fiscal_year_end, filer_status, standard_id) triple against a
+ * caller-supplied, hash-pinned registry slice.
+ *
+ * Total by construction (build spec Sec.2.4): every triple in the declared domain resolves to
+ * exactly one entry (resolution_status "RESOLVED") or to an explicit "NO_BINDING_ENTRY" — never a
+ * silent undefined. A malformed slice or query is refused with a NAMED error_code instead.
+ *
+ * The declared registry_digest is never trusted as an oracle for itself: it is recomputed from the
+ * slice's own bytes and compared fail-closed (STANDING-ORDERS.md #34).
+ *
+ * pp: {
+ *   query?: { fiscal_year_end: ISO date, filer_status: closed enum, standard_id: string,
+ *             fiscal_year_begin?: ISO date },
+ *   registry_slice?: { registry_digest, entries: [ ... ] },
+ * }
+ */
+export function compute(pp) {
+  pp = pp || {};
+  const result = resolveRuleVersion(pp);
+
+  const compliance_flags = {
+    RULEREG_REGISTRY_IS_DATA_NOT_CODE: true,
+    RULEREG_FILER_STATUS_ENUM_CLOSED: true,
+    RULEREG_SLICE_BOUND_DECLARED_AND_ENFORCED: true,
+  };
+  if (result.registry_digest_recomputed !== null && result.error_code !== 'SLICE_DIGEST_MISMATCH') {
+    compliance_flags.RULEREG_SLICE_DIGEST_VERIFIED = true;
+    // Reachable only past validateSlice(), whose non-overlap assertion is a hard refusal.
+    compliance_flags.RULEREG_PARAMETER_WINDOWS_NON_OVERLAPPING = true;
+  }
+  if (result.error_code === null) {
+    if (result.resolution_status === 'RESOLVED') compliance_flags.RULEREG_RESOLVED = true;
+    if (result.resolution_status === 'NO_BINDING_ENTRY') compliance_flags.RULEREG_NO_BINDING_ENTRY = true;
+  } else {
+    compliance_flags.RULEREG_REJECTED = true;
+    if (result.error_code === 'SLICE_DIGEST_MISMATCH') compliance_flags.RULEREG_DIGEST_MISMATCH_REJECTED = true;
+    if (result.error_code === 'SLICE_UNCITED_ENTRY') compliance_flags.RULEREG_UNCITED_ENTRY_REJECTED = true;
+    if (result.error_code === 'SLICE_PARAMETER_WINDOWS_OVERLAP') compliance_flags.RULEREG_OVERLAP_REJECTED = true;
+    if (result.error_code === 'SLICE_MAX_ENTRIES_EXCEEDED') compliance_flags.RULEREG_SLICE_BOUND_REJECTED = true;
+    if (result.error_code === 'QUERY_INVALID_FILER_STATUS') compliance_flags.RULEREG_CLOSED_ENUM_REJECTED = true;
+  }
+
+  const output_payload = {
+    resolution_status: result.resolution_status,
+    error_code: result.error_code,
+    message: result.message,
+    standard_id: result.standard_id,
+    filer_status: result.filer_status,
+    fiscal_year_end: result.fiscal_year_end,
+    fiscal_year_begin: result.fiscal_year_begin,
+    fiscal_year_begin_basis: result.fiscal_year_begin_basis,
+    effective_for_annual_periods_beginning: result.effective_for_annual_periods_beginning,
+    effective_for_interim_periods_beginning: result.effective_for_interim_periods_beginning,
+    early_adoption_permitted: result.early_adoption_permitted,
+    binding_for_queried_annual_period: result.binding_for_queried_annual_period,
+    binding_for_queried_interim_periods: result.binding_for_queried_interim_periods,
+    first_binding_period_end: result.first_binding_period_end,
+    transition_method: result.transition_method,
+    parameter_set: result.parameter_set,
+    parameter_set_as_of: result.parameter_set_as_of,
+    entry_digest: result.entry_digest,
+    citation: result.citation,
+    registry_digest_recomputed: result.registry_digest_recomputed,
+    resolution_path: result.resolution_path,
+    bounds: { max_slice_entries: MAX_SLICE_ENTRIES, max_parameters_per_entry: MAX_PARAMETERS_PER_ENTRY },
+    closed_filer_status_enum: FILER_STATUSES,
+    float_sensitive: false,
+    scope_note: SCOPE_NOTE,
+  };
+
+  return { output_payload, compliance_flags };
+}
+
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: hash,
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: pp,
+    output_payload,
+    compliance_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+}
