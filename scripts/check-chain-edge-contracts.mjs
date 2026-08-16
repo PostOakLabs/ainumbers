@@ -75,14 +75,26 @@
 // literally about a shared field. It is a CATEGORY MISMATCH for an `edge-inverted` finding, which
 // asserts something about chain COMPOSITION ORDER vs. the graph's own declared adjacency — no
 // specific field's delivery is in question at all. Measured live: with the downgrade applied
-// uniformly, every edge-inverted finding in the estate — including edge #4 (art-12↔art-01), a
-// CONFIRMED + NOT-REFUTED true positive per CLUSTERA-AP2-CONFIRM-1/-DENY-1 — silently disappeared
-// into INFO, because no downstream kernel in an edge-inverted pair happens to read execution_hash
-// UNLESS the defect is also (coincidentally, as with cry-05) an envelope-coupling one. A classifier
-// that downgrades a confirmed true positive is worse than none (the row's own words). ⇒ The
-// DATA-COUPLED/NAME-ONLY downgrade now applies ONLY to `type-conflict` findings. An `edge-inverted`
-// finding is NEVER eligible for the downgrade — its coupling tag is still computed and reported for
-// transparency, but it stays a HARD finding regardless of the tag. See classifyChainFindings() below.
+// uniformly, every edge-inverted finding in the estate — including edge #4 (art-12↔art-01), then
+// believed a CONFIRMED + NOT-REFUTED true positive — silently disappeared into INFO, because no
+// downstream kernel in an edge-inverted pair happens to read execution_hash UNLESS the defect is
+// also (coincidentally, as with cry-05) an envelope-coupling one. A classifier that downgrades a
+// confirmed true positive is worse than none (the row's own words). ⇒ The DATA-COUPLED/NAME-ONLY
+// downgrade now applies ONLY to `type-conflict` findings. An `edge-inverted` finding is NEVER
+// eligible for the downgrade — its coupling tag is still computed and reported for transparency,
+// but it stays a HARD finding regardless of the tag. See classifyChainFindings() below.
+//
+// ⛔⛔ RE-VERIFIED STILL CORRECT AFTER EDGE #4 WAS RECLASSIFIED (CHAIN-FV-L1-PRECISION-3). Edge #4
+// turned out NOT to be a true positive — EDGE4-ART12-ART01-FIX-1 measured that flipping it zeroed
+// one inversion (agentic-commerce-convergence) but created another (agent-commerce-conformance),
+// net movement zero — it is a TIE like #1/#3/#14, not a clean TP. ⚠ That does NOT undo this scoping
+// rule: the category-mismatch argument above never depended on edge #4 specifically being a TP —
+// it depends only on edge-inverted being a composition-order claim, which the execution_hash
+// field-delivery question categorically cannot address, for ANY edge-inverted finding, adjudicated
+// or not. Un-scoping the downgrade would still wrongly bury every live edge-inverted finding
+// (including Cluster B's, independently adjudicated FP-hub — but that verdict lives in
+// ADJUDICATED_EDGES as a fixture record, not as license for the live classifier to silently drop
+// the lead). The scoping stays exactly as CHAIN-FV-L1-PRECISION-2 left it.
 
 import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
@@ -328,12 +340,23 @@ export function classifyChainFindings(chainResult, kernelSourceOf) {
   return { ...chainResult, verdict, reasons, findings: hard, info_findings: info };
 }
 
-/* ─────────────── measured precision (CHAIN-FV-L1-PRECISION-1 + -PRECISION-2) ─────────────── */
+/* ─────────────── measured precision (CHAIN-FV-L1-PRECISION-1 + -PRECISION-2 + -PRECISION-3) ─── */
 //
 // The SO #25 confirm/deny pairs settled so far (board/done/*), including Cluster A
 // (CLUSTERA-AP2-CONFIRM-1 / CLUSTERA-AP2-DENY-1, both landed 2026-08-16, folded in by
 // CHAIN-FV-L1-PRECISION-2). Do not re-adjudicate any of these — this file ENCODES settled
 // verdicts, it does not decide them.
+//
+// ⛔⛔ EDGE #4 CORRECTION (CHAIN-FV-L1-PRECISION-3): CHAIN-FV-L1-PRECISION-2 encoded edge #4 as a
+// TRUE POSITIVE on the strength of an agreeing CONFIRM/DENY pair. EDGE4-ART12-ART01-FIX-1 then
+// tried to apply the fix the pair recommended and MEASURED it: flipping art-12<->art-01 zeroed the
+// inversion in agentic-commerce-convergence but CREATED a new one in agent-commerce-conformance — a
+// real named chain with a deliberate art-01->art-12 composition that neither half of the pair had
+// examined, because both scoped themselves to the chains the checker had originally flagged as
+// failing. Net L1 movement was ZERO; the edit was reverted. Edge #4 is a genuine TIE, exactly like
+// #1/#3/#14 — an agreeing confirm/deny pair was still wrong, because it never enumerated every
+// chain containing both endpoints. See chainsContainingBothEndpoints() and BLIND_SPOT_LESSON below,
+// which encode the fix for the blind spot itself, not just this one instance of it.
 //
 // ⛔ These are OUTCOMES, not re-adjudications — each cites the settled board rows it encodes.
 export const ADJUDICATED_EDGES = [
@@ -357,10 +380,10 @@ export const ADJUDICATED_EDGES = [
   },
   // ── Cluster A (art-01/art-32 hub reconciliation), CHAIN-FV-L1-PRECISION-2 ──
   {
-    id: 'Cluster A edge #4: art-12-acp-checkout-conformance-validator -> art-01-ap2-mandate-chain-validator',
+    id: 'Cluster A edge #4: art-12-acp-checkout-conformance-validator <-> art-01-ap2-mandate-chain-validator',
     edge_count: 1,
-    verdict: 'TP',
-    source: 'CLUSTERA-AP2-CONFIRM-1 (CONFIRMED — art-12 hero prose + agentic-commerce-convergence real chain order agree, art-01 silent not contradicting) + CLUSTERA-AP2-DENY-1 (NOT-REFUTED — strongest of the 5, no counter-evidence found)',
+    verdict: 'INDETERMINATE',
+    source: 'CLUSTERA-AP2-CONFIRM-1 (CONFIRMED) + CLUSTERA-AP2-DENY-1 (NOT-REFUTED) — both agreed, but neither enumerated every chain containing both endpoints. EDGE4-ART12-ART01-FIX-1 measured the recommended fix: it zeroed the inversion in agentic-commerce-convergence but created a new one in agent-commerce-conformance (a real named chain, deliberate art-01->art-12 composition, unexamined by either half of the pair). Net L1 movement zero; edit reverted. A genuine TIE, not a TP — CHAIN-FV-L1-PRECISION-3.',
   },
   {
     id: 'Cluster A edge #2 (CONFIRM-ONLY false positive): art-01-ap2-mandate-chain-validator -> art-62-ap2-payment-receipt-verifier',
@@ -404,6 +427,41 @@ export const PROSE_ORACLE_CAVEAT = {
   note: 'Handoff/hero prose is EVIDENCE, never an ORACLE. This checker\'s verdicts never read a node\'s own prose as ground truth — only declared chaingraph.json adjacency and schema/kernel-source read-checks decide a finding.',
   worked_example: 'Cluster A edge #3 (art-04-agent-identity-attestation-checker <-> art-32-a2a-agent-card-trust-chain-validator): art-32\'s own hero prose textually claims the map\'s direction, contradicting an earlier reading of the SAME prose that reported no textual match for this edge at all.',
   source: 'CLUSTERA-AP2-DENY-1 (research/CLUSTERA-AP2-DENY-2026-08-15.md, refutation case 5) vs. the earlier CLUSTERA-AP2-CONFIRM-1 reading it corrects',
+};
+
+/* ─────────────── blind-spot fix: all chains containing both endpoints (CHAIN-FV-L1-PRECISION-3) ─
+//
+// THE BLIND SPOT, measured live on edge #4: CLUSTERA-AP2-CONFIRM-1 and -DENY-1 independently agreed
+// art-12->art-01 was the right direction — both scoped their reading to the chains this checker had
+// flagged as FAILING (agentic-commerce-convergence). Neither enumerated every chain containing both
+// endpoints, so neither one ever looked at agent-commerce-conformance, which deliberately runs the
+// OPPOSITE composition (art-01 -> art-12). An agreeing pair was still wrong, because agreement about
+// what they looked at says nothing about what they didn't. ⇒ A "flip this edge" recommendation is
+// only safe once every chain containing both endpoints has been checked, not only the ones failing.
+//
+// This function makes that full set visible mechanically, so a future confirm/deny pair (or anyone
+// reading a finding) sees every chain in play before recommending a flip — not just the failing one.
+*/
+export function chainsContainingBothEndpoints(chains, idA, idB) {
+  return chains
+    .filter((c) => {
+      const ids = new Set((c.steps || []).map((s) => s.tool_id));
+      return ids.has(idA) && ids.has(idB);
+    })
+    .map((c) => c.name)
+    .sort();
+}
+
+export const BLIND_SPOT_LESSON = {
+  note: 'an edge that fails in one chain may be deliberate in another; a pair that examines only the '
+    + 'failing chains can agree and still be wrong',
+  worked_example: 'Cluster A edge #4 (art-12-acp-checkout-conformance-validator <-> '
+    + 'art-01-ap2-mandate-chain-validator): CLUSTERA-AP2-CONFIRM-1 and CLUSTERA-AP2-DENY-1 both '
+    + 'scoped to agentic-commerce-convergence (the failing chain) and agreed on a flip. Neither '
+    + 'checked agent-commerce-conformance, which deliberately instantiates the reverse composition. '
+    + 'EDGE4-ART12-ART01-FIX-1 measured the flip: it zeroed one inversion and created the other, net '
+    + 'movement zero.',
+  source: 'EDGE4-ART12-ART01-FIX-1 (board/done/), CHAIN-FV-L1-PRECISION-3',
 };
 
 /** Ratio derived from ADJUDICATED_EDGES — never hardcoded, so it moves when a fixture is added/changed. */
@@ -524,9 +582,15 @@ export function buildReport(root = ROOT) {
   const { chaingraph, sourceDigest, ctx, hasSpecFile, hasFixtures, kernelSource } = loadEstate(root);
   const chains = chaingraph.chains || [];
 
+  // Enrich every finding with the FULL set of chains containing both its endpoints — not only the
+  // chains it fails in (CHAIN-FV-L1-PRECISION-3, the blind-spot fix). Applied to both hard and info
+  // findings so a downgraded finding does not lose the context either.
+  const enrichFinding = (f) => ({ ...f, chains_containing_both_endpoints: chainsContainingBothEndpoints(chains, f.from, f.to) });
+
   const results = chains
     .map((c) => checkChain(c, ctx))
     .map((r) => classifyChainFindings(r, kernelSource))
+    .map((r) => ({ ...r, findings: r.findings.map(enrichFinding), info_findings: r.info_findings.map(enrichFinding) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const summary = { total_chains: chains.length, 'L1-pass': 0, 'L1-fail': 0, 'L1-indeterminate': 0 };
@@ -588,6 +652,15 @@ export function buildReport(root = ROOT) {
       info_findings_total: infoFindingsTotal,
     },
     prose_oracle_caveat: PROSE_ORACLE_CAVEAT,
+    blind_spot_lesson: {
+      ...BLIND_SPOT_LESSON,
+      demonstrated_on: {
+        endpoints: ['art-12-acp-checkout-conformance-validator', 'art-01-ap2-mandate-chain-validator'],
+        chains_containing_both_endpoints: chainsContainingBothEndpoints(
+          chains, 'art-12-acp-checkout-conformance-validator', 'art-01-ap2-mandate-chain-validator',
+        ),
+      },
+    },
     summary: {
       ...summary,
       edges_total: edgesTotal,
@@ -635,6 +708,8 @@ if (isMain) {
     console.log(`  measured precision : ${p.ratio} genuine defects among SO #25-adjudicated edges (as of ${p.measured_as_of}${p.cluster_a_landed ? ', Cluster A folded in' : ', Cluster A not yet landed'}${reportPath ? `, report: ${reportPath}` : ''})`);
     console.log(`  ${p.note}`);
     console.log(`  prose caveat       : ${rep.prose_oracle_caveat.note}`);
+    console.log(`  blind-spot lesson  : ${rep.blind_spot_lesson.note}`);
+    console.log(`  demonstrated on art-12/art-01 — chains containing both endpoints: ${rep.blind_spot_lesson.demonstrated_on.chains_containing_both_endpoints.join(', ')}`);
     console.log(`  chains walked      : ${s.chains_walked}/${s.total_chains} (skipped ${s.chains_skipped})`);
     console.log(`  L1-pass            : ${s['L1-pass']}`);
     console.log(`  L1-fail            : ${s['L1-fail']}`);

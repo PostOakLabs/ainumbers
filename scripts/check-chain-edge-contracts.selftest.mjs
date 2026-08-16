@@ -15,7 +15,7 @@
 import {
   checkChain, checkEdge, typesCompatible, induceSchema, schemaFromProperties,
   classifyCoupling, classifyChainFindings, measuredPrecision, ADJUDICATED_EDGES, ENVELOPE_COUPLING_FIELD,
-  PROSE_ORACLE_CAVEAT,
+  PROSE_ORACLE_CAVEAT, chainsContainingBothEndpoints, BLIND_SPOT_LESSON,
 } from './check-chain-edge-contracts.mjs';
 
 let failures = 0;
@@ -280,15 +280,19 @@ console.log('── Control 10: classifyChainFindings — prove BOTH directions 
 console.log('── Control 11: measured precision is DERIVED, not hardcoded, and is regression-tested ──');
 {
   const p = measuredPrecision();
-  check('genuine defects is exactly the count of TP fixtures (cry-05 + Cluster A edge #4)', p.genuine_defects === 2);
+  check('genuine defects is exactly the count of TP fixtures (cry-05 ONLY — CHAIN-FV-L1-PRECISION-3 '
+    + 'reclassified Cluster A edge #4 from TP to a TIE)', p.genuine_defects === 1);
   check('adjudicated edges sums every fixture\'s edge_count (1 + 1 + 4 + 5 Cluster A = 11)', p.adjudicated_edges === 11);
-  check('ratio string matches the derived numbers', p.ratio === '2/11');
+  check('ratio string matches the derived numbers (corrected: 1/11, not 2/11)', p.ratio === '1/11');
   check('Cluster A IS folded in (CHAIN-FV-L1-PRECISION-2)',
     ADJUDICATED_EDGES.some((f) => f.id.toLowerCase().includes('cluster a')));
-  check('Cluster A contributes exactly one TP (edge #4), one distinct CONFIRM-ONLY FP (edge #2), three INDETERMINATE (#1/#3/#14)',
-    ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'TP').length === 1
+  check('Cluster A contributes ZERO TPs, one distinct CONFIRM-ONLY FP (edge #2), FOUR INDETERMINATE '
+    + '(#1/#3/#4/#14 — edge #4 reclassified as a tie, CHAIN-FV-L1-PRECISION-3)',
+    ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'TP').length === 0
     && ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'FP-confirm-only').length === 1
-    && ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'INDETERMINATE').length === 3);
+    && ADJUDICATED_EDGES.filter((f) => f.id.toLowerCase().includes('cluster a') && f.verdict === 'INDETERMINATE').length === 4);
+  check('edge #4 specifically is now INDETERMINATE, not TP',
+    ADJUDICATED_EDGES.find((f) => f.id.includes('Cluster A edge #4')).verdict === 'INDETERMINATE');
   check('edge #2\'s FP class is DISTINCT from Cluster B\'s FP-hub class, not merged into it',
     ADJUDICATED_EDGES.some((f) => f.verdict === 'FP-confirm-only') && ADJUDICATED_EDGES.some((f) => f.verdict === 'FP-hub'));
 
@@ -297,13 +301,15 @@ console.log('── Control 11: measured precision is DERIVED, not hardcoded, an
   // criterion for part 3).
   const mutated = ADJUDICATED_EDGES.map((f) => (f.id.startsWith('edge #6') ? { ...f, verdict: 'TP' } : f));
   const mutatedP = measuredPrecision(mutated);
-  check('MUTATION: reclassifying edge #6 as a TP moves the ratio (3/11, not still 2/11)',
-    mutatedP.genuine_defects === 3 && mutatedP.ratio === '3/11');
+  check('MUTATION: reclassifying edge #6 as a TP moves the ratio (2/11, not still 1/11)',
+    mutatedP.genuine_defects === 2 && mutatedP.ratio === '2/11');
 
-  const mutated2 = ADJUDICATED_EDGES.map((f) => (f.id.includes('Cluster A edge #4') ? { ...f, verdict: 'FP' } : f));
+  // MUTATION (CHAIN-FV-L1-PRECISION-3's own done-criterion (a)): the fixture must BITE — flipping
+  // edge #4 back to a TP must move the ratio away from the corrected 1/11.
+  const mutated2 = ADJUDICATED_EDGES.map((f) => (f.id.includes('Cluster A edge #4') ? { ...f, verdict: 'TP' } : f));
   const mutatedP2 = measuredPrecision(mutated2);
-  check('MUTATION: flipping Cluster A edge #4 off TP moves the ratio (1/11, not still 2/11)',
-    mutatedP2.genuine_defects === 1 && mutatedP2.ratio === '1/11');
+  check('MUTATION: flipping Cluster A edge #4 BACK to TP moves the ratio (2/11, not still 1/11 — '
+    + 'the fixture bites)', mutatedP2.genuine_defects === 2 && mutatedP2.ratio === '2/11');
 }
 
 console.log('── Control 12: NAME-ONLY downgrade is scoped to type-conflict only (CHAIN-FV-L1-PRECISION-2) ──');
@@ -315,8 +321,9 @@ console.log('── Control 12: NAME-ONLY downgrade is scoped to type-conflict o
     classifyCoupling(art01Like) === 'NAME-ONLY');
 
   // (a) An edge-inverted finding against this NAME-ONLY source must stay HARD — the Cluster-A
-  // edge-#4 shape: a confirmed true positive that the raw execution_hash heuristic alone would have
-  // wrongly downgraded.
+  // edge-#4 shape (a settled TIE, CHAIN-FV-L1-PRECISION-3 — not a TP; the point of this control is
+  // the general edge-inverted-vs-NAME-ONLY category mismatch, independent of #4's own verdict) that
+  // the raw execution_hash heuristic alone would have wrongly downgraded.
   {
     const r = checkChain(
       { name: 'fx-edge4-shape', steps: [{ tool_id: 'fx-p' }, { tool_id: 'fx-c' }] },
@@ -370,6 +377,48 @@ console.log('── Control 13: PROSE_ORACLE_CAVEAT is present and names its wor
   check('caveat cites its source rows, not asserted from nothing', PROSE_ORACLE_CAVEAT.source.includes('CLUSTERA-AP2-DENY-1'));
   check('caveat does not render a verdict on edge #3 (no CONFIRMED/DENIED/REFUTED language)',
     !/\b(confirmed|refuted|denied)\b/i.test(PROSE_ORACLE_CAVEAT.note) && !/\b(confirmed|refuted|denied)\b/i.test(PROSE_ORACLE_CAVEAT.worked_example));
+}
+
+console.log('── Control 14: chains-containing-both-endpoints — the blind-spot fix (CHAIN-FV-L1-PRECISION-3) ──');
+{
+  // Fixture keyed to the REAL art-12/art-01 tool_ids, so the regression this row exists to prevent
+  // stays permanent — a future confirm/deny pair scoping only to a failing chain is exactly what
+  // let edge #4 get agreed on wrongly (both CLUSTERA-AP2-CONFIRM-1 and -DENY-1 only looked at
+  // agentic-commerce-convergence and never saw agent-commerce-conformance's reverse composition).
+  const ART12 = 'art-12-acp-checkout-conformance-validator';
+  const ART01 = 'art-01-ap2-mandate-chain-validator';
+  const fixtureChains = [
+    { name: 'agentic-commerce-convergence', steps: [{ tool_id: 'art-564-ucp-checkout-payload-lint' }, { tool_id: ART12 }, { tool_id: ART01 }] },
+    { name: 'agent-commerce-conformance', steps: [{ tool_id: ART01 }, { tool_id: ART12 }, { tool_id: 'art-03-x402-settlement-modeler' }, { tool_id: 'art-30-agent-commerce-conformance-validator' }] },
+    { name: 'unrelated-chain-only-art-12', steps: [{ tool_id: ART12 }, { tool_id: 'art-99-unrelated-node' }] },
+    { name: 'unrelated-chain-neither-endpoint', steps: [{ tool_id: 'art-98-a' }, { tool_id: 'art-97-b' }] },
+  ];
+
+  const both = chainsContainingBothEndpoints(fixtureChains, ART12, ART01);
+  check('finds BOTH chains containing both endpoints, sorted', both.length === 2
+    && both[0] === 'agent-commerce-conformance' && both[1] === 'agentic-commerce-convergence');
+  check('excludes a chain containing only ONE endpoint', !both.includes('unrelated-chain-only-art-12'));
+  check('excludes a chain containing NEITHER endpoint', !both.includes('unrelated-chain-neither-endpoint'));
+  check('order of tool_ids passed in does not matter (endpoint order-independent)',
+    chainsContainingBothEndpoints(fixtureChains, ART01, ART12).join(',') === both.join(','));
+
+  // MUTATION (SO #34): remove agent-commerce-conformance from the fixture set — the exact blind
+  // spot CONFIRM/DENY fell into — and the function must report only the one chain it can see, never
+  // silently backfilling the one that isn't there.
+  const withoutConformance = fixtureChains.filter((c) => c.name !== 'agent-commerce-conformance');
+  const partial = chainsContainingBothEndpoints(withoutConformance, ART12, ART01);
+  check('MUTATION: removing agent-commerce-conformance from the input leaves only agentic-commerce-convergence '
+    + '(proves the function reports what IS there, not a hardcoded pair)',
+    partial.length === 1 && partial[0] === 'agentic-commerce-convergence');
+
+  check('BLIND_SPOT_LESSON states the lesson in words, not just data',
+    /fails in one chain/i.test(BLIND_SPOT_LESSON.note) && /deliberate in another/i.test(BLIND_SPOT_LESSON.note)
+    && /examines only the failing chains/i.test(BLIND_SPOT_LESSON.note));
+  check('BLIND_SPOT_LESSON worked example names edge #4 and both chains',
+    BLIND_SPOT_LESSON.worked_example.includes('art-12') && BLIND_SPOT_LESSON.worked_example.includes('art-01')
+    && BLIND_SPOT_LESSON.worked_example.includes('agent-commerce-conformance')
+    && BLIND_SPOT_LESSON.worked_example.includes('agentic-commerce-convergence'));
+  check('BLIND_SPOT_LESSON cites its source row', BLIND_SPOT_LESSON.source.includes('EDGE4-ART12-ART01-FIX-1'));
 }
 
 /* Synthetic kernel-source fixtures for Control 10, modelled on (but not copied verbatim from) the
