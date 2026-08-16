@@ -39,6 +39,15 @@ on:
     # list, scripts/ci-paths.json) whether the substantive job actually runs,
     # and the reporter job always reports. See that job's comment.
     types: [opened, synchronize, reopened, ready_for_review]
+  # merge_group: the reporter job below is a required status check, so it must
+  # also fire on merge_group or GitHub never reports status for a queued PR and
+  # the queue deadlocks — "omitting it causes status checks to fail reporting,
+  # resulting in merge failures" (GitHub Docs, Managing a merge queue). No
+  # `paths:` filter is supported on this trigger type; the `relevant` job's own
+  # diff against merge_group.base_sha/head_sha is what scopes it, same as it
+  # does for pull_request.
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -75,6 +84,8 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
         run: node scripts/check-ci-relevant.mjs --key scripts-verify
 
   scripts-verify:

@@ -22,6 +22,13 @@
  *
  * BASE/HEAD resolution and the NUL-delimited diff pattern reuse jsdoc-checkjs.yml's
  * existing, injection-safe plumbing: values cross via env:, never `${{ }}` in a run: body.
+ *
+ * merge_group support: a queued merge_group event has NO `github.base_ref`/
+ * pull_request context — `github.event.pull_request.base.sha` is empty there. It
+ * carries its own `merge_group.base_sha`/`merge_group.head_sha` instead (the
+ * queue's target ref and the temporary merge commit being validated), passed in
+ * via MERGE_GROUP_BASE_SHA/MERGE_GROUP_HEAD_SHA. Diffed the same way as the
+ * pull_request branch, with the same fail-open-on-unresolvable rule.
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, appendFileSync } from 'node:fs';
@@ -65,13 +72,7 @@ function main() {
   const eventName = process.env.EVENT_NAME || '';
   let hit;
 
-  if (eventName !== 'pull_request') {
-    // push (or local/manual run): the workflow's own `paths:` trigger filter already
-    // scoped dispatch, so there is nothing further to decide here.
-    hit = true;
-  } else {
-    const base = process.env.PR_BASE_SHA || '';
-    const head = process.env.PR_HEAD_SHA || '';
+  function diffAgainst(base, head) {
     let resolvable = base && head;
     if (resolvable) {
       try {
@@ -82,18 +83,30 @@ function main() {
     }
     if (!resolvable) {
       // Undeterminable diff: fail OPEN — run the substantive job rather than silently
-      // skip a check that should have gated this PR.
+      // skip a check that should have gated this PR/queue entry.
       console.log(`check-ci-relevant[${key}]: base/head unresolvable — failing open (hit=true).`);
-      hit = true;
-    } else {
-      const out = execFileSync('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head], {
-        cwd: ROOT,
-        encoding: 'utf8',
-      });
-      const files = out.split('\n').filter(Boolean);
-      hit = files.some((f) => regexes.some((re) => re.test(f)));
-      console.log(`check-ci-relevant[${key}]: ${files.length} file(s) changed, hit=${hit}`);
+      return true;
     }
+    const out = execFileSync('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    const files = out.split('\n').filter(Boolean);
+    const result = files.some((f) => regexes.some((re) => re.test(f)));
+    console.log(`check-ci-relevant[${key}]: ${files.length} file(s) changed, hit=${result}`);
+    return result;
+  }
+
+  if (eventName === 'pull_request') {
+    hit = diffAgainst(process.env.PR_BASE_SHA || '', process.env.PR_HEAD_SHA || '');
+  } else if (eventName === 'merge_group') {
+    // merge_group has no pull_request context; the queue supplies its own base/head shas
+    // (queue target ref, temporary merge commit) via merge_group.base_sha/head_sha.
+    hit = diffAgainst(process.env.MERGE_GROUP_BASE_SHA || '', process.env.MERGE_GROUP_HEAD_SHA || '');
+  } else {
+    // push (or local/manual run): the workflow's own `paths:` trigger filter already
+    // scoped dispatch, so there is nothing further to decide here.
+    hit = true;
   }
 
   const ghOutput = process.env.GITHUB_OUTPUT;
