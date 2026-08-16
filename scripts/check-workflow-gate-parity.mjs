@@ -25,6 +25,46 @@ const PREFLIGHT = resolve(ROOT, "scripts/preflight.mjs");
 
 // Workflows that gate a merge or deploy (push/PR). Scheduled/mirror/publish/SAST
 // workflows are not merge gates and are excluded.
+//
+// JSDOC-CHECKJS-PREFLIGHT-1 SWEEP (2026-08-16) — full classification of every
+// workflow under .github/workflows/, so no workflow is silently unclassified.
+// Two classes only: `pr-gate-not-covered` (runs on pull_request and/or a push
+// that can red a PR or main — belongs in BLOCKING_WORKFLOWS, or in CI_ONLY
+// below with a NAMED physical reason if its node gate genuinely cannot run
+// pre-push) vs `not-a-gate` (schedule/dispatch/deploy/sync — never blocks a
+// merge, so parity has nothing to check).
+//
+//   pr-gate-not-covered, ADDED to BLOCKING_WORKFLOWS this sweep:
+//     - jsdoc-checkjs.yml     — the incident this row exists to fix (see gate
+//                               above); node scripts/jsdoc-checkjs-gate.mjs,
+//                               now also in preflight.mjs.
+//     - c2patool-oracle.yml   — pull_request (paths-filtered) + push main;
+//                               node scripts/c2patool-oracle-compare.mjs, but
+//                               that gate needs a downloaded+sha256-verified
+//                               c2patool RUST BINARY, not npx-fetchable — see
+//                               CI_ONLY below.
+//     - ci-anchor.yml         — pull_request, no paths filter, is itself the
+//                               required-status-check anchor (SO #22); zero
+//                               `node` gates in its body (one `echo`), so
+//                               listing it here documents the classification
+//                               with no parity delta.
+//     - zizmor.yml            — pull_request + push main (paths-filtered);
+//                               runs a fetched Rust binary via a pinned
+//                               Action, zero `node` gates in its body, so
+//                               listing it here documents the classification
+//                               with no parity delta.
+//   pre-existing, already covered:
+//     - deploy-to-dreamhost.yml, html-verify.yml, land-verify.yml,
+//       scripts-verify.yml, cross-engine-parity.yml, proposals-verify.yml
+//   not-a-gate (schedule/dispatch/deploy/sync — excluded, no action needed):
+//     - deploy-docs.yml                  — push main only, deploys docs
+//                                           subdomain post-merge.
+//     - deploy-drift-check.yml           — schedule + workflow_dispatch only.
+//     - derived-artifacts-regen.yml      — push main only, SO #35 single-writer
+//                                           regen, post-merge.
+//     - helm-guide-freshness-schedule.yml — schedule only.
+//     - standards-watch.yml              — schedule + workflow_dispatch only.
+//     - sync-chaingraph-spec.yml         — push main only, post-merge mirror sync.
 const BLOCKING_WORKFLOWS = [
   "deploy-to-dreamhost.yml",
   "html-verify.yml",
@@ -32,12 +72,18 @@ const BLOCKING_WORKFLOWS = [
   "scripts-verify.yml",
   "cross-engine-parity.yml",
   "proposals-verify.yml",
+  "jsdoc-checkjs.yml",
+  "c2patool-oracle.yml",
+  "ci-anchor.yml",
+  "zizmor.yml",
 ];
 
 // node gates that legitimately run ONLY in CI, each with the reason it cannot run
 // pre-push. Keep tight — every entry is a hole in "green preflight ⇒ green CI".
 const CI_ONLY = new Map([
-  // populated below after first run surfaces the genuinely CI-bound node gates
+  ["c2patool-oracle-compare.mjs",
+    "needs a downloaded + sha256-verified c2patool RUST BINARY (c2patool-oracle.yml) — " +
+    "not npx-fetchable like TypeScript, and this repo installs no CI-only binaries pre-push."],
 ]);
 
 function nodeGates(text) {

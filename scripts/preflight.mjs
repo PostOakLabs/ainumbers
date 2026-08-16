@@ -134,6 +134,35 @@ function touchedFloorFiles() {
 }
 const TOUCHED_FLOOR_FILES = touchedFloorFiles();
 
+// JSDOC-CHECKJS-PREFLIGHT-1: which chaingraph/kernels/**/*.mjs files this push
+// touches, for the JSDoc CheckJS gate below. Same selection rule as
+// .github/workflows/jsdoc-checkjs.yml's "List new/touched kernel files" step
+// (diff-filter ACM against a base), and the same union-of-diffs shape as
+// touchedFloorFiles() above (working tree + staged + committed-vs-upstream,
+// deduped via a Set) — reused, not reinvented. Undeterminable fails CLOSED
+// (empty list, gate no-ops), same reasoning as touchedFloorFiles(): a diff
+// this can't compute is not license to sweep the whole kernel estate.
+function touchedKernelFilesForJsdoc() {
+  const isKernelMjs = (f) => f.startsWith('chaingraph/kernels/') && f.endsWith('.mjs');
+  try {
+    const touched = new Set();
+    execSync('git diff --name-only --diff-filter=ACM HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    execSync('git diff --name-only --diff-filter=ACM --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    try {
+      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      execSync(`git diff --name-only --diff-filter=ACM ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().split('\n').forEach(f => f && touched.add(f));
+    } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
+    return [...touched].filter(isKernelMjs);
+  } catch {
+    return []; // undeterminable — fail CLOSED (empty, not a full-estate fallback)
+  }
+}
+const TOUCHED_KERNEL_FILES_JSDOC = touchedKernelFilesForJsdoc();
+
 // SITEMAP-MAIN-REGEN-1 (SO #28 / SO #35): freshness gates for SHARED DERIVED
 // ARTIFACTS are ADVISORY in a PR context and BLOCKING in a main context.
 //
@@ -169,6 +198,20 @@ const GATES = [
   ['Binary-byte gate fixture proof', 'node scripts/check-binary-bytes.test.mjs'],
   ['JS syntax (tool HTML)',        'node scripts/check_tools.js'],
   ['Kernel JS syntax',             'node chaingraph/kernels/syntax-check.mjs'],
+  // JSDOC-CHECKJS-PREFLIGHT-1: runs the SAME script + SAME npx-fetched tsc pin as
+  // .github/workflows/jsdoc-checkjs.yml (jsdoc-checkjs-gate.mjs hardcodes the pin —
+  // one SSOT, nothing duplicated here), scoped to the same touched-kernel-file
+  // selection rule (TOUCHED_KERNEL_FILES_JSDOC above). Zero touched files ⇒
+  // explicit "0 touched, skipped" line, never silence. npx unavailable/offline ⇒
+  // jsdoc-checkjs-gate.mjs itself fails loudly (tsc exits non-zero with no
+  // parseable diagnostics is treated as a hard failure, not a silent pass).
+  ['JSDoc CheckJS (touched kernels, JSDOC-CHECKJS-PREFLIGHT-1)',
+    TOUCHED_KERNEL_FILES_JSDOC.length
+      ? `node scripts/jsdoc-checkjs-gate.mjs ${TOUCHED_KERNEL_FILES_JSDOC.map((f) => `"${f}"`).join(' ')}`
+      : 'node -e "console.log(\'0 touched, skipped\')"',
+    TOUCHED_KERNEL_FILES_JSDOC.length
+      ? null
+      : { notRun: 'this push touches no chaingraph/kernels/**/*.mjs file, so the JSDoc CheckJS gate had nothing to examine' }],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],

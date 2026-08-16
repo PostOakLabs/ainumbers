@@ -92,6 +92,8 @@
 //   not run for a reason unrelated to type-checking.
 
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 
 const PROPTEST_DIR = 'chaingraph/kernels/__proptests__/';
 // (code, message-pattern) pairs — BOTH must match, and only inside
@@ -200,16 +202,37 @@ export function loadCompilerOptionFlags(tsconfigJson) {
 // runTsc — the one impure boundary (spawns a child process). Kept separate
 // so classifyDiagnostics (the logic this row exists to fix) can be tested
 // without a TypeScript install or network access.
+//
+// win32 note (JSDOC-CHECKJS-PREFLIGHT-1, 2026-08-16): spawning `npx.cmd`
+// directly with `shell` unset throws EINVAL on current Node (measured on
+// Node 24 — a regression from the assumption the header comment used to
+// make, that PATHEXT resolution alone makes a bare `.cmd` spawnSync-able).
+// The naive fix is `shell: true`, but Node's own DEP0190 warning says
+// exactly why that is wrong here: with `shell: true` on Windows, a `.cmd`
+// spawn's args are NOT safely escaped, only concatenated — reopening the
+// shell-metacharacter class this script's header already goes out of its
+// way to avoid (filenames are diff-derived, not fully trusted). The actual
+// fix is to skip the `.cmd` batch wrapper entirely: `npx`'s real entry
+// point is a plain `.js` file (`npx-cli.js`) bundled next to the Node
+// binary, and running THAT through `node` is a normal execve of an
+// executable with an argv array — no shell, no wrapper, no CVE surface,
+// on any platform. Falls back to the old `npx.cmd` spawn only if that file
+// is missing (an unusual Node install layout) — CI (ubuntu-latest) never
+// takes any win32 branch here.
+function resolveWindowsNpxInvocation() {
+  const npxCliJs = resolve(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
+  if (existsSync(npxCliJs)) return { cmd: process.execPath, prefixArgs: [npxCliJs] };
+  return { cmd: 'npx.cmd', prefixArgs: [] };
+}
+
 export function runTsc(files, tsconfigJson) {
-  // No `shell: true` — args stay an array passed straight to execve, never
-  // concatenated into shell text, so nothing here can be reinterpreted as
-  // shell syntax. `npx.cmd` on win32 is Windows' own PATHEXT resolution
-  // requirement, not a shell invocation; CI (ubuntu-latest) always takes the
-  // plain `npx` branch.
-  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const { cmd, prefixArgs } = process.platform === 'win32'
+    ? resolveWindowsNpxInvocation()
+    : { cmd: 'npx', prefixArgs: [] };
   return spawnSync(
-    npxCmd,
+    cmd,
     [
+      ...prefixArgs,
       '--yes', '--package=typescript@5.7.2', 'tsc',
       ...loadCompilerOptionFlags(tsconfigJson),
       ...files,
@@ -221,7 +244,6 @@ export function runTsc(files, tsconfigJson) {
 
 // ── CLI entry point ──────────────────────────────────────────────────────
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
