@@ -134,6 +134,27 @@ function touchedFloorFiles() {
 }
 const TOUCHED_FLOOR_FILES = touchedFloorFiles();
 
+// SITEMAP-MAIN-REGEN-1 (SO #28 / SO #35): freshness gates for SHARED DERIVED
+// ARTIFACTS are ADVISORY in a PR context and BLOCKING in a main context.
+//
+// WHY THE SPLIT: SO #35 makes those artifacts single-writer — a shard row is now
+// FORBIDDEN to regenerate them, because every shard rewriting the same files
+// pushed its still-open siblings into conflict, which destroyed their merge ref
+// and SILENTLY REMOVED THEIR CI (SO #34c; PR #1199 lived its whole life ungated).
+// A gate a branch is forbidden to satisfy must not block that branch. Ownership
+// moves to main: derived-artifacts-regen.yml regenerates and commits any drift
+// there, and these gates stay hard on main so drift can never survive.
+//
+// ⛔ NO CHECK IS DELETED, AND NONE IS SKIPPED. Every gate below still RUNS in
+// both contexts and still prints its full failure output; only the exit-code
+// handling differs. A session that forgot regen entirely still sees the warning.
+//
+// isMainContext() FAILS CLOSED — anything undeterminable blocks. The downgrade
+// has to be affirmatively earned, never inherited from a failed lookup.
+const { advisoryGates, isMainContext } = await import('./derived-artifacts.mjs');
+const MAIN_CONTEXT = isMainContext();
+const ADVISORY_ON_PR = advisoryGates();
+
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
   // BINARY-BYTE-GATE-1 runs FIRST, ahead of the JS syntax gate, on purpose.
@@ -390,6 +411,7 @@ const timings = []; // [label, ms]
 // ONLY by the --keep-going summary, so it cannot affect default behaviour.
 const results = [];
 let waivedCount = 0;
+const advisoryFailures = []; // [label, cmd] — covered-artifact staleness on a PR
 const suiteStart = Date.now();
 
 if (KEEP_GOING) {
@@ -427,9 +449,17 @@ for (const [label, cmd, meta] of GATES) {
   } catch (e) {
     const ms = Date.now() - t0;
     timings.push([label, ms]);
+    const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
+    // Shared derived artifact + PR context ⇒ warn and CONTINUE. Same output, no
+    // early break, no hidden failure — main's regen owns this artifact now.
+    if (!MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) {
+      console.log(`⚠ (${ms}ms) ADVISORY`);
+      console.log('\n' + out.trim() + '\n');
+      advisoryFailures.push([label, cmd]);
+      continue;
+    }
     const declared = KEEP_GOING ? expectedRedFor(label) : null;
     console.log(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
-    const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
     console.log('\n' + out.trim() + '\n');
     results.push({
       label,
@@ -538,6 +568,18 @@ if (KEEP_GOING) {
 if (failed && !KEEP_GOING) {
   console.error(`\n❌ preflight FAILED at: ${failed}. Fix it before pushing (this would have failed CI).`);
   process.exit(1);
+}
+
+// ── Advisory summary: shared derived artifacts stale on a PR ────────────────
+// Printed AFTER the pass/fail verdict so it can never be scrolled past unseen.
+// This is a notice, not a failure: SO #35 forbids a shard from regenerating
+// these, and derived-artifacts-regen.yml repairs them on main.
+if (advisoryFailures.length) {
+  console.log(`\n⚠️  ${advisoryFailures.length} SHARED DERIVED ARTIFACT(S) STALE — advisory in this PR context, BLOCKING on main:`);
+  for (const [label] of advisoryFailures) console.log(`    ⚠ ${label}`);
+  console.log('    These are single-writer artifacts (SO #35). ⛔ Do NOT regenerate them in a shard PR —');
+  console.log('    that is the merge-ref conflict that silently removed CI from PR #1199 (SO #34c).');
+  console.log("    main's Derived Artifacts Regen workflow owns them and will commit the fix after merge.");
 }
 
 // ── Advisory (non-blocking): worker vendor owed ─────────────────────────────

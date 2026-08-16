@@ -1,0 +1,161 @@
+name: Derived Artifacts Regen
+
+# Move freshness OWNERSHIP of shared derived artifacts from PR branches to main.
+#
+# WHY THIS EXISTS — two measured incidents on 2026-08-11, one cause:
+#   1. MERGE-REF SKEW: three PRs failed `gen-sitemap-html --check` on the merge
+#      ref inside 90 minutes while each was locally green.
+#   2. SILENT CI REMOVAL (worse): a conflict on these files DELETES the merge
+#      ref; a `pull_request` run builds on the merge commit, so GitHub
+#      dispatches ZERO CI, and a PR can live its entire life ungated while
+#      rendering identical to an all-green PR.
+# Both follow from per-branch ownership of files EVERY page-adding shard
+# rewrites. This workflow makes main the single writer.
+#
+# The artifact set, generators and measured skew rates live in ONE place —
+# scripts/derived-artifacts.mjs — which preflight.mjs also reads for its
+# PR-advisory / main-blocking split. One SSOT, no second enumeration to drift.
+
+on:
+  push:
+    branches: [ main ]
+
+# Least privilege at the top: read-only by default. Only the one job below is
+# granted write, and only the two scopes it provably needs.
+permissions:
+  contents: read
+
+# Never let two regen runs race a push to the same branch. Do NOT cancel a run
+# in progress — it may already be mid-push; queue instead.
+concurrency:
+  group: derived-artifacts-regen
+  cancel-in-progress: false
+
+jobs:
+  regen:
+    name: Regenerate shared derived artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit + push the regenerated artifacts to main
+      actions:  write   # re-dispatch the deploy workflow (see "DEPLOY GATE" below)
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          # This job PUSHES, so it needs the token persisted in the remote URL.
+          # That is the whole reason `contents: write` is scoped to this job and
+          # nowhere else in the repo.
+          persist-credentials: true
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Show the covered set (and what is deliberately excluded)
+        run: node scripts/derived-artifacts.mjs
+
+      - name: Regenerate every covered artifact
+        # Stops on the first generator failure — a half-regenerated tree must
+        # never reach a commit.
+        run: node scripts/derived-artifacts.mjs --regen
+
+      - name: Stage by explicit pathspec, and prove nothing escaped the set
+        id: stage
+        run: |
+          set -euo pipefail
+
+          # Explicit pathspec only — never `git add -A`. The pathspec comes from
+          # the same SSOT that declares the set.
+          node scripts/derived-artifacts.mjs --paths > /tmp/paths.txt
+          # `--pathspec-from-file` with `--ignore-missing` so a not-yet-existing
+          # artifact is not an error.
+          git add --ignore-removal --pathspec-from-file=/tmp/paths.txt || true
+
+          # SELF-CHECK (independent derivation): the declared path set is
+          # recomputed against what the regen ACTUALLY wrote. If a generator's
+          # output set ever grows, this goes RED rather than silently committing
+          # an undeclared file or silently dropping a real one.
+          ESCAPED="$(git status --porcelain -- . | grep -E '^( M|\?\?| D)' || true)"
+          if [ -n "$ESCAPED" ]; then
+            echo "::error title=Undeclared regen output::A generator wrote outside scripts/derived-artifacts.mjs's declared path set. Add it there (or exclude it with a reason) — do not widen the pathspec here."
+            echo "$ESCAPED"
+            exit 1
+          fi
+
+          # LINE-ENDING GUARD. regen_catalog.py writes platform-native endings.
+          # On ubuntu that is LF, which is what .gitattributes mandates — but
+          # assert it rather than assume, so a CRLF payload can never be
+          # auto-committed. (Measured while building this row: the same script
+          # run on Windows silently produced CRLF that `git status` normalized
+          # away, and only a byte-comparing gate could see it.)
+          CRLF_HITS=""
+          for f in $(git diff --cached --name-only -- .); do
+            if git show ":$f" | grep -qU $'\r'; then
+              CRLF_HITS="$CRLF_HITS $f"
+            fi
+          done
+          if [ -n "$CRLF_HITS" ]; then
+            echo "::error title=CRLF in regenerated output::A regenerated artifact contains CR bytes; .gitattributes mandates LF:$CRLF_HITS"
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "✅ every shared derived artifact already fresh — nothing to commit."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --cached --stat
+          fi
+
+      # ── LOOP GUARD ──────────────────────────────────────────────────────────
+      # Three independent layers; any ONE of them alone terminates the chain.
+      #
+      # 1. STRUCTURAL (primary): a push made with GITHUB_TOKEN does not dispatch
+      #    further workflow runs — GitHub suppresses recursive triggers for it.
+      #    This workflow therefore cannot re-enter itself at all.
+      # 2. CONVERGENCE (independent of 1): every covered generator was verified
+      #    idempotent — run twice against a clean checkout of fresh main, the
+      #    second pass yields a zero diff. Two generators FAILED that probe
+      #    (wall-clock `generated_at`) and are excluded for exactly this reason;
+      #    see EXCLUDED in scripts/derived-artifacts.mjs. So even with layer 1
+      #    removed, a second run would commit nothing.
+      # 3. EXPLICIT SKIP (this condition): if the regen produced no diff, the
+      #    job stops before committing. Note this is what implements "skip when
+      #    the pushed commit only touched derived artifacts" — such a push is
+      #    already fresh BY CONSTRUCTION, so the regen yields no diff. The guard
+      #    is a RECOMPUTED property of the tree, not a self-attested marker on
+      #    the commit — never trust the artifact's claim about itself.
+      - name: Commit and push
+        if: steps.stage.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(derived): regenerate shared derived artifacts on main
+
+Automated by .github/workflows/derived-artifacts-regen.yml. main is the single
+writer for these artifacts; PR branches must not regenerate them. See
+scripts/derived-artifacts.mjs for the set and its derivation."
+          git push origin HEAD:main
+          echo "SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      # ── DEPLOY GATE ─────────────────────────────────────────────────────────
+      # ⚠ THE AUTO-COMMIT MUST NOT SKIP THE DEPLOY. GitHub deliberately does not
+      # dispatch workflows for a GITHUB_TOKEN push (the same property that makes
+      # loop layer 1 work), so deploy-to-dreamhost.yml would NOT fire on this
+      # commit and the regenerated artifacts would sit on main undeployed.
+      # Re-dispatch it explicitly. This uses the deploy workflow's ALREADY
+      # EXISTING workflow_dispatch trigger and `gh`, which is preinstalled on
+      # the runner — no PAT, no new third-party action.
+      - name: Dispatch deploy for the auto-commit
+        if: steps.stage.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-to-dreamhost.yml --ref main
+          echo "Deploy dispatched for $SHA"
+          echo "### Regenerated shared derived artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit \`$SHA\` pushed to main; deploy-to-dreamhost.yml dispatched." >> "$GITHUB_STEP_SUMMARY"
