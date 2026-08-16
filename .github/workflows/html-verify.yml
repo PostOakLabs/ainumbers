@@ -24,27 +24,58 @@ on:
     # ready_for_review added (DRAFTCI-3, 2026-07-20): draft PRs are skipped
     # below, so a readied draft must trigger a fresh run or it could merge
     # with no checks. Default types kept explicit alongside it.
+    #
+    # Always-report shape (2026-08-16): NO `paths:` filter here anymore —
+    # see scripts-verify.yml's identical comment. The `relevant` job below
+    # decides against scripts/ci-paths.json key "html-verify".
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'tools/**.html'
-      - 'guides/**.html'
-      - 'chaingraph/**.html'
-      - '*.html'
-      - '.github/workflows/html-verify.yml'
 
 permissions:
   contents: read
 
 jobs:
+  relevant:
+    name: relevant
+    # Always-report shape: see scripts-verify.yml's identical job for the
+    # full rationale. Push events report hit=true unconditionally (the push
+    # `paths:` filter above already scoped dispatch).
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      hit: ${{ steps.check.outputs.hit }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Check path relevance
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-ci-relevant.mjs --key html-verify
+
   html-verify:
     name: CSP + copy-hallmarks + dead-link + chrome gates
+    needs: relevant
     # DRAFTCI-3 (2026-07-20): expected-red shard/kernel PRs open as drafts by
     # doctrine (they ride the next assemble-and-land regeneration step).
     # GitHub still runs pull_request workflows on drafts, so those PRs
     # showed a red X despite the draft
     # rule — the red carried no information. Skip drafts; the run fires on
     # ready_for_review and the push-to-main trigger remains the backstop.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    #
+    # Always-report shape: also gated on needs.relevant.outputs.hit.
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.relevant.outputs.hit == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -131,3 +162,23 @@ jobs:
 
       - name: Node-page chrome (nav/footer)
         run: node scripts/check-node-page-chrome.mjs
+
+  html-verify-required:
+    name: html-verify / required
+    # Always-report shape: the check named in the branch ruleset. See
+    # scripts-verify.yml's identical reporter job for the full rationale.
+    needs: [relevant, html-verify]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Report
+        env:
+          RESULT: ${{ needs.html-verify.result }}
+        run: |
+          echo "html-verify result: $RESULT"
+          if [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
+            exit 1
+          fi
+          exit 0
