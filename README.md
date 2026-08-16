@@ -1,5 +1,8 @@
 # AINumbers.co: Fintech Intelligence Suite
 
+<!-- rce-round3-proof-a: scratch merge-queue proof, deleted after use -->
+
+
 [![Deploy to DreamHost](https://github.com/PostOakLabs/ainumbers/actions/workflows/deploy-to-dreamhost.yml/badge.svg)](https://github.com/PostOakLabs/ainumbers/actions/workflows/deploy-to-dreamhost.yml)
 [![License: CC BY 4.0](https://img.shields.io/badge/license-CC%20BY%204.0-D4A847.svg)](https://creativecommons.org/licenses/by/4.0/)
 
