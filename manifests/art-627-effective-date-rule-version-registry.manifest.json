@@ -1,0 +1,80 @@
+{
+  "tool_id": "art-627-effective-date-rule-version-registry",
+  "version": "1.0.0",
+  "title": "Effective-Date / Rule-Version Registry",
+  "description": "Resolves which version of an accounting standard binds a given filer, entirely offline and client-side. The query is a triple: fiscal_year_end as an ISO date (never a month/day pair, because 52/53-week filers exist and their year-ends move), filer_status from the closed enum (large_accelerated, accelerated, non_accelerated, smaller_reporting, emerging_growth, private, non_public_business_entity), and a standard identifier. It returns effective_for_annual_periods_beginning, effective_for_interim_periods_beginning, early_adoption_permitted, first_binding_period_end, transition_method, the resolved parameter_set, an entry_digest, the entry's citation, and a step-by-step resolution_path. A rule parameter is always a value carrying its own effective_from, effective_to, source and source_digest, never a bare number. The registry is inert data delivered in policy_parameters and never baked into kernel bytes, so adding a rule entry cannot move the kernel digest or stale a receipt. The kernel recomputes sha256 over the slice's own canonicalized bytes and refuses to resolve when the declared registry_digest disagrees; the hashed object is bounded at max_slice_entries=32 so the in-guest hash stays measurable, and the full-table to slice binding is a host-side gate outside the guest. Resolution is total: every triple in the declared domain returns exactly one entry or an explicit NO_BINDING_ENTRY, never a silent undefined. No two versions of a parameter may hold overlapping half-open effective windows; that is asserted at load, not assumed. Date arithmetic is integer arithmetic over parsed ISO components, with no Date object, no locale and no timezone. Where the fiscal year's beginning is not supplied it is inferred as the year-end less one year plus one day and the inference is declared in fiscal_year_begin_basis, never presented as a fact. Ships with two demonstrator standards whose dates and thresholds are pinned to retrieved primary text: FASB ASU 2023-07 (Segment Reporting, Topic 280) and ASU 2023-09 (Income Taxes, Topic 740). Those two are demonstrators, not a complete registry of US GAAP: a caller must supply its own slice to resolve any other standard.",
+  "category": "regulatory-compliance",
+  "tags": ["compliance_mandate", "effective-date", "rule-version", "registry", "fasb", "asu-2023-07", "asu-2023-09", "filer-status", "mcp:resolve_rule_version"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "object",
+        "description": "The triple to resolve.",
+        "properties": {
+          "fiscal_year_end": { "type": "string", "description": "ISO calendar date YYYY-MM-DD. A real calendar date is required; 2023-02-30 is refused. Never a month/day pair." },
+          "filer_status": { "type": "string", "enum": ["large_accelerated", "accelerated", "non_accelerated", "smaller_reporting", "emerging_growth", "private", "non_public_business_entity"], "description": "Closed enum. Anything outside it is refused, never coerced." },
+          "standard_id": { "type": "string", "description": "Standard or ASU identifier, e.g. ASU-2023-07." },
+          "fiscal_year_begin": { "type": "string", "description": "Optional ISO date. Supply it for a 52/53-week filer whose fiscal year start is not one year less one day before the year-end. When absent it is inferred and the inference is declared in fiscal_year_begin_basis." }
+        }
+      },
+      "registry_slice": {
+        "type": "object",
+        "description": "The bounded registry slice to resolve against, delivered as data and never baked into the kernel. Shape: {registry_digest, entries}. registry_digest must equal sha256(canonical-JSON(slice minus registry_digest)) or resolution is refused. At most max_slice_entries=32 entries. Each entry is {standard_id, applies_to_filer_statuses, effective_for_annual_periods_beginning, effective_for_interim_periods_beginning, early_adoption_permitted, transition_method, parameter_set, citation}. Each entry must carry a citation {clause, source, source_digest, snapshot_location}; an entry with no digest is rejected, not warned about.",
+        "properties": {
+          "registry_digest": { "type": "string", "description": "sha256 hex digest of the canonicalized slice (this field excluded from what is hashed)." },
+          "entries": { "type": "array", "description": "Bounded at 32 entries. Each parameter in an entry's parameter_set is an array of versions, each (value, effective_from, effective_to, source, source_digest), with non-overlapping half-open windows." }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "resolve_rule_version",
+    "description": "Resolves (fiscal_year_end, filer_status, standard_id) against a caller-supplied, hash-pinned rule registry slice into binding annual and interim dates, early-adoption flag, first binding period end, transition method and the time-versioned rule parameters in force. Returns an explicit NO_BINDING_ENTRY rather than a silent undefined, and refuses any slice whose declared digest does not match its own bytes.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "object" },
+        "registry_slice": { "type": "object" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-627-effective-date-rule-version-registry.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "resolution_status": { "type": ["string", "null"], "description": "RESOLVED or NO_BINDING_ENTRY, or null when the input was refused with an error_code." },
+      "error_code": { "type": ["string", "null"] },
+      "message": { "type": ["string", "null"] },
+      "standard_id": { "type": ["string", "null"] },
+      "filer_status": { "type": ["string", "null"] },
+      "fiscal_year_end": { "type": ["string", "null"] },
+      "fiscal_year_begin": { "type": ["string", "null"] },
+      "fiscal_year_begin_basis": { "type": ["string", "null"], "description": "declared or inferred_prior_year_plus_one_day. An inference is never presented as a fact." },
+      "effective_for_annual_periods_beginning": { "type": ["string", "null"] },
+      "effective_for_interim_periods_beginning": { "type": ["string", "null"] },
+      "early_adoption_permitted": { "type": ["boolean", "null"] },
+      "binding_for_queried_annual_period": { "type": ["boolean", "null"] },
+      "binding_for_queried_interim_periods": { "type": ["boolean", "null"] },
+      "first_binding_period_end": { "type": ["string", "null"] },
+      "transition_method": { "type": ["string", "null"] },
+      "parameter_set": { "type": ["object", "null"], "description": "Parameter name to {value, effective_from, effective_to, source, source_digest, status}. status is IN_FORCE, NO_VERSION_IN_FORCE, or AMBIGUOUS_MULTIPLE_VERSIONS_IN_FORCE." },
+      "parameter_set_as_of": { "type": ["string", "null"], "description": "The measurement date used, which is the fiscal year's beginning, matching how effective-date language is written." },
+      "entry_digest": { "type": ["string", "null"] },
+      "citation": { "type": ["object", "null"] },
+      "registry_digest_recomputed": { "type": ["string", "null"] },
+      "resolution_path": { "type": "array", "items": { "type": "string" } },
+      "bounds": { "type": "object" },
+      "closed_filer_status_enum": { "type": "array", "items": { "type": "string" } },
+      "float_sensitive": { "type": "boolean" },
+      "scope_note": { "type": "string" }
+    }
+  },
+  "source": "authored by ACCT-RULEREG-K-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.2 (kernel spec) and Sec.4 (composition contract); the demonstrator registry entries cite FASB Accounting Standards Update No. 2023-07, Segment Reporting (Topic 280): Improvements to Reportable Segment Disclosures (November 2023) and No. 2023-09, Income Taxes (Topic 740): Improvements to Income Tax Disclosures (December 2023), retrieved from https://storage.fasb.org/ on 2026-08-15 and pinned at workspace-root research/clause-snapshots/ with clause-level excerpts registered in chaingraph/standard/clause-snapshot-registry.json; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-627-effective-date-rule-version-registry.fixtures.json; category reuses the existing 'regulatory-compliance' taxonomy value, the same one sibling classification/compliance kernels use."
+}
