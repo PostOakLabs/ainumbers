@@ -379,6 +379,10 @@ const GATES = [
   // derived-artifacts-regen.yml, eleven red runs in three hours. Parity below reads gate names
   // out of these files, so it silently sees nothing when the YAML is broken.
   ['Workflow YAML parses (on + jobs)', 'python scripts/check-workflow-yaml.py'],
+  // Every artifact the main-side regen declares must exist on disk — the workflow stages by
+  // that exact list and a phantom entry aborts `git add` (measured 2026-08-16: two phantom
+  // catalog paths zeroed the stage and misreported every real artifact as escaped).
+  ['Derived-artifact SSOT paths exist', 'node scripts/derived-artifacts.mjs --check-paths'],
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
