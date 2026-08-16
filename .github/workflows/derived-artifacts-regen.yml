@@ -20,8 +20,20 @@ on:
   push:
     branches: [ main ]
 
-# Least privilege at the top: read-only by default. Only the one job below is
-# granted write, and only the two scopes it provably needs.
+# Least privilege: the default GITHUB_TOKEN is read-only everywhere in this
+# workflow. The push credential is a short-lived GitHub App installation token
+# minted in-job (see "Mint push token") — NOT GITHUB_TOKEN. Two reasons, both
+# measured 2026-08-16:
+#   1. Ruleset `main-ci-anchor` requires the `anchor` check on every push to
+#      main and its bypass list cannot contain the built-in Actions app
+#      (GitHub: "must be part of the ruleset source or owner organization"), so
+#      a GITHUB_TOKEN push is refused with GH013 — run 31961134410. The
+#      org-owned `ainumbers-spec-sync` App IS a permitted bypass actor and is
+#      the one listed.
+#   2. A GITHUB_TOKEN push does not dispatch workflows, which is why the old
+#      version needed `actions: write` + a manual `gh workflow run` for the
+#      deploy. An App-authored push DOES fire `deploy-to-dreamhost.yml`
+#      natively, so that step and that permission are gone.
 permissions:
   contents: read
 
@@ -35,18 +47,29 @@ jobs:
   regen:
     name: Regenerate shared derived artifacts
     runs-on: ubuntu-latest
-    permissions:
-      contents: write   # commit + push the regenerated artifacts to main
-      actions:  write   # re-dispatch the deploy workflow (see "DEPLOY GATE" below)
     steps:
+      # MINTS A CREDENTIAL. Scoped to this one repo, contents:write only, and
+      # it expires with the job. Same App + same action pin as
+      # sync-chaingraph-spec.yml; the App must have this repo in its
+      # installation's repository list (it does — added 2026-08-16).
+      - name: Mint push token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Checkout main
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 1
-          # This job PUSHES, so it needs the token persisted in the remote URL.
-          # That is the whole reason `contents: write` is scoped to this job and
-          # nowhere else in the repo.
-          persist-credentials: true
+          # Do NOT persist any credential in .git/config (zizmor: artipacked).
+          # The App token is supplied only at push time, exactly as
+          # sync-chaingraph-spec.yml does.
+          persist-credentials: false
 
       - name: Setup Node 20
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -67,11 +90,19 @@ jobs:
           set -euo pipefail
 
           # Explicit pathspec only — never `git add -A`. The pathspec comes from
-          # the same SSOT that declares the set.
+          # the same SSOT that declares the set, and `--paths` itself exits 1 if
+          # any declared artifact is absent from disk (so a phantom entry fails
+          # HERE, visibly). Stage one path at a time: `git add` aborts the WHOLE
+          # command on a pathspec that matches nothing, and the earlier
+          # `--pathspec-from-file ... || true` form swallowed that abort, staged
+          # nothing, and made the escape check below misreport every real
+          # artifact as escaped (measured 2026-08-16, runs 31957347527/31958761151).
+          # (`--ignore-missing` is only valid with --dry-run — it never did anything.)
           node scripts/derived-artifacts.mjs --paths > /tmp/paths.txt
-          # `--pathspec-from-file` with `--ignore-missing` so a not-yet-existing
-          # artifact is not an error.
-          git add --ignore-removal --pathspec-from-file=/tmp/paths.txt || true
+          while IFS= read -r p; do
+            [ -n "$p" ] || continue
+            git add --ignore-removal -- "$p"
+          done < /tmp/paths.txt
 
           # SELF-CHECK (independent derivation): the declared path set is
           # recomputed against what the regen ACTUALLY wrote. If a generator's
@@ -110,53 +141,49 @@ jobs:
           fi
 
       # ── LOOP GUARD ──────────────────────────────────────────────────────────
-      # Three independent layers; any ONE of them alone terminates the chain.
+      # The push below is App-authored, so it DOES re-trigger this workflow
+      # (unlike a GITHUB_TOKEN push). The chain is still bounded — two
+      # independent layers, either one alone terminates it:
       #
-      # 1. STRUCTURAL (primary): a push made with GITHUB_TOKEN does not dispatch
-      #    further workflow runs — GitHub suppresses recursive triggers for it.
-      #    This workflow therefore cannot re-enter itself at all.
-      # 2. CONVERGENCE (independent of 1): every covered generator was verified
-      #    idempotent — run twice against a clean checkout of fresh main, the
-      #    second pass yields a zero diff. Two generators FAILED that probe
-      #    (wall-clock `generated_at`) and are excluded for exactly this reason;
-      #    see EXCLUDED in scripts/derived-artifacts.mjs. So even with layer 1
-      #    removed, a second run would commit nothing.
-      # 3. EXPLICIT SKIP (this condition): if the regen produced no diff, the
-      #    job stops before committing. Note this is what implements "skip when
-      #    the pushed commit only touched derived artifacts" — such a push is
-      #    already fresh BY CONSTRUCTION, so the regen yields no diff. The guard
-      #    is a RECOMPUTED property of the tree, not a self-attested marker on
-      #    the commit — never trust the artifact's claim about itself.
+      # 1. CONVERGENCE: every covered generator was verified idempotent — run
+      #    twice against a clean checkout of fresh main, the second pass yields a
+      #    zero diff. Two generators FAILED that probe (wall-clock
+      #    `generated_at`) and are excluded for exactly this reason; see EXCLUDED
+      #    in scripts/derived-artifacts.mjs. So the re-triggered run regenerates
+      #    an already-fresh tree and finds nothing to commit.
+      # 2. EXPLICIT SKIP (this condition): if the regen produced no diff, the job
+      #    stops before committing. This is what implements "skip when the
+      #    pushed commit only touched derived artifacts" — such a push is already
+      #    fresh BY CONSTRUCTION, so the regen yields no diff. The guard is a
+      #    RECOMPUTED property of the tree, not a self-attested marker on the
+      #    commit — never trust the artifact's claim about itself.
+      #
+      # Steady state per real push to main: one regen run that commits, one
+      # follow-up regen run that finds zero diff and exits at this step. If a
+      # generator ever regresses to non-idempotent, the follow-up commits again
+      # and the chain grows — the `concurrency` group serialises it and the
+      # commit stream is the visible symptom; fix the generator, do not add
+      # loop-breaking markers here.
       - name: Commit and push
         if: steps.stage.outputs.changed == 'true'
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name  "ainumbers-spec-sync[bot]"
+          git config user.email "ainumbers-spec-sync[bot]@users.noreply.github.com"
           # Two -m flags, not one multi-line literal: an unindented continuation
           # line inside `run: |` silently invalidates the whole workflow file
           # (measured 2026-08-16: 11 zero-job failure runs across every branch).
           git commit \
             -m "chore(derived): regenerate shared derived artifacts on main" \
             -m "Automated by .github/workflows/derived-artifacts-regen.yml. main is the single writer for these artifacts; PR branches must not regenerate them. See scripts/derived-artifacts.mjs for the set and its derivation."
+          # App-authored push: clears ruleset main-ci-anchor via the App's bypass
+          # entry, and fires deploy-to-dreamhost.yml on the new commit natively —
+          # no manual dispatch, no `actions: write`. Checkout ran with
+          # persist-credentials:false, so supply the token explicitly here only.
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin HEAD:main
-          echo "SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-
-      # ── DEPLOY GATE ─────────────────────────────────────────────────────────
-      # ⚠ THE AUTO-COMMIT MUST NOT SKIP THE DEPLOY. GitHub deliberately does not
-      # dispatch workflows for a GITHUB_TOKEN push (the same property that makes
-      # loop layer 1 work), so deploy-to-dreamhost.yml would NOT fire on this
-      # commit and the regenerated artifacts would sit on main undeployed.
-      # Re-dispatch it explicitly. This uses the deploy workflow's ALREADY
-      # EXISTING workflow_dispatch trigger and `gh`, which is preinstalled on
-      # the runner — no PAT, no new third-party action.
-      - name: Dispatch deploy for the auto-commit
-        if: steps.stage.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run deploy-to-dreamhost.yml --ref main
-          echo "Deploy dispatched for $SHA"
+          SHA="$(git rev-parse HEAD)"
           echo "### Regenerated shared derived artifacts" >> "$GITHUB_STEP_SUMMARY"
-          echo "Commit \`$SHA\` pushed to main; deploy-to-dreamhost.yml dispatched." >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit \`$SHA\` pushed to main by the App; deploy-to-dreamhost.yml fires on it natively." >> "$GITHUB_STEP_SUMMARY"

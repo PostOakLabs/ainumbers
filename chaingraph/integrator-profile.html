@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenChainGraph Integrator Profile</title>
+<meta name="description" content="What a third party pins against to build an interoperable OpenChainGraph v0.4 implementation: golden vectors, kernel-identity publication, cross-version compatibility, and the conformance ladder, all derived, none hand-maintained.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/integrator-profile.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855;
+  --muted:#3A5270; --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.10); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.10);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.10);
+  --red:#EF4444;
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14.5px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+code,pre{font-family:'JetBrains Mono',monospace}
+code{font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+
+nav{position:sticky;top:0;z-index:200;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 2rem}
+.nav-in{max-width:960px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:500;color:var(--bright)}
+.brand .oc{color:var(--teal)}
+.nav-meta{display:flex;align-items:center;gap:10px}
+.nav-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3);padding:.2rem .6rem;border-radius:20px}
+.nav-link{font-size:.72rem;color:var(--body);text-decoration:none;transition:color .15s}
+.nav-link:hover{color:var(--teal-lt)}
+
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:'';width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.8rem);color:var(--white);margin-bottom:.7rem}
+.hero-desc{font-size:.95rem;color:var(--body);max-width:680px;line-height:1.9}
+
+.section{padding:2.5rem 0;border-bottom:1px solid var(--border)}
+.section:last-of-type{border-bottom:none}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+.section h2{font-size:clamp(1.2rem,2.2vw,1.65rem);color:var(--white);margin-bottom:.6rem}
+.section p{color:var(--body);font-size:.9rem;max-width:760px;margin-bottom:.9rem}
+.section h3{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright);margin:1.4rem 0 .5rem;font-weight:500;letter-spacing:.04em}
+
+.card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.3rem 1.5rem;margin:1rem 0}
+.card h3{margin-top:0;font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--white);letter-spacing:0}
+.lbl{color:var(--body)}
+.meta-row{display:flex;flex-wrap:wrap;gap:.5rem 1.2rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin:.5rem 0}
+.status-ok{color:var(--green)}
+
+.gate-quote{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;padding:.7rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--text);white-space:pre-wrap;overflow-x:auto;margin:.6rem 0}
+
+table.data{width:100%;border-collapse:collapse;font-size:.82rem;margin:.8rem 0}
+table.data th,table.data td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--border);vertical-align:top}
+table.data th{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+table.data td{color:var(--text)}
+table.data tr:last-child td{border-bottom:none}
+.tbl-wrap{overflow-x:auto}
+
+.callout{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.85rem 1.1rem;margin:1rem 0}
+.callout .lab{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem}
+.callout p{color:var(--body);font-size:.85rem;margin:0}
+
+.callout.unshipped{border-left-color:var(--red)}
+.callout.unshipped .lab{color:var(--red)}
+
+footer{padding:2rem 0 2.5rem;border-top:1px solid var(--border);margin-top:1rem}
+.foot{font-size:.72rem;color:var(--muted)}
+.foot a{color:var(--body)}
+.foot span{color:var(--border-2);margin:0 .4rem}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand"><span class="oc">Open</span>ChainGraph Standard</span>
+    <div class="nav-meta">
+      <a class="nav-link" href="chaingraph-hub.html">← Hub</a>
+      <a class="nav-link" href="openchain-graph-spec.html">Spec</a>
+      <a class="nav-link" href="conformance-roster.html">Roster</a>
+      <a class="nav-link" href="badge-program.html">Badge Program</a>
+      <span class="nav-tag">Integrator Profile</span>
+      <span class="nav-pill">v0.4</span>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Generated · Re-derivable · Zero hand-maintained lists</div>
+    <h1>Integrator Profile</h1>
+    <p class="hero-desc">Everything a third party needs to pin against to build an interoperable OpenChainGraph v0.4 implementation, in one place: reproducible golden vectors, the published kernel-identity binding a verifier cross-checks, which historical <code>spec_version</code>s the current verifier still reads, and the exact gate suite that defines conformance. Every table below is generated from the same source the <a href="openchain-graph-spec.html#s15">§15 gate suite</a> and <a href="conformance-roster.html">conformance roster</a> already run against, so re-running the generator against a changed fixture set, changelog, or gate table changes this page with it, with no hand edit.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">01 &middot; Golden vectors</div>
+    <h2>Reproducible conformance vectors</h2>
+    <p>A canonical artifact, its exact hash preimage, and the resulting <code>execution_hash</code>, produced by the reference kernels. Reproduce the hash and your canonicalizer matches the standard. Full set: <a href="standard/conformance-vectors/README.md">standard/conformance-vectors/</a>, regenerated by <code>build-vectors.mjs</code> from the same fixtures the §15 gate suite runs.</p>
+    <div class="callout unshipped">
+      <div class="lab">rcpt_test_ namespace: explicitly unshipped</div>
+      <p>A tagged <code>rcpt_test_</code> subset of <code>chaingraph/kernels/fixtures/</code>, naming a golden-vector/integrator-sandbox set within the existing fixture tree, was scoped for this page and is unshipped here. Where that marker sits structurally, whether at the <code>tool_id</code> level, the fixture filename, or elsewhere, has not been confirmed against <code>mcp-apps-poc/generate.mjs</code> or the <code>tool_id</code> validation path, and it must never enter a hash preimage. This is an open question for a follow-up spec note rather than a guess shipped without confirmation. Until answered, the existing <a href="standard/conformance-vectors/README.md">conformance vectors</a> above are the reproducible-vector surface a third party has today.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">02 &middot; Kernel identity</div>
+    <h2>Kernel digest &times; spec version</h2>
+    <p>The <a href="openchain-graph-spec.html#s17">§17 Kernel Identity Binding</a> a verifier cross-checks: the artifact's <code>audit_signature.build_identity.kernel_digest</code>, the node's published Graph Index <code>compute_images[]</code> entry, and a live recompute from source. This is a documentation and publication gap only, adding no new field and no new hash path. The date-pinned schema a third party pins against is <code>chaingraph.json</code>'s <code>spec_version</code> below, published as-is.</p>
+    <!-- GEN:KERNEL-IDENTITY:START (generator-owned -- do not hand-edit; regenerate via node scripts/gen-integrator-profile.mjs) -->
+    <div class="card">
+      <h3>chaingraph.json: version of record</h3>
+      <div class="meta-row">
+        <span><span class="lbl">spec_version</span> <code>0.8.13</code></span>
+        <span><span class="lbl">chaingraph_version</span> <code>0.4.0</code></span>
+        <span><span class="lbl">total nodes</span> <code>613</code></span>
+        <span><span class="lbl">nodes publishing a source digest</span> <code>613/613</code></span>
+      </div>
+      <p style="color:var(--body);font-size:.85rem;margin:.6rem 0 0">Pin against <code>spec_version:"0.8.13"</code>: every node in the live <a href="chaingraph.json">chaingraph.json</a> was published against this schema/gate baseline. §17 requires the cross-check below to hold for every node that publishes a digest; a mismatch fails the binding rather than this page.</p>
+      <table class="data">
+        <tr><th>field</th><th>example (tool_id: 503-canton-tokenization-readiness-diagnostic)</th></tr>
+        <tr><td>compute_images[].system</td><td><code>sha256-source</code></td></tr>
+        <tr><td>compute_images[].image_id</td><td><code>sha256:cd83aaa98a7055cdc55b74bf14d81e559e4797625a9796e5d8deaa43a9021157</code></td></tr>
+        <tr><td>compute_images[].valid_from</td><td><code>2026-07-10</code></td></tr>
+        <tr><td>cross-checked against</td><td><code>audit_signature.build_identity.kernel_digest</code> on that node's own artifacts, and a live recompute via <code>kernels/_buildid.mjs</code> over the deployed kernel source</td></tr>
+      </table>
+    </div>
+    <!-- GEN:KERNEL-IDENTITY:END -->
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">03 &middot; Compatibility</div>
+    <h2>Compat-contract table</h2>
+    <p>Which historical <code>spec_version</code> the current verifier still reads. Generated from <code>standard/CHANGELOG.md</code>'s own record-bump history: every entry not explicitly marked "not a record bump" is a version of record, and every one of them is additive-only by construction, with §4 preimage members and <code>chaingraph_version</code> ("0.4.0") frozen and existing <code>execution_hash</code> values never moving. That invariant is proven live every CI run rather than asserted here: <code>golden-parity.test.mjs</code> and <code>linear-hash-freeze.mjs</code> (§15) recompute and freeze the pinned hashes on every run.</p>
+    <!-- GEN:COMPAT-CONTRACT:START (generator-owned -- do not hand-edit; regenerate via node scripts/gen-integrator-profile.mjs) -->
+    <div class="tbl-wrap">
+      <table class="data">
+        <tr><th>spec_version</th><th>what it added</th><th>additive-only</th><th>current verifier reads it</th></tr>
+        <tr>
+          <td><code>0.8.13</code></td>
+          <td>xBRL-CSV export profile (§13.14)</td>
+          <td>unconfirmed in CHANGELOG text</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.8.8</code></td>
+          <td>`seeded-stochastic` determinism class (§24.6.2) + the deferred vouch-hunt record bump</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.8.7</code></td>
+          <td>ML landing-pass riders (§HASHRES-1, §PQC-1, §REVOKE-1, §SIDECAR)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.8.6</code></td>
+          <td>Deterministic Compute Profile `@2`: WebCrypto subset split (§24.5)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.8.5</code></td>
+          <td>Private-Input Profile (§25)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.8.4</code></td>
+          <td>Deterministic Compute Profile (§24)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.8.3</code></td>
+          <td>Input Attestations (§23)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.8.2</code></td>
+          <td>Escalation records (§22.8)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.7.0</code></td>
+          <td>Anchor Binding (§20) + SD-JWT selective-disclosure export (§13.12)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.6.1</code></td>
+          <td>Deterministic-node proof profile (§18.6)</td>
+          <td><span class="status-ok">yes</span> (CHANGELOG states additive)</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.6.0</code></td>
+          <td>Kernel Identity Binding (§17) + Compute-Integrity Proof (§18, zkVM)</td>
+          <td>unconfirmed in CHANGELOG text</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.5.0</code></td>
+          <td>Proof Binding (§16) + audit_signature schema alignment</td>
+          <td>unconfirmed in CHANGELOG text</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.4.1</code></td>
+          <td>Verifiable Credentials export profile</td>
+          <td>unconfirmed in CHANGELOG text</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.4.0</code></td>
+          <td>Compute Binding + Export Profiles</td>
+          <td>unconfirmed in CHANGELOG text</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+        <tr>
+          <td><code>0.3.1</code></td>
+          <td>base for v0.4</td>
+          <td>unconfirmed in CHANGELOG text</td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+        </tr>
+      </table>
+    </div>
+    <p style="color:var(--body);font-size:.85rem">15 record-bump versions found in CHANGELOG.md. Every artifact produced under any version above validates against the current v0.4 schema unchanged, because the frozen root schema (<code>$defs/artifact.required</code>) and <code>chaingraph_version</code> ("0.4.0") have never moved across any of them.</p>
+    <!-- GEN:COMPAT-CONTRACT:END -->
+  </div>
+</div>
+
+<div class="section">
+  <div class="wrap">
+    <div class="sec-num">04 &middot; Conformance ladder</div>
+    <h2>The gate suite is the ladder</h2>
+    <p>No separate grading engine or badge-tier scenario list exists. The ladder's scenario set IS the <a href="openchain-graph-spec.html#s15">§15 gate suite</a>, the same rows enforced against AINumbers.co on the <a href="conformance-roster.html">conformance roster</a>. Climbing the ladder means passing more of the rows below; there is nothing else to pass.</p>
+    <!-- GEN:LADDER:START (generator-owned -- do not hand-edit; regenerate via node scripts/gen-integrator-profile.mjs) -->
+    <div class="meta-row">
+      <span><span class="lbl">gate rows in §15</span> <code>54</code></span>
+      <span><span class="lbl">roster entries</span> <code>1</code></span>
+      <span><span class="lbl">third-party (non-Post-Oak-Labs) implementations verified</span> <code>0</code></span>
+    </div>
+    <div class="callout">
+      <div class="lab">Honest current value</div>
+      <p>Zero external implementations have run and published a dated §15 result yet. That is demand-gated rather than build-gated, so it is not a defect in this ladder. The ladder and its gate rows exist and are truthful at N=0 today, the same way the internal §15 gates already are. See the <a href="conformance-roster.html">conformance roster</a> for how an implementation gets listed.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table class="data">
+        <tr><th>rule</th><th>gate</th><th>when</th></tr>
+        <tr>
+          <td>§4 canonical execution_hash</td>
+          <td><code>kernel-hash-integrity.mjs, lint-forbidden-hash.mjs, golden-parity.test.mjs, determinism-replay.test.mjs (N=3 idempotency + JCS key-order stability)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§12 every gpu:false node has a kernel</td>
+          <td><code>kernel-coverage.mjs --strict</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§4 buildArtifact reproduces hash offline</td>
+          <td><code>kernel-contract.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§4 live re-verifiability of every deployed node</td>
+          <td><code>hash-sweep.mjs</code></td>
+          <td>post-deploy</td>
+        </tr>
+        <tr>
+          <td>Live server registers every expected mcp_name</td>
+          <td><code>verify-mcp-registered.mjs (Addendum A)</code></td>
+          <td>post-deploy</td>
+        </tr>
+        <tr>
+          <td>§1 envelope + node object well-formed</td>
+          <td><code>schema-validate.mjs (this schema)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>single version of record across surfaces</td>
+          <td><code>spec-version-consistency.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>rendered spec page</td>
+          <td><code>spec-page-parity.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>every surface count == chaingraph.json</td>
+          <td><code>surface-parity.mjs (Addendum A)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>every node url page + chain page exists</td>
+          <td><code>catalog-parity.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>unique mcp_name</td>
+          <td><code>check-tool-names.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>chain integrity</td>
+          <td><code>validate-chains.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>/mcp handshake works</td>
+          <td><code>smoke-mcp.mjs</code></td>
+          <td>post-deploy</td>
+        </tr>
+        <tr>
+          <td>§13 export gate honored</td>
+          <td><code>exporters/export.test.mjs (unit) + smoke-compute.mjs (export round-trip)</code></td>
+          <td>validate + post-deploy</td>
+        </tr>
+        <tr>
+          <td>§16 proof: eddsa-jcs-2022 whole-artifact at audit_signature.proof, no new hash, no chaingraph_version bump,...</td>
+          <td><code>proof-binding.test.mjs (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§17 kernel identity binding: digest at audit_signature.build_identity ↔ Graph Index compute_images ↔ recomp...</td>
+          <td><code>kernel-identity.test.mjs (unit: digest determinism + three-way cross-check + tamper-detect + backward-compat)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§18 compute-integrity proof: object structure, imageId ↔ Graph Index compute_images, journal ↔ output_paylo...</td>
+          <td><code>compute-proof.test.mjs (unit: binding + real-receipt verify + tamper-detect + backward-compat)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§20 anchor binding: per-type proof verification</td>
+          <td><code>anchor-binding.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed se...</td>
+          <td><code>sd-export-roundtrip.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§13.13 xBRL-JSON export profile ocg-xbrl-json@1: fixture round-trip determinism</td>
+          <td><code>xbrl-json-fixtures.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§13.14 xBRL-CSV export profile ocg-xbrl-csv@1: JSON metadata part round-trip determinism</td>
+          <td><code>xbrl-csv-fixtures.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§16.5 proof sets/chains: parallel proof set verifies, endorsement previousProof chain verifies in dependenc...</td>
+          <td><code>proof-binding.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§1 supersedes shape: array of sha256:-prefixed execution_hashes</td>
+          <td><code>schema-validate.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§PPH-1 policy_parameters_hash: JCS-SHA-256 over policy_parameters alone through the one canonical cgCanon p...</td>
+          <td><code>policy-params-hash.test.mjs (unit) + schema-validate.mjs (shape, exercised by fixtures/policy-params-hash.fixture.json)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§21.1–§21.3 linear composite contract: NO existing linear chain's composite_execution_hash moves</td>
+          <td><code>linear-hash-freeze.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§21.4 gate static validity: RFC 6901 pointer syntax, closed op enum + value typing, default present, all ta...</td>
+          <td><code>validate-chains.mjs (Layer 4) + gate-static.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§21.4 evaluator semantics: each op × type mismatch × first-match × mandatory default, determinism, decision...</td>
+          <td><code>gate-semantics.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§21.4 both-branch coverage: a gated chain's fixtures drive every branch</td>
+          <td><code>gate-branch-coverage.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§21.4 evaluator byte-parity: Worker run_chain and embedded runChain yield identical route + decisions + com...</td>
+          <td><code>gate-parity.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§20.1 merkle_inclusion: reconstruct RFC 6962 root from leaf+path, root == anchored_hash, leaf == recomputed...</td>
+          <td><code>anchor-binding.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§22 Work Mandate document: separate workMandateDocument $def present + well-formed</td>
+          <td><code>schema-validate.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§22.4 compile_work_mandate determinism: same mandate → byte-identical chain_config</td>
+          <td><code>compile-mandate-determinism.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§22.3 "escalate" reserved target: static validation accepts "escalate" as a reserved forward target</td>
+          <td><code>validate-chains.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§22.2 mandate signature: eddsa-jcs-2022 whole-artifact proof REQUIRED</td>
+          <td><code>proof-binding.test.mjs, mandate-binding.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§22.5 run_chain mandate binding: no-mandate run hash-identical to pre-mandate</td>
+          <td><code>mandate-binding.test.mjs, linear-hash-freeze.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§22.8 "escalate" evaluator: recognized as a terminal target</td>
+          <td><code>gate-parity.test.mjs, linear-hash-freeze.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§23 input attestations: hash-excluded top-level input_attestations[]</td>
+          <td><code>validate-input-attestations.test.mjs, schema-validate.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§25 private-input profile: hash-excluded top-level private_inputs[]</td>
+          <td><code>validate-private-inputs.test.mjs, schema-validate.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§HASHRES-1 Ledger addressing: the resolution address IS the §4 execution_hash</td>
+          <td><code>hash-sweep.mjs, kernel-hash-integrity.mjs</code></td>
+          <td>post-deploy + validate</td>
+        </tr>
+        <tr>
+          <td>§CID-1 OCG CID profile: toCid()/fromCid() round-trip bijectively over §4-shaped sha256 digests</td>
+          <td><code>cid-roundtrip.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§PQC-1 hybrid dual proof: a §16.5 parallel proof set may carry eddsa-jcs-2022 + a PQ suite over the SAME §1...</td>
+          <td><code>proof-binding.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§HEAD-1 head-commit: genesis shape</td>
+          <td><code>head-commit.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§SNAP-1 state-snapshot artifact: mandate_type:"state_snapshot" accepted in the existing open envelope string</td>
+          <td><code>schema-validate.mjs (fixture), golden-parity.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§APROV-1 ocg-agent-provenance@1 evidence bundle: CARv1 write→read round-trip byte-identity</td>
+          <td><code>car-roundtrip.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§REVOKE-1 revocation reference: OPTIONAL W3C BitstringStatusList credentialStatus object under audit_signature</td>
+          <td><code>schema-validate.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§SIDECAR.2 resource-narrowing invariant</td>
+          <td><code>mandate-binding.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§24.6.2 seeded-stochastic replay: a kernel declaring the class re-runs at its own declared seed to a byte-i...</td>
+          <td><code>seed-replay.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§27 human-accountability records: $defs/humanAccountabilityRecord shape</td>
+          <td><code>validate-ha-records.test.mjs, schema-validate.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§28 clause binding profile ocg-clause-binding@1: hash-excluded top-level clause_bindings[]</td>
+          <td><code>clause-binding.test.mjs, schema-validate.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§21.6 ancestry_digest: bottom-up recompute over {execution_hash, parent_ancestry_digests} via the one cgCan...</td>
+          <td><code>ancestry-digest.test.mjs (unit) + schema-validate.mjs (shape)</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§20.3 retention profile: a verifier presented a hash-only survivor</td>
+          <td><code>retention-profile.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§STPFWD-1 forward decision-outcome mandate: a NEW gpu:false live node emits haGatePolicy</td>
+          <td><code>kernel-coverage.mjs --strict, compute-proof.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>§30 cited clause digest: a chaingraph.json nodes[] entry NEW or CHANGED on the current branch MUST declare...</td>
+          <td><code>check-clause-digest.mjs, check-clause-digest.test.mjs</code></td>
+          <td>validate</td>
+        </tr>
+        <tr>
+          <td>every rule above has a gate</td>
+          <td><code>spec-gate-coverage.mjs</code></td>
+          <td>validate</td>
+        </tr>
+      </table>
+    </div>
+    <!-- GEN:LADDER:END -->
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="foot">
+      OpenChainGraph Integrator Profile · Editor: <a href="https://postoaklabs.com">Post Oak Labs</a> · 2026
+      <span>&middot;</span>
+      <a href="chaingraph-hub.html">Hub &rarr;</a>
+      <span>&middot;</span>
+      <a href="conformance-roster.html">Roster &rarr;</a>
+      <span>&middot;</span>
+      <a href="badge-program.html">Badge Program &rarr;</a>
+      <span>&middot;</span>
+      <a href="openchain-graph-spec.html">Spec &rarr;</a>
+      <span>&middot;</span>
+      Licensed CC BY 4.0
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
