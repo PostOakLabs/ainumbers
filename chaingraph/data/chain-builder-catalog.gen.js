@@ -7134,7 +7134,8 @@ window.CHAINBUILDER_CATALOG = [
       "pnr-01-dora-ict-cascade-simulator"
     ],
     "feeds": [
-      "ptg-01-ap2-prompt-template-generator"
+      "ptg-01-ap2-prompt-template-generator",
+      "cry-05-agent-action-audit-trail-aggregator"
     ],
     "status": "live"
   },
@@ -7147,10 +7148,10 @@ window.CHAINBUILDER_CATALOG = [
     "consumes": [
       "art-30-agent-commerce-conformance-validator",
       "art-31-a2a-x402-extension-mandate-validator",
-      "art-33-mcp-server-self-attestation-pack"
+      "art-33-mcp-server-self-attestation-pack",
+      "cry-04-merkle-batch-verifier"
     ],
     "feeds": [
-      "cry-04-merkle-batch-verifier",
       "ptg-01-ap2-prompt-template-generator"
     ],
     "status": "live"
