@@ -1,15 +1,14 @@
 name: Derived Artifacts Regen
 
-# Move freshness OWNERSHIP of shared derived artifacts from PR branches to main
-# (the SO #28 derived set, under the SO #35 single-writer rule).
+# Move freshness OWNERSHIP of shared derived artifacts from PR branches to main.
 #
 # WHY THIS EXISTS — two measured incidents on 2026-08-11, one cause:
 #   1. MERGE-REF SKEW: three PRs failed `gen-sitemap-html --check` on the merge
 #      ref inside 90 minutes while each was locally green.
 #   2. SILENT CI REMOVAL (worse): a conflict on these files DELETES the merge
 #      ref; a `pull_request` run builds on the merge commit, so GitHub
-#      dispatches ZERO CI. PR #1199 lived its entire life ungated and rendered
-#      identical to an all-green PR (SO #34c).
+#      dispatches ZERO CI, and a PR can live its entire life ungated while
+#      rendering identical to an all-green PR.
 # Both follow from per-branch ownership of files EVERY page-adding shard
 # rewrites. This workflow makes main the single writer.
 #
@@ -22,7 +21,7 @@ on:
     branches: [ main ]
 
 # Least privilege at the top: read-only by default. Only the one job below is
-# granted write, and only the two scopes it provably needs (SO #31 / SO #32).
+# granted write, and only the two scopes it provably needs.
 permissions:
   contents: read
 
@@ -74,7 +73,7 @@ jobs:
           # artifact is not an error.
           git add --ignore-removal --pathspec-from-file=/tmp/paths.txt || true
 
-          # SELF-CHECK (SO #34, independent derivation): the declared path set is
+          # SELF-CHECK (independent derivation): the declared path set is
           # recomputed against what the regen ACTUALLY wrote. If a generator's
           # output set ever grows, this goes RED rather than silently committing
           # an undeclared file or silently dropping a real one.
@@ -127,7 +126,7 @@ jobs:
       #    the pushed commit only touched derived artifacts" — such a push is
       #    already fresh BY CONSTRUCTION, so the regen yields no diff. The guard
       #    is a RECOMPUTED property of the tree, not a self-attested marker on
-      #    the commit (SO #34: never trust the artifact's claim about itself).
+      #    the commit — never trust the artifact's claim about itself.
       - name: Commit and push
         if: steps.stage.outputs.changed == 'true'
         run: |
@@ -149,7 +148,7 @@ scripts/derived-artifacts.mjs for the set and its derivation."
       # commit and the regenerated artifacts would sit on main undeployed.
       # Re-dispatch it explicitly. This uses the deploy workflow's ALREADY
       # EXISTING workflow_dispatch trigger and `gh`, which is preinstalled on
-      # the runner — no PAT, no new third-party action (SO #8 / SO #32).
+      # the runner — no PAT, no new third-party action.
       - name: Dispatch deploy for the auto-commit
         if: steps.stage.outputs.changed == 'true'
         env:
