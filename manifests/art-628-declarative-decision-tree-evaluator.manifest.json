@@ -1,0 +1,65 @@
+{
+  "tool_id": "art-628-declarative-decision-tree-evaluator",
+  "version": "1.0.0",
+  "title": "Declarative Decision-Tree Evaluator",
+  "description": "Evaluates a caller-supplied, hash-pinned decision tree against caller-supplied facts entirely offline, client-side. The tree is inert data -- one audited interpreter walks it over a closed operator set (eq, in, lt, lte, gt, gte, between, all_of, any_of, none_of); no eval, no expression strings, no function-valued criteria. Every node, internal criteria included and not leaves only, must carry a citation {clause, source, source_digest, snapshot_location}; a tree with any uncited node is rejected by the loader before evaluation. The tree's own declared tree_digest is never trusted as an oracle for itself: it is recomputed from the tree's canonicalized bytes and evaluation refuses to proceed on a mismatch. Bounds (max_depth=12, max_nodes=256, max_tree_bytes=64KiB) are declared and enforced, cycle-acyclicity is checked at load, and evaluation walks an explicit iterative pointer, never recursion. Ships with one demonstrator tree, the Reg D Rule 501(a) entity-type accredited-investor category test (17 CFR 230.501(a)(1)/(2)/(3)/(8)/(9)), enumerated exhaustively over its 5 declared boolean fields -- 32 combinations, 0 unexplained results -- because every criterion in that tree is a bounded enum. This is never a full accredited-investor determination: the natural-person prongs ((a)(4)-(a)(7), (a)(10)-(a)(13)) and every numeric-threshold test are explicitly out of the demonstrator's declared scope. The kernel itself carries no classification rules of its own; a caller must supply its own tree to get a different classification.",
+  "category": "regulatory-compliance",
+  "tags": ["compliance_mandate", "decision-tree", "rule-engine", "citation-gated", "reg-d", "accredited-investor", "classification", "mcp:evaluate_decision_tree"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "tree": {
+        "type": "object",
+        "description": "The decision tree to evaluate, delivered as data (never baked into the kernel). Shape: {tree_id, tree_version, tree_digest, root, nodes}. Each node in `nodes` is {kind:'criterion', field, operator, operand, branches:{true, false}, citation} or {kind:'leaf', verdict, weight?, citation}. `tree_digest` must equal sha256(canonical-JSON(tree minus tree_digest)) or evaluation is refused. Every node must carry a non-empty citation {clause, source, source_digest, snapshot_location} or the tree is rejected by the loader.",
+        "properties": {
+          "tree_id": { "type": "string" },
+          "tree_version": { "type": "string" },
+          "tree_digest": { "type": "string", "description": "sha256 hex digest of the canonicalized tree (this field excluded from what is hashed)." },
+          "root": { "type": "string", "description": "Node id of the root node." },
+          "nodes": { "type": "object", "description": "Map of node id to node. Bounded: max_nodes=256, max_depth=12 root-to-leaf, max_tree_bytes=65536 (UTF-8 bytes of the whole tree object)." }
+        }
+      },
+      "facts": {
+        "type": "object",
+        "description": "Field values the tree's criteria are evaluated against. A criterion node whose declared `field` is absent from facts causes evaluation to refuse with FACT_FIELD_MISSING rather than silently branching."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "evaluate_decision_tree",
+    "description": "Evaluates a caller-supplied, citation-gated, hash-pinned decision tree against caller-supplied facts over a closed operator set (eq/in/lt/lte/gt/gte/between/all_of/any_of/none_of). Rejects any tree with an uncited node or a tree_digest that does not match its own recomputed bytes.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "tree": { "type": "object" },
+        "facts": { "type": "object" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-628-declarative-decision-tree-evaluator.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": { "type": ["string", "null"] },
+      "error_code": { "type": ["string", "null"] },
+      "message": { "type": ["string", "null"] },
+      "matched_node_id": { "type": ["string", "null"] },
+      "matched_citation": { "type": ["object", "null"] },
+      "path": { "type": "array", "items": { "type": "string" } },
+      "weight": {},
+      "tree_id": { "type": ["string", "null"] },
+      "tree_version": { "type": ["string", "null"] },
+      "tree_digest_recomputed": { "type": ["string", "null"] },
+      "bounds": { "type": "object" },
+      "closed_operator_set": { "type": "array", "items": { "type": "string" } },
+      "scope_note": { "type": "string" }
+    }
+  },
+  "source": "authored by ACCT-DTREE-K-1 per ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.3 (kernel spec) and Sec.4 (composition contract); the demonstrator tree's five category citations are 17 CFR 230.501(a)(1)/(2)/(3)/(8)/(9) (Regulation D, Securities Act of 1933), retrieved from the Cornell Law LII e-CFR mirror on 2026-08-16 and pinned at workspace-root research/clause-snapshots/17-cfr-230.501-a.snapshot.md (17 CFR is a U.S. federal regulation, a work of the U.S. Government, not subject to copyright per 17 U.S.C. Sec.105); output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-628-declarative-decision-tree-evaluator.fixtures.json; category reuses the existing 'regulatory-compliance' taxonomy value, the same one sibling classification/compliance kernels use."
+}
