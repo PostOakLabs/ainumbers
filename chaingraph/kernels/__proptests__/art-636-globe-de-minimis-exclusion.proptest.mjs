@@ -99,31 +99,43 @@ function checkThresholdBoundaryExactAndUlp() {
   const detail = [];
 
   const cases = [
-    ['revenue', REVENUE_THRESHOLD, yearsWithRevenueAverage, (o) => o.revenue_test_met, (o) => o.average_globe_revenue_eur],
-    ['income', INCOME_THRESHOLD, yearsWithIncomeAverage, (o) => o.income_test_met, (o) => o.average_globe_income_eur],
+    {
+      label: 'revenue',
+      threshold: REVENUE_THRESHOLD,
+      build: yearsWithRevenueAverage,
+      readVerdict: (o) => o.revenue_test_met,
+      readAvg: (o) => o.average_globe_revenue_eur,
+    },
+    {
+      label: 'income',
+      threshold: INCOME_THRESHOLD,
+      build: yearsWithIncomeAverage,
+      readVerdict: (o) => o.income_test_met,
+      readAvg: (o) => o.average_globe_income_eur,
+    },
   ];
 
-  for (const [label, threshold, build, readVerdict, readAvg] of cases) {
+  for (const c of cases) {
     const trials = [
-      [nextDown(threshold), true, `${label} average 1 ULP BELOW threshold must MEET the strict < condition`],
-      [threshold, false, `${label} average EXACTLY AT threshold must NOT meet the strict < condition`],
-      [nextUp(threshold), false, `${label} average 1 ULP ABOVE threshold must NOT meet the condition`],
+      { value: nextDown(c.threshold), want: true, why: `${c.label} average 1 ULP BELOW threshold must MEET the strict < condition` },
+      { value: c.threshold, want: false, why: `${c.label} average EXACTLY AT threshold must NOT meet the strict < condition` },
+      { value: nextUp(c.threshold), want: false, why: `${c.label} average 1 ULP ABOVE threshold must NOT meet the condition` },
     ];
-    for (const [value, want, why] of trials) {
-      const out = compute(pp(build(value))).output_payload;
+    for (const t of trials) {
+      const out = compute(pp(c.build(t.value))).output_payload;
       // Guard: the constructed average must actually land on the intended point, otherwise
       // the boundary was never exercised and a green result would prove nothing.
-      const gotAvg = readAvg(out);
+      const gotAvg = c.readAvg(out);
       checked++;
-      if (!Object.is(gotAvg, value)) {
+      if (!Object.is(gotAvg, t.value)) {
         violations++;
-        detail.push(`${why}: average did not land on the boundary (wanted ${value}, computed ${gotAvg})`);
+        detail.push(`${t.why}: average did not land on the boundary (wanted ${t.value}, computed ${gotAvg})`);
         continue;
       }
       checked++;
-      if (readVerdict(out) !== want) {
+      if (c.readVerdict(out) !== t.want) {
         violations++;
-        detail.push(`${why}: got ${readVerdict(out)}`);
+        detail.push(`${t.why}: got ${c.readVerdict(out)}`);
       }
     }
   }
@@ -347,36 +359,36 @@ function checkNoSilentDefaults() {
   }
 
   const degradations = [
-    ['year absent entirely', pp([good[0], { fiscal_year: 2025 }, good[2]])],
-    ['year amounts null', pp([good[0], { fiscal_year: 2025, globe_revenue_eur: null, globe_income_or_loss_eur: null }, good[2]])],
-    ['year income NaN', pp([good[0], { fiscal_year: 2025, globe_revenue_eur: 1000, globe_income_or_loss_eur: NaN }, good[2]])],
-    ['year income Infinity', pp([good[0], { fiscal_year: 2025, globe_revenue_eur: 1000, globe_income_or_loss_eur: Infinity }, good[2]])],
-    ['year income a numeric string', pp([good[0], { fiscal_year: 2025, globe_revenue_eur: 1000, globe_income_or_loss_eur: '1000' }, good[2]])],
-    ['revenue threshold missing', pp(good, { revenueThreshold: null })],
-    ['income threshold missing', pp(good, { incomeThreshold: null })],
-    ['election undeclared', pp(good, { pp: { election_made: null } })],
-    ['max_years undeclared', pp(good, { pp: { max_years: null } })],
-    ['current fiscal year missing from years', pp([good[0], good[1]])],
-    ['current year wrongly declared excluded', pp([good[0], good[1], { fiscal_year: 2026, no_constituent_entities: true }])],
-    ['Art 5.5.4 upstream exclusion undeclared', pp(good, { pp: { stateless_and_investment_entities_excluded: false } })],
+    { label: 'year absent entirely', params: pp([good[0], { fiscal_year: 2025 }, good[2]]) },
+    { label: 'year amounts null', params: pp([good[0], { fiscal_year: 2025, globe_revenue_eur: null, globe_income_or_loss_eur: null }, good[2]]) },
+    { label: 'year income NaN', params: pp([good[0], { fiscal_year: 2025, globe_revenue_eur: 1000, globe_income_or_loss_eur: NaN }, good[2]]) },
+    { label: 'year income Infinity', params: pp([good[0], { fiscal_year: 2025, globe_revenue_eur: 1000, globe_income_or_loss_eur: Infinity }, good[2]]) },
+    { label: 'year income a numeric string', params: pp([good[0], { fiscal_year: 2025, globe_revenue_eur: 1000, globe_income_or_loss_eur: '1000' }, good[2]]) },
+    { label: 'revenue threshold missing', params: pp(good, { revenueThreshold: null }) },
+    { label: 'income threshold missing', params: pp(good, { incomeThreshold: null }) },
+    { label: 'election undeclared', params: pp(good, { pp: { election_made: null } }) },
+    { label: 'max_years undeclared', params: pp(good, { pp: { max_years: null } }) },
+    { label: 'current fiscal year missing from years', params: pp([good[0], good[1]]) },
+    { label: 'current year wrongly declared excluded', params: pp([good[0], good[1], { fiscal_year: 2026, no_constituent_entities: true }]) },
+    { label: 'Art 5.5.4 upstream exclusion undeclared', params: pp(good, { pp: { stateless_and_investment_entities_excluded: false } }) },
   ];
 
-  for (const [label, params] of degradations) {
-    const out = compute(params).output_payload;
+  for (const d of degradations) {
+    const out = compute(d.params).output_payload;
     checked++;
     if (out.manual_review_required !== true) {
       violations++;
-      detail.push(`${label}: manual_review_required was not raised`);
+      detail.push(`${d.label}: manual_review_required was not raised`);
     }
     checked++;
     if (out.de_minimis_available !== false) {
       violations++;
-      detail.push(`${label}: de_minimis_available was granted despite an incomplete input`);
+      detail.push(`${d.label}: de_minimis_available was granted despite an incomplete input`);
     }
     checked++;
     if (out.deemed_zero_topup !== false) {
       violations++;
-      detail.push(`${label}: deemed_zero_topup was reported despite an incomplete input`);
+      detail.push(`${d.label}: deemed_zero_topup was reported despite an incomplete input`);
     }
   }
 
