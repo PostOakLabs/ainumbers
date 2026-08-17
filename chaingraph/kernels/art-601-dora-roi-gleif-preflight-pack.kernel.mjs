@@ -11,13 +11,13 @@ import { executionHash } from './_hash.mjs';
 // never re-derives the RoI dataset -- it links to the upstream dora-roi-builder artifact by
 // execution_hash + tool_id only, never the raw dataset (build-spec artifact-chain rule).
 //
-// HARD FRAMING, non-negotiable per the build spec: this is a preparation aid a firm compiles for
-// its own DORA RoI submission process. It is NOT a submission, NOT a filing, NOT a determination
+// HARD FRAMING, non-negotiable per the build spec: this is a preparation aid a firm compiles when
+// preparing its own DORA RoI submission. It is NOT a submission, NOT a filing, NOT a determination
 // that a submission is complete or accurate, and NOT a statement that any regulator has reviewed
 // or would accept this output. compliance_flags here describe pack-assembly state ONLY -- this
 // kernel and its output strings never claim the pack itself is adequate, sufficient, or fulfils
 // any regulatory obligation.
-const SCOPE_NOTE = 'Assembles evidence a firm compiles for its own DORA RoI submission process. Not a submission, not a filing, not a determination that a submission is complete or accurate, and not a statement that any regulator has reviewed or would accept this output.';
+const SCOPE_NOTE = 'Assembles evidence a firm compiles when preparing its own DORA RoI submission. Not a submission, not a filing, not a determination that a submission is complete or accurate, and not a statement that any regulator has reviewed or would accept this output.';
 
 const TOOL_ID = 'art-601-dora-roi-gleif-preflight-pack';
 const TOOL_VERSION = '1.0.0';

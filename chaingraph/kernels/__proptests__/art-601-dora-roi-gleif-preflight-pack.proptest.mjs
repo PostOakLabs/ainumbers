@@ -1,5 +1,5 @@
 // art-601-dora-roi-gleif-preflight-pack — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:8db5e2518c049f9fa2d3e020c6592847dfafcbca31bd93fd3ffd4cf1856bc318
+// kernel_digest_at_authoring: sha256:bf3d3052e3888bced6a3528b63c51fffe36755a4e6d970720d62c04f4443438c
 // spec: research/SPEC-DORA-GLEIF-FEEDERS-1-2026-08-09.md §4
 // human_sign_off: PENDING
 //
