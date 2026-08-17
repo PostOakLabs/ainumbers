@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
  * scripts/check-node-page-chrome.mjs
- * Permanent CI gate: every chaingraph/art-*.html that has been chrome-normalized
+ * Permanent CI gate: every chaingraph/*.html page that has been chrome-normalized
+ * (art node pages, guide-*.html, and the other chaingraph/*.html hubs/explainers)
  * must carry exactly one canonical <nav> and one canonical <footer> + the CSS marker.
+ * Widened from art-*.html-only scope by GUIDE-CHROME-AUDIT-1 (2026-08-17) — see
+ * scripts/normalize-node-chrome.mjs's EXEMPT map for the two pages excluded and why.
  *
  * Pages listed in KNOWN_SKIPS have pre-existing HTML quirks (body-embedded <footer>
  * elements or no chaingraph.json entry) that require manual follow-up — they are
@@ -13,16 +16,17 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NAV_REQUIRED_TOKENS, FOOTER_REQUIRED_TOKENS, CSS_MARKER, SPEC_VERSION } from '../chaingraph/_page-chrome.mjs';
+import { NAV_REQUIRED_TOKENS, FOOTER_REQUIRED_TOKENS, CSS_MARKER, SPEC_VERSION, CHROME_EXEMPT } from '../chaingraph/_page-chrome.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
 const CG    = resolve(REPO, 'chaingraph');
 
-// All pages now normalized — no skips.
-const KNOWN_SKIPS = new Set();
+// All normalized pages pass — the only exclusions are the two structural EXEMPTs
+// in CHROME_EXEMPT (chaingraph/_page-chrome.mjs).
+const KNOWN_SKIPS = new Set([...CHROME_EXEMPT.keys()]);
 
-const files = readdirSync(CG).filter(f => /^art-\d+.*\.html$/.test(f)).sort();
+const files = readdirSync(CG).filter(f => /\.html$/.test(f)).sort();
 
 const failures = [];
 
@@ -31,14 +35,15 @@ for (const filename of files) {
 
   const html = readFileSync(resolve(CG, filename), 'utf-8');
 
-  // ── count checks ──
-  const navOpens  = (html.match(/<nav[^>]*>/g) || []).length;
+  // ── count checks — site-chrome <nav> only (no class= attribute); a class'd
+  // <nav class="…"> is in-body content (e.g. a table-of-contents), never chrome ──
+  const navOpens  = (html.match(/<nav(?![^>]*\bclass=)[^>]*>/g) || []).length;
   const navCloses = (html.match(/<\/nav>/g)   || []).length;
   const ftrOpens  = (html.match(/<footer[^>]*>/g) || []).length;
   const ftrCloses = (html.match(/<\/footer>/g)    || []).length;
 
-  if (navOpens !== 1 || navCloses !== 1) {
-    failures.push(`${filename}: nav count (${navOpens}/${navCloses})`);
+  if (navOpens !== 1) {
+    failures.push(`${filename}: site-chrome nav count (${navOpens})`);
     continue;
   }
   if (ftrOpens !== 1 || ftrCloses !== 1) {
@@ -47,7 +52,7 @@ for (const filename of files) {
   }
 
   // ── extract nav block for token checks ──
-  const navM = html.match(/<nav[^>]*>[\s\S]*?<\/nav>/);
+  const navM = html.match(/<nav(?![^>]*\bclass=)[^>]*>[\s\S]*?<\/nav>/);
   if (!navM) { failures.push(`${filename}: nav block not extractable`); continue; }
   const navBlock = navM[0];
 
@@ -63,9 +68,16 @@ for (const filename of files) {
     }
   }
 
-  // ── breadcrumb: must have ART-NN · <display_name> pattern in canonical span ──
-  const bcSpan = navBlock.match(/<span style="color:var\(--gold\)">(ART-\d+ · [^<]+)<\/span>/);
-  if (!bcSpan) {
+  // ── breadcrumb: current-page span must be non-empty. art-NN-*.html pages carry
+  // the strict "ART-NN · <display_name>" pattern; every other page (guide/explainer,
+  // and registered nodes without an "art-" filename) carries its <title> text
+  // instead (no ART-NN prefix) — non-empty is sufficient there.
+  const bcSpan = navBlock.match(/<span style="color:var\(--gold\)">([^<]+)<\/span>/);
+  if (/^art-\d+/.test(filename)) {
+    if (!bcSpan || !/^ART-\d+ · .+/.test(bcSpan[1])) {
+      failures.push(`${filename}: nav-breadcrumb current span missing or malformed`);
+    }
+  } else if (!bcSpan || !bcSpan[1].trim()) {
     failures.push(`${filename}: nav-breadcrumb current span missing or malformed`);
   }
 
