@@ -307,10 +307,16 @@ export function isMainContext() {
   // context probe, not by review.) Only an affirmative proof of a PR may earn
   // the downgrade; every other state blocks.
 
-  // CI: `pull_request` is the one and only PR proof. push-to-main, schedule,
-  // workflow_dispatch, workflow_call and anything unrecognised all BLOCK.
+  // CI: `pull_request` AND `merge_group` are both PR proofs — the regen bot
+  // writes these artifacts AFTER merge (SO #35), so staleness inside the merge
+  // queue is by-construction, exactly as on a `pull_request`. Treating
+  // `merge_group` as MAIN made a queued assemble that obeys SO #35 get
+  // ejected by its own freshness gate (ASSEMBLE-LAND-0817-1 folded-in step,
+  // 2026-08-17). push-to-main, schedule, workflow_dispatch, workflow_call and
+  // anything unrecognised still BLOCK.
   if (process.env.GITHUB_ACTIONS === 'true') {
-    return process.env.GITHUB_EVENT_NAME !== 'pull_request';
+    const event = process.env.GITHUB_EVENT_NAME;
+    return event !== 'pull_request' && event !== 'merge_group';
   }
 
   // Local pre-push: a feature branch is the PR proof. It must RESOLVE, and be
