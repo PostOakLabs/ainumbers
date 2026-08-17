@@ -148,24 +148,14 @@ jobs:
         # conflict on merge, which deletes the merge ref and silently removes CI
         # from the PR entirely). Blocking a PR on a gate that PR is not allowed
         # to satisfy would turn every such PR red, so: ADVISORY on a
-        # pull_request, BLOCKING on push-to-main.
+        # pull_request, BLOCKING on push-to-main/merge_group.
         #
         # ⛔ The gate is NOT skipped and NOT deleted — it runs identically in both
         # contexts and emits a visible ::warning:: annotation when it fails on a
-        # PR. Only the exit code differs.
-        env:
-          # Event name crosses via env:, never `${{ }}` inside the run: body
-          # (zizmor template-injection), matching this repo's existing pattern.
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if node scripts/check-nav-reachability.mjs --baseline-check; then
-            exit 0
-          fi
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            echo "::warning title=Advisory: shared derived artifact stale::scripts/nav-island-baseline.json is stale. Do NOT regenerate it in this PR — it is single-writer; the Derived Artifacts Regen workflow on main commits the fix after merge."
-            exit 0
-          fi
-          exit 1
+        # PR. Only the exit code differs. run-gate.mjs (LAND-VERIFY-ADVISORY-
+        # SPLIT-1) is the one place this split lives now, shared with
+        # land-verify.yml's count-drift gate.
+        run: node scripts/run-gate.mjs node scripts/check-nav-reachability.mjs --baseline-check
 
       - name: Node-page chrome (nav/footer)
         run: node scripts/check-node-page-chrome.mjs
