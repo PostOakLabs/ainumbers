@@ -449,9 +449,18 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // corrected bytes.
   // Measured both sides, not assumed: 467/583 fresh + 116 stale on the base commit d24a5ee1 (this
   // row's starting point), 473/589 fresh + 116 stale after.
-  assert(total === 589, `expected 589 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 473, `expected 473 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (unaffected by PROVE-BATCH-0816-1 -- all six new receipts are fresh, so none enters stale), got ${stale.length}`);
+  // 589 -> 590 post-ASSEMBLE-LAND-0816-1 (2026-08-17): FAST-PROVE-BATCH-1's art-620
+  // (verify_summa_mst_inclusion) compute_proof, folded from held draft PR #1326, enters this
+  // gate's proven-node denominator for the first time. Its journal.kernel_digest was recomputed
+  // from the landed kernel bytes and re-verified after the prove (same comparison this gate
+  // performs), so it enters fresh, not stale. ART626-APPJ-RETRIEVAL-1 (draft PR #1330, folded in
+  // the same land) is metadata-only (cited_clause_digest) and does not touch compute_proof, so it
+  // does not affect this gate's denominator. Stale UNCHANGED at 116.
+  // Measured both sides, not assumed: 473/589 fresh + 116 stale on the base commit 3768630c (this
+  // row's starting point), 474/590 fresh + 116 stale after.
+  assert(total === 590, `expected 590 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 474, `expected 474 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-LAND-0816-1 -- art-620's new receipt is fresh, art-626 is metadata-only), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
