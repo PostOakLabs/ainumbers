@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>VPSF Claim Algebra Verifier · AINumbers.co</title>
+<meta name="description" content="Paste x402 Payment Claims and a VPSF composite, then verify the four claim types and five composition operators (conjunction, implication, aggregation, selective disclosure, revocation) against draft-vauban-x402-vpsf-algebra-01, entirely offline in the browser. Zero network calls. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/629-vpsf-claim-verifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"VPSF Claim Algebra Verifier","url":"https://ainumbers.co/tools/629-vpsf-claim-verifier.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "629-vpsf-claim-verifier",
+  "version": "1.0.0",
+  "title": "VPSF Claim Algebra Verifier",
+  "description": "Verifies x402 Payment Claims and VPSF composite claims (conjunction, implication, aggregation, selective disclosure, revocation) against draft-vauban-x402-vpsf-algebra-01, entirely in the browser with zero network calls.",
+  "category": "mcp",
+  "tags": ["x402","VPSF","claim algebra","PaymentIntent","SettlementReceipt","RefundClaim","DelegationGrant","JCS","RFC 8785","offline verifier"],
+  "audience": ["engineer","compliance","security"],
+  "input_schema": {"type":"object","properties":{"claims":{"type":"array"},"composite":{"type":"object"}},"required":["claims","composite"]},
+  "output_schema": {"type":"object","properties":{"ALL_PASS":{"type":"boolean"}}},
+  "mcp_tool_definition": {"name":"verify_vpsf_claim_composite","description":"Structurally verifies an x402 VPSF Claim Algebra composite (conjunction/implication/aggregation/selective_disclosure/revocation) and its component Payment Claims against draft-vauban-x402-vpsf-algebra-01.","inputSchema":{"type":"object","properties":{"claims":{"type":"array"},"composite":{"type":"object"}},"required":["claims","composite"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/629-vpsf-claim-verifier.html","function_name":"runVerifier","timeout_ms":3000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:760px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.field-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem}
+.field{display:flex;flex-direction:column;gap:.25rem;flex:1;min-width:180px}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ta{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.6;padding:.55rem .65rem;border-radius:3px;outline:none;resize:vertical}
+.ta:focus{border-color:var(--teal)}
+.hint{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);line-height:1.6;margin-top:.35rem}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.35rem .8rem;border-radius:3px}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);word-break:break-all;vertical-align:top}
+.result-table td:first-child{word-break:normal;overflow-wrap:normal;min-width:170px}
+.st{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;padding:.15rem .5rem;border:1px solid;border-radius:3px;white-space:nowrap}
+.st-pass{color:var(--green);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.07)}
+.st-fail{color:var(--red);border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.07)}
+.st-na{color:var(--muted);border-color:var(--border);background:var(--bg-3)}
+.st-info{color:var(--gold);border-color:rgba(212,168,71,.35);background:rgba(212,168,71,.07)}
+.verdict{border-radius:var(--radius);padding:.6rem .9rem;margin-bottom:.75rem;font-size:.78rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.note-box{font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.7;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:.6rem .85rem;margin-top:.5rem}
+.errbox{display:none;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--red);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:4px;padding:.55rem .8rem;margin-top:.75rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);margin-bottom:1px}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-629</span></div>
+  <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">MCP &amp; Agentic Commerce · T629 · x402 VPSF claim algebra</div>
+  <h1 class="tool-title">VPSF Claim Algebra Verifier</h1>
+  <p class="hero-desc">Paste one or more x402 Payment Claims (PaymentIntent, SettlementReceipt, RefundClaim, DelegationGrant) and a VPSF composite built over them, then verify the composite structurally against <code>draft-vauban-x402-vpsf-algebra-01</code>: the five composition operators (Conjunction ∧, Implication →, Aggregation ⊕, Selective Disclosure ▷, Revocation ¬), each operator's JCS preimage rule, and the same-subject preimage discipline. The tool recomputes every JCS Preimage Hash (SHA-256 over the RFC 8785 canonical form) rather than trusting a hash it is handed, resolves component references against the claims you supply, and rejects anything it cannot resolve.</p>
+  <div class="disclaimer">⚠ This is a structural verifier only. It checks preimage well-formedness, hash recomputation, and the operator/subject rules the draft states; it does NOT verify a STARK proof, a signature, or any other cryptographic evidence attached to a component Claim (draft §6.2: proof-system verification is an optional enhancement, not required for algebra conformance). A PASS means the composite is internally consistent with the claims you supplied and the algebra's own rules; it says nothing about whether those claims' evidence fields are themselves valid.</div>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">x402 VPSF</span>
+    <span class="badge badge-gold">RFC 8785 JCS</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="fixture-row">
+    <button class="btn-fixture" onclick="loadFixture('conjunction')">Conjunction (expect PASS)</button>
+    <button class="btn-fixture" onclick="loadFixture('implication')">Implication (expect PASS)</button>
+    <button class="btn-fixture" onclick="loadFixture('aggregation')">Aggregation (expect PASS)</button>
+    <button class="btn-fixture" onclick="loadFixture('disclosure')">Selective disclosure (expect PASS)</button>
+    <button class="btn-fixture" onclick="loadFixture('revocation')">Revocation (expect PASS)</button>
+    <button class="btn-fixture" onclick="loadFixture('vacuous')">Vacuous implication (expect FAIL)</button>
+    <button class="btn-fixture" onclick="loadFixture('doublerevoke')">Doubly-revoked (expect FAIL)</button>
+    <button class="btn-fixture" onclick="loadFixture('tampered')">Tampered preimage (expect FAIL)</button>
+    <button class="btn-fixture" onclick="loadFixture('unresolvable')">Unresolvable source (expect FAIL)</button>
+    <button class="btn-fixture" onclick="clearAll()">Clear</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">1 &middot; Claims manifest (JSON array)</div>
+    <textarea id="claimsInput" class="ta" rows="10" spellcheck="false" placeholder='[{"claim_type":"DelegationGrant", "subject":{...}, "predicate":{...}, ...}, ...]'></textarea>
+    <div class="hint">Each entry needs a <code>claim_type</code> (one of PaymentIntent, SettlementReceipt, RefundClaim, DelegationGrant, per §3.2) plus the claim's own fields. Its JCS Preimage Hash is recomputed from the entry as given (minus <code>claim_type</code>, which is this tool's own bookkeeping field, not part of the draft's preimage). A composite operand referencing a hash not resolvable against this manifest, or against an inline nested composite, is UNVERIFIABLE and rejected (§4.4.3).</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">2 &middot; Composite (JSON: an operator node, operands may be a manifest claim's <code>claim_type</code>+object inline, a nested composite, or a bare <code>"sha256:..."</code> hash string to resolve)</div>
+    <textarea id="compositeInput" class="ta" rows="14" spellcheck="false" placeholder='{"operator":"conjunction", "left": {...claim or nested composite...}, "right": "sha256:...", "issued_at": 1747843200}'></textarea>
+    <div class="hint">Operator shapes per draft §4: conjunction {left,right,issued_at}; implication {antecedent,consequent,issued_at}; aggregation {operands:[...],currency,total_amount,issued_at}; selective_disclosure {source,disclosed_fields,issued_at} (withheld_commitment is recomputed, not trusted from input); revocation {target,reason,revoked_at,issued_at}.</div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:1rem">
+    <button class="run-btn" onclick="runVerifierUI()">▶ Verify Composite</button>
+  </div>
+  <div id="errBox" class="errbox"></div>
+
+  <div class="output-section" id="outputSection"></div>
+
+  <div class="panel" style="margin-top:1.5rem">
+    <div class="panel-title">Self-test &middot; 11 pinned conformance vectors (JCS hash reproduction)</div>
+    <div class="hint" style="margin-bottom:.6rem">The published VPSF conformance vector suite (<code>x402-stark-receipts-conformance</code>, commit c2a27dee, 11 vectors) does not itself exercise the five composition operators; it covers JCS canonicalisation discipline and the DelegationGrant/SettlementReceipt claim shape. Run below reproduces each vector's own pinned SHA-256 digest from its <code>receipt_core</code> / <code>delegation_grant</code> / <code>settlement_receipt</code> / <code>preimage</code> object using this tool's own JCS pipeline (RFC 8785, ported verbatim from <code>chaingraph/kernels/_hash.mjs</code>'s <code>cgCanon</code>), proving the hash primitive this tool applies to every operator preimage above is the byte-correct one, independent of the operator logic itself.</div>
+    <button class="btn-fixture" onclick="runSelfTest()">▶ Run 11/11 vector self-test</button>
+    <div id="selfTestOut" style="margin-top:.75rem"></div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../tools/625-c2sp-tlog-verifier.html">C2SP Tlog Verifier</a>
+      <a href="../tools/624-vcjcs-envelope-verifier.html">VC-JCS Envelope Verifier</a>
+      <a href="../credits.html">Credits</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* ---------------------------------------------------------------------------
+ * VPSF Claim Algebra verification primitives.
+ *
+ * Ported from chaingraph/kernels/vpsf-claim-algebra.mjs (the shared module
+ * built by VPSF-CLAIM-VERIFY-TOOL-1). That module imports cgCanon/assertIJson
+ * from _hash.mjs (never a second canonicalizer) and adds only the VPSF
+ * composite preimage shapes and operator rules. A self-contained page cannot
+ * import a module (CONTRACT §1.1, zero network calls after load), so the
+ * BEGIN/END block below is the module's own function bodies, byte-verbatim
+ * apart from stripped `export`/`import` keywords, comments and whitespace,
+ * with cgCanon/assertIJson's bodies (copied verbatim from _hash.mjs, never
+ * hand-re-derived) inlined at the top in place of the ES import. NOT
+ * registered as a scripts/inline-ssot-sync-manifest.json codeOnly pair: the
+ * gate's codeOnly mode normalizes an ENTIRE ssotFile and rejects any `import`
+ * in it (INLINE-SSOT-PORTS-GATE-1's fail-closed contract), and
+ * vpsf-claim-algebra.mjs both imports from _hash.mjs and is not itself
+ * byte-identical to this excerpt of _hash.mjs — the same reason the existing
+ * "ocgCanon" pair does not point at _hash.mjs directly (see that pair's own
+ * note in the manifest). This port is hand-verified byte-equivalent to its
+ * two source files at authoring time, same discipline as ocgCanon's proxy
+ * file, without a matching mechanical gate.
+ *
+ * Spec, read at build time 2026-08-17 from
+ * research/clause-snapshots/draft-vauban-x402-vpsf-algebra-01.txt
+ * (draft-vauban-x402-vpsf-algebra-01, pinned per AGENTIC-PAY-RETRIEVAL-1):
+ *   §3.2  Four Payment Claim types (PaymentIntent, SettlementReceipt,
+ *         RefundClaim, DelegationGrant) and their subject roles
+ *   §4.1  Conjunction (∧) — both operands valid; commutative but NOT
+ *         hash-equal under swap; no identity element
+ *   §4.2  Implication (→) — non-commutative; vacuous truth FORBIDDEN: an
+ *         invalid/absent antecedent rejects the whole composite
+ *   §4.3  Aggregation (⊕) — same type + currency; operands sorted
+ *         lexicographically by hash; total_amount MUST be recomputed
+ *   §4.4  Selective Disclosure (▷) — withheld_commitment recomputed from
+ *         source minus disclosed fields; unresolvable source is
+ *         UNVERIFIABLE, MUST NOT accept
+ *   §4.5  Revocation (¬) — non-idempotent; MUST NOT nest (¬(¬A) rejected);
+ *         revoked_at <= issued_at
+ *   §5    Same-subject preimage discipline for binary operators (default
+ *         strict: operands MUST share a subject unless subject_disclosure
+ *         is present and its declared subjects match the resolved operands)
+ * ------------------------------------------------------------------------- */
+
+/* BEGIN _hash.mjs verbatim port (cgCanon/assertIJson — the module vpsf-claim-
+ * algebra.mjs imports rather than reimplementing; ported inline here in place
+ * of that ES import, byte-verbatim apart from stripped `export` keywords). */
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error(`Non-finite number (${v}) is not valid I-JSON; cannot canonicalize for hashing (RFC 8785 §3.2.2.3).`);
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error(`Integer ${v} exceeds 2^53 and is not safe I-JSON; pass it as a string (RFC 7493).`);
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+
+const cgCanon = (v) =>
+  Array.isArray(v) ? v.map(cgCanon)
+  : (v && typeof v === 'object')
+    ? Object.keys(v).sort().reduce((o, k) => (o[k] = cgCanon(v[k]), o), {})
+    : v;
+/* END _hash.mjs verbatim port. */
+
+/* BEGIN vpsf-claim-algebra.mjs verbatim port (the module's own function
+ * bodies, byte-verbatim apart from stripped `export`/`import` keywords,
+ * comments and whitespace; cgCanon/assertIJson above satisfy its import). */
+const CLAIM_TYPES = Object.freeze(['PaymentIntent', 'SettlementReceipt', 'RefundClaim', 'DelegationGrant']);
+
+async function jcsPreimageHash(obj) {
+  assertIJson(obj);
+  const bytes = new TextEncoder().encode(JSON.stringify(cgCanon(obj)));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return 'sha256:' + Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function sameSubject(a, b) {
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+  return String(a).normalize('NFC') === String(b).normalize('NFC');
+}
+
+const CLAIM_TYPE_SUBJECT_ROLE = Object.freeze({
+  PaymentIntent: 'payer',
+  SettlementReceipt: 'payer',
+  RefundClaim: 'merchant',
+  DelegationGrant: 'delegator',
+});
+
+function extractSubjectValue(claim) {
+  const s = claim && claim.subject;
+  if (s === undefined || s === null) return null;
+  if (typeof s === 'object') return s.value !== undefined ? s.value : JSON.stringify(cgCanon(s));
+  return s;
+}
+
+function checkClaimStructure(claim, claimType) {
+  const errors = [];
+  if (!CLAIM_TYPES.includes(claimType)) {
+    errors.push(`unknown claim_type "${claimType}" — must be one of ${CLAIM_TYPES.join(', ')} (§3.2)`);
+    return { ok: false, errors };
+  }
+  if (!claim || typeof claim !== 'object') { errors.push('claim is not a JSON object'); return { ok: false, errors }; }
+  if (extractSubjectValue(claim) === null) {
+    errors.push(`missing "subject" field — §2.1 defines Subject as the identity field anchoring every Claim; for ${claimType} it is the ${CLAIM_TYPE_SUBJECT_ROLE[claimType]}`);
+  }
+  if (claim.predicate === undefined) {
+    errors.push('missing "predicate" field — §3.1 six-tuple requires a predicate (lifecycle state or derived predicate)');
+  }
+  if (claimType === 'RefundClaim') {
+    const linked = claim.predicate && (claim.predicate.settlement_ref || claim.predicate.reversed_claim_hash);
+    if (!linked) errors.push('RefundClaim carries no linkage to the SettlementReceipt it reverses (§3.2: "Carries a cryptographic linkage to the SettlementReceipt being reversed")');
+  }
+  if (claimType === 'DelegationGrant' && claim.predicate && claim.predicate.kind === 'DelegationAuth') {
+    for (const k of ['delegate_pseudonym', 'cap_per_tx', 'cap_per_period', 'period_seconds']) {
+      if (claim.predicate[k] === undefined) errors.push(`DelegationGrant.predicate missing required field "${k}" (schemas/delegation-grant.schema.json)`);
+    }
+  }
+  if (claimType === 'SettlementReceipt' && claim.predicate && claim.predicate.kind === 'Settlement') {
+    for (const k of ['amount', 'currency', 'nullifier', 'intent_ref']) {
+      if (claim.predicate[k] === undefined) errors.push(`SettlementReceipt.predicate missing required field "${k}" (schemas/settlement-receipt.schema.json)`);
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+function conjunctionPreimage({ leftHash, rightHash, issuedAt, subjectDisclosure }) {
+  const obj = { operator: 'conjunction', left: leftHash, right: rightHash, issued_at: issuedAt };
+  if (subjectDisclosure) obj.subject_disclosure = subjectDisclosure;
+  return obj;
+}
+
+function implicationPreimage({ antecedentHash, consequentHash, issuedAt, subjectDisclosure }) {
+  const obj = { operator: 'implication', antecedent: antecedentHash, consequent: consequentHash, issued_at: issuedAt };
+  if (subjectDisclosure) obj.subject_disclosure = subjectDisclosure;
+  return obj;
+}
+
+function aggregationPreimage({ operandHashes, currency, totalAmount, issuedAt, subjects }) {
+  const obj = {
+    operator: 'aggregation', operands: operandHashes, currency,
+    total_amount: totalAmount, operand_count: operandHashes.length, issued_at: issuedAt,
+  };
+  if (subjects) obj.subjects = subjects;
+  return obj;
+}
+
+function selectiveDisclosurePreimage({ sourceHash, disclosedFields, withheldCommitment, issuedAt }) {
+  return { operator: 'selective_disclosure', source_hash: sourceHash, disclosed_fields: disclosedFields, withheld_commitment: withheldCommitment, issued_at: issuedAt };
+}
+
+function revocationPreimage({ targetHash, reason, revokedAt, issuedAt }) {
+  return { operator: 'revocation', target_hash: targetHash, reason, revoked_at: revokedAt, issued_at: issuedAt };
+}
+
+async function computeWithheldCommitment(sourceClaim, disclosedFields) {
+  const withheld = {};
+  for (const k of Object.keys(sourceClaim)) {
+    if (!(k in disclosedFields)) withheld[k] = sourceClaim[k];
+  }
+  const hash = await jcsPreimageHash(withheld);
+  return hash.replace(/^sha256:/, '');
+}
+/* END vpsf-claim-algebra.mjs verbatim port. */
+
+/* ---------------------------------------------------------------------------
+ * Resolution + operator verification. This is page-specific orchestration
+ * (not part of the ported module), built directly on the primitives above.
+ * ------------------------------------------------------------------------- */
+
+// A claim-manifest entry's own JCS Preimage Hash is over the entry MINUS the
+// tool's bookkeeping "claim_type" field (that field is never part of the
+// draft's canonical preimage — it only tells this UI which §3.2 type checks
+// to run).
+async function claimHash(claimEntry) {
+  const { claim_type, ...rest } = claimEntry;
+  return jcsPreimageHash(rest);
+}
+
+// Resolves an operand: a manifest claim object ({claim_type,...}), a nested
+// composite object ({operator,...}), or a bare "sha256:..." string looked up
+// against the manifest by recomputed hash. Returns {ok, hash, kind, node,
+// errors[], report} — never throws. §4.4.3: "A verifier that cannot resolve
+// the source Claim ... MUST treat the composite as unverifiable and MUST NOT
+// accept it" — the same rule is applied here to every operand of every
+// operator, not selective disclosure alone, since §4.1.3/4.2.3/4.3.3 impose
+// the identical "resolve against retained manifests" duty.
+async function resolveOperand(ref, manifest, seen) {
+  if (typeof ref === 'string') {
+    if (!ref.startsWith('sha256:')) return { ok: false, errors: [`operand "${ref}" is not a sha256: hash reference`] };
+    for (const entry of manifest) {
+      const h = await claimHash(entry);
+      if (h === ref) {
+        const check = checkClaimStructure(entry, entry.claim_type);
+        return { ok: check.ok, hash: h, kind: 'claim', claimType: entry.claim_type, node: entry, errors: check.errors };
+      }
+    }
+    return { ok: false, errors: [`unresolvable: no manifest claim hashes to ${ref} (§4.4.3: unresolvable source MUST NOT be accepted)`] };
+  }
+  if (ref && typeof ref === 'object' && ref.claim_type) {
+    const h = await claimHash(ref);
+    const check = checkClaimStructure(ref, ref.claim_type);
+    return { ok: check.ok, hash: h, kind: 'claim', claimType: ref.claim_type, node: ref, errors: check.errors };
+  }
+  if (ref && typeof ref === 'object' && ref.operator) {
+    return verifyComposite(ref, manifest, seen);
+  }
+  return { ok: false, errors: ['operand is neither a claim object, a nested composite, nor a sha256: hash string'] };
+}
+
+// Recursively verifies one composite node. `seen` is the set of composite
+// object identities on the current resolution path — used only to detect
+// ¬(¬A) nesting (§4.5.2: "MUST NOT be used as the operand of another
+// Revocation"); it is not a general cycle guard, because the algebra permits
+// arbitrary nested Conjunction/Implication/Aggregation trees.
+async function verifyComposite(node, manifest, seen = { revocationDepth: 0 }) {
+  const op = node.operator;
+  if (op === 'conjunction') {
+    const left = await resolveOperand(node.left, manifest, seen);
+    const right = await resolveOperand(node.right, manifest, seen);
+    const errors = [];
+    if (!left.ok) errors.push('left operand invalid/unresolvable: ' + left.errors.join('; '));
+    if (!right.ok) errors.push('right operand invalid/unresolvable: ' + right.errors.join('; '));
+    let subjectOk = true;
+    if (left.ok && right.ok) {
+      const ls = left.kind === 'claim' ? extractSubjectValue(left.node) : null;
+      const rs = right.kind === 'claim' ? extractSubjectValue(right.node) : null;
+      if (ls !== null && rs !== null && !sameSubject(ls, rs)) {
+        if (node.subject_disclosure && sameSubject(node.subject_disclosure.left_subject, ls) && sameSubject(node.subject_disclosure.right_subject, rs)) {
+          subjectOk = true;
+        } else {
+          subjectOk = false;
+          errors.push('§5.1/5.2 same-subject discipline: left and right operands have different subjects and no matching subject_disclosure was supplied');
+        }
+      }
+    }
+    const preimage = conjunctionPreimage({ leftHash: node.left && node.left.claim_type ? left.hash : (typeof node.left === 'string' ? node.left : left.hash), rightHash: typeof node.right === 'string' ? node.right : right.hash, issuedAt: node.issued_at, subjectDisclosure: node.subject_disclosure });
+    const hash = await jcsPreimageHash(preimage);
+    const ok = errors.length === 0 && left.ok && right.ok && subjectOk;
+    return { ok, hash, operator: 'conjunction', errors, children: [left, right], preimage };
+  }
+  if (op === 'implication') {
+    const antecedent = await resolveOperand(node.antecedent, manifest, seen);
+    const errors = [];
+    // §4.2.2 Vacuous truth is FORBIDDEN: reject WITHOUT evaluating the
+    // consequent when the antecedent is invalid or absent.
+    if (!antecedent.ok) {
+      errors.push('antecedent invalid/absent — §4.2.2 vacuous truth is FORBIDDEN, composite rejected without evaluating the consequent: ' + antecedent.errors.join('; '));
+      const preimage = implicationPreimage({ antecedentHash: typeof node.antecedent === 'string' ? node.antecedent : (antecedent.hash || 'UNRESOLVED'), consequentHash: typeof node.consequent === 'string' ? node.consequent : 'NOT_EVALUATED', issuedAt: node.issued_at, subjectDisclosure: node.subject_disclosure });
+      return { ok: false, hash: null, operator: 'implication', errors, children: [antecedent], preimage, vacuous: true };
+    }
+    const consequent = await resolveOperand(node.consequent, manifest, seen);
+    if (!consequent.ok) errors.push('consequent invalid/unresolvable: ' + consequent.errors.join('; '));
+    let subjectOk = true;
+    if (consequent.ok) {
+      const as_ = antecedent.kind === 'claim' ? extractSubjectValue(antecedent.node) : null;
+      const cs = consequent.kind === 'claim' ? extractSubjectValue(consequent.node) : null;
+      if (as_ !== null && cs !== null && !sameSubject(as_, cs)) {
+        if (node.subject_disclosure && sameSubject(node.subject_disclosure.left_subject, as_) && sameSubject(node.subject_disclosure.right_subject, cs)) {
+          subjectOk = true;
+        } else {
+          subjectOk = false;
+          errors.push('§5.1/5.2 same-subject discipline: antecedent and consequent have different subjects and no matching subject_disclosure was supplied');
+        }
+      }
+    }
+    const preimage = implicationPreimage({ antecedentHash: typeof node.antecedent === 'string' ? node.antecedent : antecedent.hash, consequentHash: typeof node.consequent === 'string' ? node.consequent : consequent.hash, issuedAt: node.issued_at, subjectDisclosure: node.subject_disclosure });
+    const hash = await jcsPreimageHash(preimage);
+    const ok = errors.length === 0 && consequent.ok && subjectOk;
+    return { ok, hash, operator: 'implication', errors, children: [antecedent, consequent], preimage };
+  }
+  if (op === 'aggregation') {
+    const errors = [];
+    const operands = node.operands || [];
+    const resolved = [];
+    for (const o of operands) resolved.push(await resolveOperand(o, manifest, seen));
+    for (let i = 0; i < resolved.length; i++) if (!resolved[i].ok) errors.push(`operand ${i} invalid/unresolvable: ` + resolved[i].errors.join('; '));
+    const operandHashes = operands.map((o, i) => typeof o === 'string' ? o : (resolved[i].hash || 'UNRESOLVED'));
+    // §4.3.3: operands MUST be sorted lexicographically by hash before serialisation.
+    const sorted = [...operandHashes].sort();
+    for (let i = 0; i < operandHashes.length; i++) {
+      if (operandHashes[i] !== sorted[i]) { errors.push('§4.3.3: operands array is not sorted lexicographically by JCS Preimage Hash'); break; }
+    }
+    // §4.3.2 homogeneity: same claim type + same currency.
+    const claimEntries = resolved.filter((r) => r.ok && r.kind === 'claim');
+    const types = new Set(claimEntries.map((r) => r.claimType));
+    if (types.size > 1) errors.push(`§4.3.2 homogeneity violated: operands span claim types {${[...types].join(', ')}}`);
+    const currencies = new Set(claimEntries.map((r) => r.node && r.node.predicate && r.node.predicate.currency).filter((c) => c !== undefined));
+    if (currencies.size > 1) errors.push(`§4.3.2 homogeneity violated: operands span currencies {${[...currencies].join(', ')}}`);
+    if (node.currency !== undefined && currencies.size === 1 && [...currencies][0] !== node.currency) {
+      errors.push(`declared currency "${node.currency}" does not match the resolved operands' shared currency "${[...currencies][0]}"`);
+    }
+    // §4.3.3: total_amount MUST be recomputed and the composite rejected if it disagrees.
+    let recomputedTotal = 0n;
+    let amountsOk = claimEntries.length === operands.length;
+    for (const r of claimEntries) {
+      const amt = r.node && r.node.predicate && r.node.predicate.amount;
+      if (amt === undefined) { amountsOk = false; continue; }
+      try { recomputedTotal += BigInt(amt); } catch { amountsOk = false; }
+    }
+    if (amountsOk && node.total_amount !== undefined && recomputedTotal.toString() !== String(node.total_amount)) {
+      errors.push(`§4.3.3: declared total_amount ${node.total_amount} does not match recomputed sum ${recomputedTotal.toString()} of operand amounts`);
+    }
+    // §5.3 subject handling.
+    const subjects = claimEntries.map((r) => extractSubjectValue(r.node));
+    const distinctSubjects = new Set(subjects.filter((s) => s !== null));
+    if (distinctSubjects.size > 1 && !node.subjects) {
+      errors.push('§5.3: heterogeneous aggregate (operands from different principals) MUST include a subjects array in the composite preimage');
+    }
+    const preimage = aggregationPreimage({ operandHashes, currency: node.currency, totalAmount: node.total_amount, issuedAt: node.issued_at, subjects: node.subjects });
+    const hash = await jcsPreimageHash(preimage);
+    const ok = errors.length === 0 && resolved.every((r) => r.ok);
+    return { ok, hash, operator: 'aggregation', errors, children: resolved, preimage };
+  }
+  if (op === 'selective_disclosure') {
+    const source = await resolveOperand(node.source, manifest, seen);
+    const errors = [];
+    if (!source.ok) {
+      errors.push('source unresolvable — §4.4.3: "A verifier that cannot resolve the source Claim by its source_hash MUST treat the composite as unverifiable and MUST NOT accept it": ' + source.errors.join('; '));
+      return { ok: false, hash: null, operator: 'selective_disclosure', errors, children: [source], unverifiable: true };
+    }
+    const disclosed = node.disclosed_fields || {};
+    for (const k of Object.keys(disclosed)) {
+      if (!(k in source.node)) errors.push(`disclosed field "${k}" does not appear in the source Claim's canonical preimage (§4.4.3 requires disclosed_fields to be authentic fragments)`);
+    }
+    const { claim_type, ...sourceForCommitment } = source.node;
+    const recomputedCommitment = await computeWithheldCommitment(sourceForCommitment, disclosed);
+    const claimedCommitment = node.withheld_commitment;
+    if (claimedCommitment !== undefined && claimedCommitment !== recomputedCommitment) {
+      errors.push(`§4.4.3: withheld_commitment mismatch — declared ${claimedCommitment}, recomputed ${recomputedCommitment}`);
+    }
+    const preimage = selectiveDisclosurePreimage({ sourceHash: source.hash, disclosedFields: disclosed, withheldCommitment: recomputedCommitment, issuedAt: node.issued_at });
+    const hash = await jcsPreimageHash(preimage);
+    const ok = errors.length === 0;
+    return { ok, hash, operator: 'selective_disclosure', errors, children: [source], preimage, recomputedCommitment };
+  }
+  if (op === 'revocation') {
+    const errors = [];
+    // §4.5.2: a Revocation composite MUST NOT be the operand of another
+    // Revocation — reject ¬(¬A) as non-composable, not as "restoring" A.
+    const targetIsRevocation = node.target && typeof node.target === 'object' && node.target.operator === 'revocation';
+    if (targetIsRevocation) {
+      errors.push('§4.5.2: Revocation is non-composable with itself — ¬(¬A) MUST be rejected, and a doubly-revoked Claim does NOT restore validity');
+      return { ok: false, hash: null, operator: 'revocation', errors, children: [], nonComposable: true };
+    }
+    const target = await resolveOperand(node.target, manifest, seen);
+    if (!target.ok) errors.push('target invalid/unresolvable: ' + target.errors.join('; '));
+    if (node.revoked_at !== undefined && node.issued_at !== undefined && Number(node.revoked_at) > Number(node.issued_at)) {
+      errors.push('§4.5.3: revoked_at is after issued_at — "A Revocation composite whose revoked_at is in the future MUST be rejected"');
+    }
+    const preimage = revocationPreimage({ targetHash: typeof node.target === 'string' ? node.target : target.hash, reason: node.reason, revokedAt: node.revoked_at, issuedAt: node.issued_at });
+    const hash = await jcsPreimageHash(preimage);
+    const ok = errors.length === 0 && target.ok;
+    return { ok, hash, operator: 'revocation', errors, children: [target], preimage };
+  }
+  return { ok: false, errors: [`unknown operator "${op}" — must be one of conjunction, implication, aggregation, selective_disclosure, revocation (§4)`] };
+}
+
+/* ---------------------------------------------------------------------------
+ * UI wiring.
+ * ------------------------------------------------------------------------- */
+
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function badge(state, label) { return '<span class="st st-' + state + '">' + label + '</span>'; }
+
+function flattenReport(node, depth) {
+  const rows = [];
+  const label = (depth ? '&nbsp;'.repeat(depth * 2) + '&#8627; ' : '') + esc(node.operator || node.claimType || 'claim');
+  rows.push({ label, ok: node.ok, hash: node.hash, errors: node.errors || [] });
+  for (const c of (node.children || [])) rows.push(...flattenReport(c, depth + 1));
+  return rows;
+}
+
+async function runVerifierUI() {
+  const errBox = document.getElementById('errBox');
+  const out = document.getElementById('outputSection');
+  errBox.style.display = 'none'; errBox.textContent = '';
+  out.innerHTML = '';
+  let claims, composite;
+  try { claims = JSON.parse(document.getElementById('claimsInput').value || '[]'); }
+  catch (e) { errBox.style.display = 'block'; errBox.textContent = 'Claims manifest is not valid JSON: ' + e.message; return; }
+  try { composite = JSON.parse(document.getElementById('compositeInput').value || '{}'); }
+  catch (e) { errBox.style.display = 'block'; errBox.textContent = 'Composite is not valid JSON: ' + e.message; return; }
+  if (!Array.isArray(claims)) { errBox.style.display = 'block'; errBox.textContent = 'Claims manifest must be a JSON array.'; return; }
+
+  let report;
+  try { report = await verifyComposite(composite, claims); }
+  catch (e) { errBox.style.display = 'block'; errBox.textContent = 'Verification error: ' + (e && e.message || e); return; }
+
+  const rows = flattenReport(report, 0);
+  const verdictHtml = report.ok
+    ? '<div class="verdict pass">✓ ALL_PASS — composite and every resolved component satisfy draft-vauban-x402-vpsf-algebra-01.</div>'
+    : '<div class="verdict fail">✗ REJECTED — ' + (report.errors && report.errors.length ? esc(report.errors[0]) : 'see per-node detail below') + '</div>';
+
+  let tableRows = '';
+  for (const r of rows) {
+    tableRows += '<tr><td>' + r.label + '</td><td>' + badge(r.ok ? 'pass' : 'fail', r.ok ? 'PASS' : 'FAIL') + '</td>' +
+      '<td style="font-size:.6rem">' + esc(r.hash || '—') + '</td>' +
+      '<td style="font-size:.62rem">' + (r.errors.length ? r.errors.map(esc).join('<br>') : '—') + '</td></tr>';
+  }
+
+  out.innerHTML =
+    '<div class="out-section"><div class="out-header"><span class="out-title">Verdict</span></div><div class="out-body">' + verdictHtml +
+    '<table class="result-table"><thead><tr><th>Node</th><th>Status</th><th>JCS Preimage Hash</th><th>Notes</th></tr></thead><tbody>' + tableRows + '</tbody></table>' +
+    (report.preimage ? '<div class="note-box">Top-level composite preimage (JCS): ' + esc(JSON.stringify(cgCanon(report.preimage))) + '</div>' : '') +
+    '</div></div>';
+}
+
+/* ---------------------------------------------------------------------------
+ * Fixtures — authored directly per the draft's own worked examples (§4.1–4.5
+ * "Typical use" text), since the published conformance vector suite does not
+ * cover the operator layer (see the self-test panel note above). Amounts,
+ * caps and hashes are synthetic/anonymised per CONTRACT §1.3.
+ * ------------------------------------------------------------------------- */
+
+const SETTLEMENT_A = { claim_type: 'SettlementReceipt', subject: { kind: 'MerchantPseudonym', value: '0xaa11' }, predicate: { kind: 'Settlement', amount: '50000', currency: 'urn:eip3009:USDC:starknet-sepolia', nullifier: '0xbb22', intent_ref: { claim_hash: 'sha256:' + '11'.repeat(32) }, settlement_index: 1 }, evidence: { scheme: 'VerifiedAttestation' } };
+const DELEGATION_A = { claim_type: 'DelegationGrant', subject: { kind: 'UserPseudonym', value: '0xcc33' }, predicate: { kind: 'DelegationAuth', delegate_pseudonym: '0xdd44', cap_per_tx: '1000000', cap_per_period: '100000000', period_seconds: 86400, allowed_merchants: ['0xaa11'], allowed_currencies: ['urn:eip3009:USDC:starknet-sepolia'], delegation_nonce: '0xee55', max_chain_length: 8 }, evidence: { scheme: 'HmacPhaseMvp' } };
+const INTENT_A = { claim_type: 'PaymentIntent', subject: { kind: 'UserPseudonym', value: '0xcc33' }, predicate: { kind: 'Intent', amount: '25000', currency: 'urn:eip3009:USDC:starknet-sepolia', payee: '0xaa11' } };
+const SETTLEMENT_B_SAME_SUBJECT = { claim_type: 'SettlementReceipt', subject: { kind: 'MerchantPseudonym', value: '0xaa11' }, predicate: { kind: 'Settlement', amount: '30000', currency: 'urn:eip3009:USDC:starknet-sepolia', nullifier: '0xbb99', intent_ref: { claim_hash: 'sha256:' + '22'.repeat(32) }, settlement_index: 2 }, evidence: { scheme: 'VerifiedAttestation' } };
+
+const FIXTURES = {
+  conjunction: {
+    claims: [DELEGATION_A, SETTLEMENT_A],
+    composite: { operator: 'conjunction', left: DELEGATION_A, right: SETTLEMENT_A, issued_at: 1747843300, subject_disclosure: { left_subject: '0xcc33', right_subject: '0xaa11' } },
+  },
+  implication: {
+    claims: [DELEGATION_A, INTENT_A],
+    composite: { operator: 'implication', antecedent: DELEGATION_A, consequent: INTENT_A, issued_at: 1747843300 },
+  },
+  aggregation: {
+    claims: [SETTLEMENT_A, SETTLEMENT_B_SAME_SUBJECT],
+    composite: { operator: 'aggregation', operands: null /* filled below, sorted */, currency: 'urn:eip3009:USDC:starknet-sepolia', total_amount: '80000', issued_at: 1747843300 },
+  },
+  disclosure: {
+    claims: [SETTLEMENT_A],
+    composite: { operator: 'selective_disclosure', source: SETTLEMENT_A, disclosed_fields: { predicate: SETTLEMENT_A.predicate }, issued_at: 1747843300 },
+  },
+  revocation: {
+    claims: [DELEGATION_A],
+    composite: { operator: 'revocation', target: DELEGATION_A, reason: 'administratively withdrawn', revoked_at: 1747843200, issued_at: 1747843300 },
+  },
+  vacuous: {
+    claims: [INTENT_A],
+    composite: { operator: 'implication', antecedent: 'sha256:' + '00'.repeat(32), consequent: INTENT_A, issued_at: 1747843300 },
+  },
+  doublerevoke: {
+    claims: [DELEGATION_A],
+    composite: { operator: 'revocation', target: { operator: 'revocation', target: DELEGATION_A, reason: 'first revocation', revoked_at: 1747843100, issued_at: 1747843200 }, reason: 'attempted un-revoke', revoked_at: 1747843200, issued_at: 1747843300 },
+  },
+  tampered: {
+    claims: [SETTLEMENT_A, SETTLEMENT_B_SAME_SUBJECT],
+    composite: { operator: 'aggregation', operands: null /* filled below, sorted */, currency: 'urn:eip3009:USDC:starknet-sepolia', total_amount: '999999' /* tampered: real sum is 80000 */, issued_at: 1747843300 },
+  },
+  unresolvable: {
+    claims: [DELEGATION_A],
+    composite: { operator: 'selective_disclosure', source: 'sha256:' + '44'.repeat(32), disclosed_fields: {}, issued_at: 1747843300 },
+  },
+};
+
+async function loadFixture(name) {
+  const f = FIXTURES[name];
+  if (!f) return;
+  if (name === 'aggregation' || name === 'tampered') {
+    const hA = await claimHash(SETTLEMENT_A);
+    const hB = await claimHash(SETTLEMENT_B_SAME_SUBJECT);
+    f.composite.operands = [hA, hB].sort();
+  }
+  document.getElementById('claimsInput').value = JSON.stringify(f.claims, null, 2);
+  document.getElementById('compositeInput').value = JSON.stringify(f.composite, null, 2);
+  document.getElementById('outputSection').innerHTML = '';
+  document.getElementById('errBox').style.display = 'none';
+}
+
+function clearAll() {
+  document.getElementById('claimsInput').value = '';
+  document.getElementById('compositeInput').value = '';
+  document.getElementById('outputSection').innerHTML = '';
+  document.getElementById('errBox').style.display = 'none';
+}
+
+/* ---------------------------------------------------------------------------
+ * Self-test: reproduce the 11 pinned conformance vectors' own digests using
+ * this page's JCS pipeline. Vectors + expected digests transcribed from
+ * research/clause-snapshots/x402-stark-receipts-conformance/ (commit
+ * c2a27dee, pinned 2026-08-17). Each object hashed is exactly the vector's
+ * own receipt_core / delegation_grant / settlement_receipt / preimage field.
+ * ------------------------------------------------------------------------- */
+
+const VECTORS = [
+  { name: 'stark/0001-baseline', obj: { action_ref: '10d8a38c01d8672176aa6e5209a368fde3e1831640d69e15283142b35880c2c1', amount: 50000, canon_version: '1.0', currency: 'USDC', merchant_id: 'b4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5', payer_pseudonym: 'a3f2c1d4e5b6a7890123456789abcdef0123456789abcdef0123456789abcdef01', payment_hash: '2ed186ebc66947eaac6a05a88c7bc096ee07ac11a2c44bb5580bd72b3670f580', proof_blob_b64: 'AAECBAUGB', proof_scheme: 'stark-vauban-pay-v1', timestamp_ms: 1747843200000 }, expect: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' },
+  { name: 'stark/0002-field-name-load-bearing (divergent)', obj: { paymentHash: '2ed186ebc66947eaac6a05a88c7bc096ee07ac11a2c44bb5580bd72b3670f580', action_ref: '10d8a38c01d8672176aa6e5209a368fde3e1831640d69e15283142b35880c2c1', amount: 50000, currency: 'USDC', payer_pseudonym: 'a3f2c1d4e5b6a7890123456789abcdef0123456789abcdef0123456789abcdef01', merchant_id: 'b4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5', timestamp_ms: 1747843200000, proof_scheme: 'stark-vauban-pay-v1', proof_blob_b64: 'AAECBAUGB', canon_version: '1.0' }, expect: 'sha256:5c80351f61a9a1d85d9cb055b8a54500d104d74caf2188a714f615fa6eabb053' },
+  { name: 'stark/0003-stark-proof-tamper-evidence (divergent)', obj: { payment_hash: '2ed186ebc66947eaac6a05a88c7bc096ee07ac11a2c44bb5580bd72b3670f580', action_ref: '10d8a38c01d8672176aa6e5209a368fde3e1831640d69e15283142b35880c2c1', amount: 50000, currency: 'USDC', payer_pseudonym: 'a3f2c1d4e5b6a7890123456789abcdef0123456789abcdef0123456789abcdef01', merchant_id: 'b4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5', timestamp_ms: 1747843200000, proof_scheme: 'stark-vauban-pay-v1', proof_blob_b64: 'BAECBAUGB', canon_version: '1.0' }, expect: 'sha256:c9641d87a5043dfb07f739e09a2c0c049937262ebc4ffb8db539d374aa353832' },
+  { name: 'stark/0008-interop-shared-payment-hash', obj: { currency: 'USDC', timestamp_ms: 1747843200000, payment_hash: '2ed186ebc66947eaac6a05a88c7bc096ee07ac11a2c44bb5580bd72b3670f580', proof_blob_b64: 'AAECBAUGB', canon_version: '1.0', action_ref: '10d8a38c01d8672176aa6e5209a368fde3e1831640d69e15283142b35880c2c1', merchant_id: 'b4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5', proof_scheme: 'stark-vauban-pay-v1', amount: 50000, payer_pseudonym: 'a3f2c1d4e5b6a7890123456789abcdef0123456789abcdef0123456789abcdef01' }, expect: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' },
+  { name: 'delegation-grant/0001 delegation_grant', obj: { anchor: { chain_id: '0x534e5f5345504f4c4941', delegation_commitment: '0x73d8e2f1c0b9a8978675645342310fedcba98765432101fedcba98765432101f', kind: 'StarknetDelegation', revocation_authority: 'https://pay.vauban.tech/.well-known/revocation/v0/' }, canon_version: '1.0', evidence: { grantor_signature: '0xaabbccddeeff00112233445566778899aabbccddeeff00112233445566778899', scheme: 'HmacPhaseMvp' }, predicate: { allowed_currencies: ['urn:eip3009:USDC:starknet-sepolia'], allowed_merchants: ['0xb4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5'], cap_per_period: '100000000', cap_per_tx: '1000000', delegate_pseudonym: '0xc1a2e3f4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2', delegation_nonce: '0xdeadbeef00112233445566778899aabbccddeeff0123456789abcdef01234567', kind: 'DelegationAuth', max_chain_length: 8, period_seconds: 86400 }, revelation_mask: { allowed_merchants: 'Open', cap_per_period: 'Open', cap_per_tx: 'Open', delegate_pseudonym: 'Open', delegation_nonce: 'Committed', period_seconds: 'Open' }, subject: { kind: 'UserPseudonym', value: '0xa3f2c1d4e5b6a7890123456789abcdef0123456789abcdef0123456789abcdef' }, temporal_frame: { kind: 'ValidityWindow', t_end: 1747929600, t_start: 1747843200 } }, expect: 'sha256:ff558f21b26c5045fb6997fef185b9993e33a29a7907dbcf349e49b9019c1fd2' },
+  { name: 'delegation-grant/0001 settlement_receipt', obj: { anchor: { chain_id: '0x534e5f5345504f4c4941', event_index: 0, kind: 'StarknetSettlement', tx_hash: '0x014483073ca64c1f5113f0d7011c65f47005604307a725341b214b3727beadd3' }, canon_version: '1.0', evidence: { intent_proof_ref: { claim_hash: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' }, scheme: 'VerifiedAttestation', signature: '0xa1b2c3d4e5f60789a1b2c3d4e5f60789a1b2c3d4e5f60789a1b2c3d4e5f60789', verifier_pubkey: '0x04d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4' }, predicate: { amount: '50000', currency: 'urn:eip3009:USDC:starknet-sepolia', intent_ref: { claim_hash: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' }, kind: 'Settlement', nullifier: '0x9988776655443322110099887766554433221100998877665544332211009988', settlement_index: 1 }, revelation_mask: { amount: 'Open', currency: 'Open', intent_ref: 'Open', merchant: 'Open', nullifier: 'Open', payer_pseudonym: 'Hidden' }, subject: { kind: 'MerchantPseudonym', value: '0xb4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5' }, temporal_frame: { issued_at: 1747843260, kind: 'Instant' } }, expect: 'sha256:0adc9aece973486e8c49fc1613225d629d71bdd7e3b2fe50576f55d6db68a5b5' },
+  { name: 'delegation-grant/0002 settlement_receipt', obj: { anchor: { chain_id: '0x534e5f5345504f4c4941', event_index: 0, kind: 'StarknetSettlement', tx_hash: '0x025593184db75d2f6224f1e8022d76f58116715418b836452c325b4838cfbee4' }, canon_version: '1.0', evidence: { intent_proof_ref: { claim_hash: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' }, scheme: 'VerifiedAttestation', signature: '0xa1b2c3d4e5f60789a1b2c3d4e5f60789a1b2c3d4e5f60789a1b2c3d4e5f60789', verifier_pubkey: '0x04d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4' }, predicate: { amount: '999999', currency: 'urn:eip3009:USDC:starknet-sepolia', intent_ref: { claim_hash: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' }, kind: 'Settlement', nullifier: '0xeedd003388776655443322110099887766554433221100998877665544332211', settlement_index: 2 }, revelation_mask: { amount: 'Open', currency: 'Open', intent_ref: 'Open', merchant: 'Open', nullifier: 'Open', payer_pseudonym: 'Hidden' }, subject: { kind: 'MerchantPseudonym', value: '0xb4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5' }, temporal_frame: { issued_at: 1747843320, kind: 'Instant' } }, expect: 'sha256:1fac253840f5e48d2e5864a5edc7e652dc2bd5deb24cce20cc7f900625fbcb67' },
+  { name: 'delegation-grant/0003 settlement_receipt (verifier-reject amount)', obj: { anchor: { chain_id: '0x534e5f5345504f4c4941', event_index: 0, kind: 'StarknetSettlement', tx_hash: '0x036a6429ce85e3408335a2f9034f87067227826529c947563f437c595ddfdf05' }, canon_version: '1.0', evidence: { intent_proof_ref: { claim_hash: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' }, scheme: 'VerifiedAttestation', signature: '0xa1b2c3d4e5f60789a1b2c3d4e5f60789a1b2c3d4e5f60789a1b2c3d4e5f60789', verifier_pubkey: '0x04d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4' }, predicate: { amount: '1500000', currency: 'urn:eip3009:USDC:starknet-sepolia', intent_ref: { claim_hash: 'sha256:89e01af0770494243e7ba6d003332688ca7107dd05c52cc8c73f470b13d5767f' }, kind: 'Settlement', nullifier: '0x778899aabbccddeeff0011223344556677889900aabbccddeeff001122334455', settlement_index: 3 }, revelation_mask: { amount: 'Open', currency: 'Open', intent_ref: 'Open', merchant: 'Open', nullifier: 'Open', payer_pseudonym: 'Hidden' }, subject: { kind: 'MerchantPseudonym', value: '0xb4e5d6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5' }, temporal_frame: { issued_at: 1747843380, kind: 'Instant' } }, expect: 'sha256:85fd02d27787b82409a13d3c420670603f319e44a88e44456f2274fdcf66b393' },
+  { name: 'action_ref_adversarial/0011-nfd-divergence (NFC reference)', obj: { action_type: 'sanctions_screen', agent_id: 'did:web:agent-é.example.com', scope: 'counterparty-due-diligence', timestamp_ms: 1747728000000 }, expect: null, expectHex: '24d6bd1693f44c42f69ed395df20f1fbc7c6d933cd1774077909d3a88dea59f7' },
+  { name: 'action_ref_adversarial/0011-nfd-divergence (NFD input, divergent)', obj: { action_type: 'sanctions_screen', agent_id: 'did:web:agent-é.example.com', scope: 'counterparty-due-diligence', timestamp_ms: 1747728000000 }, expect: null, expectHex: '5c77595817951a1725a1fdf5708fd7bb3d82b74a3200ba99e67cf3bfca8e1416' },
+  { name: 'action_ref_adversarial/0012-required-field-missing (divergent)', obj: { action_type: 'sanctions_screen', scope: 'counterparty-due-diligence', timestamp_ms: 1747728000000 }, expect: null, expectHex: '2c0b510091f2b72b11edceb67168da9b2e64f0b15434105d0fa48a2083468703' },
+];
+
+async function runSelfTest() {
+  const el = document.getElementById('selfTestOut');
+  let passed = 0;
+  let rows = '';
+  for (const v of VECTORS) {
+    const h = await jcsPreimageHash(v.obj);
+    const wantHex = v.expectHex || (v.expect ? v.expect.replace(/^sha256:/, '') : null);
+    const gotHex = h.replace(/^sha256:/, '');
+    const ok = gotHex === wantHex;
+    if (ok) passed++;
+    rows += '<tr><td>' + esc(v.name) + '</td><td>' + badge(ok ? 'pass' : 'fail', ok ? 'MATCH' : 'MISMATCH') + '</td><td style="font-size:.58rem">' + esc(gotHex) + '</td></tr>';
+  }
+  el.innerHTML = '<div class="verdict ' + (passed === VECTORS.length ? 'pass' : 'fail') + '">' + passed + '/' + VECTORS.length + ' vector digests reproduced via this page\'s JCS pipeline.</div>' +
+    '<table class="result-table"><thead><tr><th>Vector</th><th>Status</th><th>Recomputed hex</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+var MANIFEST = JSON.parse('{"tool_id": "vpsf-claim-verifier", "version": "1.0.0", "title": "VPSF Claim Algebra Verifier", "description": "Verifies x402 VPSF Payment Claim composites (conjunction, implication, aggregation, selective disclosure, revocation) over the four canonical Payment Claim types (PaymentIntent, SettlementReceipt, RefundClaim, DelegationGrant), entirely client-side. Recomputes every JCS Preimage Hash via RFC 8785 canonicalisation and SHA-256, resolves component claims against a user-supplied manifest, and applies each operator\\u0027s algebraic rules: vacuous-truth rejection for Implication, non-idempotent non-nestable Revocation, sorted-operand homogeneous-currency Aggregation with recomputed totals, and commitment recomputation for Selective Disclosure.", "category": "mcp", "tags": ["x402","VPSF","claim algebra","PaymentIntent","SettlementReceipt","RefundClaim","DelegationGrant","conjunction","implication","aggregation","selective disclosure","revocation","JCS","RFC 8785","offline verifier"], "audience": ["engineer","security","compliance"], "input_schema": {"type":"object","required":["claims","composite"],"properties":{"claims":{"type":"array","description":"Array of x402 Payment Claim objects, each carrying a claim_type plus the claim\\u0027s own fields"},"composite":{"type":"object","description":"A VPSF composite: an operator node whose operands are claim objects, nested composites, or sha256: hash references resolved against the claims manifest"}}}, "output_schema": {"type":"object","properties":{"ALL_PASS":{"type":"boolean"},"operator":{"type":"string"},"hash":{"type":["string","null"]},"errors":{"type":"array","items":{"type":"string"}},"children":{"type":"array","items":{"type":"object"}}}}, "mcp_tool_definition": {"name": "verify_vpsf_claim_composite", "description": "Structurally verifies an x402 VPSF Claim Algebra composite and its component Payment Claims against draft-vauban-x402-vpsf-algebra-01. Browser-based, client-side only, zero network calls, zero PII. Does not verify cryptographic evidence attached to component claims.", "inputSchema": {"type":"object","required":["claims","composite"],"properties":{"claims":{"type":"array","description":"x402 Payment Claim objects"},"composite":{"type":"object","description":"VPSF operator composite over the claims"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/629-vpsf-claim-verifier.html", "function_name": "runVerifierUI", "timeout_ms": 3000}, "ap2_export": false, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>
