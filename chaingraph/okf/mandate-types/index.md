@@ -15,7 +15,7 @@ status: stable
 - [capital_assessment](./capital_assessment.md) (7)
 - [collateral_mandate](./collateral_mandate.md) (9)
 - [compliance_control](./compliance_control.md) (68)
-- [compliance_mandate](./compliance_mandate.md) (327)
+- [compliance_mandate](./compliance_mandate.md) (329)
 - [credit_assessment](./credit_assessment.md) (3)
 - [crypto_regulatory_mandate](./crypto_regulatory_mandate.md) (1)
 - [cryptographic_mandate](./cryptographic_mandate.md) (13)

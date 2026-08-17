@@ -572,6 +572,8 @@ status: stable
 - [ASC 280 Reportable Segment Tester](./art-633-asc280-reportable-segment-tester.md)
 - [CODM Significant Expense Classifier](./art-634-codm-expense-significance-classifier.md)
 - [Rate Reconciliation 5% Threshold Classifier](./art-635-rate-rec-5pct-threshold-classifier.md)
+- [GloBE Article 9.1 Transition Deferred Tax Tracker](./art-636-globe-transition-deferred-tax-tracker.md)
+- [GloBE Permanent De Minimis Exclusion Evaluator](./art-637-globe-de-minimis-exclusion.md)
 - [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md)
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md)
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md)
