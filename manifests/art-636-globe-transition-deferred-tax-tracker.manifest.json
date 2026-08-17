@@ -1,0 +1,75 @@
+{
+  "tool_id": "art-636-globe-transition-deferred-tax-tracker",
+  "version": "1.0.0",
+  "title": "GloBE Article 9.1 Transition Deferred Tax Tracker",
+  "description": "Recomputes the OECD GloBE Article 9.1 transition recast of pre-regime deferred tax attributes for one jurisdiction, item by item over a bounded array, and reports the jurisdictional roll-forward total. Article 9.1.1's lower-of rule is applied as a cap, so an attribute already recorded at or below the lower of the Minimum Rate and the applicable domestic tax rate is left where it is; the one path on which a recast rises is Article 9.1.1's third sentence, where a deferred tax asset recorded below the Minimum Rate is taken at the Minimum Rate on a caller-declared GloBE Loss demonstration. Article 9.1.2 exclusions apply only where a declared limb holds and the attribute arose strictly after the cut off, each reported with a named code and contributing exactly zero rather than being dropped. Article 9.1.3 recasts a qualifying intra group transfer on the disposing entity's carrying value. Rates, the cut off date, the Transition Year start and the exclusion set are versioned policy parameters, never kernel constants. Verify only: characterization, the GloBE Loss demonstration and the separate Grace Period determination all stay with the filer.",
+  "category": "chaingraph",
+  "tags": ["compliance_mandate", "pillar-two", "globe", "article-9-1", "deferred-tax", "transition-rules", "oecd", "minimum-tax", "mcp:track_globe_transition_deferred_tax"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "constants_version": { "type": "string", "description": "Rule vintage label for the parameter set below. A guidance change is a version bump, never a silent recompute." },
+      "minimum_rate": { "type": "number", "description": "The GloBE Minimum Rate as a decimal (0.15 = 15%), supplied as a versioned policy parameter. Never a kernel constant." },
+      "cutoff_date": { "type": "string", "description": "Article 9.1.2 and 9.1.3 boundary date, YYYY-MM-DD. The comparison is strictly after, so an attribute arising on this date is not past the boundary." },
+      "transition_year_start_date": { "type": ["string", "null"], "description": "First day of the Transition Year for the jurisdiction, YYYY-MM-DD. Required to evaluate Article 9.1.3's window; its absence is a named error on any item declaring an intra group transfer." },
+      "exclusion_rules": {
+        "type": "array",
+        "description": "The versioned exclusion set: named codes drawn from EXCL_NOT_REFLECTABLE_UNDER_AFAS, EXCL_CH3_ITEM_POST_CUTOFF, EXCL_GOVERNMENTAL_ARRANGEMENT_POST_CUTOFF, EXCL_RETROACTIVE_ELECTION_POST_CUTOFF and EXCL_NEW_CIT_BASIS_STEP_UP_POST_CUTOFF. A code outside this set is a named error.",
+        "items": { "type": "string" }
+      },
+      "items": {
+        "type": "array",
+        "description": "Deferred tax attributes, at most 500 (MAX_DTA_ITEMS, a declared kernel constant). An over length array is a named error, never a longer loop or a silent truncation. Each item: {attribute_type, carrying_amount, recorded_at_rate, domestic_tax_rate, arising_date, arises_from_chapter3_excluded_item, arises_from_governmental_arrangement, arises_from_retroactive_election, arises_from_new_cit_basis_step_up, reflectable_under_authorised_accounting_standard, arises_from_intra_group_transfer, disposing_entity_carrying_value?, globe_loss_demonstrated?, valuation_adjustment_reflected?, carrying_amount_gross_of_valuation_adjustment?, arises_under_newly_enacted_cit?}. attribute_type is the closed enum deferred_tax_asset, deferred_tax_asset_from_globe_loss, deferred_tax_liability.",
+        "items": { "type": "object" }
+      }
+    },
+    "required": ["minimum_rate", "cutoff_date", "exclusion_rules", "items"]
+  },
+  "mcp_tool_definition": {
+    "name": "track_globe_transition_deferred_tax",
+    "description": "Recomputes the GloBE Article 9.1 transition recast per deferred tax attribute and the jurisdictional roll-forward total, applying the lower-of rate as a cap, the Article 9.1.1 GloBE Loss uplift only on a declared demonstration, named-code Article 9.1.2 exclusions keyed strictly after the cut off date, and the Article 9.1.3 disposing entity basis. Rates, dates and the exclusion set are versioned policy parameters.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "constants_version": { "type": "string" },
+        "minimum_rate": { "type": "number" },
+        "cutoff_date": { "type": "string" },
+        "transition_year_start_date": { "type": ["string", "null"] },
+        "exclusion_rules": { "type": "array" },
+        "items": { "type": "array" }
+      },
+      "required": ["minimum_rate", "cutoff_date", "exclusion_rules", "items"]
+    }
+  },
+  "execution": {
+    "type": "server",
+    "entry": "chaingraph/kernels/art-636-globe-transition-deferred-tax-tracker.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "constants_version": { "type": ["string", "null"] },
+      "minimum_rate": { "type": ["number", "null"] },
+      "cutoff_date": { "type": ["string", "null"] },
+      "transition_year_start_date": { "type": ["string", "null"] },
+      "exclusion_rules": { "type": "array" },
+      "canonical_order": { "type": "string" },
+      "items": { "type": ["array", "null"] },
+      "item_count": { "type": "number" },
+      "items_excluded": { "type": "number" },
+      "items_capped": { "type": "number" },
+      "items_uplifted": { "type": "number" },
+      "items_in_error": { "type": "number" },
+      "items_manual_review": { "type": "number" },
+      "jurisdictional_roll_forward_total": { "type": ["number", "null"] },
+      "total_is_complete": { "type": "boolean" },
+      "error_code": { "type": ["string", "null"] },
+      "note": { "type": "string" },
+      "rounding_steps": { "type": "array" }
+    }
+  },
+  "source": "authored by PILLAR2-DTTRANSITION-K-1 per FORMALVERIF-BUILD-SPEC.md Sec 3/3b/3c/3d/5/6.B and RIDER-KERNEL.md. Primary text retrieved and sha256-pinned by this row on 2026-08-17, both HTTP 200 from the OECD content host: OECD (2021) Tax Challenges Arising from the Digitalisation of the Economy, Global Anti-Base Erosion Model Rules (Pillar Two), Article 9.1, https://www.oecd.org/content/dam/oecd/en/publications/reports/2021/12/tax-challenges-arising-from-digitalisation-of-the-economy-global-anti-base-erosion-model-rules-pillar-two_eed81a23/782bac33-en.pdf, snapshot at research/clause-snapshots/OECD-GloBE-Model-Rules-Dec2021-oecd-2026-08-17.pdf (whole-PDF sha256:796d1a16fad360204a76450f5246e038263ef4bc652356f25d367d4b9389e306; the node cites the clause-level excerpt sha256:af7d29868cf715088273c064e9d5c8d40f9caf13ca95ed896c2a6cb3e23cd3c6, since SPEC.md Sec 30.2 refuses a whole-document digest as a cited_clause_digest); and OECD (2025) Administrative Guidance on Article 9.1 of the Global Anti-Base Erosion Model Rules, approved 13 January 2025, https://www.oecd.org/content/dam/oecd/en/topics/policy-sub-issues/global-minimum-tax/administrative-guidance-article-9-1-globe-rules-pillar-two-january-2025.pdf, snapshot at research/clause-snapshots/OECD-AdminGuidance-Art9.1-January2025-oecd-2026-08-17.pdf (whole-PDF sha256:f22c11a356d51d8af9413bc209c2895b24363d6114bd4a5467d2b6fd52356823; the node cites the clause-level excerpt sha256:9d610cc2d0fcfd2d8054a93036b43241f0b8545550d71e6935e07b2d2b7600b5). No secondary summary is cited anywhere. Per-kernel spec at research/PILLAR2-DTTRANSITION-K-1.spec.md, human_sign_off PENDING. Golden fixtures were hand-computed from the retrieved text before the kernel was run and the kernel was then diffed against that hand computation; vector one is the guidance's own worked Example 9.1.2-1. Class B, property-tested over stated ranges: the attribute-type enum and the verdict paths are enumerated exhaustively, and no totality claim is made over the continuous money and rate axes."
+}

@@ -1,0 +1,37 @@
+---
+type: DecisionTool
+title: "GloBE Permanent De Minimis Exclusion Evaluator"
+description: "Recomputes the PERMANENT GloBE de minimis exclusion of Article 5.5 of the OECD GloBE Model Rules (Pillar Two, December 2021) from per-year figures the caller supplies. This is a different rule from the transitional CbCR safe harbour de minimis test, which is a single-year test taken from the Qualified CbCR and is already computed by art-456-globe-safe-harbour-tests; this node does not recompute that test. Article 5.5.2 averages the GloBE Revenue and the GloBE Income or Loss of a jurisdiction across the current and the two preceding Fiscal Years, and Article 5.5.1 then compares those averages against two thresholds: the Average GloBE Revenue must be less than EUR 10 million, and the Average GloBE Income or Loss must be a loss or less than EUR 1 million. Both thresholds and the averaging window length arrive as versioned policy parameters carrying their own source and source digest, never as constants in kernel source, so a later threshold change is a parameter-set version bump rather than a kernel edit. A GloBE Loss year enters the average as a signed negative amount, per Article 5.5.3(b) and Commentary paragraphs 84 and 91, and is never coerced to zero. A preceding Fiscal Year in which no Constituent Entities had GloBE Revenue or GloBE Losses is excluded from the computation under Article 5.5.2's second sentence, which shrinks the divisor rather than contributing a zero; a jurisdiction in scope for fewer years than the window is an ordinary case and is reported as partial_window_used. The per-year input array is bounded by a declared and enforced max_years. Both conditions must hold together, which Commentary paragraph 81 states as aggregate and cumulative. The Article 5.5.1 Annual Election is the Filing Constituent Entity's judgment and enters only as a declared input that the node echoes back; a deemed-zero result is reported only where the election was declared made, and it is a recomputed arithmetic outcome on declared inputs rather than a filing conclusion. Any absent year, absent threshold parameter or undeclared election raises manual_review_required and withholds the availability verdict, and no missing value is ever silently defaulted. Annualisation of short Fiscal Years, conversion into euro, and the Article 5.5.4 removal of Stateless Constituent Entities and Investment Entities are applied upstream by the caller and declared to this node. Verify-only: the node recomputes declared arithmetic and reports whether it matches or diverges. Zero network, zero PII."
+resource: https://ainumbers.co/chaingraph/art-637-globe-de-minimis-exclusion.html
+tags: ["compliance_mandate", "wave-103", "mcp:evaluate_globe_de_minimis_exclusion"]
+timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/art-637-globe-de-minimis-exclusion.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/art-637-globe-de-minimis-exclusion.html
+    title: "public tool page"
+---
+
+# GloBE Permanent De Minimis Exclusion Evaluator
+
+> Exports a decision via MCP `evaluate_globe_de_minimis_exclusion` — mandate type `compliance_mandate`.
+
+## Inputs
+
+Typed `inputSchema` — see [tool page](https://ainumbers.co/chaingraph/art-637-globe-de-minimis-exclusion.html).
+
+## Outputs
+
+A hash-anchored OpenChainGraph artifact (decision, not context).
+
+## Chains
+
+**Consumes:** _none (root node)_
+
+**Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/art-637-globe-de-minimis-exclusion.md) — §10.2.

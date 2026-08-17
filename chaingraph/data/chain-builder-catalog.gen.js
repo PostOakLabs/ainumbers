@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (617 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (619 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6585,6 +6585,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-635-rate-rec-5pct-threshold-classifier.html",
     "description": "Applies the quantitative 5 percent threshold of ASC 740-10-50-12A(b), as amended by FASB Accounting Standards Update No. 2023-09, to one can",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-636-globe-transition-deferred-tax-tracker",
+    "display_name": "GloBE Article 9.1 Transition Deferred Tax Tracker",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-636-globe-transition-deferred-tax-tracker.html",
+    "description": "Recomputes the OECD GloBE Article 9.1 transition recast for a jurisdiction, item by item, over a bounded array of caller-declared deferred t",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-637-globe-de-minimis-exclusion",
+    "display_name": "GloBE Permanent De Minimis Exclusion Evaluator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-637-globe-de-minimis-exclusion.html",
+    "description": "Recomputes the PERMANENT GloBE de minimis exclusion of Article 5.5 of the OECD GloBE Model Rules (Pillar Two, December 2021) from per-year f",
     "consumes": [],
     "feeds": [],
     "status": "live"
