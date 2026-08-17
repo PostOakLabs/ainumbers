@@ -38,7 +38,7 @@
 
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { executionHash } from './_hash.mjs';
 import { KERNELS } from './index.mjs';
 import { runKernelArtifactInVM } from '../vm/kernel-vm.mjs';
@@ -87,14 +87,22 @@ const divergences = [];
 const limitationsHit = [];
 
 let toolIds = Object.keys(KERNELS);
+const FALLBACK_KERNELS = {};
 if (ONLY_ID) {
   if (!toolIds.includes(ONLY_ID)) {
-    throw new Error(`vm-parity-gate.mjs --only ${ONLY_ID}: no such kernel id in index.mjs.`);
+    // Same staleness-by-construction as check-guest-builtin-safety.mjs (SO #35: index.mjs's
+    // single writer is the post-merge regen bot) — import the kernel file directly when it
+    // exists on disk but isn't indexed yet (ASSEMBLE-LAND-0817-1, 2026-08-17).
+    const modPath = resolve(HERE, `${ONLY_ID}.kernel.mjs`);
+    if (!existsSync(modPath)) {
+      throw new Error(`vm-parity-gate.mjs --only ${ONLY_ID}: no such kernel id in index.mjs, and no ${ONLY_ID}.kernel.mjs on disk.`);
+    }
+    FALLBACK_KERNELS[ONLY_ID] = await import(pathToFileURL(modPath).href);
   }
   toolIds = [ONLY_ID];
 }
 for (const id of toolIds) {
-  const kernel = KERNELS[id];
+  const kernel = FALLBACK_KERNELS[id] || KERNELS[id];
   if (kernel?.meta?.gpu === true) { skippedGpu++; continue; } // §24.0: gpu:true nodes out of scope
   // OCG §25 ocg-private-input@1 nodes (PRIV-IN-1-BUILD, 2026-07-20): buildArtifact's first
   // argument is the caller's PRIVATE WITNESS (e.g. {parties, salt}), never the artifact's own
