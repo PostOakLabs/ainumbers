@@ -1,10 +1,15 @@
 name: Ruleset Drift Gate
 
 # Catches a hand-PUT that bypassed .github/rulesets/main-ci-anchor.json —
-# the other direction from ruleset-apply.yml. Read-only: mints an App
-# token scoped to administration:READ, never write, so this workflow
-# cannot itself change the ruleset even in a bug. Runs weekly and on
-# demand.
+# the other direction from ruleset-apply.yml. This job's own code never
+# calls PUT, so it never changes the live ruleset regardless of the token
+# scope it holds. The token requests administration:WRITE, not because it
+# writes anything, but because GitHub's GET ruleset response silently
+# OMITS bypass_actors for a read-only-scoped token (measured while
+# building this workflow: an administration:read token got a ruleset body
+# with no bypass_actors key at all, which read as false drift). A
+# write-scoped token gets the full body, matching what ruleset-apply.yml
+# already fetches. Runs weekly and on demand.
 
 on:
   schedule:
@@ -34,7 +39,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Mint read-only ruleset token
+      - name: Mint ruleset-read token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -42,7 +47,7 @@ jobs:
           private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-          permission-administration: read
+          permission-administration: write
 
       - name: Fetch live ruleset
         env:
