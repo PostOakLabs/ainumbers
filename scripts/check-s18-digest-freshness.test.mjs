@@ -437,9 +437,21 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // ever enters this gate's proven-node denominator either. Stale is unaffected.
   // Measured both sides, not assumed: 468/584 fresh + 116 stale on the base commit ff9c1b10 (this
   // row's starting point), 467/583 fresh + 116 stale after.
-  assert(total === 583, `expected 583 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 467, `expected 467 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-KERNEL-BATCH-0815-2 -- art-365 leaves the PROVEN set entirely, it does not enter stale), got ${stale.length}`);
+  // 583 -> 589 post-PROVE-BATCH-0816-1 (2026-08-16): six nodes that had each cleared a
+  // zero-divergence SIDEBYSIDE were proved in one batch -- art-365 (compute_globe_topup_tax),
+  // art-615, art-617, art-633, art-634, art-635 -- so six nodes ENTER this gate's proven-node
+  // denominator at once. All six are fresh by construction rather than by luck: each receipt's
+  // journal.kernel_digest was recomputed from the LANDED kernel bytes on origin/main and re-verified
+  // AFTER the prove, which is the same comparison this gate performs, so a stale one here would have
+  // been a KROOT failure caught before the receipt was ever attached. Denominator +6, fresh +6,
+  // stale UNCHANGED at 116. art-365 is the notable one: the 584 -> 583 entry above removed it when
+  // ART365-GLOBE-FIX-1 took its receipt away, and this row returns it with a receipt over the
+  // corrected bytes.
+  // Measured both sides, not assumed: 467/583 fresh + 116 stale on the base commit d24a5ee1 (this
+  // row's starting point), 473/589 fresh + 116 stale after.
+  assert(total === 589, `expected 589 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 473, `expected 473 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (unaffected by PROVE-BATCH-0816-1 -- all six new receipts are fresh, so none enters stale), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
