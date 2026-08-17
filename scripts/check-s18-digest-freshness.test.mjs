@@ -458,9 +458,19 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // does not affect this gate's denominator. Stale UNCHANGED at 116.
   // Measured both sides, not assumed: 473/589 fresh + 116 stale on the base commit 3768630c (this
   // row's starting point), 474/590 fresh + 116 stale after.
-  assert(total === 590, `expected 590 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 474, `expected 474 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-LAND-0816-1 -- art-620's new receipt is fresh, art-626 is metadata-only), got ${stale.length}`);
+  // 590 -> 591 post-PROVE-BATCH-0817-2 (2026-08-17): art-637 (evaluate_globe_de_minimis_exclusion)
+  // was proved this session after clearing a single-node zero-divergence SIDEBYSIDE, so one node
+  // enters this gate's proven-node denominator. It enters fresh by construction rather than by
+  // luck: its journal.kernel_digest was recomputed from the LANDED kernel bytes on origin/main and
+  // re-verified AFTER the prove, which is the same comparison this gate performs, so a stale entry
+  // here would have been a KROOT failure caught before the receipt was ever attached. The batch's
+  // second target, art-619, was not proved (kernel-preflight NOT READY on cited_clause_digest) and
+  // contributes nothing here. Denominator +1, fresh +1, stale UNCHANGED at 116.
+  // Measured both sides, not assumed: 474/590 fresh + 116 stale on the base commit dcad9aa1 (this
+  // row's starting point), 475/591 fresh + 116 stale after.
+  assert(total === 591, `expected 591 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 475, `expected 475 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (unaffected by PROVE-BATCH-0817-2 -- art-637's new receipt is fresh), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
