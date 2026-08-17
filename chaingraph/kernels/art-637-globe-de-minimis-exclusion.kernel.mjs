@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-636-globe-de-minimis-exclusion — the PERMANENT GloBE de minimis EXCLUSION of
+// art-637-globe-de-minimis-exclusion — the PERMANENT GloBE de minimis EXCLUSION of
 // Article 5.5 of the OECD GloBE Model Rules (Pillar Two, December 2021).
 //
 // THIS IS NOT art-456. Pillar Two carries TWO de minimis rules and they are different:
@@ -63,7 +63,7 @@ import { executionHash } from './_hash.mjs';
 // ABSENT. This kernel is pure arithmetic over numbers and needs none of them — the
 // scaffold's pure-JS UTF-8 encoder was deleted rather than left as dead weight.
 
-const TOOL_ID = 'art-636-globe-de-minimis-exclusion';
+const TOOL_ID = 'art-637-globe-de-minimis-exclusion';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {

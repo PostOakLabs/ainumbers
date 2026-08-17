@@ -1,4 +1,4 @@
-// art-636-globe-de-minimis-exclusion — class-K property-test FLOOR.
+// art-637-globe-de-minimis-exclusion — class-K property-test FLOOR.
 //
 // CLASS B — "Property-tested over stated ranges." TAXONOMY HONESTY, stated where a reader
 // will trip over it: the Art 5.5.1 thresholds are CONTINUOUS euro amounts, so this node is
@@ -6,21 +6,21 @@
 // WINDOW is bounded and its paths are enumerated exhaustively below. The MONEY AXIS is not
 // bounded and NO totality claim is made over it.
 //
-// kernel_digest_at_authoring: sha256:a98a4fb58ce67ff2fb3fdd44066a43eb156e0f2513b68693ae13f63c4d7d5215
+// kernel_digest_at_authoring: sha256:6c793bc89b2393ccb5f62dc4970e46c0ca508f47b414fa7fe925237690106ec1
 // spec: research/PILLAR2-DEMINIMIS-K-1.spec.md (Art 5.5, OECD GloBE Model Rules Dec 2021)
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-636-globe-de-minimis-exclusion.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-637-globe-de-minimis-exclusion.proptest.mjs
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compute } from '../art-636-globe-de-minimis-exclusion.kernel.mjs';
+import { compute } from '../art-637-globe-de-minimis-exclusion.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-636-globe-de-minimis-exclusion';
+const KERNEL_ID = 'art-637-globe-de-minimis-exclusion';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = JSON.parse(
   fs.readFileSync(path.join(HERE, '..', 'fixtures', `${KERNEL_ID}.fixtures.json`), 'utf8'),
