@@ -482,6 +482,12 @@ const GATES = [
   // selftest means the tool itself is broken — same shape as the "FV floor coverage fixture
   // proof" entry above. The checker's own chain verdicts stay ADVISORY (block below).
   ['Chain L1 edge-contract selftest (CHAIN-FV-L1-1)', 'node scripts/check-chain-edge-contracts.selftest.mjs'],
+  // The CONTROL for the L2 chain contract-composition checker (CHAIN-FV-L2-1) — same shape as the
+  // L1 selftest above: in-memory fixtures (§5.1's re-expressed L1 cases + the four synthetic
+  // controls) plus mutation controls that flip a bound/enum/unit/x-source digest and require the
+  // verdict to move. Hard here because a red selftest means the tool itself is broken. The
+  // checker's own chain verdicts stay ADVISORY-on-existing / HARD-on-new-changed (block below).
+  ['Chain L2 contract-composition selftest (CHAIN-FV-L2-1)', 'node scripts/check-chain-l2-contracts.selftest.mjs'],
 ];
 
 // The one inline gate that lives below the loop rather than in GATES. Named once
@@ -722,6 +728,59 @@ try {
   const out = execSync('node scripts/check-chain-edge-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
   const s = JSON.parse(out).summary;
   console.log(`${s['L1-pass']} pass / ${s['L1-fail']} fail / ${s['L1-indeterminate']} indeterminate across ${s.chains_walked} chains (${s.edges_decided}/${s.edges_total} edges decided)`);
+} catch { console.log('(advisory check unavailable — skipped)'); }
+
+// ── L2 chain contract composition: ADVISORY on existing chains, HARD on new/
+//    changed ones ───────────────────────────────────────────────────────────
+// CHAIN-FV-L2-1, spec §6.1. Ladder level L2 = "edge contracts composed and
+// machine-checked (L2: contract composition)" — ⛔ NOT "formally verified".
+// A chain whose shard file (chaingraph/graph/chains/<name>.json) was ADDED or
+// EDITED in this diff must not enter/remain in the estate with an L2-fail edge
+// — same split LAND-VERIFY-ADVISORY-SPLIT-1 already ships for count-drift.
+// Existing, untouched chains stay advisory: L2-indeterminate never fails a
+// gate at any tier (it is coverage, not wrongness), and the estate's own
+// day-one measurement is that the honest surface today is mostly
+// indeterminate (spec §0(c)/§5.2) — promoting that estate-wide would red
+// every chain the day this ships, which spec §6.1 explicitly forbids.
+process.stdout.write('▶ L2 chain contract composition (advisory on existing / hard on new-changed) … ');
+try {
+  const touchedChainFiles = new Set();
+  const collectDiff = (args) => {
+    try {
+      execSync(`git diff --name-only ${args}`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().split('\n').forEach((f) => f && touchedChainFiles.add(f));
+    } catch { /* best-effort */ }
+  };
+  collectDiff('HEAD');
+  collectDiff('--cached');
+  try {
+    const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    collectDiff(`${base} HEAD`);
+  } catch { /* no upstream — local diff already covers it */ }
+
+  const touchedChainNames = new Set(
+    [...touchedChainFiles]
+      .filter((f) => f.startsWith('chaingraph/graph/chains/') && f.endsWith('.json') && !f.includes('/_fixtures/'))
+      .map((f) => f.slice('chaingraph/graph/chains/'.length, -'.json'.length)),
+  );
+
+  const out = execSync('node scripts/check-chain-l2-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  const rep = JSON.parse(out);
+  const s = rep.summary;
+  console.log(`${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_total} edges pass)`);
+
+  const touchedFails = rep.chains.filter((c) => touchedChainNames.has(c.name) && c.verdict === 'L2-fail');
+  if (touchedFails.length) {
+    console.error(`\n❌ L2 HARD GATE: ${touchedFails.length} new/changed chain(s) carry an L2-fail edge (spec §6.1 — new chains must not enter with a failing composition):`);
+    for (const c of touchedFails) console.error(`   ✗ ${c.name}: ${c.findings.map((f) => f.code).join(', ')}`);
+    // Unconditional exit, independent of --keep-going: this is discovered AFTER the main gate loop
+    // (and its own keep-going accounting) has already run, so there is no later checkpoint that
+    // would otherwise turn a recorded `failed` value into a non-zero exit code.
+    process.exit(1);
+  } else if (touchedChainNames.size) {
+    console.log(`   ✓ ${touchedChainNames.size} touched chain shard(s) checked, none L2-fail.`);
+  }
 } catch { console.log('(advisory check unavailable — skipped)'); }
 
 // ── Advisory (non-blocking): version-prose drift ────────────────────────────
