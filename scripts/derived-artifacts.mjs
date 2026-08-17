@@ -233,6 +233,13 @@ export const COVERED = [
       'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
       '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
       'llms.txt',
+      // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
+      // list includes it). Omitting it here made the regen bot's anti-escape
+      // guard reject the whole run — "a generator wrote outside the declared
+      // set" — which stalled every downstream regen and kept main red.
+      // Reconciled against verify-counts.mjs's full 16-file list, not patched
+      // one file at a time.
+      'fv-explainer.html',
     ],
     share: '27%',
   },
