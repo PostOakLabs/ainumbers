@@ -1,37 +1,30 @@
 import { executionHash } from './_hash.mjs';
 
-// art-636-globe-transition-deferred-tax-tracker — GloBE Article 9.1 transition deferred-tax
-// tracker. Per-item recast of pre-regime deferred tax attributes under the Article 9.1
-// transition rules, plus the jurisdictional roll-forward total.
+// art-636-globe-transition-deferred-tax-tracker — GloBE transition deferred-tax tracker.
+// Per-item recast of pre-regime deferred tax attributes under the transition rules, plus
+// the jurisdictional roll-forward total.
 //
-// Spec (with the retrieved clause text, the pinned digests and both findings):
-//   research/PILLAR2-DTTRANSITION-K-1.spec.md  (workspace root, untracked)
-//
-// Rule sources, both retrieved and sha256-pinned by the building row on 2026-08-17:
-//   A. OECD GloBE Model Rules (Pillar Two), December 2021 — Article 9.1 (9.1.1–9.1.3).
-//   B. OECD Administrative Guidance on Article 9.1, approved 13 January 2025 — revised
-//      Commentary paragraphs 6.4, 8–8.12 and 10.8, and worked Example 9.1.2-1.
-// Article numbering note: the transitional SBIE rate schedule is Article 9.2, not 9.1;
-// Article 9.1 is the deferred-tax transition this kernel implements. See the spec file's
-// finding 1. No operative source text is reproduced here — paragraph references only.
+// Citations, source pinning, and the article-numbering finding all live in this node's
+// metadata (regulatory_basis / cited_clause_digest / cited_clause_paragraphs / description),
+// never in this file — KERNEL-CITATION-CLASS-1: kernel source is behaviour only.
 //
 // WHAT THIS KERNEL DOES
-//   Article 9.1.1: attributes are taken into account at the lower of the Minimum Rate or
-//   the applicable domestic tax rate. A deferred tax asset recorded below the Minimum Rate
-//   may be taken at the Minimum Rate where the taxpayer demonstrates it is attributable to
-//   a GloBE Loss — the one path on which a recast exceeds the uncapped figure. Valuation and
+//   Attributes are taken into account at the lower of the Minimum Rate or the applicable
+//   domestic tax rate. A deferred tax asset recorded below the Minimum Rate may be taken at
+//   the Minimum Rate where the taxpayer demonstrates it is attributable to a GloBE Loss —
+//   the one path on which a recast exceeds the uncapped figure. Valuation and
 //   accounting-recognition adjustments are disregarded.
-//   Article 9.1.2: an attribute is excluded where a declared exclusion limb holds and, for
-//   the date-keyed limbs, the attribute arose strictly after the cut-off.
-//   Article 9.1.3: an intra-group transfer after the cut-off and before the Transition Year
-//   is recast on the disposing entity's carrying value.
+//   An attribute is excluded where a declared exclusion limb holds and, for the date-keyed
+//   limbs, the attribute arose strictly after the cut-off.
+//   An intra-group transfer after the cut-off and before the Transition Year is recast on
+//   the disposing entity's carrying value.
 //
 // WHAT THIS KERNEL DOES NOT DO — verify-only, never tax advice. It does not characterize an
 // attribute, does not decide whether an arrangement is governmental, does not decide whether
 // a GloBE-Loss demonstration succeeds, and does not compute the Grace Period or Grace Period
-// Limitation (Commentary 8.8-8.12), which govern deferred tax expense on reversal in later
-// years under a different computation. Characterization stays with the filer: where one is
-// absent the item carries manual_review_required.
+// Limitation, which governs deferred tax expense on reversal in later years under a
+// different computation. Characterization stays with the filer: where one is absent the
+// item carries manual_review_required.
 //
 // EVERY year-indexed or guidance-dependent value — the Minimum Rate, the cut-off date, the
 // Transition Year start and the enabled exclusion set — arrives inside policy_parameters, so
@@ -72,11 +65,11 @@ const ATTRIBUTE_TYPES = [
 // exclusion_reason, so the reported code is deterministic when more than one
 // limb would hold on the same item.
 const EXCLUSION_CODES = [
-  'EXCL_NOT_REFLECTABLE_UNDER_AFAS',            // Commentary 6.4 as revised (not date-keyed)
-  'EXCL_CH3_ITEM_POST_CUTOFF',                  // Art 9.1.2 + Commentary 8, 8.1, 8.2
-  'EXCL_GOVERNMENTAL_ARRANGEMENT_POST_CUTOFF',  // Commentary 8.3, 8.4, 8.5(a)
-  'EXCL_RETROACTIVE_ELECTION_POST_CUTOFF',      // Commentary 8.5(b)
-  'EXCL_NEW_CIT_BASIS_STEP_UP_POST_CUTOFF',     // Commentary 8.5(c)
+  'EXCL_NOT_REFLECTABLE_UNDER_AFAS',            // not reflectable under the authorised accounting standard (not date-keyed)
+  'EXCL_CH3_ITEM_POST_CUTOFF',                  // arises from an excluded item, post-cutoff
+  'EXCL_GOVERNMENTAL_ARRANGEMENT_POST_CUTOFF',  // arises from a governmental arrangement, post-cutoff
+  'EXCL_RETROACTIVE_ELECTION_POST_CUTOFF',      // arises from a retroactive election, post-cutoff
+  'EXCL_NEW_CIT_BASIS_STEP_UP_POST_CUTOFF',     // arises from a new CIT basis step-up, post-cutoff
 ];
 
 // The three Commentary 8.5 categories, whose exclusion leaves the separate
@@ -133,9 +126,9 @@ function dateKey(s) {
 }
 
 // rounding_steps is a CONSTANT four entries on every path, including every
-// error path — P28's step-count parity, and P27's anti-fabrication: neither
-// Article 9.1 nor the January-2025 guidance specifies a rounding mode or
-// precision anywhere, so every oracle is the literal declared-silent string.
+// error path — P28's step-count parity, and P27's anti-fabrication: the source
+// text specifies no rounding mode or precision anywhere, so every oracle is
+// the literal declared-silent string.
 function roundingSteps() {
   return [
     { step: 'cap_rate_selection', expression: 'min(minimum_rate, domestic_tax_rate)', precision: RATE_PRECISION, mode: 'half_up', oracle: 'declared — clause silent' },
@@ -218,10 +211,10 @@ function evaluateItem(raw, idx, ctx) {
     return rec;
   }
   rec.arising_date_key = aKey;
-  const postCutoff = aKey > ctx.cutoffKey; // Art 9.1.2: strictly AFTER the cut-off
+  const postCutoff = aKey > ctx.cutoffKey; // strictly AFTER the cut-off
 
   // --- characterization completeness: absent characterization is the filer's,
-  //     never inferred, never defaulted to false (Art 9.1.2 / Commentary 8.x) ---
+  //     never inferred, never defaulted to false ---
   const charKeys = [
     'arises_from_chapter3_excluded_item',
     'arises_from_governmental_arrangement',
@@ -236,7 +229,7 @@ function evaluateItem(raw, idx, ctx) {
     }
   }
 
-  // --- Article 9.1.2 / Commentary 6.4 exclusion, in declared code order ---
+  // --- exclusion evaluation, in declared code order ---
   for (let i = 0; i < EXCLUSION_CODES.length && rec.exclusion_reason === null; i++) {
     const code = EXCLUSION_CODES[i];
     if (ctx.enabled.indexOf(code) === -1) continue;
@@ -263,7 +256,7 @@ function evaluateItem(raw, idx, ctx) {
   }
 
   if (rec.exclusion_reason !== null) {
-    // Excluded from the Article 9.1.1 computation: contributes EXACTLY zero, and
+    // Excluded from the recast computation: contributes EXACTLY zero, and
     // is still reported, never merely omitted.
     rec.excluded = true;
     rec.recast_amount = 0;
@@ -275,7 +268,7 @@ function evaluateItem(raw, idx, ctx) {
   }
 
   // --- basis, in declared precedence:
-  //     reported carrying amount -> valuation-adjustment gross -> Art 9.1.3 basis
+  //     reported carrying amount -> valuation-adjustment gross -> intra-group-transfer basis
   if (!isFiniteNumber(item.carrying_amount)) {
     rec.error_code = 'ERR_CARRYING_AMOUNT_MISSING';
     rec.manual_review_required = true;
@@ -286,9 +279,9 @@ function evaluateItem(raw, idx, ctx) {
   let basisSource = 'reported_carrying_amount';
 
   if (item.valuation_adjustment_reflected === true) {
-    // Art 9.1.1 final sentence: the impact of a valuation or accounting
-    // recognition adjustment is disregarded. Requires the gross figure; its
-    // absence is a named error, never a silently un-adjusted recast.
+    // The impact of a valuation or accounting recognition adjustment is
+    // disregarded. Requires the gross figure; its absence is a named error,
+    // never a silently un-adjusted recast.
     if (!isFiniteNumber(item.carrying_amount_gross_of_valuation_adjustment)) {
       rec.error_code = 'ERR_GROSS_CARRYING_AMOUNT_MISSING';
       rec.manual_review_required = true;
@@ -303,15 +296,15 @@ function evaluateItem(raw, idx, ctx) {
     if (ctx.transitionKey === null) {
       rec.error_code = 'ERR_TRANSITION_YEAR_START_MISSING';
       rec.manual_review_required = true;
-      rec.review_reasons.push('Art 9.1.3 window needs transition_year_start_date');
+      rec.review_reasons.push('intra-group transfer window needs transition_year_start_date');
       return rec;
     }
-    // Art 9.1.3: after the cut-off AND before the commencement of a Transition Year.
+    // After the cut-off AND before the commencement of a Transition Year.
     if (postCutoff && aKey < ctx.transitionKey) {
       if (!isFiniteNumber(item.disposing_entity_carrying_value)) {
         rec.error_code = 'ERR_INTRA_GROUP_BASIS_MISSING';
         rec.manual_review_required = true;
-        rec.review_reasons.push('Art 9.1.3 applies but disposing_entity_carrying_value was not supplied');
+        rec.review_reasons.push('intra-group transfer rule applies but disposing_entity_carrying_value was not supplied');
         return rec;
       }
       basis = item.disposing_entity_carrying_value;
@@ -339,22 +332,22 @@ function evaluateItem(raw, idx, ctx) {
     return rec;
   }
 
-  // rounding step 1 — the Art 9.1.1 lower-of rate
+  // rounding step 1 — the lower-of rate
   const capRate = roundAt(Math.min(ctx.minimumRate, item.domestic_tax_rate), RATE_PRECISION);
   rec.cap_rate = capRate;
 
   // The general rule is a CAP, not an upward re-measurement. An attribute already
-  // recorded at or below the lower-of rate is left where it is — Example 9.1.2-1
-  // states this from the other side ("no recast because ... recorded at or below
-  // the Minimum Rate"), and it is what leaves sentence three's GloBE-Loss uplift
-  // any work to do. Applying the lower-of rate unconditionally would re-rate
-  // below-rate assets upward and make that sentence redundant.
+  // recorded at or below the lower-of rate is left where it is — the source text's
+  // own worked example states this from the other side ("no recast because ...
+  // recorded at or below the Minimum Rate"), and it is what leaves the GloBE-Loss
+  // uplift exception any work to do. Applying the lower-of rate unconditionally
+  // would re-rate below-rate assets upward and make that exception redundant.
   let rateApplied = roundAt(Math.min(capRate, item.recorded_at_rate), RATE_PRECISION);
   const upliftEligible = rec.attribute_type === 'deferred_tax_asset_from_globe_loss'
     && item.recorded_at_rate < ctx.minimumRate;
   if (upliftEligible) {
     if (item.globe_loss_demonstrated === true) {
-      // Art 9.1.1 third sentence — the express, evidence-gated exception. This is
+      // The express, evidence-gated GloBE-Loss uplift exception. This is
       // the ONLY path on which a recast exceeds the uncapped figure.
       rateApplied = roundAt(ctx.minimumRate, RATE_PRECISION);
       rec.uplifted = true;

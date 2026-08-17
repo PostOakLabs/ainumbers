@@ -1,7 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-637-globe-de-minimis-exclusion — the PERMANENT GloBE de minimis EXCLUSION of
-// Article 5.5 of the OECD GloBE Model Rules (Pillar Two, December 2021).
+// art-637-globe-de-minimis-exclusion — the PERMANENT GloBE de minimis EXCLUSION.
 //
 // THIS IS NOT art-456. Pillar Two carries TWO de minimis rules and they are different:
 //   (a) the TRANSITIONAL CbCR SAFE HARBOUR de minimis TEST — a SINGLE fiscal year, taken
@@ -12,47 +11,39 @@ import { executionHash } from './_hash.mjs';
 //       Revenue and GloBE Income or Loss AVERAGED across the current and the two preceding
 //       Fiscal Years. That is this kernel, and nothing else in the estate computes it.
 //
-// PRIMARY TEXT — retrieved, pinned and hashed by PILLAR2-DEMINIMIS-K-1 (SO #38):
-//   GloBE Model Rules (Pillar Two), OECD, December 2021, Article 5.5.1-5.5.4 (pp. 32-33)
-//     research/clause-snapshots/OECD-GloBE-Model-Rules-Dec2021-oecd-2026-08-17.pdf
-//     sha256:796d1a16fad360204a76450f5246e038263ef4bc652356f25d367d4b9389e306
-//   Commentary to the GloBE Model Rules, OECD, March 2022, paras 79-96 (pp. 130-134)
-//     research/clause-snapshots/OECD-GloBE-Commentary-Mar2022-oecd-2026-08-17.pdf
-//     sha256:6296fc4c21df10b33c39f0d02a2762f636349193c35787421caba71f5714ff50
+// Citations, source pinning, and paragraph-level authority for every rule below all live
+// in this node's metadata (regulatory_basis / cited_clause_digest / cited_clause_paragraphs
+// / description / rounding_steps), never in this file — KERNEL-CITATION-CLASS-1: kernel
+// source is behaviour only.
 //
-// THE FOUR RULES THIS KERNEL ENCODES, each from the text above and NOT from a summary:
-//   1. WINDOW — Art 5.5.2: the average is over "the current and the two preceding Fiscal
-//      Years". Commentary para 84 names it a three-year average. The window length is a
-//      VERSIONED POLICY PARAMETER, never a constant here.
-//   2. THRESHOLDS — Art 5.5.1: Average GloBE Revenue "less than EUR 10 million" AND
-//      Average GloBE Income or Loss "is a loss or is less than EUR 1 million". Both are
-//      STRICT inequalities and both are versioned policy parameters.
-//   3. PARTIAL WINDOW — Art 5.5.2, second sentence: where there were no Constituent
-//      Entities with GloBE Revenue or GloBE Losses located in the jurisdiction in the first
-//      or second preceding Fiscal Year, "such year or years shall be EXCLUDED from the
-//      calculation". Commentary para 85 confirms: the year leaves the computation entirely,
-//      so the DIVISOR SHRINKS. It is not carried as a zero.
-//   4. LOSS-YEAR SIGN — Art 5.5.3(b): the GloBE Income or Loss of a jurisdiction is the Net
-//      GloBE Income "if any, or the Net GloBE Loss". Commentary para 91: where the Chapter-3
-//      difference "is nil or negative, the outcome is a loss and that is the Net GloBE
-//      Loss". Commentary para 84: the current year's value "(whether income or loss)" is
-//      averaged. So A LOSS YEAR ENTERS THE AVERAGE AS A SIGNED NEGATIVE, never as zero.
-//      Confirmed arithmetically by the OECD's own Example 5.5.2-1, where a Year-3 loss of
-//      EUR 200,000 is what drags a (100,000 + 100,000 - 200,000) / 3 average down to zero.
+// THE FOUR RULES THIS KERNEL ENCODES, each from primary text and NOT from a summary:
+//   1. WINDOW — the average is over the current and the two preceding Fiscal Years, a
+//      three-year average. The window length is a VERSIONED POLICY PARAMETER, never a
+//      constant here.
+//   2. THRESHOLDS — Average GloBE Revenue below one threshold AND Average GloBE Income or
+//      Loss either a loss or below a second threshold. Both are STRICT inequalities and
+//      both are versioned policy parameters.
+//   3. PARTIAL WINDOW — where there were no Constituent Entities with GloBE Revenue or
+//      GloBE Losses located in the jurisdiction in a preceding Fiscal Year, that year is
+//      EXCLUDED from the calculation entirely, so the DIVISOR SHRINKS. It is not carried
+//      as a zero.
+//   4. LOSS-YEAR SIGN — the GloBE Income or Loss of a jurisdiction is the Net GloBE Income
+//      if any, or the Net GloBE Loss. So A LOSS YEAR ENTERS THE AVERAGE AS A SIGNED
+//      NEGATIVE, never as zero. Confirmed arithmetically by the source text's own worked
+//      example, where a Year-3 loss is what drags the average down to zero.
 //
-// CONJUNCTION — Commentary para 81: the two conditions "are aggregate and cumulative", and
-// if the jurisdiction fails ONE of them it is not eligible. Coded as an AND on that
-// authority, not on inference.
+// CONJUNCTION — the two conditions are aggregate and cumulative, and if the jurisdiction
+// fails ONE of them it is not eligible. Coded as an AND on that authority, not on inference.
 //
 // SCOPE LIMITS, declared rather than silently assumed:
-//   - Short Fiscal Years (Art 5.5.2 / Commentary para 86 / Example 5.5.2-1) are annualised
-//     by the CALLER. This kernel takes already-annualised per-year amounts.
-//   - Currency conversion into EUR (Commentary para 83) is the caller's.
-//   - Art 5.5.4's exclusion of Stateless Constituent Entities and Investment Entities from
-//     the Art 5.5.3 computations is applied UPSTREAM: the per-year amounts supplied here are
+//   - Short Fiscal Years are annualised by the CALLER. This kernel takes already-annualised
+//     per-year amounts.
+//   - Currency conversion into EUR is the caller's.
+//   - The exclusion of Stateless Constituent Entities and Investment Entities from the
+//     underlying computations is applied UPSTREAM: the per-year amounts supplied here are
 //     already net of them. The kernel echoes the caller's declaration that this was done.
-//   - The election itself (Art 5.5.1, an Annual Election) is a FILER JUDGMENT. It enters as
-//     a declared input and is echoed back; it is never inferred.
+//   - The election itself is a FILER JUDGMENT. It enters as a declared input and is echoed
+//     back; it is never inferred.
 //
 // This node RECOMPUTES a declared arithmetic test and reports whether the inputs match the
 // thresholds. It is not tax advice and states no filing conclusion.
@@ -72,8 +63,8 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-// Hard ceiling on the declared averaging window. Art 5.5.2's window is three Fiscal Years;
-// this bound exists so a caller-supplied window_years can never drive an unbounded loop
+// Hard ceiling on the declared averaging window. The source text's window is three Fiscal
+// Years; this bound exists so a caller-supplied window_years can never drive an unbounded loop
 // (GPU-CYCLE-PREFLIGHT-1's static pre-screen: no policy_parameters-driven loop bound).
 const MAX_YEARS_CEILING = 10;
 
@@ -104,7 +95,7 @@ function readVersionedParam(raw) {
 }
 
 /**
- * compute(pp) — Article 5.5 de minimis exclusion evaluator.
+ * compute(pp) — permanent GloBE de minimis exclusion evaluator.
  * @param {object} pp policy_parameters
  * @returns {{ output_payload: object, compliance_flags: string[] }}
  */
@@ -114,7 +105,7 @@ export function compute(pp) {
   const notes = [];
   let manualReview = false;
 
-  // ---- 1. Versioned policy parameters (Art 5.5.1 thresholds + Art 5.5.2 window) --------
+  // ---- 1. Versioned policy parameters (the two thresholds + the averaging window) ------
   // Every one of these is an INPUT. None is a constant in kernel math: that is what lets a
   // later threshold or window change ride execution_hash without moving kernel_digest.
   const params = (pp.de_minimis_parameters && typeof pp.de_minimis_parameters === 'object')
@@ -192,10 +183,10 @@ export function compute(pp) {
   }
 
   // ---- 4. Classify each supplied year --------------------------------------------------
-  // Art 5.5.2 second sentence: a preceding year with NO Constituent Entities carrying GloBE
-  // Revenue or GloBE Losses is EXCLUDED from the computation. Excluded years leave the
-  // divisor. A year that is merely MISSING data is a different state and is never inferred
-  // to be either an excluded year or a zero.
+  // A preceding year with NO Constituent Entities carrying GloBE Revenue or GloBE Losses is
+  // EXCLUDED from the computation. Excluded years leave the divisor. A year that is merely
+  // MISSING data is a different state and is never inferred to be either an excluded year
+  // or a zero.
   const yearRows = [];
   let sumRevenue = 0;
   let sumIncome = 0;
@@ -209,14 +200,14 @@ export function compute(pp) {
     const isCurrent = fy !== null && currentFiscalYear !== null && fy === currentFiscalYear;
     if (isCurrent) currentYearSeen = true;
 
-    // The caller's Art 5.5.2 declaration for this year.
+    // The caller's declaration of whether this year is excluded.
     const declaredNoCEs = y.no_constituent_entities === true;
     const revenue = isFiniteNumber(y.globe_revenue_eur) ? y.globe_revenue_eur : null;
     const income = isFiniteNumber(y.globe_income_or_loss_eur) ? y.globe_income_or_loss_eur : null;
 
     if (declaredNoCEs) {
       if (isCurrent) {
-        // Art 5.5.2 permits exclusion only for "the first or second preceding Fiscal Year".
+        // The exclusion is permitted only for a preceding Fiscal Year, never the current one.
         manualReview = true;
         flags.push('CURRENT_YEAR_DECLARED_EXCLUDED');
         notes.push('Fiscal Year ' + fy + ' is the current Fiscal Year and was declared as having no Constituent Entities. Art 5.5.2 permits exclusion only for a preceding Fiscal Year.');
@@ -250,7 +241,7 @@ export function compute(pp) {
     }
 
     // Included. The income term carries its SIGN: a GloBE Loss is negative and pulls the
-    // average down (Art 5.5.3(b), Commentary paras 84 and 91).
+    // average down.
     sumRevenue += revenue;
     sumIncome += income;
     includedCount++;
@@ -270,9 +261,9 @@ export function compute(pp) {
   }
 
   // ---- 5. Partial window ---------------------------------------------------------------
-  // Fewer years than the declared window is a REAL case under Art 5.5.2, not an error. It is
-  // only reported. It becomes a review item when the shortfall is unexplained: an excluded
-  // year explains itself, a simply-absent year does not.
+  // Fewer years than the declared window is a REAL case, not an error. It is only reported.
+  // It becomes a review item when the shortfall is unexplained: an excluded year explains
+  // itself, a simply-absent year does not.
   const partialWindowUsed = windowYears !== null && includedCount > 0 && includedCount < windowYears;
   const accountedYears = includedCount + excludedCount;
   if (windowYears !== null && accountedYears < windowYears) {
@@ -291,8 +282,8 @@ export function compute(pp) {
   }
 
   // ---- 6. The two averages -------------------------------------------------------------
-  // ROUNDING STEP 1 (revenue average) and ROUNDING STEP 2 (income average): Art 5.5.2 states
-  // the average and is SILENT on any rounding mode or precision. The declared choice is to
+  // ROUNDING STEP 1 (revenue average) and ROUNDING STEP 2 (income average): the source text
+  // states the average and is SILENT on any rounding mode or precision. The declared choice is to
   // divide in IEEE-754 binary64 and apply NO rounding, so the comparison in step 3 sees the
   // full-precision quotient. See rounding_steps in the node shard: the asserted property is
   // that the choice is DECLARED, not that it is more correct than another (P27).
@@ -307,10 +298,10 @@ export function compute(pp) {
     notes.push('No Fiscal Year in the window carried amounts, so neither average is defined. Art 5.5.1 cannot be evaluated.');
   }
 
-  // ---- 7. The two conditions (Art 5.5.1) -----------------------------------------------
-  // ROUNDING STEP 3 (threshold comparison precision): the comparison is the strict "<" of
-  // Art 5.5.1 applied to the unrounded binary64 average. An average EXACTLY equal to a
-  // threshold does NOT meet the condition. Clause silent on comparison precision; declared.
+  // ---- 7. The two conditions --------------------------------------------------------
+  // ROUNDING STEP 3 (threshold comparison precision): the comparison is a strict "<"
+  // applied to the unrounded binary64 average. An average EXACTLY equal to a threshold
+  // does NOT meet the condition. Source text silent on comparison precision; declared.
   let revenueTestMet = null;
   let incomeTestMet = null;
   let incomeIsLoss = null;
@@ -319,15 +310,15 @@ export function compute(pp) {
     revenueTestMet = averageRevenue < revenueThreshold.value;
   }
   if (averageIncome !== null && incomeThreshold.value !== null) {
-    // Art 5.5.1(b) states two limbs: the average "is a loss" OR "is less than EUR 1
-    // million". Both are evaluated and reported. The loss limb is subsumed arithmetically
+    // The income condition states two limbs: the average "is a loss" OR is below the
+    // threshold. Both are evaluated and reported. The loss limb is subsumed arithmetically
     // by the threshold limb for any positive threshold, and is kept explicit so the output
-    // maps one-to-one onto the clause rather than onto a simplification of it.
+    // maps one-to-one onto the rule rather than onto a simplification of it.
     incomeIsLoss = averageIncome < 0;
     incomeTestMet = incomeIsLoss || averageIncome < incomeThreshold.value;
   }
 
-  // ---- 8. The caller's declarations (Art 5.5.1 election, Art 5.5.4 upstream exclusion) --
+  // ---- 8. The caller's declarations (the election, the upstream exclusion) -------------
   // Both are evaluated BEFORE the conjunction below, because each can raise manualReview and
   // the availability verdict is withheld whenever review is required. Evaluating them after
   // the verdict would grant availability over an input the kernel has already judged

@@ -1,6 +1,6 @@
 // art-636-globe-transition-deferred-tax-tracker.proptest.mjs — FV property-test FLOOR
 // (PILLAR2-DTTRANSITION-K-1).
-// kernel_digest_at_authoring: sha256:83dbf500143db9525e1402af5ed1d3f795fbe6454fce597f6816684ec5054a7e
+// kernel_digest_at_authoring: sha256:381375695efa58f8b47e3c7ea2e6ab96ceb63350656696fc6ac4c4ae24d24086
 // spec: research/PILLAR2-DTTRANSITION-K-1.spec.md (workspace root, untracked)
 // human_sign_off: PENDING
 //

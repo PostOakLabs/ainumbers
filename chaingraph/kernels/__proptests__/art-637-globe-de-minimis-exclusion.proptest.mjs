@@ -6,7 +6,7 @@
 // WINDOW is bounded and its paths are enumerated exhaustively below. The MONEY AXIS is not
 // bounded and NO totality claim is made over it.
 //
-// kernel_digest_at_authoring: sha256:6c793bc89b2393ccb5f62dc4970e46c0ca508f47b414fa7fe925237690106ec1
+// kernel_digest_at_authoring: sha256:f15d513b3387a912f17ff6e10150595086fb1cb79cc8e858e25fcf457844db54
 // spec: research/PILLAR2-DEMINIMIS-K-1.spec.md (Art 5.5, OECD GloBE Model Rules Dec 2021)
 // human_sign_off: PENDING
 //
