@@ -539,6 +539,7 @@ import * as art598    from './art-598-input-attestation-verifier.kernel.mjs';
 import * as art599    from './art-599-gleif-snapshot-digest.kernel.mjs';
 import * as art60     from './art-60-agent-economy-runtime-fit-diagnostic.kernel.mjs';
 import * as art600    from './art-600-lei-relationship-consistency.kernel.mjs';
+import * as art601    from './art-601-dora-roi-gleif-preflight-pack.kernel.mjs';
 import * as art602    from './art-602-mica-register-presence-check.kernel.mjs';
 import * as art603    from './art-603-stablecoin-reserve-3source-recompute.kernel.mjs';
 import * as art604    from './art-604-erc8004-registry-entry-verifier.kernel.mjs';
@@ -570,7 +571,13 @@ import * as art635    from './art-635-rate-rec-5pct-threshold-classifier.kernel.
 import * as art636    from './art-636-globe-transition-deferred-tax-tracker.kernel.mjs';
 import * as art637    from './art-637-globe-de-minimis-exclusion.kernel.mjs';
 import * as art64     from './art-64-ai-act-highrisk-fit-diagnostic.kernel.mjs';
+import * as art645    from './art-645-compute-index-weights.kernel.mjs';
+import * as art646    from './art-646-compile-rebalance-evidence-pack.kernel.mjs';
+import * as art647    from './art-647-record-index-correction.kernel.mjs';
+import * as art648    from './art-648-record-model-input-lineage.kernel.mjs';
+import * as art649    from './art-649-publish-model-risk-head.kernel.mjs';
 import * as art65     from './art-65-ai-conformity-pack-builder.kernel.mjs';
+import * as art651    from './art-651-authzen-conformance-fixture.kernel.mjs';
 import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
@@ -1160,6 +1167,7 @@ export const KERNELS = {
   'art-599-gleif-snapshot-digest':                              art599,
   'art-60-agent-economy-runtime-fit-diagnostic':                art60,
   'art-600-lei-relationship-consistency':                       art600,
+  'art-601-dora-roi-gleif-preflight-pack':                      art601,
   'art-602-mica-register-presence-check':                       art602,
   'art-603-stablecoin-reserve-3source-recompute':               art603,
   'art-604-erc8004-registry-entry-verifier':                    art604,
@@ -1191,7 +1199,13 @@ export const KERNELS = {
   'art-636-globe-transition-deferred-tax-tracker':              art636,
   'art-637-globe-de-minimis-exclusion':                         art637,
   'art-64-ai-act-highrisk-fit-diagnostic':                      art64,
+  'art-645-compute-index-weights':                              art645,
+  'art-646-compile-rebalance-evidence-pack':                    art646,
+  'art-647-record-index-correction':                            art647,
+  'art-648-record-model-input-lineage':                         art648,
+  'art-649-publish-model-risk-head':                            art649,
   'art-65-ai-conformity-pack-builder':                          art65,
+  'art-651-authzen-conformance-fixture':                        art651,
   'art-66-fria-postmarket-monitoring-builder':                  art66,
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
