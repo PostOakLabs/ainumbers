@@ -570,6 +570,8 @@ import * as art635    from './art-635-rate-rec-5pct-threshold-classifier.kernel.
 import * as art636    from './art-636-globe-transition-deferred-tax-tracker.kernel.mjs';
 import * as art637    from './art-637-globe-de-minimis-exclusion.kernel.mjs';
 import * as art64     from './art-64-ai-act-highrisk-fit-diagnostic.kernel.mjs';
+import * as art648    from './art-648-record-model-input-lineage.kernel.mjs';
+import * as art649    from './art-649-publish-model-risk-head.kernel.mjs';
 import * as art65     from './art-65-ai-conformity-pack-builder.kernel.mjs';
 import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
@@ -1191,6 +1193,8 @@ export const KERNELS = {
   'art-636-globe-transition-deferred-tax-tracker':              art636,
   'art-637-globe-de-minimis-exclusion':                         art637,
   'art-64-ai-act-highrisk-fit-diagnostic':                      art64,
+  'art-648-record-model-input-lineage':                         art648,
+  'art-649-publish-model-risk-head':                            art649,
   'art-65-ai-conformity-pack-builder':                          art65,
   'art-66-fria-postmarket-monitoring-builder':                  art66,
   'art-67-agentic-ai-risk-classifier':                          art67,
