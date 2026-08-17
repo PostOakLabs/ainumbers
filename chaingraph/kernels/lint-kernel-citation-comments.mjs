@@ -1,3 +1,9 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only swept into
+// tsc --checkJs's program because it lives under chaingraph/kernels/ (JSDOC-CHECKJS-PREFLIGHT-1's
+// path filter watches the whole directory, not just *.kernel.mjs). Without this it fails on bare
+// node:fs/process usage — a directory-wide @types/node gap (SO #47's exemption only reaches
+// chaingraph/kernels/__proptests__/), same as lint-forbidden-hash.mjs and
+// check-guest-builtin-safety.mjs already carry.
 // lint-kernel-citation-comments.mjs — KERNEL-CITATION-CLASS-1.
 //
 // RIDER-KERNEL.md's rule: .kernel.mjs is BEHAVIOUR ONLY. Citations, article numbers, and
