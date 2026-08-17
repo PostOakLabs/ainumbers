@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "attestation_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"attestation_mandate\"."
-tags: ["attestation_mandate", "count-31"]
+tags: ["attestation_mandate", "count-35"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # attestation_mandate
 
-31 tool(s) in this mandate-type group:
+35 tool(s) in this mandate-type group:
 
 - [On-Chain Cash-Leg Finality Checker](../tools/506-onchain-cash-leg-finality-checker.md)
 - [GENIUS Act Reserve Attestation Pre-Check](../tools/art-06-genius-act-reserve-attestation.md)
@@ -43,3 +43,7 @@ status: stable
 - [Record Fund Positions](../tools/art-558-record-fund-positions.md)
 - [Calculation-Agent Independence Attestation](../tools/art-559-attest-calc-agent-independence.md)
 - [PE Distribution Waterfall LP-Side Recompute](../tools/art-567-pe-waterfall-lp-recompute.md)
+- [Compute Index Weights](../tools/art-645-compute-index-weights.md)
+- [Record Index Correction](../tools/art-647-record-index-correction.md)
+- [Record Model Input Lineage](../tools/art-648-record-model-input-lineage.md)
+- [Publish Model Risk Head](../tools/art-649-publish-model-risk-head.md)
