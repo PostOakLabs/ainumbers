@@ -231,6 +231,7 @@ export const COVERED = [
       'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
       'mcp.html', 'chaingraph/chaingraph-hub.html',
       'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      'fv-explainer.html',
       '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
       'llms.txt',
       // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
