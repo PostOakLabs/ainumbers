@@ -44,7 +44,7 @@
 
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { KERNELS } from './index.mjs';
 import { runKernelInVM } from '../vm/kernel-vm.mjs';
 
@@ -98,14 +98,25 @@ const findings = [];
 const knownHits = [];
 
 let toolIds = Object.keys(KERNELS);
+const FALLBACK_KERNELS = {};
 if (ONLY_ID) {
   if (!toolIds.includes(ONLY_ID)) {
-    throw new Error(`check-guest-builtin-safety.mjs --only ${ONLY_ID}: no such kernel id in index.mjs.`);
+    // chaingraph/kernels/index.mjs is a shared derived artifact (SO #35) — since
+    // 2026-08-17 its single writer is the main-side regen bot, which runs AFTER
+    // merge. A brand-new kernel on an unmerged ASSEMBLE branch legitimately has no
+    // entry yet; failing closed here made --only unusable for exactly the check it
+    // exists to run (ASSEMBLE-LAND-0817-1, 2026-08-17). Import the kernel file
+    // directly when the file is present on disk but not yet indexed.
+    const modPath = resolve(HERE, `${ONLY_ID}.kernel.mjs`);
+    if (!existsSync(modPath)) {
+      throw new Error(`check-guest-builtin-safety.mjs --only ${ONLY_ID}: no such kernel id in index.mjs, and no ${ONLY_ID}.kernel.mjs on disk.`);
+    }
+    FALLBACK_KERNELS[ONLY_ID] = await import(pathToFileURL(modPath).href);
   }
   toolIds = [ONLY_ID];
 }
 for (const id of toolIds) {
-  const kernel = KERNELS[id];
+  const kernel = FALLBACK_KERNELS[id] || KERNELS[id];
   if (kernel?.meta?.gpu === true) { skippedGpu++; continue; } // out of scope, same as vm-parity-gate.mjs (§24.0)
   if (kernel?.meta?.private_input_profile) { skippedPrivateInput++; continue; } // §25 profile, same exclusion as vm-parity-gate.mjs
 

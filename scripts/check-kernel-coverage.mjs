@@ -11,6 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainContext } from './derived-artifacts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CG = resolve(HERE, '..', 'chaingraph');
@@ -31,6 +32,15 @@ if (unported.length) {
   for (const t of unported) console.error('  • ' + t);
   console.error("\nFor each: add `import * as X from './<tool_id>.kernel.mjs';` AND a `'<tool_id>': X,` entry to the KERNELS map in index.mjs.");
   console.error('(CONTRACT §A4. Mirrors the worker post-deploy kernel-coverage gate — caught here BEFORE push instead of as red CI after deploy.)');
+  // chaingraph/kernels/index.mjs is a SHARED DERIVED artifact with a single writer: main (SO #35).
+  // A PR that adds kernels therefore CANNOT register them here — the regen bot does, after merge.
+  // So this gate is by-construction red pre-merge, exactly like the derived-freshness gates:
+  // advisory on pull_request AND merge_group, hard only on push:main. Third instance of this class
+  // in one row — see also check-guest-builtin-safety.mjs and vm-parity-gate.mjs --only fallbacks.
+  if (!isMainContext()) {
+    console.error('::warning title=Advisory: kernel-coverage::index.mjs is single-writer on main (SO #35); the regen bot registers these after merge.');
+    process.exit(0);
+  }
   process.exit(1);
 }
 console.log(`✓ kernel-coverage clean — all ${gpuFalse.length} gpu:false live nodes registered in index.mjs (${registered.size} kernels).`);

@@ -542,6 +542,7 @@ status: stable
 - [GLEIF Snapshot Digest](./art-599-gleif-snapshot-digest.md) — `digest_gleif_snapshot`
 - [Agent Economy Runtime Fit Diagnostic](./art-60-agent-economy-runtime-fit-diagnostic.md) — `run_agent_economy_fit`
 - [LEI Relationship Consistency Checker](./art-600-lei-relationship-consistency.md) — `check_lei_relationship_consistency`
+- [Dora Roi Gleif Preflight Pack](./art-601-dora-roi-gleif-preflight-pack.md) — `compute_dora_roi_gleif_preflight_pack`
 - [MiCA Register Presence Check](./art-602-mica-register-presence-check.md) — `check_mica_register_presence`
 - [Stablecoin Reserve 3-Source Recompute](./art-603-stablecoin-reserve-3source-recompute.md) — `recompute_stablecoin_reserve_3source`
 - [ERC-8004 Registry Entry Verifier](./art-604-erc8004-registry-entry-verifier.md) — `verify_erc8004_registry_entry`
@@ -573,7 +574,13 @@ status: stable
 - [GloBE Article 9.1 Transition Deferred Tax Tracker](./art-636-globe-transition-deferred-tax-tracker.md) — `track_globe_transition_deferred_tax`
 - [GloBE Permanent De Minimis Exclusion Evaluator](./art-637-globe-de-minimis-exclusion.md) — `evaluate_globe_de_minimis_exclusion`
 - [EU AI Act High-Risk Fit & Classification Diagnostic](./art-64-ai-act-highrisk-fit-diagnostic.md) — `run_ai_act_highrisk_fit`
+- [Compute Index Weights](./art-645-compute-index-weights.md) — `compute_index_weights`
+- [Compile Rebalance Evidence Pack](./art-646-compile-rebalance-evidence-pack.md) — `compile_rebalance_evidence_pack`
+- [Record Index Correction](./art-647-record-index-correction.md) — `record_index_correction`
+- [Record Model Input Lineage](./art-648-record-model-input-lineage.md) — `record_model_input_lineage`
+- [Publish Model Risk Head](./art-649-publish-model-risk-head.md) — `publish_model_risk_head`
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md) — `build_ai_conformity_pack`
+- [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md) — `compute_authzen_conformance_fixture`
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md) — `build_fria_monitoring_plan`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
