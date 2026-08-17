@@ -89,6 +89,13 @@ const CI_ONLY = new Map([
     "pull_request should run its substantive job. Reads github.event.pull_request base/head " +
     "SHAs from env:, meaningless outside an actual PR event; always exits 0 (never a pass/fail " +
     "gate, so it has nothing preflight.mjs could usefully assert)."],
+  ["run-gate.mjs",
+    "LAND-VERIFY-ADVISORY-SPLIT-1 dispatcher, not a gate itself — it wraps the SAME command " +
+    "strings this regex already extracts from the workflow text (e.g. verify-counts.mjs, " +
+    "check-nav-reachability.mjs), which land on preflight.mjs's own parity requirement via " +
+    "their own basenames. preflight.mjs applies the identical PR-advisory/main-blocking split " +
+    "inline via derived-artifacts.mjs's isMainContext()/advisoryGates() (no separate CLI " +
+    "invocation needed locally), so run-gate.mjs itself has nothing for preflight to run."],
 ]);
 
 function nodeGates(text) {
