@@ -20,11 +20,24 @@
 // SCITT artifacts. Authoring our own SCITT I-D is a separate queued row
 // (MERKLE-PROGRAM) gated on IETF 127 — untouched here.
 //
+// Generic third-party receipt verification (BUILD-SCITT-VERIFY-GENERIC-1):
+// `verify-receipt` reads a caller-supplied `application/scitt-receipt+cose`
+// receipt from ANY issuer — not just this exporter's own round-trip — by
+// parsing the real RFC 9942 COSE header parameters (vds=395, vdp=396) off
+// the receipt's own protected/unprotected headers, per
+// research/COSE-RECEIPT-HEADER-FINDINGS-2026-08-10.md. It reports the
+// statement-signature check and the receipt-inclusion-proof check as two
+// independent PASS/FAIL/NOT_CHECKED verdicts (never one blended boolean),
+// and it never fetches a log root itself — the root is always a
+// caller-supplied input (SPEC-SCITT-GENERIC-VERIFY-1-2026-08-09.md §6).
+//
 // Usage:
 //   node export-scitt.mjs keygen [--alg es256|ed25519] [--out-prefix ./scitt-key]
 //   node export-scitt.mjs sign <artifact.json> --key <priv.jwk.json> [--out out.cose]
 //   node export-scitt.mjs verify-statement <statement.cose> --pubkey <pub.jwk.json> --payload <artifact.json>
-//   node export-scitt.mjs verify-receipt <receipt.cose> <statement.cose>
+//   node export-scitt.mjs verify-receipt <receipt.cose> [<statement.cose>] --expected-root <hex>
+//       [--leaf-hash <hex>] [--payload <payload.json>] [--pubkey <pub.jwk.json>]
+//       [--alg es256|ed25519] [--proof-type <n>] [--media-type <type>]
 //   node export-scitt.mjs selftest
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -176,13 +189,24 @@ async function verifyStatement({ coseBytes, payload, publicKey, alg }) {
 // ---------------------------------------------------------------------------
 // COSE Receipts (RFC 9942) inclusion-proof walk. RFC 9942 wraps a Merkle
 // verifiable-data-structure proof (RFC 9162 Merkle Tree combining/inclusion
-// algorithm) inside a COSE_Sign1's unprotected header. This walker
-// implements the RFC 9162 §2.1.3.2 inclusion-proof verification algorithm
-// directly against {leaf_hash, leaf_index, tree_size, audit_path[]} —
-// independent of which COSE header label a given transparency service uses
-// to carry that tuple, since a live service (DataTrails / MS Signing
-// Transparency) is FLAG-AND-WAIT (SO #8) and not reachable from this
-// offline build environment. Proven here via `selftest`'s self-built tree.
+// algorithm) inside a COSE_Sign1's own protected/unprotected header, using
+// three registered COSE header parameters (confirmed against rfc-editor.org
+// 2026-08-10, research/COSE-RECEIPT-HEADER-FINDINGS-2026-08-10.md):
+//   receipts = 394  (array of one or more COSE Receipts, used when a
+//                     STATEMENT carries receipts attached to it — not
+//                     produced or consumed by this verifier, which is
+//                     handed a receipt directly)
+//   vds      = 395  (protected header: verifiable-data-structure algorithm
+//                     identifier for the receipt itself)
+//   vdp      = 396  (unprotected header: map of Verifiable Data Proofs,
+//                     keyed by proof type)
+// This walker implements the RFC 9162 §2.1.3.2 inclusion-proof verification
+// algorithm directly against {leaf_hash, leaf_index, tree_size,
+// audit_path[]} — the RFC 9942 wire shape for an RFC 9162 SHA-256 inclusion
+// proof entry inside `vdp` is `[tree_size, leaf_index, inclusion_path: [+
+// bstr]]` (findings doc §a). No live transparency-service call is made or
+// needed: the root is always a caller-supplied input (see `verify-receipt`
+// below and SPEC-SCITT-GENERIC-VERIFY-1-2026-08-09.md §6).
 // ---------------------------------------------------------------------------
 
 async function sha256(...parts) {
@@ -235,21 +259,121 @@ async function verifyInclusion({ leafHash: lh, index, treeSize, auditPath, root 
   return sn === 0 && Buffer.compare(r, root) === 0;
 }
 
-async function verifyReceiptFile({ receiptBytes, statementBytes }) {
-  // A real RFC 9942 receipt: COSE_Sign1 whose unprotected header carries the
-  // transparency service's signature over the tree head plus the inclusion
-  // proof for this statement. We decode the CBOR envelope and hand the
-  // {leaf, index, tree_size, audit_path} tuple to verifyInclusion — the
-  // exact unprotected-header label used to reach that tuple varies by
-  // service and is filled in against a live receipt once DataTrails/MS
-  // registration (FLAG-AND-WAIT, SO #8) is authorized and exercised.
-  const receipt = cborDecode(receiptBytes);
-  const [, unprotected] = receipt;
-  const proof = unprotected instanceof Map ? unprotected.get('inclusion-proof') : undefined;
-  if (!proof) throw new Error('verify-receipt: no inclusion-proof entry in unprotected header (expected shape not yet confirmed against a live service — see header comment)');
-  const [index, treeSize, auditPath, root] = proof;
-  const lh = await leafHash(statementBytes);
-  return verifyInclusion({ leafHash: lh, index, treeSize, auditPath, root });
+const COSE_HEADER = { RECEIPTS: 394, VDS: 395, VDP: 396 };
+const SCITT_RECEIPT_MEDIA_TYPE = 'application/scitt-receipt+cose';
+
+// §5.2 of SPEC-SCITT-GENERIC-VERIFY-1-2026-08-09.md, shipped verbatim in
+// substance in the tool's own output — never silently omitted.
+const PASS_MEANING_DISCLOSURE = [
+  'A verified receipt proves that a statement was registered in the named',
+  "log, at or before the time reflected by the log's tree state the root",
+  "corresponds to. It proves nothing about the statement's truth, about",
+  "whether the statement's claims are accurate, or about the log operator's",
+  'own trustworthiness or continued operation. A verified signature',
+  'additionally proves the named issuer signed the statement — it does not',
+  'prove the issuer is who they claim to be, absent independent identity',
+  'verification.',
+].join(' ');
+
+// Structural check for the RFC 9942 inclusion-proof entry shape:
+// [tree_size: uint, leaf_index: uint, inclusion_path: [+ bstr]].
+function parseInclusionProofEntry(entry) {
+  if (!Array.isArray(entry) || entry.length !== 3) return null;
+  const [treeSize, leafIndex, inclusionPath] = entry;
+  if (typeof treeSize !== 'number' || typeof leafIndex !== 'number') return null;
+  if (!Array.isArray(inclusionPath) || !inclusionPath.every((p) => Buffer.isBuffer(p))) return null;
+  return { treeSize, leafIndex, inclusionPath };
+}
+
+// Decodes a caller-supplied receipt (ANY issuer, not just this exporter's
+// own) as a COSE_Sign1 and locates its RFC 9942 vds(395)/vdp(396) header
+// parameters. Does NOT verify the receipt's own COSE signature — that is
+// out of this tool's two checks (§5.1: statement signature + receipt
+// inclusion proof), same scope the original exporter used.
+function decodeCoseReceipt(receiptBytes) {
+  const tagged = cborDecode(receiptBytes);
+  if (!Array.isArray(tagged) || tagged.length !== 4) {
+    throw new Error('verify-receipt: receipt is not a well-formed COSE_Sign1 (expected a 4-element CBOR array)');
+  }
+  const [protectedBytes, unprotected] = tagged;
+  const protectedMap = protectedBytes && protectedBytes.length ? cborDecode(protectedBytes) : new Map();
+  const vds = protectedMap instanceof Map ? protectedMap.get(COSE_HEADER.VDS) : undefined;
+  const vdp = unprotected instanceof Map ? unprotected.get(COSE_HEADER.VDP) : undefined;
+  if (vds === undefined) {
+    throw new Error(`verify-receipt: protected header missing vds (label ${COSE_HEADER.VDS}, RFC 9942) — not a recognizable COSE Receipt`);
+  }
+  if (!(vdp instanceof Map) || vdp.size === 0) {
+    throw new Error(`verify-receipt: unprotected header missing vdp (label ${COSE_HEADER.VDP}, RFC 9942) — not a recognizable COSE Receipt`);
+  }
+  // vdp is keyed by proof type per RFC 9942 §4.2. The confirmed build-time
+  // findings (COSE-RECEIPT-HEADER-FINDINGS-2026-08-10.md) pin the RFC 9162
+  // SHA-256 inclusion-proof array shape but not a specific proof-type key
+  // number, so this walker recognizes ANY vdp entry structurally matching
+  // that shape rather than assuming one fixed key — and requires the caller
+  // to disambiguate via --proof-type if more than one entry qualifies.
+  const candidates = [];
+  for (const [proofType, value] of vdp.entries()) {
+    // A vdp value is either a single proof entry [tree_size, leaf_index,
+    // path] or an array of such entries — distinguish by whether the first
+    // element is itself an array (a list of entries) vs a number (one
+    // entry), so a lone triple is never misread as three separate entries.
+    const entries = Array.isArray(value) && Array.isArray(value[0]) ? value : [value];
+    for (const entry of entries) {
+      const parsed = parseInclusionProofEntry(entry);
+      if (parsed) candidates.push({ proofType, ...parsed });
+    }
+  }
+  if (candidates.length === 0) {
+    throw new Error('verify-receipt: no RFC 9162-shaped inclusion-proof entry found in vdp map');
+  }
+  return { vds, candidates };
+}
+
+// Generic inclusion-proof check: accepts a receipt from ANY issuer plus
+// either the original statement bytes (to recompute the leaf) or a
+// caller-supplied leaf hash directly — the §4/§5 calling convention this
+// row exists to add. Never fetches the expected root; it is always
+// caller-supplied (§6).
+async function verifyReceiptGeneric({ receiptBytes, leafHashBuf, expectedRoot, proofType }) {
+  const { candidates } = decodeCoseReceipt(receiptBytes);
+  let chosen;
+  if (proofType !== undefined) {
+    chosen = candidates.find((c) => String(c.proofType) === String(proofType));
+    if (!chosen) {
+      throw new Error(`verify-receipt: no inclusion-proof entry for --proof-type ${proofType} (available: ${candidates.map((c) => c.proofType).join(', ')})`);
+    }
+  } else if (candidates.length === 1) {
+    chosen = candidates[0];
+  } else {
+    throw new Error(`verify-receipt: receipt carries ${candidates.length} inclusion-proof-shaped vdp entries; pass --proof-type to disambiguate (available: ${candidates.map((c) => c.proofType).join(', ')})`);
+  }
+  const ok = await verifyInclusion({
+    leafHash: leafHashBuf,
+    index: chosen.leafIndex,
+    treeSize: chosen.treeSize,
+    auditPath: chosen.inclusionPath,
+    root: expectedRoot,
+  });
+  return { ok, proofType: chosen.proofType, treeSize: chosen.treeSize, leafIndex: chosen.leafIndex };
+}
+
+// Generic statement-signature check: accepts a third-party statement whose
+// payload may be embedded (tagged[2] non-null) or detached (--payload
+// supplied), unlike the exporter's own signStatement/verifyStatement pair
+// which only ever produces detached-payload statements.
+async function verifyStatementGeneric({ statementBytes, payloadBytes, publicKey, alg }) {
+  const tagged = cborDecode(statementBytes);
+  if (!Array.isArray(tagged) || tagged.length !== 4) {
+    throw new Error('verify-receipt: statement is not a well-formed COSE_Sign1 (expected a 4-element CBOR array)');
+  }
+  const [protectedBytes, , embeddedPayload, signature] = tagged;
+  const payload = payloadBytes ?? embeddedPayload;
+  if (!Buffer.isBuffer(payload)) {
+    throw new Error('verify-receipt: statement payload is detached and no --payload was supplied');
+  }
+  const sigStructure = ['Signature1', protectedBytes, Buffer.alloc(0), payload];
+  const tbs = cborEncode(sigStructure);
+  return subtle.verify(SIGN_PARAMS[alg], publicKey, signature, tbs);
 }
 
 // ---------------------------------------------------------------------------
@@ -320,10 +444,57 @@ async function main() {
 
   if (cmd === 'verify-receipt') {
     const [receiptPath, statementPath] = rest;
-    if (!receiptPath || !statementPath) throw new Error('usage: verify-receipt <receipt.cose> <statement.cose>');
-    const ok = await verifyReceiptFile({ receiptBytes: readFileSync(receiptPath), statementBytes: readFileSync(statementPath) });
-    console.log(ok ? 'VALID' : 'INVALID');
-    process.exit(ok ? 0 : 1);
+    const mediaType = flag(rest, 'media-type', SCITT_RECEIPT_MEDIA_TYPE);
+    const expectedRootHex = flag(rest, 'expected-root');
+    const leafHashHex = flag(rest, 'leaf-hash');
+    const payloadPath = flag(rest, 'payload');
+    const pubkeyPath = flag(rest, 'pubkey');
+    const alg = flag(rest, 'alg', 'es256');
+    const proofType = flag(rest, 'proof-type');
+    if (!receiptPath) throw new Error('usage: verify-receipt <receipt.cose> [<statement.cose>] --expected-root <hex> [--leaf-hash <hex>] [--payload <payload.json>] [--pubkey <pub.jwk.json>] [--alg es256|ed25519] [--proof-type <n>] [--media-type <type>]');
+
+    // (a) media-type check — a receipt's bytes carry no embedded media type
+    // (that lives at the transport layer, e.g. an HTTP Content-Type), so the
+    // caller declares what they received and this fails closed on mismatch
+    // rather than silently assuming the SCITT receipt media type.
+    if (mediaType !== SCITT_RECEIPT_MEDIA_TYPE) {
+      console.log(`media-type: FAIL (expected ${SCITT_RECEIPT_MEDIA_TYPE}, got ${mediaType})`);
+      console.log('statement-signature: NOT_CHECKED');
+      console.log('receipt-inclusion:   NOT_CHECKED');
+      console.log(`\n${PASS_MEANING_DISCLOSURE}`);
+      process.exit(1);
+    }
+
+    const receiptBytes = readFileSync(receiptPath);
+    const statementBytes = statementPath ? readFileSync(statementPath) : undefined;
+
+    // §5.1 check 1: statement signature (optional — needs pubkey + statement).
+    let sigVerdict = 'NOT_CHECKED';
+    if (pubkeyPath && statementBytes) {
+      const publicKey = await importPublicJwk(JSON.parse(readFileSync(pubkeyPath, 'utf8')), alg);
+      const payloadBytes = payloadPath ? readFileSync(payloadPath) : undefined;
+      const sigOk = await verifyStatementGeneric({ statementBytes, payloadBytes, publicKey, alg });
+      sigVerdict = sigOk ? 'PASS' : 'FAIL';
+    }
+
+    // §5.1 check 2: receipt inclusion proof (needs expected root + a leaf,
+    // from either --leaf-hash directly or the statement bytes).
+    let inclusionVerdict = 'NOT_CHECKED';
+    if (expectedRootHex) {
+      const expectedRoot = Buffer.from(expectedRootHex, 'hex');
+      const leafHashBuf = leafHashHex ? Buffer.from(leafHashHex, 'hex')
+        : statementBytes ? await leafHash(statementBytes)
+        : undefined;
+      if (!leafHashBuf) throw new Error('verify-receipt: --expected-root given but no leaf to check — supply <statement.cose> or --leaf-hash');
+      const { ok } = await verifyReceiptGeneric({ receiptBytes, leafHashBuf, expectedRoot, proofType });
+      inclusionVerdict = ok ? 'PASS' : 'FAIL';
+    }
+
+    console.log(`statement-signature: ${sigVerdict}`);
+    console.log(`receipt-inclusion:   ${inclusionVerdict}`);
+    console.log(`\n${PASS_MEANING_DISCLOSURE}`);
+    const failed = sigVerdict === 'FAIL' || inclusionVerdict === 'FAIL';
+    process.exit(failed ? 1 : 0);
   }
 
   if (cmd === 'selftest') {
@@ -350,6 +521,37 @@ async function main() {
       const badOk = await verifyInclusion({ leafHash: await leafHash(Buffer.from('not-a-leaf')), index: 0, treeSize: leaves.length, auditPath: await proofFor(0), root });
       console.log(`[merkle] RFC 9162 inclusion-proof walk (7 leaves, all indices): ${treeOk ? 'PASS' : 'FAIL'}; tampered leaf rejected: ${!badOk ? 'PASS' : 'FAIL'}`);
       if (!treeOk || badOk) failures++;
+    }
+    {
+      // Synthetic THIRD-PARTY-shaped receipt — built with real RFC 9942
+      // header labels (vds=395, vdp=396), NOT via signStatement/this
+      // exporter's own export path, to prove verifyReceiptGeneric works on
+      // a receipt shape it never issued itself.
+      const leaves = Array.from({ length: 5 }, (_, i) => Buffer.from(`third-party-leaf-${i}`));
+      const { root, proofFor } = await buildMerkleTree(leaves);
+      const targetIndex = 2;
+      const auditPath = await proofFor(targetIndex);
+      const lh = await leafHash(leaves[targetIndex]);
+
+      const protectedBytes = cborEncode(new Map([[COSE_HEADER.VDS, 1]])); // vds value informational, not branched on
+      const vdpMap = new Map([[1, [leaves.length, targetIndex, auditPath]]]);
+      const unprotectedMap = new Map([[COSE_HEADER.VDP, vdpMap]]);
+      const syntheticReceipt = cborEncodeTag(18, cborEncode([protectedBytes, unprotectedMap, null, Buffer.alloc(0)]));
+
+      const { ok: thirdPartyOk } = await verifyReceiptGeneric({ receiptBytes: syntheticReceipt, leafHashBuf: lh, expectedRoot: root });
+      const { ok: tamperedOk } = await verifyReceiptGeneric({ receiptBytes: syntheticReceipt, leafHashBuf: await leafHash(Buffer.from('not-a-leaf')), expectedRoot: root });
+
+      let disambiguationRejected = false;
+      try {
+        const twoEntryVdp = new Map([[1, [leaves.length, targetIndex, auditPath]], [2, [leaves.length, targetIndex, auditPath]]]);
+        const ambiguousReceipt = cborEncodeTag(18, cborEncode([protectedBytes, new Map([[COSE_HEADER.VDP, twoEntryVdp]]), null, Buffer.alloc(0)]));
+        await verifyReceiptGeneric({ receiptBytes: ambiguousReceipt, leafHashBuf: lh, expectedRoot: root });
+      } catch {
+        disambiguationRejected = true;
+      }
+
+      console.log(`[synthetic-third-party] RFC 9942 vds/vdp header parse + inclusion check: ${thirdPartyOk ? 'PASS' : 'FAIL'}; tampered leaf rejected: ${!tamperedOk ? 'PASS' : 'FAIL'}; ambiguous proof-type requires --proof-type: ${disambiguationRejected ? 'PASS' : 'FAIL'}`);
+      if (!thirdPartyOk || tamperedOk || !disambiguationRejected) failures++;
     }
     console.log(failures === 0 ? '\nselftest: ALL PASS' : `\nselftest: ${failures} FAILURE(S)`);
     process.exit(failures === 0 ? 0 : 1);
