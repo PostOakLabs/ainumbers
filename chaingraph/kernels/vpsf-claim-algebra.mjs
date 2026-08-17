@@ -111,12 +111,26 @@ export function checkClaimStructure(claim, claimType) {
 // this module never reads the clock (SO #0 CHAINPOINT GUARD — pure functions).
 // ---------------------------------------------------------------------------
 
+/**
+ * @param {object} opts
+ * @param {string} opts.leftHash
+ * @param {string} opts.rightHash
+ * @param {number} opts.issuedAt
+ * @param {{left_subject: string, right_subject: string}} [opts.subjectDisclosure]
+ */
 export function conjunctionPreimage({ leftHash, rightHash, issuedAt, subjectDisclosure }) {
   const obj = { operator: 'conjunction', left: leftHash, right: rightHash, issued_at: issuedAt };
   if (subjectDisclosure) obj.subject_disclosure = subjectDisclosure;
   return obj;
 }
 
+/**
+ * @param {object} opts
+ * @param {string} opts.antecedentHash
+ * @param {string} opts.consequentHash
+ * @param {number} opts.issuedAt
+ * @param {{left_subject: string, right_subject: string}} [opts.subjectDisclosure]
+ */
 export function implicationPreimage({ antecedentHash, consequentHash, issuedAt, subjectDisclosure }) {
   const obj = { operator: 'implication', antecedent: antecedentHash, consequent: consequentHash, issued_at: issuedAt };
   if (subjectDisclosure) obj.subject_disclosure = subjectDisclosure;
@@ -127,6 +141,14 @@ export function implicationPreimage({ antecedentHash, consequentHash, issuedAt, 
 // serialisation — the caller passes them in that order; this module does not
 // silently re-sort (a verifier "MUST validate the preimage structure as
 // presented" per §4.3.2, never regroup or reorder operands itself).
+/**
+ * @param {object} opts
+ * @param {string[]} opts.operandHashes
+ * @param {string} opts.currency
+ * @param {string} opts.totalAmount
+ * @param {number} opts.issuedAt
+ * @param {string[]} [opts.subjects]
+ */
 export function aggregationPreimage({ operandHashes, currency, totalAmount, issuedAt, subjects }) {
   const obj = {
     operator: 'aggregation', operands: operandHashes, currency,

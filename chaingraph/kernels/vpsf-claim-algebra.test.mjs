@@ -123,7 +123,7 @@ await test('checkClaimStructure rejects an unknown claim_type', () => {
 await test('sameSubject applies NFC normalization per S2.1', () => {
   const nfc = 'agent-é'; // precomposed e-acute (U+00E9)
   const nfd = 'agent-é'; // e (U+0065) + combining acute accent (U+0301)
-  assert(nfc !== nfd, 'fixture sanity: NFC and NFD forms must be different byte sequences before normalization');
+  assert(String(nfc) !== String(nfd), 'fixture sanity: NFC and NFD forms must be different byte sequences before normalization');
   assert(sameSubject(nfc, nfd), 'NFC and NFD encodings of the same subject must compare equal after normalization');
   assert(!sameSubject('a', 'b'));
 });
@@ -136,4 +136,10 @@ await test('CLAIM_TYPES and OPERATORS match S3.2 / S4 exactly', () => {
 globalThis.fetch = originalFetch;
 
 console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+// Not `process.exit(1)` — the JSDoc CheckJS gate (JSDOC-CHECKJS-PREFLIGHT-1)
+// has no ambient `process` declaration for kernel-directory .mjs files
+// (chaingraph/kernels/globals.d.ts declares only scalbn), and this file's
+// own fence does not include re-deriving that estate-wide gap. Throwing on
+// failure is equivalent for `node vpsf-claim-algebra.test.mjs` (an uncaught
+// exception exits non-zero) without referencing the undeclared global.
+if (failed > 0) throw new Error(`${failed} test(s) failed`);
