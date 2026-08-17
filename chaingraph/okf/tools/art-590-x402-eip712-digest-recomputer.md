@@ -30,7 +30,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** _none (root node)_
 
-**Feeds:** _terminal node_
+**Feeds:** [x402 Signer Recovery Verifier](./art-591-x402-signer-recovery-verifier.md)
 
 ## Attested computation
 
