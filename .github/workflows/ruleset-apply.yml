@@ -1,0 +1,156 @@
+name: Ruleset Apply
+
+# Puts branch ruleset `main-ci-anchor` (id 20721322) under version control.
+# .github/rulesets/main-ci-anchor.json IS the ruleset — edit it via PR, this
+# workflow applies it. Never hand-PUT the live ruleset again.
+#
+# Why an App token and not GITHUB_TOKEN: this workflow administers a
+# ruleset, which needs Repository administration: write — a permission
+# GITHUB_TOKEN cannot hold no matter what the `permissions:` block says.
+# The org-owned `ainumbers-spec-sync` App is already a bypass actor on this
+# ruleset (see the file), so it can act even while the ruleset it is
+# editing is active and enforced.
+#
+# Diff-first, always: every run (including a real apply) starts by fetching
+# the live ruleset and normalizing both bodies (scripts/ruleset-diff.mjs
+# strips read-only fields and sorts arrays) before deciding whether there
+# is anything to do. A PUT only fires when the normalized bodies differ.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/rulesets/**'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Diff against live only — never PUT'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ruleset-apply
+  cancel-in-progress: false
+
+env:
+  RULESET_ID: 20721322
+  RULESET_FILE: .github/rulesets/main-ci-anchor.json
+
+jobs:
+  apply:
+    name: Diff and apply main-ci-anchor
+    runs-on: ubuntu-latest
+    # workflow_dispatch cannot be exercised on a branch until this file exists
+    # on the default branch, so a dry-run proof isn't possible in the PR that
+    # first adds it. Landing disabled here, dry-running from main once merged,
+    # then enabling in a follow-up PR — never "merge and see".
+    if: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      # Mints a credential scoped to this one repo, administration:write
+      # only, expiring with the job. Requires the App's installed
+      # permissions to include repository administration — if that grant
+      # is missing, this step fails loudly, which is the correct blocked
+      # state: no live ruleset was touched.
+      - name: Mint ruleset-admin token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-administration: write
+
+      - name: Fetch live ruleset
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets/${RULESET_ID}" > /tmp/live-before.json
+
+      - name: Diff file against live
+        id: diff
+        run: |
+          set +e
+          node scripts/ruleset-diff.mjs "$RULESET_FILE" /tmp/live-before.json > /tmp/diff-before.txt
+          echo "identical=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          cat /tmp/diff-before.txt
+          {
+            echo "### Ruleset diff (file vs live, before apply)";
+            echo '```';
+            cat /tmp/diff-before.txt;
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Bootstrap-paradox guard: the file must always keep the App itself
+      # (4152587) and the human bypass role (4437167) as bypass actors — a
+      # PUT that dropped them would lock out the next apply. Reads the file
+      # that is ABOUT to be PUT, not any claim already accepted about it.
+      - name: Assert bypass actors present in file
+        if: steps.diff.outputs.identical != '0'
+        run: |
+          set -euo pipefail
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync(process.env.RULESET_FILE, 'utf8'));
+            const ids = (r.bypass_actors || []).map(a => a.actor_id);
+            for (const id of [4152587, 4437167]) {
+              if (!ids.includes(id)) { console.error('Missing required bypass actor ' + id); process.exit(1); }
+            }
+            console.log('bypass actors OK:', ids);
+          "
+
+      - name: No-op — file already matches live
+        if: steps.diff.outputs.identical == '0'
+        run: echo "✅ ${RULESET_FILE} already matches the live ruleset — nothing to apply." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry run — stop before PUT
+        if: steps.diff.outputs.identical != '0' && (github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
+        run: echo "🔎 dry_run=true — diff above would be applied, but no PUT was made." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply ruleset
+        id: put
+        if: steps.diff.outputs.identical != '0' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/rulesets/${RULESET_ID}" --input "$RULESET_FILE" > /tmp/put-response.json
+          echo "applied=true" >> "$GITHUB_OUTPUT"
+
+      # Re-fetch after the PUT and normalize-diff again rather than trusting
+      # the PUT response or the file's own claim about itself.
+      - name: Verify live now matches file
+        if: steps.put.outputs.applied == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets/${RULESET_ID}" > /tmp/live-after.json
+          if node scripts/ruleset-diff.mjs "$RULESET_FILE" /tmp/live-after.json > /tmp/diff-after.txt; then
+            echo "✅ live ruleset now matches ${RULESET_FILE}." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error title=Ruleset apply did not converge::PUT succeeded but a re-fetch still diverges from the file."
+            cat /tmp/diff-after.txt
+            {
+              echo "### ❌ Post-apply diff (file vs live, after PUT)";
+              echo '```';
+              cat /tmp/diff-after.txt;
+              echo '```';
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

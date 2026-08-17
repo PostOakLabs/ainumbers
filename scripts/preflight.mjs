@@ -467,6 +467,10 @@ const GATES = [
   // derived-artifacts-regen.yml, eleven red runs in three hours. Parity below reads gate names
   // out of these files, so it silently sees nothing when the YAML is broken.
   ['Workflow YAML parses (on + jobs)', 'python scripts/check-workflow-yaml.py'],
+  // JSON-parse + no-read-only-fields check for .github/rulesets/*.json (RULESET-AS-CODE-1).
+  // Purely local — the "does it match live" half needs an App token and stays CI-only
+  // (ruleset-apply.yml / ruleset-drift-gate.yml).
+  ['Ruleset files parse (no read-only API fields)', 'node scripts/check-ruleset-json.mjs'],
   // Every artifact the main-side regen declares must exist on disk — the workflow stages by
   // that exact list and a phantom entry aborts `git add` (measured 2026-08-16: two phantom
   // catalog paths zeroed the stage and misreported every real artifact as escaped).

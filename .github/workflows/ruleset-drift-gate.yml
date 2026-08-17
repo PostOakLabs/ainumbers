@@ -1,0 +1,71 @@
+name: Ruleset Drift Gate
+
+# Catches a hand-PUT that bypassed .github/rulesets/main-ci-anchor.json —
+# the other direction from ruleset-apply.yml. Read-only: mints an App
+# token scoped to administration:READ, never write, so this workflow
+# cannot itself change the ruleset even in a bug. Runs weekly and on
+# demand.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Monday 06:17 UTC — arbitrary offset, avoids the hourly stampede
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  RULESET_ID: 20721322
+  RULESET_FILE: .github/rulesets/main-ci-anchor.json
+
+jobs:
+  drift-check:
+    name: Compare live ruleset to repo-owned file
+    runs-on: ubuntu-latest
+    # Same disabled-first landing as ruleset-apply.yml — workflow_dispatch
+    # can't be exercised on a branch until this file exists on the default
+    # branch, so it lands disabled and is enabled in a follow-up PR.
+    if: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Mint read-only ruleset token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-administration: read
+
+      - name: Fetch live ruleset
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh api "repos/${GITHUB_REPOSITORY}/rulesets/${RULESET_ID}" > /tmp/live.json
+
+      - name: Diff file against live
+        run: |
+          set -euo pipefail
+          if node scripts/ruleset-diff.mjs "$RULESET_FILE" /tmp/live.json > /tmp/diff.txt; then
+            echo "✅ live ruleset matches ${RULESET_FILE}." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error title=Ruleset drift detected::The live ruleset no longer matches ${RULESET_FILE} — someone hand-PUT a change outside a PR. Open a PR against the file (or revert the live change) to reconcile."
+            cat /tmp/diff.txt
+            {
+              echo "### ❌ Drift detected — live ruleset vs ${RULESET_FILE}";
+              echo '```';
+              cat /tmp/diff.txt;
+              echo '```';
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
