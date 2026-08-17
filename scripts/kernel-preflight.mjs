@@ -121,6 +121,16 @@ if (!shouldStop()) {
   record(run('Guest-builtin safety (GUEST-BUILTIN-GATE-1)', `node chaingraph/kernels/check-guest-builtin-safety.mjs --only ${ID}`));
 }
 
+// 4b. citation-in-comments (KERNEL-CITATION-CLASS-1) — kernel source is BEHAVIOUR ONLY;
+// a citation belongs in node metadata (regulatory_basis/cited_clause_digest/description),
+// never a kernel comment, so a wrong one is a metadata PR forever, never a re-prove.
+// Scoped to new/changed kernels only inside the lint script itself — an unchanged existing
+// kernel is N-A here, not a fail (RIDER-KERNEL.md SHARD-GATE-PRE-ASSEMBLE-1's own scoping
+// shape, applied to this gate).
+if (!shouldStop()) {
+  record(run('Citation-in-comments (KERNEL-CITATION-CLASS-1)', `node chaingraph/kernels/lint-kernel-citation-comments.mjs --only ${ID}`));
+}
+
 // 5. VM<->worker parity
 if (!shouldStop()) {
   record(run('VM<->worker parity (§24)', `node chaingraph/kernels/vm-parity-gate.mjs --strict --only ${ID}`));
