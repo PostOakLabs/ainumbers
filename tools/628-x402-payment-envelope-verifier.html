@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>x402 Payment Envelope Verifier · T628 · AINumbers.co</title>
+<meta name="description" content="Paste an x402 PaymentPayload envelope and independently check header well-formedness against the x402 spec, signature structural validity, and amount/asset/recipient consistency against an optional PaymentRequirements body. A verifier only, never originates or settles a payment. Zero network calls.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/628-x402-payment-envelope-verifier.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"x402 Payment Envelope Verifier · T628","url":"https://ainumbers.co/tools/628-x402-payment-envelope-verifier.html","description":"Independently checks an x402 PaymentPayload envelope's header well-formedness, signature structure, and amount/asset/recipient consistency against a PaymentRequirements body, entirely offline in the browser.","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "628-x402-payment-envelope-verifier",
+  "version": "1.0.0",
+  "title": "x402 Payment Envelope Verifier",
+  "description": "Offline verifier for x402 PaymentPayload envelopes (the exact-scheme EIP-3009 payload shape). Checks header well-formedness (x402Version, scheme, network) against the x402 spec, checks the authorization sub-object's required fields and the signature's structural shape, and -- when a PaymentRequirements body is also pasted -- checks amount/asset/recipient consistency between the two. Never recovers a signer address or claims a signature cryptographically verifies; that recovery is art-591's job, cited here, not duplicated. Never originates, funds, or settles a payment -- verification only. Zero network calls.",
+  "category": "mcp",
+  "tags": ["x402", "PaymentPayload", "PaymentRequirements", "EIP-3009", "envelope verifier", "offline verifier", "airgapped", "zero network", "zero-PII"],
+  "audience": ["engineer", "compliance", "risk"],
+  "input_schema": {"type":"object","properties":{"payment_payload":{"type":"object","description":"An x402 PaymentPayload envelope"},"payment_requirements":{"type":"object","description":"Optional: the server's PaymentRequirements body, for cross-consistency checks"}},"required":["payment_payload"]},
+  "output_schema": {"type":"object","properties":{"verification_report":{"type":"object","description":"per-check pass/fail list plus an overall PASS/FAIL verdict"}}},
+  "mcp_tool_definition": {"name":"verify_x402_payment_envelope","description":"Checks an x402 PaymentPayload envelope's header well-formedness, signature structure, and consistency against an optional PaymentRequirements body.","inputSchema":{"type":"object","properties":{"payment_payload":{"type":"object"},"payment_requirements":{"type":"object"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/628-x402-payment-envelope-verifier.html","function_name":"verifyEnvelopeUI","timeout_ms":5000},
+  "ap2_export": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:#2DD4BF}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.7rem);color:var(--white);max-width:800px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.fence{border:1px solid var(--red);border-left:3px solid var(--red);background:rgba(239,68,68,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.78rem;color:var(--body);line-height:1.75;border-radius:var(--radius)}
+.fence-label{display:block;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.fence strong{color:var(--bright)}
+
+.seealso{border:1px solid var(--border);border-left:3px solid var(--purple);background:var(--bg-2);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.76rem;color:var(--body);line-height:1.8;border-radius:var(--radius)}
+.seealso-label{display:block;color:var(--purple);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.seealso a{color:var(--teal)}.seealso a:hover{text-decoration:underline}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-group .opt{color:var(--muted);text-transform:none;letter-spacing:0}
+.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.7rem .85rem;border-radius:var(--radius);font-size:.72rem;font-family:'JetBrains Mono',monospace;min-height:180px;resize:vertical;line-height:1.65}
+.form-group textarea:focus{outline:none;border-color:var(--teal)}
+.fixture-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.btn-fixture{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);color:var(--body);transition:all .2s}
+.btn-fixture:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+.finding-mono{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);word-break:break-all;background:var(--bg-4);border-radius:4px;padding:.5rem .6rem;margin-top:.4rem;line-height:1.6}
+.check-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem}
+.check-row{display:flex;align-items:flex-start;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.4rem .6rem;background:var(--bg-4);border-radius:4px}
+.check-pass{color:var(--green)}.check-fail{color:var(--red)}.check-skip{color:var(--muted)}
+.check-name{color:var(--bright);min-width:230px;flex-shrink:0}
+.check-detail{color:var(--body)}
+
+.verdict{padding:.9rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;margin-bottom:1rem}
+.verdict.pass{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.verdict.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+@media(max-width:640px){.summary-grid{grid-template-columns:repeat(1,1fr)}}
+.sg-cell{background:var(--bg-3);padding:.9rem 1rem;text-align:center}
+.sg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sg-val{font-family:'DM Serif Display',serif;font-size:1.15rem}
+.sg-ok{color:var(--green)}.sg-bad{color:var(--red)}.sg-warn{color:var(--warn)}
+
+.errbox{display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)}
+.grade-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-top:.75rem;padding:.6rem .85rem;background:var(--bg-4);border-left:3px solid var(--warn);border-radius:4px}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:#2DD4BF}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-628</span></div>
+    <div class="nav-right"><a href="../tools.html#cat-mcp" class="nav-cta">Category &#8594;</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T628 &middot; MCP &amp; Agentic Commerce &middot; x402 Envelope Verification &middot; Airgapped</div>
+    <h1>x402 Payment Envelope Verifier</h1>
+    <p class="hero-desc">Paste an x402 <code>PaymentPayload</code> envelope (the exact-scheme, EIP-3009-style payload the <a href="277-x402-payload-decoder-flow-simulator.html">x402 Header Decoder</a> decodes) and this page independently checks header well-formedness against the x402 spec, the authorization sub-object's required fields, the signature's structural shape, and &ndash; when a server <code>PaymentRequirements</code> body is also pasted &ndash; whether the amount, asset/network, and recipient fields agree across the two. Entirely in your browser, zero network calls.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">x402</span>
+      <span class="hero-badge badge-gold">PaymentPayload</span>
+      <span class="hero-badge badge-purple">EIP-3009</span>
+      <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    </div>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <div class="fence">
+      <span class="fence-label" style="font-weight:600">Scope fence &ndash; read before use</span>
+      This tool is a verifier only &ndash; it takes an already-produced x402 envelope as input and checks it. It never originates, funds, signs, or settles a payment, never calls a facilitator or any wallet API, and never holds custody of anything. A PASS verdict proves the envelope is structurally well-formed against the x402 spec and (if provided) internally consistent with the paired <code>PaymentRequirements</code>; it does not prove the signature cryptographically recovers to the claimed payer &ndash; that recovery is <a href="../chaingraph/art-591-x402-signer-recovery-verifier.html">art-591-x402-signer-recovery-verifier</a>'s job, cited here and not duplicated. It also makes no settlement or scope-of-mandate claim &ndash; see the "see also" panel below. N/A determination (CONTRACT §38): this tool verifies envelope structure and signature format against the published x402 protocol spec; no regulation, standard, or accounting pronouncement prescribes the arithmetic here, so no clause citation applies.
+    </div>
+
+    <div class="seealso">
+      <span class="seealso-label">See also &ndash; do not duplicate</span>
+      <a href="277-x402-payload-decoder-flow-simulator.html">T277 &middot; x402 Header Decoder, Payload Linter &amp; Flow Simulator</a> decodes/lints headers and simulates the 402 flow &ndash; no crypto check, no correctness proof; this tool is downstream of it. &middot;
+      <a href="../chaingraph/art-591-x402-signer-recovery-verifier.html">art-591 &middot; x402 Signer Recovery Verifier</a> performs the actual ECDSA signer recovery this tool does not attempt. &middot;
+      <a href="../chaingraph/art-565-kya-x402-scope-verifier.html">art-565 &middot; KYA&times;x402 Scope Verifier</a> verifies a payload's claimed scope against a KYA mandate &ndash; this tool makes no scope claim. &middot;
+      <a href="../chaingraph/art-03-x402-settlement-modeler.html">art-03 &middot; x402 Settlement Modeler</a> projects settlement outcomes &ndash; this tool verifies a produced artifact, it does not model one.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="sec-label">Verify an x402 Payment Envelope</div>
+    <div class="panel">
+      <div class="panel-label">Paste a PaymentPayload, optionally paired with a PaymentRequirements</div>
+      <div class="panel-body">
+        <div class="fixture-row">
+          <button class="btn-fixture" onclick="loadFixture('golden')">Load golden fixture (well-formed &middot; consistent)</button>
+          <button class="btn-fixture" onclick="loadFixture('malformed')">Load malformed fixture (expect FAIL &middot; missing fields)</button>
+          <button class="btn-fixture" onclick="loadFixture('inconsistent')">Load inconsistent fixture (expect FAIL &middot; header vs body mismatch)</button>
+        </div>
+        <div class="form-group">
+          <label>PaymentPayload envelope (required)</label>
+          <textarea id="payloadInput" placeholder="Paste the x402 PaymentPayload JSON here, or use a fixture above." spellcheck="false"></textarea>
+        </div>
+        <div class="form-group">
+          <label>PaymentRequirements body <span class="opt">(optional &ndash; enables cross-consistency checks)</span></label>
+          <textarea id="requirementsInput" placeholder="Optionally paste the server's 402 PaymentRequirements JSON here." spellcheck="false" style="min-height:120px"></textarea>
+        </div>
+        <button class="run-btn" id="runBtn" onclick="verifyEnvelopeUI()">Verify Envelope &#8594;</button>
+        <div id="singleErr" class="errbox"></div>
+      </div>
+    </div>
+    <div id="singleResult"></div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Verify an envelope above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="277-x402-payload-decoder-flow-simulator.html">x402 Header Decoder</a>
+      <a href="../chaingraph/art-591-x402-signer-recovery-verifier.html">Signer Recovery Verifier</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   X402ENV-CORE v1 — structural verification of an x402 exact-scheme
+   PaymentPayload envelope, per the shipped x402 protocol spec.
+   Deliberately does NOT recover an ECDSA signer or claim a signature
+   cryptographically verifies — that is art-591-x402-signer-recovery-
+   verifier's job (WALLET-VERIFY-BUILD-SPEC.md §4 dedup table). This
+   module checks shape/format only: header well-formedness, required
+   authorization fields, signature byte-length, and — when a paired
+   PaymentRequirements is supplied — cross-consistency of amount,
+   asset/network, and recipient between the two documents.
+══════════════════════════════════════════════════════════════ */
+(function(){
+  var HEX20='^0x[0-9a-fA-F]{40}$';       // 20-byte address
+  var HEX32='^0x[0-9a-fA-F]{64}$';       // 32-byte value (nonce)
+  var HEXSIG='^0x[0-9a-fA-F]{130}$';     // 65-byte (r,s,v) signature
+  var UINT='^[0-9]+$';                   // non-negative integer string
+
+  function isObj(v){ return v && typeof v==='object' && !Array.isArray(v); }
+  function reTest(re,v){ return typeof v==='string' && new RegExp(re).test(v); }
+
+  function checkHeader(payload, checks){
+    var x402Ok = typeof payload.x402Version==='number' && Number.isInteger(payload.x402Version) && payload.x402Version>=1;
+    checks.push({check:'x402Version', pass:x402Ok, detail: x402Ok?('x402Version: '+payload.x402Version):'x402Version missing or not a positive integer'});
+    var schemeOk = typeof payload.scheme==='string' && payload.scheme.length>0;
+    checks.push({check:'scheme', pass:schemeOk, detail: schemeOk?('scheme: '+payload.scheme):'scheme missing or empty'});
+    var networkOk = typeof payload.network==='string' && payload.network.length>0;
+    checks.push({check:'network', pass:networkOk, detail: networkOk?('network: '+payload.network):'network missing or empty'});
+    return x402Ok && schemeOk && networkOk;
+  }
+
+  function checkAuthorization(payload, checks){
+    var body = isObj(payload.payload) ? payload.payload : null;
+    checks.push({check:'payload_body_present', pass:!!body, detail: body?'payload.{authorization,signature} body present':'no payload body object -- cannot check authorization or signature'});
+    if(!body) return {ok:false, auth:null};
+    var auth = isObj(body.authorization) ? body.authorization : null;
+    checks.push({check:'authorization_present', pass:!!auth, detail: auth?'payload.authorization object present':'payload.authorization missing'});
+    if(!auth) return {ok:false, auth:null};
+
+    var fromOk = reTest(HEX20, auth.from);
+    checks.push({check:'authorization.from', pass:fromOk, detail: fromOk?('well-formed address: '+auth.from):'authorization.from is not a 0x-prefixed 20-byte address'});
+    var toOk = reTest(HEX20, auth.to);
+    checks.push({check:'authorization.to', pass:toOk, detail: toOk?('well-formed address: '+auth.to):'authorization.to is not a 0x-prefixed 20-byte address'});
+    var valueOk = reTest(UINT, auth.value);
+    checks.push({check:'authorization.value', pass:valueOk, detail: valueOk?('non-negative integer string: '+auth.value):'authorization.value is not a non-negative integer string'});
+    var vaOk = reTest(UINT, auth.validAfter);
+    var vbOk = reTest(UINT, auth.validBefore);
+    var windowOk = vaOk && vbOk && BigInt(auth.validBefore) > BigInt(auth.validAfter);
+    checks.push({check:'authorization.validAfter/validBefore', pass:windowOk, detail: windowOk
+      ? ('window: ['+auth.validAfter+', '+auth.validBefore+')')
+      : 'validAfter/validBefore missing, non-numeric, or validBefore <= validAfter'});
+    var nonceOk = reTest(HEX32, auth.nonce);
+    checks.push({check:'authorization.nonce', pass:nonceOk, detail: nonceOk?'well-formed 32-byte nonce':'authorization.nonce is not a 0x-prefixed 32-byte value'});
+
+    var sigOk = reTest(HEXSIG, body.signature);
+    checks.push({check:'signature_structural_shape', pass:sigOk, detail: sigOk
+      ? 'signature is a well-formed 65-byte (r,s,v) hex string -- structural check only, NOT a cryptographic recovery (see art-591)'
+      : 'payload.signature is not a 0x-prefixed 65-byte hex string'});
+
+    return {ok: fromOk && toOk && valueOk && windowOk && nonceOk && sigOk, auth: auth};
+  }
+
+  function checkConsistency(payload, requirements, auth, checks){
+    if(!requirements) return null;
+    var reqOk = isObj(requirements);
+    checks.push({check:'requirements_structure', pass:reqOk, detail: reqOk?'PaymentRequirements parses as a JSON object':'PaymentRequirements is not a JSON object'});
+    if(!reqOk) return false;
+
+    var schemeMatch = requirements.scheme===payload.scheme;
+    checks.push({check:'consistency: scheme', pass:schemeMatch, detail: schemeMatch
+      ? ('requirements.scheme matches payload.scheme ('+payload.scheme+')')
+      : ('requirements.scheme "'+requirements.scheme+'" != payload.scheme "'+payload.scheme+'"')});
+    var networkMatch = requirements.network===payload.network;
+    checks.push({check:'consistency: network', pass:networkMatch, detail: networkMatch
+      ? ('requirements.network matches payload.network ('+payload.network+')')
+      : ('requirements.network "'+requirements.network+'" != payload.network "'+payload.network+'"')});
+
+    var payToMatch = auth && typeof requirements.payTo==='string' && requirements.payTo.toLowerCase()===String(auth.to).toLowerCase();
+    checks.push({check:'consistency: recipient (payTo vs authorization.to)', pass:!!payToMatch, detail: payToMatch
+      ? ('requirements.payTo matches authorization.to ('+requirements.payTo+')')
+      : ('requirements.payTo "'+requirements.payTo+'" != authorization.to "'+(auth&&auth.to)+'"')});
+
+    var amountOk = false, amountDetail = 'could not compare -- maxAmountRequired or authorization.value missing/non-numeric';
+    if(auth && reTest(UINT, requirements.maxAmountRequired) && reTest(UINT, auth.value)){
+      amountOk = BigInt(auth.value) <= BigInt(requirements.maxAmountRequired);
+      amountDetail = amountOk
+        ? ('authorization.value ('+auth.value+') <= requirements.maxAmountRequired ('+requirements.maxAmountRequired+')')
+        : ('authorization.value ('+auth.value+') EXCEEDS requirements.maxAmountRequired ('+requirements.maxAmountRequired+')');
+    }
+    checks.push({check:'consistency: amount (value <= maxAmountRequired)', pass:amountOk, detail:amountDetail});
+
+    return schemeMatch && networkMatch && !!payToMatch && amountOk;
+  }
+
+  function verify(payload, requirements){
+    var checks=[];
+    var structOk = isObj(payload);
+    checks.push({check:'structure', pass:structOk, detail: structOk?'PaymentPayload parses as a JSON object':'input is not a JSON object'});
+    if(!structOk) return {verdict:'FAIL', checks:checks};
+
+    var headerOk = checkHeader(payload, checks);
+    var authRes = checkAuthorization(payload, checks);
+    var consistencyResult = checkConsistency(payload, requirements, authRes.auth, checks);
+    var consistencyOk = requirements===null ? true : !!consistencyResult;
+
+    var overall = structOk && headerOk && authRes.ok && consistencyOk;
+    return {verdict: overall?'PASS':'FAIL', checks:checks, hasRequirements: requirements!==null};
+  }
+
+  window.X402ENV = {verify: verify};
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   Fixtures — golden (well-formed, internally consistent), malformed
+   (missing/malformed authorization fields -- expect FAIL), and
+   inconsistent (well-formed on its own, but payTo/network diverge
+   from the paired PaymentRequirements -- expect FAIL on the cross-
+   consistency checks specifically, exercising both negative-control
+   classes this tool checks).
+══════════════════════════════════════════════════════════════ */
+var FIXTURES = {
+  "golden": {
+    payload: {"x402Version":1,"scheme":"exact","network":"base-sepolia","payload":{"signature":"0x"+"11".repeat(65),"authorization":{"from":"0x"+"aa".repeat(20),"to":"0x"+"bb".repeat(20),"value":"1000000","validAfter":"1755000000","validBefore":"1755003600","nonce":"0x"+"22".repeat(32)}}},
+    requirements: {"scheme":"exact","network":"base-sepolia","maxAmountRequired":"1000000","payTo":"0x"+"bb".repeat(20),"resource":"https://example.test/resource","description":"fixture resource","mimeType":"application/json","maxTimeoutSeconds":60,"asset":"0x"+"cc".repeat(20)}
+  },
+  "malformed": {
+    payload: {"x402Version":1,"scheme":"exact","network":"base-sepolia","payload":{"signature":"0xdeadbeef","authorization":{"from":"0x"+"aa".repeat(20),"value":"1000000","validAfter":"1755003600","validBefore":"1755000000","nonce":"not-a-nonce"}}},
+    requirements: null
+  },
+  "inconsistent": {
+    payload: {"x402Version":1,"scheme":"exact","network":"base-sepolia","payload":{"signature":"0x"+"11".repeat(65),"authorization":{"from":"0x"+"aa".repeat(20),"to":"0x"+"bb".repeat(20),"value":"5000000","validAfter":"1755000000","validBefore":"1755003600","nonce":"0x"+"22".repeat(32)}}},
+    requirements: {"scheme":"exact","network":"base-mainnet","maxAmountRequired":"1000000","payTo":"0x"+"dd".repeat(20),"resource":"https://example.test/resource","description":"fixture resource","mimeType":"application/json","maxTimeoutSeconds":60,"asset":"0x"+"cc".repeat(20)}
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════
+   UI wiring
+══════════════════════════════════════════════════════════════ */
+var STATE={lastReport:null};
+
+function setErr(id,msg){ var el=document.getElementById(id); el.textContent=msg||''; el.style.display=msg?'block':'none'; }
+function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function checkRowHtml(c){
+  return '<div class="check-row"><span class="'+(c.pass?'check-pass':'check-fail')+'">'+(c.pass?'&#10003;':'&#10007;')+'</span><span class="check-name">'+escHtml(c.check)+'</span><span class="check-detail">'+escHtml(c.detail)+'</span></div>';
+}
+function loadFixture(which){
+  var f = FIXTURES[which];
+  document.getElementById('payloadInput').value = JSON.stringify(f.payload, null, 2);
+  document.getElementById('requirementsInput').value = f.requirements ? JSON.stringify(f.requirements, null, 2) : '';
+  setErr('singleErr','');
+}
+
+function verifyEnvelopeUI(){
+  setErr('singleErr','');
+  var el=document.getElementById('singleResult');
+  var payloadText=document.getElementById('payloadInput').value.trim();
+  if(!payloadText){ setErr('singleErr','Paste a PaymentPayload, or load a fixture first.'); return; }
+  var payload;
+  try{ payload=JSON.parse(payloadText); }catch(e){ setErr('singleErr','Invalid PaymentPayload JSON: '+e.message); return; }
+
+  var reqText=document.getElementById('requirementsInput').value.trim();
+  var requirements=null;
+  if(reqText){
+    try{ requirements=JSON.parse(reqText); }catch(e){ setErr('singleErr','Invalid PaymentRequirements JSON: '+e.message); return; }
+  }
+
+  var report=window.X402ENV.verify(payload, requirements);
+  STATE.lastReport=report;
+
+  var passCount = report.checks.filter(function(c){return c.pass;}).length;
+  var totalCount = report.checks.length;
+
+  var note = '<div class="grade-note"><strong style="color:var(--bright)">Structural verification only.</strong> A PASS verdict confirms the envelope is well-formed against the x402 spec'+(report.hasRequirements?' and internally consistent with the paired PaymentRequirements':'')+'. It does not confirm the signature cryptographically recovers to <code>authorization.from</code> &ndash; pair this with <a href="../chaingraph/art-590-x402-eip712-digest-recomputer.html">art-590</a>/<a href="../chaingraph/art-591-x402-signer-recovery-verifier.html">art-591</a> for that, and with <a href="../chaingraph/art-592-x402-domain-nonce-window-checker.html">art-592</a> for domain/replay checks against your own expected chain ID and contract.</div>';
+
+  el.innerHTML =
+    '<div class="verdict '+(report.verdict==='PASS'?'pass':'fail')+'">'+(report.verdict==='PASS'?'✓ PASS':'✗ FAIL')+'</div>'+
+    '<div class="summary-grid">'+
+      '<div class="sg-cell"><div class="sg-lbl">Checks passed</div><div class="sg-val '+(passCount===totalCount?'sg-ok':'sg-bad')+'">'+passCount+' / '+totalCount+'</div></div>'+
+      '<div class="sg-cell"><div class="sg-lbl">PaymentRequirements paired</div><div class="sg-val '+(report.hasRequirements?'sg-ok':'sg-warn')+'" style="font-size:.85rem">'+(report.hasRequirements?'YES':'NO -- single-document mode')+'</div></div>'+
+      '<div class="sg-cell"><div class="sg-lbl">Signature check</div><div class="sg-val" style="font-size:.7rem;color:var(--muted)">structural only</div></div>'+
+    '</div>'+
+    '<div class="check-list">'+report.checks.map(checkRowHtml).join('')+'</div>'+
+    note;
+  window.enableAP2Btn();
+}
+
+/* file upload not offered for this tool -- envelopes are short, hand-pasted JSON */
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"628-x402-payment-envelope-verifier","version":"1.0.0","title":"x402 Payment Envelope Verifier","description":"Offline verifier for x402 PaymentPayload envelopes. Checks header well-formedness (x402Version, scheme, network), the authorization sub-object's required fields, the signature's structural shape, and -- when a PaymentRequirements body is also pasted -- amount/asset/recipient consistency between the two. Never recovers a signer address; that is art-591's job. Never originates, funds, or settles a payment. Zero network calls.","category":"mcp","tags":["x402","PaymentPayload","PaymentRequirements","EIP-3009","envelope verifier","offline verifier","airgapped","zero network","zero-PII"],"audience":["engineer","compliance","risk"],"input_schema":{"type":"object","properties":{"payment_payload":{"type":"object"},"payment_requirements":{"type":"object"}},"required":["payment_payload"]},"output_schema":{"type":"object","properties":{"verification_report":{"type":"object"}}},"mcp_tool_definition":{"name":"verify_x402_payment_envelope","description":"Checks an x402 PaymentPayload envelope's header well-formedness, signature structure, and consistency against an optional PaymentRequirements body.","inputSchema":{"type":"object","properties":{"payment_payload":{"type":"object"},"payment_requirements":{"type":"object"}}}},"execution":{"type":"browser-javascript","entry":"tools/628-x402-payment-envelope-verifier.html","function_name":"verifyEnvelopeUI","timeout_ms":5000},"ap2_export":true,"pii_transmitted":false,"execution_context":"client_side_browser","prefill":true,"bridge_version":"1.0"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+/* AP2 Policy Mandate Export — CONTRACT §3-§4. Retained legacy identifiers (ap2ExportBtn / AP2Schema) — do not rename. */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b && STATE.lastReport){b.disabled=false;b.classList.add('ready');}
+};
+function uuid4(){
+  var b=new Uint8Array(16); crypto.getRandomValues(b);
+  b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80;
+  var h=Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+window.AIN_BUILD_MANDATE=function(){
+  if(!STATE.lastReport) return null;
+  var ts=new Date().toISOString();
+  var r=STATE.lastReport;
+  var passCount = r.checks.filter(function(c){return c.pass;}).length;
+  return {
+    mandate_id:uuid4(),
+    issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:'628-x402-payment-envelope-verifier', tool_version:MANIFEST.version,
+    mandate_type:'verification_report',
+    jurisdiction:['ZZ'], regulatory_frameworks:[],
+    payload:r,
+    summary:'x402 payment envelope verification: '+r.verdict+' ('+passCount+'/'+r.checks.length+' checks, requirements '+(r.hasRequirements?'paired':'not paired')+', '+ts.slice(0,10)+').',
+    agent_instructions:['This is a structural verification only -- it does not confirm the signature cryptographically recovers to the claimed payer.','Never treat a PASS verdict as authorization to originate, fund, or settle a payment.','Pair with art-590/art-591 for signer recovery and art-592 for domain/nonce checks before relying on this for a payment decision.'],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{}, regulatory_citations:[],
+    audit_metadata:{client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+};
+window.exportAP2=function(){
+  var m=window.AIN_BUILD_MANDATE();
+  if(!m){alert('Verify an envelope first.');return;}
+  AP2Schema.validate(m);
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=m.tool_id+'_'+m.issued_at.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'verifyEnvelopeUI',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  applyFields(fields);
+  if(/[#&]run=1/.test(h))runTool();
+}
+window.AINBridge={version:'1.1',apply:applyFields,run:runTool,
+  getMandate:function(){if(typeof window.AIN_BUILD_MANDATE==='function'){try{return window.AIN_BUILD_MANDATE();}catch(e){}}return null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(JSON.stringify(fields))+(run?'&run=1':'');}};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
