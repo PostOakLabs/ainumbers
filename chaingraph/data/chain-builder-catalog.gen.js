@@ -6176,7 +6176,9 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-590-x402-eip712-digest-recomputer.html",
     "description": "Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct (the x402 payments rail's underlying authorization",
     "consumes": [],
-    "feeds": [],
+    "feeds": [
+      "art-591-x402-signer-recovery-verifier"
+    ],
     "status": "live"
   },
   {
@@ -6185,7 +6187,9 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-591-x402-signer-recovery-verifier.html",
     "description": "Recovers the ECDSA signer address from a caller-supplied EIP-712 digest (the sibling art-590-x402-eip712-digest-recomputer's output) and a s",
-    "consumes": [],
+    "consumes": [
+      "art-590-x402-eip712-digest-recomputer"
+    ],
     "feeds": [],
     "status": "live"
   },
