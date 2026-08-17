@@ -93,7 +93,10 @@ jobs:
           # "fatal: not a git repository" without it). `|| true`: this is the
           # happy path for a still-checking PR, not a fatal condition here —
           # the assertion below is what decides pass/fail.
-          gh pr merge "$PR" -R "$REPO" --auto --squash || true
+          # PROOF-D-SCRATCH-ONLY: real merge disabled to force the untouched
+          # branch of the assertion below (AUTOMERGE-ALREADYGREEN-1 negative
+          # control — this line never ships).
+          echo "PROOF-D: skipping real gh pr merge --auto to force the untouched path"
 
           NODE_ID=$(gh pr view "$PR" -R "$REPO" --json id -q .id)
 
@@ -119,12 +122,9 @@ jobs:
             echo "auto-merge confirmed: merged=$MERGED autoMergeRequest=$AUTO mergeQueueEntry=$QUEUED"
           else
             echo "::notice title=Fallback::native auto-merge left PR #$PR untouched (already green); enqueueing directly via GraphQL enqueuePullRequest"
-            gh api graphql -f query='
-              mutation($id: ID!) {
-                enqueuePullRequest(input: {pullRequestId: $id}) {
-                  mergeQueueEntry { id }
-                }
-              }' -f id="$NODE_ID"
+            # PROOF-D-SCRATCH-ONLY: real enqueue disabled so the re-check
+            # below still finds the PR untouched and the exit-1 path fires.
+            echo "PROOF-D: skipping real enqueuePullRequest mutation"
 
             RESULT=$(check_state)
             MERGED=$(echo "$RESULT" | jq -r '.data.node.merged')
