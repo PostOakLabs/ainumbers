@@ -4,33 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
-<title>Agent Identity Verification (RFC 9421 Web Bot Auth) · OpenChainGraph Suite · AINumbers.co</title>
-<meta name="description" content="3-step chain: verify RFC 9421 Ed25519 Web Bot Auth signature, zero network (art-129) → validate /.well-known/http-message-signatures-directory JWKS (art-130) → validate Signature Agent Card and emit identity-trust verdict (art-131).">
-<link rel="canonical" href="https://ainumbers.co/chaingraph/chains/agent-identity-verification.html">
+<title>Visa TAP Agent Verification (RFC 9421 Web Bot Auth + Nonce + JWKS Pin) · OpenChainGraph Suite · AINumbers.co</title>
+<meta name="description" content="4-step chain: verify RFC 9421 Ed25519 Web Bot Auth signature (art-129) → check TAP nonce format/freshness/replay-set (art-593) → confirm caller-pinned JWKS directory digest (art-609) → validate directory shape and keyid resolution (art-130).">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/chains/visa-tap-agent-verification.html">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Agent Identity Verification (RFC 9421 Web Bot Auth)","url":"https://ainumbers.co/chaingraph/chains/agent-identity-verification.html","applicationCategory":"FinancialApplication","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Visa TAP Agent Verification (RFC 9421 Web Bot Auth + Nonce + JWKS Pin)","url":"https://ainumbers.co/chaingraph/chains/visa-tap-agent-verification.html","applicationCategory":"FinancialApplication","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
 <!-- manifest.json
 {
-  "chain_id": "agent-identity-verification",
+  "chain_id": "visa-tap-agent-verification",
   "version": "1.0.0",
-  "title": "Agent Identity Verification (RFC 9421 Web Bot Auth)",
-  "description": "Verify the RFC 9421 Ed25519 Web Bot Auth signature base, zero network (art-129) → validate the /.well-known/http-message-signatures-directory JWKS and keyid resolution (art-130) → validate the Signature Agent Card and emit an identity-trust verdict (art-131). Agent verifies agent, zero network, no human.",
+  "title": "Visa TAP Agent Verification (RFC 9421 Web Bot Auth + Nonce + JWKS Pin)",
+  "description": "Verify the RFC 9421 Ed25519 Web Bot Auth signature base (art-129) → check the request's Visa TAP-shaped nonce for format, freshness, and caller-supplied replay-set membership (art-593) → confirm a caller-pinned SHA-256 digest matches the caller-supplied JWKS directory document (art-609) → validate the directory's own shape and keyid resolution (art-130, reused unmodified). Four independent verification facts about a caller-captured TAP-shaped request; zero network, zero key hosting, no facilitator role.",
   "category": "chaingraph",
   "chaingraph": true,
-  "mandate_type": "compliance_mandate",
-  "chain_depth": 3,
-  "page_url": "https://ainumbers.co/chaingraph/chains/agent-identity-verification.html",
+  "mandate_type": "compliance_control",
+  "chain_depth": 4,
+  "page_url": "https://ainumbers.co/chaingraph/chains/visa-tap-agent-verification.html",
   "steps": [
-    {"order":1,"tool_id":"art-129-webbotauth-signature-verifier","mcp_name":"verify_webbotauth_signature","url":"https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html","handoff":"Signature verdict feeds directory validation"},
-    {"order":2,"tool_id":"art-130-signature-directory-validator","mcp_name":"validate_signature_directory","url":"https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html","handoff":"Directory validation feeds agent card check"},
-    {"order":3,"tool_id":"art-131-signature-agent-card-validator","mcp_name":"validate_signature_agent_card","url":"https://ainumbers.co/chaingraph/art-131-signature-agent-card-validator.html","handoff":"Exports identity-trust verdict with execution_hash — final stage"}
+    {"order":1,"tool_id":"art-129-webbotauth-signature-verifier","mcp_name":"verify_webbotauth_signature","url":"https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html","handoff":"Ed25519 signature verdict over the RFC 9421 signature base establishes whether the caller-captured request signature is genuine, ahead of the nonce and directory checks below."},
+    {"order":2,"tool_id":"art-593-webbotauth-nonce-replay-check","mcp_name":"check_webbotauth_nonce_replay","url":"https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.html","handoff":"Nonce format, the TAP created/expires spread, and caller-supplied replay-set membership are assessed next: a separate fact about the same captured request, independent of the signature verdict above."},
+    {"order":3,"tool_id":"art-609-jwks-pinned-directory-check","mcp_name":"check_jwks_pinned_directory","url":"https://ainumbers.co/chaingraph/art-609-jwks-pinned-directory-check.html","handoff":"The caller-supplied JWKS directory document's canonical digest is checked against the caller's own out-of-band pinned digest before the directory's internal shape is trusted by the next step."},
+    {"order":4,"tool_id":"art-130-signature-directory-validator","mcp_name":"validate_signature_directory","url":"https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html","handoff":"Terminal stage: JWKS directory shape and keyid resolution are validated on the same pinned document, completing the four-fact TAP verification surface."}
   ]
 }
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--warn:#F59E0B;--purple:#9B72F5;--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);--purple:#9B72F5;--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
@@ -52,6 +53,7 @@ nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);backgroun
 .hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
 .hero h1{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--white);margin-bottom:.6rem}
 .hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.chain-narrative-note{font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.55;color:var(--body);background:var(--warn-dim);border:1px solid var(--warn);border-radius:var(--radius);padding:.65rem .85rem;margin:.85rem 0 0}
 .hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
 .badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
 .badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
@@ -117,46 +119,47 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
   <div class="nav-bc">
     <a href="../../index.html">All Tools</a><span class="nav-sep">/</span>
     <a href="../chaingraph-hub.html">OpenChainGraph Hub</a><span class="nav-sep">/</span>
-    <span>Agent Identity Verification</span>
+    <span>Visa TAP Agent Verification</span>
   </div>
   <a href="../chaingraph-hub.html" class="nav-cta">Hub →</a>
 </div></nav>
 
 <div class="hero"><div class="container">
-  <div class="hero-eyebrow">OpenChainGraph Suite · wave 24 · compliance_mandate</div>
-  <h1>Agent Identity Verification (RFC 9421 Web Bot Auth)</h1>
-<!-- CHAIN-NARRATIVE-CLARIFICATION:v1 -->
-  <div class="chain-narrative-note" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.55;color:var(--body);background:var(--warn-dim);border:1px solid var(--warn);border-radius:var(--radius);padding:.65rem .85rem;margin:.85rem 0 0"><span style="color:var(--warn)">Note (dated 2026-08-04):</span> a chain composes independent computations performed in an analytical order. No step's output is carried into the next step by the execution model; each step computes from its own declared inputs. This is true of every chain on this site, including chains whose per-step copy below reads as a data handoff.</div>
-  <p class="hero-desc">Verify the RFC 9421 Ed25519 Web Bot Auth signature base, zero network (art-129) → validate the <code>/.well-known/http-message-signatures-directory</code> JWKS and keyid resolution (art-130) → validate the Signature Agent Card and emit an identity-trust verdict (art-131). Agent verifies agent, zero network, no human.</p>
+  <div class="hero-eyebrow">OpenChainGraph Suite · compliance_control</div>
+  <h1>Visa TAP Agent Verification (RFC 9421 Web Bot Auth + Nonce + JWKS Pin)</h1>
+  <div class="chain-narrative-note"><span style="color:var(--warn)">Note (dated 2026-08-17):</span> a chain composes independent computations performed in an analytical order. No step's output is carried into the next step by the execution model; each step computes from its own declared inputs. This is true of every chain on this site, including chains whose per-step copy below reads as a data handoff.</div>
+  <p class="hero-desc">Verify the RFC 9421 Ed25519 Web Bot Auth signature base (art-129) → check the request's Visa TAP-shaped nonce for format, freshness, and caller-supplied replay-set membership (art-593) → confirm a caller-pinned SHA-256 digest matches the caller-supplied JWKS directory document (art-609) → validate the directory's own shape and keyid resolution (art-130, reused unmodified). Four independent verification facts about a caller-captured TAP-shaped request; zero network, zero key hosting, no facilitator role.</p>
   <div class="hero-badges">
-    <span class="badge badge-teal">OpenChainGraph · 3 Steps</span>
-    <span class="badge badge-gold">compliance mandate</span>
+    <span class="badge badge-teal">OpenChainGraph · 4 Steps</span>
+    <span class="badge badge-gold">compliance control</span>
     <span class="badge badge-teal">RFC 9421 · Web Bot Auth · Ed25519</span>
-    <span class="badge badge-teal">Visa TAP · MC Agent Pay</span>
-    <span class="badge badge-purple">W3C VC §13.11</span>
+    <span class="badge badge-teal">Visa TAP</span>
     <span class="badge badge-green">Hash-Anchored §4</span>
-    <span class="badge badge-muted">chain_depth:3 · Zero PII</span>
+    <span class="badge badge-muted">chain_depth:4 · Zero PII</span>
   </div>
-  <p class="hero-desc" style="margin-top:.85rem;margin-bottom:0">Related: <a href="visa-tap-agent-verification.html" class="stage-tool-link">Visa TAP Agent Verification</a> extends the same art-129/art-130 pair with a Visa TAP-shaped nonce check and a caller-pinned JWKS directory digest check.</p>
 </div></div>
 
 <div class="container">
 
 <div class="dag-section" style="margin-top:2rem">
-  <div class="dag-title">Chain Topology — Agent Identity Verification (art-129→130→131)</div>
-  <svg xmlns="http://www.w3.org/2000/svg" width="720" height="80">
+  <div class="dag-title">Chain Topology: Visa TAP Agent Verification (art-129→593→609→130)</div>
+  <svg xmlns="http://www.w3.org/2000/svg" width="900" height="80">
     <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#3A5270"/></marker></defs>
-    <rect x="10" y="20" width="200" height="40" rx="5" fill="#0D1627" stroke="#14B8A6" stroke-width="1.5"/>
-    <text x="110" y="37" text-anchor="middle" fill="#2DD4BF" font-family="JetBrains Mono,monospace" font-size="9">art-129</text>
-    <text x="110" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">WebBotAuth Sig Verifier</text>
-    <line x1="210" y1="40" x2="230" y2="40" stroke="#3A5270" stroke-width="1" marker-end="url(#arr)"/>
-    <rect x="232" y="20" width="200" height="40" rx="5" fill="#0D1627" stroke="#9B72F5" stroke-width="1.5"/>
-    <text x="332" y="37" text-anchor="middle" fill="#B794F4" font-family="JetBrains Mono,monospace" font-size="9">art-130</text>
-    <text x="332" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">Sig Directory Validator</text>
-    <line x1="432" y1="40" x2="452" y2="40" stroke="#3A5270" stroke-width="1" marker-end="url(#arr)"/>
-    <rect x="454" y="20" width="256" height="40" rx="5" fill="#0D1627" stroke="#22C55E" stroke-width="1.5"/>
-    <text x="582" y="37" text-anchor="middle" fill="#4ADE80" font-family="JetBrains Mono,monospace" font-size="9">art-131</text>
-    <text x="582" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">Sig Agent Card Validator ⊣</text>
+    <rect x="10" y="20" width="195" height="40" rx="5" fill="#0D1627" stroke="#14B8A6" stroke-width="1.5"/>
+    <text x="107" y="37" text-anchor="middle" fill="#2DD4BF" font-family="JetBrains Mono,monospace" font-size="9">art-129</text>
+    <text x="107" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">WebBotAuth Sig Verifier</text>
+    <line x1="205" y1="40" x2="225" y2="40" stroke="#3A5270" stroke-width="1" marker-end="url(#arr)"/>
+    <rect x="227" y="20" width="195" height="40" rx="5" fill="#0D1627" stroke="#D4A847" stroke-width="1.5"/>
+    <text x="324" y="37" text-anchor="middle" fill="#D4A847" font-family="JetBrains Mono,monospace" font-size="9">art-593</text>
+    <text x="324" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">Nonce &amp; Replay-Window</text>
+    <line x1="422" y1="40" x2="442" y2="40" stroke="#3A5270" stroke-width="1" marker-end="url(#arr)"/>
+    <rect x="444" y="20" width="195" height="40" rx="5" fill="#0D1627" stroke="#9B72F5" stroke-width="1.5"/>
+    <text x="541" y="37" text-anchor="middle" fill="#B794F4" font-family="JetBrains Mono,monospace" font-size="9">art-609</text>
+    <text x="541" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">JWKS Pinned-Directory Check</text>
+    <line x1="639" y1="40" x2="659" y2="40" stroke="#3A5270" stroke-width="1" marker-end="url(#arr)"/>
+    <rect x="661" y="20" width="230" height="40" rx="5" fill="#0D1627" stroke="#22C55E" stroke-width="1.5"/>
+    <text x="776" y="37" text-anchor="middle" fill="#4ADE80" font-family="JetBrains Mono,monospace" font-size="9">art-130</text>
+    <text x="776" y="52" text-anchor="middle" fill="#6888A8" font-family="JetBrains Mono,monospace" font-size="7">Sig Directory Validator ⊣</text>
   </svg>
 </div>
 
@@ -170,13 +173,13 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 </div>
 
 <div class="stages-section">
-  <div class="stages-title">Chain Stages · 3 Steps</div>
+  <div class="stages-title">Chain Stages · 4 Steps</div>
 
   <div class="stage-card">
-    <div class="stage-header"><span class="stage-num">1</span><span class="stage-tag">ROOT · D0</span><span class="badge-kind badge-node">node</span></div>
+    <div class="stage-header"><span class="stage-num">1</span><span class="stage-tag">ROOT</span><span class="badge-kind badge-node">node</span></div>
     <div class="stage-body">
       <div class="stage-name"><a href="../art-129-webbotauth-signature-verifier.html" class="stage-tool-link">Web Bot Auth Signature Verifier (RFC 9421)</a> <span class="stage-tool-id">art-129</span></div>
-      <div class="stage-handoff">Signature verdict feeds directory validation</div>
+      <div class="stage-handoff">Ed25519 signature verdict over the RFC 9421 signature base establishes whether the caller-captured request signature is genuine, ahead of the nonce and directory checks below.</div>
       <div class="mcp-call-block">
         <div class="mcp-call-label">MCP Call · <code class="mcp-name">verify_webbotauth_signature</code></div>
         <pre class="mcp-call-pre">{
@@ -196,7 +199,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
       "alg": "ed25519",
       "expected_tag": "web-bot-auth",
       "created": 1750000000,
-      "now_unix": 1750003600,
+      "now_unix": 1750000060,
       "max_age_s": 3600
     }
   },
@@ -213,11 +216,84 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
   <div class="stage-arrow">↓</div>
 
+  <div class="stage-card" style="border-left-color:var(--gold)">
+    <div class="stage-header"><span class="stage-num" style="background:rgba(212,168,71,.12);color:#D4A847">2</span><span class="stage-tag">STEP 2</span><span class="badge-kind badge-node">node</span></div>
+    <div class="stage-body">
+      <div class="stage-name"><a href="../art-593-webbotauth-nonce-replay-check.html" class="stage-tool-link">Web Bot Auth Nonce &amp; Replay-Window Checker</a> <span class="stage-tool-id">art-593</span></div>
+      <div class="stage-handoff">Nonce format, the TAP created/expires spread, and caller-supplied replay-set membership are assessed next: a separate fact about the same captured request, independent of the signature verdict above.</div>
+      <div class="mcp-call-block">
+        <div class="mcp-call-label">MCP Call · <code class="mcp-name">check_webbotauth_nonce_replay</code></div>
+        <pre class="mcp-call-pre">{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "check_webbotauth_nonce_replay",
+    "arguments": {
+      "nonce": "aB3dEfGhIjKlMnOpQrStUvWxYz012345",
+      "created": 1750000000,
+      "expires": 1750000300,
+      "now_unix": 1750000060,
+      "max_age_s": 3600,
+      "seen_nonces": []
+    }
+  },
+  "id": 2
+}</pre>
+        <div class="mcp-call-footer">
+          <span class="mcp-endpoint">https://mcp.ainumbers.co/mcp</span>
+          <button class="copy-mcp-btn" onclick="copyMCP(1)">📋 Copy MCP Call</button>
+          <span class="copy-confirm" id="copyConfirm1"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-arrow">↓</div>
+
   <div class="stage-card" style="border-left-color:var(--purple)">
-    <div class="stage-header"><span class="stage-num" style="background:rgba(155,114,245,.12);color:#B794F4">2</span><span class="stage-tag">MIDDLE · D1</span><span class="badge-kind badge-node">node</span></div>
+    <div class="stage-header"><span class="stage-num" style="background:rgba(155,114,245,.12);color:#B794F4">3</span><span class="stage-tag">STEP 3</span><span class="badge-kind badge-node">node</span></div>
+    <div class="stage-body">
+      <div class="stage-name"><a href="../art-609-jwks-pinned-directory-check.html" class="stage-tool-link">JWKS Pinned-Directory Check</a> <span class="stage-tool-id">art-609</span></div>
+      <div class="stage-handoff">The caller-supplied JWKS directory document's canonical digest is checked against the caller's own out-of-band pinned digest before the directory's internal shape is trusted by the next step.</div>
+      <div class="mcp-call-block">
+        <div class="mcp-call-label">MCP Call · <code class="mcp-name">check_jwks_pinned_directory</code></div>
+        <pre class="mcp-call-pre">{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "check_jwks_pinned_directory",
+    "arguments": {
+      "directory_jwks": {
+        "keys": [
+          {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "kid": "key-2026-06",
+            "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g"
+          }
+        ]
+      },
+      "pinned_digest": "45d28be3698cb02c2a658ecb15c292076254ca24cd797bc75a39dacd244a028d"
+    }
+  },
+  "id": 3
+}</pre>
+        <div class="mcp-call-footer">
+          <span class="mcp-endpoint">https://mcp.ainumbers.co/mcp</span>
+          <button class="copy-mcp-btn" onclick="copyMCP(2)">📋 Copy MCP Call</button>
+          <span class="copy-confirm" id="copyConfirm2"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-arrow">↓</div>
+
+  <div class="stage-card" style="border-left-color:var(--green)">
+    <div class="stage-header"><span class="stage-num" style="background:rgba(34,197,94,.12);color:#4ADE80">4</span><span class="stage-tag">TERMINAL</span><span class="badge-kind badge-node">node</span></div>
     <div class="stage-body">
       <div class="stage-name"><a href="../art-130-signature-directory-validator.html" class="stage-tool-link">HTTP Signatures Directory Validator</a> <span class="stage-tool-id">art-130</span></div>
-      <div class="stage-handoff">Directory validation feeds agent card check</div>
+      <div class="stage-handoff">Terminal stage: JWKS directory shape and keyid resolution are validated on the same pinned document, completing the four-fact TAP verification surface.</div>
       <div class="mcp-call-block">
         <div class="mcp-call-label">MCP Call · <code class="mcp-name">validate_signature_directory</code></div>
         <pre class="mcp-call-pre">{
@@ -240,47 +316,12 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
       }
     }
   },
-  "id": 2
+  "id": 4
 }</pre>
         <div class="mcp-call-footer">
           <span class="mcp-endpoint">https://mcp.ainumbers.co/mcp</span>
-          <button class="copy-mcp-btn" onclick="copyMCP(1)">📋 Copy MCP Call</button>
-          <span class="copy-confirm" id="copyConfirm1"></span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="stage-arrow">↓</div>
-
-  <div class="stage-card" style="border-left-color:var(--green)">
-    <div class="stage-header"><span class="stage-num" style="background:rgba(34,197,94,.12);color:#4ADE80">3</span><span class="stage-tag">TERMINAL · D2</span><span class="badge-kind badge-node">node</span></div>
-    <div class="stage-body">
-      <div class="stage-name"><a href="../art-131-signature-agent-card-validator.html" class="stage-tool-link">Signature Agent Card Validator</a> <span class="stage-tool-id">art-131</span></div>
-      <div class="stage-handoff">Exports identity-trust verdict with execution_hash — final stage</div>
-      <div class="mcp-call-block">
-        <div class="mcp-call-label">MCP Call · <code class="mcp-name">validate_signature_agent_card</code></div>
-        <pre class="mcp-call-pre">{
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-    "name": "validate_signature_agent_card",
-    "arguments": {
-      "card": {
-        "name": "TradeAgent-v1",
-        "operator": "Acme Corp",
-        "expected_request_rate": 100,
-        "keys": [{ "kid": "key-2026-06" }]
-      },
-      "directory_keyids": ["key-2026-06", "key-2026-07-next"]
-    }
-  },
-  "id": 3
-}</pre>
-        <div class="mcp-call-footer">
-          <span class="mcp-endpoint">https://mcp.ainumbers.co/mcp</span>
-          <button class="copy-mcp-btn" onclick="copyMCP(2)">📋 Copy MCP Call</button>
-          <span class="copy-confirm" id="copyConfirm2"></span>
+          <button class="copy-mcp-btn" onclick="copyMCP(3)">📋 Copy MCP Call</button>
+          <span class="copy-confirm" id="copyConfirm3"></span>
         </div>
       </div>
     </div>
@@ -289,7 +330,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
 <div class="export-section">
   <div class="export-title">Export Artifacts</div>
-  <div class="export-desc">Download the §4 chain definition artifact or the §13.11 W3C VC view. Each of art-129, art-130, and art-131 individually support Policy Mandate JSON and W3C VC export.</div>
+  <div class="export-desc">Download the §4 chain definition artifact or the §13.11 W3C VC view. Each of art-129, art-593, art-609, and art-130 individually support Policy Mandate JSON export.</div>
   <div class="export-btn-row">
     <button class="export-btn export-btn-primary" id="exportArtifactBtn" onclick="exportArtifact()" disabled>⬇ Export §4 Artifact</button>
     <button class="export-btn export-btn-secondary" id="exportVCBtn" onclick="exportVC()" disabled>⬇ Export W3C VC (§13.11)</button>
@@ -308,27 +349,29 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 <footer><div class="container"><div class="footer-inner">
   <a href="../../index.html" style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--text)"><span style="color:var(--teal)">AI</span>Numbers.co</a>
   <div class="footer-links"><a href="../../index.html">All Tools</a><a href="../chaingraph-hub.html">OpenChainGraph Hub</a><a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a></div>
-  <div class="footer-badge"><span>Post Oak Labs · CC BY 4.0</span><span>OpenChainGraph Suite · Agent Identity Verification v1.0.0</span><span>wave 24 · hash-anchored · OCG v0.5.0</span></div>
+  <div class="footer-badge"><span>Post Oak Labs · CC BY 4.0</span><span>OpenChainGraph Suite · Visa TAP Agent Verification v1.0.0</span><span>hash-anchored · OCG v0.5.0</span></div>
 </div></div></footer>
 
 <script>
 'use strict';
 const CHAIN_MANIFEST = {
-  "chain_id":"agent-identity-verification","version":"1.0.0",
-  "title":"Agent Identity Verification (RFC 9421 Web Bot Auth)",
-  "description":"Verify the RFC 9421 Ed25519 Web Bot Auth signature base, zero network (art-129) → validate the /.well-known/http-message-signatures-directory JWKS and keyid resolution (art-130) → validate the Signature Agent Card and emit an identity-trust verdict (art-131). Agent verifies agent, zero network, no human.",
-  "category":"chaingraph","chaingraph":true,"mandate_type":"compliance_mandate","chain_depth":3,
-  "page_url":"https://ainumbers.co/chaingraph/chains/agent-identity-verification.html",
+  "chain_id":"visa-tap-agent-verification","version":"1.0.0",
+  "title":"Visa TAP Agent Verification (RFC 9421 Web Bot Auth + Nonce + JWKS Pin)",
+  "description":"Verify the RFC 9421 Ed25519 Web Bot Auth signature base (art-129) → check the request's Visa TAP-shaped nonce for format, freshness, and caller-supplied replay-set membership (art-593) → confirm a caller-pinned SHA-256 digest matches the caller-supplied JWKS directory document (art-609) → validate the directory's own shape and keyid resolution (art-130, reused unmodified). Four independent verification facts about a caller-captured TAP-shaped request; zero network, zero key hosting, no facilitator role.",
+  "category":"chaingraph","chaingraph":true,"mandate_type":"compliance_control","chain_depth":4,
+  "page_url":"https://ainumbers.co/chaingraph/chains/visa-tap-agent-verification.html",
   "steps":[
-    {"order":1,"tool_id":"art-129-webbotauth-signature-verifier","mcp_name":"verify_webbotauth_signature","url":"https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html","handoff":"Signature verdict feeds directory validation"},
-    {"order":2,"tool_id":"art-130-signature-directory-validator","mcp_name":"validate_signature_directory","url":"https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html","handoff":"Directory validation feeds agent card check"},
-    {"order":3,"tool_id":"art-131-signature-agent-card-validator","mcp_name":"validate_signature_agent_card","url":"https://ainumbers.co/chaingraph/art-131-signature-agent-card-validator.html","handoff":"Exports identity-trust verdict with execution_hash — final stage"}
+    {"order":1,"tool_id":"art-129-webbotauth-signature-verifier","mcp_name":"verify_webbotauth_signature","url":"https://ainumbers.co/chaingraph/art-129-webbotauth-signature-verifier.html","handoff":"Ed25519 signature verdict over the RFC 9421 signature base establishes whether the caller-captured request signature is genuine, ahead of the nonce and directory checks below."},
+    {"order":2,"tool_id":"art-593-webbotauth-nonce-replay-check","mcp_name":"check_webbotauth_nonce_replay","url":"https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.html","handoff":"Nonce format, the TAP created/expires spread, and caller-supplied replay-set membership are assessed next: a separate fact about the same captured request, independent of the signature verdict above."},
+    {"order":3,"tool_id":"art-609-jwks-pinned-directory-check","mcp_name":"check_jwks_pinned_directory","url":"https://ainumbers.co/chaingraph/art-609-jwks-pinned-directory-check.html","handoff":"The caller-supplied JWKS directory document's canonical digest is checked against the caller's own out-of-band pinned digest before the directory's internal shape is trusted by the next step."},
+    {"order":4,"tool_id":"art-130-signature-directory-validator","mcp_name":"validate_signature_directory","url":"https://ainumbers.co/chaingraph/art-130-signature-directory-validator.html","handoff":"Terminal stage: JWKS directory shape and keyid resolution are validated on the same pinned document, completing the four-fact TAP verification surface."}
   ]
 };
 const MCP_CALLS = [
-  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "verify_webbotauth_signature",\n    "arguments": {\n      "covered_components": [\n        { "name": "method", "value": "POST" },\n        { "name": "@authority", "value": "api.example.com" },\n        { "name": "@path", "value": "/agent/v1/execute" }\n      ],\n      "signature_params": "(\\"method\\" \\"@authority\\" \\"@path\\");created=1750000000;keyid=\\"key-2026-06\\";tag=\\"web-bot-auth\\";alg=\\"ed25519\\"",\n      "signature_b64": "ruUab1uVdHazfuOcU0E4qLcTnOM2Z7zYHiluP5qxDZkKbw8EjPNarFHL7G2fS2DhnFH1xlpbihrIkOm8jwxIDA==",\n      "public_key_jwk": { "kty": "OKP", "crv": "Ed25519", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" },\n      "alg": "ed25519",\n      "expected_tag": "web-bot-auth",\n      "created": 1750000000,\n      "now_unix": 1750003600,\n      "max_age_s": 3600\n    }\n  },\n  "id": 1\n}`,
-  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "validate_signature_directory",\n    "arguments": {\n      "well_known_path": "/.well-known/http-message-signatures-directory",\n      "keyid": "key-2026-06",\n      "directory_jwks": { "keys": [{ "kty": "OKP", "crv": "Ed25519", "kid": "key-2026-06", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" }] }\n    }\n  },\n  "id": 2\n}`,
-  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "validate_signature_agent_card",\n    "arguments": {\n      "card": { "name": "TradeAgent-v1", "operator": "Acme Corp", "expected_request_rate": 100, "keys": [{ "kid": "key-2026-06" }] },\n      "directory_keyids": ["key-2026-06", "key-2026-07-next"]\n    }\n  },\n  "id": 3\n}`
+  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "verify_webbotauth_signature",\n    "arguments": {\n      "covered_components": [\n        { "name": "method", "value": "POST" },\n        { "name": "@authority", "value": "api.example.com" },\n        { "name": "@path", "value": "/agent/v1/execute" }\n      ],\n      "signature_params": "(\\"method\\" \\"@authority\\" \\"@path\\");created=1750000000;keyid=\\"key-2026-06\\";tag=\\"web-bot-auth\\";alg=\\"ed25519\\"",\n      "signature_b64": "ruUab1uVdHazfuOcU0E4qLcTnOM2Z7zYHiluP5qxDZkKbw8EjPNarFHL7G2fS2DhnFH1xlpbihrIkOm8jwxIDA==",\n      "public_key_jwk": { "kty": "OKP", "crv": "Ed25519", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" },\n      "alg": "ed25519",\n      "expected_tag": "web-bot-auth",\n      "created": 1750000000,\n      "now_unix": 1750000060,\n      "max_age_s": 3600\n    }\n  },\n  "id": 1\n}`,
+  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "check_webbotauth_nonce_replay",\n    "arguments": {\n      "nonce": "aB3dEfGhIjKlMnOpQrStUvWxYz012345",\n      "created": 1750000000,\n      "expires": 1750000300,\n      "now_unix": 1750000060,\n      "max_age_s": 3600,\n      "seen_nonces": []\n    }\n  },\n  "id": 2\n}`,
+  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "check_jwks_pinned_directory",\n    "arguments": {\n      "directory_jwks": { "keys": [{ "kty": "OKP", "crv": "Ed25519", "kid": "key-2026-06", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" }] },\n      "pinned_digest": "45d28be3698cb02c2a658ecb15c292076254ca24cd797bc75a39dacd244a028d"\n    }\n  },\n  "id": 3\n}`,
+  `{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "params": {\n    "name": "validate_signature_directory",\n    "arguments": {\n      "well_known_path": "/.well-known/http-message-signatures-directory",\n      "keyid": "key-2026-06",\n      "directory_jwks": { "keys": [{ "kty": "OKP", "crv": "Ed25519", "kid": "key-2026-06", "x": "WrHvnND7oaWfvrGxUU3FNeJaQDwYj4K3e5fl0fH5p2g" }] }\n    }\n  },\n  "id": 4\n}`
 ];
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
@@ -338,7 +381,7 @@ let _chainHash=null,_artifact=null;
   _chainHash=await calcHash();
   document.getElementById('hashValue').textContent=_chainHash;
   document.getElementById('verifyBtn').disabled=false;
-  _artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:'compliance_mandate',tool_id:'chain:agent-identity-verification',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:_chainHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:{chain_id:CHAIN_MANIFEST.chain_id,version:CHAIN_MANIFEST.version,steps:CHAIN_MANIFEST.steps},output_payload:{chain_depth:CHAIN_MANIFEST.chain_depth,step_count:CHAIN_MANIFEST.steps.length,tool_ids:CHAIN_MANIFEST.steps.map(s=>s.tool_id)},compliance_flags:{CHAIN_DEFINITION_ANCHORED:true},audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:'compliance_control',tool_id:'chain:visa-tap-agent-verification',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:_chainHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:{chain_id:CHAIN_MANIFEST.chain_id,version:CHAIN_MANIFEST.version,steps:CHAIN_MANIFEST.steps},output_payload:{chain_depth:CHAIN_MANIFEST.chain_depth,step_count:CHAIN_MANIFEST.steps.length,tool_ids:CHAIN_MANIFEST.steps.map(s=>s.tool_id)},compliance_flags:{CHAIN_DEFINITION_ANCHORED:true},audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   document.getElementById('exportArtifactBtn').disabled=false;
   document.getElementById('exportVCBtn').disabled=false;
   document.getElementById('copyJsonBtn').disabled=false;
@@ -346,8 +389,8 @@ let _chainHash=null,_artifact=null;
 })();
 async function verifyHash(){const h=await calcHash();const ok=h===_chainHash;document.getElementById('verifyResult').textContent=ok?'✓ hash verified':'✗ mismatch';}
 function copyMCP(i){if(MCP_CALLS[i])navigator.clipboard.writeText(MCP_CALLS[i]).then(()=>{const el=document.getElementById('copyConfirm'+i);if(el){el.textContent='✓ copied';setTimeout(()=>el.textContent='',2000);}});}
-function exportArtifact(){if(!_artifact)return;dl(JSON.stringify(_artifact,null,2),'agent-identity-verification-artifact.json','application/json');}
-function exportVC(){if(!_artifact)return;const vc={"@context":["https://www.w3.org/ns/credentials/v2","https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"],type:["VerifiableCredential","OpenChainGraphArtifact"],issuer:"did:web:ainumbers.co",validFrom:_artifact.generated_at,credentialSubject:{...{id:"urn:ocg:"+_chainHash},..._artifact}};dl(JSON.stringify(vc,null,2),'agent-identity-verification-vc.json','application/json');}
+function exportArtifact(){if(!_artifact)return;dl(JSON.stringify(_artifact,null,2),'visa-tap-agent-verification-artifact.json','application/json');}
+function exportVC(){if(!_artifact)return;const vc={"@context":["https://www.w3.org/ns/credentials/v2","https://ainumbers.co/chaingraph/context/v0.4/context.jsonld"],type:["VerifiableCredential","OpenChainGraphArtifact"],issuer:"did:web:ainumbers.co",validFrom:_artifact.generated_at,credentialSubject:{...{id:"urn:ocg:"+_chainHash},..._artifact}};dl(JSON.stringify(vc,null,2),'visa-tap-agent-verification-vc.json','application/json');}
 function copyJSON(){if(!_artifact)return;navigator.clipboard.writeText(JSON.stringify(_artifact,null,2));}
 function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
 function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode'),a=document.getElementById('mfstArr');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(CHAIN_MANIFEST,null,2);b.style.display='block';a.textContent='▲';}else{b.style.display='none';a.textContent='▼';}}
@@ -384,7 +427,7 @@ function __ocgCanonStr(x){__ocgAssertIJson(x);return JSON.stringify(__ocgCanon(x
 <script>
 /* OCG-§16-UI v1 (univ-ap2). DO NOT hand-edit. */
 function __ocgGetArt(){var cands=['_artifact','_result','_lastArtifact','lastArtifact'];for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}return null;}
-async function signArtifact(){var art=__ocgGetArt();if(!art){alert('Chain hash not yet computed.');return;}if(!confirm('Sign this chain definition artifact with a one-time Ed25519 key? (OCG §16.2)'))return;var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);var did=await __ocgDidKeyFromPub(kp.publicKey);var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});var fn='agent-identity-verification-chain_'+new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14)+'.signed.json';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));a.download=fn;a.click();URL.revokeObjectURL(a.href);}
+async function signArtifact(){var art=__ocgGetArt();if(!art){alert('Chain hash not yet computed.');return;}if(!confirm('Sign this chain definition artifact with a one-time Ed25519 key? (OCG §16.2)'))return;var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);var did=await __ocgDidKeyFromPub(kp.publicKey);var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});var fn='visa-tap-agent-verification-chain_'+new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14)+'.signed.json';var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));a.download=fn;a.click();URL.revokeObjectURL(a.href);}
 async function verifySignature(){var t=window.prompt('Paste a signed OCG chain artifact JSON:');if(!t)return;var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}var pr=art&&art.audit_signature&&art.audit_signature.proof;if(!pr){alert('✗ no §16 proof');return;}try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}}
 </script>
 </body>
