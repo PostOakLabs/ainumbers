@@ -1,22 +1,22 @@
 import { executionHash } from './_hash.mjs';
 
 // art-601-dora-roi-gleif-preflight-pack — DORA RoI GLEIF pre-submission evidence pack.
-// SPEC-DORA-GLEIF-FEEDERS-1-2026-08-09.md §4. Terminal node of chain
-// dora-roi-gleif-preflight-pack: art-466 (dora-roi-builder) -> art-599 (gleif_snapshot_digest)
-// [xN, one per LEI-bearing counterparty] -> art-600 (lei_relationship_consistency) [xN, same
-// set] -> art-601 (this node).
+// Build spec: research/SPEC-DORA-GLEIF-FEEDERS-1-2026-08-09.md, evidence-pack section. Terminal
+// node of chain dora-roi-gleif-preflight-pack: art-466 (dora-roi-builder) -> art-599
+// (gleif_snapshot_digest) [xN, one per LEI-bearing counterparty] -> art-600
+// (lei_relationship_consistency) [xN, same set] -> art-601 (this node).
 //
 // Pure composition over upstream node outputs, same shape as art-300/art-304/art-585: no new
 // domain logic beyond what its own inputs need, zero network, zero PII, in-memory only. It
 // never re-derives the RoI dataset -- it links to the upstream dora-roi-builder artifact by
-// execution_hash + tool_id only, never the raw dataset (SPEC §4 artifact-chain rule).
+// execution_hash + tool_id only, never the raw dataset (build-spec artifact-chain rule).
 //
-// HARD FRAMING, non-negotiable (SPEC §4): this is a preparation aid a firm compiles for its own
-// DORA RoI submission process. It is NOT a submission, NOT a filing, NOT a determination that a
-// submission is complete or accurate, and NOT a statement that any regulator has reviewed or
-// would accept this output. compliance_flags here describe pack-assembly state ONLY -- never
-// "compliant", "satisfies", or "meets DORA requirements" language anywhere in this kernel or its
-// output strings.
+// HARD FRAMING, non-negotiable per the build spec: this is a preparation aid a firm compiles for
+// its own DORA RoI submission process. It is NOT a submission, NOT a filing, NOT a determination
+// that a submission is complete or accurate, and NOT a statement that any regulator has reviewed
+// or would accept this output. compliance_flags here describe pack-assembly state ONLY -- this
+// kernel and its output strings never claim the pack itself is adequate, sufficient, or fulfils
+// any regulatory obligation.
 const SCOPE_NOTE = 'Assembles evidence a firm compiles for its own DORA RoI submission process. Not a submission, not a filing, not a determination that a submission is complete or accurate, and not a statement that any regulator has reviewed or would accept this output.';
 
 const TOOL_ID = 'art-601-dora-roi-gleif-preflight-pack';
@@ -34,7 +34,7 @@ function bool(v) { return v === true ? true : v === false ? false : null; }
 function num(v) { return typeof v === 'number' && Number.isFinite(v) ? v : null; }
 
 // Named-human attestation closure -- identical shape to art-300's, management-body role per
-// SPEC §4 (echoes the Art.5 personal-accountability framing already established in
+// the build spec (echoes the personal-accountability framing already established in
 // dora-roi-annual-cycle; copied, not re-derived).
 function attestationVerdict(attestation) {
   if (!isObj(attestation)) return { status: 'pending_named_human_closure', signer_name: null, signer_title: null, signed_at: null };
@@ -48,7 +48,7 @@ function attestationVerdict(attestation) {
 // One counterparty's GLEIF pre-flight evidence: the art-599 snapshot digest result and the
 // art-600 relationship-consistency result, as the caller carries them forward from those two
 // upstream node runs. Every element carries captured_at + a source digest so staleness is
-// visible without this pack asserting freshness (SPEC §4, "the whole point").
+// visible without this pack asserting freshness (the build spec's core discipline).
 function summarizeCounterparty(entry) {
   entry = isObj(entry) ? entry : {};
   const counterparty_id = str(entry.counterparty_id) || null;
