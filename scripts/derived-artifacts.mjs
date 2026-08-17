@@ -75,7 +75,7 @@ export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const COVERED = [
   {
     id: 'kernel-index',
-    regen: 'node chaingraph/kernels/gen-index.mjs',
+    regen: 'node chaingraph/kernels/gen-index.mjs --write',
     gate: 'node chaingraph/kernels/gen-index.mjs --check',
     artifacts: ['chaingraph/kernels/index.mjs'],
     share: '81%',
