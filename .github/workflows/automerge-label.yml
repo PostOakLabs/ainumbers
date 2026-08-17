@@ -68,7 +68,18 @@ jobs:
           permission-pull-requests: write
           permission-contents: write
 
-      - name: Enable auto-merge
+      # `gh pr merge --auto` silently no-ops on a PR that is ALREADY green
+      # at label time, given the active merge_queue rule (main-ci-anchor,
+      # 20721322) — measured 2026-08-17 on PR #1348, run 32029898577: the
+      # step exited 0, printed "! The merge strategy for main is set by the
+      # merge queue", posted the comment below, and yet autoMergeRequest
+      # stayed null and the PR was never added to the queue. Still-running
+      # PRs are unaffected (#1345/#1349 merged fine — native auto-merge
+      # waits for their checks, then GitHub itself enqueues them). So this
+      # step no longer trusts the command's exit code: it asserts the end
+      # state via GraphQL and falls back to enqueuePullRequest directly
+      # when native auto-merge left the PR untouched.
+      - name: Enable auto-merge / enqueue
         if: steps.guard.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -76,8 +87,55 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+
           # -R required: no checkout step runs in this job, so gh has no git
           # repo to infer the target from (measured 2026-08-16, run 31980911540:
-          # "fatal: not a git repository" without it).
-          gh pr merge "$PR" -R "$REPO" --auto --squash
+          # "fatal: not a git repository" without it). `|| true`: this is the
+          # happy path for a still-checking PR, not a fatal condition here —
+          # the assertion below is what decides pass/fail.
+          gh pr merge "$PR" -R "$REPO" --auto --squash || true
+
+          NODE_ID=$(gh pr view "$PR" -R "$REPO" --json id -q .id)
+
+          check_state() {
+            gh api graphql -f query='
+              query($id: ID!) {
+                node(id: $id) {
+                  ... on PullRequest {
+                    merged
+                    autoMergeRequest { enabledAt }
+                    mergeQueueEntry { id }
+                  }
+                }
+              }' -f id="$NODE_ID"
+          }
+
+          RESULT=$(check_state)
+          MERGED=$(echo "$RESULT" | jq -r '.data.node.merged')
+          AUTO=$(echo "$RESULT" | jq -r '.data.node.autoMergeRequest')
+          QUEUED=$(echo "$RESULT" | jq -r '.data.node.mergeQueueEntry')
+
+          if [ "$MERGED" = "true" ] || [ "$AUTO" != "null" ] || [ "$QUEUED" != "null" ]; then
+            echo "auto-merge confirmed: merged=$MERGED autoMergeRequest=$AUTO mergeQueueEntry=$QUEUED"
+          else
+            echo "::notice title=Fallback::native auto-merge left PR #$PR untouched (already green); enqueueing directly via GraphQL enqueuePullRequest"
+            gh api graphql -f query='
+              mutation($id: ID!) {
+                enqueuePullRequest(input: {pullRequestId: $id}) {
+                  mergeQueueEntry { id }
+                }
+              }' -f id="$NODE_ID"
+
+            RESULT=$(check_state)
+            MERGED=$(echo "$RESULT" | jq -r '.data.node.merged')
+            AUTO=$(echo "$RESULT" | jq -r '.data.node.autoMergeRequest')
+            QUEUED=$(echo "$RESULT" | jq -r '.data.node.mergeQueueEntry')
+
+            if [ "$MERGED" != "true" ] && [ "$AUTO" = "null" ] && [ "$QUEUED" = "null" ]; then
+              echo "::error title=Automerge failed::PR #$PR is neither merged, auto-merge-pending, nor enqueued after the enqueuePullRequest fallback. This step must not report success while leaving the PR untouched (board/STANDING-ORDERS.md #41/#34c)."
+              exit 1
+            fi
+            echo "auto-merge confirmed via fallback: merged=$MERGED autoMergeRequest=$AUTO mergeQueueEntry=$QUEUED"
+          fi
+
           gh pr comment "$PR" -R "$REPO" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed."
