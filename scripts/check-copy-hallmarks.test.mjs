@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cosignVocabHits, insiderHits, aiVocabHits, notXCount, visibleText } from './check-copy-hallmarks.mjs';
+import { cosignVocabHits, insiderHits, aiVocabHits, notXCount, visibleText, panelHits } from './check-copy-hallmarks.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -77,6 +77,35 @@ const removed = offending
   .replace(/\bfinal\b/gi, 'recomputed')
   .replace(/\bsettled\b/gi, 'matching');
 ok(cosignVocabHits(removed).length === 0, '(removed) banned words swapped out -> zero hits again');
+
+// --- PANEL (SCOPE-PANEL-COPY-AUDIT-1) ---
+// Positive control on the real pre-rewrite string (before this WU's edit),
+// via git show, so the test proves the detector fires on the actual page
+// Tim flagged, not just a synthetic fixture.
+{
+  const oldHtml = gitShow('origin/main', 'chaingraph/agentcore-x402-hub.html');
+  const newHtml = readFileSync(resolve(REPO, 'chaingraph/agentcore-x402-hub.html'), 'utf8');
+  const oldHits = panelHits(oldHtml);
+  const newHits = panelHits(newHtml);
+  ok(oldHits.length > 0, `(pre-fix) origin/main:chaingraph/agentcore-x402-hub.html trips the PANEL detector — got ${JSON.stringify(oldHits)}`);
+  ok(newHits.length === 0, `(post-fix) chaingraph/agentcore-x402-hub.html is clean of PANEL hits — got ${JSON.stringify(newHits)}`);
+}
+
+// Synthetic heading-plus-bullet-wall shape: labeled heading + >=2 negation
+// bullets is exactly the tell CONTRACT §1.4's reasonable-reader rule bans.
+const panelBox = '<h2>What this tool does not do</h2><ul><li>Does not custody funds.</li><li>Does not attest to settlement.</li></ul>';
+ok(panelHits(panelBox).length === 1, `PANEL detector fires on a heading + 2-bullet negation wall — got ${JSON.stringify(panelHits(panelBox))}`);
+
+// One inline limitation sentence, no heading/box — exactly what the rule
+// permits (up to two per page) — must NOT trip the detector.
+const inlineOnly = '<p>This tool computes a settlement finality class. It does not verify custody of the underlying funds.</p>';
+ok(panelHits(inlineOnly).length === 0, `PANEL detector does not fire on a single inline limitation sentence with no heading/box — got ${JSON.stringify(panelHits(inlineOnly))}`);
+
+// A bare "Scope" heading with positive, non-negation bullets must not fire
+// (the ambiguous-label branch requires the bullets themselves to read as
+// negations, not just any bullet under a "Scope" label).
+const positiveScope = '<h2>Scope</h2><ul><li>Validates the mandate-chain signature.</li><li>Checks expiry ordering.</li></ul>';
+ok(panelHits(positiveScope).length === 0, `PANEL detector does not fire on a "Scope" heading with positive (non-negation) bullets — got ${JSON.stringify(panelHits(positiveScope))}`);
 
 if (fail) {
   console.error(`\ncheck-copy-hallmarks.test.mjs: ${fail} FAILURE(s)`);

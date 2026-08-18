@@ -188,6 +188,80 @@ export function aiVocabHits(text) {
   }
   return hits;
 }
+// PANEL: the "SCOPE box" / "what this does not do" negation-wall shape
+// (SCOPE-PANEL-COPY-AUDIT-1, 2026-08-18, Tim's ruling on agentcore-x402-hub.html's
+// SCOPE box: "very distracting, it sounds like slop ... readers care about a
+// couple items in the scope/out of scope, but no one cares about all of these
+// out of scope items"). Distinct from H1 (notX, an inline ",-not X" reflex): a
+// PANEL is a HEADING that frames negation (SCOPE / Non-Goals / Out of Scope /
+// Limitations / "what this does not do") followed by >=2 negation bullets/
+// sentences under it. CONTRACT §1.4's reasonable-reader rule permits at most
+// two inline limitation sentences per page; a heading-plus-wall is the house
+// tic that rule exists to remove.
+// Labels aren't always real headings — this site also uses short leaf
+// elements as section labels (<div class="sec-label">Scope</div>) and short
+// lead-in sentences ("What this page does not do, stated plainly:") right
+// before the bullet wall. Match any short (<=150 char) leaf element's text,
+// not just h1-h6, so both shapes are caught.
+const PANEL_HEADING_RE = /<(h[1-6]|div|p|span|strong|b)\b[^>]*>([^<]{0,150})<\/\1>/gi;
+// A heading already framed as negative: any bullet under it counts.
+const PANEL_NEGATION_LABEL = /\bnon-goals?\b|\bout of scope\b|does\s+not\s+do\b|\blimitations?\b|\bwhat this\b[^<]{0,40}\bdoes\s+not\b|\bwill\s+not\b/i;
+// A bare "Scope" heading is ambiguous (could be positive) — only count bullets
+// that themselves read as negations.
+const PANEL_SCOPE_LABEL = /\bscope\b/i;
+const NEG_ITEM_TEXT = /\b(?:does\s+not|is\s+not\s+a|is\s+not\s+an|not\s+a\s+substitute\s+for|cannot|can['’]?t|will\s+not|won['’]?t|never|excludes?|no\s+support\s+for)\b/i;
+const LIST_ITEM_RE = /<li\b[^>]*>([\s\S]*?)<\/li>/gi;
+const SENTENCE_SPLIT_RE = /(?<=[.!?])\s+(?=[A-Z])/;
+// A boxed/callout wrapper (class names like "scope-callout", "scope-fence",
+// "scope-box") is itself the shape Tim flagged ("very distracting, it sounds
+// like slop") regardless of exact sentence count inside — a bordered box
+// visually promotes a limitation into a section, which the reasonable-reader
+// rule forbids even at one sentence. Lower threshold to >=1 negation mention
+// for these explicitly-boxed wrappers only.
+const CALLOUT_WRAPPER_RE = /<(div|aside|section)\b[^>]*\bclass\s*=\s*["'][^"']*\b(?:scope-callout|scope-box|scope-fence|non-goals-box|limitations-box)\b[^"']*["'][^>]*>([\s\S]*?)<\/\1>/gi;
+/** Detect PANEL-shaped negation walls. Exported for unit testing. */
+export function panelHits(prose) {
+  const hits = [];
+  let m;
+  CALLOUT_WRAPPER_RE.lastIndex = 0;
+  const boxSeen = new Set();
+  while ((m = CALLOUT_WRAPPER_RE.exec(prose))) {
+    const plain = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (NEG_ITEM_TEXT.test(plain) || /\bnot\b/i.test(plain)) {
+      hits.push(`boxed scope/limitation callout (${plain.slice(0, 60)}...)`);
+      boxSeen.add(m.index);
+    }
+  }
+  PANEL_HEADING_RE.lastIndex = 0;
+  const headings = [];
+  while ((m = PANEL_HEADING_RE.exec(prose))) {
+    headings.push({ start: m.index, end: PANEL_HEADING_RE.lastIndex, text: m[2].trim() });
+  }
+  for (let i = 0; i < headings.length; i++) {
+    const h = headings[i];
+    const isNegation = PANEL_NEGATION_LABEL.test(h.text);
+    const isScope = !isNegation && PANEL_SCOPE_LABEL.test(h.text);
+    if (!isNegation && !isScope) continue;
+    const nextStart = i + 1 < headings.length ? headings[i + 1].start : Math.min(prose.length, h.end + 3000);
+    const span = prose.slice(h.end, nextStart);
+    LIST_ITEM_RE.lastIndex = 0;
+    const items = [];
+    let lm;
+    while ((lm = LIST_ITEM_RE.exec(span))) items.push(lm[1].replace(/<[^>]+>/g, ' ').trim());
+    let negCount = 0;
+    if (items.length) {
+      negCount = isNegation ? items.length : items.filter((t) => NEG_ITEM_TEXT.test(t)).length;
+    } else {
+      const plainText = span.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const sentences = plainText.split(SENTENCE_SPLIT_RE).filter(Boolean);
+      negCount = sentences.filter((s) => NEG_ITEM_TEXT.test(s)).length;
+    }
+    if (negCount >= 2) {
+      hits.push(`"${h.text.slice(0, 60)}" panel with ${negCount} negation ${items.length ? 'bullet' : 'sentence'}(s)`);
+    }
+  }
+  return hits;
+}
 // H1: the ", not X" defensive-negation reflex + "; it is not" sibling form.
 // DEFAULT_NOTX_CAP tolerates a few before a file needs a baseline entry — the
 // style contract allows "one per section", and most pages have 2+ sections.
@@ -408,6 +482,7 @@ for (const file of htmlFiles(REPO)) {
   const insider = insiderHits(text);
   const aiVocab = aiVocabHits(text);
   const notX = notXCount(text);
+  const panel = panelHits(prose);
 
   const hallmarks = [];
   // Italic/bold emphasis in HEADINGS (h1-h6) is now a blocking tell too (Tim
@@ -459,8 +534,8 @@ for (const file of htmlFiles(REPO)) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || notX) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, notX };
+  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || notX || panel.length) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, notX, panel };
   }
 }
 
@@ -470,7 +545,7 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 let cgEmdash = 0;
 for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
 for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], notX: 0 };
+if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], notX: 0, panel: [] };
 
 if (REPORT) {
   const date = process.env.COPY_HALLMARK_REPORT_DATE || new Date().toISOString().slice(0, 10);
@@ -492,11 +567,12 @@ if (UPDATE) {
     const overDebt = {};
     for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
     const notXDebt = f.notX > DEFAULT_NOTX_CAP ? f.notX : 0;
-    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + (notXDebt ? 1 : 0);
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + (notXDebt ? 1 : 0) + f.panel.length;
     if (debt) {
       baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length };
       if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
       if (notXDebt) baseline[rel].notX = notXDebt;
+      if (f.panel.length) baseline[rel].panel = f.panel.length;
     }
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
@@ -514,6 +590,7 @@ for (const [rel, f] of Object.entries(findings)) {
   const bBold = b.bold || 0;
   const bInsider = b.insider || 0;
   const bAiVocab = b.aiVocab || 0;
+  const bPanel = b.panel || 0;
   if (f.emdash > b.emdash) failures.push(`${rel}: ${f.emdash} em-dash(es) in visible text (baseline ${b.emdash})`);
   else if (f.emdash < b.emdash) improvements.push(`${rel}: em-dash ${b.emdash} -> ${f.emdash}`);
   if (f.jargon.length > b.jargon) failures.push(`${rel}: build jargon in visible text: ${f.jargon.join('; ')} (baseline ${b.jargon})`);
@@ -523,6 +600,12 @@ for (const [rel, f] of Object.entries(findings)) {
   else if (f.insider.length < bInsider) improvements.push(`${rel}: insider-register ${bInsider} -> ${f.insider.length}`);
   if (f.aiVocab.length > bAiVocab) failures.push(`${rel}: AI-vocabulary hit(s): ${f.aiVocab.join('; ')} (baseline ${bAiVocab})`);
   else if (f.aiVocab.length < bAiVocab) improvements.push(`${rel}: AI-vocabulary ${bAiVocab} -> ${f.aiVocab.length}`);
+  // PANEL (scope-box negation-wall shape): BLOCKING for new/changed pages — a
+  // file absent from the baseline gets zero tolerance, same shape as jargon/
+  // insider/aiVocab above. The baseline is legacy-estate shielding ONLY,
+  // burned down by rewrite PRs via --update (never grown to hide a new hit).
+  if (f.panel.length > bPanel) failures.push(`${rel}: SCOPE-panel negation-wall hit(s): ${f.panel.join('; ')} (baseline ${bPanel}) — CONTRACT §1.4 reasonable-reader rule: fold into at most two inline limitation sentences, no heading-plus-bullet-wall`);
+  else if (f.panel.length < bPanel) improvements.push(`${rel}: panel ${bPanel} -> ${f.panel.length}`);
   {
     const allowedNotX = b.notX != null ? b.notX : DEFAULT_NOTX_CAP;
     if (f.notX > allowedNotX) failures.push(`${rel}: ${f.notX} ",-not X" defensive-negation hit(s) — over cap (max ${allowedNotX})`);
