@@ -12,6 +12,7 @@
 import {
   checkMappedField, checkGateRule, checkL2Edge, checkL2Chain, extractConstraint, resolvePointer,
   measuredL2Precision, ADJUDICATED_L2_EDGES,
+  checkSharedInputField, checkSharedInputs, checkProvenanceThreading, gateAuthoringInstruction,
 } from './check-chain-l2-contracts.mjs';
 
 let failures = 0;
@@ -138,8 +139,11 @@ console.log('── L2 case 2 (L1 origin: edge #6, FP): field-name match with NO
   };
   const ctx = makeCtx({});
   const r = checkL2Chain(chain, ctx);
-  check('edge with no authored consumes_from is L2-indeterminate', r.verdict === 'L2-indeterminate');
-  check('reason is no-field-map-authored, never a fail', r.reasons.includes('no-field-map-authored'));
+  // ⛔ RESCOPE-1 amended this control's EXPECTED VERDICT, not its purpose. The purpose — L2 must not
+  // inherit L1's false positive by a different route — is unchanged and still asserted below. What
+  // changed is that "no field map" is now a structural not-applicable, not an open chore.
+  check('edge with no authored consumes_from is L2-not-applicable', r.verdict === 'L2-not-applicable');
+  check('reason is the structural one, never a fail', r.reasons.includes('chain-steps-independently-parameterised'));
   check('L2 does NOT re-flag L1\'s false positive as a fail', r.verdict !== 'L2-fail');
 }
 
@@ -172,12 +176,13 @@ console.log('── L2 case 3 (L1 origin: Cluster B hub, FP-hub): four edges, no
 console.log('── L2 case 4 (L1 origin: Cluster A ties, INDETERMINATE): composition-order disputes are out of L2 scope ──');
 {
   // No consumes_from, no gate — L2 asks a domain-boundary question, not a composition-order
-  // question, so this case emits nothing but the standard no-field-map-authored indeterminate.
+  // question, so this case emits the structural not-applicable and nothing else.
   const chain = { name: 'clustera-tie-shape', steps: [{ tool_id: 'art-12-like' }, { tool_id: 'art-01-like' }] };
   const ctx = makeCtx({});
   const r = checkL2Chain(chain, ctx);
-  check('composition-order dispute with no field map produces the standard indeterminate, nothing else',
-    r.verdict === 'L2-indeterminate' && r.reasons.length === 1 && r.reasons[0] === 'no-field-map-authored');
+  check('composition-order dispute with no field map produces the structural not-applicable, nothing else',
+    r.verdict === 'L2-not-applicable' && r.reasons.includes('chain-steps-independently-parameterised'));
+  check('and it raises no finding of any kind', r.findings.length === 0);
 }
 
 console.log('── L2 case 5 (L1 origin: Cluster A edge #2, FP-confirm-only): standing note only ──');
@@ -340,11 +345,15 @@ console.log('── Chain verdict: fail beats indeterminate beats pass ──');
   check('one failing edge makes the whole chain L2-fail even with an indeterminate edge present', r.verdict === 'L2-fail');
 }
 
-console.log('── Chain verdict: a chain with zero in-scope edges is indeterminate, never a vacuous pass ──');
+console.log('── Chain verdict: a chain with zero in-scope edges is never a vacuous pass ──');
 {
+  // ⛔ RESCOPE-1: a single-step chain has no edges BY CONSTRUCTION — structural absence, so the
+  // verdict is not-applicable rather than indeterminate. The invariant the original control existed
+  // to protect is unchanged and is asserted first: ⛔ never a vacuous pass.
   const r = checkL2Chain({ name: 'single-step', steps: [{ tool_id: 'solo' }] }, makeCtx({}));
-  check('single-step chain (zero edges) is L2-indeterminate(no-in-scope-edges)',
-    r.verdict === 'L2-indeterminate' && r.reasons.includes('no-in-scope-edges'));
+  check('single-step chain (zero edges) is ⛔ NOT L2-pass', r.verdict !== 'L2-pass');
+  check('it is L2-not-applicable(no-in-scope-edges)',
+    r.verdict === 'L2-not-applicable' && r.reasons.includes('no-in-scope-edges'));
 }
 
 console.log('── Chain verdict: all-pass edges yield L2-pass ──');
@@ -379,6 +388,252 @@ console.log('── measuredL2Precision — derived, never hardcoded (mirrors L1
   const synthetic = [{ id: 'synthetic', edge_count: 3, verdict: 'TP', source: 'test' }];
   const p = measuredL2Precision(synthetic);
   check('MUTATION: supplying a fixture set changes the derived ratio (3/3)', p.ratio === '3/3' && p.genuine_defects === 3);
+}
+
+/* ═══════════════ CHAIN-FV-L2-RESCOPE-1 — L2-S shared-input coherence (spec §2.7) ═════════════════ */
+
+/** Build checkSharedInputField participants from plain property schemas. */
+function parts(...entries) {
+  return entries.map(([step, prop]) => ({
+    step,
+    types: prop && prop.type ? [prop.type] : ['unknown'],
+    constraint: extractConstraint(prop),
+  }));
+}
+
+console.log('── L2-S control RED: currency [EUR] vs [USD] — disjoint, must FAIL with a witness ──');
+{
+  const r = checkSharedInputField('currency', parts(
+    ['step-a', { type: 'string', enum: ['EUR'] }],
+    ['step-b', { type: 'string', enum: ['USD'] }],
+  ));
+  check('RED: disjoint declared enums are L2S-fail', r.verdict === 'L2S-fail');
+  check('RED: the code is shared-input-domain-disjoint', r.findings[0].code === 'shared-input-domain-disjoint');
+  check('RED: the witness names a concrete value one step accepts and another rejects',
+    r.findings[0].witness === '"EUR" is accepted by step-a and rejected by step-b');
+  check('RED: no effective domain is published for a disjoint field', r.effective_domain === null);
+}
+
+console.log('── L2-S control GREEN: same pair, step-b widened to [EUR,USD] ──');
+{
+  const r = checkSharedInputField('currency', parts(
+    ['step-a', { type: 'string', enum: ['EUR'] }],
+    ['step-b', { type: 'string', enum: ['EUR', 'USD'] }],
+  ));
+  check('GREEN: overlapping declared enums are L2S-pass', r.verdict === 'L2S-pass');
+  check('GREEN: zero findings', r.findings.length === 0);
+  check('GREEN: the narrowed intersection is published as the effective domain',
+    r.effective_domain.kind === 'enum' && JSON.stringify(r.effective_domain.values) === JSON.stringify(['EUR']));
+}
+
+console.log('── L2-S MUTATION: adding one enum member to the RED case flips fail -> pass ──');
+{
+  const red = checkSharedInputField('currency', parts(
+    ['step-a', { type: 'string', enum: ['EUR'] }],
+    ['step-b', { type: 'string', enum: ['USD'] }],
+  ));
+  const mutated = checkSharedInputField('currency', parts(
+    ['step-a', { type: 'string', enum: ['EUR'] }],
+    ['step-b', { type: 'string', enum: ['USD', 'EUR'] }], // one fact flipped
+  ));
+  check('MUTATION: the verdict actually moves (fail -> pass), so the check is not vacuous',
+    red.verdict === 'L2S-fail' && mutated.verdict === 'L2S-pass');
+}
+
+console.log('── L2-S PRECISION GUARD: unequal-but-overlapping is a PASS, ⛔ never a fail ──');
+{
+  // The bug this control exists to prevent: "the two enums differ" is NOT a defect. A step may
+  // legitimately accept a superset. Only an EMPTY intersection means the chain has no runnable value.
+  // Same category-error shape as §2.3's `lt` lesson — cheaper to control for than to adjudicate.
+  const r = checkSharedInputField('currency', parts(
+    ['step-a', { type: 'string', enum: ['USD', 'EUR', 'GBP', 'JPY'] }],
+    ['step-b', { type: 'string', enum: ['USD', 'EUR', 'GBP', 'HKD', 'SGD'] }],
+  ));
+  check('differing-but-overlapping enums do NOT produce a finding', r.findings.length === 0);
+  check('the effective domain is the intersection, published for the reader',
+    JSON.stringify(r.effective_domain.values) === JSON.stringify(['USD', 'EUR', 'GBP']));
+}
+
+console.log('── L2-S: a step declaring NO domain is indeterminate, ⛔ never convicted ──');
+{
+  const r = checkSharedInputField('jurisdiction', parts(
+    ['step-a', { type: 'string', enum: ['eu'] }],
+    ['step-b', { type: 'string' }], // no declared domain at all
+  ));
+  check('an undeclared domain produces zero findings', r.findings.length === 0);
+  check('it is L2S-indeterminate', r.verdict === 'L2S-indeterminate');
+  check('the reason names the exact step and field a batch row must author',
+    r.undecided_reasons.includes('no-domain:step-b.jurisdiction'));
+}
+
+console.log('── L2-S: type conflict, numeric-range conflict, unit conflict ──');
+{
+  const t = checkSharedInputField('amount', parts(
+    ['step-a', { type: 'string' }],
+    ['step-b', { type: 'number' }],
+  ));
+  check('a string/number conflict on a shared field fails', t.findings.some((f) => f.code === 'shared-input-type-conflict'));
+
+  const n = checkSharedInputField('ltv', parts(
+    ['step-a', { type: 'number', minimum: 80 }],
+    ['step-b', { type: 'number', maximum: 50 }],
+  ));
+  check('disjoint numeric ranges fail', n.findings.some((f) => f.code === 'shared-input-range-disjoint'));
+  check('the range witness states the empty interval', n.findings.find((f) => f.code === 'shared-input-range-disjoint').witness === '[80,50] is empty');
+
+  const u = checkSharedInputField('rate', parts(
+    ['step-a', { type: 'number', minimum: 0, maximum: 100, 'x-unit': '%' }],
+    ['step-b', { type: 'number', minimum: 0, maximum: 100, 'x-unit': '1' }],
+  ));
+  check('conflicting x-unit on a shared field fails, with both strings as the witness',
+    u.findings.find((f) => f.code === 'shared-input-unit-conflict').witness === '% != 1');
+}
+
+console.log('── L2-S: a field only ONE step accepts is not a shared field at all ──');
+{
+  const manifests = {
+    a: { input_schema: { properties: { only_mine: { type: 'string', enum: ['x'] } } } },
+    b: { input_schema: { properties: { also_mine: { type: 'string', enum: ['y'] } } } },
+  };
+  const r = checkSharedInputs({ name: 'no-overlap', steps: [{ tool_id: 'a' }, { tool_id: 'b' }] }, makeCtx(manifests));
+  check('zero shared fields is L2S-not-applicable(no-shared-input-fields), ⛔ not a vacuous pass',
+    r.verdict === 'L2S-not-applicable' && r.reasons.includes('no-shared-input-fields'));
+  check('and it examined zero fields', r.shared_field_count === 0);
+}
+
+console.log('── L2-S: whole-chain roll-up, and a repeated tool_id counted once ──');
+{
+  const manifests = {
+    a: { input_schema: { properties: { currency: { type: 'string', enum: ['EUR'] } } } },
+    b: { input_schema: { properties: { currency: { type: 'string', enum: ['USD'] } } } },
+  };
+  const chain = { name: 'fx-mismatch', steps: [{ tool_id: 'a' }, { tool_id: 'b' }, { tool_id: 'a' }] };
+  const r = checkSharedInputs(chain, makeCtx(manifests));
+  check('the chain rolls up to L2S-fail', r.verdict === 'L2S-fail');
+  check('a tool named twice contributes ONE contract, not two',
+    r.fields[0].steps.length === 2 && r.fields[0].steps.filter((s) => s === 'a').length === 1);
+}
+
+/* ═══════════════ CHAIN-FV-L2-RESCOPE-1 — L2-G gate control + authoring (spec §2.6) ═══════════════ */
+
+console.log('── L2-G control RED: gate needs status eq "ready", producer declares [pending,failed] ──');
+{
+  const manifests = {
+    prod: { output_schema: { properties: { status: { type: 'string', enum: ['pending', 'failed'], 'x-source': MANIFEST_SRC() } } } },
+  };
+  const gate = { input: '/status', rules: [{ op: 'eq', value: 'ready', next: 'end' }] };
+  const r = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], makeCtx(manifests));
+  check('RED: a gate on a value the producer cannot emit is a finding', r.findings.length === 1);
+  check('RED: the code is gate-value-outside-guarantee', r.findings[0].code === 'gate-value-outside-guarantee');
+  check('RED: the witness is the unreachable literal', r.findings[0].witness === 'ready');
+  check('RED: a DECIDED gate carries no authoring instruction', r.authoring === null);
+}
+
+console.log('── L2-G control GREEN: producer declares [pending,failed,ready] ──');
+{
+  const manifests = {
+    prod: { output_schema: { properties: { status: { type: 'string', enum: ['pending', 'failed', 'ready'], 'x-source': MANIFEST_SRC() } } } },
+  };
+  const gate = { input: '/status', rules: [{ op: 'eq', value: 'ready', next: 'end' }] };
+  const r = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], makeCtx(manifests));
+  check('GREEN: zero findings once the declared domain covers the literal', r.findings.length === 0);
+  check('GREEN: zero undecided reasons', r.undecided_reasons.length === 0);
+}
+
+console.log('── L2-G: an UNDECIDED gate carries an authoring instruction — the 74 become work items ──');
+{
+  // Producer publishes an output_schema but declares no domain for the pointed field: the exact
+  // `insufficient-declared-domain` shape that 3 live edges are in.
+  const manifests = { prod: { output_schema: { properties: { status: { type: 'string' } } } } };
+  const gate = { input: '/status', rules: [{ op: 'eq', value: 'ready', next: 'end' }] };
+  const r = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], makeCtx(manifests));
+  check('the gate is undecided, not convicted', r.findings.length === 0 && r.undecided_reasons.length > 0);
+  check('and it carries an authoring instruction', !!r.authoring);
+  check('the instruction names the producer manifest property to author',
+    r.authoring.author_in === 'manifests/prod.manifest.json → output_schema.properties.status');
+  check('the instruction states the required shape for an eq rule', r.authoring.required.shape === 'enum');
+  check('the instruction still demands an x-source — authoring a bare bound does not close it',
+    r.authoring.x_source_required === true);
+  check('⛔ the instruction points AWAY from kernel bytes, naming them sealed',
+    /kernel/i.test(r.authoring.never_author_in) && /sealed/i.test(r.authoring.never_author_in)
+    && !/kernel/i.test(r.authoring.author_in));
+
+  const numeric = checkGateRule({ input: '/status' }, { op: 'gte', value: 0.9, next: 'end' }, 'prod', ['prod'], makeCtx(manifests));
+  check('a numeric op asks for a range, not an enum', numeric.authoring.required.shape === 'numeric-range');
+}
+
+console.log('── L2-G: fixture values are offered as CANDIDATES, and labelled as never-a-citation ──');
+{
+  const manifests = { prod: { output_schema: { properties: { status: { type: 'string' } } } } };
+  const ctx = makeCtx(manifests, { fixtureOutputs: { prod: { status: 'pending' } } });
+  const instr = gateAuthoringInstruction({ input: '/status' }, { op: 'eq', value: 'ready' }, 'prod', {
+    ...ctx, fixtureObservedValues: () => ['pending', 'failed'],
+  });
+  check('observed fixture values are surfaced as candidates',
+    JSON.stringify(instr.fixture_observed_values) === JSON.stringify(['pending', 'failed']));
+  check('and are labelled CANDIDATES ONLY, never evidence (spec §1.2 proptest doctrine)',
+    /CANDIDATES ONLY/.test(instr.fixture_note) && /not a citation/.test(instr.fixture_note));
+}
+
+/* ═══════════════ CHAIN-FV-L2-RESCOPE-1 — the dormant field-map model (spec §1.4) ═════════════════ */
+
+console.log('── not-applicable: an edge with no field map and no gate is NOT a chore and NOT a pass ──');
+{
+  const e = checkL2Edge('a', 'b', [], null, ['a', 'b'], makeCtx({}));
+  check('the edge verdict is L2-not-applicable', e.verdict === 'L2-not-applicable');
+  check('the reason is structural and named, ⛔ not "no-field-map-authored"',
+    e.reasons.includes('chain-steps-independently-parameterised') && !e.reasons.includes('no-field-map-authored'));
+}
+
+console.log('── not-applicable edges are excluded from the chain denominator, and never rescue a pass ──');
+{
+  const chain = { name: 'plain', steps: [{ tool_id: 'a' }, { tool_id: 'b' }] };
+  const r = checkL2Chain(chain, makeCtx({}));
+  check('a chain of only not-applicable edges is L2-not-applicable', r.verdict === 'L2-not-applicable');
+  check('⛔ it is NOT L2-pass — absence is not a pass (SO #34c)', r.verdict !== 'L2-pass');
+  check('⛔ and it is NOT L2-indeterminate — it is not an unfinished chore either', r.verdict !== 'L2-indeterminate');
+  check('the excluded edges are counted out loud', r.not_applicable_edge_count === 1 && r.in_scope_edge_count === 0);
+}
+
+console.log('── the dormant model still WORKS: checkMappedField decides the day an instance appears ──');
+{
+  // ⛔ The field-map model is dormant, not deleted. If a future pipeline redesign authors one
+  // consumes_from entry, the checker must convict on it that day without a rewrite.
+  const manifests = {
+    p: { output_schema: { properties: { v: { type: 'number', minimum: 0, maximum: 200, 'x-source': MANIFEST_SRC() } } } },
+    c: { input_schema: { properties: { v: { type: 'number', minimum: 0, maximum: 100, 'x-source': MANIFEST_SRC() } } } },
+  };
+  const chain = { name: 'revived', steps: [{ tool_id: 'p' }, { tool_id: 'c', consumes_from: [{ from_step: 'p', from: '/v', to: 'v' }] }] };
+  const r = checkL2Chain(chain, makeCtx(manifests));
+  check('an authored field map is checked and fails, dormant model notwithstanding', r.verdict === 'L2-fail');
+  check('and that edge is IN scope, not not-applicable', r.in_scope_edge_count === 1 && r.not_applicable_edge_count === 0);
+}
+
+/* ═══════════════ CHAIN-FV-L2-RESCOPE-1 — L2-P provenance threading (spec §2.8) ═══════════════════ */
+
+console.log('── L2-P: no mandate declared ⇒ not-applicable, and the hash chain is referenced not re-derived ──');
+{
+  const r = checkProvenanceThreading({ name: 'plain', steps: [{ tool_id: 'a' }] }, makeCtx({}));
+  check('a chain declaring no mandate is L2P-not-applicable', r.verdict === 'L2P-not-applicable');
+  check('parent_hashes integrity is explicitly deferred to the execution_hash receipts (SO #34)',
+    /execution_hash receipts/.test(r.hash_chain_note) && /not re-derived/.test(r.hash_chain_note));
+}
+
+console.log('── L2-P: a declared mandate whose step does not accept mandate_hash is a fail ──');
+{
+  const manifests = {
+    a: { input_schema: { properties: { mandate_hash: { type: 'string' } } } },
+    b: { input_schema: { properties: { something_else: { type: 'string' } } } },
+  };
+  const chain = { name: 'mandated', mandate: 'policy-mandate-v1', steps: [{ tool_id: 'a' }, { tool_id: 'b' }] };
+  const r = checkProvenanceThreading(chain, makeCtx(manifests));
+  check('the step missing mandate_hash is convicted', r.verdict === 'L2P-fail');
+  check('the witness names the step and the missing property',
+    r.findings[0].witness === 'b.input_schema has no mandate_hash property');
+  const fixed = checkProvenanceThreading(
+    { ...chain, steps: [{ tool_id: 'a' }] }, makeCtx(manifests),
+  );
+  check('MUTATION: dropping the offending step flips fail -> pass', fixed.verdict === 'L2P-pass');
 }
 
 console.log(failures === 0 ? '\n✓ chain L2 contract-composition selftest: all controls passed' : `\n✗ ${failures} control(s) FAILED`);

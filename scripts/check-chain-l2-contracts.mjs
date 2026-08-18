@@ -703,12 +703,24 @@ export function checkL2Edge(fromId, toId, consumesFrom, gate, chainToolIds, ctx)
   return { from: fromId, to: toId, verdict, reasons, field_results: fieldResults, gate_results: gateResults, findings };
 }
 
-/** Check one chain. Pure. */
-export function checkL2Chain(chain, ctx) {
+/**
+ * Check one chain. Pure.
+ *
+ * ⛔⛔ THE TWO SCOPES ARE DIFFERENT, DELIBERATELY, AND THE DIFFERENCE IS MEASURED (RESCOPE-1).
+ * L2-G is confined to the §0 target set (L1-pass, fully spec-backed) because it convicts against an
+ * x-source-carrying domain, and that grade of claim needs the spec backing. **L2-S and L2-P have no
+ * such dependency** — they compare our own published manifests against each other and against
+ * chaingraph.json, so neither L1's edge-ordering verdict nor a chain's spec_fraction is evidence
+ * about them. Confining them to the same set would have been a silent scope error: measured
+ * 2026-08-18, BOTH chains carrying a real disjoint-domain defect (`dora-operational-resilience`,
+ * `rtp-participation`) sit OUTSIDE the target set. L2-S therefore runs estate-wide, and every
+ * published count says which scope it came from.
+ */
+export function checkL2Chain(chain, ctx, { gateScope = true } = {}) {
   const steps = (chain.steps || []);
   const toolIds = steps.map((s) => s.tool_id);
   const edges = [];
-  for (let i = 0; i + 1 < steps.length; i++) {
+  for (let i = 0; gateScope && i + 1 < steps.length; i++) {
     const fromId = toolIds[i], toId = toolIds[i + 1];
     const consumesFrom = steps[i + 1].consumes_from;
     const gate = steps[i].gate;
@@ -717,7 +729,7 @@ export function checkL2Chain(chain, ctx) {
   // Gates on the LAST step (no downstream chain step) still get checked — they route to end/escalate.
   const lastStep = steps[steps.length - 1];
   let lastGateEdge = null;
-  if (lastStep && lastStep.gate && steps.length >= 1) {
+  if (gateScope && lastStep && lastStep.gate && steps.length >= 1) {
     const gateResults = (lastStep.gate.rules || []).map((r) => checkGateRule(lastStep.gate, r, lastStep.tool_id, toolIds, ctx));
     const findings = gateResults.flatMap((r) => r.findings.map((f) => ({ from: lastStep.tool_id, to: '(terminal)', ...f })));
     const undecided = gateResults.flatMap((r) => r.undecided_reasons);
@@ -766,7 +778,7 @@ export function checkL2Chain(chain, ctx) {
     verdict = 'L2-not-applicable';
     reasons = notApplicable.length
       ? ['chain-steps-independently-parameterised', ...(shared.shared_field_count ? [] : ['no-shared-input-fields'])].sort()
-      : ['no-in-scope-edges'];
+      : (gateScope ? ['no-in-scope-edges'] : ['outside-L2G-target-set', ...(shared.shared_field_count ? [] : ['no-shared-input-fields'])].sort());
   } else if (contributions.every((v) => v === 'L2-pass')) {
     verdict = 'L2-pass';
     reasons = [];
@@ -785,6 +797,7 @@ export function checkL2Chain(chain, ctx) {
     in_scope_edge_count: inScope.length,
     not_applicable_edge_count: notApplicable.length,
     verdict, reasons, findings, edges,
+    gate_scope: gateScope,
     shared_inputs: shared,
     provenance,
   };
@@ -936,8 +949,9 @@ export function buildReport(root = ROOT, l1Report) {
   const targetNames = computeTargetSet(l1Report);
 
   const targetChains = chains.filter((c) => targetNames.has(c.name));
-  const results = targetChains
-    .map((c) => checkL2Chain(c, ctx))
+  // L2-G walks the target set; L2-S / L2-P walk the whole estate (see checkL2Chain's scope note).
+  const results = chains
+    .map((c) => checkL2Chain(c, ctx, { gateScope: targetNames.has(c.name) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const summary = { total_target_chains: targetChains.length, 'L2-pass': 0, 'L2-fail': 0, 'L2-indeterminate': 0, 'L2-not-applicable': 0 };
@@ -950,7 +964,7 @@ export function buildReport(root = ROOT, l1Report) {
   const authoring = [];
   const authoringSeen = new Set();
   for (const r of results) {
-    summary[r.verdict]++;
+    if (r.gate_scope) summary[r.verdict]++; // chain-level L2-G verdict counts stay on the target set
     sVerdicts[r.shared_inputs.verdict]++;
     pVerdicts[r.provenance.verdict]++;
     sharedFieldsTotal += r.shared_inputs.shared_field_count;
@@ -967,7 +981,7 @@ export function buildReport(root = ROOT, l1Report) {
         if (!g.authoring) continue;
         // One work item per (producer, field) — that is the unit a batch row authors once and every
         // gate reading it closes. Chains that share a producer are recorded on the same item.
-        const key = `${g.authoring.producer} ${g.authoring.field}`;
+        const key = `${g.authoring.producer}::${g.authoring.field}`;
         if (authoringSeen.has(key)) {
           const item = authoring.find((a) => a.producer === g.authoring.producer && a.field === g.authoring.field);
           if (!item.chains.includes(r.name)) item.chains.push(r.name);
@@ -1031,6 +1045,7 @@ export function buildReport(root = ROOT, l1Report) {
     },
     l2s: {
       what: 'shared-input coherence — for each chain, every input field name ≥2 steps accept, intersected across those steps\' DECLARED manifest input_schema domains.',
+      scope: `estate-wide — all ${results.length} chains, NOT the ${targetChains.length}-chain L2-G target set. L2-S compares our own manifests against each other, so neither L1's edge-ordering verdict nor a chain's spec_fraction is evidence about it. Measured 2026-08-18: both chains carrying a disjoint-domain defect sit outside the target set, so confining L2-S to it would have hidden every finding it has.`,
       needs_no_x_source_because: 'L2-S reports a CONTRADICTION BETWEEN TWO OF OUR OWN PUBLISHED MANIFESTS, not agreement with an outside authority. Both enums are the exact bytes an agent reads as inputSchema, so the evidence is complete and internal. A step that declares nothing is never convicted on, and no fixture-induced domain is read here at all.',
       empty_intersection_is_the_defect: 'unequal-but-overlapping domains are a PASS — a step may legitimately accept a superset. Only an EMPTY intersection means the chain has no runnable value for that field.',
       shared_fields_examined: sharedFieldsTotal,
@@ -1057,6 +1072,7 @@ export function buildReport(root = ROOT, l1Report) {
     fail_code_counts: Object.fromEntries(Object.entries(failCodes).sort((a, b) => b[1] - a[1])),
     chains: results.map((r) => ({
       name: r.name, domain: r.domain, verdict: r.verdict, reasons: r.reasons,
+      gate_scope: r.gate_scope,
       step_count: r.step_count, edge_count: r.edge_count,
       in_scope_edge_count: r.in_scope_edge_count,
       not_applicable_edge_count: r.not_applicable_edge_count,
@@ -1098,7 +1114,8 @@ if (isMain) {
   } else if (!quiet) {
     const s = rep.summary;
     console.log('L2 chain contract-composition check (ADVISORY on existing chains, HARD on new/changed — ladder level L2, "contract composition")');
-    console.log(`  target set         : ${rep.target_set_size} chains (L1-pass, fully spec-backed)`);
+    console.log(`  L2-G target set    : ${rep.target_set_size} chains (L1-pass, fully spec-backed)`);
+    console.log(`  L2-S / L2-P scope  : ${rep.chains.length} chains (estate-wide — see l2s.scope)`);
     console.log(`  L2-pass            : ${s['L2-pass']}`);
     console.log(`  L2-fail            : ${s['L2-fail']}`);
     console.log(`  L2-indeterminate   : ${s['L2-indeterminate']}  (never folded into pass)`);

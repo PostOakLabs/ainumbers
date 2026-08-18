@@ -790,7 +790,12 @@ try {
   const out = execSync('node scripts/check-chain-l2-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
   const rep = JSON.parse(out);
   const s = rep.summary;
-  gatePass(`${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_total} edges pass)`);
+  gatePass(`L2-G: ${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate / ${s['L2-not-applicable']} not-applicable across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_in_scope} in-scope edges pass, ${s.edges_not_applicable} n/a)`);
+  // ⛔ Print L2-S and the authoring worklist too. A summary showing only L2-G would silently hide the
+  // coupling that actually decides on this estate — and its fails, which are advisory on existing
+  // chains but hard the moment a touched chain carries one (they land in chains[].findings, below).
+  if (rep.l2s) gatePass(`   L2-S: ${rep.l2s['L2S-pass']} pass / ${rep.l2s['L2S-fail']} fail / ${rep.l2s['L2S-indeterminate']} indeterminate over ${rep.l2s.shared_fields_examined} shared input fields, estate-wide`);
+  if (rep.l2g_authoring) gatePass(`   L2-G authoring worklist: ${rep.l2g_authoring.open_gate_edges} open gate rules over ${rep.l2g_authoring.distinct_producers} producers ⇒ ${rep.l2g_authoring.batches_required} batches`);
 
   const touchedFails = rep.chains.filter((c) => touchedChainNames.has(c.name) && c.verdict === 'L2-fail');
   if (touchedFails.length) {
