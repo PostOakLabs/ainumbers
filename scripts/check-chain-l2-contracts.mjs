@@ -305,7 +305,90 @@ export function checkMappedField(mapping, producerId, consumerId, ctx) {
 /* ────────────────────────── §2.3 decision gates ──────────────────────────────────────────────── */
 
 const NUMERIC_OPS = new Set(['lt', 'lte', 'gt', 'gte']);
-const EQ_OPS = new Set(['eq', 'ne']);
+const EQ_OPS = new Set(['eq', 'ne', 'neq']);   // `neq` is run_chain's spelling of not-equal
+const IN_OPS = new Set(['in', 'nin']);
+// A gate op the checker knows how to reason about. Anything else stays indeterminate(unsupported-op).
+export function decidableOp(op) { return EQ_OPS.has(op) || IN_OPS.has(op) || NUMERIC_OPS.has(op); }
+function isNe(op) { return op === 'ne' || op === 'neq'; }
+
+/**
+ * ⛔⛔ THE RESCOPE-3 SEMANTIC, BAKED INTO THE VERDICT PATH (not just the prose).
+ *
+ * A gate's producer domain comes from ONE of two grades of evidence, and they decide different things:
+ *
+ *   CITED (`isDerived === false`)  — a manifest constraint carrying a real x-source (clause/spec/…).
+ *     This is an AUTHORITY. It may DECIDE a pass AND may CONVICT: a gate value outside the cited domain
+ *     is a dead branch (`gate-value-outside-guarantee`), a value the domain always satisfies is an
+ *     always-taken branch. Same behaviour L2-G has always had.
+ *
+ *   DERIVED (`isDerived === true`) — a fixture-derived sidecar domain (x-source.kind === 'derived').
+ *     This is a WITNESS, not a declaration. It may DECIDE a pass — the corpus POSITIVELY shows the
+ *     gate's selected branch is reachable over the producer's real output. It may ⛔ NEVER produce a
+ *     dead-branch or always-taken FAIL: an absence or narrowness in a finite fixture sample is not
+ *     proof the producer cannot (or must) emit a value. When a derived domain does not witness the
+ *     branch reachable, the gate stays indeterminate with a named thin-fixture lead — never a finding.
+ *
+ * ⇒ An L2G-fail ALWAYS requires a DECLARED or CITED domain. This function is the single place that
+ *    invariant lives; the selftest asserts it by mutation.
+ *
+ * Returns { checksRun:[], findings:[], undecided:[] }.
+ */
+export function evalGateDomain(G, rule, isDerived) {
+  const checksRun = [], findings = [], undecided = [];
+  const op = rule.op, v = rule.value;
+
+  if (!decidableOp(op)) { undecided.push('unsupported-op'); return { checksRun, findings, undecided }; }
+
+  // ── enum-domain ops: eq / ne / neq / in / nin ──
+  if (EQ_OPS.has(op) || IN_OPS.has(op)) {
+    if (!G.enum || !G.enum.length) { undecided.push('insufficient-declared-domain'); return { checksRun, findings, undecided }; }
+    checksRun.push('gate-value');
+    const set = IN_OPS.has(op) ? (Array.isArray(v) ? v : [v]) : [v];
+    // "true branch reachable"  = ∃ member of the producer domain for which the rule holds.
+    // "false branch reachable" = ∃ member for which it does not.
+    const holds = (m) => (op === 'eq' ? m === v
+      : isNe(op) ? m !== v
+        : op === 'in' ? set.includes(m)
+          : /* nin */ !set.includes(m));
+    const anyTrue = G.enum.some(holds);
+    const anyFalse = G.enum.some((m) => !holds(m));
+    if (isDerived) {
+      // WITNESS: pass iff the corpus witnesses the selected branch reachable. Never a fail.
+      if (anyTrue) { checksRun.push('gate-value-witness'); }
+      else undecided.push('derived-domain-does-not-witness-branch');
+    } else {
+      // CITED: convict a statically dead / always-taken branch. Witness is the concrete literal.
+      const wit = Array.isArray(v) ? JSON.stringify(v) : String(v);
+      if (!anyTrue) findings.push({ code: 'gate-value-outside-guarantee', detail: `${op} ${JSON.stringify(v)} is a DEAD branch — no member of producer enum [${G.enum.join(',')}] satisfies it`, witness: wit });
+      else if (!anyFalse) findings.push({ code: 'gate-value-outside-guarantee', detail: `${op} ${JSON.stringify(v)} is an ALWAYS-TAKEN branch over producer enum [${G.enum.join(',')}]`, witness: wit });
+    }
+    return { checksRun, findings, undecided };
+  }
+
+  // ── numeric-range ops: lt / lte / gt / gte ──
+  const lo = guaranteeLow(G), hi = guaranteeHigh(G);
+  if (lo === null && hi === null) { undecided.push('insufficient-declared-domain'); return { checksRun, findings, undecided }; }
+  checksRun.push('gate-value');
+  let dead = false, always = false, trueReachable = false;
+  if (op === 'lt' || op === 'lte') {
+    if (lo !== null && (op === 'lt' ? v <= lo : v < lo)) dead = true;
+    if (hi !== null && (op === 'lt' ? v > hi : v >= hi)) always = true;
+    if (lo !== null && (op === 'lt' ? lo < v : lo <= v)) trueReachable = true; // observed low end satisfies
+  } else {
+    if (hi !== null && (op === 'gt' ? v >= hi : v > hi)) dead = true;
+    if (lo !== null && (op === 'gt' ? v < lo : v <= lo)) always = true;
+    if (hi !== null && (op === 'gt' ? hi > v : hi >= v)) trueReachable = true; // observed high end satisfies
+  }
+  if (isDerived) {
+    // WITNESS: pass iff the observed range reaches into the rule's true branch. Never a dead/always fail.
+    if (trueReachable) { checksRun.push('gate-value-witness'); }
+    else undecided.push('derived-domain-does-not-witness-branch');
+  } else {
+    if (dead) findings.push({ code: 'gate-value-outside-guarantee', detail: `${op} ${v} is a DEAD branch — never satisfiable over producer range [${lo},${hi}]`, witness: `${v}` });
+    else if (always) findings.push({ code: 'gate-value-outside-guarantee', detail: `${op} ${v} is an ALWAYS-TAKEN branch over producer range [${lo},${hi}]`, witness: `${v}` });
+  }
+  return { checksRun, findings, undecided };
+}
 
 export function checkGateRule(gate, rule, producerId, chainToolIds, ctx) {
   const findings = [];
@@ -319,12 +402,16 @@ export function checkGateRule(gate, rule, producerId, chainToolIds, ctx) {
     // fail ONLY when the producer has PUBLISHED an output_schema that positively omits the field —
     // a declared contradiction, same shape as §2.2 check 2's multipleOf-absent fail. When the
     // producer has published no output_schema at all there is no declared surface to contradict, so
-    // this is absence of evidence, never a finding (spec §5.2: both day-one gate-pointer-unresolved
-    // leads — adverse-action-notice-compliance, card-act-ability-to-pay — have NO manifest at all
-    // and are L2-indeterminate, never a fail).
+    // this is absence of evidence, never a finding.
     if (ctx.pointerResolvesInFixturesOnly && ctx.pointerResolvesInFixturesOnly(producerId, gate.input)) {
       undecided.push('pointer-resolves-in-fixtures-only');
+    } else if (outSchema && ctx.outSchemaIsDerived && ctx.outSchemaIsDerived(producerId)) {
+      // ⛔ RESCOPE-3: the output-contract is a fixture-derived WITNESS and the gate field is absent from
+      // every observed vector. That is unwitnessed, NOT a declared contradiction — indeterminate with a
+      // named thin-fixture lead, never a fail (SO #34: absence in a finite sample is not proof).
+      undecided.push('derived-domain-does-not-witness-field');
     } else if (outSchema) {
+      // A MANIFEST (declared/cited) schema that positively omits the field is a real contradiction.
       findings.push({ code: 'gate-pointer-unresolved', detail: `gate input "${gate.input}" does not resolve in ${producerId}'s published output_schema`, witness: gate.input });
     } else {
       undecided.push('insufficient-declared-domain');
@@ -334,35 +421,12 @@ export function checkGateRule(gate, rule, producerId, chainToolIds, ctx) {
     const top = gate.input.slice(1).split('/')[0];
     const G = ctx.outConstraint(producerId, `/${top}`);
     if (G && G.source && ctx.verifySource(G.source).ok) {
-      checksRun.push('gate-value');
-      if (EQ_OPS.has(rule.op)) {
-        if (!G.enum || !G.enum.length) {
-          undecided.push('insufficient-declared-domain');
-        } else if (rule.op === 'eq' && !G.enum.includes(rule.value)) {
-          findings.push({ code: 'gate-value-outside-guarantee', detail: `eq ${JSON.stringify(rule.value)} not in producer enum [${G.enum.join(',')}]`, witness: `${rule.value}` });
-        } else if (rule.op === 'ne' && G.enum.length === 1 && G.enum[0] === rule.value) {
-          findings.push({ code: 'gate-value-outside-guarantee', detail: `ne ${JSON.stringify(rule.value)} — producer enum is the singleton [${rule.value}], branch is dead`, witness: `${rule.value}` });
-        }
-      } else if (NUMERIC_OPS.has(rule.op)) {
-        const lo = guaranteeLow(G), hi = guaranteeHigh(G);
-        if (lo === null && hi === null) {
-          undecided.push('insufficient-declared-domain');
-        } else {
-          const v = rule.value;
-          let dead = false, always = false;
-          if (rule.op === 'lt' || rule.op === 'lte') {
-            if (lo !== null && (rule.op === 'lt' ? v <= lo : v < lo)) dead = true;
-            if (hi !== null && (rule.op === 'lt' ? v > hi : v >= hi)) always = true;
-          } else {
-            if (hi !== null && (rule.op === 'gt' ? v >= hi : v > hi)) dead = true;
-            if (lo !== null && (rule.op === 'gt' ? v < lo : v <= lo)) always = true;
-          }
-          if (dead) findings.push({ code: 'gate-value-outside-guarantee', detail: `${rule.op} ${v} is a DEAD branch — never satisfiable over producer range [${lo},${hi}]`, witness: `${v}` });
-          else if (always) findings.push({ code: 'gate-value-outside-guarantee', detail: `${rule.op} ${v} is an ALWAYS-TAKEN branch over producer range [${lo},${hi}]`, witness: `${v}` });
-        }
-      } else {
-        undecided.push('insufficient-declared-domain');
-      }
+      // ⛔ RESCOPE-3: a derived (fixture-witnessed) domain may decide a pass but NEVER a fail.
+      const isDerived = !!(G.source && G.source.kind === 'derived');
+      const r = evalGateDomain(G, rule, isDerived);
+      checksRun.push(...r.checksRun);
+      findings.push(...r.findings);
+      undecided.push(...r.undecided);
     } else {
       undecided.push('insufficient-declared-domain');
     }
@@ -406,7 +470,7 @@ export function gateAuthoringInstruction(gate, rule, producerId, ctx) {
     ? gate.input.slice(1).split('/')[0].replace(/~1/g, '/').replace(/~0/g, '~')
     : gate.input;
   let required;
-  if (EQ_OPS.has(rule.op)) {
+  if (EQ_OPS.has(rule.op) || IN_OPS.has(rule.op)) {
     required = {
       shape: 'enum',
       detail: `output_schema.properties.${top} needs an "enum" (or "const") whose membership decides ${rule.op} ${JSON.stringify(rule.value)}`,
@@ -430,14 +494,18 @@ export function gateAuthoringInstruction(gate, rule, producerId, ctx) {
     producer: producerId,
     field: top,
     pointer: gate.input,
-    author_in: `manifests/${producerId}.manifest.json → output_schema.properties.${top}`,
+    author_in: `${ctx.authorSite ? ctx.authorSite(producerId) : `manifests/${producerId}.manifest.json → output_schema.properties`}.${top}`,
     gate_rule: { op: rule.op, value: rule.value },
     required,
     x_source_required: true,
-    x_source_note: 'every constraint keyword needs an x-source (spec §1.2). Without one this stays indeterminate(constraint-without-x-source) — authoring the bound alone does not close it.',
+    // ⛔ RESCOPE-3 witness rule: a derived sidecar domain can DECIDE this gate — add the thin fixture
+    // that emits the branch value, re-run scripts/gen-output-schema.mjs, and the witness path passes
+    // it. It can NEVER convict a dead branch; a FAIL still needs a manifest x-source (spec §1.2/§2.3).
+    decide_by: 'add a conformance fixture vector whose output_payload emits the branch value, then re-run scripts/gen-output-schema.mjs — the derived witness domain then decides L2G-pass. ⛔ Never fabricate the value; a fixture witnesses reachability and can never make this a FAIL.',
+    x_source_note: 'a derived witness may decide a PASS; a FAIL requires a manifest x-source (SO #34). Authoring an authoritative bound is optional and belongs in the manifest, not the sidecar.',
     fixture_observed_values: observed,
-    fixture_note: '⛔ CANDIDATES ONLY — a fixture sample is not a domain and is not a citation (spec §1.2, §2.3). Look here, then cite the authority.',
-    never_author_in: 'the kernel — kernel bytes are sealed (SO #36); a declared output domain belongs in the manifest/shard.',
+    fixture_note: '⛔ CANDIDATES ONLY — a fixture sample is not a domain and is not a citation (spec §1.2, §2.3). Look here, then add the real vector.',
+    never_author_in: 'the kernel — kernel bytes are sealed (SO #36); a derived output domain belongs in the sidecar, an authoritative one in the manifest.',
   };
 }
 
@@ -841,8 +909,16 @@ function loadEstate(root) {
 
   const manDir = resolve(root, 'manifests');
   const fixDir = resolve(root, 'chaingraph/kernels/fixtures');
+  // ⛔⛔ RESCOPE-3 (2026-08-18): the DERIVED OUTPUT-CONTRACT SIDECAR author site. 63 of 65 L2-G gate
+  // producers are kernel-class nodes with NO manifest; scripts/gen-output-schema.mjs derives their
+  // output domain from fixtures into chaingraph/graph/output-schemas/<id>.json. The checker reads that
+  // sidecar DIRECTLY — never through chaingraph.json (RESCOPE-2 was BLOCKED because writing the schema
+  // into the node shard propagated into chaingraph.json where additionalProperties:false rejects it).
+  // A sidecar constraint is a WITNESS (x-source.kind === 'derived'): it may DECIDE an L2G-pass, never a
+  // dead-branch L2G-fail (enforced in checkGateRule). Manifests still win when present.
+  const outSchemaDir = resolve(root, 'chaingraph/graph/output-schemas');
   const has = (d) => (existsSync(d) ? new Set(readdirSync(d)) : new Set());
-  const manFiles = has(manDir), fixFiles = has(fixDir);
+  const manFiles = has(manDir), fixFiles = has(fixDir), sidecarFiles = has(outSchemaDir);
   const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
   const cacheMan = new Map();
   function manifestOf(id) {
@@ -852,6 +928,40 @@ function loadEstate(root) {
     cacheMan.set(id, m);
     return m;
   }
+  const cacheSidecar = new Map();
+  function sidecarOf(id) {
+    if (cacheSidecar.has(id)) return cacheSidecar.get(id);
+    const f = `${id}.json`;
+    const s = sidecarFiles.has(f) ? readJson(resolve(outSchemaDir, f)) : null;
+    cacheSidecar.set(id, s);
+    return s;
+  }
+  // The published output-contract for a producer: manifest.output_schema when it exists, else the
+  // derived sidecar's output_schema. This is the single accessor outSchema/outConstraint agree on.
+  function outputSchemaObj(id) {
+    const m = manifestOf(id);
+    if (m && m.output_schema) return m.output_schema;
+    const s = sidecarOf(id);
+    return (s && s.output_schema) || null;
+  }
+  // TRUE when a producer's output-contract is the fixture-derived sidecar, not a manifest — i.e. it is
+  // a WITNESS, not a declaration. The gate-pointer-unresolved FINDING (a declared contradiction) may
+  // fire ONLY over a manifest schema; over a derived sidecar, an absent field is unwitnessed, never a
+  // convicted fail (RESCOPE-3 semantic; SO #34 — absence in a finite sample is not proof).
+  function outSchemaIsDerived(id) {
+    const m = manifestOf(id);
+    if (m && m.output_schema) return false;
+    return sidecarFiles.has(`${id}.json`);
+  }
+  // Where a batch row must AUTHOR to decide an undecided gate for this producer — the real site, so the
+  // worklist points a session at a file that exists (RESCOPE-2's author_in pointed at manifests that
+  // are not there for 63 of 65 producers).
+  function authorSite(id) {
+    const m = manifestOf(id);
+    if (m && m.output_schema) return `manifests/${id}.manifest.json → output_schema.properties`;
+    if (sidecarFiles.has(`${id}.json`)) return `chaingraph/graph/output-schemas/${id}.json → output_schema.properties`;
+    return `manifests/${id}.manifest.json → output_schema.properties`;
+  }
   function fixturesOf(id) {
     const f = `${id}.fixtures.json`;
     return fixFiles.has(f) ? readJson(resolve(fixDir, f)) : null;
@@ -860,8 +970,8 @@ function loadEstate(root) {
   const cacheOut = new Map(), cacheIn = new Map();
   function outSchema(id) {
     if (cacheOut.has(id)) return cacheOut.get(id);
-    const m = manifestOf(id);
-    const s = m ? schemaFromProperties(m.output_schema) : null;
+    const os = outputSchemaObj(id);            // manifest.output_schema OR derived sidecar output_schema
+    const s = os ? schemaFromProperties(os) : null;
     cacheOut.set(id, s);
     return s;
   }
@@ -875,7 +985,10 @@ function loadEstate(root) {
 
   function constraintOf(id, pointer, side) {
     const m = manifestOf(id);
-    const schema = side === 'out' ? (m && m.output_schema) : (m && m.input_schema);
+    // Output side falls back to the derived sidecar when no manifest output_schema exists; input side
+    // is manifests only (a producer's INPUT assumption is never fixture-derived — RESCOPE-3 touches
+    // only the guarantee/output side).
+    const schema = side === 'out' ? outputSchemaObj(id) : (m && m.input_schema);
     if (!schema || !schema.properties) return null;
     const top = typeof pointer === 'string' && pointer.startsWith('/') ? pointer.slice(1).split('/')[0] : pointer;
     const prop = schema.properties[top];
@@ -934,7 +1047,7 @@ function loadEstate(root) {
     sourceDigest: 'sha256:' + createHash('sha256').update(raw).digest('hex'),
     ctx: {
       outSchema, inSchema, outConstraint, inConstraint, consumerRequired,
-      pointerResolvesInFixturesOnly, fixtureObservedValues, verifySource,
+      pointerResolvesInFixturesOnly, fixtureObservedValues, verifySource, authorSite, outSchemaIsDerived,
     },
   };
 }
