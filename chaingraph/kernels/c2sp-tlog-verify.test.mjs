@@ -15,7 +15,7 @@
 //    the register-sigsum.mjs/register-rekor.mjs CLI layer.
 
 import {
-  sha256, hashLeafNode, hashInteriorNode, verifyInclusion,
+  sha256, hashLeafNode, hashInteriorNode, verifyInclusion, verifyConsistency,
   formatCheckpoint, parseSignedNote, toCosignedData,
   bytesToHex, hexToBytes, bytesToBase64, base64ToBytes, bytesEqual,
 } from './c2sp-tlog-verify.mjs';
@@ -80,6 +80,118 @@ await test('8-leaf inclusion proof verifies for every index; tampered leaf rejec
   assert(!badOk, 'expected a tampered leaf to be rejected');
 });
 
+// ── 2b. RFC 6962 §2.1.2 consistency-proof sanity ───────────────────────────
+// SUBPROOF/PROOF construction per RFC 6962 §2.1.2, built independently here
+// (test-only — the shared module exports the verifier, not a generator).
+
+await test('RFC 6962 consistency proof verifies for every (oldSize,newSize) pair on an 8-leaf tree', async () => {
+  const N = 8;
+  const leaves = await Promise.all(Array.from({ length: N }, (_, i) => hashLeafNode(new TextEncoder().encode(`leaf-${i}`))));
+  async function mth(lo, hi) {
+    if (hi - lo === 1) return leaves[lo];
+    let k = 1; while (k * 2 < hi - lo) k *= 2;
+    return hashInteriorNode(await mth(lo, lo + k), await mth(lo + k, hi));
+  }
+  async function subproof(m, lo, hi, b) {
+    const n = hi - lo;
+    if (m === n) return b ? [] : [await mth(lo, hi)];
+    let k = 1; while (k * 2 < n) k *= 2;
+    return m <= k
+      ? [...(await subproof(m, lo, lo + k, b)), await mth(lo + k, hi)]
+      : [...(await subproof(m - k, lo + k, hi, false)), await mth(lo, lo + k)];
+  }
+
+  let checked = 0;
+  for (let oldSize = 1; oldSize <= N; oldSize++) {
+    for (let newSize = oldSize; newSize <= N; newSize++) {
+      const proof = oldSize === newSize ? [] : await subproof(oldSize, 0, newSize, true);
+      const oldRoot = await mth(0, oldSize);
+      const newRoot = await mth(0, newSize);
+      const ok = await verifyConsistency({ oldSize, newSize, oldRoot, newRoot, proof });
+      assert(ok, `expected consistency proof to verify for oldSize=${oldSize} newSize=${newSize}`);
+      checked++;
+    }
+  }
+  assert(checked === 36, `expected 36 (oldSize,newSize) pairs checked, got ${checked}`);
+});
+
+await test('RFC 6962 consistency: oldSize=0 is trivially consistent with any newRoot, empty proof', async () => {
+  const leaf = await hashLeafNode(new TextEncoder().encode('leaf-0'));
+  const ok = await verifyConsistency({ oldSize: 0, newSize: 1, oldRoot: new Uint8Array(32), newRoot: leaf, proof: [] });
+  assert(ok, 'expected oldSize=0 to verify trivially');
+});
+
+await test('RFC 6962 consistency: a proof extra hash or an off-by-one size is rejected', async () => {
+  const N = 8;
+  const leaves = await Promise.all(Array.from({ length: N }, (_, i) => hashLeafNode(new TextEncoder().encode(`leaf-${i}`))));
+  async function mth(lo, hi) {
+    if (hi - lo === 1) return leaves[lo];
+    let k = 1; while (k * 2 < hi - lo) k *= 2;
+    return hashInteriorNode(await mth(lo, lo + k), await mth(lo + k, hi));
+  }
+  async function subproof(m, lo, hi, b) {
+    const n = hi - lo;
+    if (m === n) return b ? [] : [await mth(lo, hi)];
+    let k = 1; while (k * 2 < n) k *= 2;
+    return m <= k
+      ? [...(await subproof(m, lo, lo + k, b)), await mth(lo + k, hi)]
+      : [...(await subproof(m - k, lo + k, hi, false)), await mth(lo, lo + k)];
+  }
+  const oldSize = 6, newSize = 8;
+  const oldRoot = await mth(0, oldSize);
+  const newRoot = await mth(0, newSize);
+  const proof = await subproof(oldSize, 0, newSize, true);
+
+  const withExtra = [...proof, await hashLeafNode(new TextEncoder().encode('noise'))];
+  assert(!(await verifyConsistency({ oldSize, newSize, oldRoot, newRoot, proof: withExtra })), 'expected extra proof hash to be rejected');
+
+  assert(!(await verifyConsistency({ oldSize, newSize: newSize + 1, oldRoot, newRoot, proof })), 'expected mismatched newSize to be rejected');
+});
+
+// ── 2c. MUTATION TEST (SO #34) — a flipped tile byte must fail consistency ─
+// The gate recomputes the previous root from previously published tile bytes
+// (REGISTRY-TILES-BUILD-SPEC.md §2.3), NEVER trusting a stored root field.
+// This proves a single flipped byte in those tile bytes is caught, not just
+// code-reviewed as "should be caught".
+
+await test('MUTATION: flipping a byte in a published tile fails the recomputed-old-root consistency check', async () => {
+  const originalBytes = Array.from({ length: 8 }, (_, i) => new TextEncoder().encode(`leaf-${i}`));
+  const mutatedBytes = originalBytes.map((b) => b.slice());
+  mutatedBytes[3] = new Uint8Array(mutatedBytes[3]);
+  mutatedBytes[3][0] ^= 0xff; // flip one byte inside the (still oldSize-scoped) tile for leaf 3
+
+  async function mth(leaves, lo, hi) {
+    if (hi - lo === 1) return leaves[lo];
+    let k = 1; while (k * 2 < hi - lo) k *= 2;
+    return hashInteriorNode(await mth(leaves, lo, lo + k), await mth(leaves, lo + k, hi));
+  }
+  async function subproof(leaves, m, lo, hi, b) {
+    const n = hi - lo;
+    if (m === n) return b ? [] : [await mth(leaves, lo, hi)];
+    let k = 1; while (k * 2 < n) k *= 2;
+    return m <= k
+      ? [...(await subproof(leaves, m, lo, lo + k, b)), await mth(leaves, lo + k, hi)]
+      : [...(await subproof(leaves, m - k, lo + k, hi, false)), await mth(leaves, lo, lo + k)];
+  }
+
+  const oldSize = 6, newSize = 8;
+  const goodLeaves = await Promise.all(originalBytes.map((b) => hashLeafNode(b)));
+  const badLeaves = await Promise.all(mutatedBytes.map((b) => hashLeafNode(b)));
+
+  // The checkpoint the log actually published (good root/proof, unaffected by
+  // the later tile mutation — checkpoints are content-addressed by root).
+  const newRoot = await mth(goodLeaves, 0, newSize);
+  const proof = await subproof(goodLeaves, oldSize, 0, newSize, true);
+
+  // The gate reads tile bytes off disk NOW and recomputes the old root from
+  // them — this is where the flipped byte surfaces.
+  const recomputedOldRootFromMutatedTiles = await mth(badLeaves, 0, oldSize);
+
+  const ok = await verifyConsistency({ oldSize, newSize, oldRoot: recomputedOldRootFromMutatedTiles, newRoot, proof });
+  assert(ok === false, `expected consistency check to FAIL when a published tile byte was flipped before recomputing the old root — got ok=${ok}`);
+  console.log(`    (mutation test output: verifyConsistency returned ${ok} for a flipped byte in tile leaf-3, oldSize=${oldSize} newSize=${newSize} — correctly rejected)`);
+});
+
 // ── 3. OFFLINE-VERIFY INVARIANT — poison fetch, call the shared module directly ──
 
 await test('CHAINPOINT GUARD: every exported function runs unchanged with global.fetch poisoned', async () => {
@@ -114,4 +226,4 @@ await test('CHAINPOINT GUARD: every exported function runs unchanged with global
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+if (failed > 0) throw new Error(`${failed} test(s) failed`); // uncaught throw -> non-zero exit, no `process` global needed (no @types/node outside __proptests__)

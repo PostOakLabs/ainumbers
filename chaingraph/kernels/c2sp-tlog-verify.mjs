@@ -102,6 +102,62 @@ export async function verifyInclusion({ leaf, index, size, root, path }) {
   return bytesEqual(r, root);
 }
 
+// RFC 6962 §2.1.2 consistency-proof verification (SUBPROOF/PROOF construction,
+// verifier form — mirrors the reference algorithm in the Certificate
+// Transparency python client and golang.org/x/mod/sumdb/tlog.CheckTree):
+// confirms `newRoot` (tree of size `newSize`) is an append-only extension of
+// `oldRoot` (tree of size `oldSize`) without trusting either root's provenance
+// — both are recomputed by the caller from tile bytes, per REGISTRY-TILES-
+// BUILD-SPEC.md §2.3. Added per REGISTRY-CONSISTENCY-VERIFY-BUILD-1 — the gate
+// §2.3 requires cannot exist without it (SPEC §20.1: no second Merkle impl).
+export async function verifyConsistency({ oldSize, newSize, oldRoot, newRoot, proof }) {
+  if (!Number.isInteger(oldSize) || !Number.isInteger(newSize) || oldSize < 0 || newSize < oldSize) return false;
+  if (oldSize === newSize) return proof.length === 0 && bytesEqual(oldRoot, newRoot);
+  if (oldSize === 0) return proof.length === 0; // empty tree is consistent with anything, no root to check
+
+  const p = proof.slice();
+  let node = oldSize - 1;
+  let lastNode = newSize - 1;
+  while (node % 2 === 1) {
+    node = Math.floor(node / 2);
+    lastNode = Math.floor(lastNode / 2);
+  }
+
+  let oldHash, newHash;
+  if (node > 0) {
+    if (p.length === 0) return false;
+    oldHash = newHash = p.shift();
+  } else {
+    oldHash = newHash = oldRoot;
+  }
+
+  while (node > 0) {
+    if (node % 2 === 1) {
+      if (p.length === 0) return false;
+      const h = p.shift();
+      oldHash = await hashInteriorNode(h, oldHash);
+      newHash = await hashInteriorNode(h, newHash);
+    } else if (node < lastNode) {
+      if (p.length === 0) return false;
+      const h = p.shift();
+      newHash = await hashInteriorNode(newHash, h);
+    }
+    node = Math.floor(node / 2);
+    lastNode = Math.floor(lastNode / 2);
+  }
+
+  if (!bytesEqual(oldHash, oldRoot)) return false;
+
+  while (lastNode > 0) {
+    if (p.length === 0) return false;
+    const h = p.shift();
+    newHash = await hashInteriorNode(newHash, h);
+    lastNode = Math.floor(lastNode / 2);
+  }
+
+  return bytesEqual(newHash, newRoot) && p.length === 0;
+}
+
 // ---------------------------------------------------------------------------
 // tlog-checkpoint.md — checkpoint framing: "<origin>\n<size>\n<root-b64>\n"
 // plus optional extension lines, all per signed-note.md's note body grammar.
