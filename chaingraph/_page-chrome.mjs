@@ -136,6 +136,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${root}about.html">About</a>
         <a href="${root}methods.html">Methods</a>
         <a href="${root}fv-explainer.html">FV Process Explainer</a>
+        <a href="${root}errata.html">FV Errata</a>
         <a href="${root}suggest.html">Suggest</a>
         <a href="${root}contact.html">Contact</a>
         <a href="${root}security.html">Security</a>
