@@ -19,6 +19,11 @@
  *       (scripts-verify.yml), the pre-push hook and assemble-land.mjs run, and
  *       every line of that path is deliberately left exactly as it was.
  *
+ *   node scripts/preflight.mjs --quiet
+ *       Output-only: same gates/order/exit code; suppresses per-gate progress lines and
+ *       prints only failures/advisories (with label + captured output), DID-NOT-RUN,
+ *       TOTAL and the summary blocks. ~10 lines on a green run instead of ~180.
+ *       Combine with --keep-going for the cheapest full report a session can read.
  *   node scripts/preflight.mjs --keep-going
  *       Runs EVERY gate, collects every result, prints a per-gate
  *       PASS / FAIL / DID-NOT-RUN list with totals derived from the gate list at
@@ -62,6 +67,17 @@ const BUDGET_MS = 60_000;
 // collapses to exactly the code that was there before. Same gate list, same order,
 // same fail-fast point, same exit code, same stdout on the default path.
 const KEEP_GOING_FLAG = process.argv.includes('--keep-going');
+// --quiet (2026-08-17, Tim: token optimizations with little downside). OUTPUT-ONLY: same gates,
+// same order, same exit code, same fail-fast point. Suppresses the per-gate "▶ label … ✓ (ms)"
+// progress lines (~180 lines on a green run) and prints only: failures/advisories WITH the gate
+// label and their captured output, DID-NOT-RUN lines, the TOTAL, the budget advisory, and the
+// summary blocks. A green run under --quiet is therefore ~10 lines. Sessions that must READ
+// preflight output should use it; humans watching a terminal probably want the default.
+const QUIET = process.argv.includes('--quiet');
+let _pendingLabel = null; // under --quiet we defer printing "▶ label" until we know it failed
+function gateStart(label) { if (QUIET) { _pendingLabel = label; return; } gateStart(label); }
+function gatePass(msg)    { if (QUIET) { _pendingLabel = null; return; } console.log(msg); }
+function gateFail(msg)    { if (QUIET && _pendingLabel !== null) { process.stdout.write(`▶ ${_pendingLabel} … `); _pendingLabel = null; } console.log(msg); }
 // --expect-red <gate-id>, repeatable. PER-INVOCATION ONLY — resolved against the
 // gate labels at startup, named in the output, and gone when the process exits.
 // No file is read or written; nothing carries into the next run.
@@ -540,13 +556,13 @@ for (const [label, cmd, meta] of GATES) {
     results.push({ label, state: 'DID-NOT-RUN', ms: 0, note: meta.notRun });
     continue;
   }
-  process.stdout.write(`▶ ${label} … `);
+  gateStart(label);
   const t0 = Date.now();
   try {
     execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
     const ms = Date.now() - t0;
     timings.push([label, ms]);
-    console.log(`✓ (${ms}ms)`);
+    gatePass(`✓ (${ms}ms)`);
     const declared = KEEP_GOING ? expectedRedFor(label) : null;
     results.push({
       label,
@@ -561,13 +577,13 @@ for (const [label, cmd, meta] of GATES) {
     // Shared derived artifact + PR context ⇒ warn and CONTINUE. Same output, no
     // early break, no hidden failure — main's regen owns this artifact now.
     if (!MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) {
-      console.log(`⚠ (${ms}ms) ADVISORY`);
+      gateFail(`⚠ (${ms}ms) ADVISORY`);
       console.log('\n' + out.trim() + '\n');
       advisoryFailures.push([label, cmd]);
       continue;
     }
     const declared = KEEP_GOING ? expectedRedFor(label) : null;
-    console.log(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
+    gateFail(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
     console.log('\n' + out.trim() + '\n');
     results.push({
       label,
@@ -584,7 +600,7 @@ for (const [label, cmd, meta] of GATES) {
 // `!failed` keeps the default fail-fast path identical; `|| KEEP_GOING` is what
 // makes the run-all mode actually run all.
 if (!failed || KEEP_GOING) {
-  process.stdout.write('▶ mfstSec presence (every tool) … ');
+  gateStart('mfstSec presence (every tool)');
   const t0 = Date.now();
   const missing = readdirSync(resolve(REPO, 'tools'))
     .filter(f => f.endsWith('.html'))
@@ -593,7 +609,7 @@ if (!failed || KEEP_GOING) {
   timings.push(['mfstSec presence (every tool)', ms]);
   if (missing.length) {
     const declared = KEEP_GOING ? expectedRedFor(MFSTSEC_LABEL) : null;
-    console.log(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
+    gateFail(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
     console.log('\nTools missing the mfstSec manifest panel:\n  ' + missing.join('\n  ') + '\n');
     results.push({
       label: MFSTSEC_LABEL,
@@ -603,7 +619,7 @@ if (!failed || KEEP_GOING) {
     });
     if (failed === null) failed = 'mfstSec presence';
   } else {
-    console.log(`✓ (${ms}ms)`);
+    gatePass(`✓ (${ms}ms)`);
     results.push({ label: MFSTSEC_LABEL, state: 'PASS', ms });
   }
 }
@@ -724,12 +740,12 @@ try {
 // pre-push. ADVISORY BY DESIGN, exit 0 always: the live baseline carries known
 // L1-fail chains, and promotion to a hard gate is a SEPARATE later decision to
 // be taken once that baseline is triaged — never a side effect of this line.
-process.stdout.write('▶ L1 chain edge contracts (advisory) … ');
+gateStart('L1 chain edge contracts (advisory)');
 try {
   const out = execSync('node scripts/check-chain-edge-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
   const s = JSON.parse(out).summary;
-  console.log(`${s['L1-pass']} pass / ${s['L1-fail']} fail / ${s['L1-indeterminate']} indeterminate across ${s.chains_walked} chains (${s.edges_decided}/${s.edges_total} edges decided)`);
-} catch { console.log('(advisory check unavailable — skipped)'); }
+  gatePass(`${s['L1-pass']} pass / ${s['L1-fail']} fail / ${s['L1-indeterminate']} indeterminate across ${s.chains_walked} chains (${s.edges_decided}/${s.edges_total} edges decided)`);
+} catch { gatePass('(advisory check unavailable — skipped)'); }
 
 // ── L2 chain contract composition: ADVISORY on existing chains, HARD on new/
 //    changed ones ───────────────────────────────────────────────────────────
@@ -743,7 +759,7 @@ try {
 // day-one measurement is that the honest surface today is mostly
 // indeterminate (spec §0(c)/§5.2) — promoting that estate-wide would red
 // every chain the day this ships, which spec §6.1 explicitly forbids.
-process.stdout.write('▶ L2 chain contract composition (advisory on existing / hard on new-changed) … ');
+gateStart('L2 chain contract composition (advisory on existing / hard on new-changed)');
 try {
   const touchedChainFiles = new Set();
   const collectDiff = (args) => {
@@ -769,7 +785,7 @@ try {
   const out = execSync('node scripts/check-chain-l2-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
   const rep = JSON.parse(out);
   const s = rep.summary;
-  console.log(`${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_total} edges pass)`);
+  gatePass(`${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_total} edges pass)`);
 
   const touchedFails = rep.chains.filter((c) => touchedChainNames.has(c.name) && c.verdict === 'L2-fail');
   if (touchedFails.length) {
@@ -780,9 +796,9 @@ try {
     // would otherwise turn a recorded `failed` value into a non-zero exit code.
     process.exit(1);
   } else if (touchedChainNames.size) {
-    console.log(`   ✓ ${touchedChainNames.size} touched chain shard(s) checked, none L2-fail.`);
+    gatePass(`   ✓ ${touchedChainNames.size} touched chain shard(s) checked, none L2-fail.`);
   }
-} catch { console.log('(advisory check unavailable — skipped)'); }
+} catch { gatePass('(advisory check unavailable — skipped)'); }
 
 // ── Advisory (non-blocking): version-prose drift ────────────────────────────
 // The version-of-record gate (spec-version-consistency) enforces the <meta>
@@ -790,11 +806,11 @@ try {
 // bump doesn't leave the hub/spec pages describing an old version. It is NOISY
 // (legitimately flags the AP2 *protocol* version + OCG layer versions), so it's
 // ADVISORY, not a gate — eyeball it after a spec bump.
-process.stdout.write('▶ version-prose drift (advisory) … ');
+gateStart('version-prose drift (advisory)');
 try {
   execSync('node chaingraph/standard/spec-version-consistency.mjs --remnants', { cwd: REPO, env, stdio: 'ignore' });
-  console.log('see `node chaingraph/standard/spec-version-consistency.mjs --remnants` after any spec-version bump');
-} catch { console.log('(advisory check unavailable — skipped)'); }
+  gatePass('see `node chaingraph/standard/spec-version-consistency.mjs --remnants` after any spec-version bump');
+} catch { gatePass('(advisory check unavailable — skipped)'); }
 
 if (KEEP_GOING && waivedCount) {
   // Reached only via --expect-red: every gate ran, the declared one(s) are still
