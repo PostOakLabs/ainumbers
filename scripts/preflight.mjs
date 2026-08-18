@@ -75,7 +75,7 @@ const KEEP_GOING_FLAG = process.argv.includes('--keep-going');
 // preflight output should use it; humans watching a terminal probably want the default.
 const QUIET = process.argv.includes('--quiet');
 let _pendingLabel = null; // under --quiet we defer printing "▶ label" until we know it failed
-function gateStart(label) { if (QUIET) { _pendingLabel = label; return; } gateStart(label); }
+function gateStart(label) { if (QUIET) { _pendingLabel = label; return; } process.stdout.write(`▶ ${label} … `); }
 function gatePass(msg)    { if (QUIET) { _pendingLabel = null; return; } console.log(msg); }
 function gateFail(msg)    { if (QUIET && _pendingLabel !== null) { process.stdout.write(`▶ ${_pendingLabel} … `); _pendingLabel = null; } console.log(msg); }
 // --expect-red <gate-id>, repeatable. PER-INVOCATION ONLY — resolved against the
