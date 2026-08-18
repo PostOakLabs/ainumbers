@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1153 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1154 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3550,6 +3550,9 @@
     },
     {
       "name": "mcp:compute_deterministic_amortization_schedule"
+    },
+    {
+      "name": "mcp:correlate_ap2_cartmandate_x402"
     },
     {
       "name": "mcp:decode_c2pa_aiml_assertions"
@@ -49622,6 +49625,95 @@
         },
         "x-mcp-tool-name": "build_ap2_cartmandate_hashchain",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-595-ap2-cartmandate-hashchain-builder.html",
+        "x-source": "manifest"
+      }
+    },
+    "/v1/tools/correlate_ap2_cartmandate_x402": {
+      "post": {
+        "operationId": "correlate_ap2_cartmandate_x402",
+        "summary": "AP2 x402 Cart Correlation",
+        "description": "Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an x402_spend_evidence pack: does the cart total (sum of quantity*unit_price per currency) match the x402 authorization's value, does the CartMandate's merchant map to the authorization's recipient address, and does the CartMandate's own hash-chain independently re-verify against the supplied cart_items (never trusted as a self-reported flag). Output vocabulary is CORRELATION_STATUS (CORRELATED / NOT_CORRELATED / INDETERMINATE) -- this is a plausibility check over two independently-produced artifacts, never a cryptographic binding. Google has not shipped an AP2-compatible x402 extension; no field or code path here implies one exists. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-596-ap2-x402-cart-correlation.html",
+        "tags": [
+          "compliance_control",
+          "ap2",
+          "x402",
+          "cartmandate",
+          "correlation",
+          "keccak256",
+          "mcp:correlate_ap2_cartmandate_x402"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cart_root": {
+                    "type": "string"
+                  },
+                  "cart_items": {
+                    "type": "array"
+                  },
+                  "merchant": {
+                    "type": "string"
+                  },
+                  "x402_spend_evidence": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "correlation_status": {
+                      "type": "string",
+                      "enum": [
+                        "CORRELATED",
+                        "NOT_CORRELATED",
+                        "INDETERMINATE"
+                      ]
+                    },
+                    "cart_total_matches_authorization_value": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "merchant_matches_authorization_to": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cart_chain_intact": {
+                      "type": "boolean"
+                    },
+                    "disclosure": {
+                      "type": "string"
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "correlate_ap2_cartmandate_x402",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-596-ap2-x402-cart-correlation.html",
         "x-source": "manifest"
       }
     },
