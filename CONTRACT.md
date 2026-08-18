@@ -460,10 +460,7 @@ Promoted tools switch from the §3.1 Policy Mandate set to the §4 set. A docume
 
 ### A3 · Recorded trade-offs
 
-- Inbound external links to removed guide URLs break (accepted — A3.3). The MCP `composer_url` fields are repointed to chain pages.
-- Two export schemas coexist transitionally: §4 (ChainGraph) and §3.1 Policy Mandate (un-promoted catalog tools). The crosswalk (A3.5) keeps them reconcilable; the long-term direction is §4 only.
-- The catalog tool count **drops** as tools are promoted/retired — update the "counts drift" verification and any hardcoded totals.
-- This amendment supersedes the optional-`execution_hash` language in §3.1 for ChainGraph artifacts, deprecates architecture #4 in §5.3, and updates the §1.2 disclosure rules to the `/chaingraph/` surface.
+*Recorded trade-offs moved to `CONTRACT-RATIONALE.md` §A3 (2026-08-18) — background, not build rules.*
 
 ---
 
@@ -562,7 +559,7 @@ The per-page CSP `connect-src` for `mcp-playground.html` and any Worker-side COR
 
 ## Amendment A9 — Reliance-hedge clause (August 2026)
 
-Measured baseline that motivated this clause: 104 of 155 tools citing a regulation carried no reliance hedge of any kind, only 12 carried a `class="disclaimer*"` div, no estate-wide terms page existed, and this document contained the word "advice" zero times. This amendment fixes the gap going forward; it does not retrofit the 104 already-shipped tools — that retrofit is a separate, larger, future work unit and is explicitly out of scope here.
+*Measured baseline and scope notes moved to `CONTRACT-RATIONALE.md` §A9 (2026-08-18). This amendment fixes the gap going forward and does not retrofit already-shipped tools.*
 
 ### A9.1 · Any surface citing regulation MUST carry a reliance hedge
 Any `tools/`, `guides/`, or `chaingraph/` page whose visible output cites a regulation, statute, standard, or published rule (i.e. populates `regulatory_frameworks` or `regulatory_citations`, §3.1) MUST carry reliance-hedge language equivalent in substance to the canonical `.edu-disclaimer` block already used by a subset of existing tools: not legal/investment/tax/compliance advice, a computed view of the cited source as of a stated date, and an instruction to verify against the current official text before relying on it. `disclosures/terms.html` is the estate-wide statement of this posture and MAY be linked from a page instead of restating the full text, but a page whose entire function is producing a regulation-citing result SHOULD carry the hedge inline, not only by link.
