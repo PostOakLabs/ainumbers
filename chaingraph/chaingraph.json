@@ -43418,7 +43418,7 @@
   "description": "Builds an illustrative Google AP2 CartMandate Verifiable Digital Credential (VDC) skeleton whose credentialSubject carries a deterministic hash-chain over an ordered list of cart line items: link_0 = keccak256(canon({index:0,item})), link_i = keccak256(canon({index:i,item,prev:link_(i-1)})), cart_root = the final link. Reuses this repo's existing RFC 8785/JCS canonicalization (cgCanon, from _hash.mjs) and the already-vendored @noble/hashes keccak256 bundle -- no new vendoring, no hand-rolled canonicalization or hashing. Stands beside art-16 (Google AP2 Mandate Builder) as a new node, not an edit to it -- art-16's flat CheckoutMandate/PaymentMandate shape has no line-item array to chain over. An intact chain proves the ordered cart_items list was not altered after the chain was built; it does NOT prove human authorisation, delivery, settlement, or that item prices are correct or current. Given a prior chain's per-item links (claimed_links) and a (possibly tampered) cart_items, the kernel recomputes and reports CART_CHAIN_INTACT plus the earliest divergent index, never a thrown exception. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
   "input_schema_ref": "chaingraph/art-595-ap2-cartmandate-hashchain-builder.html#manifest",
   "consumes": [],
-  "feeds": [],
+  "feeds": ["art-596-ap2-x402-cart-correlation"],
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
@@ -43426,6 +43426,8 @@
   "export_capability": [
     "json"
   ],
+  "standards_basis": "not_applicable",
+  "cited_clause_digest": [],
   "compute_proof_ready": "deferred",
   "deferred_reason": "Prove attempted 2026-08-13 (PROVE-8-DEFERRED-0812-1) and FAILED: the guest returns an error journal {error:\"ocg_run\",code:-3} with a stack at utf8ToBytes <- _canonBytes <- compute, so run_verify refuses at cgv_undefined rather than stage a proof over an error journal. Deterministic guest error (art-476/art-607 signature); not retried. Root cause unresolved; needs a diagnosis row."
 },
@@ -43440,7 +43442,7 @@
   "url": "https://ainumbers.co/chaingraph/art-596-ap2-x402-cart-correlation.html",
   "description": "Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an x402_spend_evidence pack: does the cart total (sum of quantity*unit_price per currency) match the x402 authorization's value, does the CartMandate's merchant map to the authorization's recipient address, and does the CartMandate's own hash-chain independently re-verify against the supplied cart_items (never trusted as a self-reported flag). Output vocabulary is CORRELATION_STATUS (CORRELATED / NOT_CORRELATED / INDETERMINATE) -- this is a plausibility check over two independently-produced artifacts, never a cryptographic binding. Google has not shipped an AP2-compatible x402 extension; no field or code path here implies one exists. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
   "input_schema_ref": "chaingraph/art-596-ap2-x402-cart-correlation.html#manifest",
-  "consumes": [],
+  "consumes": ["art-595-ap2-cartmandate-hashchain-builder"],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
@@ -48918,6 +48920,26 @@
         }
       ]
     },
+    {
+  "name": "ap2-x402-cart-correlation",
+  "domain": "Agent Economy",
+  "title": "AP2 x402 Cart Correlation",
+  "description": "Builds an illustrative AP2 CartMandate with a deterministic hash-chain over its cart line items, then checks whether that CartMandate's total and merchant plausibly correlate with a caller-supplied x402_spend_evidence pack (from the x402-spend-evidence chain). Output vocabulary is CORRELATION_STATUS (CORRELATED / NOT_CORRELATED / INDETERMINATE) -- a plausibility check over two independently-produced artifacts, never a cryptographic binding. Google has not shipped an AP2-compatible x402 extension; no field or code path here implies one exists. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
+  "composer_url": "https://ainumbers.co/chaingraph/chains/ap2-x402-cart-correlation.html",
+  "regulatory_basis_status": "not_assessed",
+  "regulatory_basis_decided_by": "BUILD-AP2-X402-CHAIN-1",
+  "regulatory_basis_decided_at": "2026-08-18",
+  "steps": [
+    {
+      "tool_id": "art-595-ap2-cartmandate-hashchain-builder",
+      "handoff": "cart_root, cart_items, and merchant are the CartMandate fields the correlation step checks against a caller-supplied x402_spend_evidence pack."
+    },
+    {
+      "tool_id": "art-596-ap2-x402-cart-correlation",
+      "handoff": "terminal step -- independently re-derives cart_chain_intact from cart_items and cart_root, then checks the cart total and merchant against the x402_spend_evidence pack's authorization.value and authorization.to, reporting CORRELATION_STATUS."
+    }
+  ]
+},
     {
       "name": "arc-agentic-commerce",
       "domain": "Digital-Asset Rails",
