@@ -32,12 +32,52 @@
 //
 // ⛔ READ-ONLY over chaingraph.json and every manifest. This script never writes them.
 //
+// ⛔⛔ THE 2026-08-18 RE-SCOPE (CHAIN-FV-L2-RESCOPE-1, spec §1.4/§2.6). CHAIN-FV-L2-PREMISE-1 measured
+// the field-map model at ZERO authorable edges estate-wide: `grep -c consumes_from chaingraph.json`
+// = 0, and `run_chain` never threads an output field into a later input, so there is nothing for a
+// per-field producer→consumer map to describe. ⛔ That model is NOT rescued by changing `run_chain`
+// (a redesign of what a chain is, and nobody asked). It is marked DORMANT: `consumes_from` stays in
+// the schema for a future pipeline redesign, `checkMappedField` stays live and correct for the day an
+// instance appears, and an edge with no field map and no gate now reports
+// L2-not-applicable(`chain-steps-independently-parameterised`) — ⛔ never `indeterminate` ×363, which
+// read as 363 unfinished chores for work that does not exist.
+//
+// L2 is now the two couplings this estate actually has:
+//   L2-G  GATE CONTRACTS — a step's decision gate reads a JSON Pointer into its OWN output; the
+//         producer must publish that field in output_schema with an x-source-carrying domain the gate
+//         rule is decidable against. This is real assume-guarantee: producer guarantee ⊑ consumer
+//         assumption, with the assumption written literally in chaingraph.json. `checkGateRule`.
+//   L2-S  SHARED-INPUT COHERENCE — for each chain, every input field name ≥2 steps accept, intersect
+//         those steps' DECLARED input_schema domains. An EMPTY intersection means no single value of
+//         that field can be carried through the workflow: L2S-fail with the offending domains as the
+//         witness. `checkSharedInputs`.
+//   L2-P  PROVENANCE THREADING — mandate_hash presence/shape where a chain declares a mandate.
+//         `parent_hashes` integrity is what the execution_hash receipts already prove; L2 REFERENCES
+//         that, it does not re-check it (SO #34: never re-derive a proof another gate owns).
+//
+// ⛔⛔ WHY L2-S DOES NOT REQUIRE AN x-source, AND WHY THAT IS NOT A HOLE IN THE HONESTY RULE.
+// The x-source rule (spec §1.2/§2.3) exists because L2-G compares a declared bound against an
+// EXTERNAL AUTHORITY's threshold — an unsourced number there is one somebody typed, and convicting on
+// it would be validating a claim the artifact makes about itself (SO #34). L2-S asserts nothing about
+// any authority. It compares TWO OF OUR OWN PUBLISHED MANIFESTS AGAINST EACH OTHER and reports a
+// CONTRADICTION BETWEEN THEM. The evidence is complete and internal: both enums are published, both
+// are the exact bytes an MCP agent reads as `inputSchema`, and a disjoint pair means the chain has no
+// runnable value for that field no matter which outside authority is right. ⛔ A contradiction needs
+// no citation — only that both sides are DECLARED. A domain a step does NOT declare is never
+// convicted on (L2S-indeterminate(no-domain:<step>.<field>)), and ⛔ a domain induced from fixture
+// vectors is never read here at all, so the "a fixture sample is not a domain" rule is untouched.
+//
 // THE VERDICTS (spec §2.4 — indeterminate is NEVER folded into pass, doctrine §5 don't #4):
 //   L2-pass            every mapped field and every gate rule on the edge satisfied §2.2/§2.3 against
 //                       DECLARED, x-source-carrying constraints.
 //   L2-fail(witness)   ≥1 check failed. Every fail carries a concrete witness value.
 //   L2-indeterminate   named reason from the closed set below — coverage, not a verdict on wrongness.
-// Chain verdict = L2-fail if any edge fails; else L2-pass if every edge passed; else L2-indeterminate.
+//   L2-not-applicable  the check has no instances to run on, for a STRUCTURAL reason that is named.
+//                       ⛔ Distinct from both pass and indeterminate (SO #34c: absence is not a pass,
+//                       and it is not an unfinished chore either). Excluded from every denominator,
+//                       counted out loud.
+// Chain verdict = L2-fail if any edge fails; else L2-pass if every in-scope edge passed; else
+// L2-indeterminate; else L2-not-applicable when nothing was in scope for a named structural reason.
 // A chain with zero in-scope edges is L2-indeterminate(no-in-scope-edges), never a vacuous pass.
 //
 // ⛔⛔ THE RULE THAT KEEPS L2a HONEST (spec §2.3): only a DECLARED constraint carrying an x-source may
@@ -336,12 +376,270 @@ export function checkGateRule(gate, rule, producerId, chainToolIds, ctx) {
     checksRun.push('gate-route');
   }
 
+  const undecidedReasons = [...new Set(undecided)].sort();
   return {
     gate_input: gate.input, op: rule.op, value: rule.value, next: rule.next,
     decided: checksRun.length > 0,
     checks_run: checksRun,
     findings,
+    undecided_reasons: undecidedReasons,
+    // ⛔ RESCOPE-1: an undecided gate now carries what to author to decide it. An indeterminate with
+    // no instruction is a number; an indeterminate with one is a work item.
+    authoring: undecidedReasons.length ? gateAuthoringInstruction(gate, rule, producerId, ctx) : null,
+  };
+}
+
+/* ────────────────────────── §2.6 L2-G authoring instructions ────────────────────────────────── */
+
+/**
+ * For a gate rule that did NOT decide, say exactly what a `CHAIN-FV-L2-G-BATCH-n` row must author to
+ * make it decide. This is the whole difference between "74 indeterminate" (a number nobody can act
+ * on) and "74 authorable" (74 named manifest properties with a stated required shape).
+ *
+ * ⛔ The instruction ALWAYS points at the producer's manifest/shard, NEVER at kernel bytes — sealed
+ * kernels are SO #36 territory, and a declared output domain is not a behaviour change.
+ * ⛔ `fixture_observed_values` are CANDIDATES to look at, never a citation (spec §1.2's proptest
+ * doctrine, same shape): a fixture sample is not a domain, and authoring one still needs an x-source.
+ */
+export function gateAuthoringInstruction(gate, rule, producerId, ctx) {
+  const top = typeof gate.input === 'string' && gate.input.startsWith('/')
+    ? gate.input.slice(1).split('/')[0].replace(/~1/g, '/').replace(/~0/g, '~')
+    : gate.input;
+  let required;
+  if (EQ_OPS.has(rule.op)) {
+    required = {
+      shape: 'enum',
+      detail: `output_schema.properties.${top} needs an "enum" (or "const") whose membership decides ${rule.op} ${JSON.stringify(rule.value)}`,
+      must_be_decidable_for: rule.value,
+    };
+  } else if (NUMERIC_OPS.has(rule.op)) {
+    required = {
+      shape: 'numeric-range',
+      detail: `output_schema.properties.${top} needs "minimum" and/or "maximum" (plus "x-unit" if not dimensionless) positioned so that ${rule.op} ${JSON.stringify(rule.value)} is neither a dead nor an always-taken branch`,
+      must_be_decidable_for: rule.value,
+    };
+  } else {
+    required = {
+      shape: 'unsupported-op',
+      detail: `gate op "${rule.op}" is outside L2's decidable set {eq,ne,lt,lte,gt,gte} — this rule is not authorable into a decision without a spec amendment`,
+      must_be_decidable_for: rule.value,
+    };
+  }
+  const observed = (ctx.fixtureObservedValues ? ctx.fixtureObservedValues(producerId, gate.input) : []) || [];
+  return {
+    producer: producerId,
+    field: top,
+    pointer: gate.input,
+    author_in: `manifests/${producerId}.manifest.json → output_schema.properties.${top}`,
+    gate_rule: { op: rule.op, value: rule.value },
+    required,
+    x_source_required: true,
+    x_source_note: 'every constraint keyword needs an x-source (spec §1.2). Without one this stays indeterminate(constraint-without-x-source) — authoring the bound alone does not close it.',
+    fixture_observed_values: observed,
+    fixture_note: '⛔ CANDIDATES ONLY — a fixture sample is not a domain and is not a citation (spec §1.2, §2.3). Look here, then cite the authority.',
+    never_author_in: 'the kernel — kernel bytes are sealed (SO #36); a declared output domain belongs in the manifest/shard.',
+  };
+}
+
+/* ────────────────────────── §2.7 L2-S shared-input coherence ────────────────────────────────── */
+
+/** Intersect the declared enums of the participants that declare one. Null when fewer than 2 do. */
+function enumIntersection(participants) {
+  const withEnum = participants.filter((p) => p.constraint && p.constraint.enum && p.constraint.enum.length);
+  if (withEnum.length < 2) return null;
+  let inter = withEnum[0].constraint.enum.slice();
+  for (const p of withEnum.slice(1)) inter = inter.filter((v) => p.constraint.enum.includes(v));
+  return { participants: withEnum, intersection: inter };
+}
+
+/**
+ * Check ONE input field name that ≥2 steps of a chain accept.
+ *
+ * ✅ The claim: "these published input contracts contradict each other, so this chain has no runnable
+ *    value for this field." Evidence is entirely internal — see the header note on why this needs no
+ *    x-source and why that does not weaken the honesty rule.
+ * ⛔ A step that declares NO domain for the field is never convicted on — it is named in an
+ *    indeterminate reason so a batch row knows exactly which manifest property is missing.
+ * ⛔ Unequal-but-overlapping domains are a PASS, not a fail: each step may legitimately accept a
+ *    superset. Only an EMPTY intersection is a defect. The narrowed intersection is published as the
+ *    chain's effective domain — useful and true, without convicting anyone.
+ */
+export function checkSharedInputField(field, participants) {
+  const findings = [];
+  const undecided = [];
+
+  // ── Type conflict (L1's lattice, imported — never restated) ──
+  for (let i = 0; i < participants.length; i++) {
+    for (let j = i + 1; j < participants.length; j++) {
+      const a = participants[i], b = participants[j];
+      if (!typesCompatible(a.types || ['unknown'], b.types || ['unknown'])) {
+        findings.push({
+          code: 'shared-input-type-conflict', field,
+          detail: `${a.step} declares ${field}: ${(a.types || []).join('|')} but ${b.step} declares ${field}: ${(b.types || []).join('|')} — one value cannot satisfy both`,
+          witness: `${a.step}:${(a.types || []).join('|')} vs ${b.step}:${(b.types || []).join('|')}`,
+        });
+      }
+    }
+  }
+
+  // ── Unit conflict — exact UCUM strings, ⛔ no conversion, ever (spec §2.2 check 4) ──
+  const units = participants.filter((p) => p.constraint && p.constraint.unit);
+  const distinctUnits = [...new Set(units.map((p) => p.constraint.unit))];
+  if (distinctUnits.length > 1) {
+    const a = units.find((p) => p.constraint.unit === distinctUnits[0]);
+    const b = units.find((p) => p.constraint.unit === distinctUnits[1]);
+    findings.push({
+      code: 'shared-input-unit-conflict', field,
+      detail: `${a.step} declares x-unit "${a.constraint.unit}" but ${b.step} declares x-unit "${b.constraint.unit}" for the same field`,
+      witness: `${a.constraint.unit} != ${b.constraint.unit}`,
+    });
+  } else if (units.length && units.length < participants.length) {
+    undecided.push(`unit-declared-one-side:${field}`);
+  }
+
+  // ── Enum intersection ──
+  let effectiveDomain = null;
+  const en = enumIntersection(participants);
+  if (en) {
+    if (en.intersection.length === 0) {
+      // Concrete witness: a value one step accepts that another positively rejects.
+      const a = en.participants[0];
+      const rejecter = en.participants.find((p) => p !== a && !p.constraint.enum.includes(a.constraint.enum[0]));
+      findings.push({
+        code: 'shared-input-domain-disjoint', field,
+        detail: `no value of "${field}" satisfies every step: ${en.participants.map((p) => `${p.step} accepts [${p.constraint.enum.join(',')}]`).join('; ')}`,
+        witness: rejecter
+          ? `"${a.constraint.enum[0]}" is accepted by ${a.step} and rejected by ${rejecter.step}`
+          : `the intersection of ${en.participants.length} declared enums is empty`,
+      });
+    } else {
+      effectiveDomain = { kind: 'enum', values: en.intersection };
+    }
+  }
+
+  // ── Numeric range intersection ──
+  const nums = participants.filter((p) => p.constraint && (guaranteeLow(p.constraint) !== null || guaranteeHigh(p.constraint) !== null));
+  if (nums.length >= 2) {
+    let lo = null, hi = null, loStep = null, hiStep = null;
+    for (const p of nums) {
+      const l = guaranteeLow(p.constraint), h = guaranteeHigh(p.constraint);
+      if (l !== null && (lo === null || l > lo)) { lo = l; loStep = p.step; }
+      if (h !== null && (hi === null || h < hi)) { hi = h; hiStep = p.step; }
+    }
+    if (lo !== null && hi !== null && lo > hi) {
+      findings.push({
+        code: 'shared-input-range-disjoint', field,
+        detail: `no value of "${field}" satisfies every step: ${loStep} requires >= ${lo} while ${hiStep} requires <= ${hi}`,
+        witness: `[${lo},${hi}] is empty`,
+      });
+    } else if (lo !== null && hi !== null && !effectiveDomain) {
+      effectiveDomain = { kind: 'range', minimum: lo, maximum: hi };
+    }
+  }
+
+  // ── Coverage: which participants declared nothing at all ──
+  for (const p of participants) {
+    if (!p.constraint) undecided.push(`no-domain:${p.step}.${field}`);
+  }
+
+  const declaredCount = participants.filter((p) => p.constraint).length;
+  let verdict;
+  if (findings.length) verdict = 'L2S-fail';
+  else if (declaredCount < 2 || undecided.length) verdict = 'L2S-indeterminate';
+  else verdict = 'L2S-pass';
+
+  return {
+    field,
+    steps: participants.map((p) => p.step),
+    verdict,
+    effective_domain: effectiveDomain,
+    findings,
     undecided_reasons: [...new Set(undecided)].sort(),
+  };
+}
+
+/**
+ * L2-S for one chain. Pure — ctx supplies inSchema/inConstraint, exactly as the edge checks do.
+ * ⛔ Reads manifest input_schemas only. Never a fixture vector, never a kernel.
+ */
+export function checkSharedInputs(chain, ctx) {
+  const seen = new Set();
+  const byField = new Map();
+  for (const s of (chain.steps || [])) {
+    const id = s.tool_id;
+    if (seen.has(id)) continue; // a chain may name a tool twice; one contract per tool
+    seen.add(id);
+    const sch = ctx.inSchema(id);
+    if (!sch || !sch.fields) continue;
+    for (const f of Object.keys(sch.fields)) {
+      if (!byField.has(f)) byField.set(f, []);
+      byField.get(f).push({ step: id, types: sch.fields[f], constraint: ctx.inConstraint(id, f) });
+    }
+  }
+
+  const fields = [];
+  for (const [field, participants] of [...byField.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (participants.length < 2) continue;
+    fields.push(checkSharedInputField(field, participants));
+  }
+
+  const findings = fields.flatMap((f) => f.findings);
+  let verdict, reasons;
+  if (!fields.length) {
+    verdict = 'L2S-not-applicable';
+    reasons = ['no-shared-input-fields'];
+  } else if (findings.length) {
+    verdict = 'L2S-fail';
+    reasons = [...new Set(findings.map((f) => f.code))].sort();
+  } else if (fields.every((f) => f.verdict === 'L2S-pass')) {
+    verdict = 'L2S-pass';
+    reasons = [];
+  } else {
+    verdict = 'L2S-indeterminate';
+    reasons = [...new Set(fields.filter((f) => f.verdict !== 'L2S-pass').flatMap((f) => f.undecided_reasons))].sort();
+  }
+
+  return { verdict, reasons, shared_field_count: fields.length, fields, findings };
+}
+
+/* ────────────────────────── §2.8 L2-P provenance threading ──────────────────────────────────── */
+
+/**
+ * L2-P is deliberately THIN, and that is a finding, not a shortfall.
+ *
+ * `parent_hashes` / `parent_tool_ids` integrity is exactly what the execution_hash receipts already
+ * prove, and SO #34 forbids a second checker re-deriving a proof another gate owns — so L2-P
+ * REFERENCES that and re-checks nothing. What is left is the one declared thing: `run_chain` injects
+ * `mandate_hash` into every step's policy_parameters when, and only when, the chain declares a
+ * mandate. A chain that declares one whose step does not accept it is a declared/threaded mismatch —
+ * checkable from chaingraph.json + manifests, with nothing executed.
+ */
+export function checkProvenanceThreading(chain, ctx) {
+  const declaresMandate = !!(chain.mandate || chain.mandate_hash || chain.requires_mandate);
+  const HASH_NOTE = 'parent_hashes integrity is proven by the execution_hash receipts, not re-derived here (SO #34).';
+  if (!declaresMandate) {
+    return { verdict: 'L2P-not-applicable', reasons: ['chain-declares-no-mandate'], hash_chain_note: HASH_NOTE, findings: [] };
+  }
+  const findings = [];
+  const missing = [];
+  for (const s of (chain.steps || [])) {
+    const sch = ctx.inSchema(s.tool_id);
+    if (!sch || !sch.fields) { missing.push(s.tool_id); continue; }
+    if (!Object.prototype.hasOwnProperty.call(sch.fields, 'mandate_hash')) {
+      findings.push({
+        code: 'mandate-hash-not-accepted',
+        detail: `chain declares a mandate, so run_chain injects mandate_hash into every step's policy_parameters, but ${s.tool_id}'s input_schema does not declare it`,
+        witness: `${s.tool_id}.input_schema has no mandate_hash property`,
+      });
+    }
+  }
+  return {
+    verdict: findings.length ? 'L2P-fail' : (missing.length ? 'L2P-indeterminate' : 'L2P-pass'),
+    reasons: findings.length
+      ? [...new Set(findings.map((f) => f.code))].sort()
+      : (missing.length ? [...new Set(missing.map((m) => `no-manifest:${m}`))].sort() : []),
+    hash_chain_note: HASH_NOTE,
+    findings,
   };
 }
 
@@ -377,8 +675,15 @@ export function checkL2Edge(fromId, toId, consumesFrom, gate, chainToolIds, ctx)
   ];
 
   if (!mappings.length && !gateRules.length) {
+    // ⛔⛔ RESCOPE-1 (spec §1.4/§2.6). This was `L2-indeterminate(no-field-map-authored)` × 363, which
+    // read as 363 unfinished chores. CHAIN-FV-L2-PREMISE-1 measured that there is nothing to author:
+    // 0 consumes_from entries exist estate-wide, and `run_chain` never threads an output field into a
+    // later input, so chain steps are independently parameterised by construction. Absence for a
+    // STRUCTURAL reason is not a coverage gap. ⛔ It is not a pass either (SO #34c) — hence a third
+    // verdict, excluded from every denominator and counted out loud.
     return {
-      from: fromId, to: toId, verdict: 'L2-indeterminate', reasons: ['no-field-map-authored'],
+      from: fromId, to: toId, verdict: 'L2-not-applicable',
+      reasons: ['chain-steps-independently-parameterised'],
       field_results: [], gate_results: [], findings: [],
     };
   }
@@ -398,12 +703,24 @@ export function checkL2Edge(fromId, toId, consumesFrom, gate, chainToolIds, ctx)
   return { from: fromId, to: toId, verdict, reasons, field_results: fieldResults, gate_results: gateResults, findings };
 }
 
-/** Check one chain. Pure. */
-export function checkL2Chain(chain, ctx) {
+/**
+ * Check one chain. Pure.
+ *
+ * ⛔⛔ THE TWO SCOPES ARE DIFFERENT, DELIBERATELY, AND THE DIFFERENCE IS MEASURED (RESCOPE-1).
+ * L2-G is confined to the §0 target set (L1-pass, fully spec-backed) because it convicts against an
+ * x-source-carrying domain, and that grade of claim needs the spec backing. **L2-S and L2-P have no
+ * such dependency** — they compare our own published manifests against each other and against
+ * chaingraph.json, so neither L1's edge-ordering verdict nor a chain's spec_fraction is evidence
+ * about them. Confining them to the same set would have been a silent scope error: measured
+ * 2026-08-18, BOTH chains carrying a real disjoint-domain defect (`dora-operational-resilience`,
+ * `rtp-participation`) sit OUTSIDE the target set. L2-S therefore runs estate-wide, and every
+ * published count says which scope it came from.
+ */
+export function checkL2Chain(chain, ctx, { gateScope = true } = {}) {
   const steps = (chain.steps || []);
   const toolIds = steps.map((s) => s.tool_id);
   const edges = [];
-  for (let i = 0; i + 1 < steps.length; i++) {
+  for (let i = 0; gateScope && i + 1 < steps.length; i++) {
     const fromId = toolIds[i], toId = toolIds[i + 1];
     const consumesFrom = steps[i + 1].consumes_from;
     const gate = steps[i].gate;
@@ -412,7 +729,7 @@ export function checkL2Chain(chain, ctx) {
   // Gates on the LAST step (no downstream chain step) still get checked — they route to end/escalate.
   const lastStep = steps[steps.length - 1];
   let lastGateEdge = null;
-  if (lastStep && lastStep.gate && steps.length >= 1) {
+  if (gateScope && lastStep && lastStep.gate && steps.length >= 1) {
     const gateResults = (lastStep.gate.rules || []).map((r) => checkGateRule(lastStep.gate, r, lastStep.tool_id, toolIds, ctx));
     const findings = gateResults.flatMap((r) => r.findings.map((f) => ({ from: lastStep.tool_id, to: '(terminal)', ...f })));
     const undecided = gateResults.flatMap((r) => r.undecided_reasons);
@@ -427,29 +744,62 @@ export function checkL2Chain(chain, ctx) {
     }
   }
 
-  const findings = edges.flatMap((e) => e.findings);
-  const inScope = edges; // execution_hash-only exclusion happens upstream (chain assembly never
-  // authors a consumes_from for it — measured: 0 manifests declare execution_hash in input_schema).
+  // ⛔ RESCOPE-1: not-applicable edges are excluded from the denominator, and counted out loud.
+  const inScope = edges.filter((e) => e.verdict !== 'L2-not-applicable');
+  const notApplicable = edges.filter((e) => e.verdict === 'L2-not-applicable');
+
+  // The two other couplings, computed per chain rather than per edge (§2.7, §2.8).
+  const shared = checkSharedInputs(chain, ctx);
+  const provenance = checkProvenanceThreading(chain, ctx);
+
+  const findings = [
+    ...edges.flatMap((e) => e.findings),
+    ...shared.findings.map((f) => ({ scope: 'L2-S', chain: chain.name, ...f })),
+    ...provenance.findings.map((f) => ({ scope: 'L2-P', chain: chain.name, ...f })),
+  ];
+
+  // Chain verdict composes all three couplings: fail beats indeterminate beats pass beats
+  // not-applicable. A coupling that is not-applicable contributes nothing in either direction — it
+  // can neither rescue a chain into a pass nor drag one into an indeterminate.
+  const contributions = [
+    ...inScope.map((e) => e.verdict),
+    shared.verdict.replace('L2S-', 'L2-'),
+    provenance.verdict.replace('L2P-', 'L2-'),
+  ].filter((v) => v !== 'L2-not-applicable');
 
   let verdict, reasons;
   if (findings.length) {
     verdict = 'L2-fail';
     reasons = [...new Set(findings.map((f) => f.code))].sort();
-  } else if (!inScope.length) {
-    verdict = 'L2-indeterminate';
-    reasons = ['no-in-scope-edges'];
-  } else if (inScope.every((e) => e.verdict === 'L2-pass')) {
+  } else if (!contributions.length) {
+    // Nothing in scope anywhere. Say WHICH structural reason, never a bare indeterminate and never a
+    // vacuous pass. A chain with edges that are all not-applicable is a different state from a
+    // single-step chain with no edges at all.
+    verdict = 'L2-not-applicable';
+    reasons = notApplicable.length
+      ? ['chain-steps-independently-parameterised', ...(shared.shared_field_count ? [] : ['no-shared-input-fields'])].sort()
+      : (gateScope ? ['no-in-scope-edges'] : ['outside-L2G-target-set', ...(shared.shared_field_count ? [] : ['no-shared-input-fields'])].sort());
+  } else if (contributions.every((v) => v === 'L2-pass')) {
     verdict = 'L2-pass';
     reasons = [];
   } else {
     verdict = 'L2-indeterminate';
-    reasons = [...new Set(inScope.filter((e) => e.verdict !== 'L2-pass').flatMap((e) => e.reasons))].sort();
+    reasons = [...new Set([
+      ...inScope.filter((e) => e.verdict === 'L2-indeterminate').flatMap((e) => e.reasons),
+      ...(shared.verdict === 'L2S-indeterminate' ? shared.reasons : []),
+      ...(provenance.verdict === 'L2P-indeterminate' ? provenance.reasons : []),
+    ])].sort();
   }
 
   return {
     name: chain.name, domain: chain.domain || null,
     step_count: steps.length, edge_count: edges.length,
+    in_scope_edge_count: inScope.length,
+    not_applicable_edge_count: notApplicable.length,
     verdict, reasons, findings, edges,
+    gate_scope: gateScope,
+    shared_inputs: shared,
+    provenance,
   };
 }
 
@@ -546,6 +896,21 @@ function loadEstate(root) {
     const vecs = ((fx && fx.vectors) || []).map((v) => v.output_payload).filter(Boolean);
     return vecs.some((v) => v && Object.prototype.hasOwnProperty.call(v, top));
   }
+  // ⛔ CANDIDATES for an authoring row to LOOK at, never evidence and never a citation (spec §1.2).
+  // Nothing in the verdict path may ever call this — it feeds gateAuthoringInstruction alone.
+  function fixtureObservedValues(id, pointer) {
+    const top = pointer.startsWith('/') ? pointer.slice(1).split('/')[0] : pointer;
+    const fx = fixturesOf(id);
+    const seen = [];
+    for (const v of ((fx && fx.vectors) || [])) {
+      const op = v && v.output_payload;
+      if (op && Object.prototype.hasOwnProperty.call(op, top)) {
+        const val = op[top];
+        if (val === null || typeof val !== 'object') { if (!seen.includes(val)) seen.push(val); }
+      }
+    }
+    return seen.slice(0, 12);
+  }
 
   // §4 item 3: x-source digest re-verification. kind:clause re-hashes the pinned snapshot; every
   // other kind is trusted as declared (manifest/spec/issuer-example carry no digest to re-check).
@@ -569,7 +934,7 @@ function loadEstate(root) {
     sourceDigest: 'sha256:' + createHash('sha256').update(raw).digest('hex'),
     ctx: {
       outSchema, inSchema, outConstraint, inConstraint, consumerRequired,
-      pointerResolvesInFixturesOnly, verifySource,
+      pointerResolvesInFixturesOnly, fixtureObservedValues, verifySource,
     },
   };
 }
@@ -584,24 +949,63 @@ export function buildReport(root = ROOT, l1Report) {
   const targetNames = computeTargetSet(l1Report);
 
   const targetChains = chains.filter((c) => targetNames.has(c.name));
-  const results = targetChains
-    .map((c) => checkL2Chain(c, ctx))
+  // L2-G walks the target set; L2-S / L2-P walk the whole estate (see checkL2Chain's scope note).
+  const results = chains
+    .map((c) => checkL2Chain(c, ctx, { gateScope: targetNames.has(c.name) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const summary = { total_target_chains: targetChains.length, 'L2-pass': 0, 'L2-fail': 0, 'L2-indeterminate': 0 };
+  const summary = { total_target_chains: targetChains.length, 'L2-pass': 0, 'L2-fail': 0, 'L2-indeterminate': 0, 'L2-not-applicable': 0 };
   const indeterminateReasons = {}, failCodes = {};
-  let edgesTotal = 0, edgesPass = 0, edgesFail = 0, edgesIndeterminate = 0, gatesTotal = 0;
+  let edgesTotal = 0, edgesPass = 0, edgesFail = 0, edgesIndeterminate = 0, edgesNotApplicable = 0, gatesTotal = 0;
+  // L2-S roll-up + the authoring worklist that re-sizes the batch plan (§7).
+  const sVerdicts = { 'L2S-pass': 0, 'L2S-fail': 0, 'L2S-indeterminate': 0, 'L2S-not-applicable': 0 };
+  const pVerdicts = { 'L2P-pass': 0, 'L2P-fail': 0, 'L2P-indeterminate': 0, 'L2P-not-applicable': 0 };
+  let sharedFieldsTotal = 0;
+  const authoring = [];
+  const authoringSeen = new Set();
   for (const r of results) {
-    summary[r.verdict]++;
+    if (r.gate_scope) summary[r.verdict]++; // chain-level L2-G verdict counts stay on the target set
+    sVerdicts[r.shared_inputs.verdict]++;
+    pVerdicts[r.provenance.verdict]++;
+    sharedFieldsTotal += r.shared_inputs.shared_field_count;
     for (const e of r.edges) {
       edgesTotal++;
       if (e.verdict === 'L2-pass') edgesPass++;
       else if (e.verdict === 'L2-fail') edgesFail++;
+      else if (e.verdict === 'L2-not-applicable') edgesNotApplicable++;
       else edgesIndeterminate++;
       if (e.verdict === 'L2-indeterminate') for (const x of e.reasons) indeterminateReasons[x] = (indeterminateReasons[x] || 0) + 1;
       if (e.verdict === 'L2-fail') for (const f of e.findings) failCodes[f.code] = (failCodes[f.code] || 0) + 1;
       gatesTotal += (e.gate_results || []).length;
+      for (const g of (e.gate_results || [])) {
+        if (!g.authoring) continue;
+        // One work item per (producer, field) — that is the unit a batch row authors once and every
+        // gate reading it closes. Chains that share a producer are recorded on the same item.
+        const key = `${g.authoring.producer}::${g.authoring.field}`;
+        if (authoringSeen.has(key)) {
+          const item = authoring.find((a) => a.producer === g.authoring.producer && a.field === g.authoring.field);
+          if (!item.chains.includes(r.name)) item.chains.push(r.name);
+          item.gate_rule_count++;
+          continue;
+        }
+        authoringSeen.add(key);
+        authoring.push({ ...g.authoring, domain: r.domain || null, chains: [r.name], gate_rule_count: 1 });
+      }
     }
+  }
+  authoring.sort((a, b) => (a.producer.localeCompare(b.producer) || a.field.localeCompare(b.field)));
+  for (const a of authoring) a.chains.sort();
+
+  // Batch sizing, DERIVED — ⛔ never a hardcoded batch count (SO #34: recompute, don't restate).
+  // §7.1's cost driver is kernels, capped at ≤20 per session; the unit here is the producer whose
+  // manifest a row must author, so batches = ceil(distinct producers / 20).
+  const KERNELS_PER_BATCH = 20;
+  const distinctProducers = [...new Set(authoring.map((a) => a.producer))];
+  const byDomain = {};
+  for (const a of authoring) {
+    const d = a.domain || '(no domain)';
+    if (!byDomain[d]) byDomain[d] = new Set();
+    byDomain[d].add(a.producer);
   }
 
   const precision = measuredL2Precision();
@@ -611,7 +1015,13 @@ export function buildReport(root = ROOT, l1Report) {
     ladder_level: 'L2',
     ladder_claim: 'edge contracts composed and machine-checked (L2: contract composition)',
     not_a_claim_of: 'formal verification — L2 checks declared assume-guarantee composition only; no kernel is ever executed (SO #34\'s sandbox rider does not apply, since no code runs here); L3 end-to-end properties are separate and unbuilt',
-    dataflow_honesty_note: 'run_chain (mcp-apps-poc/worker.mjs) builds each step\'s policy_parameters from inputs[tool_id] or a fixture, NEVER from the previous step\'s output_payload. L2 verifies the DECLARED composition authored in consumes_from — what the chain page and manifests tell a human or agent to pipe where — not automatic threading the worker performs.',
+    dataflow_honesty_note: 'run_chain (mcp-apps-poc/worker.mjs) builds each step\'s policy_parameters from inputs[tool_id] or a fixture, NEVER from the previous step\'s output_payload. Chains are provenance-linked bundles of independently-parameterised kernels, not data pipelines. L2 therefore checks the couplings that exist — gate contracts (L2-G), shared-input coherence (L2-S), provenance threading (L2-P) — and NOT a producer-to-consumer field map, which CHAIN-FV-L2-PREMISE-1 measured at zero instances estate-wide.',
+    field_map_model: {
+      status: 'dormant',
+      reason: 'CHAIN-FV-L2-PREMISE-1 (2026-08-18) measured 0 consumes_from entries estate-wide and read run_chain directly: no output field flows into a later step\'s input. The five §2.2 refinement checks have no instances in this estate.',
+      retained: 'consumes_from stays optional in the schema and checkMappedField stays live and correct, so a future pipeline redesign inherits a working checker rather than a rewrite.',
+      not_rescued_by: '⛔ changing run_chain to pipe outputs into inputs — that redesigns what a chain is, and was explicitly ruled out of scope (CHAIN-FV-L2-RESCOPE-1).',
+    },
     advisory: true,
     chaingraph_version: chaingraph.version || null,
     chaingraph_source_digest: sourceDigest,
@@ -629,15 +1039,56 @@ export function buildReport(root = ROOT, l1Report) {
       edges_pass: edgesPass,
       edges_fail: edgesFail,
       edges_indeterminate: edgesIndeterminate,
+      edges_not_applicable: edgesNotApplicable,
+      edges_in_scope: edgesTotal - edgesNotApplicable,
       gates_checked: gatesTotal,
+    },
+    l2s: {
+      what: 'shared-input coherence — for each chain, every input field name ≥2 steps accept, intersected across those steps\' DECLARED manifest input_schema domains.',
+      scope: `estate-wide — all ${results.length} chains, NOT the ${targetChains.length}-chain L2-G target set. L2-S compares our own manifests against each other, so neither L1's edge-ordering verdict nor a chain's spec_fraction is evidence about it. Measured 2026-08-18: both chains carrying a disjoint-domain defect sit outside the target set, so confining L2-S to it would have hidden every finding it has.`,
+      needs_no_x_source_because: 'L2-S reports a CONTRADICTION BETWEEN TWO OF OUR OWN PUBLISHED MANIFESTS, not agreement with an outside authority. Both enums are the exact bytes an agent reads as inputSchema, so the evidence is complete and internal. A step that declares nothing is never convicted on, and no fixture-induced domain is read here at all.',
+      empty_intersection_is_the_defect: 'unequal-but-overlapping domains are a PASS — a step may legitimately accept a superset. Only an EMPTY intersection means the chain has no runnable value for that field.',
+      shared_fields_examined: sharedFieldsTotal,
+      ...sVerdicts,
+    },
+    l2p: {
+      what: 'provenance threading — mandate_hash acceptance where a chain declares a mandate.',
+      hash_chain_note: 'parent_hashes / parent_tool_ids integrity is what the execution_hash receipts already prove. L2-P references that and re-derives none of it (SO #34).',
+      ...pVerdicts,
+    },
+    l2g_authoring: {
+      what: 'one work item per (producer, field) an undecided gate reads. This is what re-sizes the batch plan: the unit of work is the producer manifest a row authors once, not the edge.',
+      author_in: 'the producer\'s manifest/shard. ⛔ NEVER kernel bytes (sealed, SO #36).',
+      open_gate_edges: gatesTotal ? authoring.reduce((s, a) => s + a.gate_rule_count, 0) : 0,
+      distinct_producers: distinctProducers.length,
+      kernels_per_batch_cap: KERNELS_PER_BATCH,
+      batches_required: Math.ceil(distinctProducers.length / KERNELS_PER_BATCH),
+      producers_by_domain: Object.fromEntries(
+        Object.entries(byDomain).map(([d, set]) => [d, set.size]).sort((a, b) => b[1] - a[1]),
+      ),
+      items: authoring,
     },
     indeterminate_reason_counts: Object.fromEntries(Object.entries(indeterminateReasons).sort((a, b) => b[1] - a[1])),
     fail_code_counts: Object.fromEntries(Object.entries(failCodes).sort((a, b) => b[1] - a[1])),
     chains: results.map((r) => ({
       name: r.name, domain: r.domain, verdict: r.verdict, reasons: r.reasons,
+      gate_scope: r.gate_scope,
       step_count: r.step_count, edge_count: r.edge_count,
+      in_scope_edge_count: r.in_scope_edge_count,
+      not_applicable_edge_count: r.not_applicable_edge_count,
       findings: r.findings,
       edges: r.edges.map((e) => ({ from: e.from, to: e.to, verdict: e.verdict, reasons: e.reasons, findings: e.findings })),
+      shared_inputs: {
+        verdict: r.shared_inputs.verdict,
+        reasons: r.shared_inputs.reasons,
+        shared_field_count: r.shared_inputs.shared_field_count,
+        fields: r.shared_inputs.fields.map((f) => ({
+          field: f.field, steps: f.steps, verdict: f.verdict,
+          effective_domain: f.effective_domain, findings: f.findings,
+          undecided_reasons: f.undecided_reasons,
+        })),
+      },
+      provenance: { verdict: r.provenance.verdict, reasons: r.provenance.reasons, findings: r.provenance.findings },
     })),
   };
 }
@@ -663,11 +1114,14 @@ if (isMain) {
   } else if (!quiet) {
     const s = rep.summary;
     console.log('L2 chain contract-composition check (ADVISORY on existing chains, HARD on new/changed — ladder level L2, "contract composition")');
-    console.log(`  target set         : ${rep.target_set_size} chains (L1-pass, fully spec-backed)`);
+    console.log(`  L2-G target set    : ${rep.target_set_size} chains (L1-pass, fully spec-backed)`);
+    console.log(`  L2-S / L2-P scope  : ${rep.chains.length} chains (estate-wide — see l2s.scope)`);
     console.log(`  L2-pass            : ${s['L2-pass']}`);
     console.log(`  L2-fail            : ${s['L2-fail']}`);
     console.log(`  L2-indeterminate   : ${s['L2-indeterminate']}  (never folded into pass)`);
-    console.log(`  edges              : ${s.edges_pass} pass / ${s.edges_fail} fail / ${s.edges_indeterminate} indeterminate of ${s.edges_total}`);
+    console.log(`  L2-not-applicable  : ${s['L2-not-applicable']}  (structural absence — ⛔ not a pass, ⛔ not a chore)`);
+    console.log(`  edges              : ${s.edges_pass} pass / ${s.edges_fail} fail / ${s.edges_indeterminate} indeterminate of ${s.edges_in_scope} in scope`);
+    console.log(`                       + ${s.edges_not_applicable} not-applicable (field-map model dormant — see field_map_model)`);
     console.log(`  gates checked      : ${s.gates_checked}`);
     if (Object.keys(rep.fail_code_counts).length) {
       console.log('  findings by code   :');
@@ -675,6 +1129,15 @@ if (isMain) {
     }
     console.log('  top indeterminate reasons:');
     for (const [k, v] of Object.entries(rep.indeterminate_reason_counts).slice(0, 6)) console.log(`      ${k}: ${v}`);
+    console.log('  L2-S shared-input coherence:');
+    console.log(`      ${rep.l2s['L2S-pass']} pass / ${rep.l2s['L2S-fail']} fail / ${rep.l2s['L2S-indeterminate']} indeterminate / ${rep.l2s['L2S-not-applicable']} not-applicable`);
+    console.log(`      shared input fields examined: ${rep.l2s.shared_fields_examined}`);
+    console.log('  L2-P provenance threading:');
+    console.log(`      ${rep.l2p['L2P-pass']} pass / ${rep.l2p['L2P-fail']} fail / ${rep.l2p['L2P-indeterminate']} indeterminate / ${rep.l2p['L2P-not-applicable']} not-applicable`);
+    console.log('  L2-G authoring worklist (what re-sizes the batch plan):');
+    console.log(`      ${rep.l2g_authoring.open_gate_edges} open gate rules over ${rep.l2g_authoring.distinct_producers} distinct producer manifests`);
+    console.log(`      ⇒ ${rep.l2g_authoring.batches_required} batches at the §7.1 cap of ${rep.l2g_authoring.kernels_per_batch_cap} kernels/session`);
+    for (const [d, n] of Object.entries(rep.l2g_authoring.producers_by_domain).slice(0, 8)) console.log(`      ${d}: ${n} producers`);
   }
 
   if (reportPath) {
