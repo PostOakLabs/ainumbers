@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (626 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (627 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6231,6 +6231,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "payment_policy",
     "url": "https://ainumbers.co/chaingraph/art-595-ap2-cartmandate-hashchain-builder.html",
     "description": "Builds an illustrative Google AP2 CartMandate Verifiable Digital Credential (VDC) skeleton whose credentialSubject carries a deterministic h",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-596-ap2-x402-cart-correlation",
+    "display_name": "Ap2 X402 Cart Correlation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-596-ap2-x402-cart-correlation.html",
+    "description": "Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an x402_spend_evidence pack: does the cart total (sum of quanti",
     "consumes": [],
     "feeds": [],
     "status": "live"
