@@ -109,6 +109,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}guide-otel.html">OpenTelemetry</a>
         <a href="${cg}guide-iso20022.html">ISO 20022 Profile</a>
         <a href="${cg}guide-okf.html">Open Knowledge Format</a>
+        <a href="${root}guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
       </div>
       <div class="footer-col">
         <div class="footer-col-label">Data &amp; Artifacts</div>
