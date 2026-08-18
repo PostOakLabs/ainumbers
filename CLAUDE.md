@@ -52,7 +52,7 @@ Before adding or renaming any tool, ChainGraph node, chain, or kernel:
 
 ## 🛠️ Build Workflow
 
-1. Read `CONTRACT.md` §0–§6 fully.
+1. Read `CONTRACT.md` §0–§6 (normative rules). `CONTRACT-RATIONALE.md` carries the same sections' explanatory prose and audit history and is optional.
 2. Generate single `.html` file and place it in `tools/`.
 3. Validate Policy Mandate schema (`CONTRACT.md` §3.1), storage, and export contracts before output.
 4. Run pre-flight checklist from `CONTRACT.md` §6.1.

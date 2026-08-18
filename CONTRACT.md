@@ -11,6 +11,8 @@
 This is the **Single Source of Truth (SSOT)** for all AINumbers.co builds. It supersedes all prior fragmented specs, resolves identified contradictions, and enforces May 2026 best practices for client-side deterministic architectures, MCP v1+ compatibility, WCAG 2.2 accessibility, and GDPR/ePrivacy session-scoping norms.  
 **Read in full before generating any HTML, JSON, or UI component.**
 
+> §0–§6 carry the normative rules only. The explanatory prose, precedent notes and audit history behind them live verbatim in **`CONTRACT-RATIONALE.md`**, section-numbered identically and linked from each section it covers. Reading it is optional (SO-COMPACT-2, 2026-08-18).
+
 ---
 
 ## 🔒 0. Immutable Hard Constraints (RFC 2119: MUST)
@@ -31,9 +33,7 @@ The lang toggle (`.lang-bar` / `setLang()`) has been **removed from all new buil
 
 **Do not add a lang toggle to new tools or hubs.** Do not include `.lang-bar` CSS, `setLang()`, `TRANSLATIONS` objects, or `sessionStorage` `ain_lang` writes in any new file.
 
-When bandwidth allows, a proper implementation (translated metadata layer for ES/FR/PT with AR/中文 stubs) is fully specced in **`../I18N-SPEC.md`** (Option B). That spec is the source of truth for any future re-implementation.
-
-**Grandfathered state (existing tools):** ~187 tools built before this amendment retain `.lang-bar` HTML and `TRANSLATIONS` JS in their source. This is a held state — the toggles were cosmetic and do no harm. The AIN Bridge `t()` function in these tools has been pinned to English-only (sessionStorage read removed, Amendment A2). Do not strip their `TRANSLATIONS` blocks until I18N-SPEC.md Option B is ready to replace them; use `scripts/strip_lang_toggle.py --write` at that point.
+**Grandfathered state (existing tools):** ~187 tools built before this amendment retain `.lang-bar` HTML and `TRANSLATIONS` JS in their source. The AIN Bridge `t()` function in these tools has been pinned to English-only (sessionStorage read removed, Amendment A2). Do not strip their `TRANSLATIONS` blocks until I18N-SPEC.md Option B is ready to replace them; use `scripts/strip_lang_toggle.py --write` at that point. (rationale: `CONTRACT-RATIONALE.md` §1.1)
 
 ### 1.2 Mandatory UI Components
 | Component | Selector/Pattern | Notes |
@@ -45,7 +45,7 @@ When bandwidth allows, a proper implementation (translated metadata layer for ES
 | MCP / manifest disclosure | `.mfst-btn` (or inline-styled equiv.) → `#mfstBody` / `#mfstCode`, wired by `toggleMfst()` | **Exactly one** collapsible toggle per tool, placed before the footer; lazy-renders the tool's `MANIFEST` object as formatted JSON. Legacy `.mcp-toggle` / `.mcp-panel` / `toggleMCP()` patterns are prohibited. |
 | PII Banner | `.pii-notice` | Placed on identifier inputs (IBAN, BIC, LEI, etc.) |
 
-> **MCP / manifest disclosure (standardized 2026-06-11).** Tools expose `manifest.json` through a single `mfst` toggle: `.mfst-btn` (or an inline-styled equivalent) placed before the footer, controlling `#mfstBody` / `#mfstCode`, opened by `toggleMfst()` which lazy-renders `JSON.stringify(MANIFEST, null, 2)`. The inline `MANIFEST` const is the single source of truth. The legacy `.mcp-toggle` / `.mcp-panel` / `#mcpPanel` / `toggleMCP()` button-and-panel pattern is RETIRED and MUST NOT appear in new or existing tools. Pattern unified with sister suite Apex Logics; swept via `standardize_mcp_toggle.py`.
+> **MCP / manifest disclosure (standardized 2026-06-11).** Tools expose `manifest.json` through a single `mfst` toggle: `.mfst-btn` (or an inline-styled equivalent) placed before the footer, controlling `#mfstBody` / `#mfstCode`, opened by `toggleMfst()` which lazy-renders `JSON.stringify(MANIFEST, null, 2)`. The inline `MANIFEST` const is the single source of truth. The legacy `.mcp-toggle` / `.mcp-panel` / `#mcpPanel` / `toggleMCP()` button-and-panel pattern is RETIRED and MUST NOT appear in new or existing tools. (rationale: `CONTRACT-RATIONALE.md` §1.2)
 
 ### 1.3 Unified PII Banner Text
 ```text
@@ -57,7 +57,7 @@ When bandwidth allows, a proper implementation (translated metadata layer for ES
 Public HTML pages and the `chaingraph.json` descriptions served to agents are read by outside practitioners; their prose MUST NOT read as machine-generated. The following are **hard rules**, gated by `scripts/check-copy-hallmarks.mjs` (preflight + CI):
 
 - **No em-dashes (—) in human-visible HTML text or in `chaingraph.json` node/chain descriptions.** Rewrite by context: `label — value` → `label: value`; a parenthetical aside → commas or parentheses; a sentence splice → a period, colon, semicolon, or comma. En-dashes (–) in numeric ranges are correct typography and stay. The §1.3 PII banner is the sole exempt em-dash (stripped by the gate verbatim).
-- **No double-hyphen em-dash substitutes (` -- `, ` --- `) in human-visible HTML text or in `chaingraph.json` descriptions (Tim, 2026-08-02).** Typing ` -- ` where an em-dash was removed is itself a machine-generated tell: it reads as a CLI flag or as un-typeset draft text, and it is banned for the same reason the em-dash is. Use the rewrites above (colon, comma, semicolon, period, parentheses). **A single hyphen is not a substitute either** — in prose it reads as a typo or a broken compound. Exempt: `<code>`/`<pre>` bodies and CLI examples (already stripped by the gate), and `<option>` placeholder dividers of the form `-- Select … --`, an established HTML convention rather than prose.
+- **No double-hyphen em-dash substitutes (` -- `, ` --- `) in human-visible HTML text or in `chaingraph.json` descriptions (Tim, 2026-08-02).** Use the rewrites above (colon, comma, semicolon, period, parentheses). **A single hyphen is not a substitute either** — in prose it reads as a typo or a broken compound. Exempt: `<code>`/`<pre>` bodies and CLI examples (already stripped by the gate), and `<option>` placeholder dividers of the form `-- Select … --`, an established HTML convention rather than prose.
 - **Entity-encoded em-dashes count as em-dashes (Tim, 2026-08-02).** `&mdash;`, `&#8212;`, and `&#x2014;` render as the same character, so the gate MUST decode named and numeric entities before counting. Encoding an em-dash is a violation, not a workaround. Same rule for entity-encoded hyphens (`&#45;`, `&#x2D;`) in the double-hyphen check.
 - **No internal build codes in visible prose:** `Wave N`, `W-A`…`W-G`, standalone `D0`. Rewrite the sentence plainly. `ART-xx` / `T-xxx` node ids remain allowed in small monospace metadata lines and technical contexts.
 - **No AI rhetorical tics:** telegraphic "It is not X. It is Y." twotone constructions, punchy `X, not Y` card fragments, and defensive meta-phrasing ("no workflow fabricates details…"). Keep contrasts that carry real technical meaning; rewrite the conspicuous ones plainly.
@@ -67,41 +67,35 @@ Public HTML pages and the `chaingraph.json` descriptions served to agents are re
 - **Date-bearing compliance claims** (regulatory deadlines, enforcement dates) must distinguish obligation-applicability from enforcement where they differ, cite the exact date, and carry an `as of <month year>` currency note plus a primary-source link. Applied on-touch, when a date claim is next edited, not a mandatory field on every tool and not a mass sweep.
 - **Inlined SSOT copies are generated, never hand-typed.** The `secured()`, `securedRecord()`, and `__ocgCanon()` inline `<script>` blocks pasted into tool/guide/chaingraph pages must stay byte-identical to their kernel SSOT (`chaingraph/kernels/_proof.inline.min.js`, `_signverdict.inline.js`, `_hash.mjs`). Gate: `node scripts/check-inline-ssot-sync.mjs --check` (preflight + CI), manifest-driven from `scripts/inline-ssot-sync-manifest.json`; `scripts/inline-ssot-sync-baseline.json` pins already-known stylistic legacy variants only, never a behavioral difference.
 
-**Gate mechanics.** `scripts/copy-hallmarks-baseline.json` holds not-yet-swept legacy debt (Tier 2/3 tool + guide + chain files, the hub CHAIN_INDEX grid, the tool-directory mirrors in `tools.html`/`sitemap.html`, and the `chaingraph.json#descriptions` bucket until Phase C). A baselined file may carry **at most** its recorded count, so counts only ever go down; any file absent from the baseline must be clean, so new hallmarks fail immediately. Regenerate the baseline with `--update` **only** for a deliberate, reviewed exception, never to paper over a regression.
-
-**Measured debt at the time the two 2026-08-02 rules were written** (prose-visible only, using the gate's own strip logic — `<script>`/`<style>`/`<pre>`/`<code>`/comments/badges removed): ` -- ` in **453 hits across 204 files**; entity-encoded em-dashes in **2 211 hits across 686 files**. Both are legacy debt and both get a baseline bucket on introduction, on the same ratchet as the em-dash count (a baselined file may carry at most its recorded count; any file absent from the baseline must be clean). The entity figure is the more serious finding: those em-dashes were never counted by any gate, so they are debt the suite did not know it had, not debt it chose to defer.
+**Gate mechanics.** `scripts/copy-hallmarks-baseline.json` holds not-yet-swept legacy debt (Tier 2/3 tool + guide + chain files, the hub CHAIN_INDEX grid, the tool-directory mirrors in `tools.html`/`sitemap.html`, and the `chaingraph.json#descriptions` bucket until Phase C). A baselined file may carry **at most** its recorded count, so counts only ever go down; any file absent from the baseline must be clean, so new hallmarks fail immediately. Regenerate the baseline with `--update` **only** for a deliberate, reviewed exception, never to paper over a regression. (rationale: `CONTRACT-RATIONALE.md` §1.4)
 
 ### 1.5 Node-Page Result Provenance (August 2026)
 
 **Scope: node pages, `chaingraph/art-*.html`.** This section governs how a node page *presents* values it already holds. It adds nothing to the OpenChainGraph envelope, which is normative in SPEC.md (§A5.1/§A5.5). A page **MUST NOT** satisfy any rule here by changing what a kernel emits, by adding or removing an artifact field, or by altering the `execution_hash` preimage `{policy_parameters, output_payload}`. If a rule here appears to require a kernel or envelope-shape change, the rule is not what needs the change: stop and raise it.
 
-**The failure this section exists to prevent** is a page that computes a value, exports it in the artifact, and never shows it to the person reading the screen. The reader then cannot answer questions the artifact can already answer. The measured basis for each rule is stated inline below, so the rule and its evidence stay together.
-
-**Gate: `scripts/check-node-page-chrome.mjs`** (already blocking, already in `scripts/preflight.mjs`, already scoped to `chaingraph/art-*.html`). Assertions for this section belong there. **No new gate, script, baseline, or dependency is to be created for §1.5.**
+**Gate: `scripts/check-node-page-chrome.mjs`** (already blocking, already in `scripts/preflight.mjs`, already scoped to `chaingraph/art-*.html`). Assertions for this section belong there. **No new gate, script, baseline, or dependency is to be created for §1.5.** (rationale: `CONTRACT-RATIONALE.md` §1.5)
 
 #### 1.5.1 `generated_at` MUST be visible (RFC 2119: MUST)
 
 - A node page that constructs `generated_at` into its exported artifact **MUST** also render that timestamp in its results panel. A page that renders no results panel is out of scope; a page that exports an artifact is not.
 - The rendered timestamp and the exported `generated_at` **MUST** be the **same value**, captured **once**, at the moment the run completes. A page **MUST NOT** call the clock a second time when building the export.
-  - *Why this clause is here rather than assumed.* Every node page today mints `generated_at` inside `exportArtifact()`, so the field records when the reader clicked export, not when the numbers were computed. `art-525-nway-balance-closure-check.html` is the one page that renders the value, and it calls `new Date()` twice independently (`:629` for display, `:688` for export), so its two timestamps are from two different moments. Rendering without this clause would propagate that divergence across the estate.
-  - *Scope of the change this implies.* Moving the capture point changes the artifact's `generated_at` **value** for a run exported later than it was computed. It changes no field, no type, no schema outcome, and no hash: `execution_hash` is taken over `{policy_parameters, output_payload}` only (`chaingraph/kernels/_hash.mjs`), and `scripts/check-page-determinism.mjs` explicitly holds that a clock value reaching the envelope or the DOM is outside the preimage and is not a determinism defect.
   - *Fallback, so no build row stalls on this.* Where a page cannot move its capture point without touching a signing or export path outside the row's fence, it **MUST** still render the exact value it exports, and **MUST** record the deviation on its row rather than shipping two timestamps.
 - **Format: ISO 8601 UTC**, the value of `Date.prototype.toISOString()`, rendered verbatim. The v0.4 schema types the field `string` and describes it as ISO 8601; a page **MUST NOT** substitute a locale-formatted or relative rendering ("2 minutes ago") for the machine value. A locale rendering **MAY** accompany it.
 - **Placement:** inside the results panel, after the verdict block and before the statistics row, labelled so a reader knows what the timestamp refers to. Reuse the established affordance: the class shape of `.verify-banner` in `deadline-wall.html`, and the markup shape of `art-525-nway-balance-closure-check.html:181` (`<div class="generated-at" id="generatedAt"></div>`). **Do not invent new chrome for this.**
-- A page that carries no `generated_at` at all is a separate defect and is **not** repaired by this section.
+- A page that carries no `generated_at` at all is a separate defect and is **not** repaired by this section. (rationale: `CONTRACT-RATIONALE.md` §1.5.1)
 
 #### 1.5.2 A rendered decision MUST show every state it can reach (RFC 2119: MUST)
 
 Where a node page renders a decision, status, verdict, or classification value at all:
 
-- It **MUST** render the value the computation actually produced, read from the field. It **MUST NOT** map that value through a fixed two-outcome affordance when the computation can produce three or more states. Collapsing `did_not_run` into "fail", or a review state into "pass", tells the reader something untrue.
-- It **MUST NOT** hardcode a state vocabulary. A page **MUST** render the states its own computation can reach, and **MUST NOT** advertise a state that computation never emits. A two-state computation renders correctly under this rule with two affordances; nothing here obliges a third.
-- **All existing decision-pointer shapes are accommodated as they stand.** Several distinct shapes are live across the estate, and the pointer's shape is hash-bearing: it sits inside `output_payload`, so re-shaping it moves `execution_hash` and stales the node's proof. This section therefore takes each page's shape as given. **Normalising decision pointers is NOT a precondition of §1.5, and a page MUST NOT be normalised in order to satisfy it.**
+- It **MUST** render the value the computation actually produced, read from the field. It **MUST NOT** map that value through a fixed two-outcome affordance when the computation can produce three or more states.
+- It **MUST NOT** hardcode a state vocabulary. A page **MUST** render the states its own computation can reach, and **MUST NOT** advertise a state that computation never emits.
+- **All existing decision-pointer shapes are accommodated as they stand.** **Normalising decision pointers is NOT a precondition of §1.5, and a page MUST NOT be normalised in order to satisfy it.**
 - Distinguishability is the requirement, not colour. Two states **MUST NOT** be rendered identically. Colour alone **MUST NOT** be the sole carrier of the distinction (§1 accessibility): the state's own value, or a label derived from it, is rendered as text.
 
-**§1.5.2 is a standing rule, not a sweep.** The survey behind this section examined 526 kernels and found 50 fields carrying three or more states; every page flagged as omitting one was read by hand, and **none was a presentation discard**. The two cases that looked closest (`art-44` / `art-46`, and `art-174`'s `coverage_band` against the page's `overall_coverage`) are page-versus-kernel divergence, which belongs to the divergence programme. A page **MUST NOT** be given a badge for a state it does not compute in order to close a divergence finding; that hides the divergence instead of reporting it.
+A page **MUST NOT** be given a badge for a state it does not compute in order to close a divergence finding; that hides the divergence instead of reporting it.
 
----
+--- (rationale: `CONTRACT-RATIONALE.md` §1.5.2)
 
 ## 🤖 2. Machine-Readable Registry & MCP Contract
 ### 2.1 File Naming & Scope Separation
@@ -180,33 +174,31 @@ The MCP server (`mcp-apps-poc/worker.mjs`) exposes the `build_workflow_links` to
 ```bash
 node scripts/validate-chains.mjs   # or: npm run validate:chains
 ```
-Missing tool/composer files are **errors** (non-zero exit → block deploy); chain↔composer sequence divergence prints as a **warning**. Paths default to the sibling `repo/` layout; override with `WORKER_PATH`, `TOOLS_DIR`, `GUIDES_DIR`. This check exists because Wave-2 chains once referenced invented slugs (e.g. `53-stablecoin-compliance-checker` vs the real `53-cbdc-architecture-comparator`), silently 404ing on the live server.
+Missing tool/composer files are **errors** (non-zero exit → block deploy); chain↔composer sequence divergence prints as a **warning**. Paths default to the sibling `repo/` layout; override with `WORKER_PATH`, `TOOLS_DIR`, `GUIDES_DIR`. (rationale: `CONTRACT-RATIONALE.md` §2.5)
 
 ### 2.7 §2.2 reaches ChainGraph nodes — a live node owes a manifest with a declared `output_schema`
 
-**Ruling (RFC 2119: MUST) — YES.** A **live `chaingraph.json` node with an `mcp_name`** is a registered MCP tool (§A4.1 registers exactly that set as tool names), and is therefore **in scope for §2.2**. It MUST have a manifest at **`repo/manifests/<tool_id>.manifest.json`** — keyed by `tool_id`, not by an `art-` filename prefix — and that manifest MUST declare an **`output_schema`** (§2.2). This settles a scope question §2.2 left open by titling itself "Per-**Tool**"; it introduces no new field and no new artifact class (8 node-only `art-*` manifests already exist).
+**Ruling (RFC 2119: MUST) — YES.** A **live `chaingraph.json` node with an `mcp_name`** is a registered MCP tool (§A4.1 registers exactly that set as tool names), and is therefore **in scope for §2.2**. It MUST have a manifest at **`repo/manifests/<tool_id>.manifest.json`** — keyed by `tool_id`, not by an `art-` filename prefix — and that manifest MUST declare an **`output_schema`** (§2.2).
 
 **The file is the normative location.** `mcp-apps-poc/generate.mjs` resolves `repo/manifests/<tool_id>.manifest.json` and projects the declared `output_schema` into `data/mcp/output-schemas.json`, keyed by `mcp_name`, **omitting it entirely when no manifest exists — never fabricating one**. The inline `var MANIFEST` object on a node's ChainGraph page (referenced by the node JSON's `input_schema_ref`) remains the reader-facing disclosure required by §1.2 and is NOT a substitute: no generator parses it, so a declaration made only there reaches no agent.
 
 **Scope boundaries — what this rule does NOT do:**
-- It does **NOT** require normalising the decision/gate pointer shape. Each node declares **the shape it already emits**; the four shapes in use today (flat `decision` + `execution_state`; nested `decision.{gate_policy,execution_state}`; flat `gate_status`; `roles.partner.gate_status`) are each declarable as they stand, and **no shape is canonical**. Whether to normalise is a separate open question.
+- It does **NOT** require normalising the decision/gate pointer shape. Each node declares **the shape it already emits**; the four shapes in use today (flat `decision` + `execution_state`; nested `decision.{gate_policy,execution_state}`; flat `gate_status`; `roles.partner.gate_status`) are each declarable as they stand, and **no shape is canonical**.
 - It is **NOT** a hash-moving change and triggers **no re-proof**. Adding a manifest creates a new file and edits no kernel and no `output_payload`, so `execution_hash` is untouched (§A4.3). Any rule requiring a payload *reshape* would be a different, escalated change (§0).
-- It adds **no new CI gate**. §A5.4's "no rule without a gate" governs SPEC.md MUSTs via `spec-gate-coverage`; this is a CONTRACT.md build duty. A gate is the right eventual mechanism, but only once the backfill below is closed — a gate that is red on the day it lands enforces nothing.
+- It adds **no new CI gate**. §A5.4's "no rule without a gate" governs SPEC.md MUSTs via `spec-gate-coverage`; this is a CONTRACT.md build duty.
 
-**Truth maintenance (MUST).** A declared `output_schema` MUST be consistent with what the node's kernel actually emits, evidenced against the node's golden conformance fixture `output_payload`. **A schema that has drifted from the emission is worse than none** — it is a false claim an agent will act on. Backfill SHOULD therefore derive schemas from the golden fixtures rather than compose them by hand.
+**Truth maintenance (MUST).** A declared `output_schema` MUST be consistent with what the node's kernel actually emits, evidenced against the node's golden conformance fixture `output_payload`. Backfill SHOULD therefore derive schemas from the golden fixtures rather than compose them by hand.
 
 **Obligation, staged — stated with its real size:**
 - **New nodes (in force now):** every new live node ships `repo/manifests/<tool_id>.manifest.json` with an `output_schema` **in the same PR** as the node. Add it to the §6.1 pre-flight for any PR that adds a node.
-- **Existing nodes (open debt, owned elsewhere):** measured 2026-08-02 across 526 live nodes with an `mcp_name`, **21 have a manifest file and 6 declare an `output_schema`** — so **505 nodes have no manifest and 520 declare no output shape.** That is a large, explicitly acknowledged conformance debt, tracked and closed separately: it does **not** block any push today, and it does not make those nodes retroactively invalid. **Do not restate those figures as current** — re-derive them by `tool_id` against `chaingraph.json` before quoting.
 
----
+--- (rationale: `CONTRACT-RATIONALE.md` §2.7)
 
 ## 📦 3. AINumbers Policy Mandate Schema & UI Contract
 ### 3.1 AINumbers Policy Mandate v1.0 Schema (not AP2)
 
-> **Naming note:** AINumbers' Policy Mandate schema is AINumbers' own structured-mandate format for compliance, regulatory, and policy artifacts. It is **NOT** Google's Agent Payments Protocol (AP2). Real AP2 (see [ap2-protocol.org](https://ap2-protocol.org/)) defines IntentMandate / CartMandate / PaymentMandate for agent-mediated payment flows — a different problem domain. AINumbers tools whose names include "AP2" (102, 320, 323, 326) operate in the AP2 problem domain but emit AINumbers Policy Mandates describing assessments and policies *about* AP2 use cases — they do not emit real AP2 mandates. The internal JS identifier `AP2Schema`, button id `ap2ExportBtn`, and manifest flag `ap2_export` are legacy names kept for stability. The in-payload `ap2_version` field (value `"1.0"`) is **retired as of v0.4** — it duplicated the schema version under an AP2-implying name and is no longer part of the canonical schema; `chaingraph_version` is the sole envelope version.
+> **Naming note:** AINumbers' Policy Mandate schema is AINumbers' own structured-mandate format for compliance, regulatory, and policy artifacts. It is **NOT** Google's Agent Payments Protocol (AP2). AINumbers tools whose names include "AP2" (102, 320, 323, 326) operate in the AP2 problem domain but emit AINumbers Policy Mandates describing assessments and policies *about* AP2 use cases — they do not emit real AP2 mandates. The internal JS identifier `AP2Schema`, button id `ap2ExportBtn`, and manifest flag `ap2_export` are legacy names kept for stability. The in-payload `ap2_version` field (value `"1.0"`) is **retired as of v0.4** — it duplicated the schema version under an AP2-implying name and is no longer part of the canonical schema; `chaingraph_version` is the sole envelope version.
 
-Adopted for human-readable audit + machine-agent ingestion. `execution_hash` added as optional audit metadata.
 ```json
 {
   "mandate_id": "UUIDv4",
@@ -232,7 +224,7 @@ Adopted for human-readable audit + machine-agent ingestion. `execution_hash` add
     "deterministic_run": true
   }
 }
-```
+``` (rationale: `CONTRACT-RATIONALE.md` §3.1)
 
 ### 3.2 UI & Interaction Contract
 - **Placement:** MUST reside in `.results-export-row`. Positioned immediately after sibling export buttons. NEVER in footer/header/floating/modals.
@@ -250,7 +242,6 @@ Tools MAY accept a `.policy.json` mandate as **input** via drop/choose/paste (Fi
 ---
 
 ## 📤 4. Export Tier System
-Prevents client-side bloat & enforces deterministic guarantees.
 
 | Tier | Formats | Requirement |
 |---|---|---|
@@ -264,7 +255,7 @@ Prevents client-side bloat & enforces deterministic guarantees.
 
 **Wave-5 tools (Amendment A2.2):** T465–T468 (CARF/DAC8/1099-DA crypto-tax) and T472, T475–T476 (Basel LCR/NSFR/Pillar 3, Pillar Two GloBE safe harbour) carry Tier 1 export obligation — their outputs are policy and compliance assessments covered by `compliance_control`, `risk_parameter`, and `disclosure_template` mandate types (§3.1).
 
----
+--- (rationale: `CONTRACT-RATIONALE.md` §4)
 
 ## 🔢 5. Tool Numbering & Hub Architecture
 ### 5.1 Canonical Ranges (Global & Sequential)
@@ -295,9 +286,9 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 **Rules:**
 - Never reset, never reuse RESERVED numbers.
 - T300 deliberate architectural break from T268 is documented and permitted.
-- T380/T381 disambiguation (2026-06-11): T380 (`physical-climate-risk-assessor`) and T381 (`eu-green-bond-standard-screener`) are confirmed distinct tools. An earlier duplicate file state was resolved; both are live and valid. Do not merge or renumber.
+- T380/T381 disambiguation (2026-06-11): T380 (`physical-climate-risk-assessor`) and T381 (`eu-green-bond-standard-screener`) are confirmed distinct tools. Do not merge or renumber.
 - Cross-link, don't clone. Use Journey Track/Quick-Start for workflow routing.
-- Drop tools marked DROPPED/CONSOLIDATED in the Overlap Registry.
+- Drop tools marked DROPPED/CONSOLIDATED in the Overlap Registry. (rationale: `CONTRACT-RATIONALE.md` §5.3)
 
 ### 5.2 File Path Convention
 - **Hub:** `guides/{category-slug}-hub.html`
@@ -325,7 +316,7 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - [ ] `node scripts/regen-sitemap.mjs` run after adding any new tool or guide, leaving `node scripts/regen-sitemap.mjs --check` green (Amendment A2.3; supersedes `python scripts/regen_sitemap.py --apply`, quarantined as `scripts/regen_sitemap.py.DEPRECATED` for scanning only `tools/`, `guides/` and `chaingraph/` and silently dropping every published page outside that scope)
 
 ### 6.2 Pre-Merge Validation Pipeline
-**`node scripts/check_tools.js` is the BLOCKING first gate** — it parses every tool's inline JavaScript and exits non-zero if any `<script>` has a syntax error. NEVER commit or merge tool HTML while it reports a failure; run `node scripts/locate_errors.js` to pinpoint each break. (Added 2026-06-11 after a structural JS edit silently deleted live code in dozens of tools — syntax errors are invisible until a user hits them.)
+**`node scripts/check_tools.js` is the BLOCKING first gate** — it parses every tool's inline JavaScript and exits non-zero if any `<script>` has a syntax error. NEVER commit or merge tool HTML while it reports a failure; run `node scripts/locate_errors.js` to pinpoint each break.
 ```bash
 # 0. JS syntax gate — MUST exit 0 (blocking; no tool may ship with a broken inline <script>)
 node scripts/check_tools.js
@@ -348,7 +339,7 @@ node chaingraph/standard/spec-gate-coverage.mjs        # every §15 rule names a
 node chaingraph/standard/surface-parity.mjs            # displayed counts == counts.json
 node chaingraph/standard/catalog-parity.mjs            # pages <-> chaingraph.json (both ways)
 # worker repo post-deploy (mcp-apps-poc/.github/workflows/ci.yml): hash-sweep.mjs · verify-mcp-registered.mjs --all
-```
+``` (rationale: `CONTRACT-RATIONALE.md` §6.2)
 
 ### 6.3 Global Quality Checklist
 **Per-Hub:**
@@ -369,6 +360,7 @@ node chaingraph/standard/catalog-parity.mjs            # pages <-> chaingraph.js
 Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted verbatim before `</body>` with a one-line `window.AIN_BRIDGE_CFG={runFn,intake,intakeTarget,intakeAnchor}`. The bridge provides prefill (§2.4), intake (§3.3), and same-origin parent messaging for Runners (§5.3); its UI strings are English-only (lang toggle deferred — §1.1). Tools with a non-downloading mandate builder SHOULD expose it as `window.AIN_BUILD_MANDATE()` so Runner capture works without an export click. Constraints honored: zero network, zero storage reads or writes. Manifest signals: `prefill`, `bridge_version`; `mcp/catalog.json` carries `metadata.prefill` (regenerated via `scripts/regen_catalog.py` — never hand-edit).
 
 ---
+
 
 ## 📎 Appendices
 ### A. CSS Design Tokens (Copy Verbatim)
