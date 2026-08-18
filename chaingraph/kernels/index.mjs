@@ -534,6 +534,7 @@ import * as art592    from './art-592-x402-domain-nonce-window-checker.kernel.mj
 import * as art593    from './art-593-webbotauth-nonce-replay-check.kernel.mjs';
 import * as art594    from './art-594-tempo-mpp-voucher-receipt-verifier.kernel.mjs';
 import * as art595    from './art-595-ap2-cartmandate-hashchain-builder.kernel.mjs';
+import * as art596    from './art-596-ap2-x402-cart-correlation.kernel.mjs';
 import * as art597    from './art-597-c2pa-aiml-assertion-decoder.kernel.mjs';
 import * as art598    from './art-598-input-attestation-verifier.kernel.mjs';
 import * as art599    from './art-599-gleif-snapshot-digest.kernel.mjs';
@@ -1162,6 +1163,7 @@ export const KERNELS = {
   'art-593-webbotauth-nonce-replay-check':                      art593,
   'art-594-tempo-mpp-voucher-receipt-verifier':                 art594,
   'art-595-ap2-cartmandate-hashchain-builder':                  art595,
+  'art-596-ap2-x402-cart-correlation':                          art596,
   'art-597-c2pa-aiml-assertion-decoder':                        art597,
   'art-598-input-attestation-verifier':                         art598,
   'art-599-gleif-snapshot-digest':                              art599,
