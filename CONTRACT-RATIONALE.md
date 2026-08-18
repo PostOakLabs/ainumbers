@@ -1,6 +1,6 @@
 # 📜 AINumbers.co — Build Contract RATIONALE (§0–§6)
 
-> **This file is the WHY half of `CONTRACT.md` §0–§6.** `CONTRACT.md` carries the normative rules (MUST / NEVER / exact text, ids and schemas); the explanatory prose, precedent notes and audit history that used to sit beside them live here, **verbatim**, under the same section numbers. Split by `SO-COMPACT-2` on 2026-08-18: nothing was summarized, reworded, or dropped, and no rule changed meaning.
+> **This file is the WHY half of `CONTRACT.md` §0–§6.** `CONTRACT.md` carries the normative rules (MUST / NEVER / exact text, ids and schemas); the explanatory prose, precedent notes and audit history that used to sit beside them live here, **verbatim**, under the same section numbers. Split out on 2026-08-18: nothing was summarized, reworded, or dropped, and no rule changed meaning.
 >
 > **Reading order:** `CONTRACT.md` §0–§6 is the required read for a build. This file is optional background, useful when you need to know why a rule is worded the way it is before proposing a change to it.
 

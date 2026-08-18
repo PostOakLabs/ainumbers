@@ -11,7 +11,7 @@
 This is the **Single Source of Truth (SSOT)** for all AINumbers.co builds. It supersedes all prior fragmented specs, resolves identified contradictions, and enforces May 2026 best practices for client-side deterministic architectures, MCP v1+ compatibility, WCAG 2.2 accessibility, and GDPR/ePrivacy session-scoping norms.  
 **Read in full before generating any HTML, JSON, or UI component.**
 
-> §0–§6 carry the normative rules only. The explanatory prose, precedent notes and audit history behind them live verbatim in **`CONTRACT-RATIONALE.md`**, section-numbered identically and linked from each section it covers. Reading it is optional (SO-COMPACT-2, 2026-08-18).
+> §0–§6 carry the normative rules only. The explanatory prose, precedent notes and audit history behind them live verbatim in **`CONTRACT-RATIONALE.md`**, section-numbered identically and linked from each section it covers. Reading it is optional.
 
 ---
 
