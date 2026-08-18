@@ -1,0 +1,78 @@
+{
+  "tool_id": "art-596-ap2-x402-cart-correlation",
+  "version": "1.0.0",
+  "title": "AP2 x402 Cart Correlation",
+  "description": "Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an x402_spend_evidence pack: does the cart total (sum of quantity*unit_price per currency) match the x402 authorization's value, does the CartMandate's merchant map to the authorization's recipient address, and does the CartMandate's own hash-chain independently re-verify against the supplied cart_items (never trusted as a self-reported flag). Output vocabulary is CORRELATION_STATUS (CORRELATED / NOT_CORRELATED / INDETERMINATE) -- this is a plausibility check over two independently-produced artifacts, never a cryptographic binding. Google has not shipped an AP2-compatible x402 extension; no field or code path here implies one exists. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
+  "category": "x402-acp-eudi-wallet-and-basel-3-1-reporting",
+  "tags": ["compliance_control", "ap2", "x402", "cartmandate", "correlation", "keccak256", "mcp:correlate_ap2_cartmandate_x402"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "cart_root": { "type": "string", "description": "Required. The built CartMandate's own cart_root (e.g. art-595's output_payload.cart_root)." },
+      "cart_items": {
+        "type": "array",
+        "description": "Required, non-empty, ordered array of cart line items -- the SAME cart_items the CartMandate was built from. Each item needs sku, description, quantity (positive number), unit_price (non-negative number), currency.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sku": { "type": "string" },
+            "description": { "type": "string" },
+            "quantity": { "type": "number" },
+            "unit_price": { "type": "number" },
+            "currency": { "type": "string" }
+          }
+        }
+      },
+      "merchant": { "type": "string", "description": "Required. The built CartMandate's own merchant field. Only a 20-byte hex address can be correlated against the x402 authorization's recipient -- a free-text merchant name reports INDETERMINATE for that check." },
+      "x402_spend_evidence": {
+        "type": "object",
+        "description": "Required. The caller-assembled x402_spend_evidence object (field names fixed by SPEC-X402-CRYPTO-CORE-1-2026-08-09.md section 8) from the x402-spend-evidence chain.",
+        "properties": {
+          "authorization": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "value": { "type": ["string", "number"] },
+              "validAfter": { "type": "string" },
+              "validBefore": { "type": "string" },
+              "nonce": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "correlate_ap2_cartmandate_x402",
+    "description": "Correlates a built AP2 CartMandate against an x402_spend_evidence pack: cart total vs authorization value, merchant vs authorization recipient, and an independently re-derived cart hash-chain check. CORRELATION_STATUS vocabulary only (CORRELATED/NOT_CORRELATED/INDETERMINATE) -- never implies cryptographic binding.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "cart_root": { "type": "string" },
+        "cart_items": { "type": "array" },
+        "merchant": { "type": "string" },
+        "x402_spend_evidence": { "type": "object" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-596-ap2-x402-cart-correlation.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "correlation_status": { "type": "string", "enum": ["CORRELATED", "NOT_CORRELATED", "INDETERMINATE"] },
+      "cart_total_matches_authorization_value": { "type": ["boolean", "null"] },
+      "merchant_matches_authorization_to": { "type": ["boolean", "null"] },
+      "cart_chain_intact": { "type": "boolean" },
+      "disclosure": { "type": "string" },
+      "reasons": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "source": "authored by BUILD-AP2-X402-CORRELATE-1 per research/SPEC-AGENT-COMMERCE-CHAIN-1-2026-08-09.md sections 7/8; output_schema derived by running the kernel's own compute() directly against the vectors in chaingraph/kernels/fixtures/art-596-ap2-x402-cart-correlation.fixtures.json; category reuses the existing x402-acp-eudi-wallet-and-basel-3-1-reporting taxonomy value (closest sibling: art-595-ap2-cartmandate-hashchain-builder)."
+}
