@@ -1,6 +1,6 @@
-# 📜 AINumbers.co — Build Contract RATIONALE (§0–§6)
+# 📜 AINumbers.co — Build Contract RATIONALE (§0–§6, amendments, CLAUDE.md notes)
 
-> **This file is the WHY half of `CONTRACT.md` §0–§6.** `CONTRACT.md` carries the normative rules (MUST / NEVER / exact text, ids and schemas); the explanatory prose, precedent notes and audit history that used to sit beside them live here, **verbatim**, under the same section numbers. Split out on 2026-08-18: nothing was summarized, reworded, or dropped, and no rule changed meaning.
+> **This file is the WHY half of `CONTRACT.md`** (§0–§6, plus amendment trade-offs and the non-normative notes from `CLAUDE.md`). `CONTRACT.md` carries the normative rules (MUST / NEVER / exact text, ids and schemas); the explanatory prose, precedent notes and audit history that used to sit beside them live here, **verbatim**, under the same section numbers. Split out on 2026-08-18: nothing was summarized, reworded, or dropped, and no rule changed meaning.
 >
 > **Reading order:** `CONTRACT.md` §0–§6 is the required read for a build. This file is optional background, useful when you need to know why a rule is worded the way it is before proposing a change to it.
 
@@ -62,3 +62,19 @@ An earlier duplicate file state was resolved; both are live and valid.
 ### §6.2 — Pre-Merge Validation Pipeline
 
 (Added 2026-06-11 after a structural JS edit silently deleted live code in dozens of tools — syntax errors are invisible until a user hits them.)
+
+### §A3 — Recorded trade-offs (ChainGraph orchestration surface)
+
+- Inbound external links to removed guide URLs break (accepted — A3.3). The MCP `composer_url` fields are repointed to chain pages.
+- Two export schemas coexist transitionally: §4 (ChainGraph) and §3.1 Policy Mandate (un-promoted catalog tools). The crosswalk (A3.5) keeps them reconcilable; the long-term direction is §4 only.
+- The catalog tool count **drops** as tools are promoted/retired — update the "counts drift" verification and any hardcoded totals.
+- This amendment supersedes the optional-`execution_hash` language in §3.1 for ChainGraph artifacts, deprecates architecture #4 in §5.3, and updates the §1.2 disclosure rules to the `/chaingraph/` surface.
+
+### §A9 — Reliance-hedge clause · measured baseline
+
+Measured baseline that motivated this clause: 104 of 155 tools citing a regulation carried no reliance hedge of any kind, only 12 carried a `class="disclaimer*"` div, no estate-wide terms page existed, and this document contained the word "advice" zero times. This amendment fixes the gap going forward; it does not retrofit the 104 already-shipped tools — that retrofit is a separate, larger, future work unit and is explicitly out of scope here.
+
+### repo/CLAUDE.md notes — non-normative build guidance
+
+- **`<link rel="canonical">`** uses absolute URLs intentionally — this is correct SEO practice, not a routing violation.
+- **index.html is 5 500+ lines** — high truncation risk in any AI context window. Edit surgically with grep + line numbers rather than reading the whole file.

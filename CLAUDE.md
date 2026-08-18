@@ -96,6 +96,6 @@ Run `ls` to verify — counts change each session.
 - **Policy Mandate export is mandatory** for any tool whose title/function involves: policy, rule, mandate, routing, compliance, risk assessment, AML, KYC, or gap analysis. When in doubt, add it. (This is the AINumbers Policy Mandate — `CONTRACT.md` §3.1 — NOT Google's AP2 payments protocol. The `ap2ExportBtn` / `ap2_export` / `AP2Schema` identifiers are **retained legacy names, not a rename target**.)
 - **Manifest naming:** one file per tool, always `{number}-{slug}.manifest.json`. Never create short-form `{number}-manifest.json` variants — these become orphans.
 - **No external JS libraries** for export (no jsPDF, no SheetJS, etc.) unless explicitly bundled inline. Use `URL.createObjectURL(new Blob(...))` + `<a download>` only.
-- **`<link rel="canonical">`** uses absolute URLs intentionally — this is correct SEO practice, not a routing violation.
 - **JSON-LD schema block** is required on every hub page (see `CONTRACT.md` §6.3).
-- **index.html is 5 500+ lines** — high truncation risk in any AI context window. Edit surgically with grep + line numbers rather than reading the whole file.
+
+*(Non-normative build notes — canonical-URL SEO clarification, index.html size/edit guidance — moved to `CONTRACT-RATIONALE.md` under "repo/CLAUDE.md notes", 2026-08-18.)*
