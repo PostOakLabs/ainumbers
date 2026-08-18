@@ -93,9 +93,9 @@ Where a node page renders a decision, status, verdict, or classification value a
 - **All existing decision-pointer shapes are accommodated as they stand.** **Normalising decision pointers is NOT a precondition of §1.5, and a page MUST NOT be normalised in order to satisfy it.**
 - Distinguishability is the requirement, not colour. Two states **MUST NOT** be rendered identically. Colour alone **MUST NOT** be the sole carrier of the distinction (§1 accessibility): the state's own value, or a label derived from it, is rendered as text.
 
-A page **MUST NOT** be given a badge for a state it does not compute in order to close a divergence finding; that hides the divergence instead of reporting it.
+A page **MUST NOT** be given a badge for a state it does not compute in order to close a divergence finding; that hides the divergence instead of reporting it. (rationale: `CONTRACT-RATIONALE.md` §1.5.2)
 
---- (rationale: `CONTRACT-RATIONALE.md` §1.5.2)
+---
 
 ## 🤖 2. Machine-Readable Registry & MCP Contract
 ### 2.1 File Naming & Scope Separation
@@ -190,14 +190,14 @@ Missing tool/composer files are **errors** (non-zero exit → block deploy); cha
 **Truth maintenance (MUST).** A declared `output_schema` MUST be consistent with what the node's kernel actually emits, evidenced against the node's golden conformance fixture `output_payload`. Backfill SHOULD therefore derive schemas from the golden fixtures rather than compose them by hand.
 
 **Obligation, staged — stated with its real size:**
-- **New nodes (in force now):** every new live node ships `repo/manifests/<tool_id>.manifest.json` with an `output_schema` **in the same PR** as the node. Add it to the §6.1 pre-flight for any PR that adds a node.
+- **New nodes (in force now):** every new live node ships `repo/manifests/<tool_id>.manifest.json` with an `output_schema` **in the same PR** as the node. Add it to the §6.1 pre-flight for any PR that adds a node. (rationale: `CONTRACT-RATIONALE.md` §2.7)
 
---- (rationale: `CONTRACT-RATIONALE.md` §2.7)
+---
 
 ## 📦 3. AINumbers Policy Mandate Schema & UI Contract
 ### 3.1 AINumbers Policy Mandate v1.0 Schema (not AP2)
 
-> **Naming note:** AINumbers' Policy Mandate schema is AINumbers' own structured-mandate format for compliance, regulatory, and policy artifacts. It is **NOT** Google's Agent Payments Protocol (AP2). AINumbers tools whose names include "AP2" (102, 320, 323, 326) operate in the AP2 problem domain but emit AINumbers Policy Mandates describing assessments and policies *about* AP2 use cases — they do not emit real AP2 mandates. The internal JS identifier `AP2Schema`, button id `ap2ExportBtn`, and manifest flag `ap2_export` are legacy names kept for stability. The in-payload `ap2_version` field (value `"1.0"`) is **retired as of v0.4** — it duplicated the schema version under an AP2-implying name and is no longer part of the canonical schema; `chaingraph_version` is the sole envelope version.
+> **Naming note:** AINumbers' Policy Mandate schema is AINumbers' own structured-mandate format for compliance, regulatory, and policy artifacts. It is **NOT** Google's Agent Payments Protocol (AP2). AINumbers tools whose names include "AP2" (102, 320, 323, 326) operate in the AP2 problem domain but emit AINumbers Policy Mandates describing assessments and policies *about* AP2 use cases — they do not emit real AP2 mandates. The internal JS identifier `AP2Schema`, button id `ap2ExportBtn`, and manifest flag `ap2_export` are legacy names kept for stability. The in-payload `ap2_version` field (value `"1.0"`) is **retired as of v0.4** — it duplicated the schema version under an AP2-implying name and is no longer part of the canonical schema; `chaingraph_version` is the sole envelope version. (rationale: `CONTRACT-RATIONALE.md` §3.1)
 
 ```json
 {
@@ -224,7 +224,7 @@ Missing tool/composer files are **errors** (non-zero exit → block deploy); cha
     "deterministic_run": true
   }
 }
-``` (rationale: `CONTRACT-RATIONALE.md` §3.1)
+```
 
 ### 3.2 UI & Interaction Contract
 - **Placement:** MUST reside in `.results-export-row`. Positioned immediately after sibling export buttons. NEVER in footer/header/floating/modals.
@@ -253,9 +253,9 @@ Tools MAY accept a `.policy.json` mandate as **input** via drop/choose/paste (Fi
 
 *Implementation:* All exports MUST use `URL.createObjectURL(new Blob([content], {type:'...'}))` + `<a download>`. No external libraries (jsPDF, etc.) unless explicitly approved & bundled inline.
 
-**Wave-5 tools (Amendment A2.2):** T465–T468 (CARF/DAC8/1099-DA crypto-tax) and T472, T475–T476 (Basel LCR/NSFR/Pillar 3, Pillar Two GloBE safe harbour) carry Tier 1 export obligation — their outputs are policy and compliance assessments covered by `compliance_control`, `risk_parameter`, and `disclosure_template` mandate types (§3.1).
+**Wave-5 tools (Amendment A2.2):** T465–T468 (CARF/DAC8/1099-DA crypto-tax) and T472, T475–T476 (Basel LCR/NSFR/Pillar 3, Pillar Two GloBE safe harbour) carry Tier 1 export obligation — their outputs are policy and compliance assessments covered by `compliance_control`, `risk_parameter`, and `disclosure_template` mandate types (§3.1). (rationale: `CONTRACT-RATIONALE.md` §4)
 
---- (rationale: `CONTRACT-RATIONALE.md` §4)
+---
 
 ## 🔢 5. Tool Numbering & Hub Architecture
 ### 5.1 Canonical Ranges (Global & Sequential)
@@ -331,7 +331,7 @@ When MCP server chains change (`mcp-apps-poc/worker.mjs`), also run the chain-in
 ```bash
 cd mcp-apps-poc && npm run validate:chains
 ```
-**SSOT conformance gates (Amendment A5)** — run from the site repo root before any push that touches `chaingraph.json`, the spec/hub HTML, `standard/`, or a kernel:
+**SSOT conformance gates (Amendment A5)** — run from the site repo root before any push that touches `chaingraph.json`, the spec/hub HTML, `standard/`, or a kernel: (rationale: `CONTRACT-RATIONALE.md` §6.2)
 ```bash
 node chaingraph/standard/schema-validate.mjs          # envelope + node object vs the v0.4 schema (strict)
 node chaingraph/standard/spec-version-consistency.mjs  # one version of record across SPEC.md/schema/spec page/hub
@@ -339,7 +339,7 @@ node chaingraph/standard/spec-gate-coverage.mjs        # every §15 rule names a
 node chaingraph/standard/surface-parity.mjs            # displayed counts == counts.json
 node chaingraph/standard/catalog-parity.mjs            # pages <-> chaingraph.json (both ways)
 # worker repo post-deploy (mcp-apps-poc/.github/workflows/ci.yml): hash-sweep.mjs · verify-mcp-registered.mjs --all
-``` (rationale: `CONTRACT-RATIONALE.md` §6.2)
+```
 
 ### 6.3 Global Quality Checklist
 **Per-Hub:**
@@ -360,7 +360,6 @@ node chaingraph/standard/catalog-parity.mjs            # pages <-> chaingraph.js
 Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted verbatim before `</body>` with a one-line `window.AIN_BRIDGE_CFG={runFn,intake,intakeTarget,intakeAnchor}`. The bridge provides prefill (§2.4), intake (§3.3), and same-origin parent messaging for Runners (§5.3); its UI strings are English-only (lang toggle deferred — §1.1). Tools with a non-downloading mandate builder SHOULD expose it as `window.AIN_BUILD_MANDATE()` so Runner capture works without an export click. Constraints honored: zero network, zero storage reads or writes. Manifest signals: `prefill`, `bridge_version`; `mcp/catalog.json` carries `metadata.prefill` (regenerated via `scripts/regen_catalog.py` — never hand-edit).
 
 ---
-
 
 ## 📎 Appendices
 ### A. CSS Design Tokens (Copy Verbatim)
