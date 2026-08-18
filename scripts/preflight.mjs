@@ -275,6 +275,11 @@ const GATES = [
     { note: 'runs with --warn-only, which exits 0 even on a new defect — a green here reports, it does not verdict' }],
   ['Page determinism gate controls', 'node scripts/check-page-determinism.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
+  // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
+  // records (registry/kernel/<hex>.json). Not part of the SO #28/#35 shared derived
+  // set — this row is the sole writer today, so the gate stays unconditionally
+  // blocking (no PR/main advisory split) rather than joining derived-artifacts.mjs.
+  ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
