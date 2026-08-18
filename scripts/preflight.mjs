@@ -510,6 +510,11 @@ const GATES = [
   // verdict to move. Hard here because a red selftest means the tool itself is broken. The
   // checker's own chain verdicts stay ADVISORY-on-existing / HARD-on-new-changed (block below).
   ['Chain L2 contract-composition selftest (CHAIN-FV-L2-1)', 'node scripts/check-chain-l2-contracts.selftest.mjs'],
+  // CHAIN-FV-L2-G-RESCOPE-3: the derived output-contract sidecars must stay in sync with the fixtures
+  // they are derived from. --check re-derives and diffs; a red means a fixture changed without the
+  // sidecar being regenerated (`node scripts/gen-output-schema.mjs`). Hard because a stale sidecar is
+  // a stale witness domain the L2-G checker would silently trust.
+  ['Output-contract sidecars in sync with fixtures (CHAIN-FV-L2-G-RESCOPE-3)', 'node scripts/gen-output-schema.mjs --check --quiet'],
 ];
 
 // The one inline gate that lives below the loop rather than in GATES. Named once
