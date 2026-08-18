@@ -6232,7 +6232,9 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-595-ap2-cartmandate-hashchain-builder.html",
     "description": "Builds an illustrative Google AP2 CartMandate Verifiable Digital Credential (VDC) skeleton whose credentialSubject carries a deterministic h",
     "consumes": [],
-    "feeds": [],
+    "feeds": [
+      "art-596-ap2-x402-cart-correlation"
+    ],
     "status": "live"
   },
   {
@@ -6241,7 +6243,9 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-596-ap2-x402-cart-correlation.html",
     "description": "Correlates a built AP2 CartMandate (cart_root, cart_items, merchant) against an x402_spend_evidence pack: does the cart total (sum of quanti",
-    "consumes": [],
+    "consumes": [
+      "art-595-ap2-cartmandate-hashchain-builder"
+    ],
     "feeds": [],
     "status": "live"
   },
