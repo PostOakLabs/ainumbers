@@ -21,8 +21,10 @@ function check(name, cond) {
   else { console.error(`  FAIL: ${name}`); failures++; }
 }
 
-/** Build a ctx from plain manifest-shaped data. Mirrors the live wiring's shape exactly. */
-function makeCtx(manifests, { fixtureOutputs = {}, snapshotDigests = {} } = {}) {
+/** Build a ctx from plain manifest-shaped data. Mirrors the live wiring's shape exactly.
+ *  `derived` (a Set of tool_ids) marks producers whose output-contract is a fixture-derived SIDECAR
+ *  rather than a manifest — the RESCOPE-3 witness site. Their output x-sources use kind:"derived". */
+function makeCtx(manifests, { fixtureOutputs = {}, snapshotDigests = {}, derived = new Set() } = {}) {
   function schemaOf(id, side) {
     const m = manifests[id];
     if (!m || !m[side] || !m[side].properties) return null;
@@ -56,11 +58,18 @@ function makeCtx(manifests, { fixtureOutputs = {}, snapshotDigests = {} } = {}) 
       const actual = snapshotDigests[source.ref];
       return actual === source.digest ? { ok: true } : { ok: false, reason: 'digest-stale' };
     },
+    authorSite: (id) => (derived.has(id)
+      ? `chaingraph/graph/output-schemas/${id}.json → output_schema.properties`
+      : `manifests/${id}.manifest.json → output_schema.properties`),
+    outSchemaIsDerived: (id) => derived.has(id),
+    fixtureObservedValues: () => [],
   };
 }
 
 const CLAUSE = (ref, digest = 'sha256:abc') => ({ kind: 'clause', ref, digest });
 const MANIFEST_SRC = () => ({ kind: 'manifest', ref: 'self-evident' });
+// A derived (fixture-witnessed) output x-source — the sidecar grade of evidence (RESCOPE-3).
+const DERIVED_SRC = (n = 1) => ({ kind: 'derived', note: `derived from ${n} fixtures @ sha256:deadbeef`, vectors: n });
 
 /* ═══════════════════════════ SO #40(b): the two synthetic controls, RED then GREEN ═══════════════ */
 
@@ -634,6 +643,82 @@ console.log('── L2-P: a declared mandate whose step does not accept mandate_
     { ...chain, steps: [{ tool_id: 'a' }] }, makeCtx(manifests),
   );
   check('MUTATION: dropping the offending step flips fail -> pass', fixed.verdict === 'L2P-pass');
+}
+
+/* ═══════════════ CHAIN-FV-L2-G-RESCOPE-3 — the derived-sidecar WITNESS semantic ═══════════════ */
+// ⛔⛔ THE LOAD-BEARING INVARIANT: a derived (fixture-witnessed) domain may DECIDE a pass but may NEVER
+// produce a fail. A fail still requires a DECLARED/CITED (manifest x-source) domain. Every control here
+// is a matched pair — same enum/range, once CITED and once DERIVED — so the difference is proven, not
+// asserted. Verified by mutation: flip only the grade of evidence and the verdict must move.
+
+console.log('── RESCOPE-3 A: derived domain WITNESSES the branch reachable ⇒ decides pass, no finding ──');
+{
+  const manifests = { prod: { output_schema: { properties: { determination: { type: 'string', enum: ['FAIL'], 'x-source': DERIVED_SRC(1) } } } } };
+  const gate = { input: '/determination', rules: [{ op: 'eq', value: 'FAIL', next: 'end' }] };
+  const r = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], makeCtx(manifests, { derived: new Set(['prod']) }));
+  check('A: a derived domain that witnesses the gate value decides (checks_run non-empty)', r.checks_run.length > 0 && r.checks_run.includes('gate-value-witness'));
+  check('A: ⛔ a derived witness produces NO finding, ever', r.findings.length === 0);
+  check('A: and it carries no undecided reason — it is a clean pass', r.undecided_reasons.length === 0);
+}
+
+console.log('── RESCOPE-3 B: THE INVARIANT — same enum, CITED convicts a dead branch, DERIVED never does ──');
+{
+  // enum [pending,failed]; gate wants eq "ready" — a dead branch.
+  const props = (src) => ({ output_schema: { properties: { status: { type: 'string', enum: ['pending', 'failed'], 'x-source': src } } } });
+  const gate = { input: '/status', rules: [{ op: 'eq', value: 'ready', next: 'end' }] };
+
+  const cited = checkGateRule(gate, gate.rules[0], 'p', ['p'], makeCtx({ p: props(MANIFEST_SRC()) }));
+  check('B-CITED: a manifest (declared) domain CONVICTS the dead branch', cited.findings.length === 1 && cited.findings[0].code === 'gate-value-outside-guarantee');
+
+  const derivedCtx = makeCtx({ p: props(DERIVED_SRC(2)) }, { derived: new Set(['p']) });
+  const derived = checkGateRule(gate, gate.rules[0], 'p', ['p'], derivedCtx);
+  check('B-DERIVED: ⛔ the SAME dead branch over a DERIVED domain is NEVER a fail', derived.findings.length === 0);
+  check('B-DERIVED: it is indeterminate with a named lead (branch not witnessed)', derived.undecided_reasons.includes('derived-domain-does-not-witness-branch'));
+  check('B-DERIVED: MUTATION — flipping ONLY the evidence grade moves fail -> indeterminate', cited.findings.length === 1 && derived.findings.length === 0);
+  check('B-DERIVED: an undecided derived gate carries an authoring instruction pointing at the SIDECAR',
+    !!derived.authoring && derived.authoring.author_in.startsWith('chaingraph/graph/output-schemas/'));
+}
+
+console.log('── RESCOPE-3 C: a gate field ABSENT from a derived sidecar is unwitnessed, never a fail ──');
+{
+  // The sidecar exists (has some other field) but not the gate field — the art-228/art-233 shape.
+  const manifests = { prod: { output_schema: { properties: { other: { type: 'string', enum: ['x'], 'x-source': DERIVED_SRC(1) } } } } };
+  const gate = { input: '/action_taken', rules: [{ op: 'eq', value: 'ADVERSE', next: 'end' }] };
+  const ctx = makeCtx(manifests, { derived: new Set(['prod']) });
+  const r = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], ctx);
+  check('C: ⛔ an absent field over a DERIVED sidecar is NOT gate-pointer-unresolved (no fail)', r.findings.length === 0);
+  check('C: it is indeterminate(derived-domain-does-not-witness-field)', r.undecided_reasons.includes('derived-domain-does-not-witness-field'));
+
+  // MUTATION: the SAME absent field over a MANIFEST (declared) schema IS a convicted contradiction.
+  const manCtx = makeCtx(manifests); // not in `derived` ⇒ treated as a manifest/declared schema
+  const rm = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], manCtx);
+  check('C-MUTATION: the same absent field over a DECLARED schema DOES convict (gate-pointer-unresolved)',
+    rm.findings.length === 1 && rm.findings[0].code === 'gate-pointer-unresolved');
+}
+
+console.log('── RESCOPE-3 D: new gate ops neq / in decided by a derived witness ──');
+{
+  const manifests = { prod: { output_schema: { properties: { band: { type: 'string', enum: ['Minimal', 'Full'], 'x-source': DERIVED_SRC(3) } } } } };
+  const ctx = makeCtx(manifests, { derived: new Set(['prod']) });
+  const rIn = checkGateRule({ input: '/band', rules: [] }, { op: 'in', value: ['Minimal', 'Partial'], next: 'end' }, 'prod', ['prod'], ctx);
+  check('D-in: `in` witnessed reachable (Minimal observed ∈ set) decides pass', rIn.findings.length === 0 && rIn.checks_run.includes('gate-value-witness'));
+  const rNeq = checkGateRule({ input: '/band', rules: [] }, { op: 'neq', value: 'Full', next: 'end' }, 'prod', ['prod'], ctx);
+  check('D-neq: `neq Full` witnessed (Minimal ≠ Full observed) decides pass', rNeq.findings.length === 0 && rNeq.checks_run.includes('gate-value-witness'));
+  // in over a set the domain never reaches ⇒ indeterminate, never fail.
+  const rMiss = checkGateRule({ input: '/band', rules: [] }, { op: 'in', value: ['Partial'], next: 'end' }, 'prod', ['prod'], ctx);
+  check('D-in miss: ⛔ a set the derived domain never reaches is indeterminate, not a fail',
+    rMiss.findings.length === 0 && rMiss.undecided_reasons.includes('derived-domain-does-not-witness-branch'));
+}
+
+console.log('── RESCOPE-3 E: derived numeric range — witnessed side passes, unreachable side indeterminate ──');
+{
+  const manifests = { prod: { output_schema: { properties: { ratio: { type: 'number', minimum: 0, maximum: 40, 'x-source': DERIVED_SRC(2) } } } } };
+  const ctx = makeCtx(manifests, { derived: new Set(['prod']) });
+  const rLive = checkGateRule({ input: '/ratio', rules: [] }, { op: 'lt', value: 30, next: 'end' }, 'prod', ['prod'], ctx);
+  check('E-live: lt 30 over observed [0,40] is witnessed (0 < 30) ⇒ pass', rLive.findings.length === 0 && rLive.checks_run.includes('gate-value-witness'));
+  const rDeadish = checkGateRule({ input: '/ratio', rules: [] }, { op: 'lt', value: -5, next: 'end' }, 'prod', ['prod'], ctx);
+  check('E-unreachable: ⛔ lt -5 (looks dead over [0,40]) is NEVER a fail on a derived domain',
+    rDeadish.findings.length === 0 && rDeadish.undecided_reasons.includes('derived-domain-does-not-witness-branch'));
 }
 
 console.log(failures === 0 ? '\n✓ chain L2 contract-composition selftest: all controls passed' : `\n✗ ${failures} control(s) FAILED`);
