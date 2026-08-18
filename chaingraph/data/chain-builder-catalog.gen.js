@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (619 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (626 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6293,6 +6293,20 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-601-dora-roi-gleif-preflight-pack",
+    "display_name": "Dora Roi Gleif Preflight Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-601-dora-roi-gleif-preflight-pack.html",
+    "description": "DORA RoI GLEIF pre-submission evidence pack, terminal node of chain dora-roi-gleif-preflight-pack (art-466 -> art-599 x N -> art-600 x N -> ",
+    "consumes": [
+      "art-466-dora-roi-builder",
+      "art-599-gleif-snapshot-digest",
+      "art-600-lei-relationship-consistency"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-602-mica-register-presence-check",
     "display_name": "MiCA Register Presence Check",
     "mandate_type": "compliance_mandate",
@@ -6631,6 +6645,65 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-645-compute-index-weights",
+    "display_name": "Compute Index Weights",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-645-compute-index-weights.html",
+    "description": "Computes (or receipts an externally-declared) weight per constituent from a stated methodology (market-cap, float-adjusted-market-cap, equal",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-646-compile-rebalance-evidence-pack",
+    "display_name": "Compile Rebalance Evidence Pack",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-646-compile-rebalance-evidence-pack.html",
+    "description": "Packages one rebalance event, the current period's constituent set and weight set, plus the prior period's for diffing, into a regulator-sha",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-647-record-index-correction",
+    "display_name": "Record Index Correction",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-647-record-index-correction.html",
+    "description": "art-557 already covers constituent-set corrections via the SPEC.md top-level supersedes field; this node adds the equivalent for a published",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-648-record-model-input-lineage",
+    "display_name": "Record Model Input Lineage",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-648-record-model-input-lineage.html",
+    "description": "Attests attribute-level data lineage for a model's input data, which source system, which field, what transformation was applied, feeding wh",
+    "consumes": [
+      "art-451-model-outcome-analysis",
+      "art-488-model-replication-diff"
+    ],
+    "feeds": [
+      "art-562-compile-model-risk-lineage-pack"
+    ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-649-publish-model-risk-head",
+    "display_name": "Publish Model Risk Head",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-649-publish-model-risk-head.html",
+    "description": "Publishes one SPEC.md §HEAD-1 head-commit publication event for a model's revalidation-history stream, so a model's validation history (art-",
+    "consumes": [
+      "art-453-model-validation-status",
+      "art-489-model-test-battery",
+      "art-562-compile-model-risk-lineage-pack"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-65-ai-conformity-pack-builder",
     "display_name": "AI Act Conformity Pack Builder",
     "mandate_type": "model_governance",
@@ -6644,6 +6717,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-05-eu-ai-act-credit-scoring-conformity",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-651-authzen-conformance-fixture",
+    "display_name": "Authzen Conformance Fixture",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-651-authzen-conformance-fixture.html",
+    "description": "Evaluates the 8-decision AuthZEN Authorization API 1.0 certification fixture (AUTHZEN-CONFORMANCE-BUILD-SPEC.md) through the spec-mandated s",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
