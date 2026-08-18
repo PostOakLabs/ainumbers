@@ -30,7 +30,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 **Consumes:** _none (root node)_
 
-**Feeds:** _terminal node_
+**Feeds:** [Ap2 X402 Cart Correlation](./art-596-ap2-x402-cart-correlation.md)
 
 ## Attested computation
 

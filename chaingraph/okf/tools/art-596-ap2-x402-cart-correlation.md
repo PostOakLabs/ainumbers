@@ -28,7 +28,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** _none (root node)_
+**Consumes:** [AP2 CartMandate Hash-Chain Builder](./art-595-ap2-cartmandate-hashchain-builder.md)
 
 **Feeds:** _terminal node_
 
