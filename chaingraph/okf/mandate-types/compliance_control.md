@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-70"]
+tags: ["compliance_control", "count-71"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-70 tool(s) in this mandate-type group:
+71 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -72,6 +72,7 @@ status: stable
 - [x402 Domain & Nonce Window Checker](../tools/art-592-x402-domain-nonce-window-checker.md)
 - [Web Bot Auth Nonce & Replay-Window Checker](../tools/art-593-webbotauth-nonce-replay-check.md)
 - [Tempo MPP Voucher & Receipt Verifier](../tools/art-594-tempo-mpp-voucher-receipt-verifier.md)
+- [Ap2 X402 Cart Correlation](../tools/art-596-ap2-x402-cart-correlation.md)
 - [C2PA AI/ML Assertion Decoder](../tools/art-597-c2pa-aiml-assertion-decoder.md)
 - [LEI Relationship Consistency Checker](../tools/art-600-lei-relationship-consistency.md)
 - [Dora Roi Gleif Preflight Pack](../tools/art-601-dora-roi-gleif-preflight-pack.md)

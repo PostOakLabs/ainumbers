@@ -537,6 +537,7 @@ status: stable
 - [Web Bot Auth Nonce & Replay-Window Checker](./art-593-webbotauth-nonce-replay-check.md) — `check_webbotauth_nonce_replay`
 - [Tempo MPP Voucher & Receipt Verifier](./art-594-tempo-mpp-voucher-receipt-verifier.md) — `verify_tempo_mpp_voucher`
 - [AP2 CartMandate Hash-Chain Builder](./art-595-ap2-cartmandate-hashchain-builder.md) — `build_ap2_cartmandate_hashchain`
+- [Ap2 X402 Cart Correlation](./art-596-ap2-x402-cart-correlation.md) — `correlate_ap2_cartmandate_x402`
 - [C2PA AI/ML Assertion Decoder](./art-597-c2pa-aiml-assertion-decoder.md) — `decode_c2pa_aiml_assertions`
 - [Input Attestation Verifier](./art-598-input-attestation-verifier.md) — `verify_input_attestations`
 - [GLEIF Snapshot Digest](./art-599-gleif-snapshot-digest.md) — `digest_gleif_snapshot`
