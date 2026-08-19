@@ -280,6 +280,11 @@ const GATES = [
   // set — this row is the sole writer today, so the gate stays unconditionally
   // blocking (no PR/main advisory split) rather than joining derived-artifacts.mjs.
   ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
+  // FV-AGENTSURFACE-BUILD-1: unified FV-status artifact per spec_digest. Sole
+  // writer today (not part of the SO #28/#35 shared derived set), same
+  // discipline as the registry kernel-resolve gate above — unconditionally
+  // blocking, no PR/main advisory split.
+  ['FV-status artifact current (FV-AGENTSURFACE-BUILD-1)', 'node scripts/gen-fv-status.mjs --check'],
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
   ['Inline hash equality (AUD-C3)', 'node chaingraph/kernels/inline-hash-equality.test.mjs'],
