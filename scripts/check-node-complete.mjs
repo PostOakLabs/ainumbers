@@ -150,13 +150,26 @@ function checkUrl(shard) {
 }
 
 // ── (d) node page exists, or explicit pageless escape ────────────────────────────────────────────────
+// NODE-COMPLETENESS-PAGEAXIS-1 (Tim ruling 2026-08-20): (d) PASSES when the shard's page lives
+// anywhere its `url` resolves — chaingraph/<id>.html is one such location, not the only one. A
+// tools/-hosted page (art-migrated nodes) now also satisfies (d), independently re-resolving
+// shard.url against a real .html file under chaingraph/ or tools/, PR tree or origin/main.
+// (c)'s own checkUrl() is untouched — this does not weaken or reuse its verdict, it re-derives.
 function checkPage(id, shard) {
   const pagePath = resolve(REPO, 'chaingraph', `${id}.html`);
   if (existsSync(pagePath)) return { status: 'PASS', detail: `chaingraph/${id}.html exists.` };
+
+  const rel = urlToRelPath(shard?.url);
+  if (rel && /\.html$/.test(rel) && (rel.startsWith('chaingraph/') || rel.startsWith('tools/'))) {
+    const abs = resolve(REPO, rel);
+    if (existsSync(abs)) return { status: 'PASS', detail: `url resolves to ${rel} in the PR tree.` };
+    if (fileExistsOnOriginMain(rel)) return { status: 'PASS', detail: `url resolves to ${rel} on origin/main.` };
+  }
+
   if (typeof shard?.pageless === 'string' && shard.pageless.trim()) {
     return { status: 'PASS', detail: `no node page — explicit pageless: "${shard.pageless}"` };
   }
-  return { status: 'FAIL', detail: `no chaingraph/${id}.html and no explicit shard.pageless reason.` };
+  return { status: 'FAIL', detail: `no chaingraph/${id}.html, url does not resolve to a chaingraph/ or tools/ .html page, and no explicit shard.pageless reason.` };
 }
 
 // ── (e) fixtures + proptest files present ───────────────────────────────────────────────────────────
