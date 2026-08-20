@@ -230,7 +230,12 @@ export const COVERED = [
     // string match is what makes it advisory-on-PR/blocking-on-main via the
     // generic ADVISORY_ON_PR categorisation in preflight.mjs, no second gate
     // needed.
-    regen: 'node scripts/assemble-chaingraph.mjs',
+    // --enroll (ASSEMBLE-MAINSIDE-ENROLL-1): MAINSIDE-1 shipped assembly
+    // without enrolment, so a node shard present on disk but absent from
+    // order.nodes (art-662, PR #1412) was silently never assembled. --enroll
+    // appends any such id to order.nodes (append-only, no re-sort) BEFORE
+    // assembling, closing that gap at the source.
+    regen: 'node scripts/assemble-chaingraph.mjs --enroll',
     gate: 'node scripts/assemble-chaingraph.mjs --check',
     artifacts: ['chaingraph/chaingraph.json'],
     share: '8%',

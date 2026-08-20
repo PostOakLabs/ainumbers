@@ -14,6 +14,12 @@
  * Modes:
  *   node scripts/assemble-chaingraph.mjs           # writes chaingraph.json
  *   node scripts/assemble-chaingraph.mjs --check   # verify only, exit 1 on drift
+ *   node scripts/assemble-chaingraph.mjs --enroll  # append any node shard on
+ *                                                   # disk missing from
+ *                                                   # order.nodes, then write
+ *                                                   # (ASSEMBLE-MAINSIDE-ENROLL-1;
+ *                                                   # what the main-side regen
+ *                                                   # workflow runs)
  *
  * CANONICAL ORDER (CS-2, replaces CS-1's migration-mode byte-parity glue):
  * nodes are emitted sorted by tool_id, chains sorted by name, both via a
@@ -50,6 +56,7 @@ const CHAINS_DIR = resolve(root, 'chaingraph/graph/chains')
 const META_PATH = resolve(root, 'chaingraph/chaingraph.meta.json')
 
 const CHECK = process.argv.includes('--check')
+const ENROLL = process.argv.includes('--enroll')
 
 // ASSEMBLE-COVER-1 advisory: report node shards on disk that order.nodes
 // doesn't include yet — a mid-flight CGSHARD row is EXPECTED here, so this
@@ -65,15 +72,40 @@ function reportUnassembledShards(orderNodes) {
   }
 }
 
-const meta = JSON.parse(readFileSync(META_PATH, 'utf8'))
-const { order, raw } = meta
+const naturalSort = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }).compare
 
-if (!raw) {
+// ASSEMBLE-MAINSIDE-ENROLL-1: enrolment must happen BEFORE assembly, in the
+// same main-side job — a node shard present on disk whose id is absent from
+// order.nodes was previously assembled into nothing (art-662, PR #1412).
+// APPEND-ONLY: order.nodes is an order manifest, so new ids go on the end,
+// natural-sorted among themselves for determinism; existing entries are
+// never reordered or removed here (that stays an explicit ASSEMBLE/LAND
+// row's job — see the refusal logic below for removals/chain edits).
+// meta.json round-trips byte-identically through JSON.stringify(meta, null, 2)
+// (verified against the live file before this was written), so this is a
+// safe whole-object rewrite, not a risky text splice.
+function enrollMissingNodes(meta) {
+  const onDisk = readdirSync(NODES_DIR)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => f.slice(0, -'.json'.length))
+  const known = new Set(meta.order.nodes)
+  const missing = onDisk.filter((id) => !known.has(id)).sort(naturalSort)
+  if (missing.length === 0) return
+  console.log(`assemble-chaingraph: enrolling ${missing.length} node shard(s) into order.nodes: ${missing.join(', ')}`)
+  meta.order.nodes = [...meta.order.nodes, ...missing]
+  writeFileSync(META_PATH, JSON.stringify(meta, null, 2) + '\n', 'utf8')
+}
+
+const meta = JSON.parse(readFileSync(META_PATH, 'utf8'))
+
+if (!meta.raw) {
   console.error('assemble-chaingraph.mjs: meta.raw missing — header/footer wrapper text is required.')
   process.exit(1)
 }
 
-const naturalSort = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }).compare
+if (ENROLL && !CHECK) enrollMissingNodes(meta)
+
+const { order, raw } = meta
 
 // SHARD-DRIFT-CLASSIFY-1: chaingraph.json stores no literal "execution_hash"
 // field — it's computed at runtime by _hash.mjs from a node's content. But
