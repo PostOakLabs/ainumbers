@@ -1,0 +1,52 @@
+{
+  "tool_id": "661-interest-accrual-recompute",
+  "version": "1.0.0",
+  "title": "Interest Accrual Recompute",
+  "description": "Recomputes per-day interest accrual from caller-supplied daily principal balances and product terms (day-count convention, compounding basis, fixed or tiered rate), then diffs the recomputed cumulative accrual against the core's own posted accrual/interest-paid ledger entries at each of the core's own posting dates. Returns MATCHES, DIVERGES with the first divergent date and cent amount, or INDETERMINATE when no core postings exist to diff against. Day-count convention and compounding basis are caller-declared contract terms, never inferred. An independent recompute-and-receipt over your own declared inputs, not an audit of or substitution for any core platform, and not a claim about which convention a core should use.",
+  "category": "compliance",
+  "tags": ["interest accrual", "day count convention", "core verification", "recompute", "ledger reconciliation", "compounding", "audit trail"],
+  "audience": ["compliance", "finance", "engineer"],
+  "input_schema": {
+    "type": "object",
+    "required": ["daily_balances", "core_reported_accruals", "product_terms"],
+    "properties": {
+      "daily_balances": { "type": "array", "description": "One {date, principal_balance_cents} row per day in the statement period, derived from the core's ledger running_balance." },
+      "core_reported_accruals": { "type": "array", "description": "The core's own posted {date, amount_cents} interest-accrual/interest-paid ledger rows within the period. Empty is legal and yields an INDETERMINATE verdict." },
+      "product_terms": { "type": "object", "description": "day_count_convention (30/360, actual/360, actual/365, actual/actual), compounding (daily, monthly, none), rate_type (fixed or tiered), rate_value, tiers: all caller-declared, never inferred." }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "valid_input": { "type": "boolean" },
+      "domain_errors": { "type": "array" },
+      "schedule": { "type": "array", "description": "Per-day recomputed accrual with running cumulative totals." },
+      "total_recomputed_accrual_cents": { "type": "integer" },
+      "core_reported_total_cents": { "type": "integer" },
+      "verdict": { "type": "string", "enum": ["MATCHES", "DIVERGES", "INDETERMINATE"] },
+      "first_divergence": { "type": ["object", "null"], "description": "{date, diff_cents} at the first checkpoint where recomputed and core-reported cumulative totals diverge." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_interest_accrual_recompute",
+    "description": "Recomputes per-day interest accrual over a caller-declared day-count/compounding convention and diffs the cumulative total against the core's own posted accrual/interest-paid ledger entries. Returns MATCHES, DIVERGES with the first divergent date and cent amount, or INDETERMINATE. Use when an agent needs an independent recompute-and-receipt of a core's interest accrual math, not an audit of the core itself.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["daily_balances", "core_reported_accruals", "product_terms"],
+      "properties": {
+        "daily_balances": { "type": "array" },
+        "core_reported_accruals": { "type": "array" },
+        "product_terms": { "type": "object" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/661-interest-accrual-recompute.html",
+    "function_name": "runAccrualRecompute",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

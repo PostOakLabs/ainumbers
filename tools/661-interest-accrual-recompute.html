@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Interest Accrual Recompute · AINumbers.co</title>
+<meta name="description" content="Recomputes per-day interest accrual over a declared day-count convention and compounding basis, and diffs it against a core's own posted ledger entries. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/661-interest-accrual-recompute.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Interest Accrual Recompute","url":"https://ainumbers.co/tools/661-interest-accrual-recompute.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1000px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1000px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge,.badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:#9aa7b8}
+.scope-note-label{color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.branch-toggle{display:flex;gap:.5rem;margin-bottom:1.1rem}
+.branch-btn{flex:1;background:var(--bg-3);border:1px solid var(--border);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;padding:.65rem .5rem;border-radius:var(--radius);text-align:center;transition:all .15s}
+.branch-btn.active{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-lt)}
+.field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.9rem}
+@media(max-width:640px){.field-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-size:.64rem;color:var(--muted)}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.5rem .6rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.tier-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:.5rem;align-items:end;margin-bottom:.5rem}
+@media(max-width:640px){.tier-row{grid-template-columns:1fr 1fr}}
+.tier-remove{background:var(--bg-3);border:1px solid var(--border);color:var(--red);border-radius:3px;padding:.5rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.add-tier-btn{background:var(--bg-3);border:1px dashed var(--border-2);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;padding:.5rem .8rem;border-radius:var(--radius);margin-bottom:.75rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1.25rem}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.verdict-hero{display:flex;align-items:baseline;gap:.6rem;margin-bottom:1rem}
+.verdict-figure{font-family:'JetBrains Mono',monospace;font-size:1.6rem;color:var(--bright)}
+.verdict-figure.matches{color:var(--green)}.verdict-figure.diverges{color:var(--red)}.verdict-figure.indeterminate{color:var(--warn)}
+.verdict-unit{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted)}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:640px){.stat-row{grid-template-columns:1fr}}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--bright)}
+.error-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.75rem 1rem;color:var(--red);font-size:.75rem;line-height:1.6}
+.error-box ul{margin:.4rem 0 0 1.1rem}
+.note-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;font-size:.7rem;color:var(--body);line-height:1.75}
+.sched-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.65rem;margin-top:.75rem}
+.sched-table th{text-align:left;color:var(--muted);font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+.sched-table td{padding:.4rem .6rem;border-bottom:1px solid var(--border);color:var(--text)}
+.sched-table tr.checkpoint td{color:var(--bright);background:var(--bg-4)}
+.sched-wrap{max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-bc-sep">/</span><span>T-661</span></div>
+    <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Compliance · T661 · Core Output Verification</div>
+  <h1 class="tool-title">Interest Accrual Recompute</h1>
+  <p class="hero-desc">Recomputes per-day interest accrual over a day-count convention and compounding basis you declare, then diffs the recomputed cumulative total against your core's own posted accrual or interest-paid ledger entry. Returns MATCHES, DIVERGES with the exact divergence, or INDETERMINATE when there is nothing to diff against. An independent recompute-and-receipt over your own declared inputs, not an audit of your core, and not a claim about which convention it should use.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">Core Verify</span>
+    <span class="badge badge-gold">Day-Count / Compounding</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><span class="scope-note-label">Scope &amp; reliance:</span> <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Account/customer identifiers should be caller-supplied opaque tokens or hashes, never a real account number. This tool recomputes accrual arithmetic from the numbers you declare; it does not connect to any core, does not find "the vendor's bugs," and is not an audit of or endorsement/substitution for any core platform. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <div class="panel">
+    <div class="panel-title">Statement Period &amp; Balance</div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="field-label" for="periodStart">Period start date</label>
+        <input type="date" id="periodStart" value="2026-01-01">
+        <span class="field-hint">First day of the statement period.</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="periodDays">Number of days</label>
+        <input type="number" id="periodDays" value="31" min="1" max="366" step="1">
+        <span class="field-hint">Length of the period, in days.</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="principalBalance">Principal balance ($)</label>
+        <input type="number" id="principalBalance" value="10000" min="0" step="0.01">
+        <span class="field-hint">Constant daily balance for the period. The underlying kernel accepts a day-by-day series via the API for a balance that moves intra-period.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Product Terms</div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="field-label" for="dayCount">Day-count convention</label>
+        <select id="dayCount">
+          <option value="actual/365">actual/365</option>
+          <option value="actual/360">actual/360</option>
+          <option value="30/360">30/360</option>
+          <option value="actual/actual">actual/actual</option>
+        </select>
+        <span class="field-hint">Contract term you declare, never inferred (ISDA day-count fraction definitions).</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="compounding">Compounding</label>
+        <select id="compounding">
+          <option value="none">none (simple daily accrual)</option>
+          <option value="daily">daily (self-compounding)</option>
+          <option value="monthly">monthly</option>
+        </select>
+        <span class="field-hint">Whether unposted daily accrual is added back into the balance it earns on.</span>
+      </div>
+    </div>
+
+    <div class="branch-toggle" style="margin-top:1rem">
+      <button type="button" class="branch-btn active" id="btnFixed" onclick="setRateType('fixed')">Fixed Rate</button>
+      <button type="button" class="branch-btn" id="btnTiered" onclick="setRateType('tiered')">Tiered Rate</button>
+    </div>
+
+    <div id="fixedFields" class="field-grid">
+      <div class="field">
+        <label class="field-label" for="fixedRate">Annual rate (%)</label>
+        <input type="number" id="fixedRate" value="5.00" min="0" step="0.0001">
+      </div>
+    </div>
+
+    <div id="tieredFields" style="display:none">
+      <div id="tierRows"></div>
+      <button type="button" class="add-tier-btn" onclick="addTierRow()">+ Add tier</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Core-Reported Posting (to diff against)</div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="field-label" for="corePostingDate">Posting date</label>
+        <input type="date" id="corePostingDate" value="2026-01-31">
+        <span class="field-hint">Date the core posted its own accrual/interest-paid entry.</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="corePostingAmount">Core-reported amount ($)</label>
+        <input type="number" id="corePostingAmount" step="0.01" placeholder="leave blank for INDETERMINATE">
+        <span class="field-hint">Leave blank to see the recomputed schedule with no core figure to diff against.</span>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runAccrualRecompute()">▶ Recompute Accrual</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">JSON + Markdown · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* ── Kernel logic, mirrored from chaingraph/kernels/art-661-interest-accrual-recompute.kernel.mjs.
+   Any change here that changes behavior must also change the kernel, and vice versa — the two are
+   kept identical by construction, not by a shared import (site tools are single self-contained
+   HTML files per repo/CLAUDE.md's zero-network-call, zero-build-step constraint). ── */
+var DAY_COUNT_CONVENTIONS = ['30/360', 'actual/360', 'actual/365', 'actual/actual'];
+
+function isLeapYear(year) { return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0; }
+
+function dayCountDenominator(convention, dateStr) {
+  if (convention === '30/360' || convention === 'actual/360') return 360;
+  if (convention === 'actual/365') return 365;
+  if (convention === 'actual/actual') return isLeapYear(Number(dateStr.slice(0, 4))) ? 366 : 365;
+  throw new Error('UNSUPPORTED_DAY_COUNT_CONVENTION: ' + convention);
+}
+
+function isInt(v) { return typeof v === 'number' && isFinite(v) && Math.floor(v) === v; }
+
+function applicableRate(productTerms, effectiveBalanceCents) {
+  if (productTerms.rate_type === 'fixed') return productTerms.rate_value;
+  if (productTerms.rate_type === 'tiered') {
+    var tiers = Array.isArray(productTerms.tiers) ? productTerms.tiers : [];
+    for (var i = 0; i < tiers.length; i++) {
+      var t = tiers[i];
+      var floor = t.tier_floor_cents;
+      var ceiling = t.tier_ceiling_cents;
+      if (effectiveBalanceCents >= floor && (ceiling == null || effectiveBalanceCents < ceiling)) return t.rate_value;
+    }
+    throw new Error('NO_MATCHING_TIER: balance ' + effectiveBalanceCents + ' cents matches no declared tier');
+  }
+  throw new Error('UNSUPPORTED_RATE_TYPE: ' + productTerms.rate_type);
+}
+
+function computeAccrual(pp) {
+  pp = pp || {};
+  var errors = [];
+
+  var dailyBalances = Array.isArray(pp.daily_balances) ? pp.daily_balances : null;
+  if (!dailyBalances || dailyBalances.length === 0) errors.push('daily_balances must be a non-empty array');
+
+  var coreReported = Array.isArray(pp.core_reported_accruals) ? pp.core_reported_accruals : null;
+  if (!coreReported) errors.push('core_reported_accruals must be an array (empty is legal, yields INDETERMINATE)');
+
+  var pt = pp.product_terms;
+  if (!pt || typeof pt !== 'object') {
+    errors.push('product_terms is required');
+  } else {
+    if (DAY_COUNT_CONVENTIONS.indexOf(pt.day_count_convention) === -1) {
+      errors.push('product_terms.day_count_convention must be one of ' + DAY_COUNT_CONVENTIONS.join(', '));
+    }
+    if (pt.compounding !== 'daily' && pt.compounding !== 'monthly' && pt.compounding !== 'none') {
+      errors.push('product_terms.compounding must be one of daily, monthly, none');
+    }
+    if (pt.rate_type === 'fixed') {
+      if (typeof pt.rate_value !== 'number' || !isFinite(pt.rate_value) || pt.rate_value < 0) {
+        errors.push('product_terms.rate_value must be a non-negative number for rate_type "fixed"');
+      }
+    } else if (pt.rate_type === 'tiered') {
+      if (!Array.isArray(pt.tiers) || pt.tiers.length === 0) {
+        errors.push('product_terms.tiers must be a non-empty array for rate_type "tiered"');
+      }
+    } else {
+      errors.push('product_terms.rate_type must be "fixed" or "tiered"');
+    }
+  }
+
+  if (dailyBalances) {
+    for (var i = 0; i < dailyBalances.length; i++) {
+      var row = dailyBalances[i];
+      if (typeof row.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) errors.push('daily_balances entry has a non-ISO date: ' + JSON.stringify(row.date));
+      if (!isInt(row.principal_balance_cents) || row.principal_balance_cents < 0) errors.push('daily_balances entry has a non-negative-integer principal_balance_cents: ' + JSON.stringify(row.date));
+    }
+  }
+  if (coreReported) {
+    for (var j = 0; j < coreReported.length; j++) {
+      var crow = coreReported[j];
+      if (typeof crow.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(crow.date)) errors.push('core_reported_accruals entry has a non-ISO date: ' + JSON.stringify(crow.date));
+      if (!isInt(crow.amount_cents)) errors.push('core_reported_accruals entry has a non-integer amount_cents: ' + JSON.stringify(crow.date));
+    }
+  }
+
+  if (errors.length > 0) {
+    return { output_payload: { valid_input: false, domain_errors: errors, schedule: [], total_recomputed_accrual_cents: null, core_reported_total_cents: null, verdict: 'INDETERMINATE', first_divergence: null }, compliance_flags: ['ACCRUAL_INPUT_OUT_OF_DECLARED_DOMAIN'] };
+  }
+
+  var sortedDays = dailyBalances.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  var sortedCore = coreReported.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+  var schedule = [];
+  var cumulativeRecomputedCents = 0;
+  var compoundBucketCents = 0;
+  for (var d = 0; d < sortedDays.length; d++) {
+    var day = sortedDays[d];
+    var denominator = dayCountDenominator(pt.day_count_convention, day.date);
+    var effectiveBalanceCents = day.principal_balance_cents + (pt.compounding === 'daily' ? compoundBucketCents : 0);
+    var rate = applicableRate(pt, effectiveBalanceCents);
+    var dailyAccrualCents = Math.round((effectiveBalanceCents * rate) / denominator);
+    cumulativeRecomputedCents += dailyAccrualCents;
+    schedule.push({ date: day.date, day_count_denominator: denominator, applicable_rate: rate, principal_balance_cents: day.principal_balance_cents, daily_accrual_cents: dailyAccrualCents, cumulative_recomputed_cents: cumulativeRecomputedCents, cumulative_core_reported_cents: null });
+    if (pt.compounding === 'daily') compoundBucketCents += dailyAccrualCents;
+  }
+
+  var totalRecomputedCents = cumulativeRecomputedCents;
+  var coreTotalCents = sortedCore.reduce(function(sum, r) { return sum + r.amount_cents; }, 0);
+
+  var verdict = 'INDETERMINATE';
+  var firstDivergence = null;
+  if (sortedCore.length > 0) {
+    verdict = 'MATCHES';
+    var coreCumulative = 0;
+    var scheduleIdx = 0;
+    var recomputedCumulativeThroughCheckpoint = 0;
+    for (var p = 0; p < sortedCore.length; p++) {
+      var posting = sortedCore[p];
+      coreCumulative += posting.amount_cents;
+      while (scheduleIdx < schedule.length && schedule[scheduleIdx].date <= posting.date) {
+        recomputedCumulativeThroughCheckpoint = schedule[scheduleIdx].cumulative_recomputed_cents;
+        scheduleIdx++;
+      }
+      var diffCents = recomputedCumulativeThroughCheckpoint - coreCumulative;
+      if (diffCents !== 0 && firstDivergence === null) { firstDivergence = { date: posting.date, diff_cents: diffCents }; verdict = 'DIVERGES'; }
+    }
+    var running = 0, ci = 0;
+    for (var k = 0; k < schedule.length; k++) {
+      if (ci < sortedCore.length && sortedCore[ci].date === schedule[k].date) { running += sortedCore[ci].amount_cents; schedule[k].cumulative_core_reported_cents = running; ci++; }
+    }
+  }
+
+  var compliance_flags = [verdict === 'MATCHES' ? 'ACCRUAL_RECOMPUTE_MATCHES' : verdict === 'DIVERGES' ? 'ACCRUAL_RECOMPUTE_DIVERGES' : 'ACCRUAL_RECOMPUTE_INDETERMINATE_NO_CORE_POSTINGS'];
+
+  var output_payload = {
+    valid_input: true, domain_errors: [], schedule: schedule,
+    total_recomputed_accrual_cents: totalRecomputedCents, core_reported_total_cents: coreTotalCents,
+    verdict: verdict, first_divergence: firstDivergence,
+    day_count_convention: pt.day_count_convention, compounding: pt.compounding, rate_type: pt.rate_type,
+    note: 'Verify-only recomputation of per-day interest accrual over the caller-declared day-count convention and compounding basis, diffed against the core\'s own posted accrual/interest-paid ledger entries. This is an independent recompute-and-receipt, not a claim to find defects in the core, and not an endorsement or substitution of any core platform.',
+  };
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
+
+var currentRateType = 'fixed';
+function setRateType(t) {
+  currentRateType = t;
+  document.getElementById('btnFixed').classList.toggle('active', t === 'fixed');
+  document.getElementById('btnTiered').classList.toggle('active', t === 'tiered');
+  document.getElementById('fixedFields').style.display = t === 'fixed' ? 'grid' : 'none';
+  document.getElementById('tieredFields').style.display = t === 'tiered' ? 'block' : 'none';
+}
+
+var tierRowCount = 0;
+function addTierRow(floorVal, ceilVal, rateVal) {
+  tierRowCount++;
+  var id = 'tier' + tierRowCount;
+  var div = document.createElement('div');
+  div.className = 'tier-row';
+  div.id = id;
+  div.innerHTML =
+    '<div class="field"><label class="field-label">Floor ($)</label><input type="number" class="tierFloor" value="' + (floorVal !== undefined ? floorVal : '0') + '" min="0" step="0.01"></div>' +
+    '<div class="field"><label class="field-label">Ceiling ($, blank = none)</label><input type="number" class="tierCeiling" value="' + (ceilVal !== undefined ? ceilVal : '') + '" min="0" step="0.01"></div>' +
+    '<div class="field"><label class="field-label">Rate (%)</label><input type="number" class="tierRate" value="' + (rateVal !== undefined ? rateVal : '1.00') + '" min="0" step="0.0001"></div>' +
+    '<button type="button" class="tier-remove" onclick="document.getElementById(\'' + id + '\').remove()">&times;</button>';
+  document.getElementById('tierRows').appendChild(div);
+}
+addTierRow('0', '5000', '1.00');
+addTierRow('5000', '', '3.00');
+
+function dollarsToCents(v) {
+  var n = Number(v);
+  if (!isFinite(n)) return NaN;
+  return Math.round(n * 100);
+}
+
+function buildDailyBalances(startDate, days, balanceCents) {
+  var rows = [];
+  var start = new Date(startDate + 'T00:00:00Z');
+  for (var i = 0; i < days; i++) {
+    var d = new Date(start.getTime() + i * 86400000);
+    rows.push({ date: d.toISOString().slice(0, 10), principal_balance_cents: balanceCents });
+  }
+  return rows;
+}
+
+window._lastMandate = null;
+
+function runAccrualRecompute() {
+  var start = document.getElementById('periodStart').value;
+  var days = parseInt(document.getElementById('periodDays').value, 10);
+  var balanceCents = dollarsToCents(document.getElementById('principalBalance').value);
+  var dayCount = document.getElementById('dayCount').value;
+  var compounding = document.getElementById('compounding').value;
+
+  var productTerms;
+  if (currentRateType === 'fixed') {
+    productTerms = { day_count_convention: dayCount, compounding: compounding, rate_type: 'fixed', rate_value: Number(document.getElementById('fixedRate').value) / 100 };
+  } else {
+    var tiers = [];
+    var rows = document.getElementById('tierRows').children;
+    for (var i = 0; i < rows.length; i++) {
+      var floorVal = dollarsToCents(rows[i].querySelector('.tierFloor').value);
+      var ceilRaw = rows[i].querySelector('.tierCeiling').value;
+      var ceilVal = ceilRaw === '' ? null : dollarsToCents(ceilRaw);
+      var rateVal = Number(rows[i].querySelector('.tierRate').value) / 100;
+      tiers.push({ tier_floor_cents: floorVal, tier_ceiling_cents: ceilVal, rate_value: rateVal });
+    }
+    productTerms = { day_count_convention: dayCount, compounding: compounding, rate_type: 'tiered', tiers: tiers };
+  }
+
+  var coreDate = document.getElementById('corePostingDate').value;
+  var coreAmountRaw = document.getElementById('corePostingAmount').value;
+  var coreReportedAccruals = coreAmountRaw === '' ? [] : [{ date: coreDate, amount_cents: dollarsToCents(coreAmountRaw) }];
+
+  var pp = { daily_balances: buildDailyBalances(start, days, balanceCents), core_reported_accruals: coreReportedAccruals, product_terms: productTerms };
+
+  var result = computeAccrual(pp);
+  var op = result.output_payload;
+  var out = document.getElementById('outputSection');
+
+  if (!op.valid_input) {
+    out.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Result</span></div><div class="out-body"><div class="error-box"><strong>Input outside the declared domain</strong><ul>' +
+      op.domain_errors.map(function(e){return '<li>' + escapeHtml(e) + '</li>';}).join('') +
+      '</ul></div></div></div>';
+    window._lastMandate = null;
+    disableAP2();
+    return;
+  }
+
+  var verdictClass = op.verdict.toLowerCase();
+  var schedRows = op.schedule.map(function(r) {
+    var isCheckpoint = r.cumulative_core_reported_cents !== null;
+    return '<tr class="' + (isCheckpoint ? 'checkpoint' : '') + '"><td>' + r.date + '</td><td>' + (r.daily_accrual_cents/100).toFixed(2) + '</td><td>' + (r.cumulative_recomputed_cents/100).toFixed(2) + '</td><td>' + (isCheckpoint ? '$' + (r.cumulative_core_reported_cents/100).toFixed(2) : '—') + '</td></tr>';
+  }).join('');
+
+  out.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Recomputed Accrual</span></div><div class="out-body">' +
+    '<div class="verdict-hero"><span class="verdict-figure ' + verdictClass + '">' + op.verdict + '</span>' +
+    (op.first_divergence ? '<span class="verdict-unit">first divergence ' + op.first_divergence.date + ' &middot; $' + (op.first_divergence.diff_cents/100).toFixed(2) + '</span>' : '<span class="verdict-unit">' + (op.verdict === 'MATCHES' ? 'recomputed total matches the core-reported posting' : 'no core-reported posting supplied to diff against') + '</span>') +
+    '</div>' +
+    '<div class="stat-row">' +
+      '<div class="stat-cell"><div class="stat-label">Recomputed Total</div><div class="stat-value">$' + (op.total_recomputed_accrual_cents/100).toFixed(2) + '</div></div>' +
+      '<div class="stat-cell"><div class="stat-label">Core-Reported Total</div><div class="stat-value">$' + (op.core_reported_total_cents/100).toFixed(2) + '</div></div>' +
+      '<div class="stat-cell"><div class="stat-label">Day-Count / Compounding</div><div class="stat-value">' + op.day_count_convention + ' / ' + op.compounding + '</div></div>' +
+    '</div>' +
+    '<div class="sched-wrap"><table class="sched-table"><thead><tr><th>Date</th><th>Daily Accrual</th><th>Cumulative Recomputed</th><th>Cumulative Core</th></tr></thead><tbody>' + schedRows + '</tbody></table></div>' +
+    '<div class="note-block" style="margin-top:.9rem">' + escapeHtml(op.note) + '</div>' +
+    '</div></div>';
+
+  var ts = new Date().toISOString();
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: MANIFEST.tool_id + '-' + ts.replace(/[:.]/g, '-').slice(0, 19),
+    issued_at: ts, issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id, tool_version: MANIFEST.version,
+    mandate_type: 'compliance_control',
+    jurisdiction: ['US'], regulatory_frameworks: [],
+    payload: op,
+    summary: MANIFEST.title + ': ' + op.verdict + ' (recomputed $' + (op.total_recomputed_accrual_cents/100).toFixed(2) + ' vs core $' + (op.core_reported_total_cents/100).toFixed(2) + ')',
+    agent_instructions: ['This is an independent recompute-and-receipt of interest accrual over caller-declared inputs, not an audit of or substitution for any core platform. Verify the day-count convention and compounding basis against the actual product terms before relying on it.'],
+    valid_from: ts.slice(0, 10),
+    source_tool_inputs: pp, regulatory_citations: [],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+  window._lastMandate = mandate;
+  enableAP2();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function enableAP2() {
+  var b = document.getElementById('ap2ExportBtn');
+  if (b) { b.disabled = false; b.classList.add('ready'); b.style.cursor = 'pointer'; b.style.opacity = '1'; }
+}
+function disableAP2() {
+  var b = document.getElementById('ap2ExportBtn');
+  if (b) { b.disabled = true; b.classList.remove('ready'); b.style.cursor = 'not-allowed'; b.style.opacity = '.55'; }
+}
+
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+window.AP2Schema.validate = function(m) {
+  function _f(msg) { throw new Error('AP2Schema: ' + msg); }
+  if (!m || typeof m !== 'object') _f('mandate must be an object');
+  if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _f('missing identity field');
+  if (typeof m.mandate_type !== 'string' || !m.mandate_type) _f('missing mandate_type');
+  if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _f('jurisdiction must be array');
+  return true;
+};
+
+function exportAP2() {
+  if (!window._lastMandate) { alert('Run the tool first to generate results.'); return; }
+  var mandate = window._lastMandate;
+  window.AP2Schema.validate(mandate);
+  var json = JSON.stringify(mandate, null, 2);
+  var md = '# ' + mandate.summary + '\n\n' +
+    '- Tool: ' + mandate.tool_id + ' v' + mandate.tool_version + '\n' +
+    '- Issued: ' + mandate.issued_at + '\n\n' +
+    '## Result\n\n' +
+    '- Verdict: ' + mandate.payload.verdict + '\n' +
+    '- Recomputed total: $' + (mandate.payload.total_recomputed_accrual_cents/100).toFixed(2) + '\n' +
+    '- Core-reported total: $' + (mandate.payload.core_reported_total_cents/100).toFixed(2) + '\n' +
+    (mandate.payload.first_divergence ? '- First divergence: ' + mandate.payload.first_divergence.date + ' ($' + (mandate.payload.first_divergence.diff_cents/100).toFixed(2) + ')\n' : '') +
+    '\n' + mandate.payload.note + '\n';
+  var tid = mandate.tool_id;
+  var stamp = mandate.issued_at.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14);
+  var aJson = document.createElement('a');
+  aJson.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  aJson.download = tid + '_' + stamp + '.policy.json';
+  aJson.click(); URL.revokeObjectURL(aJson.href);
+  var aMd = document.createElement('a');
+  aMd.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+  aMd.download = tid + '_' + stamp + '.policy.md';
+  aMd.click(); URL.revokeObjectURL(aMd.href);
+}
+</script>
+
+<script>
+var MANIFEST = JSON.parse('{"tool_id": "661-interest-accrual-recompute", "version": "1.0.0", "title": "Interest Accrual Recompute", "description": "Recomputes per-day interest accrual over a caller-declared day-count convention and compounding basis, and diffs the recomputed cumulative total against the core own posted accrual/interest-paid ledger entries.", "category": "compliance", "tags": ["interest accrual", "day count convention", "core verification", "recompute", "ledger reconciliation", "compounding"], "audience": ["compliance", "finance", "engineer"], "input_schema": {"type": "object", "required": ["daily_balances", "core_reported_accruals", "product_terms"], "properties": {"daily_balances": {"type": "array"}, "core_reported_accruals": {"type": "array"}, "product_terms": {"type": "object"}}}, "output_schema": {"type": "object", "properties": {"verdict": {"type": "string"}, "total_recomputed_accrual_cents": {"type": "integer"}, "first_divergence": {"type": ["object", "null"]}}}, "mcp_tool_definition": {"name": "compute_interest_accrual_recompute", "description": "Recomputes per-day interest accrual over a caller-declared day-count/compounding convention and diffs it against the core own posted ledger entries. Returns MATCHES, DIVERGES with the first divergent date and cent amount, or INDETERMINATE.", "inputSchema": {"type": "object", "required": ["daily_balances", "core_reported_accruals", "product_terms"], "properties": {"daily_balances": {"type": "array"}, "core_reported_accruals": {"type": "array"}, "product_terms": {"type": "object"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/661-interest-accrual-recompute.html", "function_name": "runAccrualRecompute", "timeout_ms": 3000}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'runAccrualRecompute',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.querySelector('.panel')||document.body.firstElementChild;
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ Inputs prefilled from link and executed ('+n+' fields)','ok');
+    else notice('🔗 Inputs prefilled from link — review, then Run ('+n+' fields)','ok');
+  }
+}
+window.AINBridge={
+  version:'1.1', apply:applyFields, run:runTool,
+  getMandate:function(){return window._lastMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
