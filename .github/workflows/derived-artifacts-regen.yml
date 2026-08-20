@@ -15,10 +15,30 @@ name: Derived Artifacts Regen
 # The artifact set, generators and measured skew rates live in ONE place —
 # scripts/derived-artifacts.mjs — which preflight.mjs also reads for its
 # PR-advisory / main-blocking split. One SSOT, no second enumeration to drift.
+#
+# chaingraph.json joined this set (COVERED id 'chaingraph-assemble') — a
+# single-kernel PR no longer needs a separate hand-staged commit to assemble
+# it; this workflow assembles it after merge, exactly like catalogs/sitemap.
+# Its generator (assemble-chaingraph.mjs) is also the refusal gate: a node
+# removal/rename or any graph/chains/ change makes it leave chaingraph.json
+# untouched (a distinct no-write state, not a failure) — those stay a
+# separate, explicit hand-assembled commit. Validated against the §15 gate
+# suite before staging (see "Validate against the §15 gate suite" step).
 
 on:
   push:
     branches: [ main ]
+  # A main-only workflow like this one should be provable end-to-end on a
+  # branch before a real push exercises it for the first time — this workflow
+  # took four merges to first-run once (chaingraph-assemble is the second
+  # thing it now writes, same requirement applies again). dry_run runs every
+  # step except the commit/push.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run every step except the commit/push; print what would happen'
+        type: boolean
+        default: true
 
 # Least privilege: the default GITHUB_TOKEN is read-only everywhere in this
 # workflow. The push credential is a short-lived GitHub App installation token
@@ -81,8 +101,23 @@ jobs:
 
       - name: Regenerate every covered artifact
         # Stops on the first generator failure — a half-regenerated tree must
-        # never reach a commit.
+        # never reach a commit. chaingraph.json is one of the covered
+        # artifacts — its generator (assemble-chaingraph.mjs) is itself the
+        # refusal gate for out-of-scope diffs: a node removal/rename or a
+        # graph/chains/ change makes it print a notice and leave the file
+        # untouched (exit 0, not a failure) rather than auto-write something
+        # that needs an explicit, reviewed commit instead.
         run: node scripts/derived-artifacts.mjs --regen
+
+      # §15 gate suite validates the regenerated tree BEFORE anything is
+      # staged or committed. A red run here stops the job — no commit step
+      # executes — so a bad assemble is a visible failed run, never a
+      # partial write.
+      - name: Validate against the §15 gate suite (SPEC.md conformance)
+        run: |
+          node chaingraph/standard/schema-validate.mjs
+          node chaingraph/standard/spec-version-consistency.mjs
+          node chaingraph/standard/spec-gate-coverage.mjs
 
       - name: Stage by explicit pathspec, and prove nothing escaped the set
         id: stage
@@ -140,6 +175,22 @@ jobs:
             git diff --cached --stat
           fi
 
+      # Dry-run report: print exactly what the commit step would have staged,
+      # then stop — no push, no mutation of main, regardless of the change flag.
+      - name: Dry-run report (no commit)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        run: |
+          echo "### Dry run — Derived Artifacts Regen" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.stage.outputs.changed }}" = "true" ]; then
+            echo "Would commit and push the following:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            git diff --cached --stat >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nothing to commit — every covered artifact (including chaingraph.json) is already fresh." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "dry_run=true — commit/push step skipped." >> "$GITHUB_STEP_SUMMARY"
+
       # ── LOOP GUARD ──────────────────────────────────────────────────────────
       # The push below is App-authored, so it DOES re-trigger this workflow
       # (unlike a GITHUB_TOKEN push). The chain is still bounded — two
@@ -165,7 +216,7 @@ jobs:
       # commit stream is the visible symptom; fix the generator, do not add
       # loop-breaking markers here.
       - name: Commit and push
-        if: steps.stage.outputs.changed == 'true'
+        if: steps.stage.outputs.changed == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |

@@ -177,7 +177,46 @@ if (CHECK) {
     process.exit(1)
   }
 } else {
-  writeFileSync(CG_PATH, assembled, 'utf8')
-  console.log(`Wrote ${CG_PATH} (${order.nodes.length} nodes, ${order.chains.length} chains).`)
+  // ASSEMBLE-MAINSIDE-1: write mode now runs unattended from the main-side
+  // regen workflow, so it must refuse (not just diff-report) the classes of
+  // change that still require a human ASSEMBLE/LAND row — node removals/
+  // renames and any chain edit. A refusal is a distinct no-op state (SO
+  // #34c), not a failure: exit 0, print the reason, write nothing.
+  let committed = ''
+  try { committed = readFileSync(CG_PATH, 'utf8') } catch { /* first run, no committed file yet */ }
+
+  if (assembled === committed) {
+    console.log(`assemble-chaingraph: already up to date (${order.nodes.length} nodes, ${order.chains.length} chains).`)
+    reportUnassembledShards(order.nodes)
+    process.exit(0)
+  }
+
+  let refused = false
+  if (committed) {
+    let committedObj, assembledObj
+    try {
+      committedObj = JSON.parse(committed)
+      assembledObj = JSON.parse(assembled)
+    } catch {
+      console.error('assemble-chaingraph: committed or assembled chaingraph.json failed to parse — refusing to write (cannot safety-check a malformed tree).')
+      process.exit(1)
+    }
+    const committedIds = new Set(committedObj.nodes.map((n) => n.tool_id))
+    const assembledIds = new Set(assembledObj.nodes.map((n) => n.tool_id))
+    const removedNodes = [...committedIds].filter((id) => !assembledIds.has(id))
+    const chainsChanged = JSON.stringify(canon(committedObj.chains)) !== JSON.stringify(canon(assembledObj.chains))
+    if (removedNodes.length > 0 || chainsChanged) {
+      refused = true
+      const reasons = []
+      if (removedNodes.length > 0) reasons.push(`node removal(s)/rename(s): ${removedNodes.join(', ')}`)
+      if (chainsChanged) reasons.push('graph/chains/ change(s)')
+      console.log(`assemble-chaingraph: REFUSED — diff includes ${reasons.join(' and ')}. This is out of scope for the main-side auto-assembler (single-node/small-additive only) and requires an explicit ASSEMBLE/LAND row. No write, no commit.`)
+    }
+  }
+
+  if (!refused) {
+    writeFileSync(CG_PATH, assembled, 'utf8')
+    console.log(`Wrote ${CG_PATH} (${order.nodes.length} nodes, ${order.chains.length} chains).`)
+  }
   reportUnassembledShards(order.nodes)
 }
