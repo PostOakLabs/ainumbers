@@ -292,6 +292,22 @@ export const EXCLUDED = [
     share: 'n/a',
     why: 'NON-IDEMPOTENT, same wall-clock "generated_at" shape as the EUC register above.',
   },
+  {
+    what: 'registry/lineage/** (via scripts/gen-registry-lineage.mjs — REGISTRY-LINEAGE-RETRY-1)',
+    share: 'n/a',
+    why: 'UNBOUNDED PATH SET, not a fixed rewrite-in-place file list: the C2SP tlog-tiles layout deliberately '
+       + 'leaves a stale partial-tile file in place and writes a NEW filename at a new `.p/<W>` path on every '
+       + 'single record append (gen-registry-lineage.mjs:54-55, by design — old partials stay valid historical '
+       + 'artifacts). A literal `artifacts` list can only ever cover the paths that exist at declaration time. '
+       + 'The regen workflow\'s anti-escape guard (.github/workflows/derived-artifacts-regen.yml, "Stage by '
+       + 'explicit pathspec, and prove nothing escaped the set") runs `git status --porcelain -- .` over the '
+       + 'WHOLE working tree after staging the declared paths — the next legitimate lineage-record append would '
+       + 'create an undeclared file and fail that check, taking down every other shared artifact\'s regen in '
+       + 'the same run, not just this one. `--check` (read-only, recomputes and verifies the on-disk tree '
+       + 'against the published checkpoint) is still wired into scripts/preflight.mjs directly — that path is '
+       + 'safe because it never writes. A future session may reconsider COVERED registration if the layout '
+       + 'moves to a fixed-name append log, or if the anti-escape guard is scoped to a declared-prefix check.',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */
