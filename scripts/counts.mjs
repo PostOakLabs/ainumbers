@@ -28,6 +28,12 @@
  *                      (derived via check-fv-floor-coverage.mjs's deriveLiveKernels/evaluateCoverage —
  *                      one classifier, two callers, same shape as zk.* above. PBT-floor tier only —
  *                      internal engineering QC, not the formal-verification pilot on methods.html)
+ *   chainL2.gatePass          L2-G gate rules decided pass, fail, indeterminate, and the total in
+ *   chainL2.gateFail          scope — chain-level edge-contract composition (CHAIN-FV-L2-COPY-1),
+ *   chainL2.gateIndeterminate derived fresh each call from check-chain-l2-contracts.mjs's own
+ *   chainL2.gateTotal         buildReport() (SO #34 independent derivation — never read back from a
+ *                             report file it already wrote). NOT a claim of formal verification; see
+ *                             fv-explainer.html's boundary statement for what L2 does and does not cover.
  *
  * mcp.live != openapi.ops by design:
  *   mcp.live   = callable tools registered on the live /mcp endpoint
@@ -115,6 +121,18 @@ export async function deriveCounts() {
   const { floored: fvFloored, total: fvTotal } = await evaluateCoverage(liveKernels, readKernelSource, readFloorSource, sourceDigest)
   const fvFloorPct = fvTotal > 0 ? Math.floor(100 * fvFloored.length / fvTotal) : 0
 
+  // chainL2.* — CHAIN-FV-L2-COPY-1: fresh buildReport() call, same shape as the checker's own CLI run.
+  const [{ buildReport: buildL1Report }, { buildReport: buildL2Report }] = await Promise.all([
+    import('./check-chain-edge-contracts.mjs'),
+    import('./check-chain-l2-contracts.mjs'),
+  ])
+  const l1ReportForL2 = buildL1Report(repoRoot)
+  const l2Report = buildL2Report(repoRoot, l1ReportForL2)
+  const chainL2GatePass = l2Report.summary.edges_pass
+  const chainL2GateFail = l2Report.summary.edges_fail
+  const chainL2GateIndeterminate = l2Report.summary.edges_indeterminate
+  const chainL2GateTotal = l2Report.summary.gates_checked
+
   return {
     'tools.browser':     toolsBrowser,
     'manifests':         manifests,
@@ -131,6 +149,10 @@ export async function deriveCounts() {
     'fv.floorFloored':   fvFloored.length,
     'fv.floorTotal':     fvTotal,
     'fv.floorPct':       fvFloorPct,
+    'chainL2.gatePass':          chainL2GatePass,
+    'chainL2.gateFail':          chainL2GateFail,
+    'chainL2.gateIndeterminate': chainL2GateIndeterminate,
+    'chainL2.gateTotal':         chainL2GateTotal,
   }
 }
 
