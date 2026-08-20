@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (627 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (628 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6742,6 +6742,16 @@ window.CHAINBUILDER_CATALOG = [
     "consumes": [],
     "feeds": [],
     "status": "live"
+  },
+  {
+    "tool_id": "art-653-pta-verifier",
+    "display_name": "Pta Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/653-pta-verifier.html",
+    "description": "Verifies a plain-text-accounting journal supplied as synthetic text: parses dated transactions and their indented postings, checks each tran",
+    "consumes": [],
+    "feeds": [],
+    "status": "planned"
   },
   {
     "tool_id": "art-66-fria-postmarket-monitoring-builder",
