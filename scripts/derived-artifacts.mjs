@@ -220,6 +220,22 @@ export const COVERED = [
     share: '27%',
   },
   {
+    id: 'chaingraph-assemble',
+    // ASSEMBLE-MAINSIDE-1 (SO #35 extended): chaingraph.json joins the shared
+    // single-writer set. The assembler itself refuses (no write, exit 0) when
+    // the shard diff includes node removals/renames or any graph/chains/
+    // change — those stay explicit ASSEMBLE/LAND rows, never auto-committed
+    // here. Gate command is intentionally identical to preflight.mjs's
+    // existing 'chaingraph.json shard freshness (CGSHARD-1)' entry — that
+    // string match is what makes it advisory-on-PR/blocking-on-main via the
+    // generic ADVISORY_ON_PR categorisation in preflight.mjs, no second gate
+    // needed.
+    regen: 'node scripts/assemble-chaingraph.mjs',
+    gate: 'node scripts/assemble-chaingraph.mjs --check',
+    artifacts: ['chaingraph/chaingraph.json'],
+    share: '8%',
+  },
+  {
     id: 'counts',
     // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
     // every page that publishes one. File list mirrors verify-counts.mjs's own
@@ -270,12 +286,6 @@ export const EXCLUDED = [
     what: 'chaingraph/clause-edges/index.json (via scripts/gen-clause-edge-report.mjs)',
     share: 'n/a',
     why: 'NON-IDEMPOTENT, same wall-clock "generated_at" shape as the EUC register above.',
-  },
-  {
-    what: 'chaingraph/chaingraph.json',
-    share: '8%',
-    why: 'ALREADY single-writer — it belongs to the land row (assemble-chaingraph.mjs), the doctrine SO #35 '
-       + 'generalises from. Nothing to move.',
   },
 ];
 

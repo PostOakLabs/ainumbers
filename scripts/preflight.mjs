@@ -327,6 +327,16 @@ const GATES = [
   // ⚠ This registry is documentation, not enforcement, and does NOT close the
   // `--no-verify` bypass — the pre-push hook (and this gate) simply doesn't run
   // if a push skips hooks.
+  // ASSEMBLE-MAINSIDE-1 (SO #35 extended, 2026-08-20): chaingraph.json is now a
+  // SHARED DERIVED ARTIFACT (derived-artifacts.mjs COVERED id 'chaingraph-assemble')
+  // — the main-side regen workflow assembles + commits it after a single-node/
+  // small-additive merge, same writer pattern as catalogs/sitemap. This exact
+  // command string is also that entry's `gate`, so the generic ADVISORY_ON_PR
+  // categorisation above downgrades it to advisory-on-PR automatically — no PR
+  // ever regenerates chaingraph.json again. It stays BLOCKING on main. Node
+  // removals/renames and any graph/chains/ change are OUT of the auto-writer's
+  // scope (the assembler itself refuses those, no-write/no-commit) and still
+  // land via an explicit ASSEMBLE/LAND row.
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
   ['Node/chain shard registration (NODE-REGISTRATION-GAP-1, node case blocking)', 'node scripts/check-shard-assembly.mjs'],
   ['Branch-aware shard-registration proof (SHARD-GATE-PRE-ASSEMBLE-1)', 'node scripts/check-shard-assembly.test.mjs'],
