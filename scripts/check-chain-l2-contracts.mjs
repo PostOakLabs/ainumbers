@@ -128,6 +128,27 @@ function pointerResolvesInSchema(pointer, schema) {
   return Object.prototype.hasOwnProperty.call(schema.fields, top);
 }
 
+// ⛔⛔ CHAIN-FV-L2G-GENERATOR-1 — NESTED-POINTER DOMAIN RESOLUTION, gate rules only.
+// `pointerResolvesInSchema` above (and the mapped-field §2.2 path built on it) stays top-segment-only
+// by design — `consumes_from` is dormant estate-wide (RESCOPE-1, 0 live instances) and untouched here.
+// L2-G gate pointers are NOT dormant: 9 live gate rules read a NESTED field (`/ratios/total_capital_pass`,
+// `/scorecard/overall_status`, `/decision/gate_policy`, `/session/injection_detection/verdict`, …
+// FIXTURES-1 §"16 remaining" item 2). This walks the FULL pointer path against a RAW JSON-Schema-shaped
+// output_schema object (nested `properties`, as both a manifest and `gen-output-schema.mjs`'s recursive
+// sidecar now emit) and returns the resolved leaf property object, or null if any segment fails to
+// resolve. Every leaf (including nested ones) carries its own `x-source` — stamped at every depth by
+// `deriveField` — so `extractConstraint` on the returned leaf works unmodified at any depth.
+export function resolveSchemaPointer(schemaObj, pointer) {
+  if (!schemaObj || typeof pointer !== 'string' || !pointer.startsWith('/')) return null;
+  const parts = pointer.slice(1).split('/').map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let cur = schemaObj;
+  for (const part of parts) {
+    if (!cur || typeof cur !== 'object' || !cur.properties || !Object.prototype.hasOwnProperty.call(cur.properties, part)) return null;
+    cur = cur.properties[part];
+  }
+  return cur;
+}
+
 /* ────────────────────────── constraint extraction (with x-source) ───────────────────────────── */
 
 // A "declared constraint" is a numeric/enum/multipleOf bound on a manifest property that carries an
@@ -145,6 +166,12 @@ export function extractConstraint(propSchema) {
     exclusiveMaximum: propSchema.exclusiveMaximum,
     multipleOf: propSchema.multipleOf,
     enum: propSchema.const !== undefined ? [propSchema.const] : propSchema.enum,
+    // ⛔⛔ CHAIN-FV-L2G-GENERATOR-1 — NUMERIC POINT-VALUE WITNESSING. `x-observed-values` is the exact
+    // set of numeric values a derived (fixture) sidecar saw — NOT an enum, and NEVER used for interval
+    // containment. It exists so `evalGateDomain` can decide an eq/in/neq gate against a value the corpus
+    // actually emitted, never against a min/max envelope merely containing it (an envelope containing a
+    // value is not proof the value was ever produced — FIXTURES-1's over-claim ruling).
+    observedValues: propSchema['x-observed-values'],
     unit: propSchema['x-unit'],
     source: propSchema['x-source'] || null,
   };
@@ -341,8 +368,16 @@ export function evalGateDomain(G, rule, isDerived) {
 
   // ── enum-domain ops: eq / ne / neq / in / nin ──
   if (EQ_OPS.has(op) || IN_OPS.has(op)) {
-    if (!G.enum || !G.enum.length) { undecided.push('insufficient-declared-domain'); return { checksRun, findings, undecided }; }
+    const hasEnum = !!(G.enum && G.enum.length);
+    // ⛔⛔ CHAIN-FV-L2G-GENERATOR-1 — numeric point-value witnessing. A DERIVED domain with no `enum`
+    // (numeric fields never get one — a range is the honest witness for containment) may still fall back
+    // to `observedValues`, the exact set the fixture corpus emitted. ⛔ CITED domains NEVER use this
+    // fallback — a manifest declares an `enum` explicitly or it does not decide (spec §1.2); observed
+    // point values are witness-grade evidence only, never an authority.
+    const hasObservedFallback = isDerived && !!(G.observedValues && G.observedValues.length);
+    if (!hasEnum && !hasObservedFallback) { undecided.push('insufficient-declared-domain'); return { checksRun, findings, undecided }; }
     checksRun.push('gate-value');
+    const domain = hasEnum ? G.enum : G.observedValues;
     const set = IN_OPS.has(op) ? (Array.isArray(v) ? v : [v]) : [v];
     // "true branch reachable"  = ∃ member of the producer domain for which the rule holds.
     // "false branch reachable" = ∃ member for which it does not.
@@ -350,10 +385,12 @@ export function evalGateDomain(G, rule, isDerived) {
       : isNe(op) ? m !== v
         : op === 'in' ? set.includes(m)
           : /* nin */ !set.includes(m));
-    const anyTrue = G.enum.some(holds);
-    const anyFalse = G.enum.some((m) => !holds(m));
+    const anyTrue = domain.some(holds);
+    const anyFalse = domain.some((m) => !holds(m));
     if (isDerived) {
-      // WITNESS: pass iff the corpus witnesses the selected branch reachable. Never a fail.
+      // WITNESS: pass iff the corpus witnesses the selected branch reachable (against the enum when
+      // declared, else against the exact observed numeric points — NEVER the min/max envelope). Never a
+      // fail either way.
       if (anyTrue) { checksRun.push('gate-value-witness'); }
       else undecided.push('derived-domain-does-not-witness-branch');
     } else {
@@ -396,7 +433,14 @@ export function checkGateRule(gate, rule, producerId, chainToolIds, ctx) {
   const checksRun = [];
 
   const outSchema = ctx.outSchema(producerId);
-  const resolves = pointerResolvesInSchema(gate.input, outSchema);
+  // ⛔⛔ CHAIN-FV-L2G-GENERATOR-1 — resolve the FULL gate pointer (not just its top segment) against the
+  // RAW output_schema object, so a nested gate input like `/ratios/total_capital_pass` resolves against
+  // a real nested sub-schema instead of stopping dead at the top-level `type: "object"`. `outSchema`
+  // (the L1-abstracted top-fields-only form) is kept only for the "did the producer publish anything at
+  // all" tests below — unchanged in every branch that doesn't need per-field resolution.
+  const rawOutSchema = ctx.outSchemaRaw ? ctx.outSchemaRaw(producerId) : null;
+  const resolvedProp = resolveSchemaPointer(rawOutSchema, gate.input);
+  const resolves = !!resolvedProp;
   if (!resolves) {
     // §2.3's honesty rule generalises here: a pointer failing to resolve is a witness-producible
     // fail ONLY when the producer has PUBLISHED an output_schema that positively omits the field —
@@ -418,8 +462,7 @@ export function checkGateRule(gate, rule, producerId, chainToolIds, ctx) {
     }
   } else {
     checksRun.push('gate-pointer');
-    const top = gate.input.slice(1).split('/')[0];
-    const G = ctx.outConstraint(producerId, `/${top}`);
+    const G = extractConstraint(resolvedProp);
     if (G && G.source && ctx.verifySource(G.source).ok) {
       // ⛔ RESCOPE-3: a derived (fixture-witnessed) domain may decide a pass but NEVER a fail.
       const isDerived = !!(G.source && G.source.kind === 'derived');
@@ -1003,22 +1046,25 @@ function loadEstate(root) {
     const m = manifestOf(id);
     return !!(m && m.input_schema && Array.isArray(m.input_schema.required) && m.input_schema.required.includes(field));
   }
+  // ⛔ CHAIN-FV-L2G-GENERATOR-1: nested-pointer aware (uses the full RFC 6901 walk, same as
+  // resolveSchemaPointer's schema-side counterpart) — a gate pointer 2-3 segments deep now checks
+  // fixture presence at the REAL nested location, not just whether its top segment exists.
   function pointerResolvesInFixturesOnly(id, pointer) {
-    const top = pointer.startsWith('/') ? pointer.slice(1).split('/')[0] : pointer;
     const fx = fixturesOf(id);
     const vecs = ((fx && fx.vectors) || []).map((v) => v.output_payload).filter(Boolean);
-    return vecs.some((v) => v && Object.prototype.hasOwnProperty.call(v, top));
+    return vecs.some((v) => v && resolvePointer(v, pointer).found);
   }
   // ⛔ CANDIDATES for an authoring row to LOOK at, never evidence and never a citation (spec §1.2).
   // Nothing in the verdict path may ever call this — it feeds gateAuthoringInstruction alone.
+  // ⛔ CHAIN-FV-L2G-GENERATOR-1: nested-pointer aware, same reasoning as pointerResolvesInFixturesOnly.
   function fixtureObservedValues(id, pointer) {
-    const top = pointer.startsWith('/') ? pointer.slice(1).split('/')[0] : pointer;
     const fx = fixturesOf(id);
     const seen = [];
     for (const v of ((fx && fx.vectors) || [])) {
       const op = v && v.output_payload;
-      if (op && Object.prototype.hasOwnProperty.call(op, top)) {
-        const val = op[top];
+      const r = op ? resolvePointer(op, pointer) : { found: false };
+      if (r.found) {
+        const val = r.value;
         if (val === null || typeof val !== 'object') { if (!seen.includes(val)) seen.push(val); }
       }
     }
@@ -1048,6 +1094,7 @@ function loadEstate(root) {
     ctx: {
       outSchema, inSchema, outConstraint, inConstraint, consumerRequired,
       pointerResolvesInFixturesOnly, fixtureObservedValues, verifySource, authorSite, outSchemaIsDerived,
+      outSchemaRaw: outputSchemaObj,
     },
   };
 }

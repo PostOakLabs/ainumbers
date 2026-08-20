@@ -13,7 +13,9 @@ import {
   checkMappedField, checkGateRule, checkL2Edge, checkL2Chain, extractConstraint, resolvePointer,
   measuredL2Precision, ADJUDICATED_L2_EDGES,
   checkSharedInputField, checkSharedInputs, checkProvenanceThreading, gateAuthoringInstruction,
+  resolveSchemaPointer,
 } from './check-chain-l2-contracts.mjs';
+import { deriveField, deriveSidecar } from './gen-output-schema.mjs';
 
 let failures = 0;
 function check(name, cond) {
@@ -47,10 +49,10 @@ function makeCtx(manifests, { fixtureOutputs = {}, snapshotDigests = {}, derived
       const m = manifests[id];
       return !!(m && m.input_schema && (m.input_schema.required || []).includes(field));
     },
-    pointerResolvesInFixturesOnly: (id, pointer) => {
-      const top = pointer.startsWith('/') ? pointer.slice(1).split('/')[0] : pointer;
-      return !!(fixtureOutputs[id] && Object.prototype.hasOwnProperty.call(fixtureOutputs[id], top));
-    },
+    // ⛔ CHAIN-FV-L2G-GENERATOR-1: nested-pointer aware, mirroring the live wiring's resolvePointer walk
+    // (not just top-segment presence) — see `resolveSchemaPointer`'s sibling on the schema side.
+    pointerResolvesInFixturesOnly: (id, pointer) => !!(fixtureOutputs[id] && resolvePointer(fixtureOutputs[id], pointer).found),
+    outSchemaRaw: (id) => (manifests[id] && manifests[id].output_schema) || null,
     verifySource: (source) => {
       if (!source || !source.kind) return { ok: false, reason: 'missing-source' };
       if (source.kind !== 'clause') return { ok: true };
@@ -719,6 +721,139 @@ console.log('── RESCOPE-3 E: derived numeric range — witnessed side passes
   const rDeadish = checkGateRule({ input: '/ratio', rules: [] }, { op: 'lt', value: -5, next: 'end' }, 'prod', ['prod'], ctx);
   check('E-unreachable: ⛔ lt -5 (looks dead over [0,40]) is NEVER a fail on a derived domain',
     rDeadish.findings.length === 0 && rDeadish.undecided_reasons.includes('derived-domain-does-not-witness-branch'));
+}
+
+/* ═══════════════ CHAIN-FV-L2G-GENERATOR-1 — nested pointer, numeric point-witness, null-tolerant enum ═ */
+// Three algorithm extensions over RESCOPE-3, each verified by MUTATION: same fact pattern, one grade or
+// one field flipped, and the verdict must move (SO #34 item 7 / SO #40b).
+
+console.log('── GENERATOR-1 A: nested gate pointer resolves against a real nested sub-schema ──');
+{
+  const nested = (src) => ({ output_schema: { properties: { ratios: { type: 'object', properties: {
+    total_capital_pass: { type: 'boolean', enum: [true], 'x-source': src },
+  } } } } });
+  const gate = { input: '/ratios/total_capital_pass', rules: [{ op: 'eq', value: true, next: 'end' }] };
+
+  const derivedCtx = makeCtx({ prod: nested(DERIVED_SRC(2)) }, { derived: new Set(['prod']) });
+  const derived = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], derivedCtx);
+  check('A-DERIVED: a 2-segment nested pointer resolves and a derived witness decides pass',
+    derived.findings.length === 0 && derived.checks_run.includes('gate-value-witness') && derived.undecided_reasons.length === 0);
+
+  // MUTATION 1 (grade of evidence): same nested field, CITED, enum widened to both members so eq-true
+  // is a live (not always-taken) branch — decides pass identically to the derived case above. Proves
+  // resolution works over a manifest-declared nested schema too, not only a derived sidecar.
+  const citedTwoMember = (src) => ({ output_schema: { properties: { ratios: { type: 'object', properties: {
+    total_capital_pass: { type: 'boolean', enum: [true, false], 'x-source': src },
+  } } } } });
+  const citedCtx = makeCtx({ prod: citedTwoMember(MANIFEST_SRC()) });
+  const cited = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], citedCtx);
+  check('A-CITED: the same nested pointer resolves over a manifest (declared) schema too', cited.findings.length === 0);
+
+  // MUTATION 2 (dead branch): CITED nested enum that can NEVER be true — the checker must actually be
+  // reading the NESTED enum to convict this, proving it did not silently fall back to indeterminate.
+  const deadNested = { output_schema: { properties: { ratios: { type: 'object', properties: {
+    total_capital_pass: { type: 'boolean', enum: [false], 'x-source': MANIFEST_SRC() },
+  } } } } };
+  const deadCtx = makeCtx({ prod: deadNested });
+  const dead = checkGateRule(gate, gate.rules[0], 'prod', ['prod'], deadCtx);
+  check('A-MUTATION: flipping the nested enum to [false] convicts eq-true as a DEAD branch (proves real nested read, not a guess)',
+    dead.findings.length === 1 && dead.findings[0].code === 'gate-value-outside-guarantee');
+
+  // Sibling control: a pointer that does NOT resolve even one segment deep into a published nested
+  // object is a declared contradiction (CITED) — same shape as the flat gate-pointer-unresolved case.
+  const missingCtx = makeCtx({ prod: nested(MANIFEST_SRC()) });
+  const missing = checkGateRule({ input: '/ratios/nonexistent_field' }, gate.rules[0], 'prod', ['prod'], missingCtx);
+  check('A-ABSENT: a nested pointer absent from a published nested schema is gate-pointer-unresolved',
+    missing.findings.some((f) => f.code === 'gate-pointer-unresolved'));
+}
+
+console.log('── GENERATOR-1 B: numeric point-value witnessing — exact observed value decides, the envelope never does ──');
+{
+  const props = { output_schema: { properties: { gross_count: {
+    type: 'number', minimum: 0, maximum: 10, 'x-observed-values': [0, 3, 7], 'x-source': DERIVED_SRC(3),
+  } } } };
+  const ctx = makeCtx({ prod: props }, { derived: new Set(['prod']) });
+
+  const witnessed = checkGateRule({ input: '/gross_count' }, { op: 'eq', value: 0, next: 'end' }, 'prod', ['prod'], ctx);
+  check('B-WITNESSED: eq 0, an EXACT observed point, decides pass',
+    witnessed.findings.length === 0 && witnessed.checks_run.includes('gate-value-witness'));
+
+  // MUTATION: eq 5 sits INSIDE the [0,10] envelope but was never actually observed — must NOT decide,
+  // proving the envelope alone is not treated as a witness (FIXTURES-1's over-claim ruling).
+  const enveloped = checkGateRule({ input: '/gross_count' }, { op: 'eq', value: 5, next: 'end' }, 'prod', ['prod'], ctx);
+  check('B-MUTATION: eq 5 (inside [0,10], never observed) does NOT decide — envelope containment is not a point witness',
+    enveloped.findings.length === 0 && enveloped.undecided_reasons.includes('derived-domain-does-not-witness-branch'));
+
+  // `in` over the exact observed set decides; `in` over a set the corpus never reached does not.
+  const inHit = checkGateRule({ input: '/gross_count' }, { op: 'in', value: [3, 99], next: 'end' }, 'prod', ['prod'], ctx);
+  check('B-in-hit: `in [3,99]` witnessed via the observed member 3', inHit.checks_run.includes('gate-value-witness'));
+  const inMiss = checkGateRule({ input: '/gross_count' }, { op: 'in', value: [4, 99], next: 'end' }, 'prod', ['prod'], ctx);
+  check('B-in-miss: `in [4,99]` unwitnessed — neither 4 nor 99 was ever observed',
+    inMiss.undecided_reasons.includes('derived-domain-does-not-witness-branch'));
+
+  // Sibling control: a CITED numeric field (manifest, no x-observed-values) never gets the point-witness
+  // fallback — an eq/in gate against a bare numeric range stays undecided, same as before this row.
+  const citedNumeric = { output_schema: { properties: { gross_count: { type: 'number', minimum: 0, maximum: 10, 'x-source': MANIFEST_SRC() } } } };
+  const citedCtx = makeCtx({ prod: citedNumeric });
+  const citedR = checkGateRule({ input: '/gross_count' }, { op: 'eq', value: 0, next: 'end' }, 'prod', ['prod'], citedCtx);
+  check('B-CITED-numeric: a CITED range with no observed-values set never falls back to point-witnessing',
+    citedR.undecided_reasons.includes('insufficient-declared-domain'));
+}
+
+console.log('── GENERATOR-1 C: null-tolerant enum — null is a witnessed member, not a derivation blocker ──');
+{
+  // Pure deriveField control: string values mixed with null now still enumerate (previously: no enum
+  // at all once null appeared, even with a low-cardinality non-null set).
+  const prop = deriveField(['escalate', null, 'USD', 'escalate']);
+  check('C-PURE: a string+null field still derives an enum', Array.isArray(prop.enum));
+  check('C-PURE: the enum includes null as a real member', prop.enum.includes(null));
+  check('C-PURE: the enum includes every distinct non-null string', prop.enum.includes('USD') && prop.enum.includes('escalate'));
+  check('C-PURE: MUTATION — an all-null field still enumerates ([null]), never silently blocked',
+    Array.isArray(deriveField([null, null]).enum) && deriveField([null, null]).enum.length === 1 && deriveField([null, null]).enum[0] === null);
+
+  // Checker-level control: the null-tolerant enum decides a gate, including eq against null itself.
+  const nullTolerant = { output_schema: { properties: { currency: { type: ['null', 'string'], enum: ['USD', 'escalate', null], 'x-source': DERIVED_SRC(4) } } } };
+  const ctx = makeCtx({ prod: nullTolerant }, { derived: new Set(['prod']) });
+  const eqNull = checkGateRule({ input: '/currency' }, { op: 'eq', value: null, next: 'end' }, 'prod', ['prod'], ctx);
+  check('C-eq-null: eq null is witnessed by the recorded null member and decides pass',
+    eqNull.findings.length === 0 && eqNull.checks_run.includes('gate-value-witness'));
+  const eqUsd = checkGateRule({ input: '/currency' }, { op: 'eq', value: 'USD', next: 'end' }, 'prod', ['prod'], ctx);
+  check('C-eq-USD: eq "USD" still decides over the same null-tolerant enum', eqUsd.findings.length === 0);
+  const eqMiss = checkGateRule({ input: '/currency' }, { op: 'eq', value: 'unseen', next: 'end' }, 'prod', ['prod'], ctx);
+  check('C-MUTATION: eq "unseen" (not a member, not null) stays unwitnessed — the null tolerance does not over-claim other values',
+    eqMiss.undecided_reasons.includes('derived-domain-does-not-witness-branch'));
+}
+
+console.log('── GENERATOR-1 D: gen-output-schema.mjs deriveField/deriveSidecar — pure, no filesystem ──');
+{
+  // (a) nested object recursion, mirroring the FIXTURES-1 art-433/art-481-shape producers.
+  const nestedVals = [{ total_capital_pass: true, other: 1 }, { total_capital_pass: false, other: 2 }];
+  const nestedProp = deriveField(nestedVals, { kind: 'derived', note: 'x', vectors: 2 });
+  check('D-nest: an object-typed field derives nested `properties`', !!nestedProp.properties && !!nestedProp.properties.total_capital_pass);
+  check('D-nest: the nested leaf carries its own boolean enum', JSON.stringify(nestedProp.properties.total_capital_pass.enum) === JSON.stringify([false, true]));
+  check('D-nest: the nested leaf is stamped with x-source too (checker needs it at any depth)', nestedProp.properties.total_capital_pass['x-source'].kind === 'derived');
+
+  // (b) numeric point-value witness alongside minimum/maximum, never instead of them.
+  const numProp = deriveField([0, 3, 7, 3]);
+  check('D-numeric: minimum/maximum still derived', numProp.minimum === 0 && numProp.maximum === 7);
+  check('D-numeric: x-observed-values is the exact distinct point set, sorted', JSON.stringify(numProp['x-observed-values']) === JSON.stringify([0, 3, 7]));
+  check('D-numeric: no `enum` is fabricated for a numeric field (a range stays the honest witness)', numProp.enum === undefined);
+
+  // deriveSidecar end-to-end: two vectors, one nested field, one numeric field, x-source stamped at
+  // both the top and the nested level from the SAME xsource object.
+  const sidecar = deriveSidecar('art-test-nested', 'sha256:deadbeef', [
+    { ratios: { total_capital_pass: true }, gross_count: 3 },
+    { ratios: { total_capital_pass: true }, gross_count: 7 },
+  ]);
+  check('D-sidecar: top-level nested field present', !!sidecar.output_schema.properties.ratios.properties.total_capital_pass);
+  check('D-sidecar: nested leaf x-source cites the same digest as the top-level stamp',
+    sidecar.output_schema.properties.ratios.properties.total_capital_pass['x-source'].note.includes('sha256:deadbeef')
+    && sidecar.output_schema.properties.gross_count['x-source'].note.includes('sha256:deadbeef'));
+
+  // resolveSchemaPointer walks a raw sidecar-shaped schema exactly the way the checker will.
+  const resolved = resolveSchemaPointer(sidecar.output_schema, '/ratios/total_capital_pass');
+  check('D-resolve: resolveSchemaPointer finds the nested leaf in a real generated sidecar', !!resolved && resolved.enum.includes(true));
+  check('D-resolve: a pointer one segment too deep does not resolve', resolveSchemaPointer(sidecar.output_schema, '/ratios/total_capital_pass/x') === null);
 }
 
 console.log(failures === 0 ? '\n✓ chain L2 contract-composition selftest: all controls passed' : `\n✗ ${failures} control(s) FAILED`);
