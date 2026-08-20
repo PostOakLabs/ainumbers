@@ -143,6 +143,7 @@ function nodeRelHref(n) {
   return (n.url || '').replace('https://ainumbers.co/', '');
 }
 const ocgNodes = (cg.nodes || [])
+  .filter(n => n.status === 'live')
   .slice()
   .sort((a, b) => (a.tool_id || '').localeCompare(b.tool_id || ''))
   .map(n => ({
