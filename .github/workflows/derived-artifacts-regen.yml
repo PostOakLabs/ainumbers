@@ -16,23 +16,23 @@ name: Derived Artifacts Regen
 # scripts/derived-artifacts.mjs — which preflight.mjs also reads for its
 # PR-advisory / main-blocking split. One SSOT, no second enumeration to drift.
 #
-# ASSEMBLE-MAINSIDE-1 (SO #35 extended, 2026-08-20): chaingraph.json joined
-# this set (COVERED id 'chaingraph-assemble') — a single-kernel K row's PR no
-# longer needs a human-staged ASSEMBLE row; this workflow assembles it after
-# merge, exactly like catalogs/sitemap. Its generator (assemble-chaingraph.mjs)
-# is also the refusal gate: node removal/rename or any graph/chains/ change
-# makes it leave chaingraph.json untouched (a distinct no-write state, not a
-# failure) — those stay explicit ASSEMBLE/LAND rows. Validated against the §15
-# gate suite before staging (see "Validate against the §15 gate suite" step).
+# chaingraph.json joined this set (COVERED id 'chaingraph-assemble') — a
+# single-kernel PR no longer needs a separate hand-staged commit to assemble
+# it; this workflow assembles it after merge, exactly like catalogs/sitemap.
+# Its generator (assemble-chaingraph.mjs) is also the refusal gate: a node
+# removal/rename or any graph/chains/ change makes it leave chaingraph.json
+# untouched (a distinct no-write state, not a failure) — those stay a
+# separate, explicit hand-assembled commit. Validated against the §15 gate
+# suite before staging (see "Validate against the §15 gate suite" step).
 
 on:
   push:
     branches: [ main ]
-  # SO #40a: any main-only workflow (push/schedule/release-triggered) must also
-  # accept a dry-run dispatch so it can be proven end-to-end on a branch before
-  # a real push exercises it — this workflow took four merges to first-run once
-  # (chaingraph-assemble is the second thing it now writes, same requirement
-  # applies again). dry_run runs every step except the commit/push.
+  # A main-only workflow like this one should be provable end-to-end on a
+  # branch before a real push exercises it for the first time — this workflow
+  # took four merges to first-run once (chaingraph-assemble is the second
+  # thing it now writes, same requirement applies again). dry_run runs every
+  # step except the commit/push.
   workflow_dispatch:
     inputs:
       dry_run:
@@ -101,18 +101,18 @@ jobs:
 
       - name: Regenerate every covered artifact
         # Stops on the first generator failure — a half-regenerated tree must
-        # never reach a commit. chaingraph.json is one of the covered artifacts
-        # (ASSEMBLE-MAINSIDE-1) — its generator (assemble-chaingraph.mjs) is
-        # itself the refusal gate for out-of-scope diffs: a node removal/rename
-        # or a graph/chains/ change makes it print a notice and leave the file
-        # untouched (exit 0, not a failure) rather than write something a human
-        # ASSEMBLE/LAND row was supposed to land.
+        # never reach a commit. chaingraph.json is one of the covered
+        # artifacts — its generator (assemble-chaingraph.mjs) is itself the
+        # refusal gate for out-of-scope diffs: a node removal/rename or a
+        # graph/chains/ change makes it print a notice and leave the file
+        # untouched (exit 0, not a failure) rather than auto-write something
+        # that needs an explicit, reviewed commit instead.
         run: node scripts/derived-artifacts.mjs --regen
 
-      # ASSEMBLE-MAINSIDE-1: §15 gate suite validates the regenerated tree
-      # BEFORE anything is staged or committed. A red run here stops the job —
-      # no commit step executes — so a bad assemble is a visible failed run,
-      # never a partial write (SO #34c / row done-criterion).
+      # §15 gate suite validates the regenerated tree BEFORE anything is
+      # staged or committed. A red run here stops the job — no commit step
+      # executes — so a bad assemble is a visible failed run, never a
+      # partial write.
       - name: Validate against the §15 gate suite (SPEC.md conformance)
         run: |
           node chaingraph/standard/schema-validate.mjs
@@ -175,7 +175,7 @@ jobs:
             git diff --cached --stat
           fi
 
-      # SO #40a dry-run: print exactly what the commit step would have staged,
+      # Dry-run report: print exactly what the commit step would have staged,
       # then stop — no push, no mutation of main, regardless of the change flag.
       - name: Dry-run report (no commit)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
