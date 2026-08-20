@@ -267,6 +267,13 @@ const GATES = [
     ? TOUCHED_KERNEL_IDS.map((id) => [`Kernel preflight (${id})`, `node scripts/kernel-preflight.mjs ${id}`])
     : [['Kernel preflight (KERNEL-PREFLIGHT-1: no kernel/floor file touched, skipped)', 'node -e "1"',
         { notRun: 'KERNEL-PREFLIGHT-1 scoping — this push touches no chaingraph/kernels/*.kernel.mjs or __proptests__/*.proptest.mjs, so no per-kernel check was run' }]]),
+  // NODE-COMPLETENESS-GATE-1: is a node WHOLE, not just individually-fenced-clean —
+  // identity freshness, registration, url resolution, node-page-or-pageless, fixtures+
+  // proptest, all recomputed from primary sources (SO #34). --all-changed does its OWN
+  // git-diff-vs-origin/main scoping to chaingraph/graph/nodes/*.json and
+  // chaingraph/kernels/*.kernel.mjs internally (see scripts/check-node-complete.mjs), so
+  // this single entry self-scopes — no touched-file plumbing needed here.
+  ['Node completeness (NODE-COMPLETENESS-GATE-1)', 'node scripts/check-node-complete.mjs --all-changed'],
   // WARN-ONLY BY DESIGN (PAGEDET-GATE-1): 28 pre-existing page defects are
   // baselined, and the flag makes even a NEW one report rather than block. A gate
   // that reds main on a pre-existing condition gets switched off; this one is here
