@@ -237,7 +237,10 @@ export const COVERED = [
     // assembling, closing that gap at the source.
     regen: 'node scripts/assemble-chaingraph.mjs --enroll',
     gate: 'node scripts/assemble-chaingraph.mjs --check',
-    artifacts: ['chaingraph/chaingraph.json'],
+    // chaingraph.meta.json (ENROLL-DECLARE-META-1): --enroll appends new node
+    // ids to order.nodes in this file. Undeclared, this write escaped the
+    // anti-escape guard and failed the whole regen run (RED-MAIN incident).
+    artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
   },
   {
