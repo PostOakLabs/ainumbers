@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (628 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (629 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6766,6 +6766,16 @@ window.CHAINBUILDER_CATALOG = [
       "451-sr11-7-model-risk-management-gap-assessor",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-662-odnsf-fee-recompute",
+    "display_name": "Overdraft / NSF Fee Recomputation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/662-odnsf-fee-recompute.html",
+    "description": "Independently recomputes overdraft (OD) and non-sufficient-funds (NSF) fee events from a caller-supplied posted-transaction ledger and openi",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
