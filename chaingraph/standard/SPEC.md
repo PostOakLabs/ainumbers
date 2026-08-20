@@ -3485,8 +3485,24 @@ so a copyrighted primary-source excerpt (e.g. a FASB ASU) is never committed to 
 published standard; some are pure math or format converters. A node declares itself in scope by setting
 `standards_basis: "implements_standard"`, or explicitly out of scope by setting
 `standards_basis: "not_applicable"`. There is no silent default: `check-clause-digest.mjs` REQUIRES one
-of the two values on every NEW or CHANGED node (branch-aware, the same detection
-`check-shard-assembly.mjs` uses), and a node carrying neither value fails the gate naming itself.
+of the three values (`implements_standard`, `not_applicable`, `cites_informative`) on every NEW or
+CHANGED node (branch-aware, the same detection `check-shard-assembly.mjs` uses), and a node carrying
+none of them fails the gate naming itself.
+
+**§30.3a `cites_informative` — retrieval provenance without a conformance claim (NORMATIVE, added
+`NODE-CITATION-CLASS-FIX-1`, 2026-08-20).** A node's citations are retrieval provenance only; the node
+makes no conformance claim against the cited text; SIDEBYSIDE (SO #39) and PROVE gates treat it as
+non-standards-implementing. This is the metadata-side twin of `KERNEL-CITATION-CLASS-1`'s separation of
+kernel behaviour from citation: a node whose own kernel disclaims any compliance claim against a cited
+text (e.g. a `regulatory_framework`/`not_proven` string stating the citation is informative only) but
+whose `compute()` still exercises none of the clause's operative requirements declares
+`standards_basis: "cites_informative"` instead of `"implements_standard"`. It is NOT the `not_applicable`
+opt-out — `not_applicable` is for nodes with no standards citation at all (pure math/format-conversion);
+`cites_informative` is for nodes that DO cite a standard for context and MUST therefore still carry
+retrieval provenance. Consequently `cites_informative` REQUIRES a non-empty `cited_clause_digest[]`,
+identically to `implements_standard` (§30.5) — it is a provenance class, not an opt-out from §30.1/§30.2.
+`check-clause-digest.mjs` and the `#39` SIDEBYSIDE/PROVE pipeline MUST NOT treat `cites_informative` as a
+standards-implementing declaration.
 
 **§30.4 Scope — new/changed nodes only (NORMATIVE).** Consistent with §28.5 and every other profile in
 this standard, §30 imposes no retrofit obligation. A pre-existing node with no `standards_basis`

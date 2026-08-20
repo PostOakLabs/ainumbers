@@ -13,11 +13,15 @@
  * measured false-positive. check-chain-citation.mjs carries the same latent defect and is reported,
  * not fixed, here — it is outside this gate's fence. A PRE-EXISTING/untouched node is never gated,
  * only counted as a gap):
- *   1. The node declares standards_basis: "implements_standard" | "not_applicable". Neither present
- *      on a touched node is a FAILURE — no silent default (SPEC.md §30.3).
+ *   1. The node declares standards_basis: "implements_standard" | "not_applicable" |
+ *      "cites_informative". None present on a touched node is a FAILURE — no silent default
+ *      (SPEC.md §30.3).
  *   2. "not_applicable" requires nothing further (explicit, honest opt-out).
  *   3. "implements_standard" requires a non-empty cited_clause_digest[], each entry structurally valid
  *      (digest, source_url, retrieved_at, clause_path present).
+ *   3a. "cites_informative" (SPEC.md §30.3a) requires the SAME non-empty, structurally-valid
+ *      cited_clause_digest[] as "implements_standard" — it is a provenance class, not an opt-out —
+ *      but is NOT a standards-implementing declaration for the #39 SIDEBYSIDE/PROVE pipeline.
  *   4. INDEPENDENT DERIVATION (SO #34): every entry's `digest` MUST resolve to a real entry in
  *      chaingraph/standard/clause-snapshot-registry.json — written only by pin-clause-snapshot.mjs,
  *      which itself refuses whole-document-sized excerpts (SPEC.md §30.2). A digest that does not
@@ -119,15 +123,15 @@ const ENTRY_REQUIRED = ['digest', 'source_url', 'retrieved_at', 'clause_path'];
 export function validateNode(node, registryDigests) {
   const reasons = [];
   const basis = node.standards_basis;
-  if (basis !== 'implements_standard' && basis !== 'not_applicable') {
-    reasons.push(`standards_basis missing or invalid (got ${JSON.stringify(basis)}) — must declare "implements_standard" or "not_applicable" (SPEC.md §30.3)`);
+  if (basis !== 'implements_standard' && basis !== 'not_applicable' && basis !== 'cites_informative') {
+    reasons.push(`standards_basis missing or invalid (got ${JSON.stringify(basis)}) — must declare "implements_standard", "not_applicable", or "cites_informative" (SPEC.md §30.3)`);
     return { ok: false, reasons };
   }
   if (basis === 'not_applicable') return { ok: true, reasons: [] };
 
   const entries = Array.isArray(node.cited_clause_digest) ? node.cited_clause_digest : [];
   if (entries.length === 0) {
-    reasons.push('standards_basis is "implements_standard" but cited_clause_digest is empty/missing (SPEC.md §30.1)');
+    reasons.push(`standards_basis is "${basis}" but cited_clause_digest is empty/missing (SPEC.md §30.1${basis === 'cites_informative' ? '/§30.3a' : ''})`);
     return { ok: false, reasons };
   }
   entries.forEach((e, i) => {
@@ -161,7 +165,7 @@ function main() {
     }
     const isTouched = touched.has(rel);
     const basis = node.standards_basis;
-    const undeclared = basis !== 'implements_standard' && basis !== 'not_applicable';
+    const undeclared = basis !== 'implements_standard' && basis !== 'not_applicable' && basis !== 'cites_informative';
 
     if (!isTouched) {
       if (undeclared) gapCount++;
@@ -176,7 +180,7 @@ function main() {
 
   if (failures.length) {
     console.error(`\ncheck-clause-digest: ${failures.length} FAILURE(s) on NEW/CHANGED node(s):\n  ` + failures.join('\n  '));
-    console.error('\nDeclare standards_basis:"implements_standard" with >=1 valid, registry-resolved cited_clause_digest entry, or standards_basis:"not_applicable". See SPEC.md §30.');
+    console.error('\nDeclare standards_basis:"implements_standard" or "cites_informative" with >=1 valid, registry-resolved cited_clause_digest entry, or standards_basis:"not_applicable". See SPEC.md §30.');
     process.exit(1);
   }
 
