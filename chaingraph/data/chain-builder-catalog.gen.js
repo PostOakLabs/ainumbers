@@ -6747,7 +6747,7 @@ window.CHAINBUILDER_CATALOG = [
     "tool_id": "art-653-pta-verifier",
     "display_name": "Pta Verifier",
     "mandate_type": "compliance_control",
-    "url": "https://ainumbers.co/tools/653-pta-verifier.html",
+    "url": "https://ainumbers.co/chaingraph/art-653-pta-verifier.html",
     "description": "Verifies a plain-text-accounting journal supplied as synthetic text: parses dated transactions and their indented postings, checks each tran",
     "consumes": [],
     "feeds": [],
