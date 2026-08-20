@@ -385,20 +385,19 @@ const GATES = [
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
   ['sitemap.xml freshness (DISCOVER-1)', 'node scripts/regen-sitemap.mjs --check'],
   ['sitemap.html freshness (SITEMAP-1)', 'node scripts/gen-sitemap-html.mjs --check'],
-  // REGISTRY-LINEAGE-TILES-BUILD-1: wired here (satisfies check-generator-coverage.mjs's
-  // hard "every --check generator must be invoked by preflight.mjs" rule) but the row
-  // itself is BLOCKED — the F3 lineage log's Sigsum anchoring step (mandatory per
-  // BUILD-SPEC §2.1) hit a persistent HTTP 429 from seasalp.glasklar.is on 2026-08-18, so
-  // NOTHING was ever written to registry/lineage/ (§2.1: publish nothing if that step did
-  // not complete). This gate is therefore EXPECTED RED until a future session re-runs
-  // `node scripts/gen-registry-lineage.mjs` successfully (Sigsum accepting the submission
-  // is the only missing step) and commits the resulting registry/lineage/checkpoint +
-  // tiles. ⛔ Do NOT register registry/lineage/** in scripts/derived-artifacts.mjs yet —
-  // that file's `--check-paths` gate is UNCONDITIONALLY hard (no PR/main advisory split),
-  // so declaring artifacts that don't exist on disk would brick preflight for every push,
-  // exactly the SO #35 sequencing hazard the row's own spec warns about. Registration is
-  // deferred to the PR that lands the first successful publish.
-  ['F3 registry lineage log freshness (REGISTRY-LINEAGE-TILES-BUILD-1, BLOCKED on live Sigsum submission)', 'node scripts/gen-registry-lineage.mjs --check'],
+  // REGISTRY-LINEAGE-TILES-BUILD-1 hit a persistent HTTP 429 from seasalp.glasklar.is
+  // (2026-08-18, unrecognized-domain shared bucket — see SIGSUM-BUDGET-COUNTER-1) and
+  // checked off BLOCKED with nothing published. REGISTRY-LINEAGE-RETRY-1 (2026-08-20)
+  // wired the domain-bound Sigsum submit token into the register-sigsum.mjs invocation,
+  // fixed a WORKSPACE_ROOT bug that broke the research/ key paths from a worktree, added
+  // a skip-if-unchanged guard, and re-ran successfully (HTTP 202, leaf_index 61275).
+  // registry/lineage/** is NOT registered in scripts/derived-artifacts.mjs — see EXCLUDED
+  // there: the C2SP tlog-tiles layout writes a new filename on every record append (old
+  // partial tiles are left in place by design), which is incompatible with that file's
+  // fixed literal `artifacts` list and the regen workflow's whole-tree anti-escape guard.
+  // This --check gate (read-only recompute-and-verify) is the safe, standing freshness
+  // check; publishing new records stays a manual/generated run, same as this one.
+  ['F3 registry lineage log freshness (REGISTRY-LINEAGE-RETRY-1)', 'node scripts/gen-registry-lineage.mjs --check'],
   ['EUC register entries freshness (EUC-SITE-1)', 'node scripts/gen-euc-register.mjs --check'],
   ['EUC register page freshness (EUC-SITE-1)', 'node scripts/gen-euc-register-page.mjs --check'],
   ['Clause edge report freshness (CLAUSE-EDGE-TYPES-1)', 'node scripts/gen-clause-edge-report.mjs --check'],
