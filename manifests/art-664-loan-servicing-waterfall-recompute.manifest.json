@@ -1,0 +1,83 @@
+{
+  "tool_id": "art-664-loan-servicing-waterfall-recompute",
+  "version": "1.0.0",
+  "title": "Loan Servicing Waterfall Recompute",
+  "description": "Independently recomputes how a single borrower's single loan payment applies across escrow, fee, interest and principal buckets under the note's own caller-declared bucket application order, then diffs the recomputed per-bucket breakdown against the core's actual applied amounts. The application order, pre-payment bucket balances and payment amount are all caller-declared contract terms -- this node asserts no universal statutory application order and infers none. Verdict is MATCHES, DIVERGES (with per-bucket deltas), or INDETERMINATE whenever a required input -- a declared bucket's balance, or the core's applied breakdown to diff against -- is absent. Recompute and receipt only; this is not a claim that either side's figure is the legally correct one.",
+  "category": "chaingraph",
+  "tags": ["loan-servicing", "payment-waterfall", "payment-application", "escrow", "core-verify", "recompute", "mcp:compute_loan_servicing_waterfall_recompute"],
+  "audience": ["compliance", "servicing-ops", "examiner", "agent"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "application_order": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Ordered, unique, non-empty list of bucket ids the note's own payment-application order declares (e.g. late_fee, escrow_shortage, escrow, interest, principal). A contract term -- never chosen or inferred by this tool."
+      },
+      "bucket_balances": {
+        "type": "object",
+        "description": "Map of bucket id -> pre-payment owed balance, in integer minor units (cents). Every bucket named in application_order must have an entry here.",
+        "additionalProperties": { "type": "integer", "minimum": 0 }
+      },
+      "payment_amount": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "The payment amount to allocate, in integer minor units (cents)."
+      },
+      "core_applied": {
+        "type": "object",
+        "description": "Optional: the core's actual applied breakdown, bucket id -> integer minor units, to diff against the recomputed allocation. Omitted -> verdict INDETERMINATE.",
+        "additionalProperties": { "type": "integer" }
+      }
+    },
+    "required": ["application_order", "bucket_balances", "payment_amount"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "application_order": { "type": ["array", "null"] },
+      "payment_amount": { "type": ["integer", "null"] },
+      "computed_applied_by_bucket": { "type": ["object", "null"] },
+      "unapplied_remainder": { "type": ["integer", "null"] },
+      "core_applied": { "type": ["object", "null"] },
+      "per_bucket_deltas": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "bucket": { "type": "string" },
+            "in_declared_order": { "type": "boolean" },
+            "computed_applied": { "type": "integer" },
+            "core_applied": { "type": "integer" },
+            "delta": { "type": "integer" }
+          }
+        }
+      },
+      "verdict": { "type": "string", "enum": ["MATCHES", "DIVERGES", "INDETERMINATE"] },
+      "missing_inputs": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_loan_servicing_waterfall_recompute",
+    "description": "Recomputes a single loan payment's application across caller-declared buckets under the note's own bucket application order, and diffs the result against the core's actual applied breakdown, returning MATCHES, DIVERGES (per-bucket deltas), or INDETERMINATE.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_order": { "type": "array", "items": { "type": "string" } },
+        "bucket_balances": { "type": "object" },
+        "payment_amount": { "type": "integer" },
+        "core_applied": { "type": "object" }
+      },
+      "required": ["application_order", "bucket_balances", "payment_amount"]
+    }
+  },
+  "execution": {
+    "type": "server-javascript",
+    "entry": "chaingraph/kernels/art-664-loan-servicing-waterfall-recompute.kernel.mjs",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "chaingraph": true,
+  "source": "authored by CORE-VERIFY-LOANWFALL-1 per CORE-VERIFY-BUILD-SPEC.md's §5, loan-servicing payment-application waterfall recompute chain. Positioning guardrails: independently recompute and receipt only, never a claim of core-vendor endorsement or a universal statutory application order."
+}

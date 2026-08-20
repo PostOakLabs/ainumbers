@@ -1,0 +1,83 @@
+{
+  "tool_id": "664-loan-servicing-waterfall-recompute",
+  "version": "1.0.0",
+  "title": "Loan Servicing Waterfall Recompute",
+  "description": "Independently recomputes how a single loan payment applies across escrow, fee, interest and principal buckets under the note's own declared application order, then diffs the recomputed breakdown against the core's actual applied amounts. The application order, bucket balances and payment amount are all caller-declared contract terms -- this tool never chooses or infers a posting order, and asserts no universal statutory application order. Reports MATCHES, DIVERGES (with per-bucket deltas), or INDETERMINATE whenever a required input is absent. Recompute and receipt only, never a claim of core-vendor endorsement or that either side's figure is legally correct.",
+  "category": "mcp",
+  "tags": [
+    "loan-servicing",
+    "payment-waterfall",
+    "payment-application",
+    "escrow",
+    "core-verify",
+    "recompute",
+    "zero network",
+    "zero-PII"
+  ],
+  "audience": [
+    "compliance",
+    "servicing-ops",
+    "examiner"
+  ],
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "application_order": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Ordered, unique, non-empty list of bucket ids the note's own payment-application order declares"
+      },
+      "bucket_balances": {
+        "type": "object",
+        "description": "Map of bucket id to pre-payment owed balance, integer minor units"
+      },
+      "payment_amount": {
+        "type": "integer",
+        "description": "The payment amount to allocate, integer minor units"
+      },
+      "core_applied": {
+        "type": "object",
+        "description": "Optional: the core's actual applied breakdown to diff against"
+      }
+    },
+    "required": ["application_order", "bucket_balances", "payment_amount"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "computed_applied_by_bucket": { "type": "object" },
+      "unapplied_remainder": { "type": "integer" },
+      "per_bucket_deltas": { "type": "array" },
+      "verdict": { "type": "string", "enum": ["MATCHES", "DIVERGES", "INDETERMINATE"] }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_loan_servicing_waterfall_recompute",
+    "description": "Recomputes a single loan payment's application across caller-declared buckets under the note's own bucket application order, and diffs the result against the core's actual applied breakdown.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "application_order": { "type": "array", "items": { "type": "string" } },
+        "bucket_balances": { "type": "object" },
+        "payment_amount": { "type": "integer" },
+        "core_applied": { "type": "object" }
+      },
+      "required": ["application_order", "bucket_balances", "payment_amount"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/664-loan-servicing-waterfall-recompute.html",
+    "function_name": "runWaterfall",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "last_reviewed": "2026-08-20",
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "prefill": true,
+  "bridge_version": "1.0"
+}
