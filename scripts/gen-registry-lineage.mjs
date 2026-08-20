@@ -390,6 +390,17 @@ export async function generate(opts = {}) {
 
   if (size < oldSize) throw new Error(`new record count (${size}) is SMALLER than the previously published size (${oldSize}) — append-only violated, refusing to publish.`);
 
+  // No new records since the last publish: the already-recomputed-and-verified
+  // on-disk tree is unchanged, so there is nothing to re-anchor. Skip BEFORE any
+  // network call — re-submitting an identical checkpoint to Sigsum on every
+  // invocation would burn add-leaf budget for zero new data on every regen run
+  // (derived-artifacts.mjs's own idempotency contract: a second pass with no
+  // new input must be a true no-op, network calls included).
+  if (size === oldSize) {
+    console.log(`registry-lineage: ${size} record(s), unchanged since last publish (size ${oldSize}) — nothing to anchor, skipping.`);
+    return;
+  }
+
   const oldRoot = oldSize > 0 ? await mth(readLevel0LeafHashes(registryDir, oldSize), 0, oldSize) : new Uint8Array(32);
   const proof = await buildConsistencyProof(oldSize, leafHashes);
   const consistent = await verifyConsistency({ oldSize, newSize: size, oldRoot, newRoot, proof });
