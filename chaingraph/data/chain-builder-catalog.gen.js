@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (629 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (630 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6774,6 +6774,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/662-odnsf-fee-recompute.html",
     "description": "Independently recomputes overdraft (OD) and non-sufficient-funds (NSF) fee events from a caller-supplied posted-transaction ledger and openi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-664-loan-servicing-waterfall-recompute",
+    "display_name": "Loan Servicing Waterfall Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/664-loan-servicing-waterfall-recompute.html",
+    "description": "Independently recomputes how a single borrower's single loan payment applies across escrow, fee, interest and principal buckets under the no",
     "consumes": [],
     "feeds": [],
     "status": "live"
