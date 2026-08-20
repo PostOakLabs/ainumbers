@@ -1,0 +1,244 @@
+{
+  "tool_id": "art-653-pta-verifier",
+  "note": "Golden vectors for the plain-text-accounting verification kernel: journal text -> parse -> double-entry validation -> balance assertions -> Merkle root -> Evidence Envelope v0.1 receipt fields. Synthetic journals only, no real financial data. human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "balanced-two-transactions-with-elided-posting",
+      "policy_parameters": {
+        "journal_text": "2026-01-05 Coffee purchase\n    Expenses:Food           12.50\n    Assets:Cash            -12.50\n\n2026-01-06 Payroll\n    Assets:Bank            2000.00\n    Income:Salary\n"
+      },
+      "output_payload": {
+        "parsed_transaction_count": 2,
+        "balanced_transaction_count": 2,
+        "imbalanced_transactions": [],
+        "balance_assertions_checked": 0,
+        "balance_assertion_failures": [],
+        "unsupported_directives": [],
+        "accounts": {
+          "Assets:Bank": 200000,
+          "Assets:Cash": -1250,
+          "Expenses:Food": 1250,
+          "Income:Salary": -200000
+        },
+        "merkle_root": "sha256:6836f25c5afe280d4ac2404b7d385d1f47f5ae2cde1c6d7e7523d70168618dd2",
+        "evidence_envelope": {
+          "schema": "ainumbers.evidence.v0.1",
+          "event_type": "journal_verification",
+          "source_adapter": "native-tool",
+          "result_status": "success",
+          "input_hash": "sha256:b65bb0a89802c2dd19f8e9d76f241b5fe22408651ae48d6a99ea05a552b900cc",
+          "output_hash": "sha256:2a216f98de17b9c1b1db5bb343284222a4878c43a70502d8a4ec2fdb18f5fd48",
+          "links": [],
+          "extensions": {
+            "transaction_count": 2,
+            "balanced_transaction_count": 2,
+            "imbalanced_count": 0,
+            "balance_assertions_checked": 0,
+            "balance_assertion_failure_count": 0,
+            "unsupported_directive_count": 0
+          },
+          "unprotected": {
+            "proofs": {
+              "merkle_root": "sha256:6836f25c5afe280d4ac2404b7d385d1f47f5ae2cde1c6d7e7523d70168618dd2"
+            }
+          }
+        }
+      },
+      "golden_hash": "71aa697b4ec3e9672590154ca863965134fb6cff167b246f8aa0f4cd258d44bf"
+    },
+    {
+      "name": "imbalanced-single-transaction",
+      "policy_parameters": {
+        "journal_text": "2026-01-07 Bad entry\n    Expenses:Misc            5.00\n    Assets:Cash              -4.00\n"
+      },
+      "output_payload": {
+        "parsed_transaction_count": 1,
+        "balanced_transaction_count": 0,
+        "imbalanced_transactions": [
+          {
+            "index": 0,
+            "date": "2026-01-07",
+            "description": "Bad entry",
+            "reason": "imbalanced",
+            "imbalance_cents": 100
+          }
+        ],
+        "balance_assertions_checked": 0,
+        "balance_assertion_failures": [],
+        "unsupported_directives": [],
+        "accounts": {
+          "Assets:Cash": -400,
+          "Expenses:Misc": 500
+        },
+        "merkle_root": "sha256:d074f9b5fa137b61d7e13c4c291caa8ac5ca946d8b9ae9f8a1a10976fe0b8681",
+        "evidence_envelope": {
+          "schema": "ainumbers.evidence.v0.1",
+          "event_type": "journal_verification",
+          "source_adapter": "native-tool",
+          "result_status": "error",
+          "input_hash": "sha256:132fb1cc9d3cc9f365e89723e1ccc03c432133ec9228fda542b5eb3cc2ccee7f",
+          "output_hash": "sha256:7f7b8b1804174d756198b54be6043ddb2c88e7a665011221ae6f16be7b12d829",
+          "links": [],
+          "extensions": {
+            "transaction_count": 1,
+            "balanced_transaction_count": 0,
+            "imbalanced_count": 1,
+            "balance_assertions_checked": 0,
+            "balance_assertion_failure_count": 0,
+            "unsupported_directive_count": 0
+          },
+          "unprotected": {
+            "proofs": {
+              "merkle_root": "sha256:d074f9b5fa137b61d7e13c4c291caa8ac5ca946d8b9ae9f8a1a10976fe0b8681"
+            }
+          }
+        }
+      },
+      "golden_hash": "272119ba644b3fe4a9f04722c9852971e5887fbb7ca7f52243c4e71a0d26debe"
+    },
+    {
+      "name": "passing-balance-assertion",
+      "policy_parameters": {
+        "journal_text": "2026-01-01 Opening\n    Assets:Cash            100.00\n    Equity:Opening        -100.00\n\n2026-01-02 Spend\n    Expenses:Food           10.00 = 90.00\n    Assets:Cash            -10.00\n"
+      },
+      "output_payload": {
+        "parsed_transaction_count": 2,
+        "balanced_transaction_count": 2,
+        "imbalanced_transactions": [],
+        "balance_assertions_checked": 1,
+        "balance_assertion_failures": [
+          {
+            "account": "Expenses:Food",
+            "line": 6,
+            "expected_cents": 9000,
+            "actual_cents": 1000
+          }
+        ],
+        "unsupported_directives": [],
+        "accounts": {
+          "Assets:Cash": 9000,
+          "Equity:Opening": -10000,
+          "Expenses:Food": 1000
+        },
+        "merkle_root": "sha256:a08fbea55b06df9b61f40cb9029f51c7432e0f64cd723ab5d33f964bef2d088c",
+        "evidence_envelope": {
+          "schema": "ainumbers.evidence.v0.1",
+          "event_type": "journal_verification",
+          "source_adapter": "native-tool",
+          "result_status": "error",
+          "input_hash": "sha256:26317c0bc323f89521bc8b788b00066a30e01735bd44aa892cabe011e7c07dd6",
+          "output_hash": "sha256:cb3c560f442fb5208c6f7b13650314e19622253b1ec1fc05e6af29a56e1411f5",
+          "links": [],
+          "extensions": {
+            "transaction_count": 2,
+            "balanced_transaction_count": 2,
+            "imbalanced_count": 0,
+            "balance_assertions_checked": 1,
+            "balance_assertion_failure_count": 1,
+            "unsupported_directive_count": 0
+          },
+          "unprotected": {
+            "proofs": {
+              "merkle_root": "sha256:a08fbea55b06df9b61f40cb9029f51c7432e0f64cd723ab5d33f964bef2d088c"
+            }
+          }
+        }
+      },
+      "golden_hash": "c8f49a1386677df79c83afbe9fbf5060f8aeaa4900bfed4715faeed534422662"
+    },
+    {
+      "name": "unsupported-directive-plus-failing-assertion",
+      "policy_parameters": {
+        "journal_text": "account Assets:Cash\n\n2026-01-01 Opening\n    Assets:Cash            100.00\n    Equity:Opening        -100.00\n\n2026-01-02 Spend\n    Expenses:Food           10.00 = 999.00\n    Assets:Cash            -10.00\n"
+      },
+      "output_payload": {
+        "parsed_transaction_count": 2,
+        "balanced_transaction_count": 2,
+        "imbalanced_transactions": [],
+        "balance_assertions_checked": 1,
+        "balance_assertion_failures": [
+          {
+            "account": "Expenses:Food",
+            "line": 8,
+            "expected_cents": 99900,
+            "actual_cents": 1000
+          }
+        ],
+        "unsupported_directives": [
+          {
+            "line": 1,
+            "text": "account Assets:Cash"
+          }
+        ],
+        "accounts": {
+          "Assets:Cash": 9000,
+          "Equity:Opening": -10000,
+          "Expenses:Food": 1000
+        },
+        "merkle_root": "sha256:a08fbea55b06df9b61f40cb9029f51c7432e0f64cd723ab5d33f964bef2d088c",
+        "evidence_envelope": {
+          "schema": "ainumbers.evidence.v0.1",
+          "event_type": "journal_verification",
+          "source_adapter": "native-tool",
+          "result_status": "error",
+          "input_hash": "sha256:fdce28b26526028f5e8112e13a2266c1dd8bb4d32f65c6558438ccd5906af71f",
+          "output_hash": "sha256:f788f0aca54441d3bcc7be8db22e7dc14341f66f374cf580bd9e0ff30303c5e5",
+          "links": [],
+          "extensions": {
+            "transaction_count": 2,
+            "balanced_transaction_count": 2,
+            "imbalanced_count": 0,
+            "balance_assertions_checked": 1,
+            "balance_assertion_failure_count": 1,
+            "unsupported_directive_count": 1
+          },
+          "unprotected": {
+            "proofs": {
+              "merkle_root": "sha256:a08fbea55b06df9b61f40cb9029f51c7432e0f64cd723ab5d33f964bef2d088c"
+            }
+          }
+        }
+      },
+      "golden_hash": "f725ec509ee4a1e7cbeeaa0ac65b0784d5d4a0065bd79a36c577b12473568095"
+    },
+    {
+      "name": "empty-journal",
+      "policy_parameters": {
+        "journal_text": ""
+      },
+      "output_payload": {
+        "parsed_transaction_count": 0,
+        "balanced_transaction_count": 0,
+        "imbalanced_transactions": [],
+        "balance_assertions_checked": 0,
+        "balance_assertion_failures": [],
+        "unsupported_directives": [],
+        "accounts": {},
+        "merkle_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "evidence_envelope": {
+          "schema": "ainumbers.evidence.v0.1",
+          "event_type": "journal_verification",
+          "source_adapter": "native-tool",
+          "result_status": "success",
+          "input_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "output_hash": "sha256:d8526aeb097425c7c595e1a5640ea3252d12cfb93e5397aeaf726847af5cf7c4",
+          "links": [],
+          "extensions": {
+            "transaction_count": 0,
+            "balanced_transaction_count": 0,
+            "imbalanced_count": 0,
+            "balance_assertions_checked": 0,
+            "balance_assertion_failure_count": 0,
+            "unsupported_directive_count": 0
+          },
+          "unprotected": {
+            "proofs": {
+              "merkle_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          }
+        }
+      },
+      "golden_hash": "24fdbcaad14a951f37af37fabd38e7b831b46417324d4787b8fac95e3946975b"
+    }
+  ]
+}
