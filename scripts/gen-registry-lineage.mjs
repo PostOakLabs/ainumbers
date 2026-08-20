@@ -76,13 +76,24 @@ import { cgCanon } from '../chaingraph/kernels/_hash.mjs';
 const subtle = webcrypto.subtle;
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const WORKSPACE_ROOT = resolve(REPO, '..');
+// A worktree's own parent is `.wt/<name>`, not the workspace root — resolve
+// the workspace root via the shared git-common-dir (always the main `repo/.git`,
+// even from a worktree) so internal-artifact paths under `research/` land
+// correctly regardless of which worktree this script runs from.
+const GIT_COMMON_DIR = resolve(REPO, execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: REPO, encoding: 'utf8' }).trim());
+const WORKSPACE_ROOT = resolve(GIT_COMMON_DIR, '../..');
 const RECORDS_PATH = resolve(REPO, 'chaingraph/kernels/registry-lineage-records.json');
 const REGISTRY_DIR = resolve(REPO, 'registry/lineage');
 const CHECKPOINT_PATH = join(REGISTRY_DIR, 'checkpoint');
 const SIGSUM_RECORD_PATH = join(REGISTRY_DIR, 'checkpoint.sigsum-record.json');
 const LOG_PRIVATE_KEY_PATH = resolve(WORKSPACE_ROOT, 'research/registry-lineage-log-key.priv.jwk.json');
 const SIGSUM_SUBMIT_KEY_PATH = resolve(WORKSPACE_ROOT, 'research/sigsum-key.priv.jwk.json');
+// Domain-bound submit token (SIGSUM-BUDGET-COUNTER-1 / SO #8 fix, verified live
+// 2026-08-20): without this, add-leaf falls into seasalp's shared "unknown
+// domain" bucket and 429s. The token key's public half is published as the
+// DNS TXT record at _sigsum_v1.ainumbers.co.
+const SIGSUM_TOKEN_KEY_PATH = resolve(WORKSPACE_ROOT, 'research/sigsum-token-key.priv.jwk.json');
+const SIGSUM_DOMAIN = 'ainumbers.co';
 const REGISTER_SIGSUM_SCRIPT = resolve(REPO, 'scripts/register-sigsum.mjs');
 
 const ORIGIN = 'ainumbers.co/registry/lineage';
@@ -318,7 +329,10 @@ function submitCheckpointToSigsum(checkpointBytes) {
   return (async () => {
     const hashHex = bytesToHex(await sha256(checkpointBytes));
     const outPath = resolve(WORKSPACE_ROOT, `research/registry-lineage-sigsum-record-${Date.now()}.json`);
-    const args = [REGISTER_SIGSUM_SCRIPT, 'register', '--hash', `sha256:${hashHex}`, '--key', SIGSUM_SUBMIT_KEY_PATH, '--out', outPath];
+    const args = [
+      REGISTER_SIGSUM_SCRIPT, 'register', '--hash', `sha256:${hashHex}`, '--key', SIGSUM_SUBMIT_KEY_PATH, '--out', outPath,
+      '--token-key', SIGSUM_TOKEN_KEY_PATH, '--domain', SIGSUM_DOMAIN,
+    ];
     console.log(`▶ submitting checkpoint (sha256:${hashHex}) to Sigsum via register-sigsum.mjs …`);
     let stdout;
     try {
