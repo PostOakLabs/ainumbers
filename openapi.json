@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1160 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1161 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2352,6 +2352,9 @@
       "name": "core verify"
     },
     {
+      "name": "core-verify"
+    },
+    {
       "name": "corporate-action"
     },
     {
@@ -2833,6 +2836,9 @@
     },
     {
       "name": "escalation"
+    },
+    {
+      "name": "escrow"
     },
     {
       "name": "esma"
@@ -3480,6 +3486,9 @@
       "name": "liquidity_mandate"
     },
     {
+      "name": "loan-servicing"
+    },
+    {
       "name": "loss-development-factor"
     },
     {
@@ -4023,10 +4032,16 @@
       "name": "payment stablecoin"
     },
     {
+      "name": "payment-application"
+    },
+    {
       "name": "payment-fraud"
     },
     {
       "name": "payment-rails"
+    },
+    {
+      "name": "payment-waterfall"
     },
     {
       "name": "payment_mandate"
@@ -4348,6 +4363,9 @@
     },
     {
       "name": "receiving"
+    },
+    {
+      "name": "recompute"
     },
     {
       "name": "reconciliation"
@@ -43678,6 +43696,91 @@
         },
         "x-mcp-tool-name": "compute_odnsf_fee_recompute",
         "x-tool-url": "https://ainumbers.co/tools/662-odnsf-fee-recompute.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/compute_loan_servicing_waterfall_recompute": {
+      "post": {
+        "operationId": "compute_loan_servicing_waterfall_recompute",
+        "summary": "Loan Servicing Waterfall Recompute",
+        "description": "Independently recomputes how a single loan payment applies across escrow, fee, interest and principal buckets under the note's own declared application order, then diffs the recomputed breakdown against the core's actual applied amounts. The application order, bucket balances and payment amount are all caller-declared contract terms -- this tool never chooses or infers a posting order, and asserts no universal statutory application order. Reports MATCHES, DIVERGES (with per-bucket deltas), or INDETERMINATE whenever a required input is absent. Recompute and receipt only, never a claim of core-vendor endorsement or that either side's figure is legally correct.\n\n**Tool URL:** https://ainumbers.co/tools/664-loan-servicing-waterfall-recompute.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "loan-servicing",
+          "payment-waterfall",
+          "payment-application",
+          "escrow",
+          "core-verify",
+          "recompute",
+          "zero network",
+          "zero-PII"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "application_order": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "bucket_balances": {
+                    "type": "object"
+                  },
+                  "payment_amount": {
+                    "type": "integer"
+                  },
+                  "core_applied": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "application_order",
+                  "bucket_balances",
+                  "payment_amount"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "computed_applied_by_bucket": {
+                      "type": "object"
+                    },
+                    "unapplied_remainder": {
+                      "type": "integer"
+                    },
+                    "per_bucket_deltas": {
+                      "type": "array"
+                    },
+                    "verdict": {
+                      "type": "string",
+                      "enum": [
+                        "MATCHES",
+                        "DIVERGES",
+                        "INDETERMINATE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "compute_loan_servicing_waterfall_recompute",
+        "x-tool-url": "https://ainumbers.co/tools/664-loan-servicing-waterfall-recompute.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
