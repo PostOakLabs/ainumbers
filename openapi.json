@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1158 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1159 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -993,6 +993,9 @@
       "name": "NPV"
     },
     {
+      "name": "NSF"
+    },
+    {
       "name": "NYDFS"
     },
     {
@@ -1204,6 +1207,12 @@
     },
     {
       "name": "RefundClaim"
+    },
+    {
+      "name": "Reg DD"
+    },
+    {
+      "name": "Reg E"
     },
     {
       "name": "Rekor"
@@ -2325,6 +2334,9 @@
       "name": "conversion"
     },
     {
+      "name": "core verify"
+    },
+    {
       "name": "corporate-action"
     },
     {
@@ -2938,6 +2950,9 @@
     },
     {
       "name": "fee parity"
+    },
+    {
+      "name": "fee recompute"
     },
     {
       "name": "fg21/1"
@@ -3909,6 +3924,9 @@
       "name": "ov1"
     },
     {
+      "name": "overdraft"
+    },
+    {
       "name": "oversight"
     },
     {
@@ -4084,6 +4102,9 @@
     },
     {
       "name": "post-quantum"
+    },
+    {
+      "name": "posting order"
     },
     {
       "name": "ppsi"
@@ -43503,6 +43524,85 @@
         },
         "x-mcp-tool-name": "rwa_tokenization_cost_model",
         "x-tool-url": "https://ainumbers.co/tools/66-rwa-tokenization-cost-model.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/compute_odnsf_fee_recompute": {
+      "post": {
+        "operationId": "compute_odnsf_fee_recompute",
+        "summary": "Overdraft / NSF Fee Recomputation",
+        "description": "Independently recomputes overdraft (OD) and non-sufficient-funds (NSF) fee events from a caller-pasted posted-transaction ledger, an opening balance, a declared posting-order policy, and a declared fee schedule, then diffs the recomputed fee totals against caller-supplied core-charged fees. Posting order and every fee-schedule term are caller-declared, never chosen or inferred.\n\n**Tool URL:** https://ainumbers.co/tools/662-odnsf-fee-recompute.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "overdraft",
+          "NSF",
+          "fee recompute",
+          "Reg DD",
+          "Reg E",
+          "posting order",
+          "core verify"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ledger",
+                  "fee_schedule"
+                ],
+                "properties": {
+                  "ledger": {
+                    "type": "array",
+                    "description": "Posted transaction rows"
+                  },
+                  "fee_schedule": {
+                    "type": "object",
+                    "description": "Declared fee amounts, caps, dedup and extended-overdrawn terms"
+                  },
+                  "core_charged_fees": {
+                    "type": "array",
+                    "description": "What the core actually charged, to diff against"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verdict": {
+                      "type": "string",
+                      "enum": [
+                        "MATCHES",
+                        "DIVERGES",
+                        "INDETERMINATE"
+                      ]
+                    },
+                    "events": {
+                      "type": "array"
+                    },
+                    "diff": {
+                      "type": "array"
+                    },
+                    "recomputed_fee_events": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "compute_odnsf_fee_recompute",
+        "x-tool-url": "https://ainumbers.co/tools/662-odnsf-fee-recompute.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }

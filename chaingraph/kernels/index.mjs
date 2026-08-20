@@ -581,6 +581,7 @@ import * as art65     from './art-65-ai-conformity-pack-builder.kernel.mjs';
 import * as art651    from './art-651-authzen-conformance-fixture.kernel.mjs';
 import * as art653    from './art-653-pta-verifier.kernel.mjs';
 import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
+import * as art662    from './art-662-odnsf-fee-recompute.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
@@ -1211,6 +1212,7 @@ export const KERNELS = {
   'art-651-authzen-conformance-fixture':                        art651,
   'art-653-pta-verifier':                                       art653,
   'art-66-fria-postmarket-monitoring-builder':                  art66,
+  'art-662-odnsf-fee-recompute':                                art662,
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
