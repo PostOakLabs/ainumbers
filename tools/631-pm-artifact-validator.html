@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Prediction Market Artifact Validator · AINumbers.co</title>
+<meta name="description" content="Paste any pm:* OpenChainGraph prediction/event-market provenance artifact, validate it against the registered SPEC.md §5.1 schema, recompute execution_hash client-side, and render the chain.parent_hashes flow. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/631-pm-artifact-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Prediction Market Artifact Validator","url":"https://ainumbers.co/tools/631-pm-artifact-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.7;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{padding:2rem 0 4rem}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.card-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem}
+.card-note{font-size:.72rem;color:var(--body);line-height:1.7;margin-bottom:.75rem}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:1.6;padding:.65rem .75rem;resize:vertical;min-height:180px;outline:none;transition:border-color .15s}
+textarea:focus{border-color:rgba(20,184,166,.5)}
+textarea::placeholder{color:var(--muted)}
+.btn-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.85rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:var(--radius);border:1px solid;transition:all .15s}
+.btn-primary{background:var(--teal);color:var(--bg);border-color:var(--teal)}
+.btn-primary:hover{background:var(--teal-lt)}
+.btn-ghost{background:transparent;color:var(--body);border-color:var(--border-2)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal-lt)}
+.error-box{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius-lg);padding:.85rem 1.1rem;font-size:.76rem;color:var(--red);display:none;margin-bottom:1.25rem}
+#resultWrap{display:none}
+.artifact-block{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:1rem}
+.ab-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.6rem;flex-wrap:wrap}
+.ab-title{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright)}
+.ab-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;border:1px solid}
+.ab-badge.pass{color:var(--green);border-color:rgba(34,197,94,.35);background:var(--green-dim)}
+.ab-badge.fail{color:var(--red);border-color:rgba(239,68,68,.35);background:var(--red-dim)}
+.rule-list{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.7rem}
+.rule-row{display:flex;gap:.5rem;font-size:.7rem;line-height:1.6}
+.rule-icon{flex-shrink:0;font-family:'JetBrains Mono',monospace}
+.rule-icon.ok{color:var(--green)}
+.rule-icon.bad{color:var(--red)}
+.rule-txt{color:var(--body)}
+.hash-block{background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .85rem}
+.hash-row{margin-bottom:.5rem}
+.hash-row:last-child{margin-bottom:0}
+.hash-lbl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.hash-val{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all}
+.hash-val.mismatch{color:var(--red)}
+.flow-wrap{overflow-x:auto;padding:.5rem 0}
+.flow-svg{display:block}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><a href="../chaingraph/chaingraph-hub.html">ChainGraph Hub</a><span class="nav-sep">/</span><span>PM Artifact Validator</span></div>
+  <div class="nav-right"><a href="../chaingraph/chaingraph-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph &middot; OpenChainGraph v0.4 &middot; pm:* extension</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1>Prediction Market Artifact Validator</h1>
+  <p class="hero-desc">Paste any <code>pm:*</code> provenance artifact (or a JSON array of them forming a chain) and this page checks it against the registered schema (<a href="../chaingraph/standard/SPEC.md" style="color:var(--teal)">SPEC.md §5.1</a>), recomputes its <code>execution_hash</code> client-side, and draws the <code>chain.parent_hashes</code> flow. Format checker only.</p>
+  <div class="disclaimer">⚠ This page checks the SHAPE of a <code>pm:*</code> artifact and RECOMPUTES its stored hash: it verifies, it never creates market state. It runs no oracle, matches no orders, and settles nothing: <code>pm:settlement</code>'s payout field is a verify-only recompute, never an operative transfer. No copy on this page implies AINumbers operates or endorses any prediction market.</div>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">OpenChainGraph</span>
+    <span class="badge badge-gold">pm:*</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="card-label">Artifact JSON</div>
+    <p class="card-note">Paste a single <code>pm:*</code> artifact object, or a JSON array of them (a chain). Each is checked against its registered <code>mandate_type</code>'s required fields, the three agnosticism properties (settlement-mechanism, identity, outcome-structure), and the Corda-tripwire prohibited-language scan, then its <code>execution_hash</code> is recomputed and, when the chain is present, drawn as a flow diagram.</p>
+    <textarea id="artifactInput" placeholder="Paste a pm:* artifact JSON object, or a JSON array of them&#10;or click &quot;Load worked example&quot; below"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runValidator()">▶ Validate</button>
+      <button class="btn btn-ghost" onclick="loadExample()">Load worked example (resolution chain)</button>
+      <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div id="resultWrap">
+    <div id="artifactResults"></div>
+    <div class="card" id="flowCard" style="display:none">
+      <div class="card-label">chain.parent_hashes flow</div>
+      <p class="card-note">Boxes are artifacts present in the pasted input, linked by matching <code>chain.parent_hashes</code> against each other artifact's recomputed <code>execution_hash</code>. A referenced hash not present in the input renders as an external/unresolved parent.</p>
+      <div class="flow-wrap" id="flowWrap"></div>
+    </div>
+  </div>
+
+</div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run Validate above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../chaingraph/chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../chaingraph/verify.html">Artifact Verifier</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   OCG CANONICALIZATION + HASH — inlined from chaingraph/kernels/_hash.mjs
+   Byte-faithful copy: cgCanon / canonicalPreimage / executionHash.
+   Source of truth: chaingraph/kernels/_hash.mjs — OCG Standard §2/§6.
+   ───────────────────────────────────────────────────────────────── */
+function assertIJson(v) {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('Non-finite number is not valid I-JSON.');
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('Integer exceeds 2^53 — not safe I-JSON.');
+  } else if (Array.isArray(v)) {
+    v.forEach(assertIJson);
+  } else if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) assertIJson(v[k]);
+  }
+}
+function cgCanon(v) {
+  if (Array.isArray(v)) return v.map(cgCanon);
+  if (v && typeof v === 'object') return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});
+  return v;
+}
+function canonicalPreimage(policy_parameters, output_payload) {
+  const obj = { policy_parameters, output_payload };
+  assertIJson(obj);
+  return JSON.stringify(cgCanon(obj));
+}
+async function executionHash(policy_parameters, output_payload) {
+  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function normHash(h) { return typeof h === 'string' ? h.replace(/^sha256:/i, '').toLowerCase() : h; }
+
+/* ─────────────────────────────────────────────────────────────────
+   REGISTERED pm:* SCHEMA — SPEC.md §5.1 (normative), verbatim field
+   lists. Deterministic required-field + agnosticism checks only.
+   ───────────────────────────────────────────────────────────────── */
+const PM_SCHEMA = {
+  market_definition: {
+    tool_id_prefix: 'pm:define_market',
+    policy_required: ['question', 'outcomes', 'settlement_asset', 'settlement_mode', 'trading_rules', 'fee_rules', 'resolution_source_profile', 'resolution_window'],
+    output_required: ['market_id', 'start_time', 'end_time'],
+  },
+  trade_order: {
+    tool_id_prefix: 'pm:order',
+    policy_required: ['market_id', 'outcome_selected', 'quantity', 'price_limit', 'timestamp', 'participant_ref', 'signature'],
+    output_required: ['order_id', 'status'],
+  },
+  trade_execution: {
+    tool_id_prefix: 'pm:trade',
+    policy_required: ['buy_order_execution_hash', 'sell_order_execution_hash', 'match_quantity', 'match_price'],
+    output_required: ['trade_id', 'filled_quantity', 'timestamp'],
+  },
+  position_update: {
+    tool_id_prefix: 'pm:position',
+    policy_required: ['trade_execution_hash', 'participant_ref'],
+    output_required: ['new_position'],
+  },
+  resolution_evidence: {
+    tool_id_prefix: 'pm:evidence_root',
+    policy_required: ['attester_signatures', 'evidence_hash', 'resolution_method'],
+    output_required: ['evidence_root'],
+  },
+  resolution_certificate: {
+    tool_id_prefix: 'pm:resolver',
+    policy_required: ['evidence_root_execution_hash'],
+    output_required: ['outcome'],
+  },
+  settlement: {
+    tool_id_prefix: 'pm:settlement',
+    policy_required: ['market_definition_hash', 'outcome', 'all_positions'],
+    output_required: ['payouts'],
+  },
+};
+
+function hasKey(obj, k) { return obj && typeof obj === 'object' && k in obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== ''; }
+
+function scanForBannedTerms(node, hits, path) {
+  if (typeof node === 'string') {
+    if (/\baccept(ed|s|ance)?\b/i.test(node) || /\bfinal(ity|ize)\b/i.test(node)) hits.push(path + ': "' + node.slice(0, 80) + '"');
+    return;
+  }
+  if (Array.isArray(node)) { node.forEach((v, i) => scanForBannedTerms(v, hits, path + '[' + i + ']')); return; }
+  if (node && typeof node === 'object') {
+    if ('side' in node && /^(yes|no)$/i.test(String(node.side))) hits.push(path + '.side: bare YES/NO — outcome-structure-agnosticism violation');
+    for (const k of Object.keys(node)) scanForBannedTerms(node[k], hits, path ? path + '.' + k : k);
+  }
+}
+
+function validateArtifact(a) {
+  const rules = [];
+  const mt = a && a.mandate_type;
+  const schema = PM_SCHEMA[mt];
+  if (!schema) {
+    rules.push({ ok: false, text: 'mandate_type "' + mt + '" is not a registered pm:* type (SPEC.md §5.1 lists exactly seven).' });
+    return { rules, ok: false, schema: null };
+  }
+  rules.push({ ok: true, text: 'mandate_type "' + mt + '" is a registered pm:* type.' });
+
+  const pp = a.policy_parameters || {};
+  const op = a.output_payload || {};
+  const missingPP = schema.policy_required.filter(k => !hasKey(pp, k));
+  const missingOP = schema.output_required.filter(k => !hasKey(op, k));
+  if (missingPP.length) rules.push({ ok: false, text: 'policy_parameters missing: ' + missingPP.join(', ') });
+  else rules.push({ ok: true, text: 'policy_parameters carries all required fields (' + schema.policy_required.join(', ') + ').' });
+  if (missingOP.length) rules.push({ ok: false, text: 'output_payload missing: ' + missingOP.join(', ') });
+  else rules.push({ ok: true, text: 'output_payload carries all required fields (' + schema.output_required.join(', ') + ').' });
+
+  // Three agnosticism properties (normative)
+  if (mt === 'market_definition') {
+    const sm = pp.settlement_mode;
+    if (sm === 'on_chain' || sm === 'off_chain') rules.push({ ok: true, text: 'settlement-mechanism-agnostic: settlement_mode is "' + sm + '".' });
+    else rules.push({ ok: false, text: 'settlement_mode must be "on_chain" or "off_chain" — got ' + JSON.stringify(sm) + '.' });
+    const outcomes = pp.outcomes;
+    if (Array.isArray(outcomes) && outcomes.length >= 2) rules.push({ ok: true, text: 'outcome-structure-agnostic: ' + outcomes.length + ' outcomes declared (>= 2).' });
+    else rules.push({ ok: false, text: 'outcomes must be an array of 2 or more entries — got ' + JSON.stringify(outcomes) + '.' });
+  }
+  const identityFields = ['participant_ref'];
+  identityFields.forEach(f => {
+    if (f in pp) {
+      if (typeof pp[f] === 'string' && pp[f]) rules.push({ ok: true, text: 'identity-agnostic: ' + f + ' is an opaque string.' });
+      else rules.push({ ok: false, text: f + ' must be an opaque string, not a structured identity — got ' + JSON.stringify(pp[f]) + '.' });
+    }
+  });
+
+  // Corda-tripwire scan: "accept"/"finality" language, and bare side:YES/NO anywhere in the artifact
+  const hits = [];
+  scanForBannedTerms(a, hits, '$');
+  if (hits.length) rules.push({ ok: false, text: 'Corda-tripwire scan found ' + hits.length + ' hit(s): ' + hits.slice(0, 3).join(' · ') + (hits.length > 3 ? ' …' : '') });
+  else rules.push({ ok: true, text: 'Corda-tripwire scan: no accept/finality language, no bare side:YES/NO field.' });
+
+  const ok = rules.every(r => r.ok);
+  return { rules, ok, schema };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RUN
+   ───────────────────────────────────────────────────────────────── */
+let _lastRun = null;
+
+async function runValidator() {
+  hideError();
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('flowCard').style.display = 'none';
+
+  const raw = document.getElementById('artifactInput').value.trim();
+  if (!raw) { showError('Paste an artifact JSON first.'); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch (e) { showError('JSON parse error: ' + e.message); return; }
+
+  const artifacts = Array.isArray(parsed) ? parsed : [parsed];
+  if (!artifacts.length) { showError('Empty input.'); return; }
+
+  const results = [];
+  for (const a of artifacts) {
+    const v = validateArtifact(a);
+    let computedHash = null, hashOk = null;
+    if (a && a.policy_parameters && a.output_payload) {
+      try { computedHash = await executionHash(a.policy_parameters, a.output_payload); }
+      catch (e) { v.rules.push({ ok: false, text: 'execution_hash recompute failed: ' + e.message }); v.ok = false; }
+      if (computedHash) {
+        const stored = normHash(a.execution_hash);
+        hashOk = stored === computedHash;
+        v.rules.push({ ok: !!hashOk, text: hashOk ? 'execution_hash matches the recomputed SHA-256.' : 'execution_hash MISMATCH — stored value does not match the recomputed SHA-256.' });
+        if (!hashOk) v.ok = false;
+      }
+    } else {
+      v.rules.push({ ok: false, text: 'Cannot recompute execution_hash — policy_parameters or output_payload missing.' });
+      v.ok = false;
+    }
+    results.push({ artifact: a, computedHash, ...v });
+  }
+
+  renderResults(results);
+  renderFlow(results);
+  _lastRun = { at: new Date().toISOString(), results };
+  document.getElementById('resultWrap').style.display = 'block';
+  window.enableAP2Btn();
+}
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderResults(results) {
+  const el = document.getElementById('artifactResults');
+  el.innerHTML = results.map((r, i) => {
+    const title = (r.artifact && r.artifact.tool_id) ? r.artifact.tool_id : 'artifact[' + i + ']';
+    const mt = (r.artifact && r.artifact.mandate_type) || '—';
+    return '<div class="artifact-block">' +
+      '<div class="ab-head"><span class="ab-title">' + esc(title) + ' <span style="color:var(--muted)">· ' + esc(mt) + '</span></span>' +
+        '<span class="ab-badge ' + (r.ok ? 'pass' : 'fail') + '">' + (r.ok ? 'PASS' : 'FAIL') + '</span></div>' +
+      '<div class="rule-list">' + r.rules.map(rule =>
+        '<div class="rule-row"><span class="rule-icon ' + (rule.ok ? 'ok' : 'bad') + '">' + (rule.ok ? '✓' : '✗') + '</span><span class="rule-txt">' + esc(rule.text) + '</span></div>'
+      ).join('') + '</div>' +
+      '<div class="hash-block"><div class="hash-row"><div class="hash-lbl">Stored execution_hash</div><div class="hash-val">' + esc(r.artifact && r.artifact.execution_hash || '—') + '</div></div>' +
+      '<div class="hash-row"><div class="hash-lbl">Computed (this browser)</div><div class="hash-val' + (r.computedHash && normHash(r.artifact.execution_hash) !== r.computedHash ? ' mismatch' : '') + '">' + esc(r.computedHash || '— not computed —') + '</div></div></div>' +
+    '</div>';
+  }).join('');
+}
+
+/* Simple horizontal SVG flow of the pasted chain, linked by chain.parent_hashes
+   matching another pasted artifact's recomputed execution_hash. */
+function renderFlow(results) {
+  const flowCard = document.getElementById('flowCard');
+  const withHash = results.filter(r => r.computedHash);
+  if (withHash.length < 1) { flowCard.style.display = 'none'; return; }
+
+  const byHash = new Map();
+  withHash.forEach(r => byHash.set(r.computedHash, r));
+
+  const nodeW = 210, nodeH = 64, gapX = 70, nodeY = 20;
+  const nodes = withHash.map((r, i) => ({
+    x: 20 + i * (nodeW + gapX), y: nodeY,
+    mt: (r.artifact.mandate_type || '?'),
+    id: (r.artifact.tool_id || '?'),
+    hash: (r.computedHash || '').slice(0, 12),
+    ok: r.ok,
+  }));
+  const idxByHash = new Map(withHash.map((r, i) => [r.computedHash, i]));
+
+  const edges = [];
+  withHash.forEach((r, i) => {
+    const parents = (r.artifact.chain && Array.isArray(r.artifact.chain.parent_hashes)) ? r.artifact.chain.parent_hashes : [];
+    parents.forEach(p => {
+      const ph = normHash(p);
+      if (idxByHash.has(ph)) edges.push({ from: idxByHash.get(ph), to: i, external: false });
+      else edges.push({ from: null, to: i, external: true, label: (p || '').slice(0, 14) });
+    });
+  });
+
+  const width = 20 + nodes.length * (nodeW + gapX);
+  const height = nodeY + nodeH + 50;
+
+  let svg = '<svg class="flow-svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" xmlns="http://www.w3.org/2000/svg">';
+  svg += '<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#14B8A6"/></marker></defs>';
+
+  edges.forEach(e => {
+    if (e.external) {
+      const n = nodes[e.to];
+      const x2 = n.x, y2 = n.y + nodeH / 2;
+      const x1 = Math.max(0, x2 - gapX);
+      svg += '<line x1="' + x1 + '" y1="' + y2 + '" x2="' + (x2 - 4) + '" y2="' + y2 + '" stroke="#3A5270" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow)"/>';
+      svg += '<text x="' + x1 + '" y="' + (y2 - 6) + '" font-family="JetBrains Mono, monospace" font-size="8" fill="#3A5270">external: ' + esc(e.label) + '…</text>';
+    } else {
+      const a = nodes[e.from], b = nodes[e.to];
+      const x1 = a.x + nodeW, y1 = a.y + nodeH / 2;
+      const x2 = b.x, y2 = b.y + nodeH / 2;
+      svg += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + (x2 - 4) + '" y2="' + y2 + '" stroke="#14B8A6" stroke-width="1.5" marker-end="url(#arrow)"/>';
+    }
+  });
+
+  nodes.forEach(n => {
+    svg += '<rect x="' + n.x + '" y="' + n.y + '" width="' + nodeW + '" height="' + nodeH + '" rx="6" fill="#111E35" stroke="' + (n.ok ? '#14B8A6' : '#EF4444') + '" stroke-width="1.5"/>';
+    svg += '<text x="' + (n.x + 10) + '" y="' + (n.y + 22) + '" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#D4E8F8">' + esc(n.mt) + '</text>';
+    svg += '<text x="' + (n.x + 10) + '" y="' + (n.y + 38) + '" font-family="JetBrains Mono, monospace" font-size="8" fill="#6888A8">' + esc(n.id) + '</text>';
+    svg += '<text x="' + (n.x + 10) + '" y="' + (n.y + 52) + '" font-family="JetBrains Mono, monospace" font-size="8" fill="#3A5270">' + esc(n.hash) + '…</text>';
+  });
+
+  svg += '</svg>';
+  document.getElementById('flowWrap').innerHTML = svg;
+  flowCard.style.display = 'block';
+}
+
+function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+function showError(msg) { const el = document.getElementById('errorBox'); el.textContent = msg; el.style.display = 'block'; }
+function clearAll() {
+  document.getElementById('artifactInput').value = '';
+  hideError();
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('flowCard').style.display = 'none';
+  _lastRun = null;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   WORKED EXAMPLE — a real (not illustrative-placeholder) two-artifact
+   resolution chain: pm:evidence_root -> pm:resolver, matching the
+   field shapes registered in PM-MANDATE-EXTENSION.md §8, with real
+   execution_hash values computed by this page's own algorithm so the
+   hash-recompute check demonstrably passes. External-oracle anchoring:
+   the resolver's outcome enters as an audit_signature-attested claim,
+   never something this page or OCG computed.
+   ───────────────────────────────────────────────────────────────── */
+function loadExample() {
+  const example = [
+    {
+      tool_id: 'pm:evidence_root',
+      mandate_type: 'resolution_evidence',
+      chaingraph_version: '0.4.0',
+      policy_parameters: {
+        attester_signatures: [
+          { signer_ref: 'resolver-committee-7f3a', sig: 'base64:MOCK_SIGNATURE_NOT_REAL_00000000000000000000000000000000000000==' }
+        ],
+        evidence_hash: 'sha256:9f1c2ea9f4c6b8de3a1207fbb0d9e0c4a8f1e2d3c4b5a69788796a5b4c3d2e1',
+        resolution_method: 'SECO'
+      },
+      output_payload: {
+        evidence_root: 'sha256:9f1c2ea9f4c6b8de3a1207fbb0d9e0c4a8f1e2d3c4b5a69788796a5b4c3d2e1'
+      },
+      execution_hash: 'fc787ae264423f25fd63058abf85b73550f612d21b411d08ae636c956e1a1abb'
+    },
+    {
+      tool_id: 'pm:resolver',
+      mandate_type: 'resolution_certificate',
+      chaingraph_version: '0.4.0',
+      policy_parameters: {
+        evidence_root_execution_hash: 'fc787ae264423f25fd63058abf85b73550f612d21b411d08ae636c956e1a1abb'
+      },
+      output_payload: {
+        outcome: 'outcome_b',
+        rationale: 'Evidence root confirms the named condition resolved to outcome_b per the market stated resolution_source_profile.'
+      },
+      chain: { parent_hashes: ['fc787ae264423f25fd63058abf85b73550f612d21b411d08ae636c956e1a1abb'] },
+      audit_signature: { signatures: [ { keyid: 'did:key:z6MkExampleResolverKeyNotReal000000000000000000000', sig: 'base64:MOCK_SIGNATURE_NOT_REAL_00000000000000000000000000000000000000==' } ] },
+      execution_hash: 'a42c8e68a11c8b3441177015eb2dbfcfc7c6ba7156f05b2e2e0a8a024c215d6f'
+    }
+  ];
+  document.getElementById('artifactInput').value = JSON.stringify(example, null, 2);
+  hideError();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST TOGGLE + POLICY MANDATE EXPORT (CONTRACT §3.1/§4)
+   ───────────────────────────────────────────────────────────────── */
+var MANIFEST = JSON.parse('{"tool_id": "pm-artifact-validator", "version": "1.0.0", "title": "Prediction Market Artifact Validator", "description": "Validates pm:* prediction/event-market provenance artifacts against the registered OpenChainGraph schema (SPEC.md §5.1), recomputes execution_hash client-side, and renders the chain.parent_hashes flow. Format checker only — no oracle, no settlement, no market of any kind.", "category": "chaingraph", "tags": ["OpenChainGraph", "prediction market", "provenance", "execution_hash", "pm:*", "schema validator"], "audience": ["engineer", "compliance", "product"], "input_schema": {"type": "object", "required": ["artifact_json"], "properties": {"artifact_json": {"type": "string", "description": "A single pm:* OpenChainGraph artifact, or a JSON array of them forming a chain"}}}, "output_schema": {"type": "object", "properties": {"results": {"type": "array", "description": "Per-artifact schema-validation and hash-recompute results"}}}, "mcp_tool_definition": {"name": "validate_pm_artifact", "description": "Validates one or more pasted pm:* (prediction/event-market provenance) OpenChainGraph artifacts against the registered SPEC.md §5.1 schema, recomputes execution_hash client-side via the canonical _hash.mjs algorithm, and reports the chain.parent_hashes linkage. Deterministic rule-based checks only — no oracle logic.", "inputSchema": {"type": "object", "required": ["artifact_json"], "properties": {"artifact_json": {"type": "string", "description": "A single pm:* artifact JSON object, or a JSON array of them"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/631-pm-artifact-validator.html", "function_name": "runValidator", "timeout_ms": 3000}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": false, "bridge_version": "1.0"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window.exportAP2=function(){
+  if(!_lastRun){alert('Run Validate first to generate a result.');return;}
+  var ts=new Date().toISOString();
+  var tid=MANIFEST.tool_id;
+  var summaryLines=_lastRun.results.map(function(r){return (r.artifact&&r.artifact.tool_id||'?')+': '+(r.ok?'PASS':'FAIL');});
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:MANIFEST.version,
+    mandate_type:'compliance_check_mandate',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:{artifact_count:_lastRun.results.length,results:summaryLines,checked_at:_lastRun.at},
+    summary:MANIFEST.title+' — validation run '+ts.slice(0,10),
+    agent_instructions:['Review each artifact\'s FAIL rules before treating it as a trustworthy pm:* record.'],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+</body>
+</html>
