@@ -245,5 +245,42 @@ if (mode === 'check') {
 // --- WRITE -------------------------------------------------------------
 mkdirSync(OUT_DIR, { recursive: true });
 const outPath = resolve(OUT_DIR, `${hex}.json`);
+
+// SKIP-IF-UNCHANGED (NODE-FANOUT-REGEN-CLOSE-1). issued_at / checked_at /
+// expires_at are wall-clock, so an unguarded --write produced BYTE-DIFFERENT
+// output on every invocation (measured 2026-08-21: two consecutive passes over
+// an otherwise-clean main differed in exactly those three fields, nothing else).
+// This file is now a COVERED shared derived artifact, and the main-side regen
+// workflow's push is App-authored, which RE-TRIGGERS that workflow — so a
+// generator that always diffs never converges and the commit chain does not
+// terminate. Both of the workflow's loop guards are convergence properties;
+// neither can save a generator that stamps the clock unconditionally.
+//
+// The predicate is the SAME one --check already uses to decide currency:
+// stripDynamic()'s canonical bytes. If nothing outside the freshness fields
+// moved, the file on disk is exactly as current as a rewrite would be, so the
+// existing stamps are kept. When anything real changes — a kernel joins, a
+// claim tier moves, the errata root advances — the static bytes move and the
+// write (with fresh stamps) happens exactly as before. One predicate, shared
+// between --check and --write, so the two can never disagree about "current".
+//
+// ⚠ CONSEQUENCE, STATED RATHER THAN HIDDEN: issued_at now means "when this
+// artifact's CONTENT last changed", not "when a generator last ran". Past
+// expires_at the artifact reads unknown-refresh-needed, which is what it always
+// meant and what OFFLINE_FIRST_NOTE already tells a consumer. That is an honest
+// dated observation (SO #0b), not a liveness promise — nothing on main refreshed
+// this file on a schedule before this change either.
+if (existsSync(outPath)) {
+  try {
+    const onDiskArtifact = JSON.parse(readFileSync(outPath, 'utf8'));
+    if (canonicalBytes(stripDynamic(onDiskArtifact)) === canonicalBytes(stripDynamic(artifact))) {
+      console.log(`✓ FV-AGENTSURFACE-BUILD-1 fv-status/${hex}.json already current (no non-freshness change) — left untouched.`);
+      process.exit(0);
+    }
+  } catch {
+    // Unparseable on disk ⇒ fall through and rewrite it.
+  }
+}
+
 writeFileSync(outPath, JSON.stringify(artifact, null, 2) + '\n');
 console.log(`✓ FV-AGENTSURFACE-BUILD-1 wrote fv-status/${hex}.json — ${inScope.length} kernel(s), ${Object.keys(artifact.proven.kernels).length} with a recorded claim-tier, ${artifact.proven.unclaimed_count} unassessed.`);
