@@ -3522,6 +3522,66 @@ OPTIONAL catalog-node properties, not artifact-envelope members. They move no `e
 `required[]` member to `$defs/artifact`, and impose no MUST-emit on any existing or future node. Measured
 against §0.4-FREEZE's three-condition bar, this is additive.
 
+## §NODEPAGE-1 Page-less nodes — the `pageless` declaration (NORMATIVE, OPTIONAL — additive, record stays at whatever `chaingraph.json` carries, same text-pass/record-bump separation as §30)
+Most catalog nodes carry a composer page of their own, and `NODE-COMPLETENESS-GATE-1` axis (d) exists to
+stop a node shipping without one. Some legitimately do not: a node presented entirely through a shared
+surface owns no page, and pretending otherwise would mean publishing an empty page to satisfy a gate.
+`NODE-COMPLETENESS-GATE-1` opened an escape hatch for that case without defining it, and `art-662`
+improvised the rest: it declared the escape while `tools/662-odnsf-fee-recompute.html` existed and its own
+`url` pointed straight at it. The declaration was false, no shard-level check could see it, the v0.4 node
+object is `additionalProperties: false` so assembling that shard produced an **invalid `chaingraph.json`**,
+and `main` was left carrying an unregistered node that failed `NODE-REGISTRATION-GAP-1` on every site PR.
+§NODEPAGE-1 makes the concept legitimate and the declaration machine-checked, so it can never again be
+improvised per shard.
+
+**§NODEPAGE-1.1 What it licenses (NORMATIVE).** A `chaingraph.json` `nodes[]` entry MAY declare
+`pageless`. It licenses exactly one thing: **the node legitimately has no composer page of its own.** A
+node that declares it satisfies the axis-(d) node-page requirement WITHOUT a page — the gate reports the
+waiver and its reason instead of a page path. It licenses nothing else. In particular it is **NOT** an
+exemption from `NAV-ISLAND-1` nav reachability for a page that DOES exist (a page that exists must still
+be reachable; `pageless` is a claim that none exists, not a claim that an existing one may hide), **NOT**
+an exemption from the REQUIRED `url` member, and **NOT** an exemption from the §15 `catalog-parity.mjs`
+rule that a live node's `url` resolves to a real file. A live page-less node therefore addresses the
+shared surface that presents it — a `guides/` hub, for example — never a page it owns.
+
+**§NODEPAGE-1.2 The catalog field (NORMATIVE).** `pageless` is an OPTIONAL string property on
+`$defs/node` whose value is the prose reason the waiver was taken; an empty or non-string value is
+invalid. It is hash-excluded catalog-only metadata: it is not an artifact-envelope member, moves no
+`execution_hash`, and adds no `required[]` entry. Absence is the default and means the node is expected
+to carry a page, exactly as before this section.
+
+**§NODEPAGE-1.3 The consistency rule — a false declaration is a HARD FAIL (NORMATIVE).** `pageless`
+asserts the ABSENCE of a page, and that assertion is checkable from the filesystem, so it MUST be checked
+there and never taken on trust (STANDING-ORDERS #34: anything derivable MUST be derived). A node **OWNS a
+page** when either candidate resolves to a real file, in the working tree or on the default branch: (a)
+the canonical node-page path `chaingraph/<tool_id>.html`; or (b) its own `url`, when that `url` addresses
+an `.html` file under `chaingraph/` or `tools/` (`NODE-COMPLETENESS-PAGEAXIS-1`: a `tools/`-hosted page is
+a node page too). **A node that declares `pageless` while it owns a page is a FALSE DECLARATION and MUST
+fail.** The remedy is one of two things and never a third: drop the `pageless` key, or remove the page.
+
+**§NODEPAGE-1.4 One definition, two consumers (NORMATIVE).** The page-ownership resolution in
+§NODEPAGE-1.3 has exactly ONE implementation, `resolveOwnPage()` in
+`chaingraph/standard/check-pageless-consistency.mjs`. The axis that ACCEPTS the waiver
+(`scripts/check-node-complete.mjs` axis (d)) imports it rather than carrying a second copy, so the
+acceptance rule and the policing rule cannot drift apart. A second implementation of "does this node own
+a page" is a defect, not an optimisation.
+
+**§NODEPAGE-1.5 Conformance (NORMATIVE).** `check-pageless-consistency.mjs` (§15) sweeps every node
+shard AND the assembled catalog and proves four directions: (a) a node declaring `pageless` with no page
+owned PASSES; (b) a node declaring `pageless` while a page it owns exists HARD FAILS, naming the page that
+contradicts the waiver; (c) a normal page-bearing node with no declaration is untouched, reported as
+not-applicable rather than as a pass or a gap; (d) a `pageless` key carrying a non-string or empty value
+is its own distinct FAIL, never a silent skip (STANDING-ORDERS #34c). The controls in
+`pageless-consistency.test.mjs` exercise the RED and GREEN halves of each direction and verify the checker
+by mutation, using `art-662`'s real pre-fix shard as the false-declaration fixture.
+
+**§NODEPAGE-1.6 Frozen-envelope invariance (NORMATIVE).** `pageless` is an OPTIONAL catalog-node
+property, not an artifact-envelope member. It moves no `execution_hash`, adds no `required[]` member to
+`$defs/artifact`, leaves `chaingraph_version` at `"0.4.0"`, changes no existing property's semantics, and
+imposes no MUST-emit on any existing or future node. Measured against §0.4-FREEZE's three-condition bar,
+this is additive. A catalog carrying a `pageless` node is schema-valid; the same catalog was invalid
+before this section only because `$defs/node` is `additionalProperties: false`.
+
 ## §14 Changelog
 See `standard/CHANGELOG.md`. **v0.8.24 (2026-08-13 — SPEC-TEXT PASS adding §5.1 pm:* Prediction/
 Event-Market Provenance Extension, staged by `PM-OCG-SCHEMA-SPEC-1` carrying the
@@ -3826,6 +3886,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §20.3 retention profile: a verifier presented a hash-only survivor (leaf + inclusion proof + cosigned checkpoint, no body) reports `body-absent: anchored-hash-only`, never `verified`/`failed`; a `regulatory-N-years` fixture pruned before N elapses MUST fail a conformance check; `fixture`-class artifacts are NEVER eligible regardless of checkpoint state; top-level `retention_class` (§20.3.0, distinct from §23.4's per-attestation field of the same name) is hash-EXCLUDED (byte-identical `execution_hash` with and without the member); the tier is additive — an artifact/verifier that never encounters a pruned body behaves exactly as before v0.8.18 | `retention-profile.test.mjs` | validate |
 | §STPFWD-1 forward decision-outcome mandate: a NEW gpu:false live node emits `haGatePolicy` (§27.4) at `/output_payload/decision/gate_policy` and `haRunState` (§27.10) at `/output_payload/decision/execution_state`, both closed enums unchanged and both inside the §4 preimage; silent about every node published before this section; no schema property, no `required[]` entry, no MUST-emit on an existing artifact — enforced at build time (repo scripts/check-compute-proof-coverage.mjs ratchet, cited §18) rather than by a second §15 gate, since every in-scope node is already required to be proven-or-explicitly-deferred before it can ship | `kernel-coverage.mjs --strict`, `compute-proof.test.mjs` | validate |
 | §30 cited clause digest: a `chaingraph.json` `nodes[]` entry NEW or CHANGED on the current branch MUST declare `standards_basis` (`implements_standard`\|`not_applicable`) — undeclared FAILS, no silent default (§30.3); `implements_standard` MUST carry >=1 `cited_clause_digest[]` entry whose `digest` resolves to a registered `chaingraph/standard/clause-snapshot-registry.json` entry — a non-resolving digest FAILS (§30.5c); registry entries are written only by `pin-clause-snapshot.mjs`, which refuses any excerpt exceeding the clause-level size cap (§30.2, whole-document digests structurally impossible); a PRE-EXISTING/untouched node is NEVER retro-gated, reported as a count only (§30.4); hash-excluded, no `execution_hash`/`required[]` change (§30.6); gate output states plainly it proves retrieval, not correct interpretation (§30.0) | `check-clause-digest.mjs`, `check-clause-digest.test.mjs` | validate |
+| §NODEPAGE-1 pageless waiver: a node declaring `pageless` with no page owned PASSES (§NODEPAGE-1.1); a node declaring `pageless` while it OWNS a page (the canonical `chaingraph/<tool_id>.html`, or its own `url` resolving to an `.html` under `chaingraph/` or `tools/`) HARD FAILS naming the page that contradicts the waiver, with page existence RECOMPUTED from the filesystem and never read from the node's own claim (§NODEPAGE-1.3, SO #34); a page-bearing node with no declaration is untouched, reported as not-applicable rather than as a pass or a gap; a `pageless` key carrying a non-string or empty value is its own distinct FAIL, never a silent skip (SO #34c); page-ownership has ONE implementation, shared by the axis that accepts the waiver and the gate that polices it (§NODEPAGE-1.4); hash-excluded, no `execution_hash` or `required[]` change, `chaingraph_version` stays 0.4.0, and a catalog carrying a `pageless` node is schema-valid where the same catalog was invalid before the property was declared (§NODEPAGE-1.6) | `check-pageless-consistency.mjs`, `pageless-consistency.test.mjs`, `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table

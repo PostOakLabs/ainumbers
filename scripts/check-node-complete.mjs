@@ -50,6 +50,11 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// §NODEPAGE-1 (SCHEMA-PAGELESS-FIELD-1): "does this node own a page" has exactly ONE
+// definition, and it lives with the standard. This file consumes it rather than carrying
+// a second copy, so the axis that ACCEPTS the pageless waiver and the SSOT gate that
+// POLICES it cannot drift apart.
+import { resolveOwnPage, checkPageless } from '../chaingraph/standard/check-pageless-consistency.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -155,18 +160,20 @@ function checkUrl(shard) {
 // tools/-hosted page (art-migrated nodes) now also satisfies (d), independently re-resolving
 // shard.url against a real .html file under chaingraph/ or tools/, PR tree or origin/main.
 // (c)'s own checkUrl() is untouched — this does not weaken or reuse its verdict, it re-derives.
+//
+// SCHEMA-PAGELESS-FIELD-1 / OCG §NODEPAGE-1: the `pageless` escape is now a machine-checked
+// WAIVER, not a self-claim. Declaring it while the node OWNS a page is a false declaration and
+// a HARD FAIL — art-662 declared `pageless` while tools/662-odnsf-fee-recompute.html existed and
+// its own url pointed at it, and nothing caught it until assembly. Both the resolution and the
+// consistency verdict come from the SSOT module, never from a second copy of the rule here.
 function checkPage(id, shard) {
-  const pagePath = resolve(REPO, 'chaingraph', `${id}.html`);
-  if (existsSync(pagePath)) return { status: 'PASS', detail: `chaingraph/${id}.html exists.` };
+  const waiver = checkPageless(REPO, id, shard);
+  if (waiver.status === 'FAIL') return { status: 'FAIL', detail: waiver.detail };
 
-  const rel = urlToRelPath(shard?.url);
-  if (rel && /\.html$/.test(rel) && (rel.startsWith('chaingraph/') || rel.startsWith('tools/'))) {
-    const abs = resolve(REPO, rel);
-    if (existsSync(abs)) return { status: 'PASS', detail: `url resolves to ${rel} in the PR tree.` };
-    if (fileExistsOnOriginMain(rel)) return { status: 'PASS', detail: `url resolves to ${rel} on origin/main.` };
-  }
+  const page = resolveOwnPage(REPO, id, shard);
+  if (page) return { status: 'PASS', detail: `${page.rel} exists in the ${page.where} (${page.via}).` };
 
-  if (typeof shard?.pageless === 'string' && shard.pageless.trim()) {
+  if (waiver.status === 'PASS') {
     return { status: 'PASS', detail: `no node page — explicit pageless: "${shard.pageless}"` };
   }
   return { status: 'FAIL', detail: `no chaingraph/${id}.html, url does not resolve to a chaingraph/ or tools/ .html page, and no explicit shard.pageless reason.` };
