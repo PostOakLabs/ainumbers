@@ -527,6 +527,12 @@ const GATES = [
   ['tools/568 receipt verifier proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-receipt-verifier-568-tamper.test.mjs'],
   ['art-424 witness checkpoint proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/witness-checkpoint-424-tamper.test.mjs'],
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
+  // GATE-SELFTEST-META-1 (0xAlpha 2026-08-21 audit, Tier B Rec 1 / SO #40b): natural
+  // home alongside the generator-coverage meta-gate above — same shape, different
+  // question ("does every NEW blocking check-X.mjs gate carry a paired red-proof
+  // self-test" vs "does every --check generator get invoked").
+  ['Gate self-test pairing (meta-gate, GATE-SELFTEST-META-1)', 'node scripts/check-gate-selftest-pairing.mjs'],
+  ['Gate self-test pairing fixture proof', 'node scripts/check-gate-selftest-pairing.test.mjs'],
   ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
   ['Authority contradiction gate (CB4-CONTRADICTION-GATE-1)', 'node scripts/check-authority-contradiction.mjs'],
   ['Authority contradiction gate fixture proof', 'node scripts/check-authority-contradiction.test.mjs'],
