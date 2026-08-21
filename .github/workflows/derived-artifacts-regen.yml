@@ -131,6 +131,37 @@ jobs:
           node chaingraph/standard/spec-version-consistency.mjs
           node chaingraph/standard/spec-gate-coverage.mjs
 
+      # READER-FACING COPY. The §15 suite above validates schema and spec
+      # conformance and never reads the regenerated PROSE — but many covered
+      # artifacts are reader-facing pages (fv-explainer.html, index.html,
+      # sitemap.html, tools.html, start.html, llms.txt). A generator emitting
+      # copy that violates CONTRACT.md §1.4 therefore had it auto-committed from
+      # here, with no pull request in between and no gate that could catch it.
+      #
+      # Not hypothetical. On 2026-08-21 a newly-landed ratchet baseline file was
+      # the first input ever to reach gen-debt-ledger.mjs's fallbackExtract(),
+      # whose description string carried an em-dash; that string renders inside
+      # fv-explainer.html, this job committed it, and main went red on
+      # copy-hallmarks. A red main fails the merge queue's simulated-merge
+      # check, which silently ejects every queued pull request — so one bad
+      # generated string stalls everyone's merges, not merely this job.
+      #
+      # THE TRADE-OFF, STATED PLAINLY: a refused commit leaves a derived
+      # artifact stale and loudly flagged. That is strictly better than
+      # publishing bad copy. Stale costs one visible failed run that names the
+      # generator; published bad copy reds the default branch and ejects the
+      # queue until a human notices.
+      #
+      # Both checks are pure in-repo source scans: no network, no git history,
+      # no clock, and no workspace-root read on this path (check-copy-hallmarks
+      # touches those only under --report, deliberately not used here). Measured
+      # 111-129 ms with byte-identical output across repeated runs, so neither
+      # can make this job flaky.
+      - name: Validate the regenerated reader-facing copy (CONTRACT.md §1.4)
+        run: |
+          node scripts/check-copy-hallmarks.mjs
+          node scripts/check-shipped-prose.mjs
+
       - name: Stage by explicit pathspec, and prove nothing escaped the set
         id: stage
         run: |
