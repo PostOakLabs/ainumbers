@@ -63,6 +63,8 @@ An earlier duplicate file state was resolved; both are live and valid.
 
 (Added 2026-06-11 after a structural JS edit silently deleted live code in dozens of tools — syntax errors are invisible until a user hits them.)
 
+(2026-08-21, `CONTRACT-DEADCMD-FIX-1`: §6.2 and §2.5 carried five dead `npm run`/`npm install`-shaped instructions — the site repo has no `package.json` at all, so `npm run lint:manifests`, `npm run test:ap2-exports`, `npm run test:ui-ap2-placement`, and two `npm run validate:chains` variants were unrunnable as written. Replaced with the real zero-dependency invocations — `node scripts/check-manifest-schema.mjs`, `python scripts/verify_repo.py` (its Check 3 already covers both the AP2 export-button consistency and placement checks — there was never a separate DOM-placement test), and `node scripts/validate-chains.mjs` from `mcp-apps-poc/`. New gate `scripts/check-ssot-no-npm.mjs`, wired into `preflight.mjs`, greps `CONTRACT.md`/`CLAUDE.md`/`AGENTS.md`/`CONTRIBUTING.md` for the three dead-command shapes so the SSOT cannot regress into this state silently again.)
+
 ### §A3 — Recorded trade-offs (ChainGraph orchestration surface)
 
 - Inbound external links to removed guide URLs break (accepted — A3.3). The MCP `composer_url` fields are repointed to chain pages.
