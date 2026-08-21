@@ -170,9 +170,9 @@ function nonMetaObj(j) {
 }
 
 function fallbackExtract(j) {
-  if (Array.isArray(j)) return { n: j.length, what: 'root list length (generic fallback — no dedicated extractor yet in gen-debt-ledger.mjs)' };
+  if (Array.isArray(j)) return { n: j.length, what: 'root list length (generic fallback, no dedicated extractor yet in gen-debt-ledger.mjs)' };
   const keys = nonMeta(j);
-  return { n: keys.length, what: 'top-level entries (generic fallback — no dedicated extractor yet in gen-debt-ledger.mjs)' };
+  return { n: keys.length, what: 'top-level entries (generic fallback, no dedicated extractor yet in gen-debt-ledger.mjs)' };
 }
 
 function lastChanged(absPath) {
