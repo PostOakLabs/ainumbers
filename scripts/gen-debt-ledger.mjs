@@ -175,6 +175,34 @@ function fallbackExtract(j) {
   return { n: keys.length, what: 'top-level entries (generic fallback, no dedicated extractor yet in gen-debt-ledger.mjs)' };
 }
 
+// A shallow clone has no per-file history: `git log -1 -- <file>` returns the single
+// fetched commit for EVERY file, so every "last changed" cell silently becomes today.
+// That is the SO #34 failure shape — a derived value asserted rather than derived — and
+// it deadlocked main on 2026-08-21: the regen bot ran at fetch-depth 1 and published
+// today-for-everything, while the checker ran at fetch-depth 0 and read the real dates,
+// so the freshness gate could never go green on any push. Refuse loudly rather than
+// publish a confidently wrong date. The caller's fix is fetch-depth: 0, which
+// derived-artifacts-regen.yml now sets.
+function assertFullHistory() {
+  let shallow = 'false';
+  try {
+    shallow = execSync('git rev-parse --is-shallow-repository', { cwd: REPO, encoding: 'utf8' }).trim();
+  } catch {
+    // Not a git repo, or git unavailable: lastChanged() degrades to 'unknown', which is
+    // honest. Only a SHALLOW repo produces confidently-wrong dates.
+    return;
+  }
+  if (shallow === 'true') {
+    console.error(
+      'gen-debt-ledger: REFUSING to run in a shallow clone.\n'
+      + '  Per-file git log dates are unavailable, so every "last changed" cell would\n'
+      + '  silently read as today and the freshness gate could never go green.\n'
+      + '  Fix the caller: check out with fetch-depth: 0.',
+    );
+    process.exit(2);
+  }
+}
+
 function lastChanged(absPath) {
   const rel = relative(REPO, absPath).split('\\').join('/');
   try {
@@ -184,6 +212,8 @@ function lastChanged(absPath) {
     return null;
   }
 }
+
+assertFullHistory();
 
 const rows = ratchetFiles.map((absPath) => {
   const rel = relative(REPO, absPath).split('\\').join('/');
