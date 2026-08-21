@@ -581,6 +581,7 @@ import * as art65     from './art-65-ai-conformity-pack-builder.kernel.mjs';
 import * as art651    from './art-651-authzen-conformance-fixture.kernel.mjs';
 import * as art653    from './art-653-pta-verifier.kernel.mjs';
 import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
+import * as art661    from './art-661-interest-accrual-recompute.kernel.mjs';
 import * as art662    from './art-662-odnsf-fee-recompute.kernel.mjs';
 import * as art664    from './art-664-loan-servicing-waterfall-recompute.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
@@ -1213,6 +1214,7 @@ export const KERNELS = {
   'art-651-authzen-conformance-fixture':                        art651,
   'art-653-pta-verifier':                                       art653,
   'art-66-fria-postmarket-monitoring-builder':                  art66,
+  'art-661-interest-accrual-recompute':                         art661,
   'art-662-odnsf-fee-recompute':                                art662,
   'art-664-loan-servicing-waterfall-recompute':                 art664,
   'art-67-agentic-ai-risk-classifier':                          art67,
