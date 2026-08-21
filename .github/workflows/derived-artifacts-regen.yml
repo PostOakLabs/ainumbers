@@ -85,7 +85,16 @@ jobs:
       - name: Checkout main
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          fetch-depth: 1
+          # fetch-depth: 0 is REQUIRED, not a preference. gen-debt-ledger.mjs reads
+          # per-file commit dates via `git log -1 -- <file>`. On a shallow clone that
+          # returns the single fetched commit's date for every file, so the bot writes
+          # today's date into every row, while scripts-verify (fetch-depth: 0) reads the
+          # real dates and correctly calls the page stale. Writer and checker then
+          # disagree BY CONSTRUCTION: the bot regenerates the same degraded bytes, sees
+          # zero drift, skips its commit, and the gate can never go green on any push.
+          # That deadlocked main on 2026-08-21 and ejected every queued PR.
+          # Any generator added to the covered set that reads git history needs this too.
+          fetch-depth: 0
           # Do NOT persist any credential in .git/config (zizmor: artipacked).
           # The App token is supplied only at push time, exactly as
           # sync-chaingraph-spec.yml does.
