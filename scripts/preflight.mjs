@@ -291,14 +291,17 @@ const GATES = [
   ['Page determinism gate controls', 'node scripts/check-page-determinism.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
-  // records (registry/kernel/<hex>.json). Not part of the SO #28/#35 shared derived
-  // set — this row is the sole writer today, so the gate stays unconditionally
-  // blocking (no PR/main advisory split) rather than joining derived-artifacts.mjs.
+  // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
+  // moved this INTO the SO #28/#35 shared derived set (derived-artifacts.mjs COVERED
+  // id 'registry-kernel-resolve'), so the generic ADVISORY_ON_PR categorisation now
+  // downgrades it on a PR and keeps it blocking on main, exactly like every other
+  // shared artifact. It is no longer "sole writer, always blocking": a node
+  // registration drifted it on all three of 2026-08-21's registrations, and SO #35
+  // forbids the PR that caused the drift from repairing it.
   ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
-  // FV-AGENTSURFACE-BUILD-1: unified FV-status artifact per spec_digest. Sole
-  // writer today (not part of the SO #28/#35 shared derived set), same
-  // discipline as the registry kernel-resolve gate above — unconditionally
-  // blocking, no PR/main advisory split.
+  // FV-AGENTSURFACE-BUILD-1: unified FV-status artifact per spec_digest. Also moved
+  // into the shared derived set by NODE-FANOUT-REGEN-CLOSE-1 (COVERED id 'fv-status'),
+  // same advisory-on-PR / blocking-on-main split as the gate above.
   ['FV-status artifact current (FV-AGENTSURFACE-BUILD-1)', 'node scripts/gen-fv-status.mjs --check'],
   ['Kernel coverage (node↔index)', 'node scripts/check-kernel-coverage.mjs'],
   ['Hash art-01 parity',           'node chaingraph/kernels/parity-art-01.test.mjs'],
