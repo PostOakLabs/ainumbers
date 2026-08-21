@@ -39,6 +39,11 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const GATE_SRC = resolve(__dirname, 'check-shard-assembly.mjs')
 const LIB_SRC = resolve(__dirname, 'lib-shard-order.mjs')
+// SHARD-SCHEMA-PARITY-1: the gate now shells to schema-validate.mjs --shard,
+// so every fixture repo needs a real copy of both it and the schema it reads
+// from — the same real files, never a reproduction of their content.
+const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
+const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
 
 // ── CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1) ────────────────
 // Git EXPORTS GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE, GIT_PREFIX, ...) to
@@ -128,8 +133,55 @@ function writeJson(path, obj) {
   writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf8')
 }
 
+// SHARD-SCHEMA-PARITY-1: a fully $defs.node-conformant minimal shard, so
+// every EXISTING test in this file (which exercises the registration/
+// assembly axes, not schema conformance) keeps passing the NEW schema check
+// without being about schema at all. mcp_name defaults to a pattern-safe
+// (`^[a-z][a-z0-9_]*$`) transform of id — callers that already pass an
+// explicit lowercase mcpName (e.g. 'tool_b') are untouched. tool_id is
+// lowercased independently of the (possibly uppercase, e.g. "art-LEAK")
+// filesystem id these tests use to name shards — nothing in the
+// registration/assembly logic under test reads the tool_id FIELD, only the
+// filename, so this divergence is deliberate and inert.
 function nodeShard(work, id, mcpName) {
-  writeJson(join(work, 'chaingraph/graph/nodes', `${id}.json`), { tool_id: id, mcp_name: mcpName ?? `tool_${id}` })
+  writeJson(join(work, 'chaingraph/graph/nodes', `${id}.json`), {
+    tool_id: id.toLowerCase(),
+    tool_version: '1.0.0',
+    display_name: id,
+    mcp_name: mcpName ?? `tool_${id.toLowerCase().replace(/-/g, '_')}`,
+    mandate_type: 'test_fixture',
+    wave: 1,
+    gpu: false,
+    url: 'https://example.invalid/x.html',
+    description: 'test fixture shard for check-shard-assembly.test.mjs',
+    input_schema_ref: 'x.html#manifest',
+    consumes: [],
+    feeds: [],
+    status: 'live',
+    compute_capability: 'server',
+  })
+}
+
+// A node shard with a property $defs.node forbids (additionalProperties:false)
+// — the exact defect class this row closes (art-662's real `pageless` key).
+function schemaInvalidNodeShard(work, id) {
+  writeJson(join(work, 'chaingraph/graph/nodes', `${id}.json`), {
+    tool_id: id.toLowerCase(),
+    tool_version: '1.0.0',
+    display_name: id,
+    mcp_name: `tool_${id.toLowerCase().replace(/-/g, '_')}`,
+    mandate_type: 'test_fixture',
+    wave: 1,
+    gpu: false,
+    url: 'https://example.invalid/x.html',
+    description: 'test fixture shard for check-shard-assembly.test.mjs',
+    input_schema_ref: 'x.html#manifest',
+    consumes: [],
+    feeds: [],
+    status: 'live',
+    compute_capability: 'server',
+    pageless: 'not a real $defs.node property — deliberately invalid',
+  })
 }
 
 function writeAssembled(work, nodeIds, chainNames) {
@@ -157,10 +209,15 @@ function makeFixture() {
   mkdirSync(work, { recursive: true })
   git(work, ['init', '-q', '-b', 'main'])
 
-  // commit 0 — scripts only, no chaingraph/ yet.
+  // commit 0 — scripts only, no chaingraph/graph/ yet. schema-validate.mjs +
+  // the schema JSON go in here too (chaingraph/standard/, not chaingraph/graph/)
+  // since the gate shells out to the REAL file — SHARD-SCHEMA-PARITY-1.
   mkdirSync(join(work, 'scripts'), { recursive: true })
   cpSync(GATE_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
   cpSync(LIB_SRC, join(work, 'scripts/lib-shard-order.mjs'))
+  mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
+  cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
+  cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))
   commit(work, 'scripts only')
   const preChaingraphSha = git(work, ['rev-parse', 'HEAD']).trim()
 
@@ -377,6 +434,73 @@ test('NO-REGRESSION — a published unregistered shard is RED even alongside a p
   assert(/PENDING-ASSEMBLE/.test(out) && /art-NEW/.test(out), `expected art-NEW pending, got:\n${out}`)
   assert(/art-LEAK/.test(out), `expected art-LEAK still reported, got:\n${out}`)
   assert(/FAILING — node case is BLOCKING/.test(out), `expected the blocking verdict, got:\n${out}`)
+})
+
+// ── SCHEMA CONFORMANCE (SHARD-SCHEMA-PARITY-1) ─────────────────────────────
+// Real historical content, not a synthetic reproduction (SO #40(b) — use a
+// real fixture where one exists): the EXACT bytes
+// chaingraph/graph/nodes/art-662-odnsf-fee-recompute.json carried on `main`
+// before ASSEMBLE-MAINSIDE-ENROLL-1 (PR #1416, commit bb8ee4e4) stripped the
+// `pageless` key, retrieved via
+// `git show bb8ee4e4^:chaingraph/graph/nodes/art-662-odnsf-fee-recompute.json`.
+// That defect is already fixed on `main` as of this row (bb8ee4e4 landed
+// 2026-08-21, before this row was built), so it can no longer be pointed at
+// live the way the row anticipated — this is the SAME real defect, preserved
+// here as the regression fixture so the RED control stays provably real
+// rather than invented.
+const ART_662_WITH_PAGELESS = {
+  tool_id: 'art-662-odnsf-fee-recompute',
+  tool_version: '1.0.0',
+  display_name: 'Overdraft / NSF Fee Recomputation',
+  mcp_name: 'compute_odnsf_fee_recompute',
+  mandate_type: 'compliance_control',
+  wave: 109,
+  gpu: false,
+  url: 'https://ainumbers.co/tools/662-odnsf-fee-recompute.html',
+  pageless:
+    'No chaingraph/art-662-odnsf-fee-recompute.html node composer page — this node is presented via tools/662-odnsf-fee-recompute.html instead (see url). A chaingraph node page would trip NAV-ISLAND-1 as a new unreachable island since a shard row cannot link it from any SO #35 single-writer nav surface; that linkage is CORE-VERIFY-ASSEMBLE-LAND-1\'s to add.',
+  description:
+    "Independently recomputes overdraft (OD) and non-sufficient-funds (NSF) fee events from a caller-supplied posted-transaction ledger and opening balance, applying the caller's own declared posting-order policy and fee schedule, then diffs the recomputed fee totals against caller-supplied core-charged fees.",
+  input_schema_ref: 'tools/662-odnsf-fee-recompute.html#manifest',
+  consumes: [],
+  feeds: [],
+  status: 'live',
+  conformance_fixtures: true,
+  compute_capability: 'server',
+  standards_basis: 'not_applicable',
+  cited_clause_digest: [],
+  compute_proof_ready: 'deferred',
+  deferred_reason: 'New gpu:false node, scaffolded 2026-08-20 (KERNEL-SCAFFOLD-1).',
+}
+const { pageless: _droppedPageless, ...ART_662_WITHOUT_PAGELESS } = ART_662_WITH_PAGELESS
+
+test('SCHEMA — art-662\'s real pre-fix shard (unknown "pageless" property) is RED, quoting the violation', () => {
+  const { work } = makeFixture()
+  writeJson(join(work, 'chaingraph/graph/nodes/art-662-odnsf-fee-recompute.json'), ART_662_WITH_PAGELESS)
+  // Registered too, so registration/assembly is clean and ONLY the schema axis is under test.
+  writeAssembled(work, ['art-A', 'art-662-odnsf-fee-recompute'], ['chain-A'])
+  const { status, out } = runGate(work)
+  assert(status === 1, `expected exit 1 for the real art-662 pageless defect, got ${status}\n${out}`)
+  assert(/FAIL v0\.4 schema validation/.test(out), `expected the schema-failure section, got:\n${out}`)
+  assert(/additional property "pageless" not allowed/.test(out), `expected the exact unknown-property message, got:\n${out}`)
+  assert(/FAILING — schema case is BLOCKING/.test(out), `expected the blocking verdict, got:\n${out}`)
+  assert(!/node shard\(s\) not yet in the assembled chaingraph\.json/.test(out), `registration axis must stay clean — only schema should fail:\n${out}`)
+})
+
+test('SCHEMA — the same shard with pageless removed is GREEN (the real fix, ASSEMBLE-MAINSIDE-ENROLL-1)', () => {
+  const { work } = makeFixture()
+  writeJson(join(work, 'chaingraph/graph/nodes/art-662-odnsf-fee-recompute.json'), ART_662_WITHOUT_PAGELESS)
+  writeAssembled(work, ['art-A', 'art-662-odnsf-fee-recompute'], ['chain-A'])
+  const { status, out } = runGate(work)
+  assert(status === 0, `expected exit 0 once pageless is dropped, got ${status}\n${out}`)
+  assert(/check-shard-assembly: OK —/.test(out), `expected the OK line, got:\n${out}`)
+})
+
+test('SCHEMA — an unrelated, already-valid shard is unaffected — the gate was not over-tightened', () => {
+  const { work } = makeFixture()
+  const { status, out } = runGate(work)
+  assert(status === 0, `a clean fixture must stay green under the new schema axis, got ${status}\n${out}`)
+  assert(/validate against \$defs\.node/.test(out), `expected the schema axis named in the OK line, got:\n${out}`)
 })
 
 for (const dir of cleanup) {
