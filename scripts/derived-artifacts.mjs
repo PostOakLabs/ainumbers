@@ -311,6 +311,22 @@ export const EXCLUDED = [
        + 'safe because it never writes. A future session may reconsider COVERED registration if the layout '
        + 'moves to a fixed-name append log, or if the anti-escape guard is scoped to a declared-prefix check.',
   },
+  {
+    what: 'registry/errata/** (via scripts/gen-registry-errata.mjs — REGISTRY-ERRATA-RETRY-1)',
+    share: 'n/a',
+    why: 'SAME UNBOUNDED-PATH-SET incompatibility as registry/lineage/** immediately above (identical C2SP '
+       + 'tlog-tiles layout, identical anti-escape-guard hazard on the next tile-adding append) — PLUS a second, '
+       + 'independent reason COVERED registration would be actively harmful here, not merely unsupported: this '
+       + 'generator\'s `regen` step performs a LIVE Sigsum add-leaf submission against a 288/24h rate-limited '
+       + 'bucket (gen-registry-errata.mjs submitCheckpointToSigsum — unconditional, no skip-if-unchanged guard). '
+       + 'COVERED\'s `--regen` runs every entry\'s `regen` command on EVERY push to main (derived-artifacts-regen.yml) '
+       + '— wiring this generator there would submit a new Sigsum leaf on every single main-side push, burning the '
+       + 'shared per-domain budget on pure liveness noise for an artifact whose entire design intent (row header, '
+       + 'BUILD-SPEC §9) is explicitly NO liveness duty: "must not answer on demand, must not imply it tracks a '
+       + 'live source." `--check` (read-only recompute-and-verify against the currently-published checkpoint, no '
+       + 'network call) is wired into scripts/preflight.mjs directly, same as lineage\'s. Publishing a new entry '
+       + 'set stays a manual/generated run: `node scripts/gen-registry-errata.mjs`.',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */
