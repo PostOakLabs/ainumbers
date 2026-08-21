@@ -3,6 +3,27 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## §NODEPAGE-1 text pass — Page-less nodes (the `pageless` declaration)
+- **SPEC-TEXT PASS — not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
+  carries, same separation as the §30 pass below. Anchored on `board/done/SCHEMA-PAGELESS-FIELD-1.md`
+  and Tim's 2026-08-20 ruling that page-less kernels are a standing shape, so the schema needs the field
+  properly rather than each shard improvising it.
+- **§NODEPAGE-1** adds ONE OPTIONAL catalog-node property, `pageless`, a string waiver whose value is the
+  reason a node legitimately has no composer page of its own. It licenses exactly that and nothing else:
+  it is not an exemption from `NAV-ISLAND-1` reachability for a page that DOES exist, not an exemption
+  from the REQUIRED `url` member, and not an exemption from `catalog-parity.mjs`.
+- **A false declaration is a HARD FAIL (§NODEPAGE-1.3).** `pageless` asserts the ABSENCE of a page, which
+  is checkable from the filesystem, so `check-pageless-consistency.mjs` recomputes it there instead of
+  trusting the node. `art-662` declared the waiver while `tools/662-odnsf-fee-recompute.html` existed and
+  its own `url` pointed at it; because `$defs/node` is `additionalProperties: false`, assembling that
+  shard produced an INVALID `chaingraph.json` and left `main` carrying an unregistered node. That real
+  pre-fix shard is now the gate's RED fixture.
+- **One definition, two consumers (§NODEPAGE-1.4).** `resolveOwnPage()` is the sole implementation of
+  "does this node own a page"; `scripts/check-node-complete.mjs` axis (d) imports it, so the rule that
+  accepts the waiver and the rule that polices it cannot drift.
+- **Additive (§NODEPAGE-1.6).** No `execution_hash` movement, no `required[]` change, `chaingraph_version`
+  stays `"0.4.0"`, every existing property keeps byte-identical semantics, absence stays conformant.
+
 ## §30 text pass — Cited Clause Digest (retrieval provenance)
 - **SPEC-TEXT PASS — not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
   carries, same separation as the §5.1 pm:* pass above. Anchored on `board/done/ART365-DIVERGENCE-CONFIRM-1.md`,

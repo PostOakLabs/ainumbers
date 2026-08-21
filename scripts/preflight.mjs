@@ -274,6 +274,14 @@ const GATES = [
   // chaingraph/kernels/*.kernel.mjs internally (see scripts/check-node-complete.mjs), so
   // this single entry self-scopes — no touched-file plumbing needed here.
   ['Node completeness (NODE-COMPLETENESS-GATE-1)', 'node scripts/check-node-complete.mjs --all-changed'],
+  // OCG §NODEPAGE-1 (SCHEMA-PAGELESS-FIELD-1): `pageless` is a WAIVER, so its truth is
+  // RECOMPUTED from the filesystem, never trusted (SO #34). Sweeps every shard AND the
+  // assembled catalog rather than only touched files — art-662's false declaration was
+  // invisible to every shard-level check and only surfaced at assembly, as an INVALID
+  // chaingraph.json. Whole-estate is affordable: the sweep costs one stat per declaration
+  // and the estate normally carries zero.
+  ['§NODEPAGE-1 pageless consistency', 'node chaingraph/standard/check-pageless-consistency.mjs --quiet'],
+  ['§NODEPAGE-1 pageless controls (RED+GREEN)', 'node chaingraph/standard/pageless-consistency.test.mjs'],
   // WARN-ONLY BY DESIGN (PAGEDET-GATE-1): 28 pre-existing page defects are
   // baselined, and the flag makes even a NEW one report rather than block. A gate
   // that reds main on a pre-existing condition gets switched off; this one is here
