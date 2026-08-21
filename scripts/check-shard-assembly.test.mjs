@@ -474,17 +474,35 @@ const ART_662_WITH_PAGELESS = {
 }
 const { pageless: _droppedPageless, ...ART_662_WITHOUT_PAGELESS } = ART_662_WITH_PAGELESS
 
-test('SCHEMA — art-662\'s real pre-fix shard (unknown "pageless" property) is RED, quoting the violation', () => {
+// AMENDED 2026-08-21 (SCHEMA-PAGELESS-FIELD-1): `pageless` is now a LEGAL, additive
+// property on $defs.node, so art-662's pre-fix shard no longer fails schema validation —
+// that is the intended new behaviour, not a regression. The gate's real contract here is
+// "an unknown property is RED", so this case now uses a property that is genuinely not in
+// the schema. Whether a `pageless` declaration is *honest* (pageless + a resolving page =
+// HARD FAIL) is a different axis, owned by chaingraph/standard/check-pageless-consistency.mjs
+// and proven in pageless-consistency.test.mjs.
+const ART_662_WITH_UNKNOWN_PROP = { ...ART_662_WITHOUT_PAGELESS, not_a_real_schema_property: 'x' }
+
+test('SCHEMA — a shard carrying an unknown property is RED, quoting the violation', () => {
   const { work } = makeFixture()
-  writeJson(join(work, 'chaingraph/graph/nodes/art-662-odnsf-fee-recompute.json'), ART_662_WITH_PAGELESS)
+  writeJson(join(work, 'chaingraph/graph/nodes/art-662-odnsf-fee-recompute.json'), ART_662_WITH_UNKNOWN_PROP)
   // Registered too, so registration/assembly is clean and ONLY the schema axis is under test.
   writeAssembled(work, ['art-A', 'art-662-odnsf-fee-recompute'], ['chain-A'])
   const { status, out } = runGate(work)
-  assert(status === 1, `expected exit 1 for the real art-662 pageless defect, got ${status}\n${out}`)
+  assert(status === 1, `expected exit 1 for the unknown-property defect, got ${status}\n${out}`)
   assert(/FAIL v0\.4 schema validation/.test(out), `expected the schema-failure section, got:\n${out}`)
-  assert(/additional property "pageless" not allowed/.test(out), `expected the exact unknown-property message, got:\n${out}`)
+  assert(/additional property "not_a_real_schema_property" not allowed/.test(out), `expected the exact unknown-property message, got:\n${out}`)
   assert(/FAILING — schema case is BLOCKING/.test(out), `expected the blocking verdict, got:\n${out}`)
   assert(!/node shard\(s\) not yet in the assembled chaingraph\.json/.test(out), `registration axis must stay clean — only schema should fail:\n${out}`)
+})
+
+test('SCHEMA — art-662\'s shard WITH pageless is now GREEN (SCHEMA-PAGELESS-FIELD-1 made it legal)', () => {
+  const { work } = makeFixture()
+  writeJson(join(work, 'chaingraph/graph/nodes/art-662-odnsf-fee-recompute.json'), ART_662_WITH_PAGELESS)
+  writeAssembled(work, ['art-A', 'art-662-odnsf-fee-recompute'], ['chain-A'])
+  const { status, out } = runGate(work)
+  assert(status === 0, `pageless is now an additive legal property; expected exit 0, got ${status}\n${out}`)
+  assert(!/additional property "pageless" not allowed/.test(out), `pageless must no longer be an unknown property:\n${out}`)
 })
 
 test('SCHEMA — the same shard with pageless removed is GREEN (the real fix, ASSEMBLE-MAINSIDE-ENROLL-1)', () => {
