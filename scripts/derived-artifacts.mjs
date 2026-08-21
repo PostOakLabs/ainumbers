@@ -291,12 +291,24 @@ export const COVERED = [
   // stages every change beneath it, including the new files, so the guard stays
   // meaningful. Safe here ONLY because each directory is 100% generator-owned:
   // nothing hand-authored lives in any of them.
+  //
+  // ⭐ `writes:` on four of them is the declaration-parity gate's explicit escape
+  // hatch for a write target that is not a static literal
+  // (scripts/check-derived-declare-parity.mjs rule 1): these generators build
+  // their filenames from a digest or a tool_id at runtime, so no static parse can
+  // name them. Declaring the generator-owned DIRECTORY as both the write target
+  // and the declared artifact does not weaken that gate — it is a STRONGER
+  // statement than a file list, because `git add -- <dir>` provably covers every
+  // future name the generator can produce, which is precisely the coverage a
+  // literal list loses the moment the next node lands.
   {
     id: 'registry-kernel-resolve',
     // REGISTRY-RESOLVE-STATIC-1. One kernel_digest -> spec_digest resolution
     // record per in-scope kernel; a new node adds a new <hex>.json.
     regen: 'node scripts/gen-registry-kernel-resolve.mjs --write',
     gate: 'node scripts/gen-registry-kernel-resolve.mjs --check',
+    // <kernel_digest>.json — name determined at runtime, so declared as its root.
+    writes: ['registry/kernel'],
     artifacts: ['registry/kernel'],
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
@@ -313,6 +325,8 @@ export const COVERED = [
     // entries and cannot detect its own staleness until they exist.
     regen: 'node scripts/gen-euc-register.mjs',
     gate: 'node scripts/gen-euc-register.mjs --check',
+    // <tool_id>.register.json + index.json — names determined at runtime.
+    writes: ['chaingraph/register'],
     artifacts: ['chaingraph/register'],
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
@@ -337,6 +351,8 @@ export const COVERED = [
     // ⛔ Do not register a wall-clock generator here without checking that first.
     regen: 'node scripts/gen-fv-status.mjs --write',
     gate: 'node scripts/gen-fv-status.mjs --check',
+    // <spec_digest>.json — name determined at runtime.
+    writes: ['fv-status'],
     artifacts: ['fv-status'],
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
@@ -358,6 +374,8 @@ export const COVERED = [
     // drifted for art-665 alone.
     regen: 'node chaingraph/generate-okf.mjs --write',
     gate: 'node chaingraph/generate-okf.mjs --check',
+    // one concept file per node under tools/ and computations/, plus rollups.
+    writes: ['chaingraph/okf'],
     artifacts: ['chaingraph/okf'],
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
