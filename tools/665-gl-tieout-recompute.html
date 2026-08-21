@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>GL Tie-Out Recompute · AINumbers.co</title>
+<meta name="description" content="Independently recomputes subledger-to-GL tie-out totals from a pasted ledger export and your declared chart-of-accounts mapping, either against a reported trial balance or diffed between two full sources for conversion balancing. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/665-gl-tieout-recompute.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GL Tie-Out Recompute","url":"https://ainumbers.co/tools/665-gl-tieout-recompute.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "665-gl-tieout-recompute",
+  "version": "1.0.0",
+  "title": "GL Tie-Out Recompute",
+  "description": "Independently recomputes subledger-to-GL tie-out totals from a caller-pasted posted ledger and a declared product_code -> gl_account_code chart-of-accounts mapping, either against a reported trial balance (single-source mode) or diffed between two full sources for conversion balancing (diff mode).",
+  "category": "cat-consent-order-remediation",
+  "tags": ["GL tie-out","trial balance","chart of accounts","conversion balancing","core verify"],
+  "audience": ["compliance","risk","engineer"],
+  "input_schema": {"type":"object","properties":{"mode":{"type":"string"},"ledger":{"type":"array"},"gl_account_mapping":{"type":"object"},"reported_trial_balance":{"type":"array"}},"required":["mode"]},
+  "output_schema": {"type":"object","properties":{"verdict":{"type":"string"},"per_account_deltas":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"compute_gl_tieout_recompute","description":"Recomputes subledger-to-GL tie-out totals under a declared chart-of-accounts mapping, either against a reported trial balance or diffed between two full sources.","inputSchema":{"type":"object","properties":{"mode":{"type":"string","description":"single or diff"},"ledger":{"type":"array","description":"Posted transaction rows (single mode)"},"gl_account_mapping":{"type":"object","description":"Declared product_code -> gl_account_code mapping"},"reported_trial_balance":{"type":"array","description":"Core-reported GL figures to tie out against (single mode)"},"source_a":{"type":"object","description":"First full source (diff mode)"},"source_b":{"type":"object","description":"Second full source (diff mode)"}},"required":["mode"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/665-gl-tieout-recompute.html","function_name":"runRecompute","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-bottom:.75rem}
+.field-cell{display:flex;flex-direction:column;gap:.25rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field-input,select.field-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%}
+.field-input:focus{border-color:var(--purple)}
+.tbl-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;margin-bottom:.75rem}
+table.data-table{width:100%;border-collapse:collapse;font-size:.68rem;min-width:520px}
+table.data-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .5rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-2);white-space:nowrap}
+table.data-table td{padding:.35rem .5rem;border-bottom:1px solid var(--border);vertical-align:middle}
+table.data-table tr:last-child td{border-bottom:none}
+table.data-table input,table.data-table select{background:var(--bg-2);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.25rem .35rem;border-radius:3px;width:100%;outline:none;min-width:70px}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.15rem .35rem}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px}
+.add-row-btn:hover{border-color:var(--purple);color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.run-btn:hover{background:var(--purple-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.verdict-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;border:1px solid}
+.verdict-MATCHES{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.verdict-DIVERGES{color:var(--red);border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.1)}
+.verdict-INDETERMINATE{color:var(--warn);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1)}
+.rationale-list{list-style:none;font-size:.72rem;color:var(--body);line-height:1.8}
+.rationale-list li{padding:.3rem 0;border-bottom:1px solid var(--border)}
+.rationale-list li:last-child{border-bottom:none}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius)}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+.mode-toggle{display:flex;gap:.5rem;margin-bottom:.75rem}
+.mode-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);color:var(--muted)}
+.mode-btn.active{border-color:var(--purple);color:var(--purple);background:var(--purple-dim)}
+.source-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:800px){.source-cols{grid-template-columns:1fr}}
+.subhead{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-665</span></div>
+    <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Core Verify &middot; T665 &middot; GL Tie-Out Recompute</div>
+  <h1 class="tool-title">GL Tie-Out Recompute</h1>
+  <p class="hero-desc">Independently recomputes subledger-to-GL tie-out totals from a pasted posted ledger and your declared product_code &#8594; gl_account_code chart-of-accounts mapping. Single-source mode ties the recomputed totals out against a reported trial balance. Diff mode runs the same recompute independently over two full sources (for example a legacy-core export and a new-core export) and diffs them against each other for conversion balancing, with no side asserted correct.</p>
+  <div class="disclaimer">&#9888; This is an independent recompute and receipt, not a core alternative, not a vendor audit, and not an endorsement claim by any core vendor or platform (Fiserv, Jack Henry, FIS, Finastra, Episys, SilverLake, DNA, Premier or otherwise). A divergence is an arithmetic finding about the figures you supply, never a determination that a figure is incorrect or that funds are owed. The chart-of-accounts mapping is yours to declare; this tool never chooses or infers it. Batch, pasted-export only: no real-time or in-line posting integration of any kind.</div>
+  <div class="hero-meta">
+    <span class="badge badge-purple">GL Tie-Out</span>
+    <span class="badge badge-gold">Single-Source + Diff Mode</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note pii-notice" style="border-left:3px solid var(--teal)">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice" style="border-left:3px solid var(--teal)"><code>account_token</code> must be an opaque caller-supplied token or hash, never a real account number.</div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Period &amp; Mode</span></div>
+    <div class="field-grid">
+      <div class="field-cell"><span class="field-label">Period Label</span><input class="field-input" id="periodLabel" value="2026-08"></div>
+    </div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="modeBtnSingle" onclick="setMode('single')">Single-Source (vs Reported Trial Balance)</button>
+      <button class="mode-btn" id="modeBtnDiff" onclick="setMode('diff')">Diff Mode (Source A vs Source B)</button>
+    </div>
+  </div>
+
+  <div id="singlePanel">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Posted Ledger (paste your export rows)</span>
+        <button class="add-row-btn" onclick="addLedgerRow('ledgerBody')">+ Add Row</button>
+      </div>
+      <div class="tbl-wrap"><table class="data-table" id="ledgerBody-wrap">
+        <thead><tr><th>post_date</th><th>product_code</th><th>amount (USD)</th><th></th></tr></thead>
+        <tbody id="ledgerBody"></tbody>
+      </table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Chart-of-Accounts Mapping (product_code &#8594; gl_account_code)</span>
+        <button class="add-row-btn" onclick="addMappingRow('mappingBody')">+ Add Row</button>
+      </div>
+      <div class="tbl-wrap"><table class="data-table" id="mappingBody-wrap">
+        <thead><tr><th>product_code</th><th>gl_account_code</th><th></th></tr></thead>
+        <tbody id="mappingBody"></tbody>
+      </table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Reported Trial Balance (optional: the core's own reported figures, to tie out against)</span>
+        <button class="add-row-btn" onclick="addReportedRow('reportedBody')">+ Add Row</button>
+      </div>
+      <div class="tbl-wrap"><table class="data-table" id="reportedBody-wrap">
+        <thead><tr><th>gl_account_code</th><th>amount (USD)</th><th></th></tr></thead>
+        <tbody id="reportedBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div id="diffPanel" style="display:none">
+    <div class="source-cols">
+      <div>
+        <div class="subhead">Source A</div>
+        <div class="panel">
+          <div class="field-grid"><div class="field-cell"><span class="field-label">Label</span><input class="field-input" id="labelA" value="legacy_core"></div></div>
+          <div class="panel-header"><span class="panel-title">Ledger</span><button class="add-row-btn" onclick="addLedgerRow('ledgerABody')">+ Row</button></div>
+          <div class="tbl-wrap"><table class="data-table"><thead><tr><th>post_date</th><th>product_code</th><th>amount</th><th></th></tr></thead><tbody id="ledgerABody"></tbody></table></div>
+          <div class="panel-header"><span class="panel-title">Mapping</span><button class="add-row-btn" onclick="addMappingRow('mappingABody')">+ Row</button></div>
+          <div class="tbl-wrap"><table class="data-table"><thead><tr><th>product_code</th><th>gl_account_code</th><th></th></tr></thead><tbody id="mappingABody"></tbody></table></div>
+        </div>
+      </div>
+      <div>
+        <div class="subhead">Source B</div>
+        <div class="panel">
+          <div class="field-grid"><div class="field-cell"><span class="field-label">Label</span><input class="field-input" id="labelB" value="new_core"></div></div>
+          <div class="panel-header"><span class="panel-title">Ledger</span><button class="add-row-btn" onclick="addLedgerRow('ledgerBBody')">+ Row</button></div>
+          <div class="tbl-wrap"><table class="data-table"><thead><tr><th>post_date</th><th>product_code</th><th>amount</th><th></th></tr></thead><tbody id="ledgerBBody"></tbody></table></div>
+          <div class="panel-header"><span class="panel-title">Mapping</span><button class="add-row-btn" onclick="addMappingRow('mappingBBody')">+ Row</button></div>
+          <div class="tbl-wrap"><table class="data-table"><thead><tr><th>product_code</th><th>gl_account_code</th><th></th></tr></thead><tbody id="mappingBBody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runRecompute()">&#9654; Recompute GL Tie-Out</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)"><button id="ainSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this Policy Mandate, same-origin message, no file, no network" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:pointer;opacity:.85" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">&#x27A1; Send to Verify</button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+// ── Mirrors chaingraph/kernels/art-665-gl-tieout-recompute.kernel.mjs compute() ──
+var currentMode = 'single';
+
+function toCents(v){ if(v===''||v===null||v===undefined||isNaN(v)) return 0; return Math.round(parseFloat(v)*100); }
+function display(minor){ var neg=minor<0; var abs=neg?-minor:minor; var whole=Math.trunc(abs/100); var frac=abs-whole*100; return (neg?'-':'')+whole+'.'+String(frac).padStart(2,'0'); }
+
+function setMode(m){
+  currentMode = m;
+  document.getElementById('singlePanel').style.display = m==='single' ? '' : 'none';
+  document.getElementById('diffPanel').style.display = m==='diff' ? '' : 'none';
+  document.getElementById('modeBtnSingle').classList.toggle('active', m==='single');
+  document.getElementById('modeBtnDiff').classList.toggle('active', m==='diff');
+}
+
+function addLedgerRow(bodyId, v){
+  v=v||{};
+  var tb=document.getElementById(bodyId);
+  var tr=document.createElement('tr');
+  tr.innerHTML =
+    '<td><input type="date" value="'+(v.post_date||'2026-08-01')+'"></td>'+
+    '<td><input value="'+(v.product_code||'checking')+'"></td>'+
+    '<td><input type="number" step="0.01" value="'+(v.amount!==undefined?v.amount:'15.00')+'"></td>'+
+    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tb.appendChild(tr);
+}
+function addMappingRow(bodyId, v){
+  v=v||{};
+  var tb=document.getElementById(bodyId);
+  var tr=document.createElement('tr');
+  tr.innerHTML =
+    '<td><input value="'+(v.product_code||'checking')+'"></td>'+
+    '<td><input value="'+(v.gl_account_code||'GL-1010')+'"></td>'+
+    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tb.appendChild(tr);
+}
+function addReportedRow(bodyId, v){
+  v=v||{};
+  var tb=document.getElementById(bodyId);
+  var tr=document.createElement('tr');
+  tr.innerHTML =
+    '<td><input value="'+(v.gl_account_code||'GL-1010')+'"></td>'+
+    '<td><input type="number" step="0.01" value="'+(v.amount!==undefined?v.amount:'15.00')+'"></td>'+
+    '<td><button class="del-btn" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tb.appendChild(tr);
+}
+function readLedger(bodyId){
+  return Array.from(document.querySelectorAll('#'+bodyId+' tr')).map(function(r){
+    var i=r.querySelectorAll('input');
+    return { post_date:i[0].value, product_code:i[1].value, amount_minor_units: toCents(i[2].value) };
+  }).filter(function(r){ return !!r.post_date; });
+}
+function readMapping(bodyId){
+  var m={};
+  Array.from(document.querySelectorAll('#'+bodyId+' tr')).forEach(function(r){
+    var i=r.querySelectorAll('input');
+    if(i[0].value) m[i[0].value]=i[1].value;
+  });
+  return m;
+}
+function readReported(bodyId){
+  return Array.from(document.querySelectorAll('#'+bodyId+' tr')).map(function(r){
+    var i=r.querySelectorAll('input');
+    return { gl_account_code:i[0].value, amount_minor_units: toCents(i[1].value) };
+  }).filter(function(r){ return !!r.gl_account_code; });
+}
+
+function sumByAccount(ledger, mapping){
+  var buckets={}, mapped=0;
+  ledger.forEach(function(row){
+    var gl = mapping[row.product_code];
+    if(!gl) return;
+    buckets[gl] = (buckets[gl]||0) + row.amount_minor_units;
+    mapped++;
+  });
+  return { buckets: buckets, mapped: mapped };
+}
+
+function computeGLTieout(pp){
+  var period_label = pp.period_label || 'UNSTATED';
+  if(pp.mode==='single'){
+    var s = sumByAccount(pp.ledger, pp.gl_account_mapping);
+    var reportedBuckets={};
+    (pp.reported_trial_balance||[]).forEach(function(r){ reportedBuckets[r.gl_account_code]=(reportedBuckets[r.gl_account_code]||0)+r.amount_minor_units; });
+    var codes = Array.from(new Set(Object.keys(s.buckets).concat(Object.keys(reportedBuckets)))).sort();
+    var deltas = codes.map(function(code){
+      var c=s.buckets[code]||0, r=reportedBuckets[code]||0;
+      return { gl_account_code:code, computed_minor:c, reported_minor:r, delta_minor:c-r, agrees:(c-r)===0 };
+    });
+    var reportedSupplied = (pp.reported_trial_balance||[]).length>0;
+    var verdict, reason;
+    if(pp.ledger.length===0){ verdict='INDETERMINATE'; reason='No usable ledger rows were supplied.'; }
+    else if(Object.keys(pp.gl_account_mapping||{}).length===0){ verdict='INDETERMINATE'; reason='No product_code -> gl_account_code mapping was declared.'; }
+    else if(s.mapped===0){ verdict='INDETERMINATE'; reason='No ledger row\'s product_code matched the declared mapping.'; }
+    else if(!reportedSupplied){ verdict='INDETERMINATE'; reason='No reported trial-balance figures were supplied.'; }
+    else { verdict = deltas.every(function(d){return d.agrees;}) ? 'MATCHES' : 'DIVERGES'; reason=null; }
+    return { mode:'single', period_label:period_label, deltas:deltas, verdict:verdict, reason:reason, ledgerRowCount:pp.ledger.length, mappedCount:s.mapped };
+  }
+  // diff mode
+  var a = sumByAccount(pp.source_a.ledger, pp.source_a.gl_account_mapping);
+  var b = sumByAccount(pp.source_b.ledger, pp.source_b.gl_account_mapping);
+  var codesD = Array.from(new Set(Object.keys(a.buckets).concat(Object.keys(b.buckets)))).sort();
+  var deltasD = codesD.map(function(code){
+    var av=a.buckets[code]||0, bv=b.buckets[code]||0;
+    return { gl_account_code:code, source_a_minor:av, source_b_minor:bv, delta_minor:av-bv, agrees:(av-bv)===0 };
+  });
+  var verdictD, reasonD;
+  if(pp.source_a.ledger.length===0 || pp.source_b.ledger.length===0){ verdictD='INDETERMINATE'; reasonD='One or both sources supplied no usable ledger rows.'; }
+  else if(Object.keys(pp.source_a.gl_account_mapping||{}).length===0 || Object.keys(pp.source_b.gl_account_mapping||{}).length===0){ verdictD='INDETERMINATE'; reasonD='One or both sources declared no chart-of-accounts mapping.'; }
+  else if(a.mapped===0 || b.mapped===0){ verdictD='INDETERMINATE'; reasonD='One or both sources had no ledger row matching its own mapping.'; }
+  else { verdictD = deltasD.every(function(d){return d.agrees;}) ? 'MATCHES' : 'DIVERGES'; reasonD=null; }
+  return { mode:'diff', period_label:period_label, deltas:deltasD, verdict:verdictD, reason:reasonD, labelA:pp.source_a.label, labelB:pp.source_b.label, aRowCount:pp.source_a.ledger.length, bRowCount:pp.source_b.ledger.length, aMapped:a.mapped, bMapped:b.mapped };
+}
+
+function runRecompute(){
+  var pp;
+  if(currentMode==='single'){
+    pp = {
+      mode: 'single',
+      period_label: document.getElementById('periodLabel').value,
+      ledger: readLedger('ledgerBody'),
+      gl_account_mapping: readMapping('mappingBody'),
+      reported_trial_balance: readReported('reportedBody'),
+    };
+  } else {
+    pp = {
+      mode: 'diff',
+      period_label: document.getElementById('periodLabel').value,
+      source_a: { label: document.getElementById('labelA').value||'SOURCE_A', ledger: readLedger('ledgerABody'), gl_account_mapping: readMapping('mappingABody') },
+      source_b: { label: document.getElementById('labelB').value||'SOURCE_B', ledger: readLedger('ledgerBBody'), gl_account_mapping: readMapping('mappingBBody') },
+    };
+  }
+  var r = computeGLTieout(pp);
+
+  var verdictHtml = '<span class="verdict-pill verdict-'+r.verdict+'">'+r.verdict+'</span>' + (r.reason?' <span style="color:var(--muted);font-size:.7rem">'+r.reason+'</span>':'');
+
+  var deltaRows, deltaHead;
+  if(r.mode==='single'){
+    deltaHead = '<tr><th>gl_account_code</th><th>computed</th><th>reported</th><th>delta</th></tr>';
+    deltaRows = r.deltas.map(function(d){
+      return '<tr><td>'+d.gl_account_code+'</td><td>'+display(d.computed_minor)+'</td><td>'+display(d.reported_minor)+'</td>'+
+        '<td style="color:'+(d.agrees?'var(--green)':'var(--red)')+'">'+display(d.delta_minor)+'</td></tr>';
+    }).join('');
+  } else {
+    deltaHead = '<tr><th>gl_account_code</th><th>'+r.labelA+'</th><th>'+r.labelB+'</th><th>delta</th></tr>';
+    deltaRows = r.deltas.map(function(d){
+      return '<tr><td>'+d.gl_account_code+'</td><td>'+display(d.source_a_minor)+'</td><td>'+display(d.source_b_minor)+'</td>'+
+        '<td style="color:'+(d.agrees?'var(--green)':'var(--red)')+'">'+display(d.delta_minor)+'</td></tr>';
+    }).join('');
+  }
+
+  var rationale = r.mode==='single'
+    ? '<li>'+r.ledgerRowCount+' ledger row(s) supplied, '+r.mappedCount+' attributable to a GL account code under the declared mapping.</li>'
+    : '<li>'+r.labelA+': '+r.aRowCount+' ledger row(s), '+r.aMapped+' mapped. '+r.labelB+': '+r.bRowCount+' ledger row(s), '+r.bMapped+' mapped.</li>';
+
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section"><div class="out-header"><span class="out-title">Verdict</span>'+verdictHtml+'</div>'+
+    '<div class="out-body"><ul class="rationale-list">'+
+      rationale+
+      '<li>The chart-of-accounts mapping is a caller-declared input, never chosen or inferred here.</li>'+
+      (r.mode==='diff' ? '<li>Diff mode asserts no correct side: a divergence is a conversion-balancing finding, not a claim about which source is right.</li>' : '')+
+      '<li>This is an independent recompute and receipt, not a core alternative, not a vendor audit, and not an endorsement claim by any core vendor or platform. A divergence is an arithmetic finding, never a determination that a figure is incorrect or that funds are owed.</li>'+
+    '</ul></div></div>'+
+    '<div class="out-section"><div class="out-header"><span class="out-title">Per Account-Code Deltas</span></div>'+
+    '<div class="out-body" style="padding:0;overflow-x:auto"><table class="data-table"><thead>'+deltaHead+'</thead><tbody>'+deltaRows+'</tbody></table></div></div>';
+
+  window._lastResult = r;
+}
+
+toggleMfst=function(){}; // reassigned below by manifest script
+addLedgerRow('ledgerBody',{post_date:'2026-08-01',product_code:'checking',amount:15.00});
+addLedgerRow('ledgerBody',{post_date:'2026-08-02',product_code:'savings',amount:5.00});
+addMappingRow('mappingBody',{product_code:'checking',gl_account_code:'GL-1010'});
+addMappingRow('mappingBody',{product_code:'savings',gl_account_code:'GL-1020'});
+addReportedRow('reportedBody',{gl_account_code:'GL-1010',amount:15.00});
+addReportedRow('reportedBody',{gl_account_code:'GL-1020',amount:5.00});
+addLedgerRow('ledgerABody',{post_date:'2026-08-01',product_code:'checking',amount:15.00});
+addMappingRow('mappingABody',{product_code:'checking',gl_account_code:'GL-1010'});
+addLedgerRow('ledgerBBody',{post_date:'2026-08-01',product_code:'DDA',amount:15.00});
+addMappingRow('mappingBBody',{product_code:'DDA',gl_account_code:'GL-1010'});
+</script>
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "665-gl-tieout-recompute", "version": "1.0.0", "title": "GL Tie-Out Recompute", "description": "Independently recomputes subledger-to-GL tie-out totals from a pasted ledger export and a declared chart-of-accounts mapping, either against a reported trial balance or diffed between two full sources for conversion balancing.", "category": "consent-order-remediation", "tags": [], "audience": ["compliance", "risk", "engineer"], "input_schema": {"type": "object", "properties": {"mode": {"type": "string", "description": "single or diff"}, "ledger": {"type": "array", "description": "Posted transaction rows"}, "gl_account_mapping": {"type": "object", "description": "Declared product_code -> gl_account_code mapping"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "compute_gl_tieout_recompute", "description": "Recomputes subledger-to-GL tie-out totals under a declared chart-of-accounts mapping, either against a reported trial balance or diffed between two full sources.", "inputSchema": {"type": "object", "properties": {"mode": {"type": "string"}, "ledger": {"type": "array"}, "gl_account_mapping": {"type": "object"}}}}, "execution": {"type": "browser-reference", "entry": "tools/665-gl-tieout-recompute.html", "function_name": "runRecompute"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.0"}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+/* AP2 Policy Mandate Export -- CONTRACT section 3-4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var el=document.querySelector('#outputSection');
+  if(el&&el.textContent.trim().length>10){
+    var inputs={};
+    document.querySelectorAll('input,select,textarea').forEach(function(f){
+      if(f.id&&f.value)inputs[f.id]=f.value;
+    });
+    window._ap2Result={output:el.textContent.trim().slice(0,3000),inputs:inputs,verdict:(window._lastResult&&window._lastResult.verdict)||null};
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run the tool first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'665-gl-tieout-recompute';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'gl_tieout_recompute_mandate',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:window._ap2Result,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' recompute '+ts.slice(0,10),
+    agent_instructions:['Review the recomputed GL tie-out totals and diff, and route any divergence through your own compliance process.'],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    var el=document.querySelector('#outputSection');
+    if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();}
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'runRecompute',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.querySelector('.pii-notice')||document.body.firstElementChild;
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ Inputs prefilled from link and executed ('+n+' fields)','ok');
+    else notice('🔗 Inputs prefilled from link, review then Run ('+n+' fields)','ok');
+  }
+}
+var HANDOFF_MAX_CHARS=2000000;
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('⚠ No Policy Mandate to send, run the tool first.','warn');return;}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return;}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return;}
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('➡ Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier…','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+}
+window.apSendToVerify=apSendToVerify;
+window.AINBridge={
+  version:'1.1',
+  apply:applyFields,
+  run:runTool,
+  sendToVerify:apSendToVerify,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(unescape(encodeURIComponent(JSON.stringify(fields)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')+(run?'&run=1':'');}
+};
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

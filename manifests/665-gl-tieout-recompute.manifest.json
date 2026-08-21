@@ -1,0 +1,79 @@
+{
+  "tool_id": "665-gl-tieout-recompute",
+  "version": "1.0.0",
+  "title": "GL Tie-Out Recompute",
+  "description": "Independently recomputes subledger-to-GL tie-out totals from a caller-pasted posted ledger and a declared product_code -> gl_account_code chart-of-accounts mapping. Single-source mode sums ledger rows per GL account code for a stated period and diffs the recomputed totals against caller-supplied reported trial-balance figures. Diff mode runs the same summation independently over two full ledger sources (for example a legacy-core export and a new-core export covering the same period during a core conversion) and diffs the two recomputed totals against each other, symmetrically, with no side asserted correct.",
+  "category": "cat-consent-order-remediation",
+  "tags": ["GL tie-out", "trial balance", "chart of accounts", "conversion balancing", "core verify", "recompute", "zero network", "zero-PII"],
+  "audience": ["compliance", "risk", "engineer"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": ["single", "diff"],
+        "description": "single: recompute vs a reported trial balance. diff: two full sources diffed against each other for conversion balancing."
+      },
+      "period_label": { "type": "string" },
+      "ledger": {
+        "type": "array",
+        "description": "Posted transaction rows (single mode). Sec0 shape: account_token, post_date, effective_date, txn_type, amount (integer minor units), running_balance, product_code, description_code."
+      },
+      "gl_account_mapping": {
+        "type": "object",
+        "description": "Caller-declared product_code -> gl_account_code mapping (single mode)."
+      },
+      "reported_trial_balance": {
+        "type": "array",
+        "description": "Optional: the core's own reported GL figures per account code (single mode), to tie out against."
+      },
+      "source_a": {
+        "type": "object",
+        "description": "First full source for diff mode: { label, ledger, gl_account_mapping }."
+      },
+      "source_b": {
+        "type": "object",
+        "description": "Second full source for diff mode: { label, ledger, gl_account_mapping }."
+      }
+    },
+    "required": ["mode"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "mode": { "type": ["string", "null"] },
+      "single_source": { "type": ["object", "null"] },
+      "diff_sources": { "type": ["object", "null"] },
+      "verdict": { "type": "string", "enum": ["MATCHES", "DIVERGES", "INDETERMINATE"] },
+      "indeterminate_reason": { "type": ["string", "null"] },
+      "rejected_inputs": { "type": "array" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_gl_tieout_recompute",
+    "description": "Recomputes subledger-to-GL tie-out totals under a caller-declared chart-of-accounts mapping, either against a reported trial balance (single-source mode) or diffed between two full sources for conversion balancing (diff mode), returning MATCHES, DIVERGES (per-account-code deltas), or INDETERMINATE.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string" },
+        "period_label": { "type": "string" },
+        "ledger": { "type": "array" },
+        "gl_account_mapping": { "type": "object" },
+        "reported_trial_balance": { "type": "array" },
+        "source_a": { "type": "object" },
+        "source_b": { "type": "object" }
+      },
+      "required": ["mode"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/665-gl-tieout-recompute.html",
+    "function_name": "runRecompute",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by CORE-VERIFY-GLTIEOUT-1 per CORE-VERIFY-BUILD-SPEC.md's Sec6, GL tie-out assertion recompute chain. Positioning guardrails: independently recompute and receipt only, never a claim of core-vendor endorsement or that either compared side is correct."
+}
