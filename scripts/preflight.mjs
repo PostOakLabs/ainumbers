@@ -566,6 +566,16 @@ const GATES = [
   // that exact list and a phantom entry aborts `git add` (measured 2026-08-16: two phantom
   // catalog paths zeroed the stage and misreported every real artifact as escaped).
   ['Derived-artifact SSOT paths exist', 'node scripts/derived-artifacts.mjs --check-paths'],
+  // NODE-FANOUT-REGEN-CLOSE-1: every generator that reads the node graph AND
+  // publishes a freshness gate must be CLASSIFIED in derived-artifacts.mjs —
+  // COVERED (main regenerates it) or EXCLUDED (a decision with a measured
+  // reason). Unclassified is the failure, because that is precisely the state
+  // that redded main three times on 2026-08-21 and silently ejected every PR
+  // from the merge queue each time. Hard in every context: this is a
+  // declaration check on the repo's own wiring, not an artifact freshness gate,
+  // so nothing about it is a branch's fault or a branch's to repair.
+  ['Derived fan-out classification (NODE-FANOUT-REGEN-CLOSE-1)', 'node scripts/check-derived-fanout-coverage.mjs'],
+  ['Derived fan-out classification control (mutation)', 'node scripts/check-derived-fanout-coverage.test.mjs'],
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
