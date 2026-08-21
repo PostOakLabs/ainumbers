@@ -173,7 +173,7 @@ The MCP server (`mcp-apps-poc/worker.mjs`) exposes the `build_workflow_links` to
 
 **Validator (run before every `wrangler deploy`):** `mcp-apps-poc/scripts/validate-chains.mjs` — zero-dependency Node. From `mcp-apps-poc/`:
 ```bash
-node scripts/validate-chains.mjs   # or: npm run validate:chains
+node scripts/validate-chains.mjs
 ```
 Missing tool/composer files are **errors** (non-zero exit → block deploy); chain↔composer sequence divergence prints as a **warning**. Paths default to the sibling `repo/` layout; override with `WORKER_PATH`, `TOOLS_DIR`, `GUIDES_DIR`. (rationale: `CONTRACT-RATIONALE.md` §2.5)
 
@@ -322,15 +322,15 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 # 0. JS syntax gate — MUST exit 0 (blocking; no tool may ship with a broken inline <script>)
 node scripts/check_tools.js
 # Validate all manifests against schema
-npm run lint:manifests
-# Verify Policy Mandate schema compliance on generated payloads
-npm run test:ap2-exports
-# Enforce UI placement rule via DOM inspection tests
-npm run test:ui-ap2-placement
+node scripts/check-manifest-schema.mjs
+# PII text, manifest coverage, AP2 export-button consistency, sitemap coverage (verify_repo.py's
+# 5 checks — Check 3 is the AP2 export-button placement check; there is no separate payload-schema
+# or DOM-placement test, this one command covers what were two dead npm targets)
+python scripts/verify_repo.py
 ```
 When MCP server chains change (`mcp-apps-poc/worker.mjs`), also run the chain-integrity validator before `wrangler deploy` (see §2.5):
 ```bash
-cd mcp-apps-poc && npm run validate:chains
+cd mcp-apps-poc && node scripts/validate-chains.mjs
 ```
 **SSOT conformance gates (Amendment A5)** — run from the site repo root before any push that touches `chaingraph.json`, the spec/hub HTML, `standard/`, or a kernel: (rationale: `CONTRACT-RATIONALE.md` §6.2)
 ```bash
