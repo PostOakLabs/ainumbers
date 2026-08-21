@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-72"]
+tags: ["compliance_control", "count-73"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-72 tool(s) in this mandate-type group:
+73 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -84,3 +84,4 @@ status: stable
 - [NAIC CLO/CBO/CDO Tranche RBC Factor Calculator](../tools/art-618-naic-clo-rbc-factor-calculator.md)
 - [Authzen Conformance Fixture](../tools/art-651-authzen-conformance-fixture.md)
 - [Overdraft / NSF Fee Recomputation](../tools/art-662-odnsf-fee-recompute.md)
+- [Loan Servicing Waterfall Recompute](../tools/art-664-loan-servicing-waterfall-recompute.md)

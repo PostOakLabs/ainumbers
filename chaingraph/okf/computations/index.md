@@ -586,6 +586,7 @@ status: stable
 - [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md)
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md)
 - [Overdraft / NSF Fee Recomputation](./art-662-odnsf-fee-recompute.md)
+- [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md)
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md)
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
