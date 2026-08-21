@@ -224,6 +224,14 @@ export const COVERED = [
       'mcp/catalog.json', 'mcp/server.json',
       '.well-known/mcp.json', 'llms.txt', 'tools.html', 'index.html',
     ],
+    // DERIVED-DECLARE-PARITY-1: Python, so the parity gate's JS write-target
+    // parser cannot statically resolve it — mirrors `artifacts` (the same
+    // measured-2026-08-16 list above) so the gate has a ground truth instead
+    // of refusing this entry outright.
+    writes: [
+      'mcp/catalog.json', 'mcp/server.json',
+      '.well-known/mcp.json', 'llms.txt', 'tools.html', 'index.html',
+    ],
     share: '15-27%',
   },
   {
@@ -242,6 +250,10 @@ export const COVERED = [
     regen: 'node scripts/sync-stats.mjs --fix',
     gate: 'node scripts/sync-stats.mjs',
     artifacts: ['mcp.html', 'chaingraph/chaingraph-hub.html'],
+    // DERIVED-DECLARE-PARITY-1: sync-stats.mjs writes via a `write(relPath, …)`
+    // helper called with a variable, not a literal at the writeFileSync call
+    // site — unresolvable by static source analysis. Mirrors `artifacts`.
+    writes: ['mcp.html', 'chaingraph/chaingraph-hub.html'],
     share: '27%',
   },
   {
@@ -401,6 +413,21 @@ export const COVERED = [
       // Reconciled against verify-counts.mjs's full 16-file list, not patched
       // one file at a time.
       'fv-explainer.html',
+    ],
+    // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
+    // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
+    // the HTML-sentinel loop's `rel`), not literals at the call site —
+    // unresolvable by static source analysis. Mirrors `artifacts` (already
+    // reconciled against verify-counts.mjs's own file list, see comment
+    // above), duplicate included — the dedupe check flags that separately.
+    writes: [
+      'docs/index.html', 'index.html', 'start.html', 'about.html',
+      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
+      'mcp.html', 'chaingraph/chaingraph-hub.html',
+      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      'fv-explainer.html',
+      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      'llms.txt',
     ],
     share: '27%',
   },
