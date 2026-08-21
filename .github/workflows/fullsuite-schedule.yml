@@ -1,64 +1,54 @@
 name: Full Suite (scheduled)
 
-# FULLSUITE-SCHEDULE-1 — anchored on 0xAlpha/2026-08-21-mechanical-verification-audit.md
-# Finding 4 / Rec B3 (Tier B #3): "nothing periodically re-runs the *entire* hard suite
-# against main to catch slow drift that no single diff shape triggers." Every existing
-# CI workflow is path-filtered by design (scripts-verify.yml, html-verify.yml,
-# land-verify.yml, ...) — correct for keeping PRs fast, but it means a gate that only
-# regresses because of TIME (a staleness window crossed, an upstream drift, live
-# /mcp state diverging from committed data) is never re-checked unless its own diff
-# shape happens to touch it. This workflow closes that gap by re-running the full
-# estate on a schedule, independent of any diff.
+# Every existing CI workflow here is deliberately path-filtered — correct for
+# keeping pull requests fast, but it means a regression that only shows up
+# because of TIME (a staleness window crossed, upstream drift, live /mcp
+# state diverging from committed data) is never re-checked unless some
+# unrelated diff happens to touch the same files. This workflow closes that
+# gap: it re-runs the full estate on a schedule, independent of any diff.
 #
-# REPORT-ONLY, FOREVER (row rail). This workflow:
-#   - never blocks a merge or a deploy — it has no `pull_request` trigger and is not
-#     named in any branch ruleset's required-status-checks;
-#   - never writes to either repo — no auto-fix, no regen commit. SO #35 (single
-#     writer for shared derived artifacts) stays entirely with
-#     derived-artifacts-regen.yml; this workflow's `permissions:` is contents:read
-#     at both the top level and every job, with no exceptions;
-#   - therefore SO #47's declared-write-set requirement does not apply — there is no
-#     write for scripts/derived-artifacts.mjs to declare.
+# REPORT-ONLY, FOREVER. This workflow:
+#   - never blocks a merge or a deploy — it has no `pull_request` trigger and
+#     is not named in any branch ruleset's required status checks;
+#   - never writes to either repo — no auto-fix, no regen commit, no secrets.
+#     `permissions:` is contents:read at both the top level and the job,
+#     with no exceptions, so there is nothing here for a shared-artifact
+#     regen process to conflict with.
 #
-# HOW A FINDING SURFACES. Each check below is a separate step so every one of them
-# always runs regardless of an earlier failure (`continue-on-error: true` +
-# `if: always()` on the summary step) — a single weekly run gives the full picture
-# instead of stopping at the first red, mirroring preflight.mjs's own --keep-going
-# philosophy. The job's own final exit code still goes red if anything failed: that
-# redness on the Actions tab (plus the job summary table) IS the report surface —
-# where the ORCH's CI monitor already looks for red runs. No GitHub issue is filed
-# (unlike helm-guide-freshness-schedule.yml / vendor-freshness-schedule.yml in the
-# worker repo, which need issues:write because their cadence is every 6h and an
-# every-cycle red run would spam a failure email; this workflow is weekly, so a
-# red run itself is the intended, proportionate signal, and issues:write is not
-# added anywhere in this file).
+# HOW A FINDING SURFACES. Each check below is a separate step, and every one
+# of them always runs regardless of an earlier failure (`continue-on-error:
+# true` + `if: always()` on the summary step) — a single weekly run gives
+# the full picture instead of stopping at the first red, the same shape
+# preflight.mjs's own --keep-going mode uses locally. The job's own final
+# exit code still goes red if anything failed: that redness on the Actions
+# tab, plus the job summary table, is the whole report — no GitHub issue is
+# filed (unlike helm-guide-freshness-schedule.yml / vendor-freshness-schedule.yml
+# in the worker repo, which need issues:write because their cadence is every
+# 6h and an every-cycle red run would spam a failure email; this workflow is
+# weekly, so a red run itself is a proportionate signal on its own).
 #
-# SCOPE: site's `preflight.mjs` (bare, no --changed — the exact invocation
-# scripts-verify.yml already uses for "full gate suite") plus the worker repo's
-# three post-deploy sweeps (hash-sweep.mjs, verify-mcp-registered.mjs --all,
-# smoke-mcp.mjs). All three sweep scripts import only node:fs/node:path/node:url
-# plus global fetch — zero npm dependencies — so the worker checkout below needs
-# no `npm ci` and SO #10's npm-free discipline is not in tension with anything
-# here (that rule targets local sessions; ci.yml's own `validate`/`deploy` jobs
-# already run `npm ci` in this worker's CI for the steps that DO need it — not
-# these three). Copied verbatim from mcp-apps-poc/.github/workflows/ci.yml's
-# `deploy` job: same MCP_URL, same CHAINGRAPH/KERNELS_DIR shape (pointed at the
-# worker checkout's own vendored copies, matching what ci.yml passes via
-# github.workspace when the worker is the only checkout in that job).
+# SCOPE: the site's `preflight.mjs` (bare, no --changed — the same
+# full-suite invocation scripts-verify.yml already uses) plus the worker
+# repo's three post-deploy sweeps (hash-sweep.mjs, verify-mcp-registered.mjs
+# --all, smoke-mcp.mjs). All three sweep scripts import only
+# node:fs/node:path/node:url plus global fetch — zero npm dependencies — so
+# the worker checkout below needs no `npm ci`; the worker's own CI installs
+# dependencies only for the OTHER steps that actually need them (wrangler,
+# etc.), not these three. Env shape (MCP_URL, CHAINGRAPH, KERNELS_DIR) is
+# copied verbatim from mcp-apps-poc/.github/workflows/ci.yml's `deploy` job,
+# pointed at this job's own worker checkout.
 #
-# SCHEDULE: weekly, mid-morning US Central (Tim's ruling for this row — a red
-# discovered at 03:00 helps nobody and ORCH monitors may be dark). 15:00 UTC is
-# 10:00 CDT / 09:00 CST — inside waking hours either side of the DST boundary;
-# not worth a solar-time cron for a once-a-week report.
+# SCHEDULE: weekly, mid-morning US Central — a red discovered overnight
+# helps nobody if nobody is watching yet. 15:00 UTC is 10:00 CDT / 09:00
+# CST — inside normal waking hours either side of the DST boundary; not
+# worth a solar-time cron for a once-a-week report.
 #
-# dry_run input exists for SO #40a parity (main-only-trigger workflows must accept
-# workflow_dispatch with a dry_run input). It is a documented no-op here: every
-# step in this workflow is already read-only (no push/deploy/publish/commit
-# anywhere in the file), so there is no irreversible step for dry_run to skip —
-# dispatching with or without it runs the identical, already-safe steps. Kept as
-# an explicit input (rather than omitted) so the workflow still SHOWS the SO #40a
-# shape at a glance and the dispatch-run evidence quoted in the PR body used
-# dry_run:true.
+# dry_run input: every step in this workflow is already read-only (no
+# push/deploy/publish/commit anywhere in the file), so there is no
+# irreversible step for dry_run to skip — dispatching with or without it
+# runs the identical, already-safe steps. Kept as an explicit input anyway
+# so a manual dispatch can be proven end-to-end before this file ever runs
+# unattended on its schedule.
 
 on:
   schedule:
@@ -148,9 +138,9 @@ jobs:
             echo "| Worker post-deploy smoke | $SMOKE |"
             echo ""
             echo "Report-only: this workflow never blocks a merge or deploy and never writes"
-            echo "to either repo. A red run here is the finding — it goes wherever the ORCH's"
-            echo "CI monitor already watches for failed runs; no fix/gate row is auto-staged"
-            echo "from it (SO #42(c) — findings land in research/FINDINGS-HELD-2026-08.md)."
+            echo "to either repo. A red run here is the finding, surfaced only as this run's"
+            echo "own failed status on the Actions tab — no GitHub issue is filed and nothing"
+            echo "is auto-staged from it; a person reads the summary above and decides."
           } >> "$GITHUB_STEP_SUMMARY"
 
           FAIL=0
