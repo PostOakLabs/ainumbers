@@ -398,6 +398,16 @@ const GATES = [
   // This --check gate (read-only recompute-and-verify) is the safe, standing freshness
   // check; publishing new records stays a manual/generated run, same as this one.
   ['F3 registry lineage log freshness (REGISTRY-LINEAGE-RETRY-1)', 'node scripts/gen-registry-lineage.mjs --check'],
+  // REGISTRY-ERRATA-TILES-BUILD-1: wired here (satisfies check-generator-coverage.mjs's
+  // hard "every --check generator must be invoked by preflight.mjs" rule) but the row
+  // itself checked off BLOCKED — the F1 errata log's Sigsum anchoring step (mandatory per
+  // BUILD-SPEC §2.1) hit the SAME persistent HTTP 429 from seasalp.glasklar.is that
+  // blocked REGISTRY-LINEAGE-TILES-BUILD-1 on 2026-08-18, so NOTHING was ever written to
+  // registry/errata/ (§2.1: publish nothing if that step did not complete).
+  // REGISTRY-ERRATA-RETRY-1 (2026-08-21) re-ran the generator once the domain-bound
+  // Sigsum submit token + SIGSUM-BUDGET-COUNTER-1 landed. See derived-artifacts.mjs
+  // registration status alongside this gate for whether output now exists on disk.
+  ['F1 registry errata log freshness (REGISTRY-ERRATA-RETRY-1)', 'node scripts/gen-registry-errata.mjs --check'],
   ['EUC register entries freshness (EUC-SITE-1)', 'node scripts/gen-euc-register.mjs --check'],
   ['EUC register page freshness (EUC-SITE-1)', 'node scripts/gen-euc-register-page.mjs --check'],
   ['Clause edge report freshness (CLAUSE-EDGE-TYPES-1)', 'node scripts/gen-clause-edge-report.mjs --check'],
