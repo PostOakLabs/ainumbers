@@ -1,0 +1,162 @@
+name: Full Suite (scheduled)
+
+# Every existing CI workflow here is deliberately path-filtered — correct for
+# keeping pull requests fast, but it means a regression that only shows up
+# because of TIME (a staleness window crossed, upstream drift, live /mcp
+# state diverging from committed data) is never re-checked unless some
+# unrelated diff happens to touch the same files. This workflow closes that
+# gap: it re-runs the full estate on a schedule, independent of any diff.
+#
+# REPORT-ONLY, FOREVER. This workflow:
+#   - never blocks a merge or a deploy — it has no `pull_request` trigger and
+#     is not named in any branch ruleset's required status checks;
+#   - never writes to either repo — no auto-fix, no regen commit, no secrets.
+#     `permissions:` is contents:read at both the top level and the job,
+#     with no exceptions, so there is nothing here for a shared-artifact
+#     regen process to conflict with.
+#
+# HOW A FINDING SURFACES. Each check below is a separate step, and every one
+# of them always runs regardless of an earlier failure (`continue-on-error:
+# true` + `if: always()` on the summary step) — a single weekly run gives
+# the full picture instead of stopping at the first red, the same shape
+# preflight.mjs's own --keep-going mode uses locally. The job's own final
+# exit code still goes red if anything failed: that redness on the Actions
+# tab, plus the job summary table, is the whole report — no GitHub issue is
+# filed (unlike helm-guide-freshness-schedule.yml / vendor-freshness-schedule.yml
+# in the worker repo, which need issues:write because their cadence is every
+# 6h and an every-cycle red run would spam a failure email; this workflow is
+# weekly, so a red run itself is a proportionate signal on its own).
+#
+# SCOPE: the site's `preflight.mjs` (bare, no --changed — the same
+# full-suite invocation scripts-verify.yml already uses) plus the worker
+# repo's three post-deploy sweeps (hash-sweep.mjs, verify-mcp-registered.mjs
+# --all, smoke-mcp.mjs). All three sweep scripts import only
+# node:fs/node:path/node:url plus global fetch — zero npm dependencies — so
+# the worker checkout below needs no `npm ci`; the worker's own CI installs
+# dependencies only for the OTHER steps that actually need them (wrangler,
+# etc.), not these three. Env shape (MCP_URL, CHAINGRAPH, KERNELS_DIR) is
+# copied verbatim from mcp-apps-poc/.github/workflows/ci.yml's `deploy` job,
+# pointed at this job's own worker checkout.
+#
+# SCHEDULE: weekly, mid-morning US Central — a red discovered overnight
+# helps nobody if nobody is watching yet. 15:00 UTC is 10:00 CDT / 09:00
+# CST — inside normal waking hours either side of the DST boundary; not
+# worth a solar-time cron for a once-a-week report.
+#
+# dry_run input: every step in this workflow is already read-only (no
+# push/deploy/publish/commit anywhere in the file), so there is no
+# irreversible step for dry_run to skip — dispatching with or without it
+# runs the identical, already-safe steps. Kept as an explicit input anyway
+# so a manual dispatch can be proven end-to-end before this file ever runs
+# unattended on its schedule.
+
+on:
+  schedule:
+    - cron: '0 15 * * 1'   # every Monday, 15:00 UTC (~mid-morning US Central)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no-op — this workflow already writes nothing; see header comment)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  full-suite:
+    name: Full hard-gate suite + worker post-deploy sweeps (report-only)
+    # TEMPORARILY DISABLED. A workflow_dispatch trigger only becomes
+    # dispatchable through the API/CLI once its file exists on the default
+    # branch — there is no way to prove a dispatch run on this branch before
+    # merge. This job stays disabled through one merge so the trigger can be
+    # registered and manually dispatched as a proof run from the default
+    # branch; a follow-up change removes this line once that proof run is
+    # linked. Never flip this workflow on by merging it live and hoping.
+    if: false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📥 Checkout site repo (main)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 🟢 Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🧪 Site — full preflight gate suite (bare, no --changed)
+        id: preflight
+        continue-on-error: true
+        run: node scripts/preflight.mjs
+
+      - name: 📥 Checkout worker repo (mcp-apps-poc, for post-deploy sweeps)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: PostOakLabs/ainumbers-mcp-apps
+          path: _worker
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 🌐 Worker — hash-sweep (every live gpu:false node returns a valid hash)
+        id: hashsweep
+        continue-on-error: true
+        run: node _worker/scripts/hash-sweep.mjs
+        env:
+          MCP_URL: https://mcp.ainumbers.co/mcp
+          CHAINGRAPH: ${{ github.workspace }}/_worker/data/chaingraph/chaingraph.json
+          KERNELS_DIR: ${{ github.workspace }}/_worker/kernels
+          THROTTLE_MS: '1500'
+
+      - name: 🔎 Worker — verify MCP tool registration (live tools/list)
+        id: verifyreg
+        continue-on-error: true
+        run: node _worker/scripts/verify-mcp-registered.mjs --all
+        env:
+          MCP_URL: https://mcp.ainumbers.co/mcp
+
+      - name: 🔌 Worker — post-deploy /mcp smoke test
+        id: smoke
+        continue-on-error: true
+        run: node _worker/scripts/smoke-mcp.mjs
+        env:
+          MCP_SMOKE_URL: https://mcp.ainumbers.co/mcp
+
+      - name: 📋 Summarize (report-only — this run's own red/green IS the finding surface)
+        if: always()
+        env:
+          PREFLIGHT: ${{ steps.preflight.outcome }}
+          HASHSWEEP: ${{ steps.hashsweep.outcome }}
+          VERIFYREG: ${{ steps.verifyreg.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo "## Full Suite (scheduled) — weekly full-estate report"
+            echo ""
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| Site preflight (full, bare) | $PREFLIGHT |"
+            echo "| Worker hash-sweep | $HASHSWEEP |"
+            echo "| Worker verify-mcp-registered --all | $VERIFYREG |"
+            echo "| Worker post-deploy smoke | $SMOKE |"
+            echo ""
+            echo "Report-only: this workflow never blocks a merge or deploy and never writes"
+            echo "to either repo. A red run here is the finding, surfaced only as this run's"
+            echo "own failed status on the Actions tab — no GitHub issue is filed and nothing"
+            echo "is auto-staged from it; a person reads the summary above and decides."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          FAIL=0
+          for R in "$PREFLIGHT" "$HASHSWEEP" "$VERIFYREG" "$SMOKE"; do
+            if [ "$R" != "success" ]; then FAIL=1; fi
+          done
+          if [ "$FAIL" -eq 1 ]; then
+            echo "::error title=Full Suite (scheduled)::One or more checks failed this cycle — see the job summary. Report-only: does not block any merge/deploy."
+            exit 1
+          fi
+          echo "✅ full estate + live worker sweeps clean this cycle."
