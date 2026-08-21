@@ -586,6 +586,7 @@ status: stable
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md) — `compute_interest_accrual_recompute`
 - [Overdraft / NSF Fee Recomputation](./art-662-odnsf-fee-recompute.md) — `compute_odnsf_fee_recompute`
 - [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md) — `compute_loan_servicing_waterfall_recompute`
+- [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md) — `compute_gl_tieout_recompute`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
