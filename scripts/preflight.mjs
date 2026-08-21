@@ -362,6 +362,12 @@ const GATES = [
   ['Nav reachability — new islands (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
   ['Nav-island baseline fresh (derived)', 'node scripts/check-nav-reachability.mjs --baseline-check'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
+  // DEBT-LEDGER-1: fv-explainer.html's generated ratchet-baseline ledger (a
+  // SEPARATE region from the count sentinels the gate above covers — see
+  // derived-artifacts.mjs COVERED id 'debt-ledger'). ADVISORY_ON_PR/blocking-
+  // on-main via the generic string-match categorisation, same as every other
+  // shared-derived-artifact gate below.
+  ['Debt ledger freshness (DEBT-LEDGER-1)', 'node scripts/gen-debt-ledger.mjs --check'],
   ['MCP protocol-version drift', 'node scripts/verify-mcp-protocol-version.mjs'],
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],

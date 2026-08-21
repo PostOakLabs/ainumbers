@@ -268,6 +268,21 @@ export const COVERED = [
     ],
     share: '27%',
   },
+  {
+    id: 'debt-ledger',
+    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
+    // Finding 3): owns ONE self-delimited region of fv-explainer.html
+    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
+    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
+    // this same page — same "two generators, two regions, one shared file"
+    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
+    // chaingraph/chaingraph-hub.html below. New today; no co-modification
+    // history yet to measure a share rate from.
+    regen: 'node scripts/gen-debt-ledger.mjs --write',
+    gate: 'node scripts/gen-debt-ledger.mjs --check',
+    artifacts: ['fv-explainer.html'],
+    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
+  },
 ];
 
 /**
