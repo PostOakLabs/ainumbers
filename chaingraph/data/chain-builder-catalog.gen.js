@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (630 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (631 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6766,6 +6766,16 @@ window.CHAINBUILDER_CATALOG = [
       "451-sr11-7-model-risk-management-gap-assessor",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-661-interest-accrual-recompute",
+    "display_name": "Interest Accrual Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/661-interest-accrual-recompute.html",
+    "description": "Recomputes per-day interest accrual from caller-supplied daily principal balances and product terms (day-count convention, compounding basis",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
