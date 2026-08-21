@@ -109,6 +109,14 @@ export function nodeSensitiveGenerators(repo) {
   const preflightSrc = readFileSync(resolve(repo, 'scripts', 'preflight.mjs'), 'utf8');
   const out = [];
   for (const [path, cmds] of preflightInvokedScripts(preflightSrc)) {
+    // A *.test.mjs is a CONTROL, never a generator: it publishes no derived
+    // artifact, so there is nothing for main to own and nothing a node can turn
+    // stale. They are excluded structurally rather than listed one by one,
+    // because a control that builds fixture sources naturally contains both
+    // marker strings this gate keys on — this gate's OWN control does, and
+    // flagged itself the moment it was wired into preflight. Caught by the
+    // mutation suite, which is what a mutation suite is for.
+    if (path.endsWith('.test.mjs')) continue;
     let src;
     try { src = readFileSync(resolve(repo, path), 'utf8'); } catch { continue; }
     if (!CHECK_FLAG_RE.test(src)) continue;

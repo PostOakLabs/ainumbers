@@ -40,6 +40,31 @@
  *       auto-commit chain commits churn on every single push. Two generators
  *       FAILED this and are excluded — see EXCLUDED below.
  *
+ * ⚠ MEASURE IDEMPOTENCY BY CONTENT HASH, NOT BY `git status`
+ * (NODE-FANOUT-REGEN-CLOSE-1, 2026-08-21). A porcelain grep for ` M` misses the
+ * `MM` a staged-then-rewritten file reports, which produced a FALSE GREEN for
+ * gen-fv-status.mjs on the first pass of this very row. Run the generator twice
+ * and compare the BYTES of every path it touched.
+ *
+ * ── THE SECOND DERIVATION: NODE-REGISTRATION FAN-OUT (2026-08-21) ───────────
+ * The measurement above answered "which artifacts does a page-adding commit
+ * co-modify?" — a question about what sessions HAD been rewriting by hand. It
+ * could not see a surface that goes stale and that nobody was regenerating,
+ * because such a surface never appears in a co-modification tally. That blind
+ * spot redded `main` three times in one day (art-661/664/665) and, each time,
+ * silently ejected every PR from the merge queue.
+ *
+ * So a second, independent derivation was run against the primary sources: every
+ * generator preflight.mjs executes that publishes a freshness gate AND reads the
+ * node graph — 30 of them — then every one of those run in write mode against a
+ * REAL drifted tree (278e0318, art-665 registered, pre-#1430). Exactly six
+ * drifted. They are the six marked below. Fourteen had been in neither list.
+ *
+ * ⛔ THAT COUNT IS NOW A GATE, NOT A COMMENT: scripts/check-derived-fanout-
+ * coverage.mjs recomputes the same candidate set on every preflight run and
+ * fails on anything classified in neither list. Adding a node-sensitive
+ * generator without deciding its ownership is no longer possible silently.
+ *
  * ── CONTEXT SPLIT ───────────────────────────────────────────────────────────
  * PR context   → these gates warn, never block (a shard is now FORBIDDEN by
  *                SO #35 from satisfying them, so blocking would be unsatisfiable).

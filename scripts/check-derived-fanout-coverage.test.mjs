@@ -181,6 +181,22 @@ const pageEntry = { id: 'page', regen: `node ${GEN_B}`, gate: `node ${GEN_B} --c
 cases.push({ name: 'COVERED entry ordered BEFORE the entry it declares after:', expect: 1, repo: orderRepo([pageEntry, entryEntry]) });
 cases.push({ name: 'the same two entries in the correct order', expect: 0, repo: orderRepo([entryEntry, pageEntry]) });
 
+// 9. A *.test.mjs control is never a candidate, however it reads. THIS FILE is
+// the reason the case exists: it builds fixture generator sources, so it
+// contains both marker strings, and it flagged ITSELF the first time it was
+// wired into preflight. A control that demands classification of controls would
+// make the gate demand an EXCLUDED entry for every future self-test.
+cases.push({
+  name: 'a *.test.mjs control is structurally out of scope, whatever it contains',
+  expect: 0,
+  repo: {
+    generators: { 'scripts/gen-fixture-thing.test.mjs': { readsGraph: true, hasCheck: true } },
+    gateCommands: ['node scripts/gen-fixture-thing.test.mjs'],
+    covered: [],
+    excluded: [],
+  },
+});
+
 let failures = 0;
 for (const c of cases) {
   const root = buildRepo(c.repo);
