@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (631 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (632 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6794,6 +6794,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/664-loan-servicing-waterfall-recompute.html",
     "description": "Independently recomputes how a single borrower's single loan payment applies across escrow, fee, interest and principal buckets under the no",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-665-gl-tieout-recompute",
+    "display_name": "GL Tie-Out Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/665-gl-tieout-recompute.html",
+    "description": "Independently recomputes subledger-to-GL tie-out totals from a caller-supplied posted ledger and the caller's own declared product_code -> g",
     "consumes": [],
     "feeds": [],
     "status": "live"
