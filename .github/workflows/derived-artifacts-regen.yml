@@ -99,14 +99,15 @@ jobs:
       - name: Show the covered set (and what is deliberately excluded)
         run: node scripts/derived-artifacts.mjs
 
-      # NODE-FANOUT-REGEN-CLOSE-1. Runs BEFORE the regen, on purpose: if a
-      # generator that a node registration can turn red is in neither list, this
-      # job would regenerate an incomplete set, push, and leave main red anyway —
-      # which is what happened three times on 2026-08-21 (art-661/664/665) and
-      # silently ejected every PR from the merge queue each time. Fail here, with
-      # the unclassified generator named, rather than after a misleading green
-      # regen. Same command preflight.mjs runs, so a branch cannot merge into a
-      # state this job then rejects.
+      # Runs BEFORE the regen, on purpose. If a generator that a node
+      # registration can turn stale is declared in neither the covered nor the
+      # excluded list, this job regenerates an incomplete set, pushes, and leaves
+      # main red anyway — which happened three times on 2026-08-21 (art-661,
+      # art-664, art-665). Each of those reds also failed the merge queue's
+      # simulated-merge check, which silently ejects every queued PR. Fail here,
+      # naming the unclassified generator, rather than after a misleading green
+      # regen. Same command scripts/preflight.mjs runs, so a branch cannot merge
+      # into a state this job then rejects.
       - name: Prove the node fan-out classification is total
         run: node scripts/check-derived-fanout-coverage.mjs
 
@@ -189,14 +190,14 @@ jobs:
       # Dry-run report: print exactly what the commit step would have staged,
       # then stop — no push, no mutation of main, regardless of the change flag.
       #
-      # ⚠ SO #47(b): a dry-run that never exercises a newly-added write is NOT
-      # evidence, and "nothing to commit" is the shape that hides exactly that.
-      # ENROLL-DECLARE-META-1 shipped green on a dry-run blind to the step it
-      # added, and the undeclared write then killed the regen job on main. So the
-      # report always ENUMERATES the declared coverage — every generator and every
-      # path it is permitted to write — whether or not anything drifted. A reader
-      # can then name the file a new entry covers instead of inferring it from an
-      # empty diff.
+      # ⚠ A dry-run that never exercises a newly-added write is NOT evidence, and
+      # "nothing to commit" is the shape that hides exactly that: a change adding
+      # a new write once passed its dry-run green because the run never reached
+      # the new step, and the undeclared write then killed the regen job on main.
+      # So the report always ENUMERATES the declared coverage — every generator
+      # and every path it is permitted to write — whether or not anything
+      # drifted. A reader can name the file a new entry covers instead of
+      # inferring it from an empty diff.
       - name: Dry-run report (no commit)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
         run: |
