@@ -170,9 +170,13 @@ function nonMetaObj(j) {
 }
 
 function fallbackExtract(j) {
-  if (Array.isArray(j)) return { n: j.length, what: 'root list length (generic fallback — no dedicated extractor yet in gen-debt-ledger.mjs)' };
+  // NOTE: these strings land in reader-facing copy inside fv-explainer.html, so they are
+  // bound by CONTRACT.md §1.4 — no em-dashes. Use a comma. (Caught on main 2026-08-21:
+  // the 26th ratchet file was the first to reach this fallback path, and its em-dash
+  // redded copy-hallmarks, which in turn ejected every queued PR from the merge queue.)
+  if (Array.isArray(j)) return { n: j.length, what: 'root list length (generic fallback, no dedicated extractor yet in gen-debt-ledger.mjs)' };
   const keys = nonMeta(j);
-  return { n: keys.length, what: 'top-level entries (generic fallback — no dedicated extractor yet in gen-debt-ledger.mjs)' };
+  return { n: keys.length, what: 'top-level entries (generic fallback, no dedicated extractor yet in gen-debt-ledger.mjs)' };
 }
 
 function lastChanged(absPath) {
