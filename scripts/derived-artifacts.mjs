@@ -563,6 +563,20 @@ export const EXCLUDED = [
        + 'artifact here for main to own. Listed so the coverage gate reads it as a decision, not a gap.',
   },
   {
+    what: 'scripts/check-derived-declare-parity.mjs (DERIVED-DECLARE-PARITY-1)',
+    script: 'scripts/check-derived-declare-parity.mjs',
+    share: 'n/a — a gate, not a generator',
+    why: 'NOT A GENERATOR — measured, not assumed. A grep for writeFileSync/writeFile in this script '
+       + 'returns 4 hits and every one is inert: two are comments, one is the DETECTION REGEX it uses '
+       + 'to find writes in OTHER generators, and one is an error string. Zero are write calls. That '
+       + 'distinction is the whole point of the entry — the script statically PARSES other generators\' '
+       + 'sources to assert each COVERED entry declares everything it writes, so it reads the node graph '
+       + 'transitively through COVERED and trips the coverage heuristic while producing no artifact for '
+       + 'main to own. Nothing about it can go stale, and covering it would be incoherent: there is no '
+       + 'regen command that could converge. Listed so the fan-out gate reads a decision rather than a '
+       + 'gap — same shape and same reason as check-node-complete.mjs directly above.',
+  },
+  {
     what: 'registry/lineage/** (via scripts/gen-registry-lineage.mjs — REGISTRY-LINEAGE-RETRY-1)',
     script: 'scripts/gen-registry-lineage.mjs',
     share: 'n/a',
