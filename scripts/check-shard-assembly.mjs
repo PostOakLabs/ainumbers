@@ -103,6 +103,39 @@
  * chain check. The branch-awareness split is proven end to end against real
  * throwaway git repositories in check-shard-assembly.test.mjs.
  *
+ * ──────────────────────────────────────────────────────────────────────────
+ * SHARD-SCHEMA-PARITY-1 (2026-08-21) — SCHEMA CONFORMANCE, THE PRODUCER/
+ * CONSUMER GATE SPLIT.
+ *
+ * The checks above answer "is this shard registered and assembled?" — they
+ * say nothing about whether the shard itself is a VALID v0.4 node object.
+ * art-662's shard carried a `pageless` key; the v0.4 schema is
+ * `additionalProperties:false` on the node object
+ * (standard/openchain-graph-v0.4.schema.json $defs.node), so assembling it
+ * produced an invalid chaingraph.json — but this gate, and every other
+ * PR-side check, stayed green, because none of them validated a shard
+ * against the schema assembly itself applies. The producer gate (this file)
+ * accepted what the consumer gate (assemble-chaingraph.mjs + schema-
+ * validate.mjs, run against the ASSEMBLED chaingraph.json) rejects.
+ *
+ * THE FIX: every node shard on disk is validated against $defs.node by
+ * shelling to `standard/schema-validate.mjs --shard <path>` (added by this
+ * same row) — never a second copy of the fragment or the validator engine
+ * (SO #34: a gate may not read its expectation from a copy; recompute it
+ * from the primary source, which is openchain-graph-v0.4.schema.json,
+ * loaded fresh by schema-validate.mjs on every invocation). This is the
+ * SAME reuse pattern check-node-complete.mjs already uses for identity (a)
+ * and registration (b): shell to the canonical checker, no second impl.
+ *
+ * SCHEMA CONFORMANCE IS BRANCH-UNAWARE, DELIBERATELY: a shard that violates
+ * the schema is wrong the moment it exists on disk, whether it is mid-flight
+ * (PENDING-ASSEMBLE) or already landed — unlike the registration axis above,
+ * there is no state in which an unvalidated shard is "expected." So this
+ * check runs over every id in nodeShardIds, unconditionally, and is
+ * BLOCKING with no advisory phase and no waiver mechanism (a schema
+ * violation has no legitimate mid-flight reading to wait out).
+ * ──────────────────────────────────────────────────────────────────────────
+ *
  * Zero-dep, node: builtins only (site repo is ZERO-DEP). git is shelled to
  * the same way the rest of this tree shells to it — same trust tier as node.
  *
@@ -120,6 +153,11 @@ const root = resolve(__dirname, '..')
 
 const NODES_BLOCKING = true // NODE-REGISTRATION-GAP-1: promoted from advisory.
 const CHAINS_BLOCKING = false // ← Flip to true once a chain-leak incident is measured.
+
+// SHARD-SCHEMA-PARITY-1: schema conformance below is BLOCKING, unconditionally,
+// with no waiver mechanism — see the header comment.
+const SCHEMA_VALIDATE_PATH = resolve(root, 'chaingraph/standard/schema-validate.mjs')
+const SCHEMA_PATH_REL = 'chaingraph/standard/openchain-graph-v0.4.schema.json'
 
 // EMPTY, AND THAT IS THE POINT — the waiver is fully discharged (NODE-REG-UNBLOCK-1, 2026-08-15).
 //
@@ -270,6 +308,27 @@ function shardIdsOnDisk(dir) {
 const nodeShardIds = shardIdsOnDisk(NODES_DIR)
 const chainShardIds = shardIdsOnDisk(CHAINS_DIR)
 
+// ── schema conformance (SHARD-SCHEMA-PARITY-1) ─────────────────────────────
+// Every node shard on disk, validated against $defs.node — the same fragment
+// assembly validates against, loaded fresh from the schema file by
+// schema-validate.mjs on every call, never a second copy here.
+function checkShardSchema(id) {
+  const shardPath = resolve(NODES_DIR, `${id}.json`)
+  try {
+    execFileSync('node', [SCHEMA_VALIDATE_PATH, '--shard', shardPath], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return null
+  } catch (e) {
+    const out = ((e.stdout || '') + (e.stderr || '')).toString().trim()
+    return { id, detail: out }
+  }
+}
+
+const schemaFailures = nodeShardIds.map(checkShardSchema).filter(Boolean)
+
 const graph = JSON.parse(readFileSync(CG_PATH, 'utf8'))
 const assembledNodeIds = graph.nodes.map((n) => n.tool_id)
 const assembledChainNames = graph.chains.map((c) => c.name)
@@ -354,13 +413,27 @@ if (pendingNodes.length > 0) {
   console.log('check-shard-assembly: PENDING-ASSEMBLE is INFORMATIONAL, and it is not a pass for the shard itself — ASSEMBLE-LAND must still append the id(s) to chaingraph.meta.json order.nodes and re-run scripts/assemble-chaingraph.mjs. The moment such a shard reaches the base ref unregistered, this gate turns RED on it.')
 }
 
-if (unassembledNodes.length === 0 && unassembledChains.length === 0 && orphanedNodeIds.length === 0) {
+if (
+  unassembledNodes.length === 0 &&
+  unassembledChains.length === 0 &&
+  orphanedNodeIds.length === 0 &&
+  schemaFailures.length === 0
+) {
   const accountedFor = nodeShardIds.length - waivedNodes.length - pendingNodes.length
-  console.log(`check-shard-assembly: OK — all ${accountedFor}/${nodeShardIds.length} node shard(s) (excluding ${waivedNodes.length} waived, ${pendingNodes.length} pending-assemble) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, and every assembled node has a backing shard.`)
+  console.log(`check-shard-assembly: OK — all ${accountedFor}/${nodeShardIds.length} node shard(s) (excluding ${waivedNodes.length} waived, ${pendingNodes.length} pending-assemble) and ${chainShardIds.length} chain shard(s) are present in the assembled chaingraph.json, every assembled node has a backing shard, and all ${nodeShardIds.length} node shard(s) on disk validate against $defs.node in ${SCHEMA_PATH_REL}.`)
   process.exit(0)
 }
 
 let nodesFailed = false
+
+if (schemaFailures.length > 0) {
+  nodesFailed = true
+  console.log(`check-shard-assembly: ${schemaFailures.length} node shard(s) FAIL v0.4 schema validation against $defs.node in ${SCHEMA_PATH_REL} (SHARD-SCHEMA-PARITY-1 — this is the producer/consumer gate split: assembly would reject these too):`)
+  for (const { id, detail } of schemaFailures) {
+    console.log(`  - ${id}:`)
+    for (const line of detail.split('\n')) console.log(`      ${line}`)
+  }
+}
 
 if (unassembledNodes.length > 0) {
   nodesFailed = true
@@ -384,6 +457,10 @@ if (unassembledChains.length > 0) {
 }
 console.log('check-shard-assembly: if none of these are mid-flight CGSHARD rows, an ASSEMBLE+LAND pass was missed (node case) or chaingraph.json was hand-edited (orphan case) — see board/STANDING-ORDERS.md #6.')
 
+if (schemaFailures.length > 0) {
+  console.log('check-shard-assembly: FAILING — schema case is BLOCKING, unconditionally, no waiver (SHARD-SCHEMA-PARITY-1). Fix the shard itself (drop the unknown property / add the missing required field) — this is not a registration or assembly-ordering issue.')
+  process.exit(1)
+}
 if (nodesFailed && NODES_BLOCKING) {
   console.log('check-shard-assembly: FAILING — node case is BLOCKING (NODE-REGISTRATION-GAP-1). Append the id(s) to chaingraph.meta.json order.nodes and re-run scripts/assemble-chaingraph.mjs, or add the missing shard file.')
   process.exit(1)

@@ -111,18 +111,47 @@ const trunc = (s) => (s.length > 50 ? s.slice(0, 47) + '…' : s);
 const schema = JSON.parse(readFileSync(SCHEMA, 'utf8'));
 let failed = 0, checked = 0;
 
-function check(label, data) {
+function check(label, data, subOverride) {
   checked++;
   const errs = [];
   // pick the right sub-schema by document shape for clear errors (top-level oneOf hides which branch failed)
-  const sub = data && data.execution_hash ? schema.$defs.artifact
+  // subOverride lets a caller name the exact $defs fragment directly (see --shard mode below)
+  // instead of relying on shape-sniffing, without changing this heuristic for anyone who doesn't pass one.
+  const sub = subOverride || (data && data.execution_hash ? schema.$defs.artifact
     : data && Array.isArray(data.nodes) ? schema.oneOf[1]
-    : schema;
+    : schema);
   validate(sub, data, schema, label, errs);
   if (errs.length) { failed++; console.error(`✗ ${label}`); errs.slice(0, 40).forEach((e) => console.error(`    ${e}`)); if (errs.length > 40) console.error(`    … +${errs.length - 40} more`); }
   else console.log(`✓ ${label}`);
 }
 
+function rel(p) { return p ? p.replace(resolve(HERE, '..'), '.') : p; }
+
+// ---- single-shard mode (SHARD-SCHEMA-PARITY-1) ----
+// `--shard <path>` validates ONE on-disk file directly against $defs.node — the
+// exact fragment chaingraph.json's assembled nodes[] validate against via $ref
+// two lines above in the schema (oneOf[1].properties.nodes.items), loaded fresh
+// from THIS schema file on every run. No second declaration of the fragment
+// exists anywhere (STANDING-ORDERS #34: a gate may not read its expectation
+// from a copy — recompute it from the primary source). scripts/check-shard-
+// assembly.mjs shells out to this mode for every node shard on disk, so a shard
+// that fails here can no longer pass the producer (shard-level) gate while
+// still failing the consumer (assembly) gate — the art-662/`pageless` defect
+// class (SHARD-SCHEMA-PARITY-1) this closes.
+const shardFlagIdx = process.argv.indexOf('--shard');
+if (shardFlagIdx !== -1) {
+  const shardPath = process.argv[shardFlagIdx + 1];
+  if (!shardPath) { console.error('--shard requires a file path argument'); process.exit(2); }
+  if (!existsSync(shardPath)) { console.error(`--shard: file not found: ${shardPath}`); process.exit(2); }
+  let data;
+  try { data = JSON.parse(readFileSync(shardPath, 'utf8')); }
+  catch (e) { console.error(`--shard: ${shardPath} is not valid JSON: ${e.message}`); process.exit(1); }
+  check(`shard ${rel(shardPath)} vs $defs.node (${rel(SCHEMA)})`, data, schema.$defs.node);
+  console.log(`\n${checked} checked, ${failed} failed.`);
+  process.exit(failed ? 1 : 0);
+}
+
+// ---- default mode: whole chaingraph.json + fixtures (unchanged) ----
 console.log(`schema-validate · schema=${rel(SCHEMA)}\n`);
 if (existsSync(CHAINGRAPH)) check(`chaingraph.json (${rel(CHAINGRAPH)})`, JSON.parse(readFileSync(CHAINGRAPH, 'utf8')));
 else console.error(`! chaingraph.json not found at ${CHAINGRAPH}`);
@@ -136,6 +165,5 @@ if (FIXTURES_DIR && existsSync(FIXTURES_DIR)) {
   }
 }
 
-function rel(p) { return p ? p.replace(resolve(HERE, '..'), '.') : p; }
 console.log(`\n${checked} checked, ${failed} failed.`);
 process.exit(failed ? 1 : 0);
