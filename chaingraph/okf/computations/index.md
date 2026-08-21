@@ -585,6 +585,7 @@ status: stable
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md)
 - [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md)
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md)
+- [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md)
 - [Overdraft / NSF Fee Recomputation](./art-662-odnsf-fee-recompute.md)
 - [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md)
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md)
