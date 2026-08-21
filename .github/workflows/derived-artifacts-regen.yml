@@ -99,6 +99,18 @@ jobs:
       - name: Show the covered set (and what is deliberately excluded)
         run: node scripts/derived-artifacts.mjs
 
+      # Runs BEFORE the regen, on purpose. If a generator that a node
+      # registration can turn stale is declared in neither the covered nor the
+      # excluded list, this job regenerates an incomplete set, pushes, and leaves
+      # main red anyway — which happened three times on 2026-08-21 (art-661,
+      # art-664, art-665). Each of those reds also failed the merge queue's
+      # simulated-merge check, which silently ejects every queued PR. Fail here,
+      # naming the unclassified generator, rather than after a misleading green
+      # regen. Same command scripts/preflight.mjs runs, so a branch cannot merge
+      # into a state this job then rejects.
+      - name: Prove the node fan-out classification is total
+        run: node scripts/check-derived-fanout-coverage.mjs
+
       - name: Regenerate every covered artifact
         # Stops on the first generator failure — a half-regenerated tree must
         # never reach a commit. chaingraph.json is one of the covered
@@ -118,6 +130,37 @@ jobs:
           node chaingraph/standard/schema-validate.mjs
           node chaingraph/standard/spec-version-consistency.mjs
           node chaingraph/standard/spec-gate-coverage.mjs
+
+      # READER-FACING COPY. The §15 suite above validates schema and spec
+      # conformance and never reads the regenerated PROSE — but many covered
+      # artifacts are reader-facing pages (fv-explainer.html, index.html,
+      # sitemap.html, tools.html, start.html, llms.txt). A generator emitting
+      # copy that violates CONTRACT.md §1.4 therefore had it auto-committed from
+      # here, with no pull request in between and no gate that could catch it.
+      #
+      # Not hypothetical. On 2026-08-21 a newly-landed ratchet baseline file was
+      # the first input ever to reach gen-debt-ledger.mjs's fallbackExtract(),
+      # whose description string carried an em-dash; that string renders inside
+      # fv-explainer.html, this job committed it, and main went red on
+      # copy-hallmarks. A red main fails the merge queue's simulated-merge
+      # check, which silently ejects every queued pull request — so one bad
+      # generated string stalls everyone's merges, not merely this job.
+      #
+      # THE TRADE-OFF, STATED PLAINLY: a refused commit leaves a derived
+      # artifact stale and loudly flagged. That is strictly better than
+      # publishing bad copy. Stale costs one visible failed run that names the
+      # generator; published bad copy reds the default branch and ejects the
+      # queue until a human notices.
+      #
+      # Both checks are pure in-repo source scans: no network, no git history,
+      # no clock, and no workspace-root read on this path (check-copy-hallmarks
+      # touches those only under --report, deliberately not used here). Measured
+      # 111-129 ms with byte-identical output across repeated runs, so neither
+      # can make this job flaky.
+      - name: Validate the regenerated reader-facing copy (CONTRACT.md §1.4)
+        run: |
+          node scripts/check-copy-hallmarks.mjs
+          node scripts/check-shipped-prose.mjs
 
       - name: Stage by explicit pathspec, and prove nothing escaped the set
         id: stage
@@ -177,6 +220,15 @@ jobs:
 
       # Dry-run report: print exactly what the commit step would have staged,
       # then stop — no push, no mutation of main, regardless of the change flag.
+      #
+      # ⚠ A dry-run that never exercises a newly-added write is NOT evidence, and
+      # "nothing to commit" is the shape that hides exactly that: a change adding
+      # a new write once passed its dry-run green because the run never reached
+      # the new step, and the undeclared write then killed the regen job on main.
+      # So the report always ENUMERATES the declared coverage — every generator
+      # and every path it is permitted to write — whether or not anything
+      # drifted. A reader can name the file a new entry covers instead of
+      # inferring it from an empty diff.
       - name: Dry-run report (no commit)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
         run: |
@@ -189,6 +241,14 @@ jobs:
           else
             echo "Nothing to commit — every covered artifact (including chaingraph.json) is already fresh." >> "$GITHUB_STEP_SUMMARY"
           fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "#### Declared coverage exercised by this run" >> "$GITHUB_STEP_SUMMARY"
+          echo "Every generator below RAN in the regen step above; every path below is what the" >> "$GITHUB_STEP_SUMMARY"
+          echo "staging step is permitted to commit. A generator writing outside its own lines" >> "$GITHUB_STEP_SUMMARY"
+          echo "fails the escape self-check, not this report." >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          node scripts/derived-artifacts.mjs >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "dry_run=true — commit/push step skipped." >> "$GITHUB_STEP_SUMMARY"
 
       # ── LOOP GUARD ──────────────────────────────────────────────────────────
