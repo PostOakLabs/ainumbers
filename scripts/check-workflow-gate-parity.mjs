@@ -65,6 +65,16 @@ const PREFLIGHT = resolve(ROOT, "scripts/preflight.mjs");
 //     - helm-guide-freshness-schedule.yml — schedule only.
 //     - standards-watch.yml              — schedule + workflow_dispatch only.
 //     - sync-chaingraph-spec.yml         — push main only, post-merge mirror sync.
+//     - prepush-attestation.yml          — push main + workflow_dispatch only, so it
+//                                           never gates a merge. Its node gate
+//                                           (check-prepush-attestation.mjs) is
+//                                           main-side BY CONSTRUCTION: it verifies
+//                                           git notes on commits that exist only
+//                                           after a merge, and the note it reads is
+//                                           written by the very hook that would
+//                                           invoke it. Pre-push there is nothing to
+//                                           check, so parity has nothing to demand
+//                                           (PREPUSH-ATTEST-CHECK-1).
 const BLOCKING_WORKFLOWS = [
   "deploy-to-dreamhost.yml",
   "html-verify.yml",

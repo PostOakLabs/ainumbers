@@ -1,0 +1,152 @@
+name: Pre-push Attestation Check
+
+# PREPUSH-ATTEST-CHECK-1 (2026-08-22) — the READING half of PREPUSH-SITEHOOK-1.
+#
+# 0xAlpha's 2026-08-21 mechanical-verification audit, Finding 2 / Rec A1: the
+# pre-push hook has written a `refs/notes/preflight-attestation` note since
+# 2026-08-04, and NOTHING EVER READ IT. A `git push --no-verify` produced output
+# identical to a clean push; the missing note was evidence only if a human went
+# looking. SO #27 kept the declaration a manual duty ("name the gate + reason in
+# the PR body") — the step that gets skipped.
+#
+# This job reads the ref and turns that into a verdict: a commit that landed on
+# main touching a protected path (chaingraph.json, chaingraph/kernels/**,
+# manifests/**, scripts/**, .github/workflows/**) and carries no attestation
+# note is RED. A DECLARED bypass — a PREFLIGHT-BYPASS note written by
+# `check-prepush-attestation.mjs --attest-bypass "<reason>"` — is GREEN and the
+# reason is printed into this run log. Legitimate bypass stays legitimate (it was
+# used on 2026-08-20, EUC-REGISTER-664-BACKFILL / PR #1420); the SILENT bypass is
+# the only thing being closed.
+#
+# ⛔ NO NEW THIRD-PARTY ACTION (SO #8): plain `git fetch` of the notes ref plus a
+# node script, on the two Actions this repo already SHA-pins everywhere else.
+#
+# NO `paths:` FILTER, DELIBERATELY. The protected set lives in exactly one place —
+# check-prepush-attestation.mjs's PROTECTED_PATHS, which .githooks/pre-push also
+# reads via --print-pathspec. A `paths:` filter here would be a THIRD copy, free to
+# drift, and a filter that drifts narrow makes the gate silently stop dispatching —
+# the failure shape SO #47 was written about. The job instead runs on every push to
+# main and exits in seconds when the range holds nothing in scope.
+#
+# WORKFLOW-GATE-PARITY CLASSIFICATION (see scripts/check-workflow-gate-parity.mjs's
+# sweep comment): not-a-gate for parity purposes — no pull_request and no
+# merge_group trigger, so it never gates a merge, and its one node gate is
+# main-side by construction (it verifies notes on commits that exist only after a
+# merge, and the note it reads is written by the very hook that would invoke it).
+# Pre-push there is nothing to check, so preflight.mjs parity does not apply.
+
+on:
+  push:
+    branches: [ main ]
+  # SO #40a: a main-only workflow must be provable end-to-end BEFORE a real push
+  # exercises it for the first time. This one has no irreversible step (it writes
+  # nothing, deploys nothing) — its only effect is the verdict — so `dry_run`
+  # means "report the verdict, never fail the run", and `scenario` selects which
+  # fixture the checker builds so BOTH branches can be seen: a real green on a
+  # present note, a real RED on a missing one, and green-and-logged on a declared
+  # bypass. Run with dry_run=false to see the job actually go red.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report the verdict without failing the run (SO #40a dry-run)'
+        type: boolean
+        default: true
+      scenario:
+        description: 'self-test = assert all five fixtures; live = check main; others = demonstrate ONE fixture end to end'
+        type: choice
+        default: self-test
+        options:
+          - self-test
+          - note-present
+          - note-absent
+          - declared-bypass
+          - notes-ref-absent
+          - unprotected-only
+          - live
+
+permissions:
+  contents: read
+
+jobs:
+  attestation-check:
+    name: preflight-attestation coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # `gh api repos/{o}/{r}/commits/{sha}/pulls` maps a squash-merged main commit
+      # back to the PR head the hook actually attested — the sha on main is never
+      # the sha that was signed for.
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          # Full history: the check walks `before..sha`, and a shallow clone leaves
+          # `before` unresolvable, which would silently narrow the range.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Fetch the attestation notes ref
+        # Notes refs do not transfer with a normal fetch — they must be named. A
+        # failure here is NOT fatal: an absent ref is a distinct honest state the
+        # checker reports as NOTES-REF-ABSENT (never fanned out into per-commit
+        # reds), so the decision belongs to the checker, not to this step.
+        shell: bash
+        run: |
+          set -uo pipefail
+          if git fetch --no-tags origin '+refs/notes/preflight-attestation:refs/notes/preflight-attestation'; then
+            echo "notes ref fetched: $(git rev-parse refs/notes/preflight-attestation)"
+          else
+            echo "notes ref NOT present at origin — the checker will report NOTES-REF-ABSENT."
+          fi
+
+      - name: Verify attestation coverage
+        # Inputs reach the script through env, never interpolated into this shell
+        # (zizmor template-injection rail), and the scenario is re-validated by the
+        # case below AND by the script's own allowlist.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+          SCENARIO: ${{ inputs.scenario }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -uo pipefail
+          REPORT=()
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            REPORT=(--report-only)
+            echo "dry_run=true — verdicts are printed, the run is not failed by them."
+          fi
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            # Every real run first proves the checker can still go RED (SO #40b), then
+            # checks the commits this push actually landed.
+            node scripts/check-prepush-attestation.mjs --self-test || exit 1
+            echo "───────────────────────────────────────────────────────────────"
+            node scripts/check-prepush-attestation.mjs --base "$PUSH_BEFORE" --head "$PUSH_SHA"
+            exit $?
+          fi
+
+          case "${SCENARIO:-self-test}" in
+            self-test)
+              node scripts/check-prepush-attestation.mjs --self-test
+              ;;
+            live)
+              node scripts/check-prepush-attestation.mjs --base "$(git rev-parse HEAD~1)" --head "$(git rev-parse HEAD)" "${REPORT[@]+"${REPORT[@]}"}"
+              ;;
+            note-present|note-absent|declared-bypass|notes-ref-absent|unprotected-only)
+              node scripts/check-prepush-attestation.mjs --demo "$SCENARIO" "${REPORT[@]+"${REPORT[@]}"}"
+              ;;
+            *)
+              echo "::error::unknown scenario '${SCENARIO:-}'"
+              exit 1
+              ;;
+          esac
