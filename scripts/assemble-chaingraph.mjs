@@ -37,12 +37,13 @@
  *           description   title
  *
  *       and NOTHING else. Every other chain field — `name` (identity),
- *       `domain` (taxonomy/grouping), `composer_url` (a resolvable link
- *       target), `steps` (membership, order, handoff prose and gates),
- *       `branches`, `regulatory_refs`, `regulatory_basis_*`, `spec_version`,
- *       `wave`, `id`, `export_capability` — is STRUCTURAL by definition and
- *       falls to (c). The list is an ALLOWLIST, so a chain field invented
- *       tomorrow is refused until someone deliberately classifies it.
+ *       `domain` (taxonomy/grouping), `steps` (membership, order, handoff
+ *       prose and gates), `branches`, `regulatory_refs`,
+ *       `regulatory_basis_*`, `spec_version`, `wave`, `id`,
+ *       `export_capability` — is STRUCTURAL by definition and falls to (c).
+ *       The list is an ALLOWLIST, so a chain field invented tomorrow is
+ *       refused until someone deliberately classifies it. `composer_url` is
+ *       NOT on the list and never joins it; it has its own guarded path, (a2).
  *
  *       CONSEQUENCE, STATED SO A READER CAN PREDICT THE VERDICT: because
  *       `steps` is not on the allowlist, a chain's steps/edges/order/node
@@ -51,22 +52,61 @@
  *       lives inside `steps` (a step's `handoff`) is NOT copy-only — chain
  *       formal verification reads handoffs, so they are graph content.
  *
+ *   (a2) AUTO-LAND — GUARDED `composer_url` REPOINT (CHAIN-CLASSIFY-COMPOSER-URL-1,
+ *       on Tim's ruling of 2026-08-22: "add composer_url to the allowlist when
+ *       the target exists"). An existing chain whose ONLY differing top-level
+ *       field is `composer_url`, AND whose new URL resolves to a file present
+ *       in the tree being assembled.
+ *
+ *       READ IT AS A CONDITION, NOT AS AN ALLOWLIST ENTRY — that distinction
+ *       is the whole of this verdict. COPY_ONLY_CHAIN_FIELDS is for fields
+ *       whose change needs NO verification; a link target is precisely the
+ *       field where a change CAN break something. So `composer_url` stays off
+ *       that list and gets a guarded path instead: auto-land iff the new
+ *       target exists, refuse otherwise, with a refusal that NAMES the missing
+ *       path rather than reading as a generic structural edit.
+ *
+ *       The original exclusion reasoned that a URL is "a machine-resolvable
+ *       link target, not wording". That reasoning is not overturned here — it
+ *       is SATISFIED. Machine-resolvable is exactly what makes the guard
+ *       possible: a machine can check the target, which is something it can
+ *       never do for prose.
+ *
+ *       THE CHECK IS INJECTED, NEVER PERFORMED HERE. classifyAssembly stays
+ *       pure — no disk, no env, no git — so the self-test drives it over real
+ *       diffs; the caller passes `targetExists`. The DEFAULT predicate answers
+ *       "absent" for every URL, so a caller that forgets to wire one gets the
+ *       old refusal, never an unverified auto-land.
+ *
+ *       STRICTLY `composer_url` ALONE: a diff moving `composer_url` AND any
+ *       other field — prose included — is (c). One field's guard must not
+ *       become a door for a second field.
+ *
+ *       URL -> PATH REUSES THE ESTATE'S ONE TRANSFORM, the one
+ *       scripts/check-chain-composer-urls.mjs (CHAINURL-GATE-1) already
+ *       applies to every chain shard: strip the `https://ainumbers.co/`
+ *       prefix, resolve the remainder against the repo root. A URL without
+ *       that prefix cannot be mapped, and an unmappable URL refuses exactly
+ *       like a missing file. There is no second convention.
+ *
  *   (b) AUTO-LAND — PURELY ADDITIVE NEW CHAIN. A chain `name` absent from the
  *       committed artifact and present in the assembled one. It modifies and
  *       removes nothing by construction.
  *
  *   (c) REFUSE — EVERYTHING ELSE. Explicitly: any structural chain
- *       modification (per (a)), any chain removal or rename, and any node
- *       removal or rename. These still require an explicit human
+ *       modification (per (a)), any `composer_url` repoint whose new target is
+ *       missing or unmappable (per (a2)), any chain removal or rename, and any
+ *       node removal or rename. These still require an explicit human
  *       ASSEMBLE/LAND row. This half of the guard did not weaken.
  *
  *   Node ADDITIONS and node CONTENT changes auto-land, exactly as they did
  *   before this classifier existed — a node-only diff is unaffected.
  *
  *   COMPOSITION: a diff is AUTO-LAND only when EVERY change in it is
- *   independently (a), (b) or an allowed node change. One refusal refuses the
- *   whole write — assembly splices the full shard set, so there is no way to
- *   write "just the allowed part" without also writing the refused part.
+ *   independently (a), (a2), (b) or an allowed node change. One refusal
+ *   refuses the whole write — assembly splices the full shard set, so there is
+ *   no way to write "just the allowed part" without also writing the refused
+ *   part.
  *
  * ── PART 2: A REFUSAL IS NEVER A SILENT GREEN ─────────────────────────────
  *
@@ -111,7 +151,7 @@
  * classifier exists to sort — RED and GREEN cases both).
  */
 
-import { readFileSync, writeFileSync, readdirSync } from 'fs'
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -127,12 +167,66 @@ export const REFUSAL_EXIT_CODE = 3
 
 /**
  * Verdict (a)'s allowlist: the ONLY chain top-level fields whose change may be
- * auto-landed. Reader-facing prose and nothing else. Deliberately does NOT
- * include `composer_url`: a URL is a machine-resolvable link target, not
- * wording, and admitting it would make the rule "prose, plus one URL field",
- * which is a carve-out rather than a line a reviewer can predict.
+ * auto-landed WITHOUT ANY VERIFICATION. Reader-facing prose and nothing else.
+ *
+ * Deliberately does NOT include `composer_url`, and CHAIN-CLASSIFY-COMPOSER-URL-1
+ * did not change that. The original reason still holds: a URL is a
+ * machine-resolvable link target, not wording, and admitting it here would make
+ * the rule "prose, plus one URL field" — a carve-out rather than a line a
+ * reviewer can predict. What that reasoning also implies is what verdict (a2)
+ * now uses: because the target IS machine-resolvable, the classifier can check
+ * it. So `composer_url` gets a GUARDED path (auto-land iff the new target
+ * exists) instead of an unconditional seat on this list. Appending it here
+ * would drop the guard and is the one change this file must not accept.
  */
 export const COPY_ONLY_CHAIN_FIELDS = Object.freeze(['description', 'title'])
+
+/**
+ * The site's published origin. CHAINURL-GATE-1 (scripts/check-chain-composer-urls.mjs)
+ * already maps a chain `composer_url` onto a repo path with exactly this
+ * prefix-strip; verdict (a2) reuses it rather than inventing a second
+ * convention, so the classifier and the gate can never disagree about where a
+ * composer page lives.
+ */
+const SITE_URL_PREFIX = 'https://ainumbers.co/'
+
+/**
+ * URL -> repo-relative path, or null when the URL does not fit the one
+ * transform (any other origin, a relative link, a non-string). null is NOT
+ * "exists"; an unmappable target refuses exactly like a missing file.
+ *
+ * @param {unknown} url
+ * @returns {string|null}
+ */
+export function composerUrlToRepoPath(url) {
+  if (typeof url !== 'string' || !url.startsWith(SITE_URL_PREFIX)) return null
+  const rel = url.slice(SITE_URL_PREFIX.length)
+  return rel.length > 0 ? rel : null
+}
+
+/**
+ * The LIVE existence predicate the runner injects into classifyAssembly. It
+ * touches disk, which is why it lives out here and not inside the classifier:
+ * the classifier stays pure and the self-test can drive it over real diffs.
+ * "Present in the tree being assembled" is the whole question — the assembler
+ * runs on the merged commit, so its working tree IS that commit.
+ *
+ * @param {unknown} url
+ * @returns {boolean}
+ */
+export function repoTargetExists(url) {
+  const rel = composerUrlToRepoPath(url)
+  return rel === null ? false : existsSync(resolve(root, rel))
+}
+
+/**
+ * Verdict (a2)'s default: nothing resolves. A caller that forgets to wire a
+ * predicate gets the pre-CHAIN-CLASSIFY-COMPOSER-URL-1 refusal, never an
+ * unverified auto-land.
+ *
+ * @returns {boolean}
+ */
+const TARGET_ABSENT = () => false
 
 const CHECK = process.argv.includes('--check')
 const ENROLL = process.argv.includes('--enroll')
@@ -214,12 +308,18 @@ function byKey(arr, keyField) {
  * write may land and what it must refuse. No disk, no env, no git, so the
  * self-test drives it directly over real historical diffs.
  *
+ * @param {object} committedObj
+ * @param {object} assembledObj
+ * @param {{targetExists?: (url: unknown) => boolean}} [opts] verdict (a2)'s
+ *   injected existence check: does this composer_url resolve to a file present
+ *   in the tree being assembled? Defaults to "no", so an unwired caller
+ *   refuses rather than auto-landing something it never verified.
  * @returns {{verdict: 'CLEAN'|'AUTO-LAND'|'REFUSED', allowed: object[], refusals: object[]}}
  *   `allowed` and `refusals` entries are { kind, key, fields?, reason? }.
  *   verdict is REFUSED if refusals is non-empty, CLEAN if nothing changed at
  *   all, AUTO-LAND otherwise.
  */
-export function classifyAssembly(committedObj, assembledObj) {
+export function classifyAssembly(committedObj, assembledObj, { targetExists = TARGET_ABSENT } = {}) {
   const allowed = []
   const refusals = []
 
@@ -254,14 +354,51 @@ export function classifyAssembly(committedObj, assembledObj) {
     if (deepEqual(before, chain)) continue
     const fields = changedFields(before, chain)
     const nonCopy = fields.filter((f) => !COPY_ONLY_CHAIN_FIELDS.includes(f))
+
+    // ── (a2) the guarded composer_url repoint. STRICTLY the only changed
+    // field: `fields` (not `nonCopy`) is tested, so composer_url moving
+    // alongside a description reword falls through to the structural refusal
+    // below. One field's guard is not a door for a second field. ──
+    if (fields.length === 1 && fields[0] === 'composer_url') {
+      const url = chain.composer_url
+      const rel = composerUrlToRepoPath(url)
+      if (rel === null) {
+        refusals.push({
+          kind: 'chain-composer-url-unmappable',
+          key: name,
+          fields,
+          reason:
+            `composer_url repoint to ${JSON.stringify(url)} does not match the expected ` +
+            `${SITE_URL_PREFIX} prefix, so no repo path can be derived and the target cannot be verified`,
+        })
+      } else if (!targetExists(url)) {
+        refusals.push({
+          kind: 'chain-composer-url-target-missing',
+          key: name,
+          fields,
+          reason:
+            `composer_url repoint to ${JSON.stringify(url)} whose target is NOT present in this commit — ` +
+            `expected repo/${rel}. Build or land that page first and the repoint auto-lands`,
+        })
+      } else {
+        allowed.push({ kind: 'chain-composer-url-repoint', key: name, fields })
+      }
+      continue
+    }
+
     if (nonCopy.length === 0) {
       allowed.push({ kind: 'chain-copy-edit', key: name, fields })
     } else {
+      // Naming (a2) here keeps a reader from concluding that the fix is to
+      // append composer_url to the allowlist — it is not, and never will be.
+      const guardHint = nonCopy.includes('composer_url')
+        ? ' — composer_url auto-lands ONLY when it is the sole changed field AND its new target exists (verdict (a2)); moved alongside anything else it is structural'
+        : ''
       refusals.push({
         kind: 'chain-structural-edit',
         key: name,
         fields: nonCopy,
-        reason: `chain field(s) outside the copy-only allowlist (${COPY_ONLY_CHAIN_FIELDS.join(', ')}) changed: ${nonCopy.join(', ')}`,
+        reason: `chain field(s) outside the copy-only allowlist (${COPY_ONLY_CHAIN_FIELDS.join(', ')}) changed: ${nonCopy.join(', ')}${guardHint}`,
       })
     }
   }
@@ -365,10 +502,17 @@ function assembleFromShards(order, raw) {
   return raw.header + joinShards(nodeTexts) + raw.betweenNodesAndChains + joinShards(chainTexts) + raw.footer
 }
 
-/** Parses both sides and classifies; null when either side is unparseable. */
+/**
+ * Parses both sides and classifies; null when either side is unparseable. This
+ * is the ONE place the live existence predicate is injected — every mode
+ * (write, --check, --refusal-status) goes through here, so all three answer
+ * verdict (a2) from the same working tree they are assembling.
+ */
 function classifyTexts(committedText, assembledText) {
   try {
-    return classifyAssembly(JSON.parse(committedText), JSON.parse(assembledText))
+    return classifyAssembly(JSON.parse(committedText), JSON.parse(assembledText), {
+      targetExists: repoTargetExists,
+    })
   } catch {
     return null
   }
