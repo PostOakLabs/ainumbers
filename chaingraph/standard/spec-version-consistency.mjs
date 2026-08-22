@@ -72,7 +72,10 @@ for (const s of SURFACES) {
 // the artifact chaingraph_version "0.4.0", and the schema filename openchain-graph-v0.4.schema.json do not
 // match the three-part label patterns below, so they are never flagged.
 const FAMILY = (process.env.OCG_FAMILY_PAGES ||
-  'openchain-graph-spec.html,chaingraph-hub.html,why-openchain-graph.html,ocg-industries.html,openchain-graph-explainer.html,../mcp.html'
+  // ../about.html added CLAIMS-SENTINEL-TIER1-1 (Q6): the footer "Spec vX.Y.Z" link there drifted
+  // to 0.8.8 against the 0.8.13 record with nothing watching it — this pass is the general-purpose
+  // "Spec vX →/< label" scanner, so an unwatched root page just needed adding to the family list.
+  'openchain-graph-spec.html,chaingraph-hub.html,why-openchain-graph.html,ocg-industries.html,openchain-graph-explainer.html,../mcp.html,../about.html'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 // Each pattern denotes a CURRENT OCG standard/spec version label; the version is captured in group 1.
 const LABEL_RES = [

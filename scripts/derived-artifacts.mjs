@@ -413,6 +413,13 @@ export const COVERED = [
       // Reconciled against verify-counts.mjs's full 16-file list, not patched
       // one file at a time.
       'fv-explainer.html',
+      // CLAIMS-SENTINEL-TIER1-1: verify-counts.mjs's comment-sentinel scan now also covers the
+      // five hub hero pages (hubTools.* — audit Q7). SO #47: any write verify-counts.mjs --fix
+      // gains must be declared here in the same diff, or the main-side regen's anti-escape guard
+      // rejects the whole run exactly like the fv-explainer.html omission above did.
+      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
+      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
+      'guides/capital-markets-settlement-hub.html',
     ],
     // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
     // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
@@ -428,6 +435,9 @@ export const COVERED = [
       'fv-explainer.html',
       '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
       'llms.txt',
+      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
+      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
+      'guides/capital-markets-settlement-hub.html',
     ],
     share: '27%',
   },
