@@ -139,6 +139,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 .footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
 .footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
 .footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn{opacity:.28;cursor:not-allowed}
 #ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
 #ap2ExportBtn.ready:hover{background:var(--bg-4)}
 </style>
@@ -280,8 +281,9 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
       <div class="out-body" id="rundownBody"></div>
     </div>
 
-    <div class="export-row">
-      <button class="btn-export primary" id="ap2ExportBtn" onclick="exportMarkdown()">&#8595; Markdown Report</button>
+    <div class="export-row results-export-row">
+      <button class="btn-export primary" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the stress test above to generate a Policy Mandate">{} Export Policy Mandate</button>
+      <button class="btn-export" onclick="exportMarkdown()">&#8595; Markdown Report</button>
     </div>
   </div>
 
@@ -419,6 +421,8 @@ function fmt(n){
 function renderResults(r){
   const panel=document.getElementById('resultsPanel');
   panel.style.display='flex';
+  const ap2Btn=document.getElementById('ap2ExportBtn');
+  if(ap2Btn){ap2Btn.disabled=false;ap2Btn.classList.add('ready');}
 
   // §4 Compliance
   const flagClass=r.sec4Pass?'pass':r.stressResult.daysToZero>=7?'warn':'fail';
@@ -510,6 +514,66 @@ function renderResults(r){
     <div class="rundown-list">${rundownRows}</div>`;
 }
 
+/* AP2 Policy Mandate validator + export — CONTRACT §3.1/§3.2 (AP2-DEADTOGGLE-FIX-1).
+   Suite-wide shared shape; see tools/152-baas-provider-comparator.html for the canonical pattern. */
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=window.AP2Schema.validate||function(m){
+  const RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+function genUUID_T388(){
+  if(typeof crypto!=='undefined'&&crypto.randomUUID)return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0;
+    return(c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+function exportAP2(){
+  if(!_lastResult){alert('Run the stress test first to generate a Policy Mandate.');return;}
+  const r=_lastResult;
+  const ts=new Date().toISOString();
+  const mandate={
+    mandate_id:genUUID_T388(),
+    issued_at:ts,
+    issued_by:'ainumbers.co',
+    tool_id:'stablecoin-reserve-stress-test-modeller',
+    tool_version:'1.0.0',
+    mandate_type:'risk_parameter',
+    jurisdiction:['US'],
+    regulatory_frameworks:['GENIUS Act §4 (Reserve Requirements)'],
+    payload:{
+      total_issuance_usd:r.totalIssuance,
+      reserve_composition_pct:{tbills:r.tbills,repo:r.repo,insured:r.insured,other:r.other},
+      stress_redemption_pct_per_day:r.stressRed,haircut_pct:r.haircut,ops_friction_pct:r.opsFriction,reserve_buffer_pct:r.buffer,
+      sec4_pass:r.sec4Pass,ineligible_pct:r.ineligiblePct,reserve_total_ok:r.reserveTotalOk,
+      scenarios:r.scenarios.map(s=>({name:s.name,redemption_pct_per_day:s.redemptionPct,haircut_pct:s.haircutPct,days_to_zero:s.daysToZero,coverage_ratio_30d:s.coverageRatio30})),
+      stress_result:{days_to_zero:r.stressResult.daysToZero,coverage_ratio_30d:r.stressResult.coverageRatio30}
+    },
+    summary:'Stablecoin reserve stress test: '+(r.sec4Pass?'GENIUS Act §4 COMPLIANT':'GENIUS Act §4 NON-COMPLIANT')+' — severe-stress reserve exhaustion in '+(r.stressResult.daysToZero>=999?'>30':r.stressResult.daysToZero.toFixed(1))+' day(s).',
+    agent_instructions:[
+      'Do not represent this issuer as §4-compliant without also verifying eligible-asset composition and custody segregation — this model tests coverage and eligibility percentage only.',
+      r.sec4Pass?'Reserve buffer appears adequate under the modelled severe-stress scenario; re-run periodically as issuance or reserve mix changes.':'Escalate for reserve remediation before relying on this issuer for payment settlement — modelled reserves are exhausted before the 30-day stress horizon completes.'
+    ],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{totalIssuance:r.totalIssuance,tbills:r.tbills,repo:r.repo,insured:r.insured,other:r.other,stressRed:r.stressRed,haircut:r.haircut,opsFriction:r.opsFriction,buffer:r.buffer},
+    regulatory_citations:['GENIUS Act §4 — Reserve Requirements for Payment Stablecoins'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  window.AP2Schema.validate(mandate);
+  const json=JSON.stringify(mandate,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='stablecoin-reserve-stress-test-modeller_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 function exportMarkdown(){
   if(!_lastResult)return;
   const r=_lastResult;
@@ -542,7 +606,7 @@ function exportMarkdown(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`T388_reserve_stress_${Date.now()}.md`;a.click();
 }
 
-const MANIFEST={tool_id:'stablecoin-reserve-stress-test-modeller',version:'1.0.0',title:'Stablecoin Reserve Stress Test Modeller',description:'Models reserve adequacy under redemption surge and market shock scenarios per GENIUS Act §4.',category:'cat-23',mcp_tool_definition:{name:'model_stablecoin_reserve_stress',description:'Models stablecoin reserve adequacy under stress scenarios per GENIUS Act §4 reserve requirements.',inputSchema:{type:'object',properties:{total_issuance_usd:{type:'number'},reserve_pct_tbills:{type:'number'},reserve_pct_repo:{type:'number'},reserve_pct_insured:{type:'number'},reserve_pct_other:{type:'number'},stress_redemption_pct_per_day:{type:'number'},haircut_pct:{type:'number'},ops_friction_pct:{type:'number'},reserve_buffer_pct:{type:'number'}},required:['total_issuance_usd']}},ap2_export:false};
+const MANIFEST={tool_id:'stablecoin-reserve-stress-test-modeller',version:'1.0.0',title:'Stablecoin Reserve Stress Test Modeller',description:'Models reserve adequacy under redemption surge and market shock scenarios per GENIUS Act §4.',category:'cat-23',mcp_tool_definition:{name:'model_stablecoin_reserve_stress',description:'Models stablecoin reserve adequacy under stress scenarios per GENIUS Act §4 reserve requirements.',inputSchema:{type:'object',properties:{total_issuance_usd:{type:'number'},reserve_pct_tbills:{type:'number'},reserve_pct_repo:{type:'number'},reserve_pct_insured:{type:'number'},reserve_pct_other:{type:'number'},stress_redemption_pct_per_day:{type:'number'},haircut_pct:{type:'number'},ops_friction_pct:{type:'number'},reserve_buffer_pct:{type:'number'}},required:['total_issuance_usd']}},ap2_export:true};
 function toggleMfst(){const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||!b.style.display){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 
 

@@ -1006,37 +1006,57 @@ function gkRule(text) {
   return '<div class="guardrails-rule"><div class="gk-dot"></div><span>' + text + '</span></div>';
 }
 
-// ── AP2 export ─────────────────────────────────────────────────
+// ── AP2 Policy Mandate export (CONTRACT §3.1/§3.2; AP2Schema.validate() is the shared,
+//    suite-wide validator — see tools/152-baas-provider-comparator.html for the canonical shape) ──
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+window.AP2Schema.validate = window.AP2Schema.validate || function(m) {
+  var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg) { throw new Error('AP2Schema: ' + msg); }
+  if (!m || typeof m !== 'object') _f('mandate must be an object');
+  if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _f('missing identity field');
+  if (typeof m.mandate_type !== 'string' || !m.mandate_type) _f('missing mandate_type');
+  if ('mandate_id' in m && !RE_UUID4.test(m.mandate_id)) _f('mandate_id must be UUIDv4');
+  if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _f('jurisdiction must be array');
+  return true;
+};
+function genUUID_T170() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 function downloadAP2(inputs, outputs, verdict) {
-  var payload = {
-    schema: 'ap2-v1.0',
-    tool: 'T170 Safe Withdrawal Rate Calculator',
-    generated: new Date().toISOString().slice(0, 10),
-    inputs: inputs,
-    outputs: outputs,
-    verdict: verdict.charAt(0).toUpperCase() + verdict.slice(1),
-    constraints: [
-      'Zero PII',
-      'Educational use only — not financial advice',
-      'Historical return data is indicative, not predictive',
-      'CC BY 4.0'
-    ]
+  var ts = new Date().toISOString();
+  var verdictLabel = verdict.charAt(0).toUpperCase() + verdict.slice(1);
+  var mandate = {
+    mandate_id: genUUID_T170(),
+    issued_at: ts,
+    issued_by: 'ainumbers.co',
+    tool_id: 'safe-withdrawal-rate-calculator',
+    tool_version: '1.1.0',
+    mandate_type: 'risk_parameter',
+    jurisdiction: ['ZZ'],
+    regulatory_frameworks: [],
+    payload: { inputs: inputs, outputs: outputs, verdict: verdictLabel },
+    summary: 'Safe withdrawal rate assessment: ' + fmtPct(inputs.swr_pct) + ' SWR over a ' + inputs.horizon_years + '-year horizon — verdict ' + verdictLabel + '.',
+    agent_instructions: [
+      'Review the survival-probability and depletion-year outputs before relying on this withdrawal rate.',
+      'Treat this as an educational estimate, not financial or investment advice — historical return data is indicative, not predictive.'
+    ],
+    valid_from: ts.slice(0, 10),
+    source_tool_inputs: inputs,
+    regulatory_citations: [],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
-  // Validate required fields before download
-  var valid = payload.schema === 'ap2-v1.0' &&
-              typeof payload.inputs.portfolio_value === 'number' &&
-              typeof payload.inputs.swr_pct === 'number' &&
-              ['Safe','Caution','Danger'].indexOf(payload.verdict) > -1;
-  if (!valid) {
-    alert('AP2 schema validation failed. Please re-run the analysis before exporting.');
-    return;
-  }
-  var json = JSON.stringify(payload, null, 2);
+  // Validate against the shared AP2Schema before any download is offered
+  window.AP2Schema.validate(mandate);
+  var json = JSON.stringify(mandate, null, 2);
   var blob = new Blob([json], { type: 'application/json' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'T170-safe-withdrawal-rate-ap2.json';
+  a.download = 'safe-withdrawal-rate-calculator_' + ts.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14) + '.policy.json';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

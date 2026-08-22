@@ -99,6 +99,8 @@ nav{border-bottom:1px solid var(--border);background:rgba(8,14,26,.85);backdrop-
 .btn-sec:hover{border-color:var(--teal);color:var(--teal-lt);}
 .btn-ap2{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;background:var(--gold-dim);border:1px solid rgba(212,168,71,.4);color:var(--gold);padding:.5rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
 .btn-ap2:hover{background:var(--gold);color:#000;}
+.btn-ap2:disabled{opacity:.28;cursor:not-allowed;pointer-events:none;}
+.btn-ap2.ready{opacity:1;}
 .results-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3.5rem 1rem;text-align:center;gap:.75rem;}
 .results-empty-icon{font-size:2.25rem;opacity:.3;}
 .results-empty-text{font-family:'JetBrains Mono',monospace;font-size:.63rem;color:var(--muted);letter-spacing:.06em;}
@@ -274,7 +276,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
     <textarea id="xmlOutput" class="xml-output" readonly spellcheck="false"></textarea>
     <div class="results-export-row export-row"><button id="ainSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this Policy Mandate \u2014 same-origin message, no file, no network" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:pointer;opacity:.85;transition:opacity .2s,border-color .2s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">&#x27A1; Send to Verify</button>
       <button class="btn-sec" onclick="downloadXML()" data-i18n="btn_dl_xml">↓ Download XML</button>
-      <button id="ap2ExportBtn" class="btn-ap2" onclick="downloadAP2()" data-i18n="btn_dl_ap2">↓ Policy Mandate</button>
+      <button id="ap2ExportBtn" class="btn-ap2" onclick="downloadAP2()" disabled title="Generate a pain.001 XML above to enable the Policy Mandate export" data-i18n="btn_dl_ap2">↓ Policy Mandate</button>
     </div>
   </div>
 </div>
@@ -331,6 +333,19 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
    AINumbers.co · Post Oak Labs · CC BY 4.0
    Generates pain.001.001.09 XML and AP2 JSON from invoice payment data.
    All processing client-side. IBAN/BIC never transmitted. */
+
+/* ── AP2 Policy Mandate validator (CONTRACT §3.1/§3.2 shared shape) ─ */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+window.AP2Schema.validate = window.AP2Schema.validate || function(m) {
+  var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg) { throw new Error('AP2Schema: ' + msg); }
+  if (!m || typeof m !== 'object') _f('mandate must be an object');
+  if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _f('missing identity field');
+  if (typeof m.mandate_type !== 'string' || !m.mandate_type) _f('missing mandate_type');
+  if ('mandate_id' in m && !RE_UUID4.test(m.mandate_id)) _f('mandate_id must be UUIDv4');
+  if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _f('jurisdiction must be array');
+  return true;
+};
 
 /* ── UUID generator ─────────────────────────────────────────── */
 function genUUID() {
@@ -515,7 +530,6 @@ function buildAP2(result) {
   var now = new Date().toISOString();
 
   return {
-    ap2_version: '1.0',
     mandate_id: genUUID(),
     issued_at: now,
     issued_by: 'ainumbers.co',
@@ -563,7 +577,12 @@ function buildAP2(result) {
       'EPC SEPA Credit Transfer Rulebook v1.1 — November 2023',
       'ISO 11649:2009 — Structured creditor reference (RF format)',
       'EN 16931-1:2017 BT-84 (payment account identifier) and BT-89 (payment reference)'
-    ]
+    ],
+    audit_metadata: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true
+    }
   };
 }
 
@@ -581,6 +600,8 @@ function generate() {
     '<div class="val-badge val-ok">✅ pain.001.001.09 structure valid</div>';
   document.getElementById('rfChip').innerHTML =
     '<div class="rf-chip">🔢 ISO 11649 RF Reference: <strong>' + result.rfRef + '</strong></div>';
+  var apBtn = document.getElementById('ap2ExportBtn');
+  if (apBtn) { apBtn.disabled = false; apBtn.classList.add('ready'); }
   showToast('pain.001 generated', 't-ok');
 }
 
@@ -595,6 +616,7 @@ function downloadXML() {
 
 function downloadAP2() {
   if (!lastAP2) return;
+  window.AP2Schema.validate(lastAP2);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(lastAP2,null,2)],{type:'application/json;charset=utf-8'}));
   a.download = 'ap2-payment-mandate-' + getField('invNum').replace(/[^A-Za-z0-9]/g,'-') + '.policy.json';

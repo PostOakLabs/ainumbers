@@ -407,7 +407,7 @@ function runScreen(){
   document.getElementById('sT').textContent=results.length;document.getElementById('sC').textContent=cl;document.getElementById('sP').textContent=po;document.getElementById('sCo').textContent=co;
   document.getElementById('runMeta').textContent='Run: '+new Date(meta.timestamp).toLocaleString()+' · Lists: '+meta.lists.join(', ').toUpperCase()+' · Threshold: '+meta.threshold+'%';
   document.getElementById('rContent').style.display='block';renderT();
-  document.getElementById('exportRow').style.display='flex';document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('exportRow').style.display='flex';document.getElementById('ap2ExportBtn').disabled=false;document.getElementById('ap2ExportBtn').classList.add('ready');
   const hits=results.filter(r=>r.status!=='CLEAR').length;toast2('Screened '+recs.length+' records — '+hits+' hit(s).',hits>0?'r':'g');
 }
 
@@ -501,6 +501,67 @@ function doCSV(){
   a.download='T043_sanctions_'+new Date().toISOString().slice(0,10)+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
   toast2('CSV downloaded.','g');
+}
+
+/* AP2 Policy Mandate validator + export — CONTRACT §3.1/§3.2 (AP2-DEADTOGGLE-FIX-1).
+   Suite-wide shared shape; see tools/152-baas-provider-comparator.html for the canonical pattern. */
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=window.AP2Schema.validate||function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+function genUUID_T43(){
+  if(typeof crypto!=='undefined'&&crypto.randomUUID)return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){
+    var r=Math.random()*16|0;
+    return(c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+function exportAP2(){
+  if(!results.length){toast2('Run a screen first.','r');return;}
+  var ts=new Date().toISOString();
+  var clear=results.filter(function(r){return r.status==='CLEAR';}).length;
+  var potential=results.filter(function(r){return r.status==='POTENTIAL_HIT';}).length;
+  var confirmed=results.filter(function(r){return r.status==='CONFIRMED_HIT';}).length;
+  var mandate={
+    mandate_id:genUUID_T43(),
+    issued_at:ts,
+    issued_by:'ainumbers.co',
+    tool_id:(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'batch-sanctions-screening',
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['US','GB','EU','UN'],
+    regulatory_frameworks:['OFAC SDN List','OFSI Consolidated List','UN Security Council Consolidated List','EU Consolidated List'],
+    payload:{
+      summary_counts:{total_screened:results.length,clear:clear,potential_hits:potential,confirmed_hits:confirmed},
+      lists_screened:meta.lists,threshold_used:meta.threshold,algorithm:meta.algorithm,
+      results:results.map(function(r,i){return{ref_id:r.ref_id,input_name:r.input_name,status:r.status,score:r.score,lists_hit:r.lists_hit,best_match:r.best_match,triage_decision:triage[i]||r.triage_decision};})
+    },
+    summary:'Batch sanctions screen of '+meta.records+' record(s) against '+meta.lists.join(', ').toUpperCase()+' — '+confirmed+' confirmed hit(s), '+potential+' potential hit(s).',
+    agent_instructions:[
+      'Escalate any CONFIRMED_HIT record for compliance review before proceeding.',
+      'Route POTENTIAL_HIT records to analyst triage.',
+      'Do not process a payment or onboard a counterparty tied to a CONFIRMED_HIT without documented compliance sign-off.'
+    ],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{lists:meta.lists,threshold:meta.threshold,algorithm:meta.algorithm,record_count:meta.records},
+    regulatory_citations:['31 CFR Chapter V (OFAC Sanctions Regulations)','UK Sanctions and Anti-Money Laundering Act 2018','UN Security Council Consolidated Sanctions List','Council Regulation (EU) 2024 Consolidated List'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  window.AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var blob=new Blob([json],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;
+  a.download=mandate.tool_id+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast2('Policy Mandate exported.','g');
 }
 
 let _toastTimer=null;

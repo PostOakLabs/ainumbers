@@ -166,6 +166,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 .footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
 .footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
 .footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn{opacity:.28;cursor:not-allowed}
 #ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--green)!important;color:var(--bright)!important}
 #ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
 </style>
@@ -347,7 +348,8 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
   <!-- Export -->
   <div class="results-export-row"><button id="ainSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this Policy Mandate \u2014 same-origin message, no file, no network" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:pointer;opacity:.85;transition:opacity .2s,border-color .2s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">&#x27A1; Send to Verify</button>
-    <button class="btn-export" id="ap2ExportBtn" onclick="exportJSON()">Export JSON (AP2)</button>
+    <button class="btn-export" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the assessment above to generate a Policy Mandate">{} Export Policy Mandate</button>
+    <button class="btn-export" id="rawJsonExportBtn" onclick="exportJSON()">Export JSON (raw)</button>
     <button class="btn-export" onclick="exportMarkdown()">Export Markdown</button>
   </div>
 
@@ -536,7 +538,9 @@ function runAssessor() {
 
   const wrap = document.getElementById('resultsWrap');
   wrap.classList.add('show');
-  document.getElementById('ap2ExportBtn').classList.add('ready');
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled = false;
+  ap2Btn.classList.add('ready');
   wrap.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
@@ -811,6 +815,76 @@ function renderActions(r) {
 /* ─────────────────────────────────────────────
    EXPORT
 ───────────────────────────────────────────── */
+/* AP2 Policy Mandate validator + export — CONTRACT §3.1/§3.2 (AP2-DEADTOGGLE-FIX-1).
+   The suite-wide shared shape; see tools/152-baas-provider-comparator.html for the canonical pattern. */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+window.AP2Schema.validate = window.AP2Schema.validate || function(m) {
+  const RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg) { throw new Error('AP2Schema: ' + msg); }
+  if (!m || typeof m !== 'object') _f('mandate must be an object');
+  if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _f('missing identity field');
+  if (typeof m.mandate_type !== 'string' || !m.mandate_type) _f('missing mandate_type');
+  if ('mandate_id' in m && !RE_UUID4.test(m.mandate_id)) _f('mandate_id must be UUIDv4');
+  if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _f('jurisdiction must be array');
+  return true;
+};
+function genUUID_T383() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+function exportAP2() {
+  if (!_lastResult) { alert('Run the assessment first to generate a Policy Mandate.'); return; }
+  const r = _lastResult;
+  const ts = new Date().toISOString();
+  const mandate = {
+    mandate_id: genUUID_T383(),
+    issued_at: ts,
+    issued_by: 'ainumbers.co',
+    tool_id: 'tnfd-nature-biodiversity-assessor',
+    tool_version: '1.0.0',
+    mandate_type: 'disclosure_template',
+    jurisdiction: ['ZZ'],
+    regulatory_frameworks: ['TNFD Recommendations (LEAP framework)'],
+    payload: {
+      entity_type: r.entity_type,
+      sectors: r.sectors,
+      high_biodiversity_area: r.high_biodiversity_area,
+      value_chain_scope: r.value_chain_scope,
+      nature_assessment_done: r.nature_assessment_done,
+      tnfd_commitment: r.tnfd_commitment,
+      scores: r.scores,
+      leap_readiness: r.leap,
+      avg_sector_weight: r.avg_sector_weight
+    },
+    summary: 'TNFD nature-risk assessment: overall risk ' + r.scores.overall_risk + ' (' + r.scores.risk_band + '), LEAP readiness ' + r.leap.total + '/100.',
+    agent_instructions: [
+      'Use the LEAP readiness score to identify which framework stage (Locate/Evaluate/Assess/Prepare) needs work before disclosure.',
+      'A disclosure_risk score above the overall_risk score indicates no completed nature assessment underpins the disclosure — commission one before publishing.'
+    ],
+    valid_from: ts.slice(0, 10),
+    source_tool_inputs: {
+      entity_type: r.entity_type,
+      sectors: r.sectors,
+      high_biodiversity_area: r.high_biodiversity_area,
+      value_chain_scope: r.value_chain_scope,
+      nature_assessment_done: r.nature_assessment_done,
+      tnfd_commitment: r.tnfd_commitment
+    },
+    regulatory_citations: ['TNFD Recommendations on Nature-related Financial Disclosures (September 2023) — LEAP Approach'],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  window.AP2Schema.validate(mandate);
+  const json = JSON.stringify(mandate, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tnfd-nature-biodiversity-assessor_' + ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14) + '.policy.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 function exportJSON() {
   if (!_lastResult) return;
   const payload = {
