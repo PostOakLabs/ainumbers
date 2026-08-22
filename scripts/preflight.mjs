@@ -51,7 +51,73 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// PREFLIGHT-STALE-REFUSE-1: resolve the site-repo path LOUDLY, then validate it
+// before any gate runs — never silently trust it. DEFAULT resolution (no --repo=)
+// is UNCHANGED: the script's own on-disk location, which is always wherever the
+// invoker is actually sitting and running it from. A dirty tree there is the
+// invoker's own in-progress work — exactly what "run before every push" means,
+// and exactly what the git-diff-vs-HEAD scoping throughout this file (helmPathsTouched,
+// touchedFloorFiles, --changed, etc.) already assumes is normal — so default mode
+// never refuses on it. An explicit --repo=<path> (WITH THE EQUALS — the documented
+// silent-no-op trap, see memory feedback-generate-mjs-repo-flag-needs-equals) points
+// at a checkout the invoker does NOT necessarily own — the shared repo/ tree, a
+// leftover worktree, anything — so THAT path is refused if dirty or not a descendant
+// of origin/main, closing the "silently resolves to a stale clone" hazard (P13,
+// board/done/PREFLIGHT-STALE-REFUSE-1.md) without touching the pre-push gate every
+// session already depends on.
+function resolveRepoPath() {
+  const flag = process.argv.find((a) => a.startsWith('--repo='));
+  if (flag) return { path: resolve(flag.slice('--repo='.length)), via: '--repo= flag', strict: true };
+  return { path: resolve(dirname(fileURLToPath(import.meta.url)), '..'), via: 'script location (default)', strict: false };
+}
+
+// Refuses (exit 1, plain diagnosis) when `strict` is true and repoPath is either
+// dirty (`git status --porcelain` non-empty) or not a descendant of origin/main
+// (`git merge-base --is-ancestor origin/main HEAD`). Always prints the resolved
+// path + how it was reached; always prints why it was accepted when it is.
+function assertRepoFresh(repoPath, via, strict) {
+  console.log(`[repo-resolve] site-repo: ${repoPath} (via ${via})`);
+  const fixMsg = '   Fix: pass --repo=<path> WITH THE EQUALS (--repo=<path>, not --repo <path>) at a clean, up-to-date checkout, or run from a clean worktree (git fetch + branch off current origin/main).';
+  let isGitRepo = true;
+  try {
+    execSync('git rev-parse --is-inside-work-tree', { cwd: repoPath, stdio: ['ignore', 'ignore', 'ignore'] });
+  } catch { isGitRepo = false; }
+  if (!isGitRepo) {
+    console.error(`❌ REFUSING: ${repoPath} is not a git repository (or does not exist).`);
+    console.error(fixMsg);
+    process.exit(1);
+  }
+  let porcelain = '';
+  try {
+    porcelain = execSync('git status --porcelain', { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch { porcelain = ''; }
+  if (strict && porcelain) {
+    const lines = porcelain.split('\n');
+    console.error(`❌ REFUSING: ${repoPath} is dirty (${lines.length} changed path(s)) — resolved via ${via}, not necessarily the invoker's own worktree, so it cannot be trusted as a clean source.`);
+    for (const l of lines.slice(0, 10)) console.error(`     ${l}`);
+    if (lines.length > 10) console.error(`     … and ${lines.length - 10} more`);
+    console.error(fixMsg);
+    process.exit(1);
+  }
+  let isDescendant = true;
+  if (strict) {
+    try {
+      execSync('git rev-parse --verify origin/main', { cwd: repoPath, stdio: 'ignore' });
+      execSync('git merge-base --is-ancestor origin/main HEAD', { cwd: repoPath, stdio: 'ignore' });
+    } catch { isDescendant = false; }
+    if (!isDescendant) {
+      console.error(`❌ REFUSING: HEAD in ${repoPath} is not a descendant of origin/main (git merge-base --is-ancestor) — stale checkout.`);
+      console.error(fixMsg);
+      process.exit(1);
+    }
+  }
+  console.log(strict
+    ? `[repo-resolve] accepted: clean and descends from origin/main.`
+    : `[repo-resolve] accepted: default resolution = invoker's own worktree, dirty/staleness check not applicable.`);
+}
+
+const { path: REPO, via: REPO_VIA, strict: REPO_STRICT } = resolveRepoPath();
+assertRepoFresh(REPO, REPO_VIA, REPO_STRICT);
 const env = { ...process.env, PYTHONIOENCODING: 'utf-8' }; // Windows: python gates print ✓/✗
 
 // --changed <ref>: incremental mode for local/pre-push runs only (PREFLIGHT-BUDGET-1 §1).
