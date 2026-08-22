@@ -403,16 +403,21 @@ export const COVERED = [
       'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
       'mcp.html', 'chaingraph/chaingraph-hub.html',
       'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
-      'fv-explainer.html',
-      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
-      'llms.txt',
       // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
       // list includes it). Omitting it here made the regen bot's anti-escape
       // guard reject the whole run — "a generator wrote outside the declared
       // set" — which stalled every downstream regen and kept main red.
       // Reconciled against verify-counts.mjs's full 16-file list, not patched
-      // one file at a time.
+      // one file at a time. (DERIVED-SET-SELFTEST-1, 2026-08-22: this entry
+      // used to list the path TWICE — a pure authoring duplicate with zero
+      // effect on coveredPaths()'s Set-dedupe, but caught as a genuine
+      // within-entry CLASS C finding by check-derived-regen-live.mjs, which
+      // treats that shape as always a bug, unlike the cross-entry sharing
+      // check-derived-declare-parity.mjs's WARN allows by design. Collapsed
+      // to one entry here so that gate can be wired blocking.)
       'fv-explainer.html',
+      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      'llms.txt',
       // CLAIMS-SENTINEL-TIER1-1: verify-counts.mjs's comment-sentinel scan now also covers the
       // five hub hero pages (hubTools.* — audit Q7). SO #47: any write verify-counts.mjs --fix
       // gains must be declared here in the same diff, or the main-side regen's anti-escape guard
@@ -425,8 +430,7 @@ export const COVERED = [
     // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
     // the HTML-sentinel loop's `rel`), not literals at the call site —
     // unresolvable by static source analysis. Mirrors `artifacts` (already
-    // reconciled against verify-counts.mjs's own file list, see comment
-    // above), duplicate included — the dedupe check flags that separately.
+    // reconciled against verify-counts.mjs's own file list, see comment above).
     writes: [
       'docs/index.html', 'index.html', 'start.html', 'about.html',
       'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
