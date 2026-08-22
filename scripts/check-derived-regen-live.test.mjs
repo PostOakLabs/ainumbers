@@ -34,7 +34,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runLiveScan, withinEntryDuplicates, crossEntryShares } from './check-derived-regen-live.mjs';
+import { runLiveScan, withinEntryDuplicates, crossEntryShares, cleanGitEnv } from './check-derived-regen-live.mjs';
 
 let pass = 0;
 let fail = 0;
@@ -59,20 +59,26 @@ function assert(cond, msg) {
 // ── fixture repo builder ────────────────────────────────────────────────────
 // A real git repo (not a bare directory) — runLiveScan needs `git status` and
 // `git checkout` to behave, so a synthetic in-memory tree cannot stand in.
+// GIT_EXEC_OPTS uses cleanGitEnv() (imported from the module under test) —
+// running this file FROM a pre-push hook inherits GIT_DIR/GIT_INDEX_FILE
+// pointing at the OUTER repo, which silently redirected every git call below
+// at the wrong repository ("fatal: this operation must be run in a work
+// tree", reproduced by exporting GIT_DIR before running this file directly).
+const GIT_EXEC_OPTS = { stdio: ['ignore', 'pipe', 'pipe'], env: cleanGitEnv() };
 const roots = [];
 function makeRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'derived-regen-selftest-'));
   roots.push(dir);
-  execSync('git init -q', { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
-  execSync('git config user.email test@test.local', { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
-  execSync('git config user.name selftest', { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  execSync('git init -q', { cwd: dir, ...GIT_EXEC_OPTS });
+  execSync('git config user.email test@test.local', { cwd: dir, ...GIT_EXEC_OPTS });
+  execSync('git config user.name selftest', { cwd: dir, ...GIT_EXEC_OPTS });
   return dir;
 }
 function commit(dir, msg) {
   // stdio: 'pipe' — Windows autocrlf prints a harmless LF/CRLF advisory to
   // stderr on `add`; suppressed here so a green run stays quiet.
-  execSync('git add -A', { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
-  execSync(`git commit -q -m "${msg}"`, { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  execSync('git add -A', { cwd: dir, ...GIT_EXEC_OPTS });
+  execSync(`git commit -q -m "${msg}"`, { cwd: dir, ...GIT_EXEC_OPTS });
 }
 process.on('exit', () => {
   for (const r of roots) { try { rmSync(r, { recursive: true, force: true }); } catch { /* best effort */ } }

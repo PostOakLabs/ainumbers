@@ -73,6 +73,25 @@ import { join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COVERED, REPO } from './derived-artifacts.mjs';
 
+// GIT-ENV HYGIENE (measured, not theoretical): the pre-push hook invokes
+// preflight.mjs from INSIDE a `git push`, and git sets GIT_DIR/GIT_INDEX_FILE
+// (pointing at THIS worktree's git-dir) for that whole process tree. Node's
+// execSync inherits process.env by default, so every nested `git` call this
+// file spawns against a DIFFERENT directory (the scratch worktree, or —in the
+// paired test file— a synthetic fixture repo) was silently redirected at the
+// wrong repository and failed with "fatal: this operation must be run in a
+// work tree" (reproduced locally by exporting GIT_DIR before running the
+// fixture self-test). `cwd`/`-C` alone is not enough to override these — the
+// env vars win. Strip them from every git invocation's env so `cwd` is the
+// only thing that decides which repository a call operates on.
+const GIT_ENV_OVERRIDE_KEYS = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_PREFIX', 'GIT_CEILING_DIRECTORIES'];
+function cleanGitEnv(base = process.env) {
+  const out = { ...base };
+  for (const k of GIT_ENV_OVERRIDE_KEYS) delete out[k];
+  return out;
+}
+const GIT_EXEC_OPTS = { stdio: ['ignore', 'pipe', 'pipe'], env: cleanGitEnv() };
+
 // ── path helpers ─────────────────────────────────────────────────────────────
 
 /** Is `path` (git-status, forward-slash, repo-relative) covered by an entry's declared artifacts? */
@@ -100,7 +119,7 @@ function firstFileIn(absDir) {
 // ── git status parsing (porcelain v1 -z: NUL-separated, no quoting ambiguity) ─
 
 function gitStatusPaths(cwd) {
-  const out = execSync('git status --porcelain=v1 -z', { cwd, stdio: ['ignore', 'pipe', 'pipe'] }).toString('utf8');
+  const out = execSync('git status --porcelain=v1 -z', { cwd, ...GIT_EXEC_OPTS }).toString('utf8');
   const tokens = out.split('\0').filter((t) => t.length > 0);
   const paths = new Set();
   let i = 0;
@@ -160,7 +179,12 @@ function collectProbeTargets(dir, entry, skippedEmptyDirs) {
   return targets;
 }
 
-const EXEC_OPTS = (dir) => ({ cwd: dir, env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, stdio: ['ignore', 'pipe', 'pipe'] });
+// Two real generators (gen-debt-ledger.mjs, gen-rule-registry.mjs) shell out to
+// `git` themselves against their OWN computed REPO const — same GIT_DIR-
+// inheritance hazard as this file's own git calls (see the header comment
+// above `cleanGitEnv`), so the entry.regen/entry.gate execution environment
+// gets the same treatment, not just this file's direct git calls.
+const EXEC_OPTS = (dir) => ({ cwd: dir, env: { ...cleanGitEnv(), PYTHONIOENCODING: 'utf-8' }, stdio: ['ignore', 'pipe', 'pipe'] });
 function execOutput(e) { return ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim(); }
 
 /**
@@ -246,7 +270,7 @@ function runLiveScan({ dir, covered }) {
         // command ever reaches a write. That is a limit of this probe method,
         // not a no-write defect — SO #34c: report it as its own state, never
         // silently folded into either PASS or a hard FAIL.
-        try { execSync(`git checkout -- "${target.targetRel}"`, { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] }); } catch { /* best effort */ }
+        try { execSync(`git checkout -- "${target.targetRel}"`, { cwd: dir, ...GIT_EXEC_OPTS }); } catch { /* best effort */ }
         let cleanError = null;
         try { execSync(entry.regen, EXEC_OPTS(dir)); } catch (e2) { cleanError = execOutput(e2); }
         if (cleanError !== null) {
@@ -321,7 +345,7 @@ function runLiveScan({ dir, covered }) {
       // Restore this probe before the next one — the dependency-chain safety
       // net described in the file header, point 5 (also prevents this probe's
       // leftover byte from being misattributed to the next target or entry).
-      try { execSync(`git checkout -- "${target.targetRel}"`, { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] }); } catch { /* best effort */ }
+      try { execSync(`git checkout -- "${target.targetRel}"`, { cwd: dir, ...GIT_EXEC_OPTS }); } catch { /* best effort */ }
       prevStatus = gitStatusPaths(dir);
     }
   }
@@ -333,14 +357,14 @@ function runLiveScan({ dir, covered }) {
 
 function withScratchWorktree(fn) {
   const scratch = mkdtempSync(join(tmpdir(), 'derived-regen-live-'));
-  execSync(`git worktree add --detach "${scratch}" HEAD`, { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+  execSync(`git worktree add --detach "${scratch}" HEAD`, { cwd: REPO, ...GIT_EXEC_OPTS });
   try {
     return fn(scratch);
   } finally {
     try {
-      execSync(`git worktree remove --force "${scratch}"`, { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+      execSync(`git worktree remove --force "${scratch}"`, { cwd: REPO, ...GIT_EXEC_OPTS });
     } catch {
-      try { rmSync(scratch, { recursive: true, force: true }); execSync('git worktree prune', { cwd: REPO, stdio: 'ignore' }); }
+      try { rmSync(scratch, { recursive: true, force: true }); execSync('git worktree prune', { cwd: REPO, stdio: 'ignore', env: cleanGitEnv() }); }
       catch { /* best effort cleanup — a stray scratch worktree is annoying, never load-bearing */ }
     }
   }
@@ -418,4 +442,4 @@ if (isMain) {
   process.exit(hardFail ? 1 : 0);
 }
 
-export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths };
+export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv };
