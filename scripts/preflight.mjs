@@ -466,6 +466,13 @@ const GATES = [
   ['Node/chain shard registration (NODE-REGISTRATION-GAP-1, node case blocking)', 'node scripts/check-shard-assembly.mjs'],
   ['Branch-aware shard-registration proof (SHARD-GATE-PRE-ASSEMBLE-1)', 'node scripts/check-shard-assembly.test.mjs'],
   ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
+  // RECONCILE-PUSH-QUARANTINE-1: the pre-push guard that quarantines reconcile-class
+  // ref creation to refs/heads/wip/, plus the supersession classifier that replaces
+  // `git cherry`. The guard itself runs from .githooks/pre-push, which is per-clone
+  // config and therefore invisible to CI — this gate is what keeps its decision
+  // logic from silently rotting. Hermetic: pure functions driven by fixtures
+  // recorded from the 2026-08-22 incident, no network and no `gh`.
+  ['Reconcile push-quarantine controls (RED/GREEN/UNCHANGED/CLASSIFIER)', 'node scripts/reconcile-guard.test.mjs'],
   // Rule-registry: the assembled table is an SO #35 single-writer derived artifact (ASSEMBLE-LAND
   // only). --check recomputes every entry's source digest from the pinned snapshot bytes, so a
   // shard row's entry file is verified here even while the table itself is still PENDING-ASSEMBLE.

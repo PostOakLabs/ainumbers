@@ -19,8 +19,47 @@ if [ -n "$AINUM_PREPUSH_ATTESTING" ]; then
   exit 0
 fi
 
+# RECONCILE-PUSH-QUARANTINE-1 (Tim directive, 2026-08-22): reconcile-class ref
+# creation is quarantined to refs/heads/wip/. On 2026-08-22 a reconcile-class row
+# pushed 16 bare branch names straight to origin in one --no-verify push, on a
+# `git cherry` classification that was wrong — all 16 were SUPERSEDED and were
+# deleted the same day. This guard runs FIRST (it is cheap and needs no network)
+# so the refusal lands before anything expensive, and it reads git's pre-push
+# stdin, which is why stdin is captured here rather than left unread.
+#
+# Honest limit: `git push --no-verify` skips this hook entirely, as it skips
+# every client-side hook. Only a server-side push ruleset can close that, and
+# rulesets are Tim-only (SO #8). What IS closed is the REASON the 2026-08-22
+# push reached for --no-verify: it was escaping preflight, which fails by
+# construction on ancient branches (SO #27). A push whose refs are ALL under
+# refs/heads/wip/ now skips preflight outright (see below), so the sanctioned
+# path is strictly cheaper than the bypass.
+refs_stdin=$(cat)
+quarantine_only=""
+if [ -f scripts/reconcile-guard.mjs ]; then
+  guard_out=$(printf '%s\n' "$refs_stdin" | node scripts/reconcile-guard.mjs --prepush 2>&1)
+  guard_status=$?
+  [ -n "$guard_out" ] && printf '%s\n' "$guard_out"
+  if [ "$guard_status" -ne 0 ]; then
+    exit 1
+  fi
+  case "$guard_out" in
+    *AINUM_QUARANTINE_ONLY=1*) quarantine_only=1 ;;
+  esac
+fi
+
 # Branches that predate preflight (or non-site checkouts) have nothing to gate.
 if [ ! -f scripts/preflight.mjs ]; then
+  exit 0
+fi
+
+# Quarantine refs are a holding pen, never product: nothing merges out of
+# refs/heads/wip/ without a human reading the per-branch verdict first, and CI
+# still runs on any PR opened from one. Running the full site preflight against
+# a stale branch parked in quarantine proves nothing, and that cost is exactly
+# what made --no-verify attractive on 2026-08-22.
+if [ -n "$quarantine_only" ]; then
+  echo "pre-push: quarantine-only push (refs/heads/wip/) — preflight skipped by design (RECONCILE-PUSH-QUARANTINE-1)."
   exit 0
 fi
 
