@@ -74,21 +74,24 @@ permissions:
 jobs:
   attestation-check:
     name: preflight-attestation coverage
-    # STAGED ROLLOUT — STEP 1 OF 2, and this line is the whole of the staging.
+    # STAGED ROLLOUT — STEP 2 OF 2. Step 1 landed this workflow manual-only (the job
+    # ran on workflow_dispatch and skipped on push), because GitHub only exposes
+    # workflow_dispatch for a file that already exists on the default branch:
+    # dispatching it from its own branch returned "HTTP 404: workflow
+    # prepush-attestation.yml not found on the default branch". It could not be
+    # exercised before it landed, and merging it live to see how it behaves on the
+    # next real push was not an option.
     #
-    # GitHub only exposes workflow_dispatch for a workflow file that ALREADY exists
-    # on the default branch: dispatching this file from its own branch returns
-    # "HTTP 404: workflow prepush-attestation.yml not found on the default branch".
-    # So it cannot be exercised before it lands — and landing it live, then finding
-    # out how it behaves on the next real push, is precisely what is not allowed.
+    # Every branch was then dispatched from main and observed, run links in the
+    # pull request that removed the guard:
+    #   note-present     -> success   note-absent      -> failure
+    #   declared-bypass  -> success   notes-ref-absent -> failure
+    #   live (report-only, against the real merge commit of step 1) -> success,
+    #     resolving its note through the squash rewrite: "ATTESTED … [note on PR
+    #     head 2af6934c]" — the mapping this gate depends on, exercised for real
+    #     rather than against a fixture.
     #
-    # Step 1 therefore lands it MANUAL-ONLY: the job runs on workflow_dispatch and
-    # skips on push, so it cannot fail main while unproven. Its branches — green on
-    # a present note, red on a missing one, green-and-logged on a declared bypass,
-    # and the ref-absent state — are then demonstrated by dispatching it from main.
-    # Step 2 is a one-line follow-up that deletes this condition and lets the push
-    # trigger through, with those run links quoted as the evidence.
-    if: github.event_name == 'workflow_dispatch'
+    # The guard is gone; the push trigger is live.
     runs-on: ubuntu-latest
     permissions:
       contents: read
