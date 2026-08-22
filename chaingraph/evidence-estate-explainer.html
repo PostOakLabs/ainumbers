@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Evidence Estate, an OpenChainGraph Explainer</title>
+<meta name="description" content="How an artifact becomes a SHA-256 digest, how four independent rails anchor that digest to third-party time, how Sigsum's pending-to-included lifecycle and twelve witness cosigners work, how the resulting proof bundle verifies with the network unplugged, and how ledger.ainumbers.co resolves a hash to content under an RFC 6920 contract, including what none of it claims. Client-side, zero-egress.">
+<meta name="author" content="Post Oak Labs">
+<meta name="ocg-spec-version" content="0.8.13">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/evidence-estate-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "The Evidence Estate, an OpenChainGraph Explainer",
+  "description": "An animated, panel-by-panel walk from a SHA-256 digest through four anchoring rails, the Sigsum pending-to-included lifecycle and its twelve witnesses, offline verification, and ledger resolution under an RFC 6920 contract, closing on what none of it claims.",
+  "author": { "@type": "Organization", "name": "Post Oak Labs" },
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
+  "about": { "@type": "Thing", "name": "Independently verifiable evidence for a hash-anchored artifact" }
+}
+</script>
+<style>
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--teal-lt);outline-offset:2px}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.loop-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.35);background:var(--gold-dim);border-radius:20px;padding:.15rem .6rem}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero p{font-size:1rem;color:var(--body);max-width:740px;line-height:1.9}
+.thesis{margin-top:1.6rem;padding:1rem 1.3rem;background:var(--teal-dim);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;font-size:.95rem;color:var(--bright)}
+
+/* panels */
+.panel{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.panel-head{display:flex;align-items:baseline;gap:.9rem;margin-bottom:.4rem;flex-wrap:wrap}
+.stage-n{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--teal-lt);border:1px solid rgba(20,184,166,.35);border-radius:50%;width:2.1rem;height:2.1rem;display:flex;align-items:center;justify-content:center;flex:none}
+.panel h2{font-size:clamp(1.25rem,2.4vw,1.7rem);color:var(--white)}
+.panel h3{font-size:1.05rem;color:var(--bright);margin:1.6rem 0 .5rem}
+.panel .kicker{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.panel p{color:var(--body);max-width:720px;margin:.9rem 0}
+.panel .pull{font-size:.92rem;color:var(--text);border-left:2px solid var(--border-2);padding-left:.9rem;margin:1rem 0;max-width:680px}
+.scene-scroll{max-width:100%;overflow-x:auto;margin:1.2rem 0;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.scene-scroll svg{display:block;width:100%;height:auto;min-width:520px}
+
+/* node cite */
+.cite{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.05em;padding:.15rem .5rem;border-radius:12px;background:var(--bg-3);color:var(--teal-lt);border:1px solid var(--border-2)}
+
+/* draw / fade utilities (CSS keyframes only, paused until in-view) */
+.scene [class*="an-"]{animation-play-state:paused}
+.scene.in-view [class*="an-"]{animation-play-state:running}
+.an-draw{stroke-dasharray:var(--len,100);stroke-dashoffset:var(--len,100);animation:draw .9s ease-out forwards var(--d,0s)}
+@keyframes draw{to{stroke-dashoffset:0}}
+.an-fade{opacity:0;animation:fadein .6s ease-out forwards var(--d,0s)}
+@keyframes fadein{to{opacity:1}}
+.an-pop{opacity:0;transform-origin:center;animation:pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
+@keyframes pop{0%{opacity:0;transform:scale(.4)}100%{opacity:1;transform:scale(1)}}
+.an-pulse{animation:pulse 2s ease-in-out infinite var(--d,0s)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.32}}
+.an-pulse-warn{animation:pulsewarn 1.6s ease-in-out infinite var(--d,0s)}
+@keyframes pulsewarn{0%,100%{opacity:.55;r:5}50%{opacity:1;r:6.5}}
+
+/* rail / claim / witness grids */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.4rem 0}
+.grid.four{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.card h3{font-size:1.02rem;color:var(--bright);margin:0 0 .4rem;font-family:'DM Serif Display',serif}
+.card p{font-size:.85rem;color:var(--body);margin:0}
+.claim-card{border-left:3px solid var(--gold)}
+.checklist{list-style:none;margin:1.2rem 0;padding:0}
+.checklist li{position:relative;padding:.7rem 1rem .7rem 2.6rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;font-size:.88rem;color:var(--text)}
+.checklist li::before{content:'';position:absolute;left:.9rem;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;border:1.4px solid var(--teal);background:var(--teal-dim)}
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;line-height:1.9;margin:1.4rem 0}
+.cross-link a{color:var(--gold)}
+.note{background:var(--green-dim);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.warn-note{background:var(--gold-dim);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--muted);margin:2rem 0;font-family:'JetBrains Mono',monospace}
+footer{padding:2.4rem 0;color:var(--muted);font-size:.8rem}
+footer a{color:var(--body)}
+@media(max-width:680px){.grid{grid-template-columns:1fr}.grid.four{grid-template-columns:1fr 1fr}.wrap{padding:0 1.2rem}}
+@media(max-width:480px){.grid.four{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){
+  .scene [class*="an-"]{animation:none!important;animation-play-state:running!important}
+  .an-draw{stroke-dashoffset:0!important}
+  .an-fade,.an-pop{opacity:1!important;transform:none!important}
+  .an-pulse,.an-pulse-warn{animation:none!important;opacity:1!important}
+}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">The Evidence Estate, an OpenChainGraph Explainer</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; Evidence estate <span class="loop-pill">Loop step: Anchor</span></div>
+  <h1>An artifact becomes a hash. The hash becomes evidence a stranger can check alone</h1>
+  <p>This page walks the evidence estate end to end: how a receipt, an export, or a signed document is reduced to one SHA-256 digest; how that digest is pinned to third-party time on four independent rails; how one of those rails, Sigsum, turns a submission into a witnessed, append-only log entry; how the resulting proof bundle checks itself with the network unplugged; and how a digest resolves to content at a fixed address. Four rails, one estate, nothing here asks you to take anyone's word for it.</p>
+  <div class="thesis">Anchoring proves a digest existed at a point in time. It never proves that what the digest points to is accurate. Keep that distinction in view through every panel below; the closing panel restates it and three more like it, on purpose, as the first thing worth reading rather than the last.</div>
+</div></header>
+
+<!-- PANEL 1 -->
+<section class="panel" id="step-1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">1</span><div><div class="kicker">Step 1 &middot; The digest</div><h2>Hash first</h2></div></div>
+  <p>Before anything else happens, the artifact under evidence, a receipt, an export, a signed document, is reduced to one SHA-256 digest. Every stage that follows binds to that digest. The file itself is never sent anywhere and is never touched again.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="An artifact document on the left feeding into a hash function box, which outputs a single fixed-length digest on the right; five thin lines fan out from the digest toward the stages that follow, all of them binding to the digest rather than the file.">
+    <defs>
+      <symbol id="badge" viewBox="0 0 28 22"><path d="M2 3 h20 l4 4 v12 a2 2 0 0 1 -2 2 h-22 a2 2 0 0 1 -2 -2 v-14 a2 2 0 0 1 2 -2 z" fill="none" stroke="var(--teal)" stroke-width="1.6"/><path d="M8 12 l3.2 3.6 L20 8" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="wcheck" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><path d="M5.5 10.2 L8.5 13 L14.5 6.6" fill="none" stroke="var(--teal-lt)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="xmark" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--red-dim)" stroke="var(--red)" stroke-width="1.4"/><path d="M6.5 6.5 L13.5 13.5 M13.5 6.5 L6.5 13.5" stroke="var(--red)" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    </defs>
+    <rect x="30" y="55" width="90" height="60" rx="6" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/>
+    <text x="75" y="90" text-anchor="middle" fill="var(--body)" font-size="9">artifact</text>
+    <path class="an-draw" d="M120 85 h70" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:70;--d:.2s"/>
+    <rect class="an-pop" x="190" y="55" width="120" height="60" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:.6s"/>
+    <text x="250" y="90" text-anchor="middle" fill="var(--bright)" font-family="JetBrains Mono, monospace" font-size="9" class="an-fade" style="--d:.9s">SHA-256</text>
+    <path class="an-draw" d="M310 85 h70" stroke="var(--teal-lt)" stroke-width="1.8" fill="none" style="--len:70;--d:1.1s"/>
+    <rect class="an-pop" x="380" y="60" width="200" height="50" rx="8" fill="var(--bg-3)" stroke="var(--teal-lt)" stroke-width="1.6" style="--d:1.4s"/>
+    <text x="480" y="90" text-anchor="middle" fill="var(--teal-lt)" font-family="JetBrains Mono, monospace" font-size="9" class="an-fade" style="--d:1.7s">sha256:9f2c...e41a</text>
+    <g stroke="var(--border-2)" stroke-width="1.2" fill="none">
+      <path class="an-draw" d="M580 70 C 610 50, 620 30, 630 20" style="--len:60;--d:2s"/>
+      <path class="an-draw" d="M580 80 C 615 75, 625 65, 630 55" style="--len:55;--d:2.1s"/>
+      <path class="an-draw" d="M580 90 h50" style="--len:50;--d:2.2s"/>
+      <path class="an-draw" d="M580 100 C 615 105, 625 115, 630 125" style="--len:55;--d:2.3s"/>
+      <path class="an-draw" d="M580 108 C 610 130, 620 145, 630 155" style="--len:60;--d:2.4s"/>
+    </g>
+    <text x="320" y="145" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">everything downstream binds to the digest, never the file</text>
+  </svg></div>
+  <p class="pull">Two files with identical bytes hash identically. One changed byte hashes differently. Every panel that follows depends on nothing more exotic than that.</p>
+</div></section>
+
+<!-- PANEL 2 -->
+<section class="panel" id="step-2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">2</span><div><div class="kicker">Step 2 &middot; Four rails</div><h2>Anchors pin the digest to third-party time</h2></div></div>
+  <p>An anchor is a third party's signed or logged statement that it observed a given digest at a given moment. The same digest is anchored across four independent rails, each carrying a different, honestly stated guarantee.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 200" role="img" aria-label="One digest box branching into four labeled rails, RFC 3161 TSA, Sigstore, OpenTimestamps, and Sigsum, each ending in its own small badge as the anchor completes.">
+    <rect x="270" y="14" width="100" height="40" rx="8" fill="var(--bg-3)" stroke="var(--teal-lt)" stroke-width="1.4"/>
+    <text x="320" y="38" text-anchor="middle" fill="var(--teal-lt)" font-family="JetBrains Mono, monospace" font-size="9">digest</text>
+    <g stroke="var(--border-2)" stroke-width="1.4" fill="none">
+      <path class="an-draw" d="M290 54 C 200 80, 120 90, 80 108" style="--len:230;--d:.2s"/>
+      <path class="an-draw" d="M310 54 C 280 80, 250 92, 230 108" style="--len:120;--d:.5s"/>
+      <path class="an-draw" d="M330 54 C 360 80, 390 92, 410 108" style="--len:120;--d:.8s"/>
+      <path class="an-draw" d="M350 54 C 440 80, 520 90, 560 108" style="--len:230;--d:1.1s"/>
+    </g>
+    <rect x="20" y="108" width="120" height="30" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/>
+    <text x="80" y="127" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="8">RFC 3161 TSA</text>
+    <rect x="170" y="108" width="120" height="30" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/>
+    <text x="230" y="127" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="8">Sigstore</text>
+    <rect x="350" y="108" width="120" height="30" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/>
+    <text x="410" y="127" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="8">OpenTimestamps</text>
+    <rect x="500" y="108" width="120" height="30" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/>
+    <text x="560" y="127" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="8">Sigsum</text>
+    <g class="an-fade" style="--d:1.6s"><use href="#badge" x="128" y="94" width="20" height="16"/></g>
+    <g class="an-fade" style="--d:1.8s"><use href="#badge" x="278" y="94" width="20" height="16"/></g>
+    <g class="an-fade" style="--d:2s"><use href="#badge" x="458" y="94" width="20" height="16"/></g>
+    <g class="an-fade" style="--d:2.2s"><use href="#badge" x="608" y="94" width="20" height="16"/></g>
+    <text x="320" y="180" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">four independent statements about the same one digest</text>
+  </svg></div>
+  <div class="grid four">
+    <div class="card"><h3>RFC 3161 TSA</h3><p>A timestamp authority signs the digest together with a timestamp. The guarantee is that one signature, checkable against the authority's published certificate.</p></div>
+    <div class="card"><h3>Sigstore</h3><p>A public timestamping service logs the request as it happens. The guarantee rests on that service continuing to operate and to keep an honest log.</p></div>
+    <div class="card"><h3>OpenTimestamps</h3><p>The digest is folded into a Merkle tree that is later committed into the Bitcoin blockchain. The guarantee is whatever secures that chain of blocks, not any single operator.</p></div>
+    <div class="card"><h3>Sigsum</h3><p>A transparency log that a fixed set of independent witnesses cosign, so the log cannot be silently rewritten. The guarantee is append-only publication, witnessed by parties the log operator does not control.</p></div>
+  </div>
+  <div class="warn-note">Anchoring proves existence at a time. It never proves the content is correct. An anchored digest of an inaccurate report is still an inaccurate report, now carrying a timestamp.</div>
+</div></section>
+
+<!-- PANEL 3 -->
+<section class="panel" id="step-3"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">3</span><div><div class="kicker">Step 3 &middot; Sigsum, in depth</div><h2>Submit once. Check again. Never resubmit</h2></div></div>
+  <p>Sigsum is the newest of the four rails, and its two-phase design is the one most easily mistaken for a stall. Submitting a digest as a leaf does not wait for the log to finish sequencing it. What comes back immediately is a durable pending binding: the signed, dated leaf material, proof the submission happened before the log has merged it into a tree.</p>
+  <p>Checking again later asks the log a plain question at no cost against the submission budget. If the leaf has since been sequenced, the pending binding upgrades in place into a complete one, an inclusion proof plus a cosigned tree head. Nothing about the artifact or its digest changes between the two states; only the evidence sitting around it gets more complete.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 190" role="img" aria-label="A four-step pipeline: submit leaf, then a pending binding shown pulsing amber to indicate durable waiting rather than failure, then the log merging, then included, which draws a badge for the inclusion proof and a second badge for the cosigned tree head." style="min-width:560px">
+    <rect x="20" y="70" width="100" height="50" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="70" y="99" text-anchor="middle" fill="var(--body)" font-size="9">submit leaf</text>
+    <path class="an-draw" d="M120 95 h70" stroke="var(--muted)" stroke-width="1.4" fill="none" style="--len:70;--d:.2s"/>
+    <rect x="190" y="65" width="130" height="60" rx="6" fill="var(--gold-dim)" stroke="var(--gold)" stroke-width="1.4"/>
+    <text x="255" y="90" text-anchor="middle" fill="var(--gold)" font-size="9">pending</text>
+    <text x="255" y="104" text-anchor="middle" fill="var(--body)" font-size="7">durable binding</text>
+    <circle class="an-pulse-warn" cx="255" cy="115" r="5" fill="var(--warn)" style="--d:.5s"/>
+    <path class="an-draw" d="M320 95 h70" stroke="var(--muted)" stroke-width="1.4" fill="none" style="--len:70;--d:1s"/>
+    <rect x="390" y="70" width="100" height="50" rx="6" fill="var(--bg-3)" stroke="var(--muted)" stroke-width="1.2"/><text x="440" y="99" text-anchor="middle" fill="var(--body)" font-size="9">log merges</text>
+    <path class="an-draw" d="M490 95 h60" stroke="var(--teal-lt)" stroke-width="1.6" fill="none" style="--len:60;--d:1.6s"/>
+    <rect class="an-pop" x="550" y="55" width="72" height="80" rx="6" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:2s"/>
+    <text x="586" y="80" text-anchor="middle" fill="var(--teal-lt)" font-size="9" class="an-fade" style="--d:2.2s">included</text>
+    <g class="an-fade" style="--d:2.3s"><use href="#wcheck" x="566" y="90" width="18" height="18"/></g>
+    <text x="586" y="122" text-anchor="middle" fill="var(--body)" font-size="6.5" class="an-fade" style="--d:2.4s">+ cosigned head</text>
+    <text x="255" y="150" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="8">re-check inclusion (free) &middot; never resubmit</text>
+  </svg></div>
+  <div class="note">Re-checking a pending binding costs nothing against the submission budget. Resubmitting the same digest spends that budget again for no reason. The distinction is deliberate: a submission budget shared across every domain suffix stays meaningful only if a slow merge is never mistaken for a failure and retried.</div>
+
+  <h3>Twelve witnesses, counted independently</h3>
+  <p>A cosigned tree head is only trustworthy if more than the log operator agrees it is correct. Every head Sigsum returns carries signatures from twelve independent witnesses: Glasklar's and Mullvad's own witness services, a Tillitis hardware witness, and nine ArmoredWitness devices, each held by a separate custodian.</p>
+  <p>Verification is k-of-n. A bundle is checked against whichever of the twelve cosigned that particular head, and a cosigner the verifier does not recognise, or one that is simply absent, is skipped rather than treated as a failure. One witness rotating out, or a new one joining, never breaks a proof that was already valid.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 150" role="img" aria-label="Twelve small witness nodes in a row, three named individually and nine grouped as ArmoredWitness devices, each popping in with a checkmark to show independent cosignature over the same tree head.">
+    <text x="20" y="20" fill="var(--body)" font-size="9">glasklar</text>
+    <g class="an-pop" style="--d:.2s"><use href="#wcheck" x="16" y="26" width="22" height="22"/></g>
+    <text x="90" y="20" fill="var(--body)" font-size="9">mullvad</text>
+    <g class="an-pop" style="--d:.35s"><use href="#wcheck" x="86" y="26" width="22" height="22"/></g>
+    <text x="160" y="20" fill="var(--body)" font-size="9">tillitis</text>
+    <g class="an-pop" style="--d:.5s"><use href="#wcheck" x="156" y="26" width="22" height="22"/></g>
+    <line x1="238" y1="15" x2="238" y2="65" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="3 3"/>
+    <g id="aw9">
+      <g class="an-pop" style="--d:.65s"><use href="#wcheck" x="256" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:.75s"><use href="#wcheck" x="292" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:.85s"><use href="#wcheck" x="328" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:.95s"><use href="#wcheck" x="364" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:1.05s"><use href="#wcheck" x="400" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:1.15s"><use href="#wcheck" x="436" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:1.25s"><use href="#wcheck" x="472" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:1.35s"><use href="#wcheck" x="508" y="26" width="20" height="20"/></g>
+      <g class="an-pop" style="--d:1.45s"><use href="#wcheck" x="544" y="26" width="20" height="20"/></g>
+    </g>
+    <text x="400" y="70" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="8">nine ArmoredWitness devices, separate custodians</text>
+    <text x="320" y="112" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="9">k-of-n over the twelve &middot; unknown or absent cosigners are skipped, never failed</text>
+  </svg></div>
+  <span class="cite">seasalp tlog &middot; anchor-suite public/lib/sigsum.mjs &middot; 12 pinned cosigners</span>
+</div></section>
+
+<!-- PANEL 4 -->
+<section class="panel" id="step-4"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">4</span><div><div class="kicker">Step 4 &middot; Offline verification</div><h2>The proof bundle checks itself with the network unplugged</h2></div></div>
+  <p>Every check a verifier runs against an anchor bundle runs against bytes already inside that bundle. None of them require asking a server anything. Disconnect first, and the same checks pass or fail exactly the same way.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 130" role="img" aria-label="A crossed-out network icon on the left, next to five checklist items ticking off one after another: checksum, leaf signature, Merkle inclusion, log signature, witness cosignatures, ending in one verified badge." style="min-width:560px">
+    <circle cx="60" cy="65" r="34" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+    <path d="M40 45 Q60 30 80 45" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+    <path d="M46 55 Q60 45 74 55" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+    <circle cx="60" cy="70" r="3" fill="var(--muted)"/>
+    <line x1="34" y1="39" x2="86" y2="91" stroke="var(--red)" stroke-width="2"/>
+    <text x="60" y="115" text-anchor="middle" fill="var(--red)" font-family="JetBrains Mono, monospace" font-size="8">offline</text>
+    <g class="an-fade" style="--d:.2s"><use href="#wcheck" x="130" y="14" width="16" height="16"/></g><text x="152" y="26" fill="var(--body)" font-size="8">checksum</text>
+    <g class="an-fade" style="--d:.5s"><use href="#wcheck" x="230" y="14" width="16" height="16"/></g><text x="252" y="26" fill="var(--body)" font-size="8">leaf signature</text>
+    <g class="an-fade" style="--d:.8s"><use href="#wcheck" x="130" y="44" width="16" height="16"/></g><text x="152" y="56" fill="var(--body)" font-size="8">Merkle inclusion</text>
+    <g class="an-fade" style="--d:1.1s"><use href="#wcheck" x="230" y="44" width="16" height="16"/></g><text x="252" y="56" fill="var(--body)" font-size="8">log signature</text>
+    <g class="an-fade" style="--d:1.4s"><use href="#wcheck" x="130" y="74" width="16" height="16"/></g><text x="152" y="86" fill="var(--body)" font-size="8">witness cosignatures</text>
+    <rect class="an-pop" x="420" y="30" width="180" height="60" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:1.9s"/>
+    <text x="510" y="65" text-anchor="middle" fill="var(--teal-lt)" font-size="10" class="an-fade" style="--d:2.1s">verified, offline</text>
+  </svg></div>
+  <ul class="checklist">
+    <li>Checksum matches the claimed digest.</li>
+    <li>The leaf signature verifies against the submitter's key.</li>
+    <li>The Merkle inclusion path recomputes to the tree head's root.</li>
+    <li>The log's own signature over that head verifies.</li>
+    <li>Witness cosignatures over the same head verify against pinned keys.</li>
+  </ul>
+  <p class="pull">Every one of those five checks is arithmetic and signature verification a verifier runs in its own browser tab. This is the estate's differentiator against a design that asks you to trust a server: nothing here is a phone call to anyone.</p>
+</div></section>
+
+<!-- PANEL 5 -->
+<section class="panel" id="step-5"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">5</span><div><div class="kicker">Step 5 &middot; Ledger resolution</div><h2>One address, one answer</h2></div></div>
+  <p>A digest that has been anchored can be dereferenced at <code>ledger.ainumbers.co/&lt;hash&gt;</code>. The contract behind that address follows RFC 6920: a request for a given digest returns content whose recomputed digest equals the address exactly, or it returns nothing at all. The address is never allowed to resolve to a different value than the one it names.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="A digest feeding into the ledger address box, which recomputes the hash of stored content and compares it against the address; a match returns the content with a green check, a mismatch returns nothing, marked with a red cross and the number 404.">
+    <rect x="30" y="65" width="130" height="40" rx="6" fill="var(--bg-3)" stroke="var(--teal-lt)" stroke-width="1.4"/><text x="95" y="90" text-anchor="middle" fill="var(--teal-lt)" font-family="JetBrains Mono, monospace" font-size="8">sha256:9f2c...</text>
+    <path class="an-draw" d="M160 85 h70" stroke="var(--muted)" stroke-width="1.4" fill="none" style="--len:70;--d:.2s"/>
+    <rect x="230" y="55" width="170" height="60" rx="8" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/>
+    <text x="315" y="80" text-anchor="middle" fill="var(--body)" font-size="8">ledger.ainumbers.co</text>
+    <text x="315" y="94" text-anchor="middle" fill="var(--body)" font-size="7">recompute &amp; compare</text>
+    <path class="an-draw" d="M400 75 C 440 55, 460 45, 490 40" stroke="var(--teal-lt)" stroke-width="1.6" fill="none" style="--len:90;--d:1s"/>
+    <path class="an-draw" d="M400 95 C 440 115, 460 125, 490 130" stroke="var(--red)" stroke-width="1.6" stroke-dasharray="4 4" fill="none" style="--len:90;--d:1.3s"/>
+    <g class="an-fade" style="--d:1.6s"><use href="#wcheck" x="494" y="26" width="20" height="20"/></g>
+    <text x="560" y="40" fill="var(--body)" font-size="8">match, serve content</text>
+    <g class="an-fade" style="--d:1.8s"><use href="#xmark" x="494" y="118" width="20" height="20"/></g>
+    <text x="560" y="132" fill="var(--body)" font-size="8">mismatch, 404</text>
+  </svg></div>
+  <p>That is a narrower promise than it sounds. State is derivable from the log; the log stays canonical. A deployment that serves no Ledger endpoint at all is still fully conformant with the estate; one that does serve one has to honor the same rule every time, without exception.</p>
+  <div class="note">Where a human, not a system, needs to answer for an artifact, Anchorproof adds a passkey signature over an envelope that references the digest: a WebAuthn assertion tying one named signer to one hash, checkable the same way as everything else on this page, entirely offline.</div>
+</div></section>
+
+<!-- PANEL 6 -->
+<section class="panel" id="step-6"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">6</span><div><div class="kicker">What is NOT claimed</div><h2>Four boundaries this estate holds on purpose</h2></div></div>
+  <p>The five panels above describe real, shipped mechanisms. None of them add up to more than what follows, and this panel is deliberately as prominent as the others rather than a footnote at the bottom of the page.</p>
+  <div class="grid">
+    <div class="card claim-card"><h3>Anchors prove time, not truth</h3><p>A signed timestamp says a digest existed at a moment. It says nothing about whether what the digest points to is accurate, honest, or complete.</p></div>
+    <div class="card claim-card"><h3>Pending is not included</h3><p>A durable pending binding proves a submission happened. It is not an inclusion proof, and it does not become one until the log has sequenced the leaf and a cosigned head confirms it.</p></div>
+    <div class="card claim-card"><h3>A log proves append-only, not endorsement</h3><p>Twelve witnesses agreeing a log was not secretly rewritten says nothing about who submitted an entry, or why they submitted it.</p></div>
+    <div class="card claim-card"><h3>No certified, guaranteed, or audited language</h3><p>None of those words belong on this page or on the tools it describes. What is checkable is stated plainly instead, so a reader can verify the claim rather than trust the adjective.</p></div>
+  </div>
+  <div class="cross-link">Related reading, without restating it here: <a href="https://anchor.ainumbers.co" target="_blank" rel="noopener">anchor.ainumbers.co</a> is the live tool that performs the anchoring walked through above &middot; <a href="kernel-vm-explainer.html">How the Kernel VM Works</a> covers the compute-integrity side of an OpenChainGraph receipt, not the anchoring side &middot; <a href="../fv-explainer.html">FV Process Explainer</a> covers the formal-verification pilot and its own "what is not claimed" panel.</div>
+</div></section>
+
+<div class="wrap">
+  <p class="pii">All content on this page is static and processed locally in your browser. No data is transmitted. Do not enter real personal data into any OpenChainGraph tool. Use synthetic or anonymised inputs only.</p>
+  <footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</div>
+
+<script>
+(function(){
+  var scenes = document.querySelectorAll('.scene');
+  if (!('IntersectionObserver' in window)) { scenes.forEach(function(s){ s.classList.add('in-view'); }); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.2 });
+  scenes.forEach(function(s){ io.observe(s); });
+})();
+</script>
+</body>
+</html>
