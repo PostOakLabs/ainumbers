@@ -1,3 +1,11 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and touching it makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path
+// filter watches the whole directory, not just *.kernel.mjs). Without this it
+// fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/) that
+// would block ANY future edit to this file, not something specific to its
+// own logic. Same precedent as vm-parity-gate.mjs's line 1.
 /**
  * bootstrap-fixtures.mjs — generate minimal fixture stubs for all 45 remediated gpu:false kernels.
  *
@@ -379,7 +387,11 @@ for (const [toolId, kernelPath] of Object.entries(KERNEL_FILES)) {
 
     const fixture = {
       tool_id: toolId,
-      note: 'golden_hash is empty until first `node golden-parity.test.mjs --update`.',
+      // True at seed time (golden_hash below is ''). golden-parity.test.mjs --update
+      // matches this exact string and rewrites it to 'golden_hash pinned (see vectors).'
+      // the moment it pins the hash, so the note never outlives its own truth
+      // (FIXTURE-NOTE-TEMPLATE-1, closing the gap FIXTURE-NOTE-SWEEP-1 found).
+      note: 'golden_hash pending — run `node golden-parity.test.mjs --update` to pin it.',
       vectors: [
         {
           name: 'minimal',
