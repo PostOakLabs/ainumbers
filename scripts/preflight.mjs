@@ -513,6 +513,14 @@ const GATES = [
   ['Canvas up-to-date',           'node scripts/gen-canvas.mjs --check'],
   ['Wayfinder freshness',         'node scripts/gen-wayfinder.mjs --check'],
   ['Node-page chrome (nav/footer)', 'node scripts/check-node-page-chrome.mjs'],
+  // HUB-CHROME-GATE-1: same shape as the node-page chrome gate above, for the
+  // OTHER ungated chrome surface the 2026-08-21 0xAlpha audit found (Findings
+  // A/B). Logo check is baseline-ratcheted (45 known text-only hubs,
+  // HUB-LOGO-NORMALIZE-1's job to fix); footer check is zero-tolerance —
+  // see scripts/check-hub-chrome.mjs's header for why "canonical footer" is
+  // a content invariant here, not one shared template.
+  ['Hub-guide chrome (logo/footer, HUB-CHROME-GATE-1)', 'node scripts/check-hub-chrome.mjs'],
+  ['Hub-guide chrome self-test (GATE-SELFTEST-META-1 pairing)', 'node scripts/check-hub-chrome.test.mjs'],
   ['FV pilot badge freshness (FV-BADGE-1)', 'node scripts/inject-fv-pilot-badges.mjs --check'],
   ['FV pilot evidence-vector shape (FV-EVIDENCE-VECTOR-1)', 'node scripts/check-fv-pilot-badge.mjs --check'],
   ['Root-page chrome freshness (INDEX-SIMPLIFY-1)', 'node scripts/gen-root-chrome.mjs --check'],

@@ -28,6 +28,16 @@ const PAGES = [
   'contact.html', 'convert.html', 'credits.html', 'methods.html',
   'security.html', 'suggest.html', 'fv-explainer.html',
   'helm.html', 'sitemap.html', 'tools.html',
+  // HUB-CHROME-GATE-1 (2026-08-22): 2 of the 14 hand-synced root pages named by
+  // the 2026-08-21 0xAlpha audit (Finding C) — the only 2 of the 14 whose footer
+  // actually carries the canonical root/node-page 4-column shape
+  // (footer-inner/footer-brand/footer-brand-mark/footer-cols/footer-col), verified
+  // by re-derivation against a fresh tree before sentinel insertion. The other 12
+  // use a genuinely DIFFERENT footer (the hub-page `-ai` family, a simpler
+  // footer-links-only shape, a legacy one-line footer, or no footer at all) — a
+  // real design divergence, not staleness, and out of this row's scope to rewrite;
+  // see board/done/HUB-CHROME-GATE-1.md for the full 12-file breakdown.
+  'about.html', 'mcp.html',
 ];
 
 // Regions: [openMarker, closeMarker, payload]. Markers matched loosely so the
