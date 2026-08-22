@@ -202,4 +202,10 @@ test('tierReport — a full report is correctly bucketed and scored per tier fro
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+// A thrown error, not process.exit(1) — this file lives OUTSIDE
+// chaingraph/kernels/__proptests__/, which is the only directory
+// jsdoc-checkjs-gate.mjs allowlists for the no-@types/node `process`/`node:*`
+// gap (see that gate's own header, rule 2). An uncaught throw exits Node 1
+// exactly like process.exit(1) would, without touching the `process` global
+// at all — no TS2580 for a script this small to justify a wider allowlist over.
+if (failed > 0) throw new Error(`${failed} test(s) failed`);

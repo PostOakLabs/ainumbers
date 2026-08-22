@@ -105,6 +105,7 @@ function lineNumberOfCharIndex(source, charIdx) {
  * return its 1-indexed [startLine, endLine] (the `export const` line
  * through the line holding the closing `}`), or null if not found /
  * malformed.
+ * @returns {[number, number] | null}
  */
 function findObjectExportRange(source, name) {
   const re = new RegExp(`^export\\s+const\\s+${name}\\s*=`, 'm');
@@ -125,6 +126,7 @@ function findObjectExportRange(source, name) {
  * the line holding the function body's closing `}`), or null if not found.
  * Correctly skips brace-containing parameter defaults (e.g. destructuring
  * with `= {}`) by first bracket-scanning the PARAMETER LIST's own parens.
+ * @returns {[number, number] | null}
  */
 function findFunctionExportRange(source, name) {
   const re = new RegExp(`^export\\s+(async\\s+)?function\\s+${name}\\s*\\(`, 'm');
@@ -140,6 +142,7 @@ function findFunctionExportRange(source, name) {
   return [lineNumberOfCharIndex(source, m.index), lineNumberOfCharIndex(source, bodyEnd)];
 }
 
+/** @returns {[number, number] | null} */
 function findConstLineRange(source, name) {
   const lines = source.split(/\r?\n/);
   const idx = lines.findIndex((l) => new RegExp(`^const\\s+${name}\\b`).test(l));
@@ -206,7 +209,7 @@ export function isSharedLibPath(relPath) {
 
 /**
  * tierOfMutant — classify one Stryker mutant record.
- * @param {{location:{start:{line:number}}}} mutant
+ * @param {{location?: {start?: {line?: number}}}} mutant — start/line are OPTIONAL in the type on purpose: a malformed/incomplete mutant record (missing location entirely) is a real input this function must handle gracefully (classifies 'other', see below), not a shape the caller is trusted to rule out.
  * @param {string} mutantFileRelPath — the path key Stryker's report uses for this mutant (e.g. "chaingraph/kernels/art-431-....kernel.mjs")
  * @param {string} kernelFileRelPath — the SAME path shape for the kernel file under test
  * @param {Array<[number,number]>} peripheralRanges — from classifyKernelSource; empty only for a non-canonical kernel (caller must not reach here for one)
