@@ -389,7 +389,14 @@ const GATES = [
   // removals/renames and any graph/chains/ change are OUT of the auto-writer's
   // scope (the assembler itself refuses those, no-write/no-commit) and still
   // land via an explicit ASSEMBLE/LAND row.
+  // ⚖ AMENDED by ASSEMBLE-CHAIN-CLASSIFY-1 (2026-08-22): the all-or-nothing
+  // chain refusal is now three verdicts — copy-only chain edits (description/
+  // title only) and purely additive new chains AUTO-LAND; structural chain
+  // edits, chain removals/renames and node removals/renames are still REFUSED
+  // to a human ASSEMBLE/LAND row, and a refusal is no longer a silent exit 0
+  // (assemble-chaingraph.mjs --refusal-status, run last by the regen workflow).
   ['chaingraph.json shard freshness (CGSHARD-1)', 'node scripts/assemble-chaingraph.mjs --check'],
+  ['Assembly classifier verdict proof (ASSEMBLE-CHAIN-CLASSIFY-1)', 'node scripts/assemble-chaingraph.selftest.mjs'],
   ['Node/chain shard registration (NODE-REGISTRATION-GAP-1, node case blocking)', 'node scripts/check-shard-assembly.mjs'],
   ['Branch-aware shard-registration proof (SHARD-GATE-PRE-ASSEMBLE-1)', 'node scripts/check-shard-assembly.test.mjs'],
   ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
