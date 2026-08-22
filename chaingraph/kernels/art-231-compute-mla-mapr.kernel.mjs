@@ -125,6 +125,12 @@ function residual(amountFinanced, payments, i) {
 // --- solver ------------------------------------------------------------------
 
 const BISECT_STEPS = 300;
+// Counted bound on the bracket-growth loop. Doubling from 1e-9 reaches the HI_CAP
+// ceiling in about 37 steps, so this bound is never the binding constraint on a real
+// schedule; it is here so the loop terminates on a COUNT rather than only on the
+// growth step behaving, which keeps the work per call bounded by a constant no matter
+// what the arithmetic does.
+const BRACKET_STEPS = 128;
 // Bracket width expressed in ANNUAL percentage points, converted to periodic
 // inside the solver. The tightest disclosure tolerance this figure answers to
 // is an eighth of one percentage point; 1e-6 points is five orders finer, so
@@ -157,7 +163,7 @@ function solveActuarialRate(amountFinanced, payments, unitPeriodsPerYear) {
 
   let lo = 0, hi = 1e-9, found = false;
   if (g0 === 0) { found = true; hi = 0; }
-  while (!found && hi <= HI_CAP) {
+  for (let g = 0; g < BRACKET_STEPS && !found && hi <= HI_CAP; g++) {
     const ghi = residual(amountFinanced, payments, hi);
     if (!Number.isFinite(ghi)) break;
     if (ghi <= 0) { found = true; break; }
