@@ -479,9 +479,22 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // Measured both sides, not assumed: 475/591 fresh + 116 stale on the base commit 54d3331f (this
   // row's starting point, measured on a clean detached origin/main worktree per SO #48),
   // 480/596 fresh + 116 stale after.
-  assert(total === 596, `expected 596 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 480, `expected 480 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-LAND-PROVE13-1 -- all five new receipts are fresh), got ${stale.length}`);
+  // 596 -> 603 post-ASSEMBLE-LAND-PROVE13-1 second half (2026-08-22, PR #1424): SEVEN of the eight
+  // FAST-lane nodes sealed by PROVE-BATCH-0820-2 (art-596 correlate_ap2_cartmandate_x402, art-601
+  // compute_dora_roi_gleif_preflight_pack, art-645 compute_index_weights, art-646
+  // compile_rebalance_evidence_pack, art-647 record_index_correction, art-648
+  // record_model_input_lineage, art-651 compute_authzen_conformance_fixture) enter the denominator on
+  // the same reassembly. Same by-construction freshness argument as the five above:
+  // `git diff origin/main HEAD -- '*.kernel.mjs'` is EMPTY on this branch too, so no kernel source
+  // byte moved under any of the seven receipts. Denominator +7, fresh +7, stale UNCHANGED at 116.
+  // The eighth, art-649 publish_model_risk_head, was DROPPED from the landing: its receipt fails
+  // check-recompute-equality.mjs (journal.output reproduces from no published vector, kernel_digest
+  // unchanged), so it stays deferred and out of this denominator pending its own adjudication row.
+  // Measured both sides, not assumed: 480/596 fresh + 116 stale on the base commit 83e115c7 (the
+  // merge commit of PR #1419, this branch's starting point), 487/603 fresh + 116 stale after.
+  assert(total === 603, `expected 603 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 487, `expected 487 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-LAND-PROVE13-1 -- all twelve new receipts are fresh), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
