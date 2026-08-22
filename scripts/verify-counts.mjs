@@ -118,13 +118,25 @@ const ATTR_RULES = [
   { file: 'index.html', key: 'tools.browser', label: 'meta description',
     regex: /(content=")(\d+)( browser-based fintech tools and )/,
   },
+  { file: 'index.html', key: 'chains', label: 'meta description (chains)',
+    regex: /(content="\d+ browser-based fintech tools and )(\d+)( MCP-callable, hash-anchored OpenChainGraph workflows)/,
+  },
   { file: 'index.html', key: 'tools.browser', label: 'og:description',
     regex: /(content=")(\d+)( free browser-based fintech tools and )/,
+  },
+  { file: 'index.html', key: 'chains', label: 'og:description (chains)',
+    regex: /(content="\d+ free browser-based fintech tools and )(\d+)( MCP-callable OpenChainGraph workflows)/,
   },
   // twitter:description was removed from index.html in the hub-spoke rewrite — sentinel dropped
   // (it was a silent NO-MATCH). Re-add a row here if the tag returns.
   { file: 'index.html', key: 'tools.browser', label: 'schema.org description',
     regex: /(\"description\": \")(\d+)( browser-based fintech tools and )/,
+  },
+  { file: 'index.html', key: 'chains', label: 'schema.org description (chains)',
+    regex: /(\"description\": \"\d+ browser-based fintech tools and )(\d+)( hash-anchored, MCP-callable OpenChainGraph workflows)/,
+  },
+  { file: 'index.html', key: 'chains', label: 'machine-discovery link title',
+    regex: /(title="OpenChainGraph machine index \()(\d+)( chains\)")/,
   },
 
   // ── sitemap.html ─────────────────────────────────────────────────────────
@@ -220,6 +232,48 @@ const ATTR_RULES = [
   // ── mcp.html (stat table prose — hardcoded, not comment-sentinel) ────────
   { file: 'mcp.html', key: 'manifests', label: 'list_ainumbers_tools table cell',
     regex: /(<td>Search the full AINumbers catalog \()(\d+)(\+ client-side fintech tools\)\. Returns deep-links)/,
+  },
+
+  // ── guides/*-hub.html (meta/og/JSON-LD — attribute/JSON contexts, comment sentinels can't
+  //    live there; the hero-desc + sec-heading + last-reviewed + sec-sub copies on these same
+  //    pages use the HTML comment-sentinel form instead, see the checkHtmlSentinels() file list
+  //    below — CLAIMS-SENTINEL-TIER1-1 audit Q7; tradetech-hub.html is the audit's named "×4
+  //    copies" hub, dora/fraud-risk/sme carry the same meta/og/JSON-LD shape) ─────────────────
+  { file: 'guides/tradetech-hub.html', key: 'hubTools.tradetech', label: 'meta description',
+    regex: /(content=")(\d+)( browser-based tools covering the full trade finance lifecycle: MT700)/,
+  },
+  { file: 'guides/tradetech-hub.html', key: 'hubTools.tradetech', label: 'og:description',
+    regex: /(content=")(\d+)( browser-based tools covering the full trade finance lifecycle: LC validation)/,
+  },
+  { file: 'guides/tradetech-hub.html', key: 'hubTools.tradetech', label: 'JSON-LD description',
+    regex: /(\"description\":\")(\d+)( browser-based tools covering the full trade finance lifecycle — MT700)/,
+  },
+  { file: 'guides/dora-operational-resilience-hub.html', key: 'hubTools.dora', label: 'meta description',
+    regex: /(content=")(\d+)( free browser-based DORA compliance tools covering ICT risk gap analysis)/,
+  },
+  { file: 'guides/dora-operational-resilience-hub.html', key: 'hubTools.dora', label: 'og:description',
+    regex: /(content=")(\d+)( free browser-based DORA compliance tools covering the full EU 2022\/2554 framework)/,
+  },
+  { file: 'guides/dora-operational-resilience-hub.html', key: 'hubTools.dora', label: 'JSON-LD description',
+    regex: /(\"description\":\")(\d+)( free browser-based DORA compliance tools covering the full EU 2022\/2554 framework)/,
+  },
+  { file: 'guides/fraud-risk-hub.html', key: 'hubTools.fraudRisk', label: 'meta description',
+    regex: /(content=")(\d+)( free browser-based fraud detection and risk tools covering synthetic identity scoring)/,
+  },
+  { file: 'guides/fraud-risk-hub.html', key: 'hubTools.fraudRisk', label: 'og:description',
+    regex: /(content=")(\d+)( free browser-based tools for fraud analysts, risk officers)/,
+  },
+  { file: 'guides/fraud-risk-hub.html', key: 'hubTools.fraudRisk', label: 'JSON-LD description',
+    regex: /(\"description\":\")(\d+)( free browser-based fraud detection and risk tools for fraud analysts)/,
+  },
+  { file: 'guides/sme-financial-health-hub.html', key: 'hubTools.sme', label: 'meta description',
+    regex: /(content=")(\d+)( free browser-based SME financial health tools covering credit risk scoring)/,
+  },
+  { file: 'guides/sme-financial-health-hub.html', key: 'hubTools.sme', label: 'og:description',
+    regex: /(content=")(\d+)( browser-based SME financial health tools covering CCC, DSCR scoring)/,
+  },
+  { file: 'guides/sme-financial-health-hub.html', key: 'hubTools.sme', label: 'JSON-LD description',
+    regex: /(\"description\":\")(\d+)( free browser-based SME financial health and lending readiness tools)/,
   },
 
   // ── JSON machine files ───────────────────────────────────────────────────
@@ -338,6 +392,15 @@ for (const rel of [
   'chaingraph/zkvm-compute-integrity.html',
   'chaingraph/why-openchain-graph.html',
   'fv-explainer.html',
+  // CLAIMS-SENTINEL-TIER1-1 (audit Q7) — the five hub hero paragraphs' spelled-out tool counts,
+  // now numeral + <!--COUNT:hubTools.*--> sentinels alongside every same-page copy of the figure
+  // (hero-eyebrow, sec-heading(s), last-reviewed, sec-sub). tradetech-hub.html's meta/og/JSON-LD
+  // copies are attribute/JSON contexts and live in ATTR_RULES above instead.
+  'guides/dora-operational-resilience-hub.html',
+  'guides/fraud-risk-hub.html',
+  'guides/sme-financial-health-hub.html',
+  'guides/tradetech-hub.html',
+  'guides/capital-markets-settlement-hub.html',
 ]) {
   total += checkHtmlSentinels(rel)
 }

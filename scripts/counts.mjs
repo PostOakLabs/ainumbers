@@ -34,6 +34,12 @@
  *   chainL2.gateTotal         buildReport() (SO #34 independent derivation — never read back from a
  *                             report file it already wrote). NOT a claim of formal verification; see
  *                             fv-explainer.html's boundary statement for what L2 does and does not cover.
+ *   hubTools.dora           } number of distinct ../tools/*.html links inside class="tool-card-link"
+ *   hubTools.fraudRisk      } anchors on the named guides/*-hub.html page (CLAIMS-SENTINEL-TIER1-1,
+ *   hubTools.sme            } audit Q7 — the hub hero paragraphs' spelled-out tool counts, unprotected
+ *   hubTools.tradetech      } and drifted for the DORA hub: hero said "Eleven", the page carried 12).
+ *   hubTools.capitalMarkets } chaingraph/-linked "provable node" cards on the same page are excluded —
+ *                             those pages explicitly describe them as a separate, non-browser-tool family.
  *
  * mcp.live != openapi.ops by design:
  *   mcp.live   = callable tools registered on the live /mcp endpoint
@@ -50,6 +56,26 @@ import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 export const repoRoot = resolve(__dirname, '..')
+
+// countHubTools — number of distinct browser tools (../tools/*.html) a guides/*-hub.html page
+// links to via <a class="tool-card-link" href="../tools/...">. Attribute order varies across hub
+// pages (href-then-class vs class-then-href), so this scans whole <a ...> tags rather than
+// anchoring the regex to one order. Deliberately excludes ../chaingraph/... links: several hubs
+// (tradetech, capital-markets) mix in "provable node"/chain cards using the same tool-card markup,
+// and those pages' own prose already describes that family as separate from "N browser-based tools".
+function countHubTools(hubFile) {
+  const html = readFileSync(resolve(repoRoot, 'guides', hubFile), 'utf8')
+  const anchorRe = /<a\b[^>]*>/g
+  const seen = new Set()
+  let m
+  while ((m = anchorRe.exec(html))) {
+    const tag = m[0]
+    if (!/class="tool-card-link"/.test(tag)) continue
+    const hrefMatch = tag.match(/href="(\.\.\/tools\/[^"]+\.html)"/)
+    if (hrefMatch) seen.add(hrefMatch[1])
+  }
+  return seen.size
+}
 
 export async function deriveCounts() {
   // tools.browser
@@ -133,6 +159,14 @@ export async function deriveCounts() {
   const chainL2GateIndeterminate = l2Report.summary.edges_indeterminate
   const chainL2GateTotal = l2Report.summary.gates_checked
 
+  // hubTools.* — CLAIMS-SENTINEL-TIER1-1 (audit Q7): the five hub hero paragraphs' spelled-out
+  // tool counts, previously hand-typed prose with nothing re-deriving them from the page itself.
+  const hubToolsDora           = countHubTools('dora-operational-resilience-hub.html')
+  const hubToolsFraudRisk      = countHubTools('fraud-risk-hub.html')
+  const hubToolsSme            = countHubTools('sme-financial-health-hub.html')
+  const hubToolsTradetech      = countHubTools('tradetech-hub.html')
+  const hubToolsCapitalMarkets = countHubTools('capital-markets-settlement-hub.html')
+
   return {
     'tools.browser':     toolsBrowser,
     'manifests':         manifests,
@@ -153,6 +187,11 @@ export async function deriveCounts() {
     'chainL2.gateFail':          chainL2GateFail,
     'chainL2.gateIndeterminate': chainL2GateIndeterminate,
     'chainL2.gateTotal':         chainL2GateTotal,
+    'hubTools.dora':             hubToolsDora,
+    'hubTools.fraudRisk':        hubToolsFraudRisk,
+    'hubTools.sme':              hubToolsSme,
+    'hubTools.tradetech':        hubToolsTradetech,
+    'hubTools.capitalMarkets':   hubToolsCapitalMarkets,
   }
 }
 
