@@ -43201,17 +43201,65 @@
   "description": "Recomputes the EIP-712 typed-data digest for an EIP-3009 TransferWithAuthorization struct (the x402 payments rail's underlying authorization primitive) from caller-supplied domain and struct fields only: domain separator, struct hash, and the final keccak256(0x19 || 0x01 || domainSeparator || structHash) digest. All four EIP-712 domain fields (name, version, chainId, verifyingContract) are mandatory inputs and are never defaulted or guessed -- a guessed verifyingContract would defeat the entire point of domain separation. keccak256 comes from the already-vendored, pinned noble-curves/noble-hashes bundle (no new vendoring); the EIP-712/EIP-3009 ABI encoding scheme is implemented directly as public-spec arithmetic on top of it. This node performs no signature recovery and no domain/nonce/window checks -- it makes no claim about signature validity, on-chain settlement, or spend. Zero network calls; never a facilitator, proxy, or settlement relay. Golden vectors are cross-checked against externally published references (the EIP-712 spec's own domain-separator worked example, and Circle's production TransferWithAuthorization typehash), not round-trip self-tests alone.",
   "input_schema_ref": "chaingraph/art-590-x402-eip712-digest-recomputer.html#manifest",
   "consumes": [],
-  "feeds": ["art-591-x402-signer-recovery-verifier"],
+  "feeds": [
+    "art-591-x402-signer-recovery-verifier"
+  ],
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:62dbc12bf0d0a66b089587f7c30ca10fa8ec5e33bed5d8867d9d7dfdba7b0b15","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:62dbc12bf0d0a66b089587f7c30ca10fa8ec5e33bed5d8867d9d7dfdba7b0b15",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-08-20"
+    }
+  ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
+  "compute_proof_ready": "ready",
   "deferred_reason": "New shard; awaiting the async GPU proving queue (S18 steady-state).",
-  "standards_basis": "not_applicable"
+  "standards_basis": "not_applicable",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "K8AJRAXidI7s0vwXXulXoC1rgS4Gi0Q16m68iLVSsH4I7tTWuZwH1S4GyT6WM2RiGgGF/CvRGTz9xLKSJ9Z2zhnWdgHUj+RRGCCG89fx1BoZE1kiRRcHwse8eM4TyFf5Ec2vyJAUjaELdaiEayWpvTTLIsuVL3bhZmgRuXP4VRwcU8+mr2BTDpP6+YWs/6mMWDym4r199fRjMJkcshUMjhDmoIH85VH0PQADUmeLwnzKsLwdE7SJOF0pWZGe6Tv4KrX2cIJbDVZ1zgD61tnobQtniAP4v7fQ2gczTERWVSQQG4IssOxROSCTUn5lidM8ZJqy0bNF30hGlS0vxa07AA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:62dbc12bf0d0a66b089587f7c30ca10fa8ec5e33bed5d8867d9d7dfdba7b0b15",
+      "output": {
+        "authorization": {
+          "from": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
+          "nonce": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "to": "0xffcf8fdee72ac11b5c542428b35eef5769c409f2",
+          "valid_after": "0",
+          "valid_before": "2000000000",
+          "value": "1000000"
+        },
+        "digest": "0xb68e5d60d6169bad9739d30399af8f8c7378d464d25f4d971911ab65ef0b014b",
+        "domain": {
+          "chain_id": "1",
+          "name": "USD Coin",
+          "verifying_contract": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "version": "2"
+        },
+        "domain_separator": "0x06c37168a7db5138defc7866392bb87a741f9b3d104deb5094588ce041cae335",
+        "domain_typehash": "0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f",
+        "reasons": [],
+        "scope_note": "Recomputes the EIP-712 digest for an EIP-3009 TransferWithAuthorization struct from caller-supplied domain and authorization fields only. Makes no claim about signature validity, on-chain settlement, or spend -- this node performs no signature recovery and no domain/nonce/window checks (see the sibling x402-signer-recovery-verifier and x402-domain-nonce-window-checker nodes). Zero network calls; every field is caller-supplied and echoed, never independently resolved.",
+        "struct_hash": "0x70eb78101a017556e79276183b47e73810ca4c42f2c19345bdf672ca78d23dd0",
+        "transfer_with_authorization_typehash": "0x7c7c6cdb67a18743f49ec6fa9b35f50d52ed05cbed4cc592e13b44501c1a2267",
+        "verdict": "DIGEST_COMPUTED"
+      }
+    }
+  }
 },
     {
   "tool_id": "art-591-x402-signer-recovery-verifier",
@@ -43418,18 +43466,97 @@
   "description": "Builds an illustrative Google AP2 CartMandate Verifiable Digital Credential (VDC) skeleton whose credentialSubject carries a deterministic hash-chain over an ordered list of cart line items: link_0 = keccak256(canon({index:0,item})), link_i = keccak256(canon({index:i,item,prev:link_(i-1)})), cart_root = the final link. Reuses this repo's existing RFC 8785/JCS canonicalization (cgCanon, from _hash.mjs) and the already-vendored @noble/hashes keccak256 bundle -- no new vendoring, no hand-rolled canonicalization or hashing. Stands beside art-16 (Google AP2 Mandate Builder) as a new node, not an edit to it -- art-16's flat CheckoutMandate/PaymentMandate shape has no line-item array to chain over. An intact chain proves the ordered cart_items list was not altered after the chain was built; it does NOT prove human authorisation, delivery, settlement, or that item prices are correct or current. Given a prior chain's per-item links (claimed_links) and a (possibly tampered) cart_items, the kernel recomputes and reports CART_CHAIN_INTACT plus the earliest divergent index, never a thrown exception. Zero network calls; never a facilitator, proxy, gateway, or settlement relay.",
   "input_schema_ref": "chaingraph/art-595-ap2-cartmandate-hashchain-builder.html#manifest",
   "consumes": [],
-  "feeds": ["art-596-ap2-x402-cart-correlation"],
+  "feeds": [
+    "art-596-ap2-x402-cart-correlation"
+  ],
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:b0b1ed06bbeb16d1227f7073af8e46c323bff835b503b0d2f3a7231baa44803e","valid_from":"2026-07-10"}],
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:b0b1ed06bbeb16d1227f7073af8e46c323bff835b503b0d2f3a7231baa44803e",
+      "valid_from": "2026-07-10"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-08-20"
+    }
+  ],
   "export_capability": [
     "json"
   ],
   "standards_basis": "not_applicable",
   "cited_clause_digest": [],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "Prove attempted 2026-08-13 (PROVE-8-DEFERRED-0812-1) and FAILED: the guest returns an error journal {error:\"ocg_run\",code:-3} with a stack at utf8ToBytes <- _canonBytes <- compute, so run_verify refuses at cgv_undefined rather than stage a proof over an error journal. Deterministic guest error (art-476/art-607 signature); not retried. Root cause unresolved; needs a diagnosis row."
+  "compute_proof_ready": "ready",
+  "deferred_reason": "Prove attempted 2026-08-13 (PROVE-8-DEFERRED-0812-1) and FAILED: the guest returns an error journal {error:\"ocg_run\",code:-3} with a stack at utf8ToBytes <- _canonBytes <- compute, so run_verify refuses at cgv_undefined rather than stage a proof over an error journal. Deterministic guest error (art-476/art-607 signature); not retried. Root cause unresolved; needs a diagnosis row.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "Gk2PjTg1f7RVdBVvyeDTtt6h6Nlbsefboej85qP8hOon2GaypFdhHjQg0vR4ugaTmfxSDAK8gK0P/mnhwiIJuiMZbniD3o24RkOJ9NueNwcEL06EhTZk07nNa1IsSS7aFUQPCWanNEn2emX6/XMnybPlzHv/Fu7YP4l2WnG3ArIAwy540MgEGTPHuhRqkz2Z2+mDu5m+i5GQkkqoswOeYhzb8LxjFMaH1RsX7SkkO91nf6OhMB72F//WzVDszxlqKsE53DbWDTVPTsee/bjhwLCFq2ulgk09+jnFO/ZNx0MLzshJSpft/hv463HGK6EdY/lGJr8b3o2LZETjRdMqTA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:b0b1ed06bbeb16d1227f7073af8e46c323bff835b503b0d2f3a7231baa44803e",
+      "output": {
+        "cart_chain_intact": false,
+        "cart_root": "0x4254fc9cc00df63f6c8157e31682b1abde3b6e0337f5923970164ab1a52340b1",
+        "chain_length": 2,
+        "chain_links": [
+          "0xfce9e5feb64ec005b5f801ecf528a63503dd72c23bf12783816a527f5cfaf05f",
+          "0x4254fc9cc00df63f6c8157e31682b1abde3b6e0337f5923970164ab1a52340b1"
+        ],
+        "first_divergent_index": 1,
+        "note": "Illustrative AP2 CartMandate hash-chain skeleton (external Google AP2 payments-protocol shape, ap2-protocol.org) -- distinct from the AINumbers Policy Mandate. This chain proves the ordered cart_items list was not altered after the chain was built -- nothing more. It does NOT prove the mandate was authorised by a human, that goods were delivered, that the merchant accepted the cart, that any payment occurred, or that item prices are correct or current (unit_price is caller-supplied, unchecked against any catalog). Zero network calls; never a facilitator, proxy, gateway, or settlement relay. Sign with the agent key and verify against the live AP2 spec before real use.",
+        "reasons": [],
+        "vdc": {
+          "@context": [
+            "https://www.w3.org/ns/credentials/v2",
+            "https://ap2-protocol.org/context/v1"
+          ],
+          "credentialSubject": {
+            "cart_items": [
+              {
+                "currency": "USD",
+                "description": "Widget",
+                "quantity": 2,
+                "sku": "SKU-100",
+                "unit_price": 9.99
+              },
+              {
+                "currency": "USD",
+                "description": "Gadget",
+                "quantity": 1,
+                "sku": "SKU-200",
+                "unit_price": 999
+              }
+            ],
+            "cart_root": "0x4254fc9cc00df63f6c8157e31682b1abde3b6e0337f5923970164ab1a52340b1",
+            "chain_length": 2,
+            "id": "did:example:subject-001",
+            "mandateType": "cart",
+            "merchant": "shop.example.com",
+            "stage": "open"
+          },
+          "issuer": "did:example:agent-001",
+          "proof": {
+            "cryptosuite": "eddsa-2022",
+            "proofPurpose": "assertionMethod",
+            "proofValue": "<ILLUSTRATIVE — sign with the agent key>",
+            "type": "DataIntegrityProof",
+            "verificationMethod": "did:example:agent-001#key-1"
+          },
+          "type": [
+            "VerifiableCredential",
+            "CartMandate"
+          ]
+        },
+        "vdc_type": "CartMandate"
+      }
+    }
+  }
 },
     {
   "tool_id": "art-596-ap2-x402-cart-correlation",
@@ -45170,13 +45297,76 @@
       "system": "sha256-source",
       "image_id": "sha256:fe52d9fd1931382c551fe8a68fe00b6e9f2695dbe089a890c0bd361fca7f102b",
       "valid_from": "2026-08-14"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-08-20"
     }
   ],
   "export_capability": [
     "json"
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "awaiting section-18 groth16 proof"
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:e3890b4f3b32cdd2254b18c2313f4d9365b9b4d5b157ffe3f281280e39dd01e0",
+      "source_url": "https://www.ecfr.gov/api/versioner/v1/full/2026-08-01/title-32.xml?part=232",
+      "retrieved_at": "2026-08-14",
+      "clause_path": "32 CFR 232.4(c)-(d)",
+      "scheme": "cfr",
+      "id": "32 CFR 232.4"
+    }
+  ],
+  "compute_proof_ready": "ready",
+  "deferred_reason": "awaiting section-18 groth16 proof",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "IIzHJ5M7t9UGx0OxeEscu4H2XMRdCxxGlU3p7MHBNcUBVXSVjHmQ9TAmw8xcYVIQ0In9duLcJijvtPqoCbm+kgoZrPLQQmPKOnPZUCzXJMs3vZkFzPk9bp0yAYN94EghFiGCe+3MPOw62gc+kl45V8a9KegLhmiSSmugQzbt8WUAF6xdiK7RKEnvuIiMllEjkEcAq2QclsLEE0nwI3ndZBsBmMvgnOU64U5JvNLRyggzEAWuTqr3c6uz1twdl5OYL+04107PUskFxh20795C9kVQ0s3hRIGRjGhr6Jht7vwe7562wZummK+zrg6wI7sNtQtpWbgCrifwGXLLguXEKA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:fe52d9fd1931382c551fe8a68fe00b6e9f2695dbe089a890c0bd361fca7f102b",
+      "output": {
+        "advance_total": 9032.25,
+        "amount_financed_mapr": 9032.25,
+        "bracketed": true,
+        "charge_breakdown": [
+          {
+            "amount": 800,
+            "basis": "Finance charges associated with the consumer credit are included in the MAPR. A finance charge carried by the periodic payments is already priced by the payment schedule, so it is echoed here and not deducted a second time.",
+            "charge_type": "finance_charge",
+            "citation": "32 CFR 232.4(c)(1)(iii)(A)",
+            "included_in_mapr": true,
+            "is_credit_card_account": false,
+            "manual_review_reason": null,
+            "manual_review_required": false,
+            "recognised": true,
+            "short_term_exception_claimed": false,
+            "treatment": "already_in_payment_schedule"
+          }
+        ],
+        "converged": true,
+        "exceeds_cap": false,
+        "finance_charge_in_schedule_total": 800,
+        "iterations": 24,
+        "manual_review_required": false,
+        "mapr_cap_pct": 36,
+        "mapr_pct": 12,
+        "note": "Closed-end MAPR recomputed by the Regulation Z actuarial method. Includable prepaid charges under 232.4(c)(1) reduce the amount advanced; a finance charge already carried by the payment schedule is echoed and not deducted twice. A rate is reported only when a sign-change bracket was established and narrowed, otherwise mapr_pct is null and MAPR_NOT_BRACKETED or MAPR_DID_NOT_CONVERGE is raised. The $100 participation-fee figure is the 232.4(c)(2)(ii)(B) open-end no-balance limit, reported as a cited constant and not netted out of this closed-end calculation. Whether a fee is bona fide and reasonable under 232.4(d)(3), and whether the 232.4(c)(1)(iii)(B) application-fee exception applies, both turn on facts this node does not hold and are surfaced as manual review rather than decided.",
+        "num_advances": 1,
+        "num_payments": 36,
+        "participation_fee_open_end_no_balance_limit_usd": 100,
+        "payment_total": 10800,
+        "periodic_rate": 0.01,
+        "periods_per_year": 12,
+        "prepaid_included_total": 0,
+        "regulatory_basis": "32 CFR 232.4(b) MAPR cap and 232.4(c)(1) charge set, computed by the Regulation Z actuarial method that 232.4(c)(2)(i) cross-references (Appendix J to 12 CFR part 1026)."
+      }
+    }
+  }
 },
     {
   "tool_id": "art-617-m3p-monthly-cap-calculator",
@@ -45378,17 +45568,570 @@
   "description": "Given up to 16 (id, balance) leaf entries, deterministically builds a SHA-256 Merkle-sum-tree (Summa's node layout: hash=H(id,balance) and sum=balance at each leaf; hash=H(left.sum+right.sum,left.hash,right.hash) and sum=left.sum+right.sum at each middle node, pattern-borrowed from Summa/PSE's proof-of-reserves design, no code vendored) and emits the root commitment plus every leaf's full inclusion proof. Applies Maxwell's (eprint 2022/043 §4.1) mandatory range-check mitigation on the input side: rejects any negative balance or balance exceeding the declared MAX_BALANCE before building the tree. The generator counterpart to the MST inclusion checker (art-620), whose output_payload proofs are consumable directly as that tool's input. Verify-only perimeter: commits to whatever balances it is given, never asserts those balances reflect real reserves.",
   "input_schema_ref": "manifests/621-summa-mst-liability-aggregator.manifest.json#input_schema",
   "consumes": [],
-  "feeds": ["art-620-summa-mst-inclusion-checker"],
+  "feeds": [
+    "art-620-summa-mst-inclusion-checker"
+  ],
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
   "compute_images": [
-    { "system": "sha256-source", "image_id": "sha256:f237e50a1552db96450eb52e9c5ba27f461bfa8c8a610a3eb7a4818213080688", "valid_from": "2026-08-14" }
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:f237e50a1552db96450eb52e9c5ba27f461bfa8c8a610a3eb7a4818213080688",
+      "valid_from": "2026-08-14"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-08-20"
+    }
   ],
-  "export_capability": ["json"],
-  "compute_proof_ready": "deferred",
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "ready",
   "standards_basis": "not_applicable",
-  "deferred_reason": "New gpu:false node, art-621, staged 2026-08-14. No GPU proving attempted this session, so GPU-CYCLE-PREFLIGHT-1's exec-cycle check was not run and cycle_preflight stays PENDING; this is a ratchet-visible deferral per the §18 steady-state rule (RIDER-KERNEL.md), never a silent claim of proof. GUEST-BUILTIN-GATE-1's check-guest-builtin-safety.mjs gate is not yet present on origin/main (unmerged branch), so it could not be run either, but this kernel was authored to satisfy it by construction: no TextEncoder/atob/btoa/URL anywhere in compute(), only the validated pure-JS utf8ToBytes encoder and a pure-JS synchronous SHA-256. Proving is a follow-on."
+  "deferred_reason": "New gpu:false node, art-621, staged 2026-08-14. No GPU proving attempted this session, so GPU-CYCLE-PREFLIGHT-1's exec-cycle check was not run and cycle_preflight stays PENDING; this is a ratchet-visible deferral per the §18 steady-state rule (RIDER-KERNEL.md), never a silent claim of proof. GUEST-BUILTIN-GATE-1's check-guest-builtin-safety.mjs gate is not yet present on origin/main (unmerged branch), so it could not be run either, but this kernel was authored to satisfy it by construction: no TextEncoder/atob/btoa/URL anywhere in compute(), only the validated pure-JS utf8ToBytes encoder and a pure-JS synchronous SHA-256. Proving is a follow-on.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "Lh6of+8g78m0uUd/BXrezmvtPh+iMTSL7TdZO9PM/60B/PJK/+GJUO5wXwl/iKL/0uBIt5kHLctNIUKoqLY1YArBeQmL13/9u6/5IUKBN2FfFECxkiFVDnEaEynXTB3TA8Wqc0n643maAYeQs9nK2Z4qDdc7HbSuxSTOXF9c8YcCWZxQJ2pCIwU66HPV5xX2nc7m/Dv1IVaezajM3P0YVyUXzxigybq32CrCCTe7qm3tyxgkEybiaHXB3YCmjMp9JTvRyI9GSfTdCcP2yFQ0Y154rn8XkJMAsuFtDe2OiL8JimcMCg+wimt1rNrMjEvhw97u9YJnprCciRZLYf2Udw==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:f237e50a1552db96450eb52e9c5ba27f461bfa8c8a610a3eb7a4818213080688",
+      "output": {
+        "error": null,
+        "error_index": null,
+        "leaf_count": 16,
+        "max_balance": "1000000000000000",
+        "padded_leaf_count": 16,
+        "proofs": [
+          {
+            "leaf": {
+              "balance": "1000",
+              "id": "acct-00"
+            },
+            "path": [
+              {
+                "sibling_hash": "4e375c3271bb1f48ec923e77eac52c326c9ea2c11c9f7656efb6c1aae12ac70c",
+                "sibling_sum": "2000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "a8eb5672a55283eff37e08eda9ad50d860c879aeda6e54af1357255da514430d",
+                "sibling_sum": "7000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "c93a82ae774da7f739d9db8be282825e0b9c9072b891c27952d546e1000c32ae",
+                "sibling_sum": "26000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "2000",
+              "id": "acct-01"
+            },
+            "path": [
+              {
+                "sibling_hash": "26f90f9274455a90d0865455ac1010ffa04bd2947abd691ed0345503d076901f",
+                "sibling_sum": "1000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "a8eb5672a55283eff37e08eda9ad50d860c879aeda6e54af1357255da514430d",
+                "sibling_sum": "7000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "c93a82ae774da7f739d9db8be282825e0b9c9072b891c27952d546e1000c32ae",
+                "sibling_sum": "26000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "3000",
+              "id": "acct-02"
+            },
+            "path": [
+              {
+                "sibling_hash": "e1030c6a5d7da3f52ffd5f6e1b38c7a79998fa0d78e3c68bf5c664c611c659d6",
+                "sibling_sum": "4000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "ebc34b41fec0421485b57cd2d6809a34990f025389561fe18ba054ccec6632f4",
+                "sibling_sum": "3000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "c93a82ae774da7f739d9db8be282825e0b9c9072b891c27952d546e1000c32ae",
+                "sibling_sum": "26000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "4000",
+              "id": "acct-03"
+            },
+            "path": [
+              {
+                "sibling_hash": "d55d4ef54573bcb1a9012d7281027677b140a14b9047eaa58dc4756085f710ce",
+                "sibling_sum": "3000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "ebc34b41fec0421485b57cd2d6809a34990f025389561fe18ba054ccec6632f4",
+                "sibling_sum": "3000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "c93a82ae774da7f739d9db8be282825e0b9c9072b891c27952d546e1000c32ae",
+                "sibling_sum": "26000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "5000",
+              "id": "acct-04"
+            },
+            "path": [
+              {
+                "sibling_hash": "abb63932b1c009ce5839a8a9609fc9d45c242ff4c7d57e72cd580a5b86a60067",
+                "sibling_sum": "6000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "6d6a305a686190db171b1dd8f0b4436e74aca3a6d0dc72a943f9e3011dae40b9",
+                "sibling_sum": "15000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "23322115eb850c405dc1267690b475034bcca242be0a7139e13946bda3feb99c",
+                "sibling_sum": "10000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "6000",
+              "id": "acct-05"
+            },
+            "path": [
+              {
+                "sibling_hash": "02f61af60d4755ae553b955c8f3878b0bdb24b63a2e6b45ffc6fb5fe0252f839",
+                "sibling_sum": "5000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "6d6a305a686190db171b1dd8f0b4436e74aca3a6d0dc72a943f9e3011dae40b9",
+                "sibling_sum": "15000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "23322115eb850c405dc1267690b475034bcca242be0a7139e13946bda3feb99c",
+                "sibling_sum": "10000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "7000",
+              "id": "acct-06"
+            },
+            "path": [
+              {
+                "sibling_hash": "6f856ca5b2dc364d1d6f98e70f340c51f557f821c05fb2019d975504788d7583",
+                "sibling_sum": "8000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "10d368942ca3da35b50721ad4a04662ad3118afdd8829578b32728a94bfaffe9",
+                "sibling_sum": "11000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "23322115eb850c405dc1267690b475034bcca242be0a7139e13946bda3feb99c",
+                "sibling_sum": "10000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "8000",
+              "id": "acct-07"
+            },
+            "path": [
+              {
+                "sibling_hash": "b9787d0a390104cd2a5f91a1d0b51a5bcb4e96c867bedcb605cad58b05faecfc",
+                "sibling_sum": "7000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "10d368942ca3da35b50721ad4a04662ad3118afdd8829578b32728a94bfaffe9",
+                "sibling_sum": "11000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "23322115eb850c405dc1267690b475034bcca242be0a7139e13946bda3feb99c",
+                "sibling_sum": "10000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "e46c77b404f5264fc72aaf21be9a4a69f45d42377c076c9cebf5efbeff44ef9b",
+                "sibling_sum": "100000",
+                "side": "right"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "9000",
+              "id": "acct-08"
+            },
+            "path": [
+              {
+                "sibling_hash": "1333c8bbb7161367351882897ad94d31ba56094e4bf4c0ae5223d4a99cf9c370",
+                "sibling_sum": "10000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "cf16dfb85f8cb989a4af2bc41d6a4bf2a3b703c7c91696c358af7d693e015788",
+                "sibling_sum": "23000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "98cbc1d462d8251ca7079dc634e1e9756f668581062429bdd0ff8d1111bf8d2d",
+                "sibling_sum": "58000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "10000",
+              "id": "acct-09"
+            },
+            "path": [
+              {
+                "sibling_hash": "5093df3c1bf4a1a2ad249e231608c22cc166acfa25d4d341522eec3f2a312bc9",
+                "sibling_sum": "9000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "cf16dfb85f8cb989a4af2bc41d6a4bf2a3b703c7c91696c358af7d693e015788",
+                "sibling_sum": "23000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "98cbc1d462d8251ca7079dc634e1e9756f668581062429bdd0ff8d1111bf8d2d",
+                "sibling_sum": "58000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "11000",
+              "id": "acct-10"
+            },
+            "path": [
+              {
+                "sibling_hash": "12ae92d22cb3de6e34527b61bd4925ff07602b876de570f1eaf7e65003bae7c6",
+                "sibling_sum": "12000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "2c139ede78426207b54c06d6e9383f40e6524dd9cbda3e84d487ae091e1a7459",
+                "sibling_sum": "19000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "98cbc1d462d8251ca7079dc634e1e9756f668581062429bdd0ff8d1111bf8d2d",
+                "sibling_sum": "58000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "12000",
+              "id": "acct-11"
+            },
+            "path": [
+              {
+                "sibling_hash": "6447cf7bb8c2d86055f464f619bddc56da68c59e368caf991a2dc93f3f3e46c4",
+                "sibling_sum": "11000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "2c139ede78426207b54c06d6e9383f40e6524dd9cbda3e84d487ae091e1a7459",
+                "sibling_sum": "19000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "98cbc1d462d8251ca7079dc634e1e9756f668581062429bdd0ff8d1111bf8d2d",
+                "sibling_sum": "58000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "13000",
+              "id": "acct-12"
+            },
+            "path": [
+              {
+                "sibling_hash": "7cd549ee89d3b6a4129fb05152989cc0a6840985cf5b6d9b11c9702a2ed952c1",
+                "sibling_sum": "14000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "6e4745f6c54bc6329eba697e6d4c4cd64dc3b35bb2fe1001c6162d22b70011fe",
+                "sibling_sum": "31000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "0adbc58d0ba781983ce499bea88f7432503982ed82a9670ed41bde05df546ea5",
+                "sibling_sum": "42000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "14000",
+              "id": "acct-13"
+            },
+            "path": [
+              {
+                "sibling_hash": "4dde89a39ad699b712e51f8effc76d43e2615763300b83963254c82386514a2a",
+                "sibling_sum": "13000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "6e4745f6c54bc6329eba697e6d4c4cd64dc3b35bb2fe1001c6162d22b70011fe",
+                "sibling_sum": "31000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "0adbc58d0ba781983ce499bea88f7432503982ed82a9670ed41bde05df546ea5",
+                "sibling_sum": "42000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "15000",
+              "id": "acct-14"
+            },
+            "path": [
+              {
+                "sibling_hash": "5d5b846d8a93cbea059feafc3ab29ec17251286fd8c0dd90531db5543d1deb97",
+                "sibling_sum": "16000",
+                "side": "right"
+              },
+              {
+                "sibling_hash": "75dccf06a4797ca841ea17bd789932b233d16620ceb4d265bddf73192fe9971e",
+                "sibling_sum": "27000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "0adbc58d0ba781983ce499bea88f7432503982ed82a9670ed41bde05df546ea5",
+                "sibling_sum": "42000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          },
+          {
+            "leaf": {
+              "balance": "16000",
+              "id": "acct-15"
+            },
+            "path": [
+              {
+                "sibling_hash": "ff6b8177fe7f1fdd421d0d5bf135a4bfde19ad8f83e065174582295894b94a05",
+                "sibling_sum": "15000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "75dccf06a4797ca841ea17bd789932b233d16620ceb4d265bddf73192fe9971e",
+                "sibling_sum": "27000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "0adbc58d0ba781983ce499bea88f7432503982ed82a9670ed41bde05df546ea5",
+                "sibling_sum": "42000",
+                "side": "left"
+              },
+              {
+                "sibling_hash": "530429042bb551833a0c8817858e961139e1ae9055a001107497521b3e3c9494",
+                "sibling_sum": "36000",
+                "side": "left"
+              }
+            ],
+            "root": {
+              "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+              "sum": "136000"
+            }
+          }
+        ],
+        "root": {
+          "hash": "d37ae0460bd302a36043d8bcbbaef1c93361516b539f8ce41db8e77581441834",
+          "sum": "136000"
+        },
+        "scope_note": "This kernel commits to whatever leaf balances it is given. It never claims those balances reflect real reserves. Inclusion and local range-check passing means the emitted proofs are internally consistent, non-negative, and chain to the emitted root; it is not a statement that a reserve is solvent, that the leaf set is complete, or that any identifier corresponds to a real account.",
+        "tree_depth": 4,
+        "valid": true,
+        "verify_note": "tree built; 16 inclusion proof(s) generated over a depth-4 tree (padded to 16 leaves)"
+      }
+    }
+  }
 },
     {
   "tool_id": "art-626-deterministic-amortization-schedule",
@@ -45441,18 +46184,137 @@
   "conformance_fixtures": true,
   "compute_capability": "server",
   "compute_images": [
-    { "system": "sha256-source", "image_id": "sha256:64836000e9e411175a31ce378e45f464cb8dc8f398ed04f409d94f764265cfe5", "valid_from": "2026-08-16" }
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:64836000e9e411175a31ce378e45f464cb8dc8f398ed04f409d94f764265cfe5",
+      "valid_from": "2026-08-16"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-08-20"
+    }
   ],
-  "export_capability": ["json"],
-  "compute_proof_ready": "deferred",
+  "export_capability": [
+    "json"
+  ],
+  "compute_proof_ready": "ready",
   "deferred_reason": "New gpu:false node, art-627, staged 2026-08-16 (ACCT-RULEREG-K-1). No GPU proving attempted or proposed this session -- Tim ruled 2026-08-15 that nodes are not being re-proven at this time, and GPU-CYCLE-PREFLIGHT-1's exec-cycle check could not be run because runq-cpu is unavailable in this environment, so cycle_preflight is recorded PENDING (same precedent as art-619, art-626/ACCT-AMORT-K-1 and art-628/ACCT-DTREE-K-1). This kernel is statically SLOW-suspect under GPU-CYCLE-PREFLIGHT-SPEC.md because it hashes in-guest; that marker is resolved by BOUNDING the hashed object (max_slice_entries=32, declared and enforced) rather than by dropping the check, and the measured figure is still owed before any GPU booking. Ratchet-visible deferral per the Sec.18 steady-state rule (RIDER-KERNEL.md), never a silent claim of proof. Proving is a follow-on, gated by SIDEBYSIDE-BEFORE-PROVE-1 (SO #39) since the demonstrator entries implement published FASB pronouncements.",
   "standards_basis": "implements_standard",
   "cited_clause_digest": [
-    { "digest": "sha256:a999642aced1ae446b09ed5a481dce13d74f6670995be8e9339e754939c74dd8", "source_url": "https://storage.fasb.org/ASU%202023-07.pdf", "retrieved_at": "2026-08-15", "clause_path": "Summary / When Will the Amendments Be Effective and What Are the Transition Requirements?", "scheme": "fasb-asu", "id": "ASU 2023-07" },
-    { "digest": "sha256:f401f66dffdd21e008a8e388ea6461475430311df60a70f88b7fa2de5826fcc6", "source_url": "https://storage.fasb.org/ASU%202023-07.pdf", "retrieved_at": "2026-08-15", "clause_path": "Summary / Who Is Affected by the Amendments in This Update?", "scheme": "fasb-asu", "id": "ASU 2023-07" },
-    { "digest": "sha256:2a0d8a9421bdf1e653800632f377f4d20201520e5e031a55e2dbbd867acfd62a", "source_url": "https://storage.fasb.org/ASU%202023-09.pdf", "retrieved_at": "2026-08-15", "clause_path": "Summary / When Will the Amendments Be Effective and What Are the Transition Requirements?", "scheme": "fasb-asu", "id": "ASU 2023-09" },
-    { "digest": "sha256:470a5c00f7bd35796e923ac28f4d179e7b407edbb33a2ba9e15e6a178483d354", "source_url": "https://storage.fasb.org/ASU%202023-09.pdf", "retrieved_at": "2026-08-15", "clause_path": "Summary / What Are the Main Provisions? / Income Taxes Paid", "scheme": "fasb-asu", "id": "ASU 2023-09" }
-  ]
+    {
+      "digest": "sha256:a999642aced1ae446b09ed5a481dce13d74f6670995be8e9339e754939c74dd8",
+      "source_url": "https://storage.fasb.org/ASU%202023-07.pdf",
+      "retrieved_at": "2026-08-15",
+      "clause_path": "Summary / When Will the Amendments Be Effective and What Are the Transition Requirements?",
+      "scheme": "fasb-asu",
+      "id": "ASU 2023-07"
+    },
+    {
+      "digest": "sha256:f401f66dffdd21e008a8e388ea6461475430311df60a70f88b7fa2de5826fcc6",
+      "source_url": "https://storage.fasb.org/ASU%202023-07.pdf",
+      "retrieved_at": "2026-08-15",
+      "clause_path": "Summary / Who Is Affected by the Amendments in This Update?",
+      "scheme": "fasb-asu",
+      "id": "ASU 2023-07"
+    },
+    {
+      "digest": "sha256:2a0d8a9421bdf1e653800632f377f4d20201520e5e031a55e2dbbd867acfd62a",
+      "source_url": "https://storage.fasb.org/ASU%202023-09.pdf",
+      "retrieved_at": "2026-08-15",
+      "clause_path": "Summary / When Will the Amendments Be Effective and What Are the Transition Requirements?",
+      "scheme": "fasb-asu",
+      "id": "ASU 2023-09"
+    },
+    {
+      "digest": "sha256:470a5c00f7bd35796e923ac28f4d179e7b407edbb33a2ba9e15e6a178483d354",
+      "source_url": "https://storage.fasb.org/ASU%202023-09.pdf",
+      "retrieved_at": "2026-08-15",
+      "clause_path": "Summary / What Are the Main Provisions? / Income Taxes Paid",
+      "scheme": "fasb-asu",
+      "id": "ASU 2023-09"
+    }
+  ],
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "G0rjfDmOZsnSKf01+P0pdQV/ufgKH2YIgUrXgw54u/wY2tdwsrn6q+2UqhXDefTzurmQG7N5KPLYYfsjgdUNkiyvCCYkxIjADvUsku/zCbG/PiG8+k1srLdvmy98C0/TJ22DzJiFmTU/DOJ/ZCgEpGpXbEXFQfKKZQKybS98LPYOhmrk2tL0akFTgDF25luVxo+k6ztrReS3K8zL3EpcoSp+gPsDNgDfGAhZ945vZ6ZLpTWFTHBAM2/jf125lIBjInDRjgJWprOdhEplsBQmzUURRdHdBLa4Z1T4d6ij7U0aEhMiN3wEx7ugQdJ9bIcaLLhWYss8V63Df6yqd7tf7Q==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:64836000e9e411175a31ce378e45f464cb8dc8f398ed04f409d94f764265cfe5",
+      "output": {
+        "binding_for_queried_annual_period": true,
+        "binding_for_queried_interim_periods": false,
+        "bounds": {
+          "max_parameters_per_entry": 64,
+          "max_slice_entries": 32
+        },
+        "citation": {
+          "clause": "ASU 2023-09, Summary, When Will the Amendments Be Effective and What Are the Transition Requirements?",
+          "snapshot_location": "research/clause-snapshots/ASU-2023-09-effective-date.excerpt.txt",
+          "source": "FASB Accounting Standards Update No. 2023-09, Income Taxes (Topic 740): Improvements to Income Tax Disclosures (December 2023)",
+          "source_digest": "sha256:2a0d8a9421bdf1e653800632f377f4d20201520e5e031a55e2dbbd867acfd62a"
+        },
+        "closed_filer_status_enum": [
+          "large_accelerated",
+          "accelerated",
+          "non_accelerated",
+          "smaller_reporting",
+          "emerging_growth",
+          "private",
+          "non_public_business_entity"
+        ],
+        "early_adoption_permitted": true,
+        "effective_for_annual_periods_beginning": "2024-12-16",
+        "effective_for_interim_periods_beginning": null,
+        "entry_digest": "3192e72da85acedcfbbe734153a848aa1922c93884fccb61f9b97fcff8698d18",
+        "error_code": null,
+        "filer_status": "emerging_growth",
+        "first_binding_period_end": "2025-12-31",
+        "fiscal_year_begin": "2026-01-01",
+        "fiscal_year_begin_basis": "inferred_prior_year_plus_one_day",
+        "fiscal_year_end": "2026-12-31",
+        "float_sensitive": false,
+        "message": null,
+        "parameter_set": {
+          "income_taxes_paid_individual_jurisdiction_threshold_percent": {
+            "effective_from": "2024-12-16",
+            "effective_to": null,
+            "source": "ASU 2023-09, Summary, What Are the Main Provisions?, Income Taxes Paid, item 2 -- income taxes paid (net of refunds received) disaggregated by individual jurisdictions in which income taxes paid (net of refunds received) is equal to or greater than 5 percent of total income taxes paid (net of refunds received).",
+            "source_digest": "sha256:470a5c00f7bd35796e923ac28f4d179e7b407edbb33a2ba9e15e6a178483d354",
+            "status": "IN_FORCE",
+            "value": 5
+          },
+          "state_local_qualitative_majority_threshold_percent": {
+            "effective_from": "2024-12-16",
+            "effective_to": null,
+            "source": "ASU 2023-09, Summary, What Are the Main Provisions? -- a public business entity is required to provide a qualitative description of the states and local jurisdictions that make up the majority (greater than 50 percent) of the effect of the state and local income tax category.",
+            "source_digest": "sha256:470a5c00f7bd35796e923ac28f4d179e7b407edbb33a2ba9e15e6a178483d354",
+            "status": "IN_FORCE",
+            "value": 50
+          }
+        },
+        "parameter_set_as_of": "2026-01-01",
+        "registry_digest_recomputed": "bc8cf34926a51917bec014286b4850abc8ad704927e204bd45c579ea024c9c27",
+        "resolution_path": [
+          "query_validated",
+          "slice_validated:3_entries",
+          "slice_digest_verified",
+          "entry_matched:ASU-2023-09:emerging_growth",
+          "annual_binding_compared:2026-01-01>=2024-12-16",
+          "interim_binding_compared:no_interim_effective_date",
+          "first_binding_period_end:2025-12-31",
+          "parameter_set_resolved_as_of:2026-01-01"
+        ],
+        "resolution_status": "RESOLVED",
+        "scope_note": "This kernel is a generic effective-date and rule-version resolver. It carries no effective date, threshold, or standard of its own -- every call must supply its own {query, registry_slice} in policy_parameters. Every date, parameter value, citation and digest reported below comes entirely from the caller-supplied slice, never from anything hardcoded in this kernel. A resolved parameter value is transported verbatim and is never rounded: a value a downstream consumer treats as a float is that consumer declaration, not this one.",
+        "standard_id": "ASU-2023-09",
+        "transition_method": "prospective_retrospective_permitted"
+      }
+    }
+  }
 },
     {
   "tool_id": "art-628-declarative-decision-tree-evaluator",

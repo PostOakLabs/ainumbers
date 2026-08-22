@@ -468,9 +468,20 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // contributes nothing here. Denominator +1, fresh +1, stale UNCHANGED at 116.
   // Measured both sides, not assumed: 474/590 fresh + 116 stale on the base commit dcad9aa1 (this
   // row's starting point), 475/591 fresh + 116 stale after.
-  assert(total === 591, `expected 591 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 475, `expected 475 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (unaffected by PROVE-BATCH-0817-2 -- art-637's new receipt is fresh), got ${stale.length}`);
+  // 591 -> 596 post-ASSEMBLE-LAND-PROVE13-1 (2026-08-22, PR #1419): the five SLOW-lane nodes sealed by
+  // ZZ-PROVE-DOWNTIME-FASTPROVE-SLOW-1 (art-590 recompute_x402_eip712_digest, art-595
+  // build_ap2_cartmandate_hashchain, art-616 recompute_mla_mapr_actuarial, art-621
+  // aggregate_summa_mst_liabilities, art-627 resolve_rule_version) enter this gate's proven-node
+  // denominator as chaingraph.json is reassembled with their receipts. All five enter FRESH by
+  // construction, not by luck: the landing row proved `git diff origin/main HEAD -- '*.kernel.mjs'`
+  // EMPTY, so no kernel source byte moved under any of the five receipts, which is exactly the
+  // comparison this gate performs. Denominator +5, fresh +5, stale UNCHANGED at 116.
+  // Measured both sides, not assumed: 475/591 fresh + 116 stale on the base commit 54d3331f (this
+  // row's starting point, measured on a clean detached origin/main worktree per SO #48),
+  // 480/596 fresh + 116 stale after.
+  assert(total === 596, `expected 596 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 480, `expected 480 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-LAND-PROVE13-1 -- all five new receipts are fresh), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
