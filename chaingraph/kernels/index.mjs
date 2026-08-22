@@ -579,6 +579,7 @@ import * as art648    from './art-648-record-model-input-lineage.kernel.mjs';
 import * as art649    from './art-649-publish-model-risk-head.kernel.mjs';
 import * as art65     from './art-65-ai-conformity-pack-builder.kernel.mjs';
 import * as art651    from './art-651-authzen-conformance-fixture.kernel.mjs';
+import * as art652    from './art-652-verify-receipt.kernel.mjs';
 import * as art653    from './art-653-pta-verifier.kernel.mjs';
 import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
 import * as art661    from './art-661-interest-accrual-recompute.kernel.mjs';
@@ -1213,6 +1214,7 @@ export const KERNELS = {
   'art-649-publish-model-risk-head':                            art649,
   'art-65-ai-conformity-pack-builder':                          art65,
   'art-651-authzen-conformance-fixture':                        art651,
+  'art-652-verify-receipt':                                     art652,
   'art-653-pta-verifier':                                       art653,
   'art-66-fria-postmarket-monitoring-builder':                  art66,
   'art-661-interest-accrual-recompute':                         art661,
