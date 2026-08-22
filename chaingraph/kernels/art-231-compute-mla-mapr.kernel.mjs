@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-231-compute-mla-mapr';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '2.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -9,153 +9,384 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-// ─── Military Lending Act (MLA) MAPR Calculator ───────────────────────────────
-// Computes the Military Annual Percentage Rate (MAPR) per 32 CFR §232.4(c) and
-//   tests compliance with the 36% statutory cap for covered borrowers.
+// Military Annual Percentage Rate for CLOSED-END consumer credit, solved by the
+// actuarial method. Citations for every rule below live in node metadata
+// (description, regulatory_basis, cited_clause_digest) and in the reported
+// output strings, never in this source.
 //
-// MLA (10 USC §987) applies to consumer credit extended to covered borrowers
-//   (active-duty servicemembers + their dependents) for personal, family, or
-//   household purposes. DoD rule: 32 CFR Part 232 (effective Oct 3, 2016).
+// WHAT THIS KERNEL DOES, in behaviour terms:
+//   1. Sorts each caller-declared charge into "collected at consummation"
+//      (money the borrower never receives, so it reduces the amount financed)
+//      or "carried by the payment schedule" (already priced by the payments, so
+//      deducting it as well would count it twice).
+//   2. Builds a cash-flow schedule from a single advance plus either one
+//      balloon payment or a level payment series.
+//   3. Brackets and bisects the periodic rate that equates the present value of
+//      the payments to the amount financed, then annualises by MULTIPLYING that
+//      periodic rate by the number of unit-periods in a year.
 //
-// MAPR construction (32 CFR §232.4(c)(1)):
-//   Includes: interest, finance charges, credit insurance premiums, credit card
-//   fees (other than bona-fide participation fees up to $100/year), and any other
-//   charges incident to the extension of credit.
+// The rate is reported ONLY when a sign-change bracket was established and then
+// narrowed to the width target. Where no such bracket exists the payload
+// carries null and says so; it never echoes an input back as if it were a
+// solved rate.
 //
-// Charges included in the MAPR at 32 CFR §232.4(c)(1)(iii), verbatim structure:
-//   (A) finance charges associated with the consumer credit;
-//   (B) any application fee charged to a covered borrower;
-//   (C) any fee imposed for participation in any plan or arrangement for
-//       consumer credit, subject to 32 CFR §232.4(c)(2)(ii)(B).
-//
-// Bona-fide participation fee exclusion (32 CFR §232.4(c)(1)(iii)(C), with the
-// $100/yr limit at 32 CFR §232.4(c)(2)(ii)(B)):
-//   A participation fee up to $100/year for a credit card account MAY be excluded
-//   if the card provides a specific benefit in addition to the simple extension
-//   of credit. EXCLUDED from MAPR calculation.
-//
-// Application fee exclusion (32 CFR §232.4(c)(1)(iii)(B)):
-//   A bona-fide application fee that is charged to all applicants in a consistent,
-//   non-discriminatory manner MAY be excluded if the amount is reasonable.
-//   EXCLUDED from MAPR calculation in this implementation.
-//
-// 36% MAPR cap: 32 CFR §232.4(c); 10 USC §987(b).
-//   Violation: creditor may not extend credit to a covered borrower at MAPR > 36%.
-// table_version: "MLA-DOD-32CFR232-2016-10-03"
+// Pure ECMA-262 arithmetic: no Math.pow, no Math.log, no Math.exp, no Date, no
+// randomness, no host globals. Every exponent is an integer raised by squaring,
+// because a fraction of a unit-period is priced at simple interest and only
+// whole unit-periods compound.
 
-function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
-function r6(v) { return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
-function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+// --- declared constants ------------------------------------------------------
+// Neither is a caller policy parameter; a caller cannot move either one.
 
-// Integer power via loop (no Math.pow) for annualization
-function intPow(base, exp) {
-  if (exp === 0) return 1;
-  let result = 1;
-  let b = base;
-  let e = exp;
-  while (e > 0) {
-    if (e & 1) result *= b;
-    b *= b;
-    e >>= 1;
-  }
-  return result;
+const MAPR_CAP_PCT = 36;
+
+// House heuristic, declared as such: no authority states a 30 percent warning
+// line. It is reported as a named threshold so a reader can see it is ours.
+const APPROACHING_CAP_PCT = 30;
+
+// --- numeric helpers ---------------------------------------------------------
+
+// Number() runs the argument's own coercion path, which throws outright for an
+// object with a null prototype or with valueOf and toString removed. A kernel
+// that throws on a malformed input is not total, so coercion is limited to the
+// primitive types that can carry a number; everything else takes the default.
+function safeNum(v, def) {
+  const t = typeof v;
+  if (t !== 'number' && t !== 'string' && t !== 'boolean') return def;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
 }
 
-const MLA_CAP_PCT = 36.0;
-const BONA_FIDE_FEE_MAX_ANNUAL = 100.0; // 32 CFR §232.4(c)(2)(ii)(B)
+function nonNeg(v) { return Math.max(0, safeNum(v, 0)); }
+
+// base^n for integer n >= 0, by exponentiation by squaring.
+function powInt(base, n) {
+  if (!Number.isFinite(base) || !Number.isFinite(n)) return 0;
+  let e = Math.round(n);
+  if (e < 0) e = 0;
+  let r = 1, b = base;
+  while (e > 0) {
+    if (e % 2 === 1) r *= b;
+    b *= b;
+    e = Math.floor(e / 2);
+  }
+  return r;
+}
+
+// Half-up to `dp` decimals, sign-symmetric. Math.round alone rounds half toward
+// +Infinity, which is not half-up for a negative magnitude, so the sign is
+// split out and reapplied.
+function roundHalfUp(v, dp) {
+  if (!Number.isFinite(v)) return 0;
+  const f = powInt(10, dp);
+  const s = v < 0 ? -1 : 1;
+  const r = s * Math.round(Math.abs(v) * f) / f;
+  // Scaling by 10^dp can overflow to Infinity for a magnitude near the top of
+  // the double range. Any such magnitude is already past 2^52 and holds no
+  // fractional part, so returning it unchanged is both finite and exact.
+  return Number.isFinite(r) ? r : v;
+}
+
+function r2(v) { return roundHalfUp(v, 2); }
+function r6(v) { return roundHalfUp(v, 6); }
+
+// --- cash-flow model ---------------------------------------------------------
+//
+// A flow is an amount placed at `full` whole unit-periods plus `frac` of a
+// unit-period. The fraction is priced at simple interest and only the whole
+// count compounds, so the discount denominator is (1 + frac*i) * (1+i)^full and
+// no base is ever raised to a fractional power.
+
+function pvFlow(flow, i) {
+  const den = (1 + flow.frac * i) * powInt(1 + i, flow.full);
+  if (!Number.isFinite(den) || den === 0) return NaN;
+  return flow.amount / den;
+}
+
+function pvPayments(payments, i) {
+  let s = 0;
+  for (const p of payments) s += pvFlow(p, i);
+  return s;
+}
+
+// G(i) = PV(payments) - amount financed. The actuarial rate is the root of G.
+function residual(amountFinanced, payments, i) {
+  return pvPayments(payments, i) - amountFinanced;
+}
+
+// --- solver ------------------------------------------------------------------
+
+const BISECT_STEPS = 300;
+// Bracket width expressed in ANNUAL percentage points, converted to periodic
+// inside the solver. The tightest disclosure tolerance this figure answers to
+// is an eighth of one percentage point; 1e-6 points is five orders finer, so
+// the reported number is limited by the declared 2-decimal rounding and not by
+// the solver.
+const RATE_WIDTH_TARGET_PP = 1e-6;
+const HI_CAP = 100;
+
+const NO_RATE = { periodic_rate: 0, rate_pct: 0, iterations: 0, converged: false, bracketed: false };
+
+function solveActuarialRate(amountFinanced, payments, unitPeriodsPerYear) {
+  const w = unitPeriodsPerYear;
+  if (!(w > 0)) return NO_RATE;
+  if (!(amountFinanced > 0)) return NO_RATE;
+  const widthTarget = RATE_WIDTH_TARGET_PP / (w * 100);
+
+  // Without a non-zero payment carried at a positive time the equation has no
+  // rate dependence and therefore no unique root.
+  let rateDependent = false;
+  for (const p of payments) {
+    if (p.amount !== 0 && (p.full > 0 || p.frac > 0)) { rateDependent = true; break; }
+  }
+  if (!rateDependent) return NO_RATE;
+
+  const g0 = residual(amountFinanced, payments, 0);
+  if (!Number.isFinite(g0)) return NO_RATE;
+  // Where the payments do not repay the amount financed the root is negative,
+  // outside the domain this kernel reports on.
+  if (g0 < 0) return NO_RATE;
+
+  let lo = 0, hi = 1e-9, found = false;
+  if (g0 === 0) { found = true; hi = 0; }
+  while (!found && hi <= HI_CAP) {
+    const ghi = residual(amountFinanced, payments, hi);
+    if (!Number.isFinite(ghi)) break;
+    if (ghi <= 0) { found = true; break; }
+    lo = hi;
+    hi *= 2;
+  }
+  if (!found) return NO_RATE;
+
+  let iters = 0;
+  while (iters < BISECT_STEPS && (hi - lo) > widthTarget) {
+    const mid = lo + (hi - lo) / 2;
+    if (mid <= lo || mid >= hi) break; // float resolution exhausted
+    const gm = residual(amountFinanced, payments, mid);
+    if (!Number.isFinite(gm)) break;
+    if (gm >= 0) lo = mid; else hi = mid;
+    iters++;
+  }
+
+  const converged = (hi - lo) <= widthTarget;
+  if (!converged) {
+    // Bracketed but not narrowed. Reporting the midpoint of a wide bracket as
+    // if it had converged is exactly the failure this branch refuses.
+    return { periodic_rate: 0, rate_pct: 0, iterations: iters, converged: false, bracketed: true };
+  }
+  const i = lo + (hi - lo) / 2;
+  // Annualise by MULTIPLYING the unit-period rate by the unit-periods in a
+  // year. Never by compounding the periodic rate.
+  return { periodic_rate: r6(i), rate_pct: i * w * 100, iterations: iters, converged: true, bracketed: true };
+}
+
+// --- charge classification ---------------------------------------------------
+//
+// `treatment` says what the arithmetic does with the amount, which is a separate
+// question from whether the rule includes it. A finance charge is included, but
+// it is already expressed by the payment stream, so re-deducting it would price
+// it twice.
+
+const CIT_I = '32 CFR 232.4(c)(1)(i)';
+const CIT_II = '32 CFR 232.4(c)(1)(ii)';
+const CIT_IIIA = '32 CFR 232.4(c)(1)(iii)(A)';
+const CIT_IIIB = '32 CFR 232.4(c)(1)(iii)(B)';
+const CIT_IIIC = '32 CFR 232.4(c)(1)(iii)(C)';
+const CIT_D1 = '32 CFR 232.4(d)(1)';
+
+function chargeRow(field, amount, included, treatment, citation) {
+  return { field, amount: r2(amount), included, treatment, citation };
+}
 
 export function compute(pp) {
   pp = pp || {};
 
-  const loan_amount = Math.max(0, safeNum(pp.loan_amount, 0));
-  const term_months = Math.max(1, Math.round(safeNum(pp.term_months, 12)));
-  const stated_apr_pct = safeNum(pp.stated_apr_pct, 0);
+  // --- scope discriminator --------------------------------------------------
+  // This node computes the closed-end path only. An open-end plan, including
+  // any credit card account, is priced on a billing-cycle balance by a
+  // different clause and a different method, and is refused here rather than
+  // answered with a closed-end number.
+  const credit_class_raw = typeof pp.credit_class === 'string' ? pp.credit_class : '';
+  const legacy_card_flag = pp.is_credit_card === true;
+  const declared_out_of_scope = (credit_class_raw !== '' && credit_class_raw !== 'closed_end') || legacy_card_flag;
+  const credit_class = credit_class_raw !== ''
+    ? credit_class_raw
+    : (legacy_card_flag ? 'open_end_credit_card' : 'closed_end');
 
-  // Includable fees
-  const finance_charge_total = Math.max(0, safeNum(pp.finance_charge_total, 0));
-  const credit_insurance_premium_total = Math.max(0, safeNum(pp.credit_insurance_premium_total, 0));
-  const credit_card_annual_fee = Math.max(0, safeNum(pp.credit_card_annual_fee, 0));
+  // --- amounts --------------------------------------------------------------
+  const amount_advanced = nonNeg(pp.loan_amount);
+  const finance_charge_total = nonNeg(pp.finance_charge_total);
+  const credit_insurance_premium_total = nonNeg(pp.credit_insurance_premium_total);
+  const debt_cancellation_fee_total = nonNeg(pp.debt_cancellation_fee_total);
+  const debt_suspension_fee_total = nonNeg(pp.debt_suspension_fee_total);
+  const ancillary_product_fee_total = nonNeg(pp.ancillary_product_fee_total);
+  const application_fee = nonNeg(pp.application_fee);
+  const participation_fee_annual = nonNeg(pp.participation_fee_annual);
+  const bona_fide_fee_claimed_total = nonNeg(pp.bona_fide_fee_claimed_total);
 
-  // Excludable fees (reduce from MAPR calculation)
-  const participation_fee_annual = Math.max(0, safeNum(pp.participation_fee_annual, 0));
-  const application_fee = Math.max(0, safeNum(pp.application_fee, 0));
-  const is_credit_card = Boolean(pp.is_credit_card);
+  // --- the application-fee carve-out: three conjunctive predicates ----------
+  // An application fee is includable by default. It drops out only when the
+  // creditor is a Federal credit union or an insured depository institution,
+  // AND the loan is a short-term small amount loan, AND the fee is charged not
+  // more than once in any rolling 12-month period. All three, or the fee stays.
+  const creditor_is_fcu_or_idi = pp.creditor_is_fcu_or_idi === true;
+  const is_short_term_small_amount_loan = pp.is_short_term_small_amount_loan === true;
+  const application_fee_once_in_rolling_12_months = pp.application_fee_once_in_rolling_12_months === true;
+  const application_fee_carve_out_applied =
+    creditor_is_fcu_or_idi && is_short_term_small_amount_loan && application_fee_once_in_rolling_12_months;
 
-  // Guard: empty inputs return finite zero-state
-  if (loan_amount === 0 && stated_apr_pct === 0) {
-    return {
-      output_payload: {
-        mapr_pct: 0,
-        mapr_cap_pct: MLA_CAP_PCT,
-        exceeds_cap: false,
-        total_includable_charges: 0,
-        total_excluded_charges: 0,
-        loan_amount: 0,
-        term_months: 0,
-        stated_apr_pct: 0,
-        regulatory_basis: '10 USC §987(b); 32 CFR §232.4(c); DoD MLA rule effective Oct 3, 2016',
-        table_version: 'MLA-DOD-32CFR232-2016-10-03',
-        table_source: '10 USC §987(b); 32 CFR Part 232 (Federal Register 80 FR 43560, Jul 22, 2015, effective Oct 3, 2016); 32 CFR §232.4(c)(1)(iii)(C) bona-fide participation fee exclusion, $100/yr limit at 32 CFR §232.4(c)(2)(ii)(B)',
-        pii_note: 'All inputs are processed locally in your browser. No data is transmitted.',
-      },
-      compliance_flags: [],
-    };
+  // --- the bona fide fee exclusion is unavailable on this path --------------
+  // That exclusion reaches a credit card account under an open-end plan only.
+  // On closed-end credit there is no such exclusion, so a caller-declared bona
+  // fide amount is recorded, INCLUDED anyway, and the reason is flagged.
+  const bona_fide_exclusion_available = false;
+  const bona_fide_fee_claimed_but_included = bona_fide_fee_claimed_total > 0;
+
+  const charge_breakdown = [
+    chargeRow('credit_insurance_premium_total', credit_insurance_premium_total, true, 'collected_at_consummation', CIT_I),
+    chargeRow('debt_cancellation_fee_total', debt_cancellation_fee_total, true, 'collected_at_consummation', CIT_I),
+    chargeRow('debt_suspension_fee_total', debt_suspension_fee_total, true, 'collected_at_consummation', CIT_I),
+    chargeRow('ancillary_product_fee_total', ancillary_product_fee_total, true, 'collected_at_consummation', CIT_II),
+    chargeRow('finance_charge_total', finance_charge_total, true, 'carried_by_payment_schedule', CIT_IIIA),
+    chargeRow(
+      'application_fee', application_fee, !application_fee_carve_out_applied,
+      application_fee_carve_out_applied ? 'excluded_carve_out' : 'collected_at_consummation', CIT_IIIB,
+    ),
+    chargeRow('participation_fee_annual', participation_fee_annual, true, 'collected_at_consummation', CIT_IIIC),
+    chargeRow('bona_fide_fee_claimed_total', bona_fide_fee_claimed_total, true, 'collected_at_consummation', CIT_D1),
+  ];
+
+  let prepaid_includable_charges = 0;
+  for (const c of charge_breakdown) {
+    if (c.included && c.treatment === 'collected_at_consummation') prepaid_includable_charges += c.amount;
+  }
+  prepaid_includable_charges = r2(prepaid_includable_charges);
+  const total_includable_charges = r2(prepaid_includable_charges + finance_charge_total);
+  const total_excluded_charges = r2(application_fee_carve_out_applied ? application_fee : 0);
+
+  // A charge collected at consummation is money the borrower never receives, so
+  // it reduces the amount financed rather than adding to the payments. That is
+  // what makes this figure an annual percentage rate over the wider charge set
+  // and not a separate formula.
+  const charges_exceed_advance = prepaid_includable_charges > amount_advanced;
+  const amount_financed_mapr = r2(amount_advanced - prepaid_includable_charges);
+
+  // --- schedule -------------------------------------------------------------
+  const term_days = Math.max(0, Math.round(safeNum(pp.term_days, 0)));
+  const requested_structure = typeof pp.payment_structure === 'string' ? pp.payment_structure : '';
+  const raw_payment_count = Math.max(0, Math.round(safeNum(pp.payment_count, 0)));
+  const payment_structure = (requested_structure === 'single_payment' || requested_structure === 'installment')
+    ? requested_structure
+    : (raw_payment_count >= 2 ? 'installment' : 'single_payment');
+
+  const explicit_payment_amount = nonNeg(pp.payment_amount);
+
+  let payment_count = 1;
+  let unit_periods_per_year = 0;
+  let payment_amount = 0;
+  const payments = [];
+
+  if (payment_structure === 'single_payment') {
+    // The unit-period is the term itself, capped at one year.
+    payment_count = 1;
+    payment_amount = explicit_payment_amount > 0
+      ? explicit_payment_amount
+      : r2(amount_advanced + finance_charge_total);
+    if (term_days > 0) {
+      if (term_days < 365) {
+        // Sub-year term: one unit-period in the term, and the unit-periods per
+        // year are 365 divided by the days in the term. One rule serves both
+        // the whole-month and the odd-days case, because where the term happens
+        // to be a whole number of months the text permits this form too.
+        unit_periods_per_year = 365 / term_days;
+        payments.push({ amount: payment_amount, full: 1, frac: 0 });
+      } else {
+        // One year or longer: the unit-period is capped at a year, so the
+        // payment sits at a whole number of years plus a remaining-days
+        // fraction of a year.
+        unit_periods_per_year = 1;
+        const full = Math.floor(term_days / 365);
+        const frac = (term_days - full * 365) / 365;
+        payments.push({ amount: payment_amount, full, frac });
+      }
+    }
+  } else {
+    payment_count = Math.max(1, raw_payment_count);
+    unit_periods_per_year = Math.max(1, safeNum(pp.payments_per_year, 12));
+    const scheduled_total = amount_advanced + finance_charge_total;
+    payment_amount = explicit_payment_amount > 0
+      ? explicit_payment_amount
+      : scheduled_total / payment_count;
+    for (let k = 1; k <= payment_count; k++) payments.push({ amount: payment_amount, full: k, frac: 0 });
   }
 
-  // Compute finance charges from APR if not provided explicitly
-  // Simplified: annual interest = loan_amount * stated_apr_pct/100
-  // For MAPR, use total finance charge approach (not iterative APR solve)
-  const implicit_finance_charge = loan_amount > 0 && stated_apr_pct > 0
-    ? r6(loan_amount * (stated_apr_pct / 100) * (term_months / 12))
-    : 0;
+  const payment_total = r2(payment_amount * payment_count);
+  const finance_charge_in_schedule = r2(payment_total - amount_advanced);
 
-  const effective_finance_charge = finance_charge_total > 0 ? finance_charge_total : implicit_finance_charge;
+  const solved = (declared_out_of_scope || charges_exceed_advance)
+    ? NO_RATE
+    : solveActuarialRate(amount_financed_mapr, payments, unit_periods_per_year);
 
-  // Bona-fide participation fee exclusion (32 CFR §232.4(c)(1)(iii)(C); the
-  // $100/yr limit is at 32 CFR §232.4(c)(2)(ii)(B))
-  const excluded_participation = is_credit_card
-    ? Math.min(participation_fee_annual, BONA_FIDE_FEE_MAX_ANNUAL)
-    : 0;
-  const excluded_application = application_fee; // reasonable bona-fide application fee
-
-  const total_includable = effective_finance_charge + credit_insurance_premium_total + credit_card_annual_fee;
-  const total_excluded = excluded_participation + excluded_application;
-
-  // MAPR = (total includable charges / loan amount) * (12 / term_months) * 100
-  // Simplified annual rate formula (DoD uses actuarial method for installment loans;
-  // this is the nominal rate approach per 32 CFR §232.4(c)(2) for open-end credit)
-  let mapr_pct = 0;
-  if (loan_amount > 0 && term_months > 0) {
-    mapr_pct = r4((total_includable / loan_amount) * (12 / term_months) * 100);
-    // Floor at stated APR (MAPR >= APR by definition -- APR is a subset of MAPR components)
-    if (mapr_pct < stated_apr_pct) mapr_pct = r4(stated_apr_pct);
-  }
-
-  const exceeds_cap = mapr_pct > MLA_CAP_PCT;
+  const reportable = solved.bracketed && solved.converged && !declared_out_of_scope;
+  // The cap test runs on the reported 2-decimal figure so the published number
+  // and the verdict can never disagree. The limit forbids a rate GREATER than
+  // 36 percent, so exactly 36.00 sits at the limit and does not breach it.
+  const mapr_pct = reportable ? r2(solved.rate_pct) : null;
+  const exceeds_cap = mapr_pct === null ? null : mapr_pct > MAPR_CAP_PCT;
+  const approaching_cap = mapr_pct === null
+    ? null
+    : (mapr_pct > APPROACHING_CAP_PCT && mapr_pct <= MAPR_CAP_PCT);
 
   const compliance_flags = [];
-  if (exceeds_cap) compliance_flags.push('MLA_MAPR_EXCEEDS_36PCT_CAP');
-  if (mapr_pct > 30 && !exceeds_cap) compliance_flags.push('MLA_MAPR_APPROACHING_CAP');
+  if (declared_out_of_scope) compliance_flags.push('MLA_MAPR_OPEN_END_OUT_OF_SCOPE');
+  if (charges_exceed_advance) compliance_flags.push('MLA_MAPR_CHARGES_EXCEED_ADVANCE');
+  if (!declared_out_of_scope && !solved.bracketed) compliance_flags.push('MLA_MAPR_NOT_BRACKETED');
+  if (!declared_out_of_scope && solved.bracketed && !solved.converged) compliance_flags.push('MLA_MAPR_DID_NOT_CONVERGE');
+  if (mapr_pct === null) compliance_flags.push('MLA_MAPR_NOT_DETERMINED');
+  if (exceeds_cap === true) compliance_flags.push('MLA_MAPR_EXCEEDS_36PCT_CAP');
+  if (approaching_cap === true) compliance_flags.push('MLA_MAPR_APPROACHING_CAP');
+  if (application_fee_carve_out_applied) compliance_flags.push('MLA_APPLICATION_FEE_CARVE_OUT_APPLIED');
+  if (bona_fide_fee_claimed_but_included) compliance_flags.push('MLA_BONA_FIDE_EXCLUSION_UNAVAILABLE_CLOSED_END');
 
   const output_payload = {
     mapr_pct,
-    mapr_cap_pct: MLA_CAP_PCT,
+    mapr_cap_pct: MAPR_CAP_PCT,
     exceeds_cap,
-    bona_fide_fee_annual_limit: BONA_FIDE_FEE_MAX_ANNUAL,
-    total_includable_charges: r4(total_includable),
-    total_excluded_charges: r4(total_excluded),
-    effective_finance_charge: r4(effective_finance_charge),
-    credit_insurance_premium_total: r4(credit_insurance_premium_total),
-    credit_card_annual_fee_included: r4(credit_card_annual_fee),
-    participation_fee_excluded: r4(excluded_participation),
-    application_fee_excluded: r4(excluded_application),
-    loan_amount: r4(loan_amount),
-    term_months,
-    stated_apr_pct,
-    is_credit_card,
-    regulatory_basis: '10 USC §987(b); 32 CFR §232.4(c); DoD MLA rule effective Oct 3, 2016',
-    table_version: 'MLA-DOD-32CFR232-2016-10-03',
-    table_source: '10 USC §987(b); 32 CFR Part 232 (Federal Register 80 FR 43560 Jul 22 2015, effective Oct 3 2016); 32 CFR §232.4(c)(1)(iii)(A) finance charges; 32 CFR §232.4(c)(1)(iii)(B) bona-fide application fee exclusion; 32 CFR §232.4(c)(1)(iii)(C) bona-fide participation fee exclusion, $100/yr limit at 32 CFR §232.4(c)(2)(ii)(B)',
+    mapr_determined: mapr_pct !== null,
+    credit_class,
+    in_scope: !declared_out_of_scope,
+    payment_structure,
+    payment_count,
+    payment_amount: r2(payment_amount),
+    payment_total,
+    unit_periods_per_year: r6(unit_periods_per_year),
+    term_days,
+    amount_advanced: r2(amount_advanced),
+    amount_financed_mapr,
+    prepaid_includable_charges,
+    finance_charge_in_schedule,
+    total_includable_charges,
+    total_excluded_charges,
+    charge_breakdown,
+    application_fee_carve_out_applied,
+    application_fee_carve_out_predicates: {
+      creditor_is_fcu_or_idi,
+      is_short_term_small_amount_loan,
+      application_fee_once_in_rolling_12_months,
+    },
+    bona_fide_fee_claimed_total: r2(bona_fide_fee_claimed_total),
+    bona_fide_exclusion_available,
+    periodic_rate: reportable ? solved.periodic_rate : null,
+    iterations: solved.iterations,
+    bracketed: solved.bracketed,
+    converged: solved.converged,
+    approaching_cap_threshold_pct: APPROACHING_CAP_PCT,
+    approaching_cap_threshold_basis: 'House heuristic, declared. No authority states a 30 percent warning line; it is named here so a reader can see it is ours and not the regulation.',
+    regulatory_basis: '10 USC 987(b) and 32 CFR 232.4(b) set the 36 percent MAPR limit. 32 CFR 232.4(c)(1) sets the charge set. 32 CFR 232.4(c)(2)(i) directs that a closed-end MAPR is calculated by Regulation Z rules for the annual percentage rate over that charge set, which are 12 CFR 1026.22(a)(1) and Appendix J to 12 CFR part 1026. DoD MLA rule 80 FR 43560 (22 Jul 2015): effective 1 Oct 2015, compliance required 3 Oct 2016, and 3 Oct 2017 for credit card accounts.',
+    method_basis: 'Appendix J to 12 CFR part 1026: (a)(2) actuarial recurrence on the unpaid balance; (b)(1) annualise by multiplying the unit-period rate by the unit-periods in a year; (b)(4)(ii) the unit-period of a single advance, single payment transaction is its term, capped at one year; (b)(5)(ii) a monthly unit-period has 12 unit-periods per year; (b)(5)(vi) and (b)(5)(vii) a sub-year single advance, single payment term has one unit-period and 365 divided by the days in the term unit-periods per year; (b)(5)(v)(B) a remaining interval that is not a whole number of months is the remaining days divided by 365; (b)(6) a fraction of a unit-period is priced at simple interest, so only whole unit-periods compound and no base is raised to a fractional power. Accuracy target: the one eighth of one percentage point tolerance in 12 CFR 1026.22(a)(2).',
+    scope_note: 'CLOSED-END consumer credit only. Open-end credit, including every credit card account, is OUT OF SCOPE: 32 CFR 232.4(c)(2)(ii)(A) prices it on the balance for a billing cycle under 12 CFR 1026.14(c) and (d), and 32 CFR 232.4(c)(2)(ii)(B) governs a billing cycle with no balance. Neither is computed here, and a call declaring an open-end class or a credit card account returns no rate rather than a closed-end number. The bona fide fee exclusion in 32 CFR 232.4(d)(1) reaches a credit card account under an open-end plan only, so it is unavailable on this path and a caller-declared bona fide amount is included anyway. Charges are modelled as collected at consummation and deducted from the amount financed, except a finance charge, which is carried by the payment schedule; a structure in which an includable charge is instead financed into the payments is out of scope.',
+    table_version: 'MLA-DOD-32CFR232-2015-10-01',
+    table_source: '10 USC 987(b); 32 CFR 232.4(b) limit; 32 CFR 232.4(c)(1)(i) to (iii) charge set; 32 CFR 232.4(c)(1)(iii)(B) Federal credit union and insured depository institution application-fee carve-out; 32 CFR 232.4(c)(2)(i) closed-end computation method; 32 CFR 232.4(d)(1) and (d)(2) bona fide fee exclusion and its ineligible items; 12 CFR 1026.22(a) and Appendix J to 12 CFR part 1026 (eCFR versioner, retrieved 2026-08-14); worked examples 80 FR 43583 and 80 FR 43603 n.347 (retrieved 2026-08-22), republished at CFPB Supervision and Examination Manual, MLA (Sept 2016), pp. MLA 9 to 10.',
     pii_note: 'All inputs are processed locally in your browser. No data is transmitted.',
   };
 
