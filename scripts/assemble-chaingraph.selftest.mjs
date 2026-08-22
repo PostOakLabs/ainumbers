@@ -22,15 +22,24 @@
  * (SO #34: "verify a checker by mutation, not by reading it"), so case 6
  * deletes a real live node from the assembled side and asserts the refusal.
  *
+ * THE composer_url PAIR ([2b] GREEN / [3c] RED) USES THE LIVE PREDICATE, NOT A
+ * STUB (CHAIN-CLASSIFY-COMPOSER-URL-1). Both drive repoTargetExists — the same
+ * function the runner injects — over a real PR #1451 shard, so the green case
+ * is decided by a page that is genuinely in this tree and the red case by one
+ * that genuinely is not. A `() => true` stub would have proved only that the
+ * parameter is readable.
+ *
  * Usage: node scripts/assemble-chaingraph.selftest.mjs   (exit 1 on any failure)
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   classifyAssembly,
   describeChange,
   refusalLine,
+  composerUrlToRepoPath,
+  repoTargetExists,
   COPY_ONLY_CHAIN_FIELDS,
   REFUSAL_EXIT_CODE,
 } from './assemble-chaingraph.mjs'
@@ -106,6 +115,35 @@ heading(2, 'purely additive new chain (ap2-x402-cart-correlation, 1dc5d3e7) -> A
   check('refusals', r.refusals.length, 0)
 }
 
+// ── 2b. GREEN (a2) — the GUARDED composer_url repoint, target PRESENT. ─────
+// REAL: draft PR #1451 repoints 13 chains' composer_url from the deprecated
+// guides/*-composer.html pages to chaingraph/chains/*.html. The ORCH ran the
+// landed classifier over all 13 real shard pairs: 13/13 REFUSED, changed field
+// composer_url and nothing else, 0 additive. Tim's ruling of 2026-08-22 admits
+// exactly that class WHEN THE TARGET EXISTS. agentic-checkout is one of the 13
+// and its destination page is in this tree — asserted below before the verdict,
+// so a future removal of that page reds this fixture loudly instead of quietly
+// inverting what it proves.
+heading('2b', 'composer_url repoint, target PRESENT (agentic-checkout, PR #1451) -> AUTO-LAND')
+{
+  const before = chain('agentic-checkout')
+  const after = clone(before)
+  after.composer_url = 'https://ainumbers.co/chaingraph/chains/agentic-checkout.html'
+  if (before.composer_url === after.composer_url) {
+    console.error('  ✗ fixture stale: agentic-checkout already points at the post-#1451 URL')
+    failures++
+  }
+  check(
+    'fixture: destination page is really in this tree',
+    existsSync(resolve(REPO, composerUrlToRepoPath(after.composer_url))),
+    true,
+  )
+  const r = classifyAssembly(...pair([before], [after]), { targetExists: repoTargetExists })
+  check('verdict', r.verdict, 'AUTO-LAND')
+  check('changes', r.allowed.map(describeChange), ['chain-composer-url-repoint agentic-checkout [composer_url]'])
+  check('refusals', r.refusals.length, 0)
+}
+
 // ── 3. REFUSE (c) — a structural chain edit. ───────────────────────────────
 // REAL: commit c42babe7 (CHAINWIRE-1, PR #846) PREPENDED art-477 as Stage 1 of
 // dw-capacity-check and rewrote the description to match. Node membership and
@@ -144,22 +182,76 @@ heading('3b', 'handoff-only edit inside steps (dw-capacity-check) -> REFUSED')
   check('refusals', r.refusals.map(describeChange), ['chain-structural-edit dw-capacity-check [steps]'])
 }
 
-// ── 3c. REFUSE (c) — composer_url is a link target, not wording. ───────────
-// REAL: draft PR #1451 repoints 13 chains' composer_url from the deprecated
-// guides/*-composer.html pages to chaingraph/chains/*.html. Nothing else in
-// those shards moves. Tim named #1451 as an intended beneficiary of this row;
-// a URL is not prose, and admitting it would make the copy-only rule a
-// carve-out rather than a line a reviewer can predict — so it is refused, and
-// #1451 stays a human ASSEMBLE/LAND row. This case exists so that decision is
-// mechanically pinned rather than merely written down.
-heading('3c', 'composer_url repoint (agentic-checkout, draft PR #1451) -> REFUSED')
+// ── 3c. REFUSE (a2's guard) — composer_url repoint, target ABSENT. ─────────
+// RE-EXPRESSED, NOT DELETED (CHAIN-CLASSIFY-COMPOSER-URL-1). Until Tim's ruling
+// of 2026-08-22 this case pinned "composer_url repoint -> REFUSED" flat: a URL
+// is not prose, so admitting it to the copy-only allowlist would have made that
+// rule a carve-out. The ruling did not overturn that reasoning, it SATISFIED it
+// — machine-resolvable is exactly what lets a machine check the target — so the
+// pin is preserved with its meaning intact by re-expressing it as the case that
+// still refuses: the target is not there.
+//
+// THIS IS THE CONTROL THAT MATTERS. It differs from [2b] in ONE way — the
+// destination page does not exist. Same shard, same single field, same live
+// repoTargetExists. If the guard were ever dropped, [2b] would still pass and
+// the safety rule would be gone; only this case notices.
+heading('3c', 'composer_url repoint, target ABSENT (agentic-checkout) -> REFUSED, naming the missing path')
 {
+  const MISSING_URL = 'https://ainumbers.co/chaingraph/chains/agentic-checkout-NOT-BUILT.html'
   const before = chain('agentic-checkout')
   const after = clone(before)
-  after.composer_url = 'https://ainumbers.co/chaingraph/chains/agentic-checkout.html'
-  const r = classifyAssembly(...pair([before], [after]))
+  after.composer_url = MISSING_URL
+  check(
+    'fixture: destination page is really absent from this tree',
+    existsSync(resolve(REPO, composerUrlToRepoPath(MISSING_URL))),
+    false,
+  )
+  const r = classifyAssembly(...pair([before], [after]), { targetExists: repoTargetExists })
   check('verdict', r.verdict, 'REFUSED')
-  check('refusals', r.refusals.map(describeChange), ['chain-structural-edit agentic-checkout [composer_url]'])
+  check('refusals', r.refusals.map(describeChange), ['chain-composer-url-target-missing agentic-checkout [composer_url]'])
+  check('reason names the missing target path', r.refusals[0].reason.includes('repo/chaingraph/chains/agentic-checkout-NOT-BUILT.html'), true)
+  check('not the generic chain-structural-edit refusal', r.refusals[0].kind, 'chain-composer-url-target-missing')
+  check('nothing was allowed', r.allowed.length, 0)
+
+  // The DEFAULT predicate — a caller that injects nothing — refuses even the
+  // real, present target from [2b]. An unwired caller can never auto-land a
+  // repoint it did not verify.
+  const realRepoint = clone(before)
+  realRepoint.composer_url = 'https://ainumbers.co/chaingraph/chains/agentic-checkout.html'
+  check('default predicate refuses a target it never checked', classifyAssembly(...pair([before], [realRepoint])).verdict, 'REFUSED')
+
+  // An off-origin URL maps to no repo path at all, so it cannot be verified
+  // and refuses for THAT stated reason rather than passing as "prose".
+  const offsite = clone(before)
+  offsite.composer_url = 'https://example.com/chains/agentic-checkout.html'
+  const o = classifyAssembly(...pair([before], [offsite]), { targetExists: repoTargetExists })
+  check('unmappable URL refuses', o.refusals.map(describeChange), ['chain-composer-url-unmappable agentic-checkout [composer_url]'])
+}
+
+// ── 3d. REFUSE (c) — composer_url PLUS any second field is still structural. ─
+// One field's guard must not become a door for a second field. Both halves are
+// tested: paired with a copy-only field (which would have auto-landed on its
+// own) and paired with a structural one. The target exists in both, so the only
+// thing standing between this diff and an auto-land is the strictness rule.
+heading('3d', 'composer_url + a second field (agentic-checkout) -> REFUSED even with the target present')
+{
+  const REAL_URL = 'https://ainumbers.co/chaingraph/chains/agentic-checkout.html'
+  const before = chain('agentic-checkout')
+
+  const withProse = clone(before)
+  withProse.composer_url = REAL_URL
+  withProse.description = `${withProse.description} (reworded in the same diff)`
+  const p = classifyAssembly(...pair([before], [withProse]), { targetExists: repoTargetExists })
+  check('verdict (paired with a copy-only field)', p.verdict, 'REFUSED')
+  check('refusals', p.refusals.map(describeChange), ['chain-structural-edit agentic-checkout [composer_url]'])
+  check('the copy-only field did not rescue it', p.allowed.length, 0)
+
+  const withStructure = clone(before)
+  withStructure.composer_url = REAL_URL
+  withStructure.domain = `${withStructure.domain ?? ''}-moved`
+  const s = classifyAssembly(...pair([before], [withStructure]), { targetExists: repoTargetExists })
+  check('verdict (paired with a structural field)', s.verdict, 'REFUSED')
+  check('refusals', s.refusals.map(describeChange), ['chain-structural-edit agentic-checkout [composer_url, domain]'])
 }
 
 // ── 4. REFUSE (c) — a chain removal or rename. ────────────────────────────
@@ -248,7 +340,10 @@ heading(9, 'refusal emits a GitHub ::error annotation and a distinct exit code')
 }
 
 // ── 10. The allowlist is the contract — pin it. ──────────────────────────
-heading(10, 'copy-only allowlist is exactly the two prose fields')
+// Also the tripwire for the wrong way to satisfy Tim's 2026-08-22 ruling:
+// appending 'composer_url' here would drop the [3c] guard entirely, and this
+// assertion goes red the moment anyone tries it.
+heading(10, 'copy-only allowlist is exactly the two prose fields (composer_url stays out — it is guarded, not allowlisted)')
 check('COPY_ONLY_CHAIN_FIELDS', [...COPY_ONLY_CHAIN_FIELDS].sort(), ['description', 'title'])
 
 if (failures > 0) {
