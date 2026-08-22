@@ -1,3 +1,11 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and touching it makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path
+// filter watches the whole directory, not just *.kernel.mjs). Without this it
+// fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/) that
+// would block ANY future edit to this file, not something specific to its
+// own logic. Same precedent as vm-parity-gate.mjs's line 1.
 // golden-parity.test.mjs — CI golden-snapshot gate for execution_hash.
 // Best-practice pattern from the research: pin a canonical hash per fixture,
 // recompute on every run, fail on drift. Provider-independent (operates on
@@ -20,6 +28,13 @@ import { executionHash } from './_hash.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXDIR = resolve(HERE, 'fixtures');
 const UPDATE = process.argv.includes('--update');
+
+// The exact seed note bootstrap-fixtures.mjs writes before a hash is pinned
+// (kept in sync with that file — FIXTURE-NOTE-TEMPLATE-1). --update rewrites
+// it the moment it pins, so a freshly-generated fixture's note can never
+// outlive its own truth the way FIXTURE-NOTE-SWEEP-1 found 288 files had.
+const PENDING_SEED_NOTE = 'golden_hash pending — run `node golden-parity.test.mjs --update` to pin it.';
+const PINNED_NOTE = 'golden_hash pinned (see vectors).';
 
 if (!existsSync(FIXDIR)) { mkdirSync(FIXDIR, { recursive: true }); }
 const fixtureFiles = existsSync(FIXDIR) ? readdirSync(FIXDIR).filter((f) => f.endsWith('.fixtures.json')) : [];
@@ -44,6 +59,7 @@ for (const ff of fixtureFiles) {
       console.error(`✗ ${doc.tool_id}/${v.name}: HASH DRIFT\n    golden ${v.golden_hash}\n    got    ${got}`); fail++;
     } else { checked++; }
   }
+  if (UPDATE && dirty && doc.note === PENDING_SEED_NOTE) { doc.note = PINNED_NOTE; }
   if (UPDATE && dirty) writeFileSync(path, JSON.stringify(doc, null, 2) + '\n');
 }
 
