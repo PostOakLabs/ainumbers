@@ -54,6 +54,15 @@ const chain = (name) => JSON.parse(readFileSync(resolve(CHAINS_DIR, `${name}.jso
 const node = (id) => JSON.parse(readFileSync(resolve(NODES_DIR, `${id}.json`), 'utf8'))
 const clone = (o) => JSON.parse(JSON.stringify(o))
 
+// The composer_url fixtures ([2b]/[3c]/[3d]) describe the PR #1451 TRANSITION,
+// so their "before" is pinned to the deprecated pre-#1451 target rather than
+// inherited from the shard. Inheriting it made the whole set self-erasing: once
+// #1451 lands, the shard already carries the post-repoint URL, before === after,
+// and the three cases collapse to CLEAN/copy-edit — 8 assertions that silently
+// stop proving the guard they exist to prove. The AFTER target is still checked
+// against the real tree by repoTargetExists, so the live half stays live.
+const DEPRECATED_COMPOSER_URL = 'https://ainumbers.co/guides/agentic-checkout-composer.html'
+
 // Two real, currently-registered nodes — taken from order.nodes rather than
 // hardcoded, so no fixture depends on a specific art number surviving.
 const order = JSON.parse(readFileSync(META_PATH, 'utf8')).order
@@ -126,7 +135,7 @@ heading(2, 'purely additive new chain (ap2-x402-cart-correlation, 1dc5d3e7) -> A
 // inverting what it proves.
 heading('2b', 'composer_url repoint, target PRESENT (agentic-checkout, PR #1451) -> AUTO-LAND')
 {
-  const before = chain('agentic-checkout')
+  const before = { ...chain('agentic-checkout'), composer_url: DEPRECATED_COMPOSER_URL }
   const after = clone(before)
   after.composer_url = 'https://ainumbers.co/chaingraph/chains/agentic-checkout.html'
   if (before.composer_url === after.composer_url) {
@@ -198,7 +207,7 @@ heading('3b', 'handoff-only edit inside steps (dw-capacity-check) -> REFUSED')
 heading('3c', 'composer_url repoint, target ABSENT (agentic-checkout) -> REFUSED, naming the missing path')
 {
   const MISSING_URL = 'https://ainumbers.co/chaingraph/chains/agentic-checkout-NOT-BUILT.html'
-  const before = chain('agentic-checkout')
+  const before = { ...chain('agentic-checkout'), composer_url: DEPRECATED_COMPOSER_URL }
   const after = clone(before)
   after.composer_url = MISSING_URL
   check(
@@ -236,7 +245,7 @@ heading('3c', 'composer_url repoint, target ABSENT (agentic-checkout) -> REFUSED
 heading('3d', 'composer_url + a second field (agentic-checkout) -> REFUSED even with the target present')
 {
   const REAL_URL = 'https://ainumbers.co/chaingraph/chains/agentic-checkout.html'
-  const before = chain('agentic-checkout')
+  const before = { ...chain('agentic-checkout'), composer_url: DEPRECATED_COMPOSER_URL }
 
   const withProse = clone(before)
   withProse.composer_url = REAL_URL
