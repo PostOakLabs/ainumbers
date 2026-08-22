@@ -117,7 +117,7 @@ function buildCompatContractSection() {
           <td><code>${esc(e.version)}</code></td>
           <td>${esc(e.title.replace(/^\d+\.\d+(?:\.\d+)?(?:-draft)? — /, ''))}</td>
           <td>${e.additiveConfirmed ? '<span class="status-ok">yes</span> (CHANGELOG states additive)' : 'unconfirmed in CHANGELOG text'}</td>
-          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, proven live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
+          <td><span class="status-ok">yes</span>, frozen <code>$defs/artifact.required</code>, verified live by <code>golden-parity.test.mjs</code> / <code>linear-hash-freeze.mjs</code></td>
         </tr>`
     )
     .join('\n');
