@@ -193,6 +193,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="section-head">Liabilities (JSON array, optional)</div>
     <div class="q"><textarea id="liabilities" placeholder='[{"description":"payable to broker","amount":500,"currency":"USD","fx_rate_to_base":1}]'></textarea></div>
 
+    <div class="section-head">Upstream Lineage Refs (JSON objects, optional)</div>
+    <div class="grid">
+      <div class="q"><label><span class="dim">Field</span>positions_ref</label>
+        <textarea id="positions_ref" style="min-height:64px" placeholder='{"execution_hash":"<64-hex>","tool_id":"art-558-record-fund-positions"}'></textarea></div>
+      <div class="q"><label><span class="dim">Field</span>pricing_ref</label>
+        <textarea id="pricing_ref" style="min-height:64px" placeholder='{"execution_hash":"<64-hex>","tool_id":"art-NN-record-pricing-inputs"}'></textarea></div>
+    </div>
+    <div class="muted" style="margin:-6px 0 12px">Optional citations to an upstream positions/pricing input-receipt (each an <code>{execution_hash, tool_id}</code> pointer). When supplied, this run's <code>chain.parent_hashes</code>/<code>chain.parent_tool_ids</code> are populated from them below; the NAV arithmetic never reads their content. Leaving both blank reproduces every prior run unchanged.</div>
+
     <div class="section-head">Shares Outstanding &amp; Rounding</div>
     <div class="grid3">
       <div class="q"><label><span class="dim">Field</span>Shares Outstanding</label>
@@ -279,7 +288,7 @@ const MANIFEST = {
   spec_version: '0.8.7',
   compute_capability: "server",
   export_capability: ["pdf","xlsx"],
-  description: "Recomputes a fund's net-asset-value-per-share from supplied holdings, accruals, liabilities and shares outstanding, using fixed-point money math and a declared rounding mode. Recomputes the arithmetic over declared inputs and attests that, never a valuation or live market data.",
+  description: "Recomputes a fund's net-asset-value-per-share from supplied holdings, accruals, liabilities and shares outstanding, using fixed-point money math and a declared rounding mode. Recomputes the arithmetic over declared inputs and attests that, never a valuation or live market data. Optionally accepts positions_ref/pricing_ref (each {execution_hash, tool_id}) citing an upstream input-receipt; when supplied, chain.parent_hashes/parent_tool_ids are populated to match.",
   chain: "nav-verification-pack",
   url: "https://ainumbers.co/chaingraph/art-373-recompute-fund-nav.html"
 };
@@ -479,8 +488,20 @@ function parseJsonArray(id) {
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch (e) { return []; }
 }
 
+// Optional upstream-lineage ref: {execution_hash, tool_id}. Returns null on empty/invalid
+// input so a blank field never contributes a field to pp -- byte-identical to every call
+// made before positions_ref/pricing_ref existed (NAV-LIN-WIRE-1).
+function parseOptionalRef(id) {
+  const raw = document.getElementById(id).value.trim();
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    return (v && typeof v === 'object' && typeof v.execution_hash === 'string' && typeof v.tool_id === 'string') ? v : null;
+  } catch (e) { return null; }
+}
+
 function getPP() {
-  return {
+  const pp = {
     fund_id: document.getElementById('fund_id').value || null,
     valuation_date: document.getElementById('valuation_date').value || null,
     base_currency: document.getElementById('base_currency').value || 'USD',
@@ -490,6 +511,15 @@ function getPP() {
     shares_outstanding: document.getElementById('shares_outstanding').value,
     rounding: { decimal_places: Number(document.getElementById('decimal_places').value || 2), mode: document.getElementById('rounding_mode').value },
   };
+  // Additive-only, per NAV-LIN-WIRE-1: these keys are ONLY present on pp when the caller
+  // actually supplied them, so a run that leaves both fields blank produces the exact same
+  // pp shape -- and therefore the exact same execution_hash -- as before this capability
+  // existed. compute() never reads either key; only the chain{} envelope below does.
+  const positionsRef = parseOptionalRef('positions_ref');
+  const pricingRef = parseOptionalRef('pricing_ref');
+  if (positionsRef) pp.positions_ref = positionsRef;
+  if (pricingRef) pp.pricing_ref = pricingRef;
+  return pp;
 }
 
 async function computeHash(pp, op) {
@@ -521,13 +551,22 @@ async function run() {
   const output_payload = result.output_payload, compliance_flags = result.compliance_flags;
   const hash = await computeHash(pp, output_payload);
 
+  // NAV-LIN-WIRE-1: thread positions_ref/pricing_ref (if supplied) into chain.parent_hashes/
+  // parent_tool_ids -- the SAME buildArtifact() options every kernel already accepts server-side
+  // (chaingraph/kernels/art-373-recompute-fund-nav.kernel.mjs is unmodified). Both refs cite
+  // ROOT attestation artifacts (chain_depth 0), so chain_depth here is SPEC.md's
+  // max(parent depths)+1 = 1 when either ref is present, 0 otherwise -- unchanged root case.
+  const parent_hashes = [], parent_tool_ids = [];
+  if (pp.positions_ref) { parent_hashes.push(pp.positions_ref.execution_hash); parent_tool_ids.push(pp.positions_ref.tool_id); }
+  if (pp.pricing_ref) { parent_hashes.push(pp.pricing_ref.execution_hash); parent_tool_ids.push(pp.pricing_ref.tool_id); }
+
   const __generatedAtCapture = new Date().toISOString();
   const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0', compute_mode: 'browser',
     mandate_type: MANIFEST.mandate_type, tool_id: MANIFEST.tool_id, tool_version: MANIFEST.tool_version,
     generated_at: __generatedAtCapture, execution_hash: hash,
-    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    chain: { parent_hashes: parent_hashes, parent_tool_ids: parent_tool_ids, chain_depth: parent_hashes.length ? 1 : 0 },
     policy_parameters: pp, output_payload: output_payload, compliance_flags: compliance_flags,
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
