@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (633 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (634 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6435,6 +6435,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "payment_policy",
     "url": "https://ainumbers.co/chaingraph/art-611-erc7540-async-vault-request-accounting.html",
     "description": "Recomputes ERC-7540 asynchronous-vault request accounting from caller-declared request state. ERC-7540 (Final, Created 2023-10-18, CC0-1.0) ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-612-erc2612-permit-binding-verifier",
+    "display_name": "ERC-2612 Permit Binding Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-612-erc2612-permit-binding-verifier.html",
+    "description": "Recomputes the EIP-712 typed-data digest for an ERC-2612 Permit struct (the gasless-approval rail used by USDC/DAI-style tokens) from caller",
     "consumes": [],
     "feeds": [],
     "status": "live"
