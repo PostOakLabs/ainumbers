@@ -44,6 +44,14 @@ const MAPR_CAP_PCT = 36;
 // line. It is reported as a named threshold so a reader can see it is ours.
 const APPROACHING_CAP_PCT = 30;
 
+// Declared structural limit, not a rule of law. The present-value sum walks one
+// term per scheduled payment, so without a stated ceiling the work inside
+// compute() would be bounded by a caller-supplied number rather than by a
+// constant. 600 payments covers 50 years monthly or 11 years weekly, and a
+// schedule longer than that returns no rate and says why, rather than being
+// silently truncated to a number that would misprice the loan.
+const MAX_PAYMENT_COUNT = 600;
+
 // --- numeric helpers ---------------------------------------------------------
 
 // Number() runs the argument's own coercion path, which throws outright for an
@@ -317,8 +325,12 @@ export function compute(pp) {
     payment_amount = explicit_payment_amount > 0
       ? explicit_payment_amount
       : scheduled_total / payment_count;
-    for (let k = 1; k <= payment_count; k++) payments.push({ amount: payment_amount, full: k, frac: 0 });
+    if (payment_count <= MAX_PAYMENT_COUNT) {
+      for (let k = 1; k <= payment_count; k++) payments.push({ amount: payment_amount, full: k, frac: 0 });
+    }
   }
+
+  const payment_count_exceeds_limit = payment_structure === 'installment' && payment_count > MAX_PAYMENT_COUNT;
 
   const payment_total = r2(payment_amount * payment_count);
   const finance_charge_in_schedule = r2(payment_total - amount_advanced);
@@ -339,6 +351,7 @@ export function compute(pp) {
 
   const compliance_flags = [];
   if (declared_out_of_scope) compliance_flags.push('MLA_MAPR_OPEN_END_OUT_OF_SCOPE');
+  if (payment_count_exceeds_limit) compliance_flags.push('MLA_MAPR_PAYMENT_COUNT_EXCEEDS_LIMIT');
   if (charges_exceed_advance) compliance_flags.push('MLA_MAPR_CHARGES_EXCEED_ADVANCE');
   if (!declared_out_of_scope && !solved.bracketed) compliance_flags.push('MLA_MAPR_NOT_BRACKETED');
   if (!declared_out_of_scope && solved.bracketed && !solved.converged) compliance_flags.push('MLA_MAPR_DID_NOT_CONVERGE');
@@ -380,11 +393,13 @@ export function compute(pp) {
     iterations: solved.iterations,
     bracketed: solved.bracketed,
     converged: solved.converged,
+    max_payment_count: MAX_PAYMENT_COUNT,
+    payment_count_exceeds_limit,
     approaching_cap_threshold_pct: APPROACHING_CAP_PCT,
     approaching_cap_threshold_basis: 'House heuristic, declared. No authority states a 30 percent warning line; it is named here so a reader can see it is ours and not the regulation.',
     regulatory_basis: '10 USC 987(b) and 32 CFR 232.4(b) set the 36 percent MAPR limit. 32 CFR 232.4(c)(1) sets the charge set. 32 CFR 232.4(c)(2)(i) directs that a closed-end MAPR is calculated by Regulation Z rules for the annual percentage rate over that charge set, which are 12 CFR 1026.22(a)(1) and Appendix J to 12 CFR part 1026. DoD MLA rule 80 FR 43560 (22 Jul 2015): effective 1 Oct 2015, compliance required 3 Oct 2016, and 3 Oct 2017 for credit card accounts.',
     method_basis: 'Appendix J to 12 CFR part 1026: (a)(2) actuarial recurrence on the unpaid balance; (b)(1) annualise by multiplying the unit-period rate by the unit-periods in a year; (b)(4)(ii) the unit-period of a single advance, single payment transaction is its term, capped at one year; (b)(5)(ii) a monthly unit-period has 12 unit-periods per year; (b)(5)(vi) and (b)(5)(vii) a sub-year single advance, single payment term has one unit-period and 365 divided by the days in the term unit-periods per year; (b)(5)(v)(B) a remaining interval that is not a whole number of months is the remaining days divided by 365; (b)(6) a fraction of a unit-period is priced at simple interest, so only whole unit-periods compound and no base is raised to a fractional power. Accuracy target: the one eighth of one percentage point tolerance in 12 CFR 1026.22(a)(2).',
-    scope_note: 'CLOSED-END consumer credit only. Open-end credit, including every credit card account, is OUT OF SCOPE: 32 CFR 232.4(c)(2)(ii)(A) prices it on the balance for a billing cycle under 12 CFR 1026.14(c) and (d), and 32 CFR 232.4(c)(2)(ii)(B) governs a billing cycle with no balance. Neither is computed here, and a call declaring an open-end class or a credit card account returns no rate rather than a closed-end number. The bona fide fee exclusion in 32 CFR 232.4(d)(1) reaches a credit card account under an open-end plan only, so it is unavailable on this path and a caller-declared bona fide amount is included anyway. Charges are modelled as collected at consummation and deducted from the amount financed, except a finance charge, which is carried by the payment schedule; a structure in which an includable charge is instead financed into the payments is out of scope.',
+    scope_note: 'CLOSED-END consumer credit only. Open-end credit, including every credit card account, is OUT OF SCOPE: 32 CFR 232.4(c)(2)(ii)(A) prices it on the balance for a billing cycle under 12 CFR 1026.14(c) and (d), and 32 CFR 232.4(c)(2)(ii)(B) governs a billing cycle with no balance. Neither is computed here, and a call declaring an open-end class or a credit card account returns no rate rather than a closed-end number. The bona fide fee exclusion in 32 CFR 232.4(d)(1) reaches a credit card account under an open-end plan only, so it is unavailable on this path and a caller-declared bona fide amount is included anyway. Charges are modelled as collected at consummation and deducted from the amount financed, except a finance charge, which is carried by the payment schedule; a structure in which an includable charge is instead financed into the payments is out of scope. A schedule of more than 600 payments is also out of scope and returns no rate: that ceiling is a declared structural limit of this node, not a rule of law, and it exists so the work done inside compute() is bounded by a constant rather than by a caller-supplied payment count.',
     table_version: 'MLA-DOD-32CFR232-2015-10-01',
     table_source: '10 USC 987(b); 32 CFR 232.4(b) limit; 32 CFR 232.4(c)(1)(i) to (iii) charge set; 32 CFR 232.4(c)(1)(iii)(B) Federal credit union and insured depository institution application-fee carve-out; 32 CFR 232.4(c)(2)(i) closed-end computation method; 32 CFR 232.4(d)(1) and (d)(2) bona fide fee exclusion and its ineligible items; 12 CFR 1026.22(a) and Appendix J to 12 CFR part 1026 (eCFR versioner, retrieved 2026-08-14); worked examples 80 FR 43583 and 80 FR 43603 n.347 (retrieved 2026-08-22), republished at CFPB Supervision and Examination Manual, MLA (Sept 2016), pp. MLA 9 to 10.',
     pii_note: 'All inputs are processed locally in your browser. No data is transmitted.',
@@ -393,7 +408,7 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
-export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {

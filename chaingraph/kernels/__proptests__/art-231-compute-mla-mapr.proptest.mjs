@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:084f631dcc2ef2bfbf6b605c07a7d7ca0be0bf125ee4471e6d4c0bba19f79f6e
+// kernel_digest_at_authoring: sha256:409e85b3c990cce88ab7f3c692599906be54e95ff96d449d1906b4b8030e5e0f
 //
 // FV-PROPFLOOR-SHARD-B7-1 — property-test floor for art-231-compute-mla-mapr,
 // RE-AUTHORED for kernel 2.0.0 (ART231-MAPR-REBUILD-1). Class B (bounded-numeric),
@@ -303,6 +303,10 @@ const ULP_BOUNDARY_CASES = [
     'open-end declared — out of scope, no rate rather than a closed-end number'],
   [{ is_credit_card: true, loan_amount: 1000, payment_count: 12, finance_charge_total: 205.55 },
     'legacy is_credit_card flag — a card account is open-end, so out of scope'],
+  [{ ...CLOSED, payment_structure: 'installment', loan_amount: 10000, payment_count: 600, finance_charge_total: 5000 },
+    'exactly at the declared 600-payment structural limit — still solved'],
+  [{ ...CLOSED, payment_structure: 'installment', loan_amount: 10000, payment_count: 601, finance_charge_total: 5000 },
+    'one payment past the limit — no rate and the limit flag, never a silently truncated schedule'],
   [{ ...CLOSED, payment_structure: 'installment', loan_amount: -0, payment_count: 12, finance_charge_total: 100 },
     'negative zero advance — normalised to plain 0, no rate'],
   [{ ...CLOSED, payment_structure: 'installment', loan_amount: 1000, payment_count: 12, finance_charge_total: 0.1 * 3 },
