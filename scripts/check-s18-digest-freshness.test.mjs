@@ -492,9 +492,18 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // unchanged), so it stays deferred and out of this denominator pending its own adjudication row.
   // Measured both sides, not assumed: 480/596 fresh + 116 stale on the base commit 83e115c7 (the
   // merge commit of PR #1419, this branch's starting point), 487/603 fresh + 116 stale after.
-  assert(total === 603, `expected 603 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 487, `expected 487 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (unaffected by ASSEMBLE-LAND-PROVE13-1 -- all twelve new receipts are fresh), got ${stale.length}`);
+  // 603 -> 602 post-ART99-NONLIVE-FLIP-1 (2026-08-22): art-99-mica-transitional-deadline-router
+  // (route_mica_transitional_deadline) flipped status live -> deprecated as interim containment --
+  // its kernel carries a frozen clock and a transitional deadline six months past MiCA Art 143(3)'s
+  // EU-wide stop, so it answered a licensing decision wrongly on every current invocation. The node
+  // leaves this denominator because the in-scope filter is `status === 'live'`; NO kernel byte and
+  // NO receipt moved (`git diff origin/main HEAD -- '*.kernel.mjs'` is EMPTY on this branch), so
+  // this is a pure scope removal, not a staleness event. Measured both sides, not assumed:
+  // 487/603 fresh + 116 stale before the flip, 486/602 fresh + 116 stale after -- art-99 was in the
+  // FRESH set, so denominator -1, fresh -1, stale UNCHANGED at 116.
+  assert(total === 602, `expected 602 in-scope gpu:false proven nodes, got ${total}`);
+  assert(fresh.length === 486, `expected 486 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 116, `expected 116 stale (unaffected by ART99-NONLIVE-FLIP-1 -- art-99 left the denominator from the FRESH set), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
