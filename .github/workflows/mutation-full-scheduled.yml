@@ -30,15 +30,14 @@ name: Mutation Tier Scan (scheduled)
 # command, the scheduled cron just runs with dry_run=false semantics (full
 # estate, sharded) instead.
 #
-# LANDING SEQUENCE (a main-only-trigger workflow must be exercised on the
-# branch before it's trusted, but `workflow_dispatch` on a brand-new file
-# 404s until that file exists on the default branch — measured directly:
-# `gh workflow run mutation-full-scheduled.yml --ref <branch>` returned
-# "workflow ... not found on the default branch"). So: every job below ships
-# DISABLED (`if: false &&` prepended to each job's real condition) in the PR
-# that adds this file. Once merged, the dry run is dispatched FOR REAL from
-# main, and a follow-up PR removes the `false &&` prefixes (enabling every
-# job) citing that dry-run run's link — never "merge and see".
+# LANDING HISTORY (SO #40a): this file first landed with every job disabled
+# (`if: false &&` prepended to each job's real condition) purely to get the
+# workflow registered on the default branch — `workflow_dispatch` on a
+# brand-new file 404s until it exists there, measured directly. Once that
+# merged, `workflow_dispatch` against THIS branch (jobs re-enabled) worked —
+# GitHub only needs the workflow registered via the default branch, not
+# enabled there, to dispatch a different ref's version of it. That gave a
+# real on-branch dry-run proof before enabling the jobs on main for real.
 
 on:
   schedule:
@@ -57,7 +56,7 @@ permissions:
 jobs:
   dry-run:
     name: Dry run (10-kernel pilot sample)
-    if: ${{ false && (github.event_name == 'workflow_dispatch' && inputs.dry_run) }} # DISABLED pending main-side dry-run proof — see header LANDING SEQUENCE
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -112,7 +111,7 @@ jobs:
 
   mutation-shard:
     name: Full estate — shard ${{ matrix.shard }}/8
-    if: ${{ false && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }} # DISABLED pending main-side dry-run proof — see header LANDING SEQUENCE
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -140,7 +139,7 @@ jobs:
   summarize:
     name: Summarize full-estate scan
     needs: mutation-shard
-    if: ${{ false && always() && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }} # DISABLED pending main-side dry-run proof — see header LANDING SEQUENCE
+    if: ${{ always() && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
