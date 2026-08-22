@@ -20,7 +20,7 @@ name: Derived Artifacts Regen
 # single-kernel PR no longer needs a separate hand-staged commit to assemble
 # it; this workflow assembles it after merge, exactly like catalogs/sitemap.
 # Its generator (assemble-chaingraph.mjs) is also the refusal gate. Since
-# ASSEMBLE-CHAIN-CLASSIFY-1 (2026-08-22) it classifies the diff rather than
+# 2026-08-22 it classifies the diff rather than
 # refusing every chain touch: copy-only chain edits (description/title) and
 # purely additive new chains auto-land; structural chain edits, chain
 # removals/renames and node removals/renames leave chaingraph.json untouched
@@ -331,12 +331,13 @@ jobs:
       # generator, so failing there would leave every OTHER shared artifact
       # stale too. Everything auto-landable is regenerated and committed first;
       # then this decides whether the run may be called a success. It
-      # RECOMPUTES the classification from the shards (SO #34 — never reads the
-      # write step's claim about itself) and exits 3, with an ::error
+      # RECOMPUTES the classification from the shards — it never reads the write
+      # step's own claim about what it did — and exits 3, with an ::error
       # annotation naming each refused chain/node, when anything was refused.
       #
       # It runs on the dry-run path too (the commit step is skipped, not
       # failed), so a workflow_dispatch dry run exercises this step rather than
-      # stopping short of it (SO #47(b)).
-      - name: Fail the run if the assembler refused to write (ASSEMBLE-CHAIN-CLASSIFY-1)
+      # stopping short of it. A dry run that never reaches a newly added step
+      # is not evidence that the step works.
+      - name: Fail the run if the assembler refused to write
         run: node scripts/assemble-chaingraph.mjs --refusal-status
