@@ -613,7 +613,12 @@ const GATES = [
       ? null
       : { notRun: 'this push touches no __proptests__ floor file, so the authoring check had nothing to examine' }],
   ['§18 compute-integrity (unit)', 'node chaingraph/kernels/compute-proof.test.mjs'],
+  // ADVISORY-ON-PR / HARD-ON-MAIN since PROVE-COVERAGE-GATE-SPLIT-1 (2026-08-22) — the split lives INSIDE
+  // the gate (isMainContext() + disposition(), mirroring check-kernel-coverage.mjs), not in the
+  // ADVISORY_ON_PR categorisation below: chaingraph.json's single-writer status is a property of the
+  // artifact, so the same downgrade has to hold in preflight AND in both CI workflows that invoke it.
   ['§18 compute-proof coverage',   'node scripts/check-compute-proof-coverage.mjs'],
+  ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
   // §18 RECOMPUTE-EQUALITY (SO #34, ASYNC-VACUOUS-GATE-1). Re-executes every proven node's kernel in the
