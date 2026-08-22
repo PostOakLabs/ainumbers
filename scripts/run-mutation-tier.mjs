@@ -23,8 +23,13 @@
  *      confounded by structurally-uncoverable buildArtifact()/meta code.
  *   3. Break floors are read from chaingraph/kernels/mutation-tiers.config.json
  *      (SO #41 — thresholds live in config, not a hardcoded number here),
- *      with a named-exception allowlist for the one kernel the classifier
- *      cannot split (art-594, non-canonical export shape).
+ *      with TWO distinct non-blocking categories, both config-declared, never
+ *      inferred: `excludedKernels` (the classifier cannot split this file at
+ *      all — e.g. art-594's non-canonical export shape — so it is never run)
+ *      and `namedLeads` (the kernel WAS run and scored, sits genuinely below
+ *      its tier floor, and is documented rather than silently lowering the
+ *      floor to fit it — SO #36's "kernel whose floor is unreachable in this
+ *      row = named lead", never a silent threshold change).
  *
  * Usage:
  *   node scripts/run-mutation-tier.mjs --kernel <id> [<id> ...]
@@ -261,11 +266,17 @@ async function main() {
     const mmPass = mm.score !== null && mm.score >= config.moneyMathBreakFloor;
     const pePass = pe.score === null || pe.score >= config.peripheralBreakFloor;
     const peEnforced = config.peripheralGateMode === 'enforced';
+    const namedLead = (config.namedLeads || {})[id];
     console.log(`  money-math:  ${mm.score ?? 'N/A'}% (killed ${mm.killed}/${mm.total})  floor=${config.moneyMathBreakFloor}%  ${mmPass ? 'PASS' : 'FAIL'}`);
     console.log(`  peripheral:  ${pe.score ?? 'N/A'}% (killed ${pe.killed}/${pe.total})  floor=${config.peripheralBreakFloor}%  ${pePass ? 'PASS' : `FAIL${peEnforced ? '' : ' (advisory — not gating)'}`}`);
     if (r.tiers.other.total > 0) console.log(`  ⚠ ${r.tiers.other.total} mutant(s) in an unrecognised location — treated as a hard fail`);
     console.log(`  runtime: ${(r.runtimeMs / 1000).toFixed(1)}s`);
-    if (!mmPass || r.tiers.other.total > 0 || (peEnforced && !pePass)) floorFailCount++;
+    const belowFloor = !mmPass || (peEnforced && !pePass);
+    if (belowFloor && namedLead) {
+      console.log(`  ⚠ NAMED LEAD (SO #36) — below floor but documented, NOT gating: ${namedLead}`);
+    } else if (belowFloor || r.tiers.other.total > 0) {
+      floorFailCount++;
+    }
   }
 
   console.log(`\n=== SUMMARY ===`);
