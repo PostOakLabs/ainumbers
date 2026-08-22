@@ -496,6 +496,24 @@ const GATES = [
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§17 kernel-identity coverage (shard, KERNELID-GATE-1)', 'node chaingraph/kernels/gen-kernel-identity.mjs --check --shard'],
   ['Property-testing floor',       changedRef ? `node scripts/run-proptests.mjs --base ${changedRef}` : 'node scripts/run-proptests.mjs'],
+  // MUTATION-TIERED-ROLLOUT-1: pure classifier self-test, always runs (milliseconds, no Stryker
+  // invocation) — proves chaingraph/kernels/mutation-tier-split.mjs still correctly separates
+  // money-math (compute() + its module-scope helpers) from peripheral (buildArtifact()/meta)
+  // BEFORE the mutation gate below trusts it to score anything.
+  ['Mutation tier classifier self-test (MUTATION-TIERED-ROLLOUT-1)', 'node chaingraph/kernels/mutation-tier-split.test.mjs'],
+  // MUTATION-TIERED-ROLLOUT-1: PR-incremental mutation gate, generalized from FV-STRYKER-PILOT-1
+  // (board/done/FV-STRYKER-PILOT-1.md). Scoped to TOUCHED_KERNEL_IDS — the SAME touched-kernel-id
+  // set the per-kernel `Kernel preflight (${id})` gates above already use — so a push touching
+  // zero kernels costs nothing, and a push touching one kernel pays only that kernel's mutation
+  // run (seconds to low minutes; art-508's 1,154-mutant floor was the pilot's slowest at ~4min).
+  // The full-estate scan (`--all`) is deliberately NOT run here — it runs on its own nightly
+  // schedule (.github/workflows/mutation-full-scheduled.yml) per the row's "PR-side incremental
+  // gate only; full runs go to a scheduled workflow" instruction (SO #40).
+  ...(TOUCHED_KERNEL_IDS.length
+    ? [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1, touched kernels)',
+        `node scripts/run-mutation-tier.mjs --kernel ${TOUCHED_KERNEL_IDS.join(' ')}`]]
+    : [['Mutation tier floor (MUTATION-TIERED-ROLLOUT-1: no kernel/floor file touched, skipped)', 'node -e "1"',
+        { notRun: 'this push touches no chaingraph/kernels/*.kernel.mjs or __proptests__/*.proptest.mjs, so the incremental mutation gate had nothing to examine' }]]),
   // ART27-HARNESS-INREPO-1: art-27's FV pilot record cites a full 3^12=531,441-state exhaustive
   // enumeration; this re-runs it in-repo every push (~3.4s measured — cheap enough for the normal
   // cadence, no scheduled-workflow home needed). Independent oracle, not run-proptests.mjs's floor

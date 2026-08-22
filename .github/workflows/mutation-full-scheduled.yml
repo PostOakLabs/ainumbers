@@ -1,0 +1,156 @@
+name: Mutation Tier Scan (scheduled)
+
+# MUTATION-TIERED-ROLLOUT-1 — generalizes FV-STRYKER-PILOT-1
+# (board/done/FV-STRYKER-PILOT-1.md) from a 10-kernel one-off pilot into a
+# recurring, risk-tiered scan over the full kernel estate.
+#
+# REPORT-ONLY, same shape as fullsuite-schedule.yml and
+# helm-guide-freshness-schedule.yml: no `pull_request` trigger, not a
+# required status check, `permissions: contents: read` throughout, nothing
+# here ever pushes/commits/deploys. A red run's own failed status on the
+# Actions tab IS the finding — no GitHub issue is filed (this cadence is
+# nightly, not every-6h, so a red-issue-per-cycle would spam; see
+# fullsuite-schedule.yml's identical reasoning for its weekly cadence).
+#
+# WHY A MATRIX, NOT ONE JOB: FV-STRYKER-PILOT-1 measured ~67s/kernel average
+# (Stryker startup + N-mutant run, command-runner mode — one child process
+# per mutant). Extrapolated serially across the ~633-kernel estate that is
+# ~11.7 hours, past GitHub Actions' 6-hour hosted-runner ceiling. Sharded 8
+# ways via scripts/run-mutation-tier.mjs's own `--shard <i> <n>` flag (simple
+# `id-index % n === i` split over the SAME sorted kernel-id list every shard
+# computes independently — no coordination file, no race), each shard is
+# ~79 kernels, comfortably inside the ceiling even at 2-3x the pilot's
+# average.
+#
+# dry_run INPUT (SO #40a): this workflow's only irreversible-adjacent cost is
+# TIME — a full 8-shard run takes over an hour of runner time even though it
+# writes nothing. dry_run=true (the default for a manual dispatch) instead
+# runs the ORIGINAL FV-STRYKER-PILOT-1 10-kernel sample in a single job,
+# proving the whole pipeline (npx-ephemeral Stryker fetch, scratch-copy,
+# tier split, threshold check, summary) end-to-end in a few minutes — the
+# same kernel list, same command, the scheduled cron just runs with
+# dry_run=false semantics (full estate, sharded) instead.
+
+on:
+  schedule:
+    - cron: '42 9 * * *'   # nightly, arbitrary offset — avoids the hourly/6h/weekly stampede other scheduled workflows here use
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — scan only the original FV-STRYKER-PILOT-1 10-kernel sample (a few minutes) instead of the full ~633-kernel sharded estate scan (over an hour)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    name: Dry run (FV-STRYKER-PILOT-1 10-kernel sample)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🧬 Mutation tier scan — pilot-10 sample (dry run)
+        id: scan
+        continue-on-error: true
+        run: |
+          node scripts/run-mutation-tier.mjs --kernel \
+            art-06-genius-act-reserve-attestation \
+            art-275-genius-reserve-disclosure-checker \
+            art-431-fdic-assessment-rate-calculator \
+            art-504-classify-carf-reportable \
+            art-505-dispose-carf-status-message \
+            art-506-classify-t1-posttrade-timing \
+            art-508-recompute-bordereau \
+            art-509-recompute-payment-waterfall \
+            art-535-fdic370-output-file-validator \
+            art-77-t1-settlement-readiness-diagnostic \
+            --json "$RUNNER_TEMP/mutation-dryrun.json"
+
+      - name: 📋 Summarize (dry run)
+        if: always()
+        env:
+          RESULT: ${{ steps.scan.outcome }}
+        run: |
+          {
+            echo "## Mutation Tier Scan — DRY RUN (10/633 kernels sampled)"
+            echo ""
+            echo "This is the proof-it-works dry run (SO #40a) — it exercises the identical"
+            echo "pipeline the nightly full-estate scan uses, scoped to the original"
+            echo "FV-STRYKER-PILOT-1 sample so it finishes in minutes instead of over an hour."
+            echo ""
+            echo "Result: $RESULT"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$RESULT" != "success" ]; then
+            echo "::error title=Mutation Tier Scan (dry run)::pilot-10 sample had a kernel below its break floor (or a hard failure) — see the step log above."
+            exit 1
+          fi
+          echo "✅ dry run clean."
+
+  mutation-shard:
+    name: Full estate — shard ${{ matrix.shard }}/8
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🧬 Mutation tier scan — shard ${{ matrix.shard }}/8
+        run: |
+          node scripts/run-mutation-tier.mjs --all --shard ${{ matrix.shard }} 8 \
+            --json "$RUNNER_TEMP/mutation-shard-${{ matrix.shard }}.json"
+
+  summarize:
+    name: Summarize full-estate scan
+    needs: mutation-shard
+    if: ${{ always() && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📋 Summarize
+        env:
+          RESULT: ${{ needs.mutation-shard.result }}
+        run: |
+          {
+            echo "## Mutation Tier Scan — full estate (8 shards)"
+            echo ""
+            echo "Shards result: $RESULT"
+            echo ""
+            echo "Report-only: this workflow never blocks a merge or deploy and never writes"
+            echo "to the repo. A red shard above is the finding — see that shard's own job log"
+            echo "for which kernel(s) fell below their tier floor."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$RESULT" != "success" ]; then
+            echo "::error title=Mutation Tier Scan::One or more shards had a kernel below its break floor (or a hard failure) this cycle — see that shard's job log."
+            exit 1
+          fi
+          echo "✅ all 8 shards clean this cycle."
