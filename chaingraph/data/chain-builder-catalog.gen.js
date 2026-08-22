@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (632 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (633 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6739,6 +6739,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-651-authzen-conformance-fixture.html",
     "description": "Evaluates the 8-decision AuthZEN Authorization API 1.0 certification fixture (AUTHZEN-CONFORMANCE-BUILD-SPEC.md) through the spec-mandated s",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-652-verify-receipt",
+    "display_name": "Verify Receipt",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-652-verify-receipt.html",
+    "description": "Offline verifier for AINumbers Evidence Envelope v0.1 receipts. Given a receipt JSON, recomputes the RFC 8785 JCS signing preimage, verifies",
     "consumes": [],
     "feeds": [],
     "status": "live"
