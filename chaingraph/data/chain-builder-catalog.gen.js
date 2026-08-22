@@ -1935,7 +1935,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "TRID Fee Tolerance and Cure",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-216-trid-tolerance-cure.html",
-    "description": "TRID fee tolerance analysis and cure calculation per Reg Z §1026.19(e)(3). Classifies each closing fee into zero-tolerance, ten-percent cumu",
+    "description": "TRID fee tolerance analysis and cure calculation per Reg Z §1026.19(e)(3). Each closing fee arrives with its tolerance bucket already assign",
     "consumes": [],
     "feeds": [],
     "status": "live"
