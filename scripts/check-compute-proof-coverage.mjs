@@ -35,15 +35,47 @@
 // This is the §18 analogue of check-kernel-coverage.mjs (§17 registration) and verify-proof-surface.mjs (§16
 // page surface). Zero-dependency. Wired into scripts/preflight.mjs + .github/workflows/deploy-to-dreamhost.yml.
 //
+// ── ADVISORY-ON-PR / HARD-ON-MAIN (PROVE-COVERAGE-GATE-SPLIT-1, 2026-08-22) ────────────────────────
+// ⛔ THE DEFECT THIS CLOSES: this gate reads chaingraph.json and NOTHING ELSE (CG_PATH below). Since
+// ASSEMBLE-MAINSIDE-1, chaingraph.json is a SHARED DERIVED artifact with a single writer — main's
+// derived-artifacts-regen.yml (SO #35, COVERED id 'chaingraph-assemble'). A prove PR therefore edits the
+// node SHARDS (chaingraph/graph/nodes/**) and is FORBIDDEN to reassemble chaingraph.json itself. The
+// committed monolith stays stale for the whole life of that PR, so:
+//   • the deferred set this gate reads still names every node the PR just proved, and
+//   • the baseline the PR correctly lowers no longer names them,
+// which is byte-identical, to this gate, to N FABRICATED PROOF REGRESSIONS. Measured 2026-08-22:
+// PROVE-LAND-RECONCILE-1 declared both prove PRs "structurally unlandable in current shape" on exactly
+// this, its second blocker — "removing the 5 tripped the provenance discriminator as 5 fabricated
+// regressions". A gate a branch is FORBIDDEN to satisfy must not block that branch.
+//
+// ✅ THE SPLIT — the same one check-kernel-coverage.mjs (§17, single-writer index.mjs) already applies,
+// deliberately NOT a third pattern: the gate RUNS IN FULL and PRINTS ITS FULL FAILURE OUTPUT in both
+// contexts; only the exit code differs. isMainContext() (scripts/derived-artifacts.mjs) FAILS CLOSED —
+// `pull_request` and `merge_group` are the only two affirmative PR proofs in CI, a resolvable non-main
+// feature branch is the only one locally, and every other/undeterminable state BLOCKS.
+//   • PR / merge_group  → print + ::warning + exit 0. Main's regen reassembles chaingraph.json on merge.
+//   • push:main, schedule, dispatch, unknown → exit 1, unchanged. ⛔ THE MAIN-SIDE JOB IS UNTOUCHED: a
+//     genuine fabricated regression survives to main post-regen (the reassembled monolith then really does
+//     say fewer nodes are proven than the baseline pins) and HARD-fails there — in deploy-to-dreamhost.yml
+//     and in land-verify.yml's push:main run. The split relaxes the PR side only, NEVER the main side.
+// ⚠ --update-baseline is NOT context-split: it is an explicit, deliberate act, and its regression refusal
+// stays hard in every context.
+//
 // Usage:
-//   node scripts/check-compute-proof-coverage.mjs                  strict (CI): exit 1 on any violation
+//   node scripts/check-compute-proof-coverage.mjs                  strict: exit 1 on any violation on MAIN;
+//                                                                  exit 0 + ::warning on a PR (split above)
 //   node scripts/check-compute-proof-coverage.mjs --summary        counts only, exit 0
 //   node scripts/check-compute-proof-coverage.mjs --list-deferred  print the deferred gpu:false set, exit 0
 //   node scripts/check-compute-proof-coverage.mjs --update-baseline rewrite the baseline to the current state
+//
+// Self-test (SO #40b, proven-to-reject): scripts/check-compute-proof-coverage.test.mjs — drives the pure
+// evaluateCoverage() / findRegressions() / ratchetBreach() / disposition() exports below over in-memory
+// fixtures, including the reshaped-prove-PR fixture that motivated this split.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainContext } from './derived-artifacts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -128,45 +160,62 @@ export function zkCoverage(chaingraph) {
   return { provenNodes, provenTotal, provenPct };
 }
 
-// ── CLI entry point (only runs when this file is executed directly, not when imported) ─────────────
-const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (IS_MAIN) {
-
-// ── load ──────────────────────────────────────────────────────────────────────────────────────────
-const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
-const live = (cg.nodes ?? []).filter((n) => n.status === 'live');
-const gpuFalse = live.filter((n) => n.gpu === false);
-const gpuTrue = live.filter((n) => n.gpu === true);
-
-const results = gpuFalse.map(classifyNode);
-const proven = results.filter((r) => r.state === 'proven');
-const deferred = results.filter((r) => r.state === 'deferred');
-const missing = results.filter((r) => r.state === 'missing');
-
-// ── conformance-fixture presence (§18.0 binding prerequisite) ───────────────────────────────────────
+// ── fixtureGap ────────────────────────────────────────────────────────────────────────────────────
+// Conformance-fixture presence (§18.0 binding prerequisite).
 // A §18 proof binds journal.output == the fixture vector's output_payload; a node that declares
 // conformance_fixtures:true but ships NO fixtures file (or an empty one) can never be legitimately proven
 // and silently escapes golden-parity / engine-parity / prove (all of which iterate over existing fixture
 // FILES and vacuously skip absent ones). W38 art-221..226 merged deferred with this exact gap. Every
 // gpu:false live node claiming conformance_fixtures:true MUST have <tool_id>.fixtures.json with >=1 vector.
-function fixtureGap(node) {
+//
+// `readFixture(toolId)` returns the file text, or null when the file does not exist. Injected rather than
+// hardcoded so the self-test can drive every branch (absent / unparseable / zero-vector / good) in memory;
+// the default reads chaingraph/kernels/fixtures/ exactly as before.
+export function defaultReadFixture(toolId) {
+  const fpath = resolve(FIXTURES_DIR, `${toolId}.fixtures.json`);
+  return existsSync(fpath) ? readFileSync(fpath, 'utf8') : null;
+}
+
+export function fixtureGap(node, readFixture = defaultReadFixture) {
   if (node.conformance_fixtures !== true) return null;
   const name = node.mcp_name || node.tool_id || '(unnamed)';
-  const fpath = resolve(FIXTURES_DIR, `${node.tool_id}.fixtures.json`);
-  if (!existsSync(fpath)) return { name, reason: `declares conformance_fixtures:true but ${node.tool_id}.fixtures.json is MISSING` };
+  const text = readFixture(node.tool_id);
+  if (text === null || text === undefined) return { name, reason: `declares conformance_fixtures:true but ${node.tool_id}.fixtures.json is MISSING` };
   let fx;
-  try { fx = JSON.parse(readFileSync(fpath, 'utf8')); }
+  try { fx = JSON.parse(text); }
   catch (e) { return { name, reason: `${node.tool_id}.fixtures.json is not valid JSON (${e.message})` }; }
   if (!Array.isArray(fx.vectors) || fx.vectors.length === 0) return { name, reason: `${node.tool_id}.fixtures.json has zero vectors` };
   return null;
 }
-const fixtureGaps = gpuFalse.map(fixtureGap).filter(Boolean);
+
+// ── evaluateCoverage ──────────────────────────────────────────────────────────────────────────────
+// Pure partition of an already-loaded chaingraph object into the §18 buckets the strict gate reports on.
+// Exported so the self-test drives the SHIPPED classifier, never a stand-in (SO #34: verify by mutation).
+export function evaluateCoverage(chaingraph, readFixture = defaultReadFixture) {
+  const live = (chaingraph.nodes ?? []).filter((n) => n.status === 'live');
+  const gpuFalse = live.filter((n) => n.gpu === false);
+  const gpuTrue = live.filter((n) => n.gpu === true);
+  const results = gpuFalse.map(classifyNode);
+  return {
+    gpuFalse,
+    gpuTrue,
+    proven: results.filter((r) => r.state === 'proven'),
+    deferred: results.filter((r) => r.state === 'deferred'),
+    missing: results.filter((r) => r.state === 'missing'),
+    fixtureGaps: gpuFalse.map((n) => fixtureGap(n, readFixture)).filter(Boolean),
+  };
+}
 
 // ── findRegressions ──────────────────────────────────────────────────────────────────────────────
 // Given the CURRENT deferred set and the OLD (on-disk, pre-write) baseline, name every node that newly
 // appears in the deferred set AND already existed (proven or otherwise) at the last pin. That is a proof
 // regression, not a legitimate new-node deferral. See the PROVENANCE DISCRIMINATOR header comment.
-function findRegressions(currentDeferred, oldBaseline) {
+//
+// ⚠ On a PR this function CANNOT distinguish a real regression from the stale-monolith artefact described
+// in the ADVISORY-ON-PR header note — both look identical from chaingraph.json alone. That is precisely why
+// the DISPOSITION, not this classifier, is what the context split changes: the finding is still computed
+// and still printed on a PR, it just does not block a branch that is forbidden to fix it.
+export function findRegressions(currentDeferred, oldBaseline) {
   const deferredBefore = new Set(oldBaseline?.deferred_nodes ?? []);
   const knownBefore = new Set(oldBaseline?.known_gpu_false_nodes ?? []);
   const regressions = [];
@@ -178,6 +227,43 @@ function findRegressions(currentDeferred, oldBaseline) {
   }
   return { regressions, newNodes };
 }
+
+// ── ratchetBreach ────────────────────────────────────────────────────────────────────────────────
+// The downward-only ceiling check, as a pure function of the current deferred set and the pinned baseline.
+// `over` is true when the deferred count ROSE above the pin; `added` names the entrants not in the pin.
+export function ratchetBreach(currentDeferred, baseline) {
+  const ceiling = baseline?.deferred ?? Infinity;
+  const known = new Set(baseline?.deferred_nodes ?? []);
+  return {
+    ceiling,
+    count: currentDeferred.length,
+    over: currentDeferred.length > ceiling,
+    added: currentDeferred.filter((r) => !known.has(r.name)).map((r) => r.name),
+  };
+}
+
+// ── disposition ──────────────────────────────────────────────────────────────────────────────────
+// PROVE-COVERAGE-GATE-SPLIT-1. The ONLY place the PR-vs-main split lives: given whether the gate found a
+// violation and whether this is a main context, decide the exit code. ⛔ Never consulted for
+// --update-baseline, which stays hard everywhere. Failing closed is inherited from isMainContext().
+//   failed=false                      → { exit: 0, mode: 'clean'    }
+//   failed=true,  mainContext === true → { exit: 1, mode: 'blocking' }   ⛔ main-side job unchanged
+//   failed=true,  mainContext === false → { exit: 0, mode: 'advisory' }  ✅ PR-side relaxation, printed in full
+// ⚠ FAILS CLOSED, a second time and independently of isMainContext(): the downgrade requires mainContext to
+// be the LITERAL boolean false. undefined/null/'' — a caller that forgot the field, or a probe that threw —
+// blocks. The relaxation has to be affirmatively earned at both layers, never inherited from a missing value.
+export function disposition({ failed, mainContext }) {
+  if (!failed) return { exit: 0, mode: 'clean' };
+  return mainContext === false ? { exit: 0, mode: 'advisory' } : { exit: 1, mode: 'blocking' };
+}
+
+// ── CLI entry point (only runs when this file is executed directly, not when imported) ─────────────
+const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (IS_MAIN) {
+
+// ── load ──────────────────────────────────────────────────────────────────────────────────────────
+const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
+const { gpuFalse, gpuTrue, proven, deferred, missing, fixtureGaps } = evaluateCoverage(cg);
 
 // ── --update-baseline ───────────────────────────────────────────────────────────────────────────
 if (UPDATE_BASELINE) {
@@ -238,7 +324,6 @@ if (fixtureGaps.length) {
 // is breached. See the PROVENANCE DISCRIMINATOR header comment.
 if (existsSync(BASELINE_PATH)) {
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-  const ceiling = baseline.deferred ?? Infinity;
 
   const { regressions } = findRegressions(deferred, baseline);
   if (regressions.length) {
@@ -248,19 +333,29 @@ if (existsSync(BASELINE_PATH)) {
     console.error('  If this is a deliberate re-park of a previously-proven node, that is a Tim call — do not run --update-baseline to absorb it silently.');
   }
 
-  if (deferred.length > ceiling) {
+  const ratchet = ratchetBreach(deferred, baseline);
+  if (ratchet.over) {
     failed = true;
-    const known = new Set(baseline.deferred_nodes ?? []);
-    const added = deferred.filter((r) => !known.has(r.name)).map((r) => r.name);
-    console.error(`\n✗ §18 deferred ratchet FAILED — deferred gpu:false count rose to ${deferred.length}, baseline ceiling is ${ceiling} (counts only go DOWN).`);
-    if (added.length) console.error('  New deferred node(s): ' + added.join(', '));
+    console.error(`\n✗ §18 deferred ratchet FAILED — deferred gpu:false count rose to ${ratchet.count}, baseline ceiling is ${ratchet.ceiling} (counts only go DOWN).`);
+    if (ratchet.added.length) console.error('  New deferred node(s): ' + ratchet.added.join(', '));
     console.error('  Either prove the node(s) now, or — if a deliberate new deferral — raise the ceiling with: node scripts/check-compute-proof-coverage.mjs --update-baseline');
   }
 } else {
   console.error('⚠ no compute-proof-baseline.json — run --update-baseline to pin the ratchet (not blocking).');
 }
 
-if (failed) process.exit(1);
+// ── disposition: advisory on a PR, hard on main (PROVE-COVERAGE-GATE-SPLIT-1) ──────────────────────
+// ⛔ NOTHING ABOVE IS SKIPPED OR SILENCED — every check ran and every failure line is already on stderr.
+// Only the exit code is decided here. chaingraph.json is single-writer-on-main (SO #35), so a PR that
+// correctly does NOT reassemble it reads as a fabricated regression through no fault of its own; main's
+// post-merge regen is where the monolith becomes current, and that is where this stays hard.
+const MAIN_CONTEXT = isMainContext();
+const { exit, mode } = disposition({ failed, mainContext: MAIN_CONTEXT });
+if (mode === 'advisory') {
+  console.error('\n::warning title=Advisory: §18 compute-proof coverage::chaingraph.json is a generated monolith only the main-branch regeneration job may rewrite, so a branch that proves nodes edits the shards and cannot reassemble it — the deferred set read above is STALE for the life of this branch. Main reassembles it post-merge and this gate is HARD there. Advisory here, never on main.');
+  process.exit(0);
+}
+if (exit !== 0) process.exit(exit);
 console.log(`✓ §18 coverage clean — ${proven.length}/${gpuFalse.length} gpu:false live nodes proven, ${deferred.length} deferred (≤ baseline), ${gpuTrue.length} gpu:true out-of-scope.`);
 
 } // IS_MAIN

@@ -125,8 +125,19 @@ jobs:
         with:
           node-version: '20'
 
+      # Advisory on a branch, hard on main (2026-08-22). chaingraph.json is a generated monolith that only
+      # the main-branch regeneration job may rewrite, so a branch that proves nodes edits the node shards
+      # and cannot reassemble the monolith this gate reads. The committed monolith therefore stays stale for
+      # the life of that branch, and a correctly-lowered deferred baseline reads to this gate as fabricated
+      # proof regressions, blocking a branch that is not permitted to fix it. The split lives inside the
+      # script (isMainContext(), the same shape check-kernel-coverage.mjs already uses): this step is
+      # advisory on the `pull_request` and `merge_group` runs and stays HARD on this workflow's
+      # `push: main` run, which is the one that sees the regenerated monolith. The .test.mjs beside it is
+      # the red/green control proving the split both relaxes on a branch and still blocks on main.
       - name: §18 compute-proof coverage
-        run: node scripts/check-compute-proof-coverage.mjs
+        run: |
+          node scripts/check-compute-proof-coverage.mjs
+          node scripts/check-compute-proof-coverage.test.mjs
 
       - name: §18 digest-freshness ratchet (receipt digest vs current kernel source)
         run: |
