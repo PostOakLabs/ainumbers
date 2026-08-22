@@ -68,3 +68,10 @@ This directory verifies the **format** only: that a stated input/output pair has
 execution_hash. It does not verify that a *specific* kernel's business logic is correct, that a proof at
 `audit_signature.proof`/`compute_proof` is valid, or anything about AINumbers' live service. Those are
 separate, larger claims outside this corpus's scope.
+
+## Third-party submissions
+
+Everything above is a **house** corpus — every vector is derived from a real AINumbers kernel. A party
+who is not AINumbers and wants to submit their own kernel's conformance vector uses `third-party/`
+instead (never mixed into `vectors/` above): see `third-party/README.md` for the directory convention,
+schemas, and worked example.
