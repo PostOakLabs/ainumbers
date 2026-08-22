@@ -1,8 +1,7 @@
 name: Mutation Tier Scan (scheduled)
 
-# MUTATION-TIERED-ROLLOUT-1 — generalizes FV-STRYKER-PILOT-1
-# (board/done/FV-STRYKER-PILOT-1.md) from a 10-kernel one-off pilot into a
-# recurring, risk-tiered scan over the full kernel estate.
+# Generalizes an earlier 10-kernel mutation-testing pilot into a recurring,
+# risk-tiered scan over the full kernel estate.
 #
 # REPORT-ONLY, same shape as fullsuite-schedule.yml and
 # helm-guide-freshness-schedule.yml: no `pull_request` trigger, not a
@@ -12,7 +11,7 @@ name: Mutation Tier Scan (scheduled)
 # nightly, not every-6h, so a red-issue-per-cycle would spam; see
 # fullsuite-schedule.yml's identical reasoning for its weekly cadence).
 #
-# WHY A MATRIX, NOT ONE JOB: FV-STRYKER-PILOT-1 measured ~67s/kernel average
+# WHY A MATRIX, NOT ONE JOB: the earlier pilot measured ~67s/kernel average
 # (Stryker startup + N-mutant run, command-runner mode — one child process
 # per mutant). Extrapolated serially across the ~633-kernel estate that is
 # ~11.7 hours, past GitHub Actions' 6-hour hosted-runner ceiling. Sharded 8
@@ -22,14 +21,14 @@ name: Mutation Tier Scan (scheduled)
 # ~79 kernels, comfortably inside the ceiling even at 2-3x the pilot's
 # average.
 #
-# dry_run INPUT (SO #40a): this workflow's only irreversible-adjacent cost is
-# TIME — a full 8-shard run takes over an hour of runner time even though it
-# writes nothing. dry_run=true (the default for a manual dispatch) instead
-# runs the ORIGINAL FV-STRYKER-PILOT-1 10-kernel sample in a single job,
-# proving the whole pipeline (npx-ephemeral Stryker fetch, scratch-copy,
-# tier split, threshold check, summary) end-to-end in a few minutes — the
-# same kernel list, same command, the scheduled cron just runs with
-# dry_run=false semantics (full estate, sharded) instead.
+# dry_run INPUT: this workflow's only irreversible-adjacent cost is TIME — a
+# full 8-shard run takes over an hour of runner time even though it writes
+# nothing. dry_run=true (the default for a manual dispatch) instead runs the
+# original 10-kernel pilot sample in a single job, proving the whole
+# pipeline (npx-ephemeral Stryker fetch, scratch-copy, tier split, threshold
+# check, summary) end-to-end in a few minutes — the same kernel list, same
+# command, the scheduled cron just runs with dry_run=false semantics (full
+# estate, sharded) instead.
 
 on:
   schedule:
@@ -37,7 +36,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run — scan only the original FV-STRYKER-PILOT-1 10-kernel sample (a few minutes) instead of the full ~633-kernel sharded estate scan (over an hour)'
+        description: 'Dry run — scan only the original 10-kernel pilot sample (a few minutes) instead of the full ~633-kernel sharded estate scan (over an hour)'
         required: false
         type: boolean
         default: true
@@ -47,7 +46,7 @@ permissions:
 
 jobs:
   dry-run:
-    name: Dry run (FV-STRYKER-PILOT-1 10-kernel sample)
+    name: Dry run (10-kernel pilot sample)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
@@ -89,9 +88,9 @@ jobs:
           {
             echo "## Mutation Tier Scan — DRY RUN (10/633 kernels sampled)"
             echo ""
-            echo "This is the proof-it-works dry run (SO #40a) — it exercises the identical"
+            echo "This is the proof-it-works dry run — it exercises the identical"
             echo "pipeline the nightly full-estate scan uses, scoped to the original"
-            echo "FV-STRYKER-PILOT-1 sample so it finishes in minutes instead of over an hour."
+            echo "10-kernel pilot sample so it finishes in minutes instead of over an hour."
             echo ""
             echo "Result: $RESULT"
           } >> "$GITHUB_STEP_SUMMARY"
