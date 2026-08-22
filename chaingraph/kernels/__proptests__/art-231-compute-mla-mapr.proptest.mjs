@@ -60,7 +60,14 @@ function mulberry32(seed) {
 const rand = mulberry32(0x23102);
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
 
+// Trial budgets are split by cost per trial, not set to one number, because this file
+// is re-run once per MUTANT by the tiered mutation gate (MUTATION-TIERED-ROLLOUT-1) and
+// a floor that takes seconds standalone takes hours there. P1/P3/P4 call compute() once
+// per trial and stay at the full budget; P2 calls it twice; P5 additionally re-solves the
+// rate. Every budget is far above the vacuity guards at the bottom of the file.
 const TRIALS = 10000;
+const TRIALS_PAIRED = 4000;
+const TRIALS_SOLVE = 4000;
 const CAP = 36.0;
 // The stricter of the two disclosure tolerances: an eighth of one percentage point.
 const DISCLOSURE_TOLERANCE_PP = 0.125;
@@ -132,7 +139,7 @@ function checkP1_exceedsCapAgreement() {
 // run in which nothing moved at all.
 function checkP2_includableChargesAreMonotone() {
   let violations = 0, checked = 0, moved = 0;
-  for (let i = 0; i < TRIALS; i++) {
+  for (let i = 0; i < TRIALS_PAIRED; i++) {
     const pp = mkPP(rand);
     const field = INCLUDABLE_CHARGE_FIELDS[Math.floor(rand() * INCLUDABLE_CHARGE_FIELDS.length)];
     const bump = randRange(rand, 1, Math.max(2, pp.loan_amount * 0.05));
@@ -231,11 +238,14 @@ function independentMapr(pp) {
     frac = 0;
   }
 
+  // Closed-form present value. The kernel sums the schedule term by term with integer
+  // powers; this uses the annuity identity and Math.pow, so agreement between the two is
+  // evidence, not a shared implementation. It is also O(1) per evaluation, which keeps
+  // this property affordable under the per-mutant mutation gate.
   const pv = (i) => {
     if (single) return pay / ((1 + frac * i) * Math.pow(1 + i, n));
-    let s = 0;
-    for (let k = 1; k <= n; k++) s += pay / Math.pow(1 + i, k);
-    return s;
+    if (i === 0) return pay * n;
+    return pay * (1 - Math.pow(1 + i, -n)) / i;
   };
   if (pv(0) - af < 0) return null;
 
@@ -256,7 +266,7 @@ function independentMapr(pp) {
 
 function checkP5_independentActuarialResolve() {
   let violations = 0, checked = 0, worst = 0;
-  for (let i = 0; i < TRIALS; i++) {
+  for (let i = 0; i < TRIALS_SOLVE; i++) {
     const pp = mkPP(rand);
     const r = compute(pp).output_payload;
     const mine = independentMapr(pp);
