@@ -557,6 +557,7 @@ status: stable
 - [x402 V2 Batch-Settlement Reconciler](./art-61-x402-batch-settlement-reconciler.md)
 - [ERC-4626 Vault Share Math](./art-610-erc4626-vault-share-math.md)
 - [ERC-7540 Async-Vault Request Accounting](./art-611-erc7540-async-vault-request-accounting.md)
+- [ERC-2612 Permit Binding Verifier](./art-612-erc2612-permit-binding-verifier.md)
 - [ERC-4337 UserOperation Math](./art-613-erc4337-userop-math.md)
 - [EIP-7702 Authorization-Tuple Decoder](./art-614-eip7702-authorization-tuple-decoder.md)
 - [MLA Charge-Inclusion Classifier](./art-615-mla-charge-inclusion-classifier.md)
