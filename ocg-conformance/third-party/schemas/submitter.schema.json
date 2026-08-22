@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/ocg-conformance/third-party/schemas/submitter.schema.json",
+  "title": "OpenChainGraph third-party kernel submitter identity",
+  "description": "Shape of submitter.json, one per submitter directory under ocg-conformance/third-party/<submitter-slug>/. Binds a submission to a verified GitHub identity and derives a reverse-DNS-style namespace from it (2026 enhancement, modelled on the MCP Registry reference: namespace/identity binding via verified accounts). This file identifies WHO submitted the vectors in the sibling manifest.json; it makes no claim about the kernel's correctness -- see trust_disclaimer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "contact_url", "submitted_at", "github_identity", "namespace", "trust_disclaimer"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human or organization display name of the submitter."
+    },
+    "contact_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "A dereferenceable contact URL for the submitter (homepage, issue tracker, or an email-as-URI mailto: link)."
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the submission PR."
+    },
+    "github_identity": {
+      "type": "object",
+      "description": "Verified GitHub identity binding. The minimum bar (verification_method: github-pr-author) is the submission PR's own author field -- GitHub records who opened a PR independent of the file content, so a submitter cannot claim someone else's account without controlling it. Stronger methods are allowed but not required.",
+      "additionalProperties": false,
+      "required": ["username", "profile_url", "verification_method"],
+      "properties": {
+        "username": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$",
+          "description": "GitHub login, no leading @, matching GitHub's own username character rules."
+        },
+        "profile_url": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$",
+          "description": "Must be https://github.com/<username> for the same username above -- a structural cross-check, not just free text."
+        },
+        "verification_method": {
+          "type": "string",
+          "enum": ["github-pr-author", "github-oauth-app", "dns-txt-record"],
+          "description": "How control of the identity was established. github-pr-author: the submission PR was opened from this GitHub account (default, zero extra ceremony). github-oauth-app: submitter authorized a first-party OAuth app that asserted the account. dns-txt-record: submitter proved control of the namespace directly via DNS, independent of GitHub (only meaningful when namespace is not under io.github.*)."
+        }
+      }
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9][a-z0-9-]*)+$",
+      "description": "Reverse-DNS-style namespace for this submitter's kernel ids, mirroring the MCP Registry io.github.* convention. MUST equal io.github.<github_identity.username> (lowercased) when verification_method is github-pr-author or github-oauth-app. A dns-txt-record verification may use any reverse-DNS namespace the submitter proved ownership of by other means. Every vector id in the sibling manifest.json must start with this namespace plus a literal dot (checked by validate-submission.mjs and, later, by the USERKERNEL-CI-1 Action -- not encodable as a single-file JSON Schema constraint since it is a cross-field, cross-file rule)."
+    },
+    "trust_disclaimer": {
+      "type": "string",
+      "const": "Conformance-suite-pass is not a correctness guarantee, not an endorsement, and not an audit. AINumbers verifies formats; it does not verify facts.",
+      "description": "Verbatim liability-boundary line (USERKERNEL-CONFORMANCE-BUILD-SPEC.md section 3.4). A JSON Schema const forces byte-identical text so this cannot drift per-submitter -- the whole point is that it always reads the same regardless of who is submitting."
+    }
+  }
+}

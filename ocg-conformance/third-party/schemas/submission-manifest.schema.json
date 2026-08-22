@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/ocg-conformance/third-party/schemas/submission-manifest.schema.json",
+  "title": "OpenChainGraph third-party submission manifest",
+  "description": "Shape of manifest.json, one per submitter directory under ocg-conformance/third-party/<submitter-slug>/. Extends the house ../../vectors/manifest.json entry shape (same six file/hash/execution_hash fields, USERKERNEL-CONFORMANCE-BUILD-SPEC.md section 2) with three 2026 enhancements, each REQUIRED on every entry: a reverse-DNS-style id bound to the submitter's verified GitHub namespace, a machine-readable conformance_witness (CI run hash + fixture digest), and the verbatim trust_disclaimer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["corpus", "submitter_namespace", "generated_at", "algorithm", "vectors"],
+  "properties": {
+    "corpus": {
+      "const": "ocg-third-party-conformance-vectors",
+      "description": "Fixed marker distinguishing this from the house ../../vectors/manifest.json corpus (\"ocg-receipt-conformance-vectors\")."
+    },
+    "submitter_namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9][a-z0-9-]*)+$",
+      "description": "MUST equal the sibling submitter.json's namespace field byte-for-byte."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "algorithm": {
+      "type": "object",
+      "description": "Restated verbatim from ../../README.md so this manifest is self-describing without requiring a reader to also fetch the house corpus's docs.",
+      "additionalProperties": false,
+      "required": ["canonicalization", "hash", "preimage", "reference_spec"],
+      "properties": {
+        "canonicalization": { "type": "string" },
+        "hash": { "type": "string" },
+        "preimage": { "type": "string" },
+        "reference_spec": { "type": "string" }
+      }
+    },
+    "vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/vectorEntry" }
+    }
+  },
+  "$defs": {
+    "vectorEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "input_file",
+        "input_file_sha256",
+        "input_canonical_sha256",
+        "expected_output_file",
+        "expected_output_file_sha256",
+        "expected_output_canonical_sha256",
+        "expected_execution_hash",
+        "source",
+        "trust_disclaimer",
+        "conformance_witness"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9][a-z0-9-]*)+$",
+          "description": "Reverse-DNS-style id: <submitter_namespace>.<kernel-slug>, e.g. io.github.octocat.simple-fee-calculator (2026 enhancement (a), MCP Registry namespace convention). Every roster line is keyed by this id, not by kernel-slug alone, so two submitters can name kernels identically without colliding."
+        },
+        "input_file": {
+          "type": "string",
+          "description": "Path relative to this manifest.json, e.g. vectors/inputs/<id-without-namespace-dots>.input.json."
+        },
+        "input_file_sha256": { "$ref": "#/$defs/sha256hex" },
+        "input_canonical_sha256": { "$ref": "#/$defs/sha256hex" },
+        "expected_output_file": { "type": "string" },
+        "expected_output_file_sha256": { "$ref": "#/$defs/sha256hex" },
+        "expected_output_canonical_sha256": { "$ref": "#/$defs/sha256hex" },
+        "expected_execution_hash": {
+          "$ref": "#/$defs/sha256ref",
+          "description": "SHA-256(JCS({policy_parameters, output_payload})) over the two files above -- the one MANDATORY conformance claim (spec section 1)."
+        },
+        "source": {
+          "type": "string",
+          "pattern": "third-party$",
+          "description": "Free text that MUST end with the literal marker \"third-party\", e.g. \"<submitter name>, third-party\" -- mirrors the house manifest's source field shape while making provenance unmistakable at a glance."
+        },
+        "trust_disclaimer": {
+          "const": "Conformance-suite-pass is not a correctness guarantee, not an endorsement, and not an audit. AINumbers verifies formats; it does not verify facts.",
+          "description": "Verbatim liability-boundary line (spec section 3.4), repeated on every roster-bound entry -- 2026 enhancement (c). A JSON Schema const, not free text, so it cannot be paraphrased away."
+        },
+        "conformance_witness": {
+          "type": "object",
+          "description": "Machine-readable CI-run evidence -- 2026 enhancement (b), the FV-status artifact pattern applied to third-party submissions. This row (USERKERNEL-SCHEMA-1) ships the shape only, with status \"pending\": no CI Action exists yet to populate it (that is USERKERNEL-CI-1, the next row in the sequence). Once that Action runs against a submission PR, it fills in the remaining fields and flips status to verified or failed.",
+          "additionalProperties": false,
+          "required": ["status", "ci_run_id", "ci_run_url", "ci_run_sha256", "fixture_digest", "verified_at"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["pending", "verified", "failed"]
+            },
+            "ci_run_id": {
+              "type": ["string", "null"],
+              "description": "The CI Action's run identifier (e.g. a GitHub Actions run id). null while status is pending."
+            },
+            "ci_run_url": {
+              "oneOf": [
+                { "type": "null" },
+                { "type": "string", "format": "uri" }
+              ],
+              "description": "Dereferenceable URL to the CI run's logs. null while status is pending."
+            },
+            "ci_run_sha256": {
+              "$ref": "#/$defs/sha256hexOrNull",
+              "description": "SHA-256 of the CI run's result artifact (its log or structured output), binding this witness to one specific, replayable run rather than a bare unverifiable claim of \"CI passed.\""
+            },
+            "fixture_digest": {
+              "$ref": "#/$defs/sha256hexOrNull",
+              "description": "SHA-256 over the exact {input_file bytes, expected_output_file bytes} pair the CI run actually checked -- so a later edit to the fixture files invalidates the witness by construction (the digest no longer matches) instead of silently inheriting a stale PASS."
+            },
+            "verified_at": {
+              "oneOf": [
+                { "type": "null" },
+                { "type": "string", "format": "date-time" }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "status": { "const": "pending" } } },
+              "then": {
+                "properties": {
+                  "ci_run_id": { "const": null },
+                  "ci_run_url": { "const": null },
+                  "ci_run_sha256": { "const": null },
+                  "fixture_digest": { "const": null },
+                  "verified_at": { "const": null }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "status": { "enum": ["verified", "failed"] } }
+              },
+              "then": {
+                "properties": {
+                  "ci_run_id": { "type": "string", "minLength": 1 },
+                  "ci_run_url": { "type": "string", "format": "uri" },
+                  "ci_run_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                  "fixture_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                  "verified_at": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "sha256hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Bare 64-hex-char SHA-256 digest, no prefix."
+    },
+    "sha256hexOrNull": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      ]
+    },
+    "sha256ref": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$",
+      "description": "A bare 64-hex-char SHA-256 digest, or the same digest with a \"sha256:\" prefix (matches ../schemas/ocg-receipt-envelope.schema.json's sha256ref shape)."
+    }
+  }
+}
