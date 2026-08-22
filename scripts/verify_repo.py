@@ -151,6 +151,15 @@ def check_manifests(changed=None):
 
 
 # ── Check 3: AP2 consistency ──────────────────────────────────────────────────
+# Two directions, both hard-gated (AP2-MANIFEST-PARITY-1):
+#   forward  — manifest ap2_export:true  ⇒ tools/*.html has id="ap2ExportBtn"
+#   inverse  — tools/*.html has id="ap2ExportBtn" ⇒ manifest ap2_export:true
+# The forward direction alone let 8 tool/manifest pairs drift silently (button
+# shipped, manifest never flipped) — the ONLY way that class regrows is caught
+# is if BOTH directions are hard gates. A node-keyed manifest with no tools/
+# page (34 in the live estate, e.g. `520-c2pa-manifest-validator`) is exempt
+# from the inverse direction by construction: the inverse walk starts from
+# tools/*.html, so a manifest with no corresponding HTML page is never visited.
 def check_ap2(changed=None):
     manifests = _touched(sorted(MANIFESTS.glob("*.manifest.json")), changed)
     if changed is not None:
@@ -161,8 +170,8 @@ def check_ap2(changed=None):
             mp = MANIFESTS / f"{stem}.manifest.json"
             if mp.exists() and mp not in manifests:
                 manifests.append(mp)
-    mismatches = []
-    checked = 0
+    fwd_mismatches = []
+    fwd_checked = 0
     for mfst_path in manifests:
         try:
             mfst = json.loads(mfst_path.read_text(encoding="utf-8"))
@@ -170,21 +179,48 @@ def check_ap2(changed=None):
             continue
         if not mfst.get("ap2_export"):
             continue
-        checked += 1
+        fwd_checked += 1
         stem = mfst_path.name.replace(".manifest.json", "")
         tool_path = TOOLS / f"{stem}.html"
         if not tool_path.exists():
             continue  # orphaned manifest — covered by parity step in CI
         text = tool_path.read_text(encoding="utf-8", errors="replace")
         if 'id="ap2ExportBtn"' not in text:
-            mismatches.append(tool_path.name)
-    if mismatches:
-        fail(f"[AP2] {len(mismatches)} tool(s) declare ap2_export:true but lack the export button:")
-        for f in mismatches:
+            fwd_mismatches.append(tool_path.name)
+    if fwd_mismatches:
+        fail(f"[AP2] {len(fwd_mismatches)} tool(s) declare ap2_export:true but lack the export button:")
+        for f in fwd_mismatches:
             fail(f"  {f}")
     else:
-        scope = f"{checked} touched ap2_export:true manifest(s)" if changed is not None else f"all {checked} ap2_export:true manifests"
-        print(f"  ✅ AP2 consistency: {scope} have the button")
+        scope = f"{fwd_checked} touched ap2_export:true manifest(s)" if changed is not None else f"all {fwd_checked} ap2_export:true manifests"
+        print(f"  ✅ AP2 consistency (forward — manifest⇒button): {scope} have the button")
+
+    # ── Inverse direction: button present ⇒ manifest ap2_export:true ──────
+    tools = _touched(sorted(TOOLS.glob("*.html")), changed)
+    inv_mismatches = []
+    inv_checked = 0
+    for tool_path in tools:
+        text = tool_path.read_text(encoding="utf-8", errors="replace")
+        if 'id="ap2ExportBtn"' not in text:
+            continue
+        inv_checked += 1
+        stem = tool_path.stem
+        mfst_path = MANIFESTS / f"{stem}.manifest.json"
+        if not mfst_path.exists():
+            continue  # missing manifest entirely — covered by check_manifests()
+        try:
+            mfst = json.loads(mfst_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue  # malformed JSON — not this check's concern
+        if not mfst.get("ap2_export"):
+            inv_mismatches.append(tool_path.name)
+    if inv_mismatches:
+        fail(f"[AP2] {len(inv_mismatches)} tool(s) carry the export button but manifest lacks ap2_export:true:")
+        for f in inv_mismatches:
+            fail(f"  {f}")
+    else:
+        scope = f"{inv_checked} touched button-bearing tool(s)" if changed is not None else f"all {inv_checked} button-bearing tools"
+        print(f"  ✅ AP2 consistency (inverse — button⇒manifest): {scope} have ap2_export:true")
 
 
 # ── Check 4: Sitemap coverage ─────────────────────────────────────────────────
