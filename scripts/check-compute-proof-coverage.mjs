@@ -352,7 +352,7 @@ if (existsSync(BASELINE_PATH)) {
 const MAIN_CONTEXT = isMainContext();
 const { exit, mode } = disposition({ failed, mainContext: MAIN_CONTEXT });
 if (mode === 'advisory') {
-  console.error('\n::warning title=Advisory: §18 compute-proof coverage::chaingraph.json is single-writer on main (SO #35) — a prove PR edits the shards and is forbidden to reassemble the monolith, so the deferred set read above is STALE for the life of this PR. Main reassembles it post-merge and this gate is HARD there. Advisory here, never on main.');
+  console.error('\n::warning title=Advisory: §18 compute-proof coverage::chaingraph.json is a generated monolith only the main-branch regeneration job may rewrite, so a branch that proves nodes edits the shards and cannot reassemble it — the deferred set read above is STALE for the life of this branch. Main reassembles it post-merge and this gate is HARD there. Advisory here, never on main.');
   process.exit(0);
 }
 if (exit !== 0) process.exit(exit);
