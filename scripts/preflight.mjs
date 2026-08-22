@@ -215,7 +215,48 @@ const TOUCHED_KERNEL_IDS = touchedKernelIdsFromJsdocSet(TOUCHED_KERNEL_FILES_JSD
 //
 // isMainContext() FAILS CLOSED — anything undeterminable blocks. The downgrade
 // has to be affirmatively earned, never inherited from a failed lookup.
-const { advisoryGates, isMainContext } = await import('./derived-artifacts.mjs');
+const { advisoryGates, isMainContext, COVERED } = await import('./derived-artifacts.mjs');
+
+// DERIVED-SET-SELFTEST-1: which files this push touches, for the live regen
+// self-test's scoping below. It ACTUALLY EXECUTES every declared regen command
+// in a scratch worktree (2-3 minutes over the full COVERED list) — too slow to
+// run on every push, so it is scoped to pushes that could plausibly move the
+// answer: an edit to derived-artifacts.mjs itself, or to any generator/gate
+// script a COVERED entry names. `primaryScriptPath` is the SAME lexical
+// extractor check-derived-declare-parity.mjs's static analysis already uses
+// (reused, not reimplemented) — it returns the first non-interpreter token of
+// a regen/gate command, e.g. 'scripts/gen-x.mjs' out of 'node scripts/gen-x.mjs
+// --write'. Same union-of-diffs shape as helmPathsTouched() above (working
+// tree + staged + committed-vs-upstream, deduped via a Set); undeterminable
+// fails OPEN (gate runs) — the live scan is read/write-scoped to a throwaway
+// worktree, never the shared tree, so running it unnecessarily costs time, not
+// correctness, which is the same tradeoff helmPathsTouched() already makes.
+const { primaryScriptPath } = await import('./check-derived-declare-parity.mjs');
+function derivedRegenLiveScopeTouched() {
+  const relevant = new Set(['scripts/derived-artifacts.mjs']);
+  for (const c of COVERED) {
+    const rp = primaryScriptPath(c.regen);
+    if (rp) relevant.add(rp);
+    if (c.gate) { const gp = primaryScriptPath(c.gate); if (gp) relevant.add(gp); }
+  }
+  try {
+    const touched = new Set();
+    execSync('git diff --name-only HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    execSync('git diff --name-only --cached', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().split('\n').forEach(f => f && touched.add(f));
+    try {
+      const upstream = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const base = execSync(`git merge-base ${upstream} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      execSync(`git diff --name-only ${base} HEAD`, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().split('\n').forEach(f => f && touched.add(f));
+    } catch { /* no upstream configured — working tree/staged diff above is what we have */ }
+    return [...touched].some((f) => relevant.has(f));
+  } catch {
+    return true; // undeterminable — fail open, run the gate
+  }
+}
+const DERIVED_REGEN_LIVE_SCOPE_TOUCHED = derivedRegenLiveScopeTouched();
 const MAIN_CONTEXT = isMainContext();
 const ADVISORY_ON_PR = advisoryGates();
 
@@ -590,6 +631,20 @@ const GATES = [
   // and each catches cases the other passes.
   ['Derived-artifact declare parity (DERIVED-DECLARE-PARITY-1)', 'node scripts/check-derived-declare-parity.mjs --check'],
   ['Derived-artifact declare parity self-test (SO #40b pairing)', 'node scripts/check-derived-declare-parity.test.mjs'],
+  // DERIVED-SET-SELFTEST-1: the DYNAMIC complement to DERIVED-DECLARE-PARITY-1's
+  // static analysis — actually RUNS every COVERED regen command in a scratch
+  // worktree and watches the filesystem + `git status`, catching what static
+  // source parsing structurally cannot see (a python generator, a write gated
+  // behind logic the parser can't resolve, a write that only fails at runtime).
+  // The fixture self-test (SO #40b pairing) is fast (synthetic git repos, no
+  // real generator involved) and runs unconditionally; the live scan against
+  // the REAL COVERED list is slow (2-3 minutes) and scoped to pushes that
+  // touch derived-artifacts.mjs or a generator/gate script it names.
+  ['Derived-set regen selftest fixture proof (SO #40b pairing)', 'node scripts/check-derived-regen-live.test.mjs'],
+  ...(DERIVED_REGEN_LIVE_SCOPE_TOUCHED
+    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check']]
+    : [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1: no derived-artifacts/generator path touched, skipped)', 'node -e "1"',
+        { notRun: 'DERIVED-SET-SELFTEST-1 scoping — this push touches no scripts/derived-artifacts.mjs or generator/gate script it names, so the live regen self-test (which actually executes every regen command) was not run' }]]),
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
