@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Mandate Loop, an OpenChainGraph Explainer</title>
+<meta name="description" content="How a signed Work Mandate becomes literal gates on an agent's workflow: the compiler that turns a threshold clause into a gate object, the halt-and-record semantics when a trigger fires, how a human closes an open exception with a passkey, and how a delegated agent's own identity chain verifies back to a person, including what none of it claims. Client-side, zero-egress.">
+<meta name="author" content="Post Oak Labs">
+<meta name="ocg-spec-version" content="0.8.13">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/mandate-loop-explainer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "The Mandate Loop, an OpenChainGraph Explainer",
+  "description": "An animated, panel-by-panel walk from a signed Work Mandate through the compiler that turns its clauses into gate objects, the halt-and-record semantics of an escalation, the passkey closure that resolves it, and delegated-agent identity verification, closing on what none of it claims.",
+  "author": { "@type": "Organization", "name": "Post Oak Labs" },
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs" },
+  "about": { "@type": "Thing", "name": "Signed work mandates compiled into enforceable workflow gates" }
+}
+</script>
+<style>
+:root{
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12); --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.22}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;color:var(--teal-lt);background:var(--teal-dim);padding:.05rem .3rem;border-radius:3px}
+a{color:var(--teal-lt);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--teal-lt);outline-offset:2px}
+.wrap{max-width:960px;margin:0 auto;padding:0 2rem;position:relative;z-index:1}
+.hero{padding:3.5rem 0 2.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.eyebrow::before{content:'';width:28px;height:1px;background:var(--teal)}
+.loop-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.35);background:var(--gold-dim);border-radius:20px;padding:.15rem .6rem}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);color:var(--white);margin-bottom:.9rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero p{font-size:1rem;color:var(--body);max-width:740px;line-height:1.9}
+.thesis{margin-top:1.6rem;padding:1rem 1.3rem;background:var(--teal-dim);border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0;font-size:.95rem;color:var(--bright)}
+
+/* panels */
+.panel{padding:2.6rem 0;border-bottom:1px solid var(--border)}
+.panel-head{display:flex;align-items:baseline;gap:.9rem;margin-bottom:.4rem;flex-wrap:wrap}
+.stage-n{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--teal-lt);border:1px solid rgba(20,184,166,.35);border-radius:50%;width:2.1rem;height:2.1rem;display:flex;align-items:center;justify-content:center;flex:none}
+.panel h2{font-size:clamp(1.25rem,2.4vw,1.7rem);color:var(--white)}
+.panel h3{font-size:1.05rem;color:var(--bright);margin:1.6rem 0 .5rem}
+.panel .kicker{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.panel p{color:var(--body);max-width:720px;margin:.9rem 0}
+.panel .pull{font-size:.92rem;color:var(--text);border-left:2px solid var(--border-2);padding-left:.9rem;margin:1rem 0;max-width:680px}
+.scene-scroll{max-width:100%;overflow-x:auto;margin:1.2rem 0;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.scene-scroll svg{display:block;width:100%;height:auto;min-width:520px}
+
+/* node cite */
+.cite{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.05em;padding:.15rem .5rem;border-radius:12px;background:var(--bg-3);color:var(--teal-lt);border:1px solid var(--border-2)}
+
+/* draw / fade utilities (CSS keyframes only, paused until in-view) */
+.scene [class*="an-"]{animation-play-state:paused}
+.scene.in-view [class*="an-"]{animation-play-state:running}
+.an-draw{stroke-dasharray:var(--len,100);stroke-dashoffset:var(--len,100);animation:draw .9s ease-out forwards var(--d,0s)}
+@keyframes draw{to{stroke-dashoffset:0}}
+.an-fade{opacity:0;animation:fadein .6s ease-out forwards var(--d,0s)}
+@keyframes fadein{to{opacity:1}}
+.an-pop{opacity:0;transform-origin:center;animation:pop .5s cubic-bezier(.2,1.4,.4,1) forwards var(--d,0s)}
+@keyframes pop{0%{opacity:0;transform:scale(.4)}100%{opacity:1;transform:scale(1)}}
+.an-pulse{animation:pulse 2s ease-in-out infinite var(--d,0s)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.32}}
+.an-pulse-warn{animation:pulsewarn 1.6s ease-in-out infinite var(--d,0s)}
+@keyframes pulsewarn{0%,100%{opacity:.55;r:5}50%{opacity:1;r:6.5}}
+
+/* rail / claim grids */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.4rem 0}
+.grid.four{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.2rem}
+.card h3{font-size:1.02rem;color:var(--bright);margin:0 0 .4rem;font-family:'DM Serif Display',serif}
+.card p{font-size:.85rem;color:var(--body);margin:0}
+.claim-card{border-left:3px solid var(--gold)}
+.checklist{list-style:none;margin:1.2rem 0;padding:0}
+.checklist li{position:relative;padding:.7rem 1rem .7rem 2.6rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;font-size:.88rem;color:var(--text)}
+.checklist li::before{content:'';position:absolute;left:.9rem;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;border:1.4px solid var(--teal);background:var(--teal-dim)}
+.cross-link{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;line-height:1.9;margin:1.4rem 0}
+.cross-link a{color:var(--gold)}
+.note{background:var(--green-dim);border-left:3px solid var(--green);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.warn-note{background:var(--gold-dim);border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:.9rem 1.1rem;margin:1.2rem 0;font-size:.88rem;color:var(--text)}
+.pii{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;font-size:.78rem;color:var(--muted);margin:2rem 0;font-family:'JetBrains Mono',monospace}
+footer{padding:2.4rem 0;color:var(--muted);font-size:.8rem}
+footer a{color:var(--body)}
+@media(max-width:680px){.grid{grid-template-columns:1fr}.grid.four{grid-template-columns:1fr 1fr}.wrap{padding:0 1.2rem}}
+@media(max-width:480px){.grid.four{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){
+  .scene [class*="an-"]{animation:none!important;animation-play-state:running!important}
+  .an-draw{stroke-dashoffset:0!important}
+  .an-fade,.an-pop{opacity:1!important;transform:none!important}
+  .an-pulse,.an-pulse-warn{animation:none!important;opacity:1!important}
+}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">The Mandate Loop, an OpenChainGraph Explainer</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">OpenChainGraph &middot; Mandate loop <span class="loop-pill">Loop step: Run</span></div>
+  <h1>A human signs the scope. The workflow can only do what the mandate says</h1>
+  <p>This page walks the mandate loop end to end: how a person authors and signs a Work Mandate; how a compiler turns that mandate's clauses into literal gate objects on a workflow rather than prose describing them; how the workflow runs a routine case straight through while a trigger clause halts it and opens a record instead; how a human closes that record with a signed decision; and, when the party holding the mandate is itself a delegated agent, how its identity chain verifies back to a person. Four steps, one loop, nothing here asks you to take the workflow's word for what it was allowed to do.</p>
+  <div class="thesis">A mandate authorizes exactly what its compiled gates enforce, nothing broader. The closing panel restates that boundary, and three more like it, as the first thing worth reading rather than the last.</div>
+</div></header>
+
+<!-- PANEL 1 -->
+<section class="panel" id="step-1"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">1</span><div><div class="kicker">Step 1 &middot; The cycle</div><h2>Authorize, run, escalate, close</h2></div></div>
+  <p>A Work Mandate is a document a person writes and signs before any agent touches it: which tools or workflows it authorizes (its scope), the conditions that let a case continue automatically, the triggers that instead route a case to a human, and a validity window. An unsigned mandate is a draft. It carries no authority until a real signature exists over the whole artifact, and that signature's target, the mandate's own hash, becomes the identifier every later stage points back to.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 190" role="img" aria-label="Four stages in a loop: authorize, where a person signs a mandate document; run, where the compiled workflow executes; escalate, where a trigger halts the run and opens a record; and close, where a person signs a decision that resolves the record, with an arrow looping back from close to authorize.">
+    <defs>
+      <symbol id="wcheck2" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><path d="M5.5 10.2 L8.5 13 L14.5 6.6" fill="none" stroke="var(--teal-lt)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+    <rect class="an-pop" x="24" y="55" width="128" height="60" rx="8" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.6" style="--d:.1s"/>
+    <text x="88" y="80" text-anchor="middle" fill="var(--bright)" font-size="9" class="an-fade" style="--d:.3s">authorize</text>
+    <text x="88" y="94" text-anchor="middle" fill="var(--body)" font-size="7" class="an-fade" style="--d:.3s">person signs mandate</text>
+    <path class="an-draw" d="M152 85 h60" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:60;--d:.6s"/>
+    <rect class="an-pop" x="212" y="55" width="128" height="60" rx="8" fill="var(--bg-3)" stroke="var(--teal-lt)" stroke-width="1.6" style="--d:.9s"/>
+    <text x="276" y="80" text-anchor="middle" fill="var(--bright)" font-size="9" class="an-fade" style="--d:1.1s">run</text>
+    <text x="276" y="94" text-anchor="middle" fill="var(--body)" font-size="7" class="an-fade" style="--d:1.1s">compiled gates execute</text>
+    <path class="an-draw" d="M340 85 h60" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:60;--d:1.4s"/>
+    <rect class="an-pop" x="400" y="55" width="128" height="60" rx="8" fill="var(--warn-dim)" stroke="var(--warn)" stroke-width="1.6" style="--d:1.7s"/>
+    <text x="464" y="80" text-anchor="middle" fill="var(--bright)" font-size="9" class="an-fade" style="--d:1.9s">escalate</text>
+    <text x="464" y="94" text-anchor="middle" fill="var(--body)" font-size="7" class="an-fade" style="--d:1.9s">trigger halts, opens record</text>
+    <circle class="an-pulse-warn" cx="464" cy="106" r="4" fill="var(--warn)" style="--d:2s"/>
+    <path class="an-draw" d="M400 85 h-2" stroke="transparent" style="--len:1"/>
+    <path class="an-draw" d="M462 55 C 300 20, 150 20, 88 50" stroke="var(--gold)" stroke-width="1.4" fill="none" stroke-dasharray="3 3" style="--len:420;--d:2.5s"/>
+    <g class="an-fade" style="--d:2.9s"><use href="#wcheck2" x="60" y="118" width="18" height="18"/></g>
+    <text x="20" y="150" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="8">close: a signed decision resolves the record, then a fresh mandate can supersede</text>
+  </svg></div>
+  <p class="pull">The loop is not four separate systems glued together. Every stage produces one hash-identified artifact the next stage reads: the mandate hash, then the run's own receipt, then, only on the escalation branch, a record hash and its closure. Each of the panels below walks one of those stages with a real, shipped example.</p>
+</div></section>
+
+<!-- PANEL 2 -->
+<section class="panel" id="step-2"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">2</span><div><div class="kicker">Step 2 &middot; The compiler</div><h2>A clause becomes a gate object rather than a sentence about one</h2></div></div>
+  <p>The Work Mandate Compiler reads the mandate's scope and turns it into an ordered list of workflow steps. It reads the mandate's conditions and escalation triggers, which must all point at the same one field of the run's output, and turns each into a routing rule on the one checkpoint step where they apply. Escalation triggers compile first, each routing to the reserved target <code>escalate</code>; passing conditions compile after, routing to the next step. Whatever value matches neither, by construction, still needs somewhere to go: the compiler sets that fallback to <code>escalate</code> as well, so an unrecognized case defaults to a person rather than to silent continuation.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 210" role="img" aria-label="A mandate document with a scope and a condition clause feeds into the compiler box; it emits a workflow of two steps, the first carrying a gate object whose rule routes a true value to the second step and defaults every other value to escalate." style="min-width:560px">
+    <rect x="16" y="20" width="150" height="80" rx="6" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4"/>
+    <text x="91" y="40" text-anchor="middle" fill="var(--body)" font-size="8">work_mandate</text>
+    <text x="26" y="58" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="7">scope.tool_ids: [assess_loan,</text>
+    <text x="26" y="68" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="7">  record_outcome]</text>
+    <text x="26" y="84" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="7">conditions: [/decision/approved</text>
+    <text x="26" y="94" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="7">  eq true]</text>
+    <path class="an-draw" d="M166 60 h44" stroke="var(--muted)" stroke-width="1.6" fill="none" style="--len:44;--d:.3s"/>
+    <rect class="an-pop" x="210" y="30" width="130" height="60" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:.6s"/>
+    <text x="275" y="55" text-anchor="middle" fill="var(--bright)" font-family="JetBrains Mono, monospace" font-size="8" class="an-fade" style="--d:.9s">compile_work_</text>
+    <text x="275" y="67" text-anchor="middle" fill="var(--bright)" font-family="JetBrains Mono, monospace" font-size="8" class="an-fade" style="--d:.9s">mandate</text>
+    <path class="an-draw" d="M340 60 h40" stroke="var(--teal-lt)" stroke-width="1.8" fill="none" style="--len:40;--d:1.2s"/>
+    <rect class="an-pop" x="390" y="15" width="110" height="42" rx="6" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.6" style="--d:1.5s"/>
+    <text x="445" y="32" text-anchor="middle" fill="var(--bright)" font-family="JetBrains Mono, monospace" font-size="7.5" class="an-fade" style="--d:1.7s">assess_loan</text>
+    <text x="445" y="44" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="6.5" class="an-fade" style="--d:1.7s">+ gate</text>
+    <path class="an-draw" d="M500 30 h30" stroke="var(--teal-lt)" stroke-width="1.6" fill="none" style="--len:30;--d:2s"/>
+    <rect class="an-pop" x="536" y="15" width="90" height="42" rx="6" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1.4" style="--d:2.2s"/>
+    <text x="581" y="40" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="7.5" class="an-fade" style="--d:2.4s">record_outcome</text>
+    <path class="an-draw" d="M445 57 v18 h140 v-18" stroke="var(--warn)" stroke-width="1.4" stroke-dasharray="3 3" fill="none" style="--len:180;--d:2.6s"/>
+    <rect class="an-pop" x="500" y="95" width="120" height="36" rx="6" fill="var(--warn-dim)" stroke="var(--warn)" stroke-width="1.4" style="--d:3s"/>
+    <text x="560" y="118" text-anchor="middle" fill="var(--bright)" font-family="JetBrains Mono, monospace" font-size="7.5" class="an-fade" style="--d:3.2s">default: escalate</text>
+    <text x="230" y="160" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="8">rule[0]: approved==true &#8594; record_outcome</text>
+    <text x="230" y="175" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="8">everything else &#8594; escalate, by construction</text>
+  </svg></div>
+  <p>That example is not illustrative shorthand: it is the compiler's own worked conformance fixture, proven under the suite's compute-integrity profile, so the diagram above is a real gate object, not a mockup of one. Mandates whose conditions and triggers disagree on which field they read are rejected outright at compile time, before a rule is ever generated, so a policy that cannot be expressed as one routing decision never silently becomes one anyway.</p>
+  <span class="cite">art-274 Work Mandate Compiler &middot; compile_work_mandate &middot; conformance-proven</span>
+</div></section>
+
+<!-- PANEL 3 -->
+<section class="panel" id="step-3"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">3</span><div><div class="kicker">Step 3 &middot; Run</div><h2>Step by step, until a gate says otherwise</h2></div></div>
+  <p>A run under a mandate folds the mandate's hash into every step's inputs and into the run's own summary, a conditional field present only when a mandate actually governed that run, so the finished receipt proves which policy was in force rather than merely claiming one existed. Each step is one deterministic computation with its own hash; a passing case runs every step in order and finishes with one combined hash over the steps that ran.</p>
+  <p>A case that trips an escalation trigger does not finish that way. The gate routes to the reserved target, and the run halts immediately: no further step executes. Every step that would have followed is marked with a distinct status showing it was skipped because of an escalation rather than skipped because of an ordinary routing decision, and an open record is emitted describing exactly which decision fired and exactly which steps never ran.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 200" role="img" aria-label="A four-step run. The first two steps complete normally with green checks. The third step is a gate; on a failing grade it halts the run immediately, shown in amber, and the fourth step is marked skipped rather than run, while an open escalation record appears to the side." style="min-width:560px">
+    <defs><symbol id="wcheck3" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.4"/><path d="M5.5 10.2 L8.5 13 L14.5 6.6" fill="none" stroke="var(--teal-lt)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol></defs>
+    <rect class="an-pop" x="10" y="70" width="90" height="48" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.4" style="--d:.1s"/>
+    <text x="55" y="98" text-anchor="middle" fill="var(--body)" font-size="8" class="an-fade" style="--d:.3s">mandate</text>
+    <g class="an-fade" style="--d:.5s"><use href="#wcheck3" x="42" y="120" width="16" height="16"/></g>
+    <path class="an-draw" d="M100 94 h34" stroke="var(--teal)" stroke-width="1.4" fill="none" style="--len:34;--d:.6s"/>
+    <rect class="an-pop" x="134" y="70" width="90" height="48" rx="6" fill="var(--bg-3)" stroke="var(--teal)" stroke-width="1.4" style="--d:.8s"/>
+    <text x="179" y="98" text-anchor="middle" fill="var(--body)" font-size="8" class="an-fade" style="--d:1s">classify</text>
+    <g class="an-fade" style="--d:1.2s"><use href="#wcheck3" x="166" y="120" width="16" height="16"/></g>
+    <path class="an-draw" d="M224 94 h34" stroke="var(--warn)" stroke-width="1.6" fill="none" style="--len:34;--d:1.4s"/>
+    <rect class="an-pop" x="258" y="62" width="100" height="60" rx="6" fill="var(--warn-dim)" stroke="var(--warn)" stroke-width="1.6" style="--d:1.7s"/>
+    <text x="308" y="88" text-anchor="middle" fill="var(--bright)" font-size="8" class="an-fade" style="--d:1.9s">gate: grade=F</text>
+    <text x="308" y="102" text-anchor="middle" fill="var(--warn)" font-size="7.5" class="an-fade" style="--d:1.9s">HALT</text>
+    <circle class="an-pulse-warn" cx="308" cy="115" r="4" fill="var(--warn)" style="--d:2s"/>
+    <path class="an-draw" d="M358 92 h30" stroke="var(--muted)" stroke-width="1.2" fill="none" stroke-dasharray="3 3" style="--len:30;--d:2.2s"/>
+    <rect x="392" y="70" width="100" height="48" rx="6" fill="var(--bg-2)" stroke="var(--border-2)" stroke-width="1.2" stroke-dasharray="4 3" class="an-fade" style="--d:2.4s"/>
+    <text x="442" y="90" text-anchor="middle" fill="var(--muted)" font-size="7.5" class="an-fade" style="--d:2.6s">decision log</text>
+    <text x="442" y="103" text-anchor="middle" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="6.5" class="an-fade" style="--d:2.6s">skipped_by_escalation</text>
+    <path class="an-draw" d="M308 62 C 340 30, 400 20, 460 26" stroke="var(--gold)" stroke-width="1.4" fill="none" style="--len:180;--d:2.8s"/>
+    <rect class="an-pop" x="466" y="4" width="150" height="40" rx="6" fill="var(--bg-3)" stroke="var(--gold)" stroke-width="1.4" style="--d:3.1s"/>
+    <text x="541" y="20" text-anchor="middle" fill="var(--bright)" font-family="JetBrains Mono, monospace" font-size="7" class="an-fade" style="--d:3.3s">open escalation record</text>
+    <text x="541" y="34" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="6.5" class="an-fade" style="--d:3.3s">{decision, halted_steps}</text>
+    <text x="308" y="165" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="8">record hash excludes wall-clock time: two identical escalations hash identically</text>
+  </svg></div>
+  <p class="pull">The open record's hash is computed only over the deterministic parts, the triggering decision and the list of halted steps, never over the moment the halt happened. That single choice is what lets a verifier confirm two escalations were caused by the exact same input, independent of when either one occurred.</p>
+  <span class="cite">shipped examples &middot; dora-escalation-demo &middot; escalation-sla-supervised-autonomy-receipt</span>
+</div></section>
+
+<!-- PANEL 4 -->
+<section class="panel" id="step-4"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">4</span><div><div class="kicker">Step 4 &middot; Management by exception</div><h2>A person sees the record. A passkey closes it</h2></div></div>
+  <p>An open record is where the loop hands control back to a person: the routine path never reaches a human at all, and the exception path never resolves without one. Closing a record means signing over its hash with a passkey, a WebAuthn assertion tied to one named device, and stating a decision of either approve or reject. That signed envelope is itself a receipted artifact, checkable the same offline way as anything else in the estate.</p>
+  <div class="scene-scroll"><svg class="scene" viewBox="0 0 640 170" role="img" aria-label="An open escalation record on the left, a person reviewing it in the middle signing with a passkey, and on the right four verification checks running against the resulting closure: record hash recomputed, envelope binds that hash, signature verifies, decision is approve or reject, all passing to a closed badge." style="min-width:560px">
+    <rect x="14" y="55" width="120" height="50" rx="6" fill="var(--warn-dim)" stroke="var(--warn)" stroke-width="1.4"/>
+    <text x="74" y="76" text-anchor="middle" fill="var(--bright)" font-size="8">open record</text>
+    <text x="74" y="90" text-anchor="middle" fill="var(--body)" font-family="JetBrains Mono, monospace" font-size="6.5">record_hash</text>
+    <path class="an-draw" d="M134 80 h40" stroke="var(--muted)" stroke-width="1.4" fill="none" style="--len:40;--d:.3s"/>
+    <rect class="an-pop" x="184" y="50" width="110" height="60" rx="8" fill="var(--bg-3)" stroke="var(--teal-lt)" stroke-width="1.6" style="--d:.6s"/>
+    <text x="239" y="76" text-anchor="middle" fill="var(--bright)" font-size="8" class="an-fade" style="--d:.9s">passkey signs</text>
+    <text x="239" y="90" text-anchor="middle" fill="var(--body)" font-size="7" class="an-fade" style="--d:.9s">approve / reject</text>
+    <path class="an-draw" d="M294 80 h36" stroke="var(--teal-lt)" stroke-width="1.6" fill="none" style="--len:36;--d:1.2s"/>
+    <g class="an-fade" style="--d:1.5s"><rect x="344" y="8" width="150" height="20" rx="4" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1"/><text x="419" y="22" text-anchor="middle" fill="var(--body)" font-size="6.5">record_hash_recompute</text></g>
+    <g class="an-fade" style="--d:1.7s"><rect x="344" y="34" width="150" height="20" rx="4" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1"/><text x="419" y="48" text-anchor="middle" fill="var(--body)" font-size="6.5">envelope_binds_record_hash</text></g>
+    <g class="an-fade" style="--d:1.9s"><rect x="344" y="60" width="150" height="20" rx="4" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1"/><text x="419" y="74" text-anchor="middle" fill="var(--body)" font-size="6.5">signature_valid</text></g>
+    <g class="an-fade" style="--d:2.1s"><rect x="344" y="86" width="150" height="20" rx="4" fill="var(--bg-3)" stroke="var(--border-2)" stroke-width="1"/><text x="419" y="100" text-anchor="middle" fill="var(--body)" font-size="6.5">decision_valid</text></g>
+    <path class="an-draw" d="M494 58 h36" stroke="var(--teal-lt)" stroke-width="1.6" fill="none" style="--len:36;--d:2.4s"/>
+    <rect class="an-pop" x="536" y="30" width="88" height="60" rx="8" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.6" style="--d:2.6s"/>
+    <text x="580" y="65" text-anchor="middle" fill="var(--teal-lt)" font-size="9" class="an-fade" style="--d:2.8s">closed</text>
+    <text x="240" y="140" text-anchor="middle" fill="var(--gold)" font-family="JetBrains Mono, monospace" font-size="8">alter the halted-step list, the decision, or the hash &#8594; any one check fails, closure invalid</text>
+  </svg></div>
+  <p>Each of those four checks is independent: the recomputed record hash has to match what the record actually contains, the signed envelope has to name that exact hash, the passkey signature has to verify, and the stated decision has to be one of the two allowed values. Mutating the halted-step list, the triggering decision, or the record hash itself in isolation fails the corresponding check every time, which is what makes the closure tamper-evident rather than merely signed.</p>
+  <div class="note">A closed record does not disappear. It stays exactly where it was, now carrying a second artifact, the closure, that any later reader can verify independently of trusting whoever ran the workflow.</div>
+</div></section>
+
+<!-- PANEL 5 -->
+<section class="panel" id="step-5"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">5</span><div><div class="kicker">Step 5 &middot; When the principal is itself an agent</div><h2>A delegated agent's authority still traces to a person</h2></div></div>
+  <p>Nothing in the loop above requires the party holding a mandate to be a person acting directly. It can be an agent that was itself delegated authority by someone else, and when that is the case, the delegation has its own verifiable chain, separate from the mandate's own signature.</p>
+  <div class="grid">
+    <div class="card"><h3>The identifier's own log</h3><p>A did:webvh identifier is backed by a self-certifying, append-only log: each entry's own hash checks out, version numbers run in sequence with no gaps, every entry carries a signature from a key actually authorized to update it, and deactivation status is explicit rather than inferred.</p></div>
+    <div class="card"><h3>The delegation chain</h3><p>An ACDC credential chain links issuer to holder, edge by edge, each credential self-addressing under its own identifier, each schema matched against what it claims to be, terminating at a stated root identity rather than trailing off unverifiably.</p></div>
+  </div>
+  <p>Checking either chain never resolves a live document over the network and never operates the witness infrastructure that anchors the identifier in the first place; it verifies the log or the credential chain it is handed, structurally, the same offline discipline as every other check on this page. KERI, the identity model both formats build on, together with ACDC and its CESR encoding, was ratified by the Trust over IP Foundation in January 2026, the named precedent for delegated sponsorship this loop follows rather than invents.</p>
+  <span class="cite">art-284 did:webvh Log Verifier &middot; art-285 ACDC Delegation Chain Verifier &middot; verify-only</span>
+</div></section>
+
+<!-- PANEL 6 -->
+<section class="panel" id="step-6"><div class="wrap">
+  <div class="panel-head"><span class="stage-n">6</span><div><div class="kicker">What is NOT claimed</div><h2>Four boundaries this loop holds on purpose</h2></div></div>
+  <p>The five panels above describe real, shipped mechanisms. None of them add up to more than what follows, and this panel is deliberately as prominent as the others rather than a footnote at the bottom of the page.</p>
+  <div class="grid">
+    <div class="card claim-card"><h3>A mandate gates its own workflow, nothing wider</h3><p>Compiled gates enforce exactly the scope, conditions, and triggers written into that one mandate. They say nothing about any tool, workflow, or agent action the mandate never named.</p></div>
+    <div class="card claim-card"><h3>Closure is accountability, not correctness</h3><p>A signed approve decision records that a named person reviewed the case and accepted responsibility for the outcome. It is not a claim that the underlying case was decided the right way.</p></div>
+    <div class="card claim-card"><h3>Verification checks the record, not the judgment</h3><p>The four closure checks confirm the closure was not tampered with. They cannot confirm the human read the case carefully; that remains a human act no machine check reaches.</p></div>
+    <div class="card claim-card"><h3>No certified, guaranteed, or audited language</h3><p>None of those words belong on this page or on the tools it describes. What is checkable is stated plainly instead, so a reader can verify the claim rather than trust the adjective.</p></div>
+  </div>
+  <div class="cross-link">Related reading, without restating it here: <a href="evidence-estate-explainer.html">The Evidence Estate</a> covers how any receipt, including a mandate or a closure, gets anchored to third-party time &middot; <a href="kernel-vm-explainer.html">How the Kernel VM Works</a> covers the compute-integrity side of the hash every step in this loop carries &middot; <a href="stp-auto-decisioning-explainer.html">Machines Decide, Humans See Exceptions</a> covers the gated-workflow pattern this loop's run stage builds on.</div>
+</div></section>
+
+<div class="wrap">
+  <p class="pii">All content on this page is static and processed locally in your browser. No data is transmitted. Do not enter real personal data into any OpenChainGraph tool. Use synthetic or anonymised inputs only.</p>
+  <footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ain-bridge-explainer.html">AIN Bridge Explainer</a>
+        <a href="aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="ocg-industries.html">Industry Concepts</a>
+        <a href="../helm.html">Helm (Phase 1)</a>
+        <a href="../convert.html">Conversion Suite</a>
+        <a href="../guides/agreement-standards-directory.html">Agreement Standards</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Guides</div>
+        <a href="guide-avalanche.html">Avalanche L1 / Evergreen</a>
+        <a href="guide-tempo.html">Tempo Network</a>
+        <a href="guide-prov-dm.html">W3C PROV-DM</a>
+        <a href="guide-buildtype.html">buildType / SLSA</a>
+        <a href="guide-intoto.html">in-toto / DSSE</a>
+        <a href="guide-ed25519.html">Ed25519 Signing</a>
+        <a href="guide-otel.html">OpenTelemetry</a>
+        <a href="guide-iso20022.html">ISO 20022 Profile</a>
+        <a href="guide-okf.html">Open Knowledge Format</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Data &amp; Artifacts</div>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="../data/ap2-templates.json" target="_blank">ap2-templates.json</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
+        <a href="../mcp/server.json" target="_blank">mcp/server.json</a>
+        <a href="../mcp/catalog.json" target="_blank">mcp/catalog.json</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../sitemap.xml" target="_blank">sitemap.xml</a>
+        <a href="../robots.txt" target="_blank">robots.txt</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../euc-register.html">EUC Register</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Network</div>
+        <a href="../tools.html">All Tools</a>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../security.html">Security</a>
+        <a href="../disclosures/terms.html">Terms &amp; Reliance</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</div>
+
+<script>
+(function(){
+  var scenes = document.querySelectorAll('.scene');
+  if (!('IntersectionObserver' in window)) { scenes.forEach(function(s){ s.classList.add('in-view'); }); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.2 });
+  scenes.forEach(function(s){ io.observe(s); });
+})();
+</script>
+</body>
+</html>
