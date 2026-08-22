@@ -19,11 +19,16 @@ name: Derived Artifacts Regen
 # chaingraph.json joined this set (COVERED id 'chaingraph-assemble') — a
 # single-kernel PR no longer needs a separate hand-staged commit to assemble
 # it; this workflow assembles it after merge, exactly like catalogs/sitemap.
-# Its generator (assemble-chaingraph.mjs) is also the refusal gate: a node
-# removal/rename or any graph/chains/ change makes it leave chaingraph.json
-# untouched (a distinct no-write state, not a failure) — those stay a
-# separate, explicit hand-assembled commit. Validated against the §15 gate
-# suite before staging (see "Validate against the §15 gate suite" step).
+# Its generator (assemble-chaingraph.mjs) is also the refusal gate. Since
+# ASSEMBLE-CHAIN-CLASSIFY-1 (2026-08-22) it classifies the diff rather than
+# refusing every chain touch: copy-only chain edits (description/title) and
+# purely additive new chains auto-land; structural chain edits, chain
+# removals/renames and node removals/renames leave chaingraph.json untouched
+# and stay a separate, explicit hand-assembled commit. A refusal is NOT a
+# silent no-op any more — it emits an ::error annotation and the final step
+# below fails the run, because a workflow that declines to act and still
+# reports success hid exactly this for 7+ commits. Validated against the §15
+# gate suite before staging (see "Validate against the §15 gate suite" step).
 
 on:
   push:
@@ -124,10 +129,13 @@ jobs:
         # Stops on the first generator failure — a half-regenerated tree must
         # never reach a commit. chaingraph.json is one of the covered
         # artifacts — its generator (assemble-chaingraph.mjs) is itself the
-        # refusal gate for out-of-scope diffs: a node removal/rename or a
-        # graph/chains/ change makes it print a notice and leave the file
-        # untouched (exit 0, not a failure) rather than auto-write something
-        # that needs an explicit, reviewed commit instead.
+        # refusal gate for out-of-scope diffs: a node removal/rename, a chain
+        # removal/rename, or a structural chain edit makes it print an ::error
+        # annotation and leave the file untouched rather than auto-write
+        # something that needs an explicit, reviewed commit instead. It exits 0
+        # even then, ON PURPOSE, so a refusal does not abort the other
+        # generators here and leave every shared artifact stale; the run is
+        # failed instead by the final --refusal-status step.
         run: node scripts/derived-artifacts.mjs --regen
 
       # §15 gate suite validates the regenerated tree BEFORE anything is
@@ -307,3 +315,28 @@ jobs:
           SHA="$(git rev-parse HEAD)"
           echo "### Regenerated shared derived artifacts" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit \`$SHA\` pushed to main by the App; deploy-to-dreamhost.yml fires on it natively." >> "$GITHUB_STEP_SUMMARY"
+
+      # ── THE RUN'S CONCLUSION MUST NOT READ GREEN ON A NO-WRITE ────────────
+      # assemble-chaingraph.mjs can DECLINE to write chaingraph.json — a
+      # structural chain edit, a chain removal/rename, or a node removal/rename
+      # still needs a human ASSEMBLE/LAND row. Until 2026-08-22 that refusal
+      # printed a notice and exited 0, so this workflow reported SUCCESS on 7+
+      # consecutive commits while writing nothing, and main sat red on a 2-byte
+      # wording drift with no run conclusion pointing at the cause. A workflow
+      # that can refuse and still report success turns a loud failure into an
+      # invisible one.
+      #
+      # This step is LAST, and deliberately not folded into the regen step
+      # above: derived-artifacts.mjs --regen stops at the first non-zero
+      # generator, so failing there would leave every OTHER shared artifact
+      # stale too. Everything auto-landable is regenerated and committed first;
+      # then this decides whether the run may be called a success. It
+      # RECOMPUTES the classification from the shards (SO #34 — never reads the
+      # write step's claim about itself) and exits 3, with an ::error
+      # annotation naming each refused chain/node, when anything was refused.
+      #
+      # It runs on the dry-run path too (the commit step is skipped, not
+      # failed), so a workflow_dispatch dry run exercises this step rather than
+      # stopping short of it (SO #47(b)).
+      - name: Fail the run if the assembler refused to write (ASSEMBLE-CHAIN-CLASSIFY-1)
+        run: node scripts/assemble-chaingraph.mjs --refusal-status
