@@ -576,6 +576,20 @@ const GATES = [
   // so nothing about it is a branch's fault or a branch's to repair.
   ['Derived fan-out classification (NODE-FANOUT-REGEN-CLOSE-1)', 'node scripts/check-derived-fanout-coverage.mjs'],
   ['Derived fan-out classification control (mutation)', 'node scripts/check-derived-fanout-coverage.test.mjs'],
+  // DERIVED-DECLARE-PARITY-1: statically parses what each COVERED regen
+  // command actually writes and asserts it is a subset of the entry's
+  // declared artifacts[] — the mechanical kill for the 2026-08-20 enrolment
+  // incident (undeclared chaingraph.meta.json write → regen dead → count
+  // drift → Land Verify/Deploy red → merge-queue lock, SO #47). Prevention,
+  // not diagnosis: reds locally, before push.
+  //
+  // Complementary to the fan-out classification gate directly above, not a
+  // duplicate of it: that one asks "is every node-sensitive generator
+  // CLASSIFIED at all", this one asks "does a COVERED entry DECLARE everything
+  // it actually writes". Both landed 2026-08-21 for the same incident family,
+  // and each catches cases the other passes.
+  ['Derived-artifact declare parity (DERIVED-DECLARE-PARITY-1)', 'node scripts/check-derived-declare-parity.mjs --check'],
+  ['Derived-artifact declare parity self-test (SO #40b pairing)', 'node scripts/check-derived-declare-parity.test.mjs'],
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
