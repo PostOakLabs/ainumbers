@@ -431,6 +431,13 @@ function render(){
       '<button class="ghost-btn" onclick="exportMD()">↓ Markdown report</button>'+
       '<button class="ghost-btn" onclick="exportMandate()">↓ Policy Mandate JSON</button>'+
     '</div>';
+  /* Direct post-render enable — AP2-MANIFEST-PARITY-1. The MutationObserver
+     below is left in place as a belt-and-braces fallback, but it proved
+     unreliable as the sole trigger (observed: button stayed disabled after a
+     real run in manual verification), so the render path now also enables
+     the button explicitly instead of depending on the observer alone. */
+  if(typeof window._captureAP2==='function')window._captureAP2();
+  if(typeof window.enableAP2Btn==='function')window.enableAP2Btn();
 }
 
 function exportMD(){
@@ -625,14 +632,20 @@ window._captureAP2=function(){
     }
   }
 };
+function uuid4_174(){
+  if(typeof crypto!=='undefined'&&crypto.randomUUID)return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){
+    var r=Math.random()*16|0;
+    return(c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
 window.exportAP2=function(){
   window._captureAP2();
   if(!window._ap2Result){alert('Run the tool first to generate results.');return;}
   var ts=new Date().toISOString();
   var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'174-peppol-xml-auditor';
   var mandate={
-    ap2_version:'1.0',
-    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    mandate_id:uuid4_174(),
     issued_at:ts,issued_by:'ainumbers.co',
     tool_id:tid,
     tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',

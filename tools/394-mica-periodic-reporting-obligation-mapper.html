@@ -20,7 +20,7 @@ function toggleMfst(){const b=document.getElementById('mfstBody'),a=document.get
   "category": "cat-24",
   "tags": ["MiCA","reporting","obligations","CASP","ART","EMT","calendar","NCA","EBA","ESMA"],
   "mcp_tool_definition": {"name":"map_mica_periodic_reporting_obligations","description":"Schedules MiCA periodic reporting obligations for CASP/ART/EMT issuers with full annual calendar and deadlines.","inputSchema":{"type":"object","properties":{"entity_type":{"type":"string","enum":["CASP","ART","EMT"]},"significant":{"type":"boolean"},"home_state":{"type":"string"},"reporting_year":{"type":"integer"}},"required":["entity_type","reporting_year"]}},
-  "ap2_export": false
+  "ap2_export": true
 }
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -228,7 +228,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
   </div>
 </div></div>
 
-<div id="ap2ExportRow" style="display:flex;flex-wrap:wrap;gap:.55rem;margin:1.5rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--border,#1E2F4A)">
+<div id="ap2ExportRow" class="results-export-row" style="display:flex;flex-wrap:wrap;gap:.55rem;margin:1.5rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--border,#1E2F4A)">
   <button id="ap2ExportBtn" disabled onclick="exportAP2()"
     style="display:inline-flex;align-items:center;gap:.45rem;padding:.5rem 1rem;border-radius:var(--radius,6px);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border-2,#263855);color:var(--muted,#3A5270);background:transparent;cursor:not-allowed;opacity:.32;white-space:nowrap;transition:all .2s"
     title="Run the tool first to enable Policy Mandate export">
@@ -674,9 +674,25 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     setTimeout(function(){URL.revokeObjectURL(url);},800);
   }
 
+  /* PolicyMandate validator — CONTRACT §3.2 "MUST call AP2Schema.validate()
+     before URL.createObjectURL()" (AP2-MANIFEST-PARITY-1). AP2Schema internal
+     name retained (§3.1) — this is the AINumbers Policy Mandate, not AP2. */
+  if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+  window.AP2Schema.validate=window.AP2Schema.validate||function(m){
+    var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    function _f(msg){throw new Error('AP2Schema: '+msg);}
+    if(!m||typeof m!=='object')_f('mandate must be an object');
+    if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+    if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+    if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+    if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+    return true;
+  };
+
   window.exportAP2=function(){
     var m=window._lastMandate;
     if(!m){showToast('Run the tool first.',true);return;}
+    window.AP2Schema.validate(m);
     var slug=location.pathname.split('/').pop().replace('.html','');
     var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
     dl(JSON.stringify(m,null,2),slug+'_'+ts+'.policy.json');
@@ -703,14 +719,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       }
     }
     return {
-      ap2_version:'1.0',reliance_notice:{statement:"This tool runs in your browser and is provided for information. It is not legal, tax, accounting, or investment advice, and it is not a regulatory determination. Regulations change, and any reference shown here may not match the text currently in force. Check the source instrument and take professional advice before relying on an output.",as_of:"2026-07-27",issued_by:"ainumbers.co"},
+      reliance_notice:{statement:"This tool runs in your browser and is provided for information. It is not legal, tax, accounting, or investment advice, and it is not a regulatory determination. Regulations change, and any reference shown here may not match the text currently in force. Check the source instrument and take professional advice before relying on an output.",as_of:"2026-07-27",issued_by:"ainumbers.co"},
       mandate_id:uuid4(),
       issued_at:new Date().toISOString(),
       issued_by:'ainumbers.co',
       tool_id:location.pathname.split('/').pop().replace('.html',''),
       tool_version:'1.0',
-      mandate_type:'compliance_assessment',
-      jurisdiction:'see_payload',
+      mandate_type:'compliance_control',
+      jurisdiction:['ZZ'],
       payload:{output_snapshot:snap||'run tool to populate'},
       audit_metadata:{client_side:true,pii_transmitted:false}
     };
