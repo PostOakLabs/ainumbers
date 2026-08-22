@@ -364,6 +364,7 @@ const GATES = [
   // them into one command let PR #1309 ship an unlinked page green.
   ['Nav reachability — new islands (NAV-ISLAND-1)', 'node scripts/check-nav-reachability.mjs'],
   ['Nav-island baseline fresh (derived)', 'node scripts/check-nav-reachability.mjs --baseline-check'],
+  ['Branch-aware PENDING-ASSEMBLE nav proof (NAV-ISLAND-PENDING-ASSEMBLE-1)', 'node scripts/check-nav-reachability.test.mjs'],
   ['Count-drift gate',             'node scripts/verify-counts.mjs --check'],
   // DEBT-LEDGER-1: fv-explainer.html's generated ratchet-baseline ledger (a
   // SEPARATE region from the count sentinels the gate above covers — see

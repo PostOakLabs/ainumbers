@@ -39,9 +39,30 @@
 //   plain (no flag)     -> new islands FAIL, hard, in EVERY context (PR + main)
 //   --baseline-check    -> stale baseline FAILS; advisory on PR, blocking on
 //                          main, repaired by derived-artifacts-regen.yml
+//
+// ⚠ NAV-ISLAND-PENDING-ASSEMBLE-1 (2026-08-22) — PENDING-ASSEMBLE ACCOMMODATION.
+// A class-K row ships its node page in the SAME PR as the node shard
+// (RIDER-KERNEL K-FULL), but registering that shard into chaingraph.json is
+// main-side single-writer (SO #35) — the PR that adds the page cannot also
+// make it reachable, because this gate's only DYNAMIC root is chaingraph.json
+// itself (see "dynamic" above). Without an accommodation every K row reds this
+// gate by construction. The fix mirrors scripts/check-shard-assembly.mjs's own
+// SHARD-GATE-PRE-ASSEMBLE-1 branch-awareness rather than reinventing it: a
+// candidate island page chaingraph/<id>.html whose shard
+// chaingraph/graph/nodes/<id>.json exists on disk is checked against THAT
+// gate's own PENDING-ASSEMBLE classification (shelled to, output parsed — see
+// pendingAssembleNodeIds() below, the same reuse pattern
+// check-node-complete.mjs's checkRegistration() already uses; no second copy
+// of the base-ref / assembling-branch git logic lives here, per SO #34). Only
+// a page whose shard is genuinely mid-flight (absent from the base ref, not
+// registered, branch not itself assembling) is excused — a page whose shard
+// is leaked, orphaned, schema-invalid, or already registered is NOT in that
+// section and stays a real island. Excused pages are never added to the
+// baseline: they are not islands yet, not islands the reader should accept.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, relative, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const ROOT = process.env.NAV_ROOT ? resolve(process.env.NAV_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -127,9 +148,63 @@ for (const m of cg.matchAll(/"([^"\n]+?\.html)"/g)) {
 
 const reach = new Set([...bfs(['index.html']), ...bfs([...dyn]), ...dyn]);
 
-const islands = [...ALL]
-  .filter(p => !reach.has(p) && !isSitemap(p) && !isShim(p))
-  .sort();
+const preIslands = [...ALL].filter(p => !reach.has(p) && !isSitemap(p) && !isShim(p));
+
+// NAV-ISLAND-PENDING-ASSEMBLE-1 (see header note). A node page's id is its
+// filename minus extension -- only a match against a REAL on-disk shard is a
+// candidate; an unrelated page never even reaches the shard-assembly shell-out.
+function nodeShardIdForPage(p) {
+  const m = /^chaingraph\/([^/]+)\.html?$/i.exec(p);
+  if (!m) return null;
+  const id = m[1];
+  return existsSync(join(ROOT, 'chaingraph', 'graph', 'nodes', `${id}.json`)) ? id : null;
+}
+
+const SHARD_ASSEMBLY_SCRIPT = join(ROOT, 'scripts', 'check-shard-assembly.mjs');
+
+// Reuse, not reimplementation (SO #34): shell to check-shard-assembly.mjs --
+// the script that already draws the branch-aware PENDING-ASSEMBLE distinction
+// from git -- and parse ITS OWN printed PENDING-ASSEMBLE section. Output is
+// captured whether the child exits 0 or 1 (a leaked shard elsewhere, or a
+// schema failure, still exits 1 while printing a perfectly good PENDING-
+// ASSEMBLE section for an unrelated id). If the child cannot even run, no
+// section is found and nothing is excused -- fails closed, same as the gate
+// it reuses (SO #34c: a missing result is a distinct state, never a green one).
+function pendingAssembleNodeIds() {
+  let out = '';
+  try {
+    out = execFileSync('node', [SHARD_ASSEMBLY_SCRIPT], { cwd: ROOT, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    out = `${e.stdout || ''}${e.stderr || ''}`;
+  }
+  const ids = new Set();
+  let inPending = false;
+  for (const line of out.split('\n')) {
+    if (/^check-shard-assembly: PENDING-ASSEMBLE —/.test(line)) { inPending = true; continue; }
+    if (inPending) {
+      const m = /^\s*-\s+(\S+)\s/.exec(line);
+      if (m) { ids.add(m[1]); continue; }
+      inPending = false;
+    }
+  }
+  return ids;
+}
+
+const candidateNodePages = preIslands
+  .map(p => ({ p, id: nodeShardIdForPage(p) }))
+  .filter(x => x.id);
+
+const excused = new Set();
+if (candidateNodePages.length > 0) {
+  const pending = pendingAssembleNodeIds();
+  for (const { p, id } of candidateNodePages) if (pending.has(id)) excused.add(p);
+  if (excused.size > 0) {
+    console.log(`nav-reachability: ${excused.size} page(s) excused as PENDING-ASSEMBLE (NAV-ISLAND-PENDING-ASSEMBLE-1, per check-shard-assembly.mjs) -- not an island yet, and not added to the baseline:`);
+    for (const p of [...excused].sort()) console.log(`  ${p}`);
+  }
+}
+
+const islands = preIslands.filter(p => !excused.has(p)).sort();
 
 if (MODE === 'update') {
   writeFileSync(BASELINE, JSON.stringify(islands, null, 2) + '\n');
