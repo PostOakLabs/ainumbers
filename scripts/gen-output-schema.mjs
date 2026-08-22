@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// gen-output-schema.mjs — CHAIN-FV-L2-G-RESCOPE-3.
+// gen-output-schema.mjs — CHAIN-FV-L2-G-RESCOPE-3, extended by CHAIN-FV-L2G-GENERATOR-1 (nested-pointer
+// resolution, numeric point-value witnessing, null-tolerant enum — see deriveField for the three).
 //
 // Derives a per-producer OUTPUT-CONTRACT SIDECAR from conformance fixtures for every kernel-class gate
 // producer that has no manifest, and writes it to a NEW directory:
@@ -23,8 +24,11 @@
 // enforced in the checker's verdict path (check-chain-l2-contracts.mjs checkGateRule), not just here.
 //
 // ⛔ FIXTURE VECTORS ONLY. No hand-typed schemas, no fabricated fixture values. Types come from the
-// observed JS type of each output value; enums from the observed scalar values (low-cardinality only);
-// minimum/maximum from the observed numeric range. Nothing is invented.
+// observed JS type of each output value; enums from the observed scalar values (low-cardinality only,
+// null tolerated as a real member — CHAIN-FV-L2G-GENERATOR-1); minimum/maximum PLUS the exact observed
+// point set from the observed numeric range (the point set decides eq/in/neq, the range never does —
+// an envelope containing a value is not proof the value was emitted). Object-typed fields recurse into
+// nested `properties` so a nested gate pointer resolves. Nothing is invented at any depth.
 //
 // ⛔ HASH-NEUTRAL by construction: this writes a NEW sidecar file per producer and touches no kernel,
 // no fixture, no node shard, and not chaingraph.json — so no `execution_hash` / `kernel_digest`
@@ -84,9 +88,31 @@ function outputVectors(id, fixDir = FIX_DIR) {
   return ((fx && fx.vectors) || []).map((v) => v && v.output_payload).filter((p) => p && typeof p === 'object' && !Array.isArray(p));
 }
 
+// Nested-object recursion depth cap. The deepest live gate pointer is 3 segments
+// (`/session/injection_detection/verdict`, CHAIN-FV-L2G-GENERATOR-1) — 4 leaves headroom without
+// walking into arbitrary depth on a malformed vector.
+const MAX_NEST_DEPTH = 4;
+
 // Derive one field's witness schema from the values observed across every vector. Pure — the array of
 // observed values is all it sees, so the selftest drives it with no filesystem.
-export function deriveField(values) {
+//
+// ⛔⛔ CHAIN-FV-L2G-GENERATOR-1 — three algorithm extensions over the RESCOPE-3 shape, all still WITNESS
+// not declaration (SO #34, spec'd in the RESCOPE-3 report §3):
+//   (a) OBJECT-TYPED FIELDS RECURSE into `properties`, so a nested gate pointer (e.g.
+//       `/ratios/total_capital_pass`) resolves against a real sub-schema instead of stopping at `type:
+//       "object"` with no properties. Depth-capped at MAX_NEST_DEPTH.
+//   (b) NUMBER FIELDS also carry `x-observed-values` — the exact distinct numeric values seen, ALONGSIDE
+//       minimum/maximum, never instead of them. This is NOT an `enum` (a range stays the honest witness
+//       for containment/interval checks) — it exists solely so an eq/in/neq gate can be decided against
+//       an exact observed POINT, never a min/max envelope (an envelope containing a value is not proof
+//       the value itself was ever emitted — FIXTURES-1 already ruled this over-claims).
+//   (c) NULL-TOLERANT ENUM: a string field that also observes `null` now still enumerates — the null is
+//       recorded as a real member of the set (`[...strings, null]`), not silently dropped. Previously any
+//       null presence blocked enum derivation entirely, even when the non-null values were low-cardinality
+//       and genuinely decidable.
+// `xsource`, when supplied, is stamped onto this property AND every recursively derived nested property —
+// the RESCOPE-3 witness note is unchanged by depth, it always cites the same fixture corpus + digest.
+export function deriveField(values, xsource = null, depth = 0) {
   const jsType = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
   const types = [...new Set(values.map(jsType))].sort();
   const scalarTypes = types.filter((t) => t === 'string' || t === 'number' || t === 'boolean');
@@ -96,17 +122,44 @@ export function deriveField(values) {
   const schemaTypes = [...new Set(types.map((t) => (t === 'array' ? 'array' : t === 'object' ? 'object' : t)))];
   prop.type = schemaTypes.length === 1 ? schemaTypes[0] : schemaTypes.sort();
 
-  // Booleans always enumerate; strings enumerate only under the cardinality cap; numbers never
-  // enumerate (a range is the honest witness). A field of mixed scalar type gets no enum/range.
-  if (scalarTypes.length === 1 && scalarTypes[0] === 'boolean') {
+  const nonArrayObject = !types.includes('array') && !types.includes('object');
+
+  // Booleans always enumerate; strings (± null) enumerate under the cardinality cap; numbers never
+  // enumerate (a range is the honest witness) but do carry the exact observed point values as a
+  // separate witness field. A field of mixed scalar type (e.g. string+number) gets no enum/range.
+  if (scalarTypes.length === 1 && scalarTypes[0] === 'boolean' && nonArrayObject) {
     prop.enum = [...new Set(values.filter((v) => typeof v === 'boolean'))].sort();
-  } else if (scalarTypes.length === 1 && scalarTypes[0] === 'string' && !types.includes('array') && !types.includes('object') && !types.includes('null')) {
-    const distinct = [...new Set(values.filter((v) => typeof v === 'string'))].sort();
-    if (distinct.length <= ENUM_CARDINALITY_CAP) prop.enum = distinct;
-  } else if (scalarTypes.length === 1 && scalarTypes[0] === 'number' && !types.includes('array') && !types.includes('object') && !types.includes('null')) {
+  } else if (nonArrayObject && (scalarTypes.length === 0 || (scalarTypes.length === 1 && scalarTypes[0] === 'string'))) {
+    // (c) null-tolerant enum: string values (any subset), optionally mixed with null. A field observed
+    // as null-only still gets `enum:[null]` — a genuine, if narrow, witnessed member set.
+    const distinctStrings = [...new Set(values.filter((v) => typeof v === 'string'))].sort();
+    const hasNull = types.includes('null');
+    const distinct = hasNull ? [...distinctStrings, null] : distinctStrings;
+    if (distinct.length && distinct.length <= ENUM_CARDINALITY_CAP + (hasNull ? 1 : 0)) prop.enum = distinct;
+  } else if (scalarTypes.length === 1 && scalarTypes[0] === 'number' && nonArrayObject && !types.includes('null')) {
     const nums = values.filter((v) => typeof v === 'number' && Number.isFinite(v));
-    if (nums.length) { prop.minimum = Math.min(...nums); prop.maximum = Math.max(...nums); }
+    if (nums.length) {
+      prop.minimum = Math.min(...nums);
+      prop.maximum = Math.max(...nums);
+      // (b) exact observed points — a witness for eq/in/neq gates, never for interval containment.
+      prop['x-observed-values'] = [...new Set(nums)].sort((a, b) => a - b);
+    }
+  } else if (types.length === 1 && types[0] === 'object' && depth < MAX_NEST_DEPTH) {
+    // (a) recurse: derive a nested sidecar schema from the sub-fields observed across every object value.
+    const objValues = values.filter((v) => v && typeof v === 'object' && !Array.isArray(v));
+    const subNames = new Set();
+    for (const v of objValues) for (const k of Object.keys(v)) subNames.add(k);
+    if (subNames.size) {
+      const properties = {};
+      for (const name of [...subNames].sort()) {
+        const subValues = objValues.filter((v) => Object.prototype.hasOwnProperty.call(v, name)).map((v) => v[name]);
+        properties[name] = deriveField(subValues, xsource, depth + 1);
+      }
+      prop.properties = properties;
+    }
   }
+
+  if (xsource) prop['x-source'] = { ...xsource };
   return prop;
 }
 
@@ -127,9 +180,7 @@ export function deriveSidecar(id, kernelDigest, vectors) {
   const properties = {};
   for (const name of [...fieldNames].sort()) {
     const values = vectors.filter((v) => Object.prototype.hasOwnProperty.call(v, name)).map((v) => v[name]);
-    const prop = deriveField(values);
-    prop['x-source'] = { ...xsource };
-    properties[name] = prop;
+    properties[name] = deriveField(values, xsource);
   }
 
   return {
