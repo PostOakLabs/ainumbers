@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Ownership 50%-Rule Aggregator"
-description: "Walks a synthetic ownership graph; computes direct + indirect + aggregate listed stakes per node; applies OFAC, EU, and BIS Affiliates Rule (in force 29 Sep 2025) 50%-thresholds to determine constructively-blocked entities. Pure graph math, synthetic entities only."
+description: "Walks a synthetic ownership graph; computes direct + indirect + aggregate listed stakes per node; applies OFAC, EU, and BIS Affiliates Rule (in force 29 Sep 2025) 50%-thresholds to determine constructively-blocked entities. Ownership percentage is the only relation the inputs carry: there is no control edge and no control flag, so control without ownership is excluded from scope. OFAC FAQs 398 and 400 treat an entity that a blocked person controls without owning 50 percent or more as not itself blocked while still counselling caution, and that branch is not evaluated here. The EU criterion is ownership or control, and the eu_50 threshold expresses its ownership prong only; the EU control prong is excluded on the same ground. Pure graph math, synthetic entities only."
 resource: https://ainumbers.co/chaingraph/art-91-ownership-50pct-aggregator.html
 tags: ["compliance_mandate", "wave-19", "mcp:aggregate_ownership_50pct"]
 timestamp: 2026-07-14
