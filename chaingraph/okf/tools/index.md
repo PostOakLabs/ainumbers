@@ -621,7 +621,6 @@ status: stable
 - [No-Russia-Clause Pack Builder](./art-96-no-russia-clause-pack-builder.md) — `build_no_russia_clause_pack`
 - [Sanctions Screening-Program Quality Scorer](./art-97-sanctions-screening-quality-scorer.md) — `score_sanctions_screening_quality`
 - [MiCA CASP Fit Diagnostic](./art-98-mica-casp-fit-diagnostic.md) — `run_mica_casp_fit`
-- [MiCA Transitional-Deadline Router](./art-99-mica-transitional-deadline-router.md) — `route_mica_transitional_deadline`
 - [ZK Compliance Proof Generator](./cry-01-zk-compliance-proof-generator.md) — `generate_zk_compliance_proof`
 - [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md) — `verify_merkle_batch`
 - [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md) — `aggregate_execution_receipts`
