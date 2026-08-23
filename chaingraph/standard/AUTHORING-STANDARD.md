@@ -251,15 +251,26 @@ second is cheaper, additive, and reversible. It is the one adopted.
 must be truthy exactly when the conditional flags are present.**
 
 **Closed mirror list** (⛔ closed; extending it is a deliberate amendment to this file, not an
-author's choice):
+author's choice). **Selection rule**, applied to a census of every kernel's observed
+`output_payload` keys: a member is admissible **iff its presence-and-truthiness means "the kernel is
+carrying a caveat"**, never "here is the answer". Counts are the 2026-08-23 census.
 
-| Member | Type | Precedent |
-|---|---|---|
-| `manual_review_required` | boolean | `art-637`, `art-615`, `art-507` |
-| `warning_checks` | array/object | `art-01` (the precedent this rule formalises) |
-| `warnings` | array | 15 kernels |
-| `warn_count` | number | 12 kernels |
-| `caveats` | array | 1 kernel |
+| Member | Type | Census | Precedent |
+|---|---|---:|---|
+| `manual_review_required` | boolean | 3 | `art-637`, `art-615`, `art-507` — the refusal-carrying counter-pattern |
+| `warning_checks` | array/object | 1 | `art-01` — the precedent this rule formalises |
+| `warnings` | array | 12 | |
+| `warn_count` | number | 11 | |
+| `caveats` | array | 1 | |
+| `domain_errors` | array | 2 | `art-617`'s declared-domain refusal |
+| `errors` | array | 10 | |
+| `issues` | array | 9 | |
+
+⛔ **Deliberately excluded, with the reason, so it is not re-litigated per node:** `decision` (20),
+`reason` (11), `reasons` (13) and `breach_reasons` (1) **explain a verdict the kernel did produce** —
+a gate routing on them routes on the answer, not on the refusal; `execution_state` (2) is a lifecycle
+marker truthy on clean runs; `notes` (1) is prose emitted on clean runs too; `valid_input` (2) has
+**inverted sense** — truthy means fine, so every gate written against it would route backwards.
 
 ⚖ **A constant marker is not a conditional flag.** A kernel that always emits the same
 `*_ASSESSED` / `*_COMPLETE` set carries no non-verdict and owes no mirror — 444 of the 545 emitters

@@ -61,13 +61,28 @@ const BASELINE_PATH = resolve(REPO, 'scripts', 'flag-mirror-baseline.json');
  * The CLOSED mirror list (AUTHORING-STANDARD.md §2.2). Extending it is a deliberate amendment to
  * that file, not an author's choice — an open list is how a mirror requirement becomes "put any
  * field you like in the payload and call it a caveat".
+ *
+ * SELECTION RULE, applied to a measured census of every kernel's observed output_payload keys: a
+ * member is admissible iff its presence-and-truthiness means "the kernel is CARRYING A CAVEAT",
+ * never "here is the answer". Counts below are the 2026-08-23 census.
+ *
+ * DELIBERATELY EXCLUDED, with the reason, so this is not re-litigated per node:
+ *   decision (20), reason (11), reasons (13), breach_reasons (1) — these EXPLAIN a verdict the
+ *     kernel did produce. A gate routing on them routes on the answer, not on the refusal.
+ *   execution_state (2) — a lifecycle marker, truthy on clean runs.
+ *   notes (1) — prose, emitted on clean runs too (art-637).
+ *   valid_input (2) — INVERTED sense: truthy means fine. A mirror must be truthy when a caveat is
+ *     present, or every gate written against it routes backwards.
  */
 export const MIRROR_MEMBERS = Object.freeze([
-  'manual_review_required', // art-637 / art-615 / art-507
-  'warning_checks',         // art-01 — the precedent this doctrine formalises
-  'warnings',
-  'warn_count',
-  'caveats',
+  'manual_review_required', // 3 — art-637 / art-615 / art-507, the refusal-carrying counter-pattern
+  'warning_checks',         // 1 — art-01, the precedent this doctrine formalises
+  'warnings',               // 12
+  'warn_count',             // 11
+  'caveats',                // 1
+  'domain_errors',          // 2 — art-617's declared-domain refusal
+  'errors',                 // 10
+  'issues',                 // 9
 ]);
 
 /** A mirror member counts as CARRIED when the key is present, whatever this run's value. */
