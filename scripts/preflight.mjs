@@ -1353,6 +1353,17 @@ const GATES = [
   // UNREPAIRABLE. A red here means the probe itself stopped working, which is
   // how the 15-hour red main happened in the first place.
   ['Merge-queue repairability probe control (mutation)', 'node scripts/check-regen-repairable.test.mjs'],
+  // DEPLOY-REGEN-RACE-1: the control for scripts/check-deploy-superseded.mjs, the
+  // classifier deploy-to-dreamhost.yml's `supersede` job runs on main. That script
+  // is main-only by construction (there is no regen bot to race on a branch), so
+  // it is CI_ONLY in check-workflow-gate-parity.mjs and THIS is where it gets its
+  // pre-push coverage. Polarity is inverted from a normal gate: the outcome it can
+  // grant is a STAND-DOWN, so the load-bearing case is that a genuinely stale
+  // artifact the regen cannot repair yields superseded=FALSE — i.e. Deploy still
+  // reds. A green here is what keeps this from being a disabled deploy gate. Its
+  // last block also re-derives the gate set from the real workflow, so removing
+  // those steps (or breaking the parse) goes red here rather than on main.
+  ['Deploy supersede classifier control (mutation + live derivation)', 'node scripts/check-deploy-superseded.test.mjs'],
   // TWO AXES since WORKFLOW-GATE-PARITY-ASSERT-1 (2026-08-23): PRESENCE (does CI
   // run a node gate preflight doesn't?) and STATUS (is the same gate advisory at
   // one call site and blocking at another, in a context both can reach?). Variant
