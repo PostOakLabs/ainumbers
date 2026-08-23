@@ -473,6 +473,17 @@ const GATES = [
   // logic from silently rotting. Hermetic: pure functions driven by fixtures
   // recorded from the 2026-08-22 incident, no network and no `gh`.
   ['Reconcile push-quarantine controls (RED/GREEN/UNCHANGED/CLASSIFIER)', 'node scripts/reconcile-guard.test.mjs'],
+  // XSURF-CHECKER-1: five-leg cross-surface fact-consistency detector. The only
+  // two surface pairs in the estate that never drift are the two with a single
+  // mechanical writer; every hand-maintained pair drifts, and until this gate
+  // nothing watched. Legs (a) page<->kernel payload strings, (c) flag-ghost,
+  // (d) kernel-meta<->shard mcp_name are BLOCKING against a down-only baseline.
+  // Leg (b) (register digest) is REPORT-ONLY by ruling — it prints its count and
+  // contributes nothing to the exit code. Also wired into land-verify.yml
+  // (kernel/shard paths) and html-verify.yml (page paths), so the gate cannot
+  // become preflight-only: that divergence class has bitten this estate twice.
+  ['Cross-surface fact consistency (XSURF-CHECKER-1)', 'node scripts/check-cross-surface.mjs'],
+  ['Cross-surface detector self-tests (SO #34 mutation control)', 'node scripts/check-cross-surface.test.mjs'],
   // Rule-registry: the assembled table is an SO #35 single-writer derived artifact (ASSEMBLE-LAND
   // only). --check recomputes every entry's source digest from the pinned snapshot bytes, so a
   // shard row's entry file is verified here even while the table itself is still PENDING-ASSEMBLE.
