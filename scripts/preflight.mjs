@@ -315,6 +315,20 @@ function unavailableClause(n) {
 }
 
 /**
+ * The UNAVAILABLE roll-up, printed immediately above the verdict so it cannot be
+ * scrolled past. An UNAVAILABLE is not a failure and not an advisory — it is the
+ * absence of either, which is exactly why it needs a name (SO #34c). ⛔ It does
+ * NOT block: no advisory was promoted to a hard gate by this row.
+ */
+function printUnavailableBlock() {
+  if (!unavailableAdvisories.length) return;
+  console.log(`\n✗ ${unavailableAdvisories.length} ADVISORY CHECKER(S) UNAVAILABLE — they could not run, so they reported NOTHING:`);
+  for (const u of unavailableAdvisories) console.log(`    ✗ ${u.label}\n        ↳ ${u.reason}`);
+  console.log('    ⛔ This is NOT "advisory" and NOT a pass — nothing was measured here (SO #34c).');
+  console.log('    It does not block: promoting an advisory to a hard gate is a separate decision.');
+}
+
+/**
  * ADVISORY-CRASH-DISTINCT-1's control (SO #40b: prove RED before GREEN). Runs the
  * REAL classifier over REAL failed subprocesses and the REAL tally over a synthetic
  * ledger — it does not re-implement any of it. Hermetic: no network, no estate scan,
@@ -389,6 +403,20 @@ function runSelfTest() {
   console.log('\nSUMMARY — the UNAVAILABLE count reaches the final summary line:');
   check('clause present when an advisory could not run', /UNAVAILABLE/.test(unavailableClause(2)), unavailableClause(2).trim());
   check('clause absent when every advisory reported', unavailableClause(0) === '', '(empty)');
+
+  // END-TO-END RENDERER PROOF. Drives the REAL reporting path — the same
+  // gateUnavailable() and printUnavailableBlock() the live advisories call — over a
+  // REAL failed subprocess, so what a session would actually see is printed here
+  // verbatim rather than described.
+  console.log('\nRENDERER — a live could-not-run advisory, rendered through the production path:');
+  const rendered = runAdvisoryChecker('node scripts/__advisory_crash_distinct_1_absent__.mjs');
+  gateStart('synthetic advisory checker (self-test)');
+  gateUnavailable('synthetic advisory checker (self-test)', rendered.reason, '');
+  printUnavailableBlock();
+  console.log(`\n  the final summary line then reads:\n  ✅ preflight PASSED — all hard CI gates green. Safe to push.${unavailableClause(unavailableAdvisories.length)}`);
+  check('the unavailable advisory reached the summary roll-up', unavailableAdvisories.length === 1,
+    `${unavailableAdvisories.length} recorded`);
+  unavailableAdvisories.length = 0; // self-test only — never leaks into a real run
 
   console.log('');
   if (failures.length) {
@@ -1445,16 +1473,7 @@ gateStart(VERSION_PROSE_LABEL);
 }
 
 // ── ADVISORY-CRASH-DISTINCT-1: checkers that produced NO result ─────────────
-// Printed last, immediately above the verdict, so it cannot be scrolled past. An
-// UNAVAILABLE is not a failure and not an advisory — it is the absence of either,
-// which is precisely why it needs a name (SO #34c). ⛔ It does NOT block: no
-// advisory was promoted to a hard gate by this row.
-if (unavailableAdvisories.length) {
-  console.log(`\n✗ ${unavailableAdvisories.length} ADVISORY CHECKER(S) UNAVAILABLE — they could not run, so they reported NOTHING:`);
-  for (const u of unavailableAdvisories) console.log(`    ✗ ${u.label}\n        ↳ ${u.reason}`);
-  console.log('    ⛔ This is NOT "advisory" and NOT a pass — nothing was measured here (SO #34c).');
-  console.log('    It does not block: promoting an advisory to a hard gate is a separate decision.');
-}
+printUnavailableBlock();
 
 const UNAVAILABLE_CLAUSE = unavailableClause(unavailableAdvisories.length);
 if (KEEP_GOING && waivedCount) {
