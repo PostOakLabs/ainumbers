@@ -27,24 +27,43 @@
 
 import { execFileSync } from 'node:child_process'
 import { isolatedChildEnv } from './_git-env-lib.mjs'
+import { assertSandboxCompleteOrExit, deriveSandboxFiles, namedModuleNotFound, REPO_ROOT } from './lib-sandbox-deps.mjs'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const GATE_SRC = resolve(__dirname, 'check-nav-reachability.mjs')
+
+// ── THE SANDBOX FILE SET IS DERIVED, NOT TYPED (SANDBOX-FILELIST-GATE-1) ──
 // The gate under test shells to check-shard-assembly.mjs for the PENDING-
 // ASSEMBLE classification (NAV-ISLAND-PENDING-ASSEMBLE-1's whole point is
 // reuse, not reimplementation — SO #34), so every fixture repo needs real
 // copies of it and everything IT needs in turn — the same real files, never a
-// reproduction of their content (same discipline check-shard-assembly.test.mjs
-// already applies to schema-validate.mjs).
-const SHARD_ASSEMBLY_SRC = resolve(__dirname, 'check-shard-assembly.mjs')
-const LIB_SHARD_ORDER_SRC = resolve(__dirname, 'lib-shard-order.mjs')
-const GIT_ENV_LIB_SRC = resolve(__dirname, '_git-env-lib.mjs')
-const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
-const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
+// reproduction of their content.
+//
+// "Everything it needs in turn" used to be five hand-written const lines, and an
+// import added to any of them killed this suite. Here the damage was WORSE than
+// in check-shard-assembly.test.mjs: check-nav-reachability.mjs catches the
+// sub-gate's crash, so the missing module never reaches this file's output at
+// all. Measured on GIT-ENV-LEAK-SWEEP-1's mutation, this harness printed
+// "1 NEW island(s) — page(s) no nav path reaches" and failed 3 of 7 cases with a
+// confident, wrong nav verdict and no ERR_MODULE_NOT_FOUND anywhere in the log.
+//
+// Only what CANNOT be derived is declared now:
+//   ROOTS  — the scripts the fixture EXECUTES: the gate itself, the gate it
+//            SHELLS OUT to, and that one's own shell-out target
+//            (schema-validate.mjs). Shell-outs are execFileSync calls, not
+//            imports, so import derivation cannot see them.
+//   EXTRAS — non-module data read at runtime.
+// _git-env-lib.mjs and lib-shard-order.mjs are derived and no longer named.
+const SANDBOX_ROOTS = [
+  'scripts/check-nav-reachability.mjs',
+  'scripts/check-shard-assembly.mjs',
+  'chaingraph/standard/schema-validate.mjs',
+]
+const SANDBOX_EXTRAS = ['chaingraph/standard/openchain-graph-v0.4.schema.json']
+const SANDBOX_FILES = deriveSandboxFiles({ roots: SANDBOX_ROOTS, extras: SANDBOX_EXTRAS })
 
 // ── CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1) ────────────────
 // Same allowlist discipline as check-shard-assembly.test.mjs, for the same
@@ -197,16 +216,22 @@ function makeFixture() {
   mkdirSync(work, { recursive: true })
   git(work, ['init', '-q', '-b', 'main'])
 
-  mkdirSync(join(work, 'scripts'), { recursive: true })
-  cpSync(GATE_SRC, join(work, 'scripts/check-nav-reachability.mjs'))
-  cpSync(SHARD_ASSEMBLY_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
-  cpSync(LIB_SHARD_ORDER_SRC, join(work, 'scripts/lib-shard-order.mjs'))
-  // GIT-ENV-LEAK-SWEEP-1: check-shard-assembly.mjs (copied above) imports the shared GIT_* scrub,
-  // so the fixture needs it too or the gate dies at import with ERR_MODULE_NOT_FOUND.
-  cpSync(GIT_ENV_LIB_SRC, join(work, 'scripts/_git-env-lib.mjs'))
-  mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
-  cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
-  cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))
+  // Every path is repo-relative and copied to the SAME relative path, which is
+  // what makes '../../scripts/denominator-sentinel.mjs' resolve in the fixture
+  // exactly as it does in the repo.
+  for (const rel of SANDBOX_FILES) {
+    const dest = join(work, ...rel.split('/'))
+    mkdirSync(dirname(dest), { recursive: true })
+    cpSync(resolve(REPO_ROOT, rel), dest)
+  }
+  // Reads the tree that was ACTUALLY built and names any module an imported file
+  // cannot reach — once, before a single case runs. This is the check that saves
+  // THIS harness specifically: the gate under test swallows its sub-gate's
+  // crash, so a missing module would otherwise never appear in the output at
+  // all, only as a wrong nav verdict. Independent of the derivation above by
+  // construction: it consults the sandbox on disk, never the derived list
+  // (STANDING-ORDERS #34).
+  assertSandboxCompleteOrExit(work, SANDBOX_FILES, 'check-nav-reachability.test.mjs')
 
   writeFileSync(join(work, 'index.html'), '<!doctype html><html><body>root, deliberately link-free</body></html>\n', 'utf8')
   nodeShard(work, 'art-nip-baseline')
@@ -238,7 +263,19 @@ function runGate(work, args = []) {
     return { status: 0, out }
   } catch (e) {
     if (e.status === undefined) throw e
-    return { status: e.status, out: (e.stdout || '') + (e.stderr || '') }
+    const out = (e.stdout || '') + (e.stderr || '')
+    // SANDBOX-FILELIST-GATE-1: a module-not-found escaping the child is a
+    // SANDBOX defect, never a nav verdict. Node's own text already names both
+    // halves the diagnosis needs, so it is rewritten rather than passed through
+    // as a bare ERR_MODULE_NOT_FOUND. Catches what the pre-run check cannot see
+    // — a missing shell-out target is not an import.
+    const named = namedModuleNotFound(out, work)
+    if (named) {
+      console.error(`\ncheck-nav-reachability.test.mjs: FIXTURE SANDBOX IS INCOMPLETE — this is not a gate failure.`)
+      console.error(`  ${named}`)
+      process.exit(1)
+    }
+    return { status: e.status, out }
   }
 }
 

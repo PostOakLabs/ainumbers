@@ -964,6 +964,17 @@ const GATES = [
   ['Node/chain shard registration (NODE-REGISTRATION-GAP-1, node case blocking)', 'node scripts/check-shard-assembly.mjs'],
   ['Branch-aware shard-registration proof (SHARD-GATE-PRE-ASSEMBLE-1)', 'node scripts/check-shard-assembly.test.mjs'],
   ['Unassembled-shard diff fixture proof (CHAINORDER-GATE-1)', 'node scripts/lib-shard-order.test.mjs'],
+  // SANDBOX-FILELIST-GATE-1: check-shard-assembly.test.mjs (above) and
+  // check-nav-reachability.test.mjs (below) copy real modules into throwaway fixture
+  // repos. That copy list used to be hand-maintained with nothing behind it, and one
+  // added import took the whole suite out twice in two days (PR #1492: 13 of 18 red;
+  // PR #1498: all 18 ERR_MODULE_NOT_FOUND) — each time reading as "my change broke
+  // everything" rather than as lost coverage, and each caught by a before/after diff
+  // rather than by the change itself. The list is now DERIVED from the real import
+  // graph by scripts/lib-sandbox-deps.mjs; this gate is the RED half that keeps the
+  // derivation and its named diagnosis honest, and it carries the parity check that
+  // the derived set still equals the pre-conversion hand list for both harnesses.
+  ['Derived sandbox file set (SANDBOX-FILELIST-GATE-1)', 'node scripts/lib-sandbox-deps.test.mjs'],
   // RECONCILE-PUSH-QUARANTINE-1: the pre-push guard that quarantines reconcile-class
   // ref creation to refs/heads/wip/, plus the supersession classifier that replaces
   // `git cherry`. The guard itself runs from .githooks/pre-push, which is per-clone
