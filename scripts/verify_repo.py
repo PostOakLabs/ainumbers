@@ -10,7 +10,10 @@ Five checks, all hard failures that block deploy:
                              list: tools/, guides/, chaingraph/, disclosures/, docs/,
                              ledger/, attestations/) is in sitemap.xml (DISCOVER-1 §D-2)
   5. Hash + syntax gates   — Node: JS syntax parse, forbidden-hash lint, golden
-                             execution_hash parity, art-01 canonicalizer self-test
+                             execution_hash parity, art-01 canonicalizer self-test,
+                             kernel contract (--strict: a registered kernel with no
+                             fixture is a FAILURE, not a warning — see HASH_GATES),
+                             kernel hash integrity
                              (soft-skips only if Node is absent; CI always enforces)
 
 Usage:
@@ -41,12 +44,33 @@ WORKBENCH = REPO / "chaingraph" / "workbench"
 CANVAS = REPO / "chaingraph" / "canvas"
 
 # Node-based gates (OpenChainGraph hash integrity + JS syntax). Each exits non-zero on failure.
+# Entries are (label, script) or (label, script, [extra CLI args]).
+#
+# ⛔ KERNEL-CONTRACT-STRICT-1 (2026-08-23, gate-integrity wave) — WHY `--strict` IS NOT OPTIONAL HERE.
+# The two kernel gates below are each other's fallback, and before this flag they fell back to NOBODY:
+#   • kernel-hash-integrity.mjs probes every live gpu:false kernel with a DEFAULT `{}` input. A kernel
+#     that THROWS on that probe is input-sensitive, so the gate cannot judge it: it files the kernel
+#     under `unprobeable`, prints "⚠ … add a fixtures/<id>.fixtures.json so kernel-contract can verify",
+#     and exits 0. That deferral is correct — it names kernel-contract as the verifier.
+#   • kernel-contract.test.mjs WITHOUT `--strict` treats a kernel with NO fixture as a warning and
+#     exits 0 too. So the gate the deferral pointed at also declined to judge it.
+# ⇒ A kernel that both probe-crashes AND ships no fixture was verified by NEITHER gate, while BOTH
+# printed a green line and BOTH exited 0. Nothing downstream ever converted either warning into a
+# failure. That is SO #34c at the kernel boundary — absence of a result is a DISTINCT state, never a
+# green one — and it is the same silent-green shape as the deletable ratchet baseline (F-11,
+# RATCHET-BASELINE-LOADER-1): the control did not fail, it stopped existing, and its output read fine.
+# `--strict` closes it by making "no fixture at all" a NAMED failure, so kernel-hash-integrity's
+# deferral now lands on a gate that actually judges. ⛔ Do not drop this flag to make a kernel pass —
+# the fix for a newly-named kernel is a fixture (or, for an OCG §25 private-input node, the
+# private_input_profile exemption the contract test already honours), never a lenient invocation.
 HASH_GATES = [
     ("JS syntax",            "syntax-check.mjs"),        # every inline classic script parses
     ("forbidden-hash lint",  "lint-forbidden-hash.mjs"), # no array-replacer / fake simpleHash
     ("golden parity",        "golden-parity.test.mjs"),  # pinned execution_hash drift
     ("art-01 kernel parity", "parity-art-01.test.mjs"),  # canonicalizer self-test
-    ("kernel contract",      "kernel-contract.test.mjs"),# every kernel ships a fixture + buildArtifact is self-consistent (live hash_valid)
+    ("kernel contract",      "kernel-contract.test.mjs", ["--strict"]),
+                                                        # every kernel ships a fixture + buildArtifact is self-consistent (live hash_valid);
+                                                        # --strict makes the missing-fixture case a failure, not a warning (see above)
     ("kernel hash integrity","kernel-hash-integrity.mjs"),# fixture-free: every live gpu:false kernel emits a self-consistent canonical hash (debt ratchet)
 ]
 
@@ -302,14 +326,19 @@ def check_hash_gates(changed=None):
         # Node, so the gates are still enforced there. Do not block on missing tooling.
         print("  ⚠️  node not found — skipping hash/syntax gates locally (CI enforces them)")
         return
-    for label, script in HASH_GATES:
+    for label, script, *rest in HASH_GATES:
+        gate_args = list(rest[0]) if rest else []
         path = KERNELS / script
         if not path.exists():
             fail(f"[HASH] gate script missing: chaingraph/kernels/{script}")
             continue
-        res = subprocess.run([node, str(path)], cwd=str(REPO), capture_output=True, text=True)
+        res = subprocess.run([node, str(path), *gate_args], cwd=str(REPO), capture_output=True, text=True)
         if res.returncode != 0:
-            fail(f"[HASH] {label} gate failed — `node chaingraph/kernels/{script}`:")
+            # The reproduce command MUST carry the same args this gate ran with. A copied
+            # command missing `--strict` re-runs the LENIENT gate and prints green over the
+            # very failure being diagnosed — the defect class this row closed.
+            shown = " ".join([f"node chaingraph/kernels/{script}", *gate_args])
+            fail(f"[HASH] {label} gate failed — `{shown}`:")
             tail = (res.stdout + res.stderr).strip().splitlines()[-12:]
             for line in tail:
                 fail(f"    {line}")
