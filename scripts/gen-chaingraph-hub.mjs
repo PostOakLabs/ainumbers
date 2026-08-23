@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isNonLive } from './_node-status.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -19,8 +20,23 @@ const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'
 const categoriesPath = resolve(REPO, 'chaingraph', 'hub-categories.json');
 const categories = JSON.parse(readFileSync(categoriesPath, 'utf8'));
 
-const artNodes = cg.nodes.filter((n) => n.url && n.url.includes('/chaingraph/art-'));
+// ── STATUS FILTER (GENERATOR-STATUS-FILTER-1) ────────────────────────────────
+// This filter used to be URL SHAPE ONLY. A node that leaves service keeps its
+// page file and keeps its `/chaingraph/art-` url, so the hub kept rendering its
+// card between two live neighbours — measured on art-99 after PR #1477 flipped
+// it to "deprecated": the card survived every regen, and `--check` stayed GREEN
+// the whole time, because the gate only ever compared the card count against
+// this same status-blind set. The shard's `status` is the only field that can
+// answer; see scripts/_node-status.mjs for the shared predicate and for why a
+// MISSING status is treated as live.
+const artNodesAll = cg.nodes.filter((n) => n.url && n.url.includes('/chaingraph/art-'));
+const artNodes = artNodesAll.filter((n) => !isNonLive(n));
 const byId = new Map(artNodes.map((n) => [n.tool_id, n]));
+// Kept separately so a departed node reports as NON-LIVE (an expected, benign
+// mapping that a successor may reclaim) rather than as STALE (a mapping that
+// resolves to nothing at all). Collapsing the two would tell a future reader to
+// delete a hub-categories.json entry that ART99-GHOST-CLEANUP-1 is holding open.
+const nonLiveMapped = new Map(artNodesAll.filter(isNonLive).map((n) => [n.tool_id, n.status]));
 
 // COVERAGE GATE: every art-* node in chaingraph.json must be mapped to a cluster.
 const mappedIds = new Set();
@@ -40,14 +56,21 @@ if (unmapped.length) {
 // on-disk file — a stale mapping entry (renamed/removed node) should be visible, but is not
 // this gate's job to enforce (chaingraph.json is out of fence; removal is a separate WU).
 const staleMapped = [];
+const nonLiveSkipped = [];
 for (const [title, cluster] of Object.entries(categories)) {
   for (const id of cluster.art_ids) {
-    if (!byId.has(id)) staleMapped.push(`${id} (cluster "${title}")`);
+    if (byId.has(id)) continue;
+    if (nonLiveMapped.has(id)) nonLiveSkipped.push(`${id} [${nonLiveMapped.get(id)}] (cluster "${title}")`);
+    else staleMapped.push(`${id} (cluster "${title}")`);
   }
 }
 if (staleMapped.length) {
   console.warn(`gen-chaingraph-hub: WARNING ${staleMapped.length} hub-categories.json id(s) no longer resolve to a chaingraph.json node:`);
   staleMapped.forEach((s) => console.warn(`  STALE: ${s}`));
+}
+if (nonLiveSkipped.length) {
+  console.log(`gen-chaingraph-hub: ${nonLiveSkipped.length} mapped node(s) skipped as NON-LIVE (page file may still exist by design — retirement stub):`);
+  nonLiveSkipped.forEach((s) => console.log(`  NON-LIVE: ${s}`));
 }
 
 function escHtml(s) {
