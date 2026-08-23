@@ -168,7 +168,10 @@ const EXPECT_RED = process.argv.reduce((acc, a, i) => {
   if (a === '--expect-red' && process.argv[i + 1]) acc.push(process.argv[i + 1]);
   return acc;
 }, []);
-const KEEP_GOING = KEEP_GOING_FLAG || EXPECT_RED.length > 0;
+// `let`, not `const`: a CI run on main promotes this to true below, once
+// isMainContext() is available (see the MAIN_CONTEXT assignment). Every branch
+// that reads KEEP_GOING is far below that point — first use is the gate loop.
+let KEEP_GOING = KEEP_GOING_FLAG || EXPECT_RED.length > 0;
 const expectedRedFor = (label) =>
   EXPECT_RED.find((id) => label.toLowerCase().includes(id.toLowerCase())) || null;
 
@@ -615,6 +618,40 @@ function derivedRegenLiveScopeTouched() {
 const DERIVED_REGEN_LIVE_SCOPE_TOUCHED = derivedRegenLiveScopeTouched();
 const MAIN_CONTEXT = isMainContext();
 const ADVISORY_ON_PR = advisoryGates();
+
+// MERGEQUEUE-GATE-PARITY-1: a CI run in a MAIN context (push to main, schedule)
+// runs the suite to COMPLETION, not fail-fast.
+//
+// WHY: preflight's default is fail-fast, so a red main reports exactly ONE gate
+// and conceals every gate after it. Measured on the 2026-08-22/23 red main — the
+// EUC register freshness gate was first-failure and masked the debt-ledger
+// freshness gate entirely; clearing the first one in PR #1486 did not turn main
+// green, it merely promoted the next red into view. "main is red" was never a
+// count of one, and the log said it was, so a fix-forward was aimed at a
+// one-item list that was not the real list.
+//
+// ⛔ NOT A WAIVER, and no gate's semantics move: every gate runs with the
+// identical predicate either way, EXPECTED-RED requires an explicit
+// --expect-red (never passed by CI, so nothing is waived), any unwaived red
+// still exits 1, and the run-list accounting reconciliation FAILS CLOSED if a
+// gate produced no result at all. Cost is identical on a green run — the same
+// gates execute; it costs more only when main is ALREADY red, which is exactly
+// when the complete inventory is worth paying for.
+//
+// ⚖ Scoped to CI: a local pre-push run is untouched and stays fail-fast (fast
+// feedback while iterating). PR and merge_group runs are untouched too — a red
+// there blocks the branch anyway and the author iterates, so first-red is the
+// cheaper signal. This lives here rather than as a `--keep-going` argument in
+// scripts-verify.yml on purpose: the merge App has no `workflows` permission, so
+// a PR touching .github/workflows/** cannot be merged by the automerge label at
+// all (measured 2026-08-23, run 32647684237: "refusing to allow a GitHub App to
+// create or update workflow ... without `workflows` permission"). Keeping the
+// decision beside the logic it governs also means the local and CI meanings of
+// "run to completion" can never drift apart in two files.
+if (!KEEP_GOING && MAIN_CONTEXT && process.env.GITHUB_ACTIONS === 'true') {
+  KEEP_GOING = true;
+  console.log('▶ CI main context — running the full suite to completion (a red main is never a count of one).');
+}
 
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
@@ -1098,6 +1135,15 @@ const GATES = [
     ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check']]
     : [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1: no derived-artifacts/generator path touched, skipped)', 'node -e "1"',
         { notRun: 'DERIVED-SET-SELFTEST-1 scoping — this push touches no scripts/derived-artifacts.mjs or generator/gate script it names, so the live regen self-test (which actually executes every regen command) was not run' }]]),
+  // MERGEQUEUE-GATE-PARITY-1: the control for the merge-queue repairability probe
+  // that runs at the end of this file. Fixture-driven (a scripted command table,
+  // no git, no generators), so it is milliseconds and cannot be perturbed by the
+  // estate's real freshness state. Its load-bearing case replays the exact
+  // command behaviour measured on the PR #1477 fixture — a --check that detects
+  // drift its own --write cannot repair — and requires the verdict to be
+  // UNREPAIRABLE. A red here means the probe itself stopped working, which is
+  // how the 15-hour red main happened in the first place.
+  ['Merge-queue repairability probe control (mutation)', 'node scripts/check-regen-repairable.test.mjs'],
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
@@ -1147,6 +1193,7 @@ const timings = []; // [label, ms]
 const results = [];
 let waivedCount = 0;
 const advisoryFailures = []; // [label, cmd] — covered-artifact staleness on a PR
+const coveredFailures = []; // [label, cmd] — covered-artifact staleness on MAIN (hard red, classified below)
 const suiteStart = Date.now();
 
 if (KEEP_GOING) {
@@ -1214,6 +1261,12 @@ for (const [label, cmd, meta] of GATES) {
       }
       continue;
     }
+    // MERGEQUEUE-GATE-PARITY-1: same gate, MAIN context — nothing is downgraded
+    // and this stays a hard red, but record it so the classifier below can say
+    // WHICH KIND of red it is (regen lag vs permanent). Those two are
+    // indistinguishable in the log today, and telling them apart by eye is
+    // exactly what did not happen for 15 hours on 2026-08-22/23.
+    if (MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
     const declared = KEEP_GOING ? expectedRedFor(label) : null;
     gateFail(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
     console.log('\n' + out.trim() + '\n');
@@ -1253,6 +1306,33 @@ if (!failed || KEEP_GOING) {
   } else {
     gatePass(`✓ (${ms}ms)`);
     results.push({ label: MFSTSEC_LABEL, state: 'PASS', ms });
+  }
+}
+
+// ── MERGEQUEUE-GATE-PARITY-1: classify a MAIN-context freshness red ─────────
+// Print-only. The gate already failed on its own merits and this NEVER softens
+// that — check-regen-repairable.mjs --diagnose always exits 0 and its output is
+// not consulted for the verdict. What it adds is the one distinction the log
+// cannot make today: is this red REGEN LAG (the single writer is repairing it on
+// this same push; expected, self-clearing) or PERMANENT (nothing will ever clear
+// it; it needs a human PR)? Both printed identically before, and a permanent one
+// sat unnoticed among transient ones for 15 hours.
+if (MAIN_CONTEXT && coveredFailures.length) {
+  const idsFor = new Map(COVERED.filter((c) => c.gate).map((c) => [c.gate, c.id]));
+  const ids = [...new Set(coveredFailures.map(([, cmd]) => idsFor.get(cmd)).filter(Boolean))];
+  if (ids.length) {
+    console.log('');
+    try {
+      const o = execSync(`node scripts/check-regen-repairable.mjs --diagnose --ids ${ids.join(',')}`, {
+        cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      console.log(o.toString().trim());
+    } catch (e) {
+      // Classification is a convenience, never a gate. If it cannot run, say so
+      // plainly and move on — it must not add a way for preflight to fail, and it
+      // must not add a way for preflight to pass either (it touches no verdict).
+      console.log(`ℹ regen-repairability diagnosis unavailable: ${((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim().split('\n')[0]}`);
+    }
   }
 }
 
@@ -1327,6 +1407,71 @@ if (KEEP_GOING) {
     console.error('   Fix these before pushing (each would have failed CI).');
     process.exit(1);
   }
+}
+
+// ── MERGEQUEUE-GATE-PARITY-1: was that advisory downgrade EARNED? ───────────
+// The downgrade above (line ~864) rests on ONE premise: main's regen workflow
+// repairs this artifact after merge. That premise was never tested, and PR #1477
+// falsified it — gen-euc-register.mjs --check detects a STALE entry (a node that
+// went non-live) but its write path only writes entries for live nodes and has
+// no code path that deletes one. So the queue downgraded drift the main-side
+// writer could not erase, `merge_group` reported success, and the `push: main`
+// run on the IDENTICAL SHA reported failure eight minutes later. Five SHAs in
+// one morning; main red for 15 hours (see check-regen-repairable.mjs's header
+// for the measured evidence).
+//
+// This block tests the premise instead of assuming it, in a throwaway worktree
+// off HEAD. Drift the regen erases stays advisory — unchanged behaviour. Drift
+// it CANNOT erase blocks here, because it will red main.
+//
+// ⚠ NOT in GATES/RUN_LIST_SIZE on purpose: it is conditional on a result only
+// known AFTER the gate loop (which gates were downgraded), so folding it into
+// the run list would break --keep-going's fail-closed accounting reconciliation
+// every time no gate was downgraded. It prints unconditionally instead — when it
+// does not run, it says why, so it is never a silent hiding place (SO #34c).
+const PROBE_LABEL = 'Advisory downgrade is regen-repairable (MERGEQUEUE-GATE-PARITY-1)';
+let probeFailed = false;
+if (!MAIN_CONTEXT && !advisoryFailures.length) {
+  console.log(`\n▶ ${PROBE_LABEL} … not needed (no shared derived artifact was downgraded this run).`);
+} else if (!MAIN_CONTEXT && failed) {
+  console.log(`\n▶ ${PROBE_LABEL} … DID NOT RUN (an earlier gate is already red; fix that first). ⛔ Not a pass.`);
+} else if (!failed && !MAIN_CONTEXT && advisoryFailures.length) {
+  const idsFor = new Map(COVERED.filter((c) => c.gate).map((c) => [c.gate, c.id]));
+  const ids = [...new Set(advisoryFailures.map(([, cmd]) => idsFor.get(cmd)).filter(Boolean))];
+  if (!ids.length) {
+    // Every advisory command is an advisoryGates() member, and that Set is built
+    // from COVERED[].gate — so an unmappable command means the two have drifted.
+    // SO #34c: that is its own state, never a pass.
+    console.error(`\n❌ ${PROBE_LABEL}: ${advisoryFailures.length} gate(s) were downgraded but none maps to a COVERED entry id — advisoryGates() and COVERED have drifted. Cannot establish repairability.`);
+    probeFailed = true;
+  } else {
+    gateStart(PROBE_LABEL);
+    const t0 = Date.now();
+    try {
+      const o = execSync(`node scripts/check-regen-repairable.mjs --ids ${ids.join(',')}`, {
+        cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      const ms = Date.now() - t0;
+      timings.push([PROBE_LABEL, ms]);
+      gatePass(`✓ (${ms}ms)`);
+      console.log('\n' + o.toString().trim() + '\n');
+    } catch (e) {
+      const ms = Date.now() - t0;
+      timings.push([PROBE_LABEL, ms]);
+      gateFail(`✗ (${ms}ms)`);
+      console.log('\n' + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim() + '\n');
+      probeFailed = true;
+    }
+  }
+}
+
+// The probe blocks in EVERY mode, --keep-going included: an unrepairable stale
+// artifact is a red main, and --keep-going exists to see every result, not to
+// waive one. (`--expect-red` deliberately does not reach it — it waives named
+// GATES entries, and this is not one.)
+if (probeFailed) {
+  console.error(`\n❌ preflight FAILED at: ${PROBE_LABEL}. Fix it before pushing (this would have failed CI on main).`);
+  process.exit(1);
 }
 
 if (failed && !KEEP_GOING) {
