@@ -36,7 +36,7 @@ export function compute(pp) {
 }
 `;
 
-function sandbox(inventory, { registerDigest = true, fixtureNames = ['carve-out-claimed'] } = {}) {
+function sandbox(inventory, { registerDigest = true, fixtureNames = ['carve-out-claimed'], reachability = null } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'branchinv-'));
   mkdirSync(join(root, 'chaingraph', 'kernels', 'fixtures'), { recursive: true });
   mkdirSync(join(root, 'chaingraph', 'standard', 'branch-inventories'), { recursive: true });
@@ -45,6 +45,10 @@ function sandbox(inventory, { registerDigest = true, fixtureNames = ['carve-out-
     tool_id: 'k-demo',
     vectors: fixtureNames.map((n) => ({ name: n, policy_parameters: { carve_out_claimed: true } })),
   }, null, 2));
+  if (reachability) {
+    writeFileSync(join(root, 'chaingraph', 'kernels', 'fixtures', 'k-demo.reachability.json'),
+      JSON.stringify({ tool_id: 'k-demo', kind: 'reachability', vectors: reachability }, null, 2));
+  }
   writeFileSync(join(root, 'chaingraph', 'standard', 'clause-snapshot-registry.json'),
     JSON.stringify(registerDigest ? [{ digest: DIGEST, clause_path: 'demo §1' }] : [], null, 2));
   writeFileSync(join(root, 'chaingraph', 'standard', 'branch-inventories', 'k-demo.inventory.json'), JSON.stringify(inventory, null, 2));
@@ -109,6 +113,17 @@ check('unrepresented_known with no declared error direction -> exit 1',
   await gate(base([{ id: 'b-gap', clause: 'demo §1(d)', disposition: 'unrepresented_known' }])), 1);
 check('unrepresented_known with one -> exit 0',
   await gate(base([{ id: 'b-gap', clause: 'demo §1(d)', disposition: 'unrepresented_known', error_direction: 'undirected' }])), 0);
+
+// The two-file split (§1.5): a refusal may point into <id>.reachability.json, and a kernel_generated
+// vector there must BE the input the inventory declares — otherwise gate and fixture pin different
+// things while both look filled.
+{
+  const R = { ...REFUSED_OK, refusal: { ...REFUSED_OK.refusal, fixture: 'k-demo.reachability.json#rv-carve-out' } };
+  check('refusal resolving into the reachability file -> exit 0',
+    await gate(base([R]), { reachability: [{ name: 'rv-carve-out', provenance: 'kernel_generated', policy_parameters: { carve_out_claimed: true } }] }), 0);
+  check('reachability vector that does NOT match the inventory vector -> exit 1',
+    await gate(base([R]), { reachability: [{ name: 'rv-carve-out', provenance: 'kernel_generated', policy_parameters: { carve_out_claimed: true, extra: 1 } }] }), 1);
+}
 
 // SO #34 — the inventory must be traceable to registered primary text, not to the kernel.
 check('derived_from digest not in the snapshot registry -> exit 1', await gate(base([REFUSED_OK]), { registerDigest: false }), 1);

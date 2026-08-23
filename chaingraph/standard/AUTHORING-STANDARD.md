@@ -153,6 +153,23 @@ refusal path* — a property of the code, which the code may legitimately answer
 *does this answer match the law* — a property of the law, which the code may not answer about itself.
 A `kernel_generated` vector is admissible for the first and inadmissible for the second.
 
+⛔ **THEREFORE THEY LIVE IN DIFFERENT FILES, and this is not tidiness.**
+
+| File | Holds | Provenance |
+|---|---|---|
+| `chaingraph/kernels/fixtures/<tool_id>.fixtures.json` | conformance vectors | must carry `independent_oracle` where the node's property floor requires it |
+| `chaingraph/kernels/fixtures/<tool_id>.reachability.json` | reachability vectors only | `kernel_generated` by construction; `provenance: "kernel_generated"` declared on each |
+
+⭐ **Measured, while adopting this convention.** `art-637`'s property floor asserts that **every**
+vector in its conformance file carries an `independent_oracle` — its own words: *"the fixture would
+be its own oracle"*. Three reachability vectors added to that file turned the floor **red**. The
+options were to weaken a node's conformance floor to accommodate a demonstration about the code, or
+to keep the two instruments apart. ✅ Keep them apart. ⭐ A `refused` row may point at a vector in
+either file: an oracle-backed conformance vector that happens to exercise the refusal is **stronger**
+evidence, and three of the cohort's twelve refusals resolve that way. `check-branch-inventory.mjs`
+additionally requires a `kernel_generated` vector's `policy_parameters` to equal the inventory's
+`reachability_vector`, so the two cannot drift into pinning different inputs.
+
 ### 1.6 Where the inventory lives, and the gate that reads it
 
 **One file per node:** `chaingraph/standard/branch-inventories/<tool_id>.inventory.json`.
