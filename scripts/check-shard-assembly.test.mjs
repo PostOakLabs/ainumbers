@@ -51,19 +51,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // dead suite reading as a pass.
 //
 // Now only what CANNOT be derived is declared:
-//   ROOTS  — the scripts the fixture EXECUTES. check-shard-assembly.mjs is the
-//            gate under test; schema-validate.mjs is a SHELL-OUT target
-//            (SHARD-SCHEMA-PARITY-1: the gate spawns `node schema-validate.mjs
-//            --shard <path>`), which is an execFileSync call, not an import,
-//            and so is invisible to import derivation.
-//   EXTRAS — non-module data the gate readFileSync()s at runtime.
-// Everything reachable from a ROOT by a static import is derived, so
-// _git-env-lib.mjs, lib-shard-order.mjs and denominator-sentinel.mjs are no
-// longer named anywhere, and the next added import needs no edit here at all.
-// See scripts/lib-sandbox-deps.mjs for the derive-vs-gate reasoning and for the
-// two blind spots stated plainly. Real files are copied verbatim, never a
-// reproduction of their content — unchanged discipline.
-const SANDBOX_ROOTS = ['scripts/check-shard-assembly.mjs', 'chaingraph/standard/schema-validate.mjs']
+//   ROOTS  — the ONE script the fixture executes, the gate under test. The
+//            closure is shut under BOTH edges, `import` and `node <script>`, so
+//            schema-validate.mjs arrives on its own (SHARD-SCHEMA-PARITY-1: the
+//            gate spawns `node schema-validate.mjs --shard <path>`) and so does
+//            everything either of them imports.
+//   EXTRAS — non-module data the gate readFileSync()s at runtime, which no
+//            import or spawn edge points at.
+// _git-env-lib.mjs, lib-shard-order.mjs, denominator-sentinel.mjs and
+// schema-validate.mjs are no longer named anywhere, and the next added import
+// needs no edit here at all. See scripts/lib-sandbox-deps.mjs for the
+// derive-vs-gate reasoning and for what derivation still cannot see. Real files
+// are copied verbatim, never a reproduction of their content — unchanged.
+const SANDBOX_ROOTS = ['scripts/check-shard-assembly.mjs']
 const SANDBOX_EXTRAS = ['chaingraph/standard/openchain-graph-v0.4.schema.json']
 const SANDBOX_FILES = deriveSandboxFiles({ roots: SANDBOX_ROOTS, extras: SANDBOX_EXTRAS })
 

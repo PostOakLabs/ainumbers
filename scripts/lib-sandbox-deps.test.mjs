@@ -111,6 +111,74 @@ test('CLASS KILLED — a cycle terminates instead of hanging', () => {
   assert(set.length === 2, `expected both files once each, got ${JSON.stringify(set)}`)
 })
 
+// ── 1b. THE SPAWN EDGE ────────────────────────────────────────────────────
+// `node <script>` is a dependency ESM derivation cannot see. Measured live: with
+// shell-out targets merely DECLARED, dropping one left check-nav-reachability
+// .test.mjs 7 of 7 GREEN over an incomplete sandbox, because the gate under test
+// swallows its sub-gate's crash. The closure is therefore shut under spawn too.
+test('SPAWN EDGE — a `node <script>` target reached via join(ROOT, ...) is derived', () => {
+  const repo = scratch('sbx-spawn-')
+  write(
+    repo,
+    'scripts/gate.mjs',
+    "import { execFileSync } from 'node:child_process'\nconst SUB = join(ROOT, 'scripts', 'sub-gate.mjs')\nexecFileSync('node', [SUB])\n"
+  )
+  write(repo, 'scripts/sub-gate.mjs', "import './sub-lib.mjs'\n")
+  write(repo, 'scripts/sub-lib.mjs', 'export const s = 1\n')
+  const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
+  assert(set.includes('scripts/sub-gate.mjs'), `the spawn target must be derived, got ${JSON.stringify(set)}`)
+  assert(set.includes('scripts/sub-lib.mjs'), `and its OWN imports too, got ${JSON.stringify(set)}`)
+})
+
+test('SPAWN EDGE — a resolve(root, "a/b/c.mjs") target is derived', () => {
+  const repo = scratch('sbx-spawn2-')
+  write(repo, 'scripts/gate.mjs', "const P = resolve(root, 'chaingraph/standard/validate.mjs')\nvoid P\n")
+  write(repo, 'chaingraph/standard/validate.mjs', 'export const v = 1\n')
+  const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
+  assert(set.includes('chaingraph/standard/validate.mjs'), `got ${JSON.stringify(set)}`)
+})
+
+test('SPAWN EDGE — NON-module path literals are NOT dragged in', () => {
+  // Load-bearing: the real call sites also build 'chaingraph/chaingraph.json'
+  // and 'nav-island-baseline.json' paths, and copying those would overwrite what
+  // each fixture deliberately creates for itself.
+  const repo = scratch('sbx-spawn3-')
+  write(repo, 'scripts/gate.mjs', "const A = join(ROOT, 'chaingraph', 'chaingraph.json')\nconst B = join(ROOT, 'scripts', 'sub.mjs')\nvoid A\nvoid B\n")
+  write(repo, 'chaingraph/chaingraph.json', '{}\n')
+  write(repo, 'scripts/sub.mjs', 'export const s = 1\n')
+  const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
+  assert(set.includes('scripts/sub.mjs'), `the module target belongs in the set, got ${JSON.stringify(set)}`)
+  assert(!set.includes('chaingraph/chaingraph.json'), `a data path must NOT be dragged in, got ${JSON.stringify(set)}`)
+})
+
+test('SPAWN EDGE — DATA literals that merely NAME a .mjs file are not targets', () => {
+  // denominator-sentinel.mjs's real shape: module filenames held in a frozen
+  // array as DATA. A looser basename rule demanded these be copied; this one
+  // must not, because they are not inside a path-building call at all.
+  const repo = scratch('sbx-spawn4-')
+  write(repo, 'scripts/gate.mjs', "export const GATES = Object.freeze(['golden-parity.test.mjs', 'determinism-replay.test.mjs'])\n")
+  write(repo, 'scripts/golden-parity.test.mjs', 'export const g = 1\n')
+  const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
+  assert(set.length === 1, `data literals must not become dependencies, got ${JSON.stringify(set)}`)
+})
+
+test('RED — a script path assembled from a runtime value refuses', () => {
+  const repo = scratch('sbx-spawn5-')
+  write(repo, 'scripts/gate.mjs', "const P = join(ROOT, dirName, 'sub.mjs')\nvoid P\n")
+  const msg = threw(() => deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo }))
+  assert(/^sandbox list cannot be derived: scripts\/gate\.mjs builds a script path at runtime/.test(msg), `got: ${msg}`)
+})
+
+test('RED — checkSandboxComplete names a missing SPAWN target, not just a missing import', () => {
+  const sandbox = scratch('sbx-spawnmiss-')
+  write(sandbox, 'scripts/check-nav-reachability.mjs', "const S = join(ROOT, 'scripts', 'check-shard-assembly.mjs')\nvoid S\n")
+  const problem = checkSandboxComplete(sandbox)
+  assert(
+    problem === 'sandbox list is missing scripts/check-shard-assembly.mjs, spawned by scripts/check-nav-reachability.mjs',
+    `expected the spawn target named, got: ${problem}`
+  )
+})
+
 // ── 2. RED — THE MISSING MODULE AND ITS IMPORTER ARE NAMED ────────────────
 // This is the sentence the row requires, proven against a sandbox in exactly the
 // state the two incidents produced: a copied module whose import is not there.
@@ -170,6 +238,24 @@ test('GREEN — a dynamic import() with a STRING LITERAL is followed, not refuse
   write(repo, 'scripts/plug.mjs', 'export const p = 1\n')
   const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
   assert(set.includes('scripts/plug.mjs'), `a literal dynamic import is derivable, got ${JSON.stringify(set)}`)
+})
+
+test('RED — createRequire() refuses, because its targets never appear in the import graph', () => {
+  const repo = scratch('sbx-req-')
+  write(
+    repo,
+    'scripts/gate.mjs',
+    "import { createRequire } from 'node:module'\nconst req = createRequire(import.meta.url)\nvoid req('./legacy.cjs')\n"
+  )
+  write(repo, 'scripts/legacy.cjs', 'module.exports = 1\n')
+  const msg = threw(() => deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo }))
+  assert(msg !== null, 'createRequire hides a real dependency from derivation and must not pass silently')
+  assert(/^sandbox list cannot be derived: scripts\/gate\.mjs uses createRequire\(\)/.test(msg), `got: ${msg}`)
+})
+
+test('PARSER — createRequire named only in a COMMENT does not trip the refusal', () => {
+  const { createRequire: hit } = parseImportSpecifiers('// never use createRequire here\nexport const x = 1\n')
+  assert(hit === false, 'prose mentioning createRequire must not fail the derivation closed')
 })
 
 test('RED — a bare specifier refuses, naming the specifier and the importer', () => {
@@ -276,18 +362,31 @@ test('TRANSLATION — ordinary gate output is left alone', () => {
   assert(namedModuleNotFound('', '/tmp/work') === null, 'empty output is not a module-not-found')
 })
 
-// ── 6. LIVE PARITY WITH THE TWO REAL HARNESSES ────────────────────────────
-// ZERO COVERAGE CHANGE, mechanically: the derived set must equal the set the
-// hand-maintained lists named on the day this row landed. Recorded here as
-// literals so a future silent DROP from the closure (which would quietly shrink
-// a fixture repo) reds, not merely a future addition.
-test('PARITY — check-shard-assembly.test.mjs derives exactly its former hand list', () => {
+// ── 6. LIVE FLOOR AGAINST THE TWO REAL HARNESSES ──────────────────────────
+// ZERO COVERAGE CHANGE, mechanically: every file the hand-maintained lists named
+// on the day this row landed must still be derived.
+//
+// DELIBERATELY A FLOOR (superset), NOT AN EQUALITY. An equality assertion was
+// written first and immediately proved the point against itself: a probe import
+// added during this row's own RED proof turned both cases red purely because the
+// closure had grown. That is the SAME hand-maintained-list defect one level up —
+// a legitimate new import would force an edit here, and an edit that does not
+// get made is exactly how PR #1492 and PR #1498 happened. Additions are the
+// thing derivation exists to absorb, so they must never red.
+//
+// The floor guards the OPPOSITE direction, which derivation cannot self-check: a
+// module silently DROPPING out of the closure would quietly shrink both fixture
+// repos while every case still passed. Removing a name below is therefore a
+// deliberate one-line act with a reason attached, per the estate's down-only
+// ratchet idiom, and it cannot recreate the original defect.
+test('FLOOR — check-shard-assembly.test.mjs still derives every file its hand list named', () => {
   const set = deriveSandboxFiles({
-    roots: ['scripts/check-shard-assembly.mjs', 'chaingraph/standard/schema-validate.mjs'],
+    roots: ['scripts/check-shard-assembly.mjs'],
     extras: ['chaingraph/standard/openchain-graph-v0.4.schema.json'],
     repoRoot: REPO_ROOT,
   })
-  const expected = [
+  // The literal cpSync list check-shard-assembly.test.mjs carried at ffa230dc.
+  const preConversion = [
     'chaingraph/standard/openchain-graph-v0.4.schema.json',
     'chaingraph/standard/schema-validate.mjs',
     'scripts/_git-env-lib.mjs',
@@ -295,16 +394,18 @@ test('PARITY — check-shard-assembly.test.mjs derives exactly its former hand l
     'scripts/denominator-sentinel.mjs',
     'scripts/lib-shard-order.mjs',
   ]
-  assert(JSON.stringify(set) === JSON.stringify(expected), `derived set drifted from the pre-conversion list:\n  got      ${JSON.stringify(set)}\n  expected ${JSON.stringify(expected)}`)
+  const dropped = preConversion.filter((f) => !set.includes(f))
+  assert(dropped.length === 0, `these files were copied before the conversion and are no longer derived: ${JSON.stringify(dropped)}\n  derived: ${JSON.stringify(set)}`)
 })
 
-test('PARITY — check-nav-reachability.test.mjs derives exactly its former hand list', () => {
+test('FLOOR — check-nav-reachability.test.mjs still derives every file its hand list named', () => {
   const set = deriveSandboxFiles({
-    roots: ['scripts/check-nav-reachability.mjs', 'scripts/check-shard-assembly.mjs', 'chaingraph/standard/schema-validate.mjs'],
+    roots: ['scripts/check-nav-reachability.mjs'],
     extras: ['chaingraph/standard/openchain-graph-v0.4.schema.json'],
     repoRoot: REPO_ROOT,
   })
-  const expected = [
+  // The literal cpSync list check-nav-reachability.test.mjs carried at ffa230dc.
+  const preConversion = [
     'chaingraph/standard/openchain-graph-v0.4.schema.json',
     'chaingraph/standard/schema-validate.mjs',
     'scripts/_git-env-lib.mjs',
@@ -313,7 +414,8 @@ test('PARITY — check-nav-reachability.test.mjs derives exactly its former hand
     'scripts/denominator-sentinel.mjs',
     'scripts/lib-shard-order.mjs',
   ]
-  assert(JSON.stringify(set) === JSON.stringify(expected), `derived set drifted from the pre-conversion list:\n  got      ${JSON.stringify(set)}\n  expected ${JSON.stringify(expected)}`)
+  const dropped = preConversion.filter((f) => !set.includes(f))
+  assert(dropped.length === 0, `these files were copied before the conversion and are no longer derived: ${JSON.stringify(dropped)}\n  derived: ${JSON.stringify(set)}`)
 })
 
 for (const dir of cleanup) {

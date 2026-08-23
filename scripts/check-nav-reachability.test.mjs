@@ -51,17 +51,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // confident, wrong nav verdict and no ERR_MODULE_NOT_FOUND anywhere in the log.
 //
 // Only what CANNOT be derived is declared now:
-//   ROOTS  — the scripts the fixture EXECUTES: the gate itself, the gate it
-//            SHELLS OUT to, and that one's own shell-out target
-//            (schema-validate.mjs). Shell-outs are execFileSync calls, not
-//            imports, so import derivation cannot see them.
-//   EXTRAS — non-module data read at runtime.
-// _git-env-lib.mjs and lib-shard-order.mjs are derived and no longer named.
-const SANDBOX_ROOTS = [
-  'scripts/check-nav-reachability.mjs',
-  'scripts/check-shard-assembly.mjs',
-  'chaingraph/standard/schema-validate.mjs',
-]
+//   ROOTS  — the ONE script the fixture executes, the gate under test. The
+//            closure is shut under BOTH edges, `import` and `node <script>`, so
+//            check-shard-assembly.mjs arrives via this gate's spawn, and
+//            schema-validate.mjs via that one's, each with its own imports.
+//   EXTRAS — non-module data read at runtime, which no edge points at.
+//
+// Deriving the SPAWN edge is what makes a single root safe here, and it was not
+// optional: with the shell-out targets merely declared, dropping one left this
+// harness 7 of 7 GREEN over an incomplete sandbox, because the gate swallows its
+// sub-gate's crash. A silent green is exactly what this row exists to end.
+const SANDBOX_ROOTS = ['scripts/check-nav-reachability.mjs']
 const SANDBOX_EXTRAS = ['chaingraph/standard/openchain-graph-v0.4.schema.json']
 const SANDBOX_FILES = deriveSandboxFiles({ roots: SANDBOX_ROOTS, extras: SANDBOX_EXTRAS })
 

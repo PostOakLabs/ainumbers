@@ -104,9 +104,16 @@ const RE_DYNAMIC_LITERAL = /\bimport[ \t]*\([ \t]*(['"])([^'"\n]+)\1[ \t]*\)/g
 // guessing (SO #34c — absence is a distinct state, never a green one).
 const RE_DYNAMIC_COMPUTED = /\bimport[ \t]*\([ \t]*(?!['"])[^)\n]/g
 
-// A line that is visually a comment. Used only to keep the computed-dynamic scan
-// (the one pattern that cannot be anchored at statement position, because
-// `await import(x)` is an expression) from firing on prose.
+// createRequire() is the other way an ESM module can pull in a file the import
+// graph never mentions. Nothing in the current closure uses it, and if something
+// starts, derivation must refuse rather than quietly produce a short list — the
+// exact silent-shortfall this module exists to end. Matched as a bare identifier,
+// which cannot collide with anything else in this repo.
+const RE_CREATE_REQUIRE = /\bcreateRequire\b/g
+
+// A line that is visually a comment. Used only to keep the scans that cannot be
+// anchored at statement position (`await import(x)` and createRequire() are
+// expressions, not statements) from firing on prose.
 const looksLikeComment = (line) => {
   const t = line.trim()
   return t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')
@@ -124,19 +131,92 @@ export function parseImportSpecifiers(source) {
     let m
     while ((m = re.exec(source)) !== null) specs.push(m[2])
   }
-  let computedDynamic = false
-  RE_DYNAMIC_COMPUTED.lastIndex = 0
-  let d
-  while ((d = RE_DYNAMIC_COMPUTED.exec(source)) !== null) {
-    const lineStart = source.lastIndexOf('\n', d.index) + 1
-    let lineEnd = source.indexOf('\n', d.index)
-    if (lineEnd === -1) lineEnd = source.length
-    if (!looksLikeComment(source.slice(lineStart, lineEnd))) computedDynamic = true
+  const hitsOutsideComments = (re) => {
+    re.lastIndex = 0
+    let m
+    while ((m = re.exec(source)) !== null) {
+      const lineStart = source.lastIndexOf('\n', m.index) + 1
+      let lineEnd = source.indexOf('\n', m.index)
+      if (lineEnd === -1) lineEnd = source.length
+      if (!looksLikeComment(source.slice(lineStart, lineEnd))) return true
+    }
+    return false
   }
-  return { specs: [...new Set(specs)], computedDynamic }
+  return {
+    specs: [...new Set(specs)],
+    computedDynamic: hitsOutsideComments(RE_DYNAMIC_COMPUTED),
+    createRequire: hitsOutsideComments(RE_CREATE_REQUIRE),
+  }
 }
 
 const isModule = (rel) => /\.(mjs|cjs|js)$/.test(rel)
+
+// ── SHELL-OUT TARGET EXTRACTION ───────────────────────────────────────────
+// A gate that spawns `node <script>` depends on that script every bit as hard as
+// on an import, and ESM derivation is blind to it. Measured live: dropping
+// schema-validate.mjs from check-nav-reachability.test.mjs's declared roots left
+// that harness 7 of 7 GREEN with an incomplete sandbox, because the gate under
+// test swallows its sub-gate's crash. A silent green is the one outcome this row
+// must not ship (SO #34c — absence is never a pass), so shell-out targets are
+// derived too, by a rule narrow enough to be exact rather than heuristic:
+//
+//   a string literal ending .mjs/.cjs/.js, appearing inside a resolve(...) or
+//   join(...) call, on a line that is not a comment.
+//
+// Measured against the whole closure, that rule yields EXACTLY the two real
+// shell-out targets and nothing else:
+//   check-nav-reachability.mjs  join(ROOT, 'scripts', 'check-shard-assembly.mjs')
+//   check-shard-assembly.mjs    resolve(root, 'chaingraph/standard/schema-validate.mjs')
+// The near-miss literals that defeated a looser basename rule are all excluded
+// for the right reason: denominator-sentinel.mjs's 'golden-parity.test.mjs' and
+// 'determinism-replay.test.mjs' sit in an Object.freeze([...]) as DATA, and
+// _git-env-lib.mjs's 'check-git-env-scrub.mjs' is inside a JSDoc block.
+//
+// Restricting to MODULE extensions is load-bearing, not incidental: the same
+// call sites also build 'chaingraph/chaingraph.json' and 'nav-island-baseline
+// .json' paths, and those must NOT be copied — every fixture creates its own.
+const RE_PATH_CALL = /\b(?:resolve|join)[ \t]*\(([^()]*)\)/g
+const RE_STRING_ARG = /^(['"])(.*)\1$/
+
+/**
+ * Repo-file paths a module spawns or otherwise names as an executable script,
+ * expressed as ordered path segments. `unresolvable` names call sites carrying a
+ * module literal alongside a non-literal segment, whose target cannot be derived
+ * without running the module. Exported so the self-test can drive it directly.
+ */
+export function parseScriptReferences(source) {
+  const refs = []
+  const unresolvable = []
+  RE_PATH_CALL.lastIndex = 0
+  let m
+  while ((m = RE_PATH_CALL.exec(source)) !== null) {
+    const lineStart = source.lastIndexOf('\n', m.index) + 1
+    let lineEnd = source.indexOf('\n', m.index)
+    if (lineEnd === -1) lineEnd = source.length
+    if (looksLikeComment(source.slice(lineStart, lineEnd))) continue
+
+    const args = m[1]
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean)
+    const parsed = args.map((a) => {
+      const s = RE_STRING_ARG.exec(a)
+      return s ? { literal: true, value: s[2] } : { literal: false, value: a }
+    })
+    const segments = parsed.filter((p) => p.literal).map((p) => p.value)
+    if (!segments.some(isModule)) continue
+    // The first argument is the anchor (a directory variable such as ROOT or
+    // HERE) and is resolved against below. A NON-literal anywhere after it means
+    // the path is assembled at runtime and cannot be derived — refuse rather
+    // than quietly derive a shorter path.
+    if (parsed.slice(1).some((p) => !p.literal)) {
+      unresolvable.push(m[0])
+      continue
+    }
+    refs.push(segments)
+  }
+  return { refs, unresolvable }
+}
 
 // ── DERIVATION ────────────────────────────────────────────────────────────
 /**
@@ -162,11 +242,17 @@ export function deriveSandboxFiles({ roots, extras = [], repoRoot = REPO_ROOT })
     seen.add(rel)
     if (!isModule(rel)) continue
 
-    const { specs, computedDynamic } = parseImportSpecifiers(readFileSync(abs, 'utf8'))
+    const { specs, computedDynamic, createRequire } = parseImportSpecifiers(readFileSync(abs, 'utf8'))
     if (computedDynamic) {
       throw new Error(
         `sandbox list cannot be derived: ${rel} uses a computed dynamic import(), whose target is not knowable ` +
           `without running the module. Give it a string-literal specifier, or declare the target as a root in the harness.`
+      )
+    }
+    if (createRequire) {
+      throw new Error(
+        `sandbox list cannot be derived: ${rel} uses createRequire(), whose targets never appear in the import ` +
+          `graph. Import them instead, or declare them as roots in the harness.`
       )
     }
 
@@ -190,6 +276,31 @@ export function deriveSandboxFiles({ roots, extras = [], repoRoot = REPO_ROOT })
         throw new Error(`sandbox list is missing ${targetRel}, imported by ${rel} — no such file in the repository`)
       }
       queue.push(targetRel)
+    }
+
+    // Shell-out targets become roots in their own right, so the closure is shut
+    // under BOTH edges: `import` and `node <script>`. That is what lets each
+    // harness declare a single entry point and derive everything behind it.
+    const { refs, unresolvable } = parseScriptReferences(readFileSync(abs, 'utf8'))
+    if (unresolvable.length) {
+      throw new Error(
+        `sandbox list cannot be derived: ${rel} builds a script path at runtime (${unresolvable[0]}), whose target ` +
+          `is not knowable without running the module. Use string literals, or declare the target as a root in the harness.`
+      )
+    }
+    for (const segments of refs) {
+      // The anchor variable's value is not knowable statically, so both
+      // plausible anchors are tried and only an existing repo file is accepted.
+      // A path matching neither is not a file in this repository and therefore
+      // cannot be a shell-out target inside the fixture.
+      for (const anchor of [repoRoot, dirname(abs)]) {
+        const targetAbs = resolve(anchor, ...segments)
+        const targetRel = toPosix(relative(repoRoot, targetAbs))
+        if (!targetRel.startsWith('..') && existsSync(targetAbs)) {
+          queue.push(targetRel)
+          break
+        }
+      }
     }
   }
 
@@ -231,9 +342,12 @@ export function checkSandboxComplete(sandboxRoot, expected = []) {
   }
   for (const abs of walkModules(sandboxRoot)) {
     const importerRel = toPosix(relative(sandboxRoot, abs))
-    const { specs, computedDynamic } = parseImportSpecifiers(readFileSync(abs, 'utf8'))
+    const { specs, computedDynamic, createRequire } = parseImportSpecifiers(readFileSync(abs, 'utf8'))
     if (computedDynamic) {
       return `sandbox list cannot be verified: ${importerRel} uses a computed dynamic import(), whose target cannot be checked`
+    }
+    if (createRequire) {
+      return `sandbox list cannot be verified: ${importerRel} uses createRequire(), whose targets never appear in the import graph`
     }
     for (const spec of specs) {
       if (spec.startsWith('node:') || BUILTINS.has(spec)) continue
@@ -245,6 +359,24 @@ export function checkSandboxComplete(sandboxRoot, expected = []) {
         const targetRel = toPosix(relative(sandboxRoot, targetAbs))
         return `sandbox list is missing ${targetRel}, imported by ${importerRel}`
       }
+    }
+
+    // The same shut-under-shell-out property, checked against the tree actually
+    // built. This is the leg that catches check-nav-reachability.test.mjs's
+    // silent green: its gate swallows the sub-gate crash, so a missing
+    // `node <script>` target would otherwise never surface anywhere.
+    const { refs, unresolvable } = parseScriptReferences(readFileSync(abs, 'utf8'))
+    if (unresolvable.length) {
+      return `sandbox list cannot be verified: ${importerRel} builds a script path at runtime (${unresolvable[0]})`
+    }
+    for (const segments of refs) {
+      const candidates = [resolve(sandboxRoot, ...segments), resolve(dirname(abs), ...segments)]
+      if (candidates.some((c) => existsSync(c))) continue
+      // Only report a target the REPO actually has: a literal naming no repo
+      // file was never a shell-out target to begin with, so demanding it would
+      // be a false red.
+      if (!existsSync(resolve(REPO_ROOT, ...segments))) continue
+      return `sandbox list is missing ${segments.join('/')}, spawned by ${importerRel}`
     }
   }
   return null
