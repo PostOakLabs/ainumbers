@@ -37,11 +37,23 @@
  * required by SO #40(b): one control per field that MUST keep reading
  * hash-moving, plus the fail-closed control for a field nobody has classified.
  *
+ * CASES 17-24 PROVE PART 4 OF THE ASSEMBLER: --land-structural=<ROW-ID>, the
+ * human sanction path (ASSEMBLE-LAND-STRUCTURAL-1). Case 20 is the one that
+ * matters: it spawns the SHIPPED SCRIPT as a real child process with a real
+ * CI-shaped environment and asserts it STILL REFUSES — a mocked module variable
+ * would have proved only that the variable is readable, and the whole design
+ * rests on this refusal being unreachable from automation. Case 22 closes the
+ * other half by asserting no workflow passes the flag at all, and case 23 pins
+ * that auto-land was widened by exactly zero cases.
+ *
  * Usage: node scripts/assemble-chaingraph.selftest.mjs   (exit 1 on any failure)
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isolatedChildEnv, gitSync } from './_git-env-lib.mjs'
 import {
   classifyAssembly,
   classifyDrift,
@@ -53,6 +65,17 @@ import {
   COPY_ONLY_CHAIN_FIELDS,
   NODE_HASH_NEUTRAL_FIELDS,
   REFUSAL_EXIT_CODE,
+  CI_ENV_SIGNALS,
+  ROW_ID_PATTERN,
+  BOARD_SANCTION_DIRS,
+  detectCI,
+  parseLandStructural,
+  findBoardRoot,
+  resolveSanctionRow,
+  formatStructuralDiff,
+  sanctionLine,
+  sanctionEntry,
+  buildSanctionStamp,
 } from './assemble-chaingraph.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -60,6 +83,7 @@ const REPO = resolve(HERE, '..')
 const CHAINS_DIR = resolve(REPO, 'chaingraph/graph/chains')
 const NODES_DIR = resolve(REPO, 'chaingraph/graph/nodes')
 const META_PATH = resolve(REPO, 'chaingraph/chaingraph.meta.json')
+const CG_PATH = resolve(REPO, 'chaingraph/chaingraph.json')
 
 const chain = (name) => JSON.parse(readFileSync(resolve(CHAINS_DIR, `${name}.json`), 'utf8'))
 const node = (id) => JSON.parse(readFileSync(resolve(NODES_DIR, `${id}.json`), 'utf8'))
@@ -645,8 +669,308 @@ heading(16, 'node hash-neutral allowlist is exactly the four inert fields (url /
   check('unparseable input claims no verdict', classifyDrift('{not json', '{}').verdict, null)
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+ * CASES 17-24 PROVE PART 4: --land-structural=<ROW-ID> (ASSEMBLE-LAND-STRUCTURAL-1)
+ *
+ * The REDs here are the deliverable, not a by-product. Case 20 is the
+ * load-bearing one: it runs the SHIPPED SCRIPT as a real child process with a
+ * genuinely CI-shaped environment and asserts it still refuses. That is the
+ * property the whole design rests on — a mechanism an unattended workflow can
+ * reach is the blanket --land-chains declined on 2026-08-22.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const ASSEMBLER = resolve(REPO, 'scripts/assemble-chaingraph.mjs')
+
+// Runs the REAL script in a REAL child process with a REAL environment.
+// isolatedChildEnv (scripts/_git-env-lib.mjs) filters to a fixed allowlist that
+// contains NO CI key and NO GIT_* key, so "CI" and "not CI" are both produced
+// deliberately here and the result is identical on a workstation and on a
+// GitHub runner. That determinism is why the CI assertions below hold in both.
+function runAssembler(args, envExtra = {}) {
+  try {
+    const stdout = execFileSync(process.execPath, [ASSEMBLER, ...args], {
+      cwd: REPO,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: isolatedChildEnv(envExtra),
+    })
+    return { code: 0, out: stdout, err: '' }
+  } catch (e) {
+    return { code: e.status ?? -1, out: e.stdout ?? '', err: e.stderr ?? '' }
+  }
+}
+
+// ── 17. The row id is REQUIRED, and an attached value cannot eat a flag. ──
+heading(17, '--land-structural argv parse: bare / empty / malformed / duplicated all carry an error, only a well-formed id passes')
+{
+  check('absent', parseLandStructural(['--check']).present, false)
+  check('bare flag has no row id', parseLandStructural(['--land-structural']).rowId, null)
+  check('bare flag errors', /REQUIRED, never optional/.test(parseLandStructural(['--land-structural']).error ?? ''), true)
+  check('empty value errors', /REQUIRED/.test(parseLandStructural(['--land-structural=']).error ?? ''), true)
+  check('whitespace-only value errors', parseLandStructural(['--land-structural=   ']).rowId, null)
+  check('malformed value errors', /malformed sanctioning row id/.test(parseLandStructural(['--land-structural=yes']).error ?? ''), true)
+  check('duplicated flag errors', /given 2 times/.test(parseLandStructural(['--land-structural=A-1', '--land-structural=B-2']).error ?? ''), true)
+  check('well-formed id passes', parseLandStructural(['--land-structural=ART99-GHOST-CLEANUP-1']), {
+    present: true, rowId: 'ART99-GHOST-CLEANUP-1', error: null,
+  })
+
+  // A space-separated value would let `--land-structural --check` swallow the
+  // next flag as a row id. The `=` form makes that impossible by construction.
+  const swallowed = parseLandStructural(['--land-structural', '--check'])
+  check('space-separated form does NOT consume the next flag as an id', swallowed.rowId, null)
+}
+
+// ── 18. The id pattern is also the path-traversal guard. ─────────────────
+heading(18, 'ROW_ID_PATTERN accepts real board ids and rejects every path-shaped string')
+{
+  for (const good of ['ASSEMBLE-LAND-STRUCTURAL-1', 'ART99-GHOST-CLEANUP-1', 'CHAIN-FV-L2-COPY-1', 'A-1']) {
+    check(`accepts ${good}`, ROW_ID_PATTERN.test(good), true)
+  }
+  // The id is interpolated into a filesystem path, so these are security cases,
+  // not tidiness cases.
+  for (const bad of [
+    '../../board/done/X-1', 'X-1/../../y-1', '..', '/etc/passwd', 'C:\\board\\done\\X-1',
+    'lower-case-1', 'NO-TRAILING-NUMBER', 'X 1', '', 'X-1;rm -rf /', '*',
+  ]) {
+    check(`rejects ${JSON.stringify(bad)}`, ROW_ID_PATTERN.test(bad), false)
+  }
+}
+
+// ── 19. CI detection, as a pinned truth table over an env object. ────────
+heading(19, 'detectCI truth table — set means CI, and false/0/empty mean not CI')
+{
+  check('empty env is not CI', detectCI({}).isCI, false)
+  check('CI=true is CI', detectCI({ CI: 'true' }), { isCI: true, signals: ['CI'] })
+  check('CI=1 is CI', detectCI({ CI: '1' }).isCI, true)
+  check('GITHUB_ACTIONS=true is CI', detectCI({ GITHUB_ACTIONS: 'true' }).signals, ['GITHUB_ACTIONS'])
+  check('GITHUB_RUN_ID alone is CI', detectCI({ GITHUB_RUN_ID: '17' }).signals, ['GITHUB_RUN_ID'])
+  check('a real Actions env reports both', detectCI({ CI: 'true', GITHUB_ACTIONS: 'true', GITHUB_RUN_ID: '17' }).signals, ['CI', 'GITHUB_ACTIONS', 'GITHUB_RUN_ID'])
+  // CI=false is how a caller says "not CI"; honouring it keeps the signal
+  // meaning what the ecosystem means by it.
+  check('CI=false is not CI', detectCI({ CI: 'false' }).isCI, false)
+  check('CI=0 is not CI', detectCI({ CI: '0' }).isCI, false)
+  check('CI= (empty) is not CI', detectCI({ CI: '' }).isCI, false)
+  check('an unrelated variable is not CI', detectCI({ HOME: '/home/tim', EDITOR: 'vi' }).isCI, false)
+  check('the signal list is frozen', Object.isFrozen(CI_ENV_SIGNALS), true)
+  check('GitHub Actions keys are on the list', ['CI', 'GITHUB_ACTIONS', 'GITHUB_RUN_ID'].every((k) => CI_ENV_SIGNALS.includes(k)), true)
+}
+
+// ── 20. ⛔ THE LOAD-BEARING RED — the REAL script, a REAL child process, a
+// REAL CI environment. Not a mocked variable, not an exported predicate called
+// with a fake argument: process.env of a separate node process. ─────────────
+heading(20, 'REAL detection path: the shipped script under a CI environment REFUSES the flag and writes nothing')
+{
+  const before = [CG_PATH, META_PATH].map((p) => readFileSync(p, 'utf8').length)
+
+  const ci = runAssembler(['--land-structural=ASSEMBLE-LAND-STRUCTURAL-1'], {
+    CI: 'true', GITHUB_ACTIONS: 'true', GITHUB_RUN_ID: '424242', GITHUB_WORKFLOW: 'Derived Artifacts Regen',
+  })
+  check('exits non-zero (1, not the ordinary refusal 0)', ci.code, 1)
+  check('refusal names the flag', ci.err.includes('REFUSED --land-structural'), true)
+  check('refusal names CI as the reason', ci.err.includes('this is a CI environment'), true)
+  check('refusal quotes the detected signals', ci.err.includes('CI, GITHUB_ACTIONS, GITHUB_RUN_ID, GITHUB_WORKFLOW'), true)
+  check('refusal states it is human-only', ci.err.includes('HUMAN-ONLY'), true)
+  check('nothing was written', /Wrote |stamped/.test(ci.out), false)
+  check('the board was never even consulted', ci.out.includes('sanctioned by board row'), false)
+  check('chaingraph.json and chaingraph.meta.json are untouched', [CG_PATH, META_PATH].map((p) => readFileSync(p, 'utf8').length), before)
+
+  // THE DISCRIMINATOR. Without this, "it refused" proves nothing — a script
+  // that refused everything would pass the assertion above. Same flag, same
+  // process, CI scrubbed, deliberately malformed id: the refusal must change
+  // to the id complaint, which is only reachable PAST the CI check.
+  const notCI = runAssembler(['--land-structural=not-a-row-id'])
+  check('non-CI: exits 1 for a DIFFERENT reason', notCI.code, 1)
+  check('non-CI: the CI branch did not fire', notCI.err.includes('this is a CI environment'), false)
+  check('non-CI: it is the malformed-id branch', notCI.err.includes('malformed sanctioning row id'), true)
+
+  // CI outranks everything: the same malformed id under CI still reports CI.
+  const ciMalformed = runAssembler(['--land-structural=not-a-row-id'], { CI: 'true' })
+  check('CI outranks the id check', ciMalformed.err.includes('this is a CI environment'), true)
+
+  // And the flag is write-mode only — a sanction cannot ride along on --check.
+  const onCheck = runAssembler(['--check', '--land-structural=ASSEMBLE-LAND-STRUCTURAL-1'])
+  check('--check refuses the flag', [onCheck.code, onCheck.err.includes('write-mode only')], [1, true])
+}
+
+// ── 21. The sanctioning row must EXIST, in a state that names someone. ───
+heading(21, 'board lookup: claimed/ and done/ sanction, queued/ does not, and no board at all refuses (SO #34c)')
+{
+  // A throwaway board fixture: real directories, real files, real existsSync —
+  // driven through the same functions the runner uses, with no env override
+  // surface added to production code to make it testable.
+  const tmp = mkdtempSync(resolve(tmpdir(), 'acg-'))
+  try {
+    const board = resolve(tmp, 'ws', 'board')
+    for (const d of ['queued', 'claimed', 'done']) mkdirSync(resolve(board, d), { recursive: true })
+    writeFileSync(resolve(board, 'STANDING-ORDERS.md'), '# fixture board\n')
+    writeFileSync(resolve(board, 'queued', 'QUEUED-ROW-1.md'), 'q\n')
+    writeFileSync(resolve(board, 'claimed', 'CLAIMED-ROW-1.md'), 'c\n')
+    writeFileSync(resolve(board, 'done', 'DONE-ROW-1.md'), 'd\n')
+    const worktreeScripts = resolve(tmp, 'ws', '.wt', 'some-row', 'scripts')
+    mkdirSync(worktreeScripts, { recursive: true })
+
+    check('sanction states are exactly claimed and done', [...BOARD_SANCTION_DIRS], ['claimed', 'done'])
+    check('found from a repo root', findBoardRoot(resolve(tmp, 'ws', 'repo'), { levels: 2 }), board)
+    check('found from inside a .wt worktree (the normal case)', findBoardRoot(worktreeScripts, { levels: 4 }), board)
+
+    // The marker file is what makes it a board — a bare directory named "board"
+    // must not be mistaken for one.
+    const decoy = resolve(tmp, 'decoy', 'board')
+    mkdirSync(decoy, { recursive: true })
+    check('a board/ without STANDING-ORDERS.md is not a board', findBoardRoot(resolve(tmp, 'decoy'), { levels: 0 }), null)
+    check('no board above the tree at all', findBoardRoot(resolve(tmp, 'nothing', 'here'), { levels: 0 }), null)
+
+    check('claimed/ sanctions', resolveSanctionRow('CLAIMED-ROW-1', board).state, 'claimed')
+    check('claimed/ is ok', resolveSanctionRow('CLAIMED-ROW-1', board).ok, true)
+    check('done/ sanctions', [resolveSanctionRow('DONE-ROW-1', board).ok, resolveSanctionRow('DONE-ROW-1', board).state], [true, 'done'])
+
+    // ⛔ RED: queued means nobody claimed it, so it names no responsible party.
+    const queued = resolveSanctionRow('QUEUED-ROW-1', board)
+    check('queued/ does NOT sanction', queued.ok, false)
+    check('queued/ is told apart from missing, and says how to fix it', /still in queued\/.*Claim it first/s.test(queued.reason), true)
+
+    // ⛔ RED: a well-formed id naming nothing.
+    const missing = resolveSanctionRow('NO-SUCH-ROW-1', board)
+    check('a row that does not exist refuses', [missing.ok, missing.state], [false, null])
+
+    // ⛔ RED: absence is a third state, never a green (SO #34c).
+    const noBoard = resolveSanctionRow('CLAIMED-ROW-1', null)
+    check('no board => refuse, never assume', noBoard.ok, false)
+    check('and it says why', noBoard.reason.includes('cannot be verified to exist'), true)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+
+  // The live board is reachable from the real tree when there is one. Both
+  // outcomes are legitimate (CI checkouts carry no board), so this asserts the
+  // type, not a value — it is the wiring that is under test.
+  const live = findBoardRoot(REPO)
+  check('findBoardRoot returns a path or null against the real tree', live === null || existsSync(resolve(live, 'STANDING-ORDERS.md')), true)
+}
+
+// ── 22. ⛔ NO AUTOMATION PATH MAY REACH THE FLAG. ────────────────────────
+// The CI env check is defeatable by whoever controls the env (it is documented
+// as such in assemble-chaingraph.mjs). This is the other half: our own CI can
+// never be the thing that defeats it, because wiring the flag into a workflow
+// reds this gate before that workflow ever runs.
+heading(22, 'no workflow in .github/workflows passes --land-structural')
+{
+  // Enumerated with `git ls-files`, never a directory walk (SO #52) — this
+  // workspace holds dozens of live worktrees and a recursive walk would read
+  // other sessions' branches.
+  const workflows = gitSync(['ls-files', '--', '.github/workflows'], { cwd: REPO })
+    .split('\n').map((s) => s.trim()).filter(Boolean)
+  check('workflow files were actually enumerated', workflows.length > 0, true)
+  const offenders = workflows.filter((f) => readFileSync(resolve(REPO, f), 'utf8').includes('--land-structural'))
+  check(`none of the ${workflows.length} workflow files passes the flag`, offenders, [])
+}
+
+// ── 23. ⛔ AUTO-LAND IS NOT WIDENED BY ONE CASE. ─────────────────────────
+// The flag lives in the RUNNER, downstream of the verdict. classifyAssembly
+// takes no sanction parameter and cannot be talked into one, so copy-only and
+// additive diffs land exactly as ruling 48 has them and a structural diff is
+// still REFUSED by the classifier even while a human is overriding it.
+heading(23, 'copy-only and additive-auto are unchanged; no option name makes the classifier auto-land a structural edit')
+{
+  // ONE COPY-ONLY, QUOTED: aml-programme's description reword (121758de).
+  const copyAfter = chain('aml-programme')
+  const copyBefore = clone(copyAfter)
+  copyBefore.description = copyBefore.description.replace('Full receipted run', 'Full audited run')
+  const copyOnly = classifyAssembly(...pair([copyBefore], [copyAfter]))
+  check('copy-only chain edit still AUTO-LANDs', copyOnly.verdict, 'AUTO-LAND')
+  check('and is still classed chain-copy-edit on description', copyOnly.allowed.map(describeChange), ['chain-copy-edit aml-programme [description]'])
+
+  // ONE ADDITIVE-AUTO, QUOTED: a chain absent from committed, present in assembled.
+  const added = chain('ap2-x402-cart-correlation')
+  const additive = classifyAssembly(...pair([], [added]))
+  check('purely additive new chain still AUTO-LANDs', additive.verdict, 'AUTO-LAND')
+  check('and is still classed chain-added', additive.allowed.map(describeChange), ['chain-added ap2-x402-cart-correlation'])
+
+  // The allowlist itself did not gain a member.
+  check('COPY_ONLY_CHAIN_FIELDS is still exactly the two prose fields', [...COPY_ONLY_CHAIN_FIELDS], ['description', 'title'])
+
+  // ⛔ RED: the classifier has no sanction parameter and honours no invented
+  // option. A structural edit is REFUSED however it is asked.
+  const structAfter = clone(copyAfter)
+  structAfter.steps = (structAfter.steps ?? []).slice(0, 1)
+  check('classifyAssembly takes exactly two required parameters', classifyAssembly.length, 2)
+  for (const opts of [
+    undefined,
+    { landStructural: 'ASSEMBLE-LAND-STRUCTURAL-1' },
+    { sanction: true, rowId: 'ASSEMBLE-LAND-STRUCTURAL-1', force: true },
+    { targetExists: () => true },
+  ]) {
+    const r = classifyAssembly(...pair([copyAfter], [structAfter]), opts)
+    check(`structural edit REFUSED with opts=${JSON.stringify(opts ?? null)}`, [r.verdict, r.refusals[0].kind], ['REFUSED', 'chain-structural-edit'])
+  }
+}
+
+// ── 24. The refusal text, the sanction text, the printed diff, the stamp. ─
+heading(24, 'refusalLine is byte-unchanged; sanctionLine names the row; the diff prints both sides; the stamp appends')
+{
+  const after = chain('aml-programme')
+  const structural = clone(after)
+  structural.steps = (structural.steps ?? []).slice(0, 1)
+  const r = classifyAssembly(...pair([after], [structural]))
+  const [refusal] = r.refusals
+
+  // The no-flag refusal a session sees is EXACTLY what it was before this row.
+  check('refusalLine still ends with the sentence that names the human row',
+    refusalLine(refusal, { annotate: false }).endsWith('chaingraph.json was NOT written; this diff needs an explicit human ASSEMBLE/LAND row.'), true)
+  check('refusalLine still opens REFUSED, not SANCTIONED', refusalLine(refusal, { annotate: false }).startsWith('REFUSED  chaingraph assembly REFUSED — chain-structural-edit aml-programme [steps]'), true)
+
+  // The sanctioned line keeps the refusal reason — a human override does not
+  // change the classifier's verdict, and the log must not pretend it did.
+  const sl = sanctionLine(refusal, 'ASSEMBLE-LAND-STRUCTURAL-1')
+  check('sanctionLine names the change', sl.startsWith('SANCTIONED  chain-structural-edit aml-programme [steps]'), true)
+  check('sanctionLine names the authorising row', sl.includes('human ASSEMBLE/LAND row ASSEMBLE-LAND-STRUCTURAL-1'), true)
+  check('sanctionLine still carries the refusal reason', sl.includes(refusal.reason), true)
+
+  // The FULL diff: the field that moved, with both values, not a summary.
+  const diff = formatStructuralDiff({ nodes: [], chains: [after] }, { nodes: [], chains: [structural] }, r.refusals).join('\n')
+  check('diff names the changed field', diff.includes('field "steps"'), true)
+  check('diff labels both sides', diff.includes('--- committed ---') && diff.includes('+++ assembled +++'), true)
+  check('diff carries the committed step count, not a summary', diff.includes(JSON.stringify(after.steps, null, 2)), true)
+  check('diff carries the assembled value too', diff.includes(JSON.stringify(structural.steps, null, 2)), true)
+
+  // A removal prints the whole object that is about to stop existing.
+  const removal = classifyAssembly(...pair([after], []))
+  const removalDiff = formatStructuralDiff({ nodes: [], chains: [after] }, { nodes: [], chains: [] }, removal.refusals).join('\n')
+  check('a chain removal prints the full committed object', removalDiff.includes('REMOVED chain — full committed object:'), true)
+  check('and the object itself', removalDiff.includes(JSON.stringify(after, null, 2)), true)
+
+  // The stamp: shape, append-only, and where it lands in the file.
+  const entry = sanctionEntry('ASSEMBLE-LAND-STRUCTURAL-1', 'claimed', r.refusals, new Date('2026-08-23T12:00:00Z'))
+  check('entry shape', entry, {
+    row: 'ASSEMBLE-LAND-STRUCTURAL-1',
+    row_state: 'claimed',
+    landed_utc: '2026-08-23T12:00:00.000Z',
+    sanctioned: ['chain-structural-edit aml-programme [steps]'],
+  })
+
+  const meta0 = { _comment: 'c', order: { nodes: [], chains: [] }, raw: { header: 'h' } }
+  const meta1 = buildSanctionStamp(meta0, entry)
+  check('the ledger lands right after _comment', Object.keys(meta1), ['_comment', 'structural_landings', 'order', 'raw'])
+  check('the first stamp is the only entry', meta1.structural_landings, [entry])
+  check('the rest of meta is carried through untouched', [meta1.order, meta1.raw], [meta0.order, meta0.raw])
+  check('the input object is not mutated', 'structural_landings' in meta0, false)
+
+  const entry2 = sanctionEntry('ART99-GHOST-CLEANUP-2', 'done', [], new Date('2026-08-24T00:00:00Z'))
+  const meta2 = buildSanctionStamp(meta1, entry2)
+  check('append-only: the earlier entry survives verbatim', meta2.structural_landings, [entry, entry2])
+  check('key order is stable across repeated stamps', Object.keys(meta2), ['_comment', 'structural_landings', 'order', 'raw'])
+
+  // Nothing here depends on _comment existing.
+  check('meta without _comment gets the ledger first', Object.keys(buildSanctionStamp({ order: {} }, entry)), ['structural_landings', 'order'])
+
+  // The live meta file has no ledger yet — this row proves the path and leaves
+  // no entry behind (its own GREEN proof is reverted; see the PR body).
+  check('chaingraph.meta.json parses and round-trips through the stamp builder',
+    Object.keys(buildSanctionStamp(JSON.parse(readFileSync(META_PATH, 'utf8')), entry)).slice(0, 2), ['_comment', 'structural_landings'])
+}
+
 if (failures > 0) {
   console.error(`\n✗ assemble-chaingraph.selftest: ${failures} assertion(s) failed.`)
   process.exit(1)
 }
-console.log('\n✓ assemble-chaingraph.selftest: classifier proved on every verdict — auto-land, refuse, clean.')
+console.log('\n✓ assemble-chaingraph.selftest: classifier proved on every verdict — auto-land, refuse, clean — and --land-structural proved human-only (CI refusal exercised on the real script, in a real child process, with a real CI environment).')
