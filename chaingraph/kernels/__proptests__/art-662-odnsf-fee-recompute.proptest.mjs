@@ -1,5 +1,5 @@
 // art-662-odnsf-fee-recompute.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:f9f132100c62ce3bbf6700443de51212832336923775ef8fdd0ecc53bfeeb36c
+// kernel_digest_at_authoring: sha256:08217afde2dfb95ca1d609a0f728de20f5c0786e6784d47b79847984109622a3
 // spec: CORE-VERIFY-BUILD-SPEC.md Sec0, Sec3.
 // human_sign_off: PENDING
 //

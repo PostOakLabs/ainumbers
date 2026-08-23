@@ -1,5 +1,5 @@
 // art-21-agent-traffic-acceptance-policy-builder.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C6-1).
-// kernel_digest_at_authoring: sha256:6243000aa7fa78f35081606c6c9c5dd114268e7a28e879dcb7f96f2be704cd76
+// kernel_digest_at_authoring: sha256:84f9842501dbebf909297725390cac30febcc88c7e7048926c349bf36258fd9b
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

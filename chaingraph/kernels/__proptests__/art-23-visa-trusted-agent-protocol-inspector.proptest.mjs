@@ -1,5 +1,5 @@
 // art-23-visa-trusted-agent-protocol-inspector.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C7-1).
-// kernel_digest_at_authoring: sha256:121d2bbc225f22b9f647b43ef1310b168a6b6bd0a3e0d1e45dba0bc500fc213a
+// kernel_digest_at_authoring: sha256:7e92bc87f416f5fa615f69201caf653373e34bccee02976a5a65f9f4d57fd300
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

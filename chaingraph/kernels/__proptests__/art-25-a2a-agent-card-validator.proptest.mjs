@@ -1,5 +1,5 @@
 // art-25-a2a-agent-card-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C7-1).
-// kernel_digest_at_authoring: sha256:31f05f94d1769d1602bf8a182a0c58acbc94caa2292ed294d99233f5ba0d3e1b
+// kernel_digest_at_authoring: sha256:a05b6ef8b218f4d44644ea4d67c0cfb9161d4271a3a0c5604543bf10258e1db9
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

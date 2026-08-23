@@ -1,5 +1,5 @@
 // art-209-nft-metadata-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C6-1).
-// kernel_digest_at_authoring: sha256:f44568d42f15c3115cd7fa67045fb18872ae4cc0ba789b6bede70f9448176a1b
+// kernel_digest_at_authoring: sha256:859f96d65c7064725b04048fc898c5049df57709508f2666b2672a53435944a1
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
