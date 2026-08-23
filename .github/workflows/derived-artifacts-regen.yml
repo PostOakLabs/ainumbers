@@ -193,10 +193,27 @@ jobs:
           # nothing, and made the escape check below misreport every real
           # artifact as escaped (measured 2026-08-16, runs 31957347527/31958761151).
           # (`--ignore-missing` is only valid with --dry-run — it never did anything.)
+          #
+          # `--ignore-removal` REMOVED 2026-08-22. It made a generator's legitimate
+          # DELETION unstageable: a node leaving service (art-99 → deprecated) makes
+          # generate-okf.mjs delete chaingraph/okf/{tools,computations}/<tool_id>.md,
+          # those paths ARE declared (derived-artifacts.mjs id:'okf', writes:
+          # ['chaingraph/okf']), but --ignore-removal skipped them, so they survived
+          # as ` D` and the escape self-check below reported a DECLARED deletion as
+          # "undeclared regen output". That disabled the single writer that repairs
+          # the count sentinels, so one non-live node reddened four main workflows
+          # (Derived Artifacts Regen, Scripts Verify, Land Verify, Deploy): a single
+          # undeclared-looking write path cascades into every downstream surface that
+          # depends on this job having committed. Measured on run 32605372977; the two escaped
+          # entries were exactly art-99's okf pair. Plain `git add -- <path>` stages
+          # modifications AND deletions within the declared pathspec, which is the
+          # invariant this step actually wants: the SET is what is declared, not the
+          # direction of change. Undeclared paths still trip the check below, because
+          # nothing outside the pathspec is ever staged.
           node scripts/derived-artifacts.mjs --paths > /tmp/paths.txt
           while IFS= read -r p; do
             [ -n "$p" ] || continue
-            git add --ignore-removal -- "$p"
+            git add -- "$p"
           done < /tmp/paths.txt
 
           # SELF-CHECK (independent derivation): the declared path set is

@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-330"]
+tags: ["compliance_mandate", "count-329"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-330 tool(s) in this mandate-type group:
+329 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -45,7 +45,6 @@ status: stable
 - [Screening List-Coverage Checker](../tools/art-92-screening-list-coverage-checker.md)
 - [ECCN / Dual-Use Classifier](../tools/art-94-eccn-dual-use-classifier.md)
 - [Circumvention Diligence Assessor](../tools/art-95-circumvention-diligence-assessor.md)
-- [MiCA Transitional-Deadline Router](../tools/art-99-mica-transitional-deadline-router.md)
 - [CASP Authorization-Readiness Assessor](../tools/art-100-mica-casp-authorization-readiness.md)
 - [Art 67 Own-Funds Calculator](../tools/art-101-mica-art67-own-funds-calculator.md)
 - [Crypto-Asset Whitepaper Linter (iXBRL)](../tools/art-102-crypto-asset-whitepaper-linter.md)

@@ -28,7 +28,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [MiCA CASP Fit Diagnostic](./art-98-mica-casp-fit-diagnostic.md), [MiCA Transitional-Deadline Router](./art-99-mica-transitional-deadline-router.md)
+**Consumes:** [MiCA CASP Fit Diagnostic](./art-98-mica-casp-fit-diagnostic.md), `art-99-mica-transitional-deadline-router` _(not live)_
 
 **Feeds:** [Art 67 Own-Funds Calculator](./art-101-mica-art67-own-funds-calculator.md), [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
 

@@ -623,7 +623,6 @@ status: stable
 - [No-Russia-Clause Pack Builder](./art-96-no-russia-clause-pack-builder.md)
 - [Sanctions Screening-Program Quality Scorer](./art-97-sanctions-screening-quality-scorer.md)
 - [MiCA CASP Fit Diagnostic](./art-98-mica-casp-fit-diagnostic.md)
-- [MiCA Transitional-Deadline Router](./art-99-mica-transitional-deadline-router.md)
 - [ZK Compliance Proof Generator](./cry-01-zk-compliance-proof-generator.md)
 - [Merkle Batch Verifier](./cry-04-merkle-batch-verifier.md)
 - [Agent-Action Audit-Trail Aggregator](./cry-05-agent-action-audit-trail-aggregator.md)
