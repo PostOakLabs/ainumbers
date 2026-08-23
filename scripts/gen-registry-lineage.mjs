@@ -63,6 +63,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { webcrypto } from 'node:crypto';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,7 +81,10 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // the workspace root via the shared git-common-dir (always the main `repo/.git`,
 // even from a worktree) so internal-artifact paths under `research/` land
 // correctly regardless of which worktree this script runs from.
-const GIT_COMMON_DIR = resolve(REPO, execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: REPO, encoding: 'utf8' }).trim());
+// env: gitEnv() is load-bearing here specifically: an inherited GIT_DIR would make
+// --git-common-dir report the OUTER repo's common dir, and WORKSPACE_ROOT is derived from it — so
+// every internal-artifact path under research/ would be resolved against the wrong workspace.
+const GIT_COMMON_DIR = resolve(REPO, execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: REPO, env: gitEnv(), encoding: 'utf8' }).trim());
 const WORKSPACE_ROOT = resolve(GIT_COMMON_DIR, '../..');
 const RECORDS_PATH = resolve(REPO, 'chaingraph/kernels/registry-lineage-records.json');
 const REGISTRY_DIR = resolve(REPO, 'registry/lineage');

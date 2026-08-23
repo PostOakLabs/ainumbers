@@ -146,6 +146,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { gitEnv } from './_git-env-lib.mjs'
 import { findUnlistedShards } from './lib-shard-order.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -201,6 +202,7 @@ function git(args) {
   try {
     return execFileSync('git', args, {
       cwd: root,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     })
@@ -211,7 +213,7 @@ function git(args) {
 
 function gitOk(args) {
   try {
-    execFileSync('git', args, { cwd: root, stdio: 'ignore' })
+    execFileSync('git', args, { cwd: root, env: gitEnv(), stdio: 'ignore' })
     return true
   } catch {
     return false

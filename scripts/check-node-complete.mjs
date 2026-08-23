@@ -47,6 +47,7 @@
  * baseline — the baseline only softens the whole-estate --all sweep.
  */
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -77,7 +78,7 @@ if (!ALL && !ALL_CHANGED && !singleId) {
 
 function git(args) {
   try {
-    return execFileSync('git', args, { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return execFileSync('git', args, { cwd: REPO, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   } catch {
     return null;
   }
@@ -85,7 +86,7 @@ function git(args) {
 
 function fileExistsOnOriginMain(relPath) {
   try {
-    execFileSync('git', ['cat-file', '-e', `origin/main:${relPath}`], { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['cat-file', '-e', `origin/main:${relPath}`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
     return true;
   } catch {
     return false;

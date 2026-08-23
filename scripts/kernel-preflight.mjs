@@ -52,6 +52,7 @@
  * Exit 0 iff every check is READY/PASS/N-A. Exit 1 on any ✗.
  */
 import { execSync, execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -168,7 +169,7 @@ if (!shouldStop()) {
   function differsFromOriginMain(relPath, absPath) {
     let originContent;
     try {
-      originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+      originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
     } catch {
       return true; // absent from origin/main — brand-new file, genuinely touched
     }
@@ -221,7 +222,7 @@ if (!shouldStop()) {
   } else {
     let onOriginMain = false;
     try {
-      execFileSync('git', ['cat-file', '-e', `origin/main:chaingraph/graph/nodes/${ID}.json`], { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+      execFileSync('git', ['cat-file', '-e', `origin/main:chaingraph/graph/nodes/${ID}.json`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
       onOriginMain = true;
     } catch { /* not on origin/main — a brand-new shard, or origin unresolvable (treated as absent, same as check-shard-assembly.mjs's fail-closed-on-assembler-branch design does not apply to a non-assembling K row) */ }
     let meta = { order: { nodes: [] } };
