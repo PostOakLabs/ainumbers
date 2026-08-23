@@ -151,6 +151,7 @@ const EXTRACTORS = {
   'scripts/nav-island-baseline.json': (j) => ({ n: j.length, what: 'by-design unreachable pages (root list)' }),
   'scripts/node-completeness-baseline.json': (j) => ({ n: j.legacy_ids.length, what: 'nodes carrying legacy completeness debt' }),
   'scripts/page-determinism-baseline.json': (j) => ({ n: j.entries.length, what: 'pre-existing page-determinism defects' }),
+  'scripts/page-kernel-digest-baseline.json': (j) => ({ n: j.unstamped.length, what: 'node pages carrying no kernel-digest sentinel yet' }),
   'scripts/s18-digest-freshness-baseline.json': (j) => ({ n: j.stale_nodes.length, what: 'nodes with a stale compute-integrity digest' }),
   'scripts/site-egress-baseline.json': (j) => ({ n: nonMeta(j.files ?? {}).length, what: 'files carrying a reviewed, inert egress-shaped text match' }),
   'scripts/binary-byte-allowlist.json': (j) => ({ n: nonMeta(j).length, what: 'files shielding a deliberate control byte' }),

@@ -621,6 +621,15 @@ const GATES = [
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
+  // PAGE-KERNEL-DIGEST-SENTINEL-1: the OTHER end of the same digest. S18-DIGEST-GATE-1 compares a
+  // zkVM RECEIPT against the deployed kernel; this compares the PUBLIC PAGE's inline compute() copy
+  // against it. Both call the same canonical sourceDigest() from _buildid.mjs. The page axis had no
+  // gate at all until now: art-231 shipped a corrected kernel while its page kept serving the old
+  // proxy JS, and nothing in the estate could see it. Ratchet, not a switch: 0 of 595 pages carried
+  // a sentinel on adoption, so scripts/page-kernel-digest-baseline.json shields the legacy set,
+  // shields ABSENCE only (a wrong sentinel on a baselined page still fails), and only ever shrinks.
+  ['Page-kernel digest sentinel ratchet (PAGE-KERNEL-DIGEST-SENTINEL-1)', 'node scripts/check-page-kernel-digest.mjs'],
+  ['Page-kernel digest fixture proof (SO #40b pairing)', 'node scripts/check-page-kernel-digest.test.mjs'],
   // §18 RECOMPUTE-EQUALITY (SO #34, ASYNC-VACUOUS-GATE-1). Re-executes every proven node's kernel in the
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],
