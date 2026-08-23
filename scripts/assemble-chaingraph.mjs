@@ -24,6 +24,11 @@
  *                                                   # exit 3 if the pending
  *                                                   # shard diff is REFUSED
  *                                                   # class (see PART 2 below)
+ *   node scripts/assemble-chaingraph.mjs --land-structural=<ROW-ID>
+ *                                                   # HUMAN-ONLY. Land a
+ *                                                   # REFUSED-class diff under
+ *                                                   # a named sanctioning board
+ *                                                   # row (see PART 4 below)
  *
  * ── THE THREE VERDICTS (ASSEMBLE-CHAIN-CLASSIFY-1, 2026-08-22) ─────────────
  *
@@ -184,6 +189,47 @@
  * format: a shard written multi-line ships multi-line into chaingraph.json
  * and immediately drifts against this rule. Match an existing compact
  * shard, don't reformat after the fact.
+ *
+ * ── PART 4: THE SANCTIONED STRUCTURAL LAND (ASSEMBLE-LAND-STRUCTURAL-1) ────
+ *
+ * Verdict (c) tells the operator this diff "needs an explicit human
+ * ASSEMBLE/LAND row". Until this row, that sentence named a row that had no
+ * tool: the write above refused structural chain edits UNCONDITIONALLY — no
+ * flag, no env override — so the human it deferred to could not act either.
+ * ART99-GHOST-CLEANUP-1 authored a correct chain re-step, hit the refusal, and
+ * correctly reverted rather than ship a red tree.
+ *
+ * `--land-structural=<ROW-ID>` is that missing tool, and its shape is Tim's
+ * ruling of 2026-08-23, not this file's invention:
+ *
+ *   1. THE SANCTIONING ROW ID IS REQUIRED. Never a bare flag. The id must
+ *      match ROW_ID_PATTERN and must name a row the board holds in claimed/
+ *      or done/ — see resolveSanctionRow for why those two and not queued/.
+ *   2. IT REFUSES UNDER CI. This is what makes it human-only: no automation
+ *      path may reach it. See detectCI for the signal set and the honest
+ *      account of what defeats it.
+ *   3. IT PRINTS THE FULL CHAIN DIFF BEFORE WRITING, field by field, committed
+ *      beside assembled, so the human sees exactly what they are sanctioning.
+ *   4. IT STAMPS THE SANCTIONING ROW INTO OUTPUT — an append-only
+ *      `structural_landings` ledger in chaingraph.meta.json, so the artifact
+ *      records who authorised what and a later reader can `git grep` the id.
+ *
+ * ⛔ WHAT THIS IS NOT. It is NOT the blanket `--land-chains` DECLINED on
+ * 2026-08-22, and the CI refusal is the whole difference: a mechanism an
+ * unattended workflow can reach IS that declined flag with extra steps.
+ *
+ * ⛔ IT WIDENS AUTO-LAND BY NOTHING. classifyAssembly is untouched and takes no
+ * sanction parameter — copy-only (a), the guarded composer_url repoint (a2) and
+ * the purely additive new chain (b) auto-land exactly as before, and a
+ * structural diff with no flag still refuses with the same message. The flag
+ * lives in the RUNNER, downstream of the verdict; it authorises a write the
+ * classifier still calls REFUSED. That separation is deliberate: the classifier
+ * stays the single honest account of what is structural.
+ *
+ * ⛔ SINGLE WRITER HOLDS (SO #35). This adds an AUTHORISATION PATH, not a
+ * second writer — the bytes are still produced by assembleFromShards and
+ * written by this script alone. Option B (a human hand-editing
+ * chaingraph.json) was DECLINED on 2026-08-23 and is not implemented here.
  *
  * Self-test: scripts/assemble-chaingraph.selftest.mjs (imports
  * classifyAssembly() below and drives it over the real historical diffs this
@@ -347,9 +393,236 @@ export function repoTargetExists(url) {
  */
 const TARGET_ABSENT = () => false
 
+/* ══ PART 4 — the sanctioned structural land (ASSEMBLE-LAND-STRUCTURAL-1) ══ */
+
+/**
+ * The environment keys that mean "a CI runner is executing this".
+ *
+ * HOW CI IS DETECTED, STATED PLAINLY: purely by environment variable, never by
+ * TTY, hostname, user or network. GitHub Actions — the only CI this estate runs
+ * — sets BOTH `CI=true` and `GITHUB_ACTIONS=true` on every step of every job,
+ * unconditionally, before any workflow YAML gets a say; `GITHUB_RUN_ID` and
+ * `GITHUB_WORKFLOW` are set alongside them. The other vendors are listed so a
+ * future runner is refused rather than admitted by silence (the fail-closed
+ * posture COPY_ONLY_CHAIN_FIELDS uses one screen up).
+ *
+ * WHAT COULD DEFEAT IT — the honest list, because a guard whose defeat modes
+ * are unstated is a guard nobody can reason about:
+ *
+ *   (1) DELIBERATE SCRUBBING. `env -u CI -u GITHUB_ACTIONS node …`, or
+ *       `CI= GITHUB_ACTIONS= node …`, inside a workflow step reaches the human
+ *       path from CI. This is not defence-in-depth's failure, it is its
+ *       boundary: an env guard can always be unset by whoever controls the env.
+ *       It is covered instead by making the act DELIBERATE and VISIBLE — the
+ *       scrub is a legible line of YAML in a reviewed diff, and the self-test
+ *       asserts NO workflow in .github/workflows passes --land-structural at
+ *       all, so wiring one up reds a gate before it ever runs.
+ *   (2) A RUNNER THAT SETS NONE OF THESE. A self-hosted or bespoke agent that
+ *       exports no CI variable is invisible here. Nothing in this estate is
+ *       such a runner today; the list is extensible for the day one appears.
+ *   (3) LOCAL AUTOMATION IS OUT OF SCOPE BY DESIGN, not by oversight. A cron
+ *       job, a git hook or an agent loop on a workstation is not CI and is not
+ *       detected. What covers that case is the OTHER two controls, which apply
+ *       everywhere: the write is impossible without naming a board row that
+ *       actually exists in claimed/ or done/, and every such write stamps that
+ *       id into a committed ledger. Accountability, not interdiction.
+ *
+ * DELIBERATELY NOT USED: `process.stdin.isTTY`. Requiring an interactive
+ * terminal would be a stronger human-only signal and would also break every
+ * legitimate operator here — build sessions drive this repo through
+ * non-interactive shells that have no TTY, so a TTY requirement would refuse
+ * exactly the humans the flag exists for while a CI job could trivially
+ * allocate a pty anyway. It trades a real cost for an illusory guarantee.
+ */
+export const CI_ENV_SIGNALS = Object.freeze([
+  'CI',
+  'CONTINUOUS_INTEGRATION',
+  'GITHUB_ACTIONS',
+  'GITHUB_RUN_ID',
+  'GITHUB_WORKFLOW',
+  'GITLAB_CI',
+  'BUILDKITE',
+  'CIRCLECI',
+  'JENKINS_URL',
+  'TEAMCITY_VERSION',
+  'TF_BUILD',
+  'BITBUCKET_BUILD_NUMBER',
+  'APPVEYOR',
+  'DRONE',
+  'CODEBUILD_BUILD_ID',
+])
+
+/**
+ * Pure over an environment object so the self-test can pin the truth table, and
+ * read from the REAL `process.env` by the runner so the shipped path is the one
+ * a child process exercises. `false`, `0` and empty string do not count as set —
+ * `CI=false` is how a caller says "not CI", and honouring it keeps the signal
+ * meaning what the ecosystem means by it.
+ *
+ * @param {Record<string, string|undefined>} [env]
+ * @returns {{isCI: boolean, signals: string[]}}
+ */
+export function detectCI(env = process.env) {
+  const signals = CI_ENV_SIGNALS.filter((key) => {
+    const raw = env[key]
+    if (raw === undefined || raw === null) return false
+    const value = String(raw).trim().toLowerCase()
+    return value !== '' && value !== 'false' && value !== '0'
+  })
+  return { isCI: signals.length > 0, signals }
+}
+
+/**
+ * The board's row-id shape: uppercase alphanumeric segments joined by hyphens
+ * and terminated by a sequence number — ASSEMBLE-LAND-STRUCTURAL-1,
+ * ART99-GHOST-CLEANUP-1, CHAIN-FV-L2-COPY-1.
+ *
+ * It is also the PATH-TRAVERSAL GUARD, which is why it is anchored and
+ * character-classed rather than a loose "non-empty string" check: the id is
+ * interpolated into a filesystem path by resolveSanctionRow, and `..`, `/`,
+ * `\` and `:` cannot survive this pattern.
+ */
+export const ROW_ID_PATTERN = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+$/
+
+const LAND_STRUCTURAL_FLAG = '--land-structural'
+
+/**
+ * Pure argv parse for `--land-structural=<ROW-ID>`.
+ *
+ * REQUIRING THE `=<ROW-ID>` FORM RATHER THAN A FOLLOWING TOKEN is deliberate:
+ * `--land-structural --check` would otherwise silently consume `--check` as the
+ * row id. An attached value cannot swallow a neighbouring flag.
+ *
+ * @param {string[]} argv
+ * @returns {{present: boolean, rowId: string|null, error: string|null}}
+ */
+export function parseLandStructural(argv) {
+  const hits = argv.filter((a) => a === LAND_STRUCTURAL_FLAG || a.startsWith(`${LAND_STRUCTURAL_FLAG}=`))
+  if (hits.length === 0) return { present: false, rowId: null, error: null }
+  if (hits.length > 1) {
+    return {
+      present: true,
+      rowId: null,
+      error: `${LAND_STRUCTURAL_FLAG} was given ${hits.length} times (${hits.join(' ')}) — exactly one sanctioning row id is required, so which row authorised this write is never ambiguous`,
+    }
+  }
+  const [arg] = hits
+  if (arg === LAND_STRUCTURAL_FLAG) {
+    return {
+      present: true,
+      rowId: null,
+      error: `bare ${LAND_STRUCTURAL_FLAG} with no row id — the sanctioning row id is REQUIRED, never optional. Use ${LAND_STRUCTURAL_FLAG}=<ROW-ID>`,
+    }
+  }
+  const rowId = arg.slice(LAND_STRUCTURAL_FLAG.length + 1).trim()
+  if (rowId === '') {
+    return {
+      present: true,
+      rowId: null,
+      error: `empty ${LAND_STRUCTURAL_FLAG}= value — the sanctioning row id is REQUIRED. Use ${LAND_STRUCTURAL_FLAG}=<ROW-ID>`,
+    }
+  }
+  if (!ROW_ID_PATTERN.test(rowId)) {
+    return {
+      present: true,
+      rowId: null,
+      error: `malformed sanctioning row id ${JSON.stringify(rowId)} — expected the board's row-id shape ${ROW_ID_PATTERN} (uppercase hyphen-joined segments ending in a number, e.g. ART99-GHOST-CLEANUP-1)`,
+    }
+  }
+  return { present: true, rowId, error: null }
+}
+
+/**
+ * WHICH BOARD STATES SANCTION A WRITE, AND WHY THESE TWO.
+ *
+ * `claimed/` is the normal case: SO #33(a) makes a session claim its row before
+ * it edits anything, so a session standing in front of this flag legitimately
+ * has its row in claimed/. `done/` covers the honest re-run — a follow-up pass
+ * for the same landing after check-off.
+ *
+ * `queued/` is REFUSED on purpose and gets its own message. A queued row is one
+ * nobody has taken responsibility for, and the entire value of the required id
+ * is that it names a responsible party. Citing an unclaimed row would be a
+ * signature on someone else's behalf.
+ */
+export const BOARD_SANCTION_DIRS = Object.freeze(['claimed', 'done'])
+
+/**
+ * Locate the workspace board by walking up from `startDir` looking for a
+ * `board/` that holds STANDING-ORDERS.md. The marker file matters: a bare
+ * directory named `board` anywhere up the tree must not be mistaken for it.
+ *
+ * The walk exists because sessions build in `.wt/<row>/` worktrees, where the
+ * board is two levels up rather than one.
+ *
+ * @param {string} startDir
+ * @param {{levels?: number, exists?: (p: string) => boolean}} [opts]
+ * @returns {string|null}
+ */
+export function findBoardRoot(startDir, { levels = 6, exists = existsSync } = {}) {
+  let dir = resolve(startDir)
+  for (let i = 0; i <= levels; i++) {
+    const candidate = resolve(dir, 'board')
+    if (exists(resolve(candidate, 'STANDING-ORDERS.md'))) return candidate
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
+}
+
+/**
+ * Does `rowId` name a row this board holds in a sanctioning state?
+ *
+ * ABSENCE IS NOT A PASS (SO #34c). No board found means the sanctioning row
+ * cannot be verified, and an unverifiable sanction is refused — the same
+ * fail-closed posture TARGET_ABSENT takes for verdict (a2). That is coherent
+ * rather than merely strict: the authorisation IS the board row, so a tree with
+ * no board has nothing to authorise with.
+ *
+ * @param {string} rowId
+ * @param {string|null} boardRoot
+ * @param {{exists?: (p: string) => boolean}} [opts]
+ * @returns {{ok: boolean, state: string|null, path: string|null, reason: string|null}}
+ */
+export function resolveSanctionRow(rowId, boardRoot, { exists = existsSync } = {}) {
+  if (!boardRoot) {
+    return {
+      ok: false,
+      state: null,
+      path: null,
+      reason:
+        `no board found above this tree, so the sanctioning row ${rowId} cannot be verified to exist. ` +
+        'An unverifiable sanction is refused, never assumed (SO #34c: absence is not a pass)',
+    }
+  }
+  for (const state of BOARD_SANCTION_DIRS) {
+    const path = resolve(boardRoot, state, `${rowId}.md`)
+    if (exists(path)) return { ok: true, state, path, reason: null }
+  }
+  const queuedPath = resolve(boardRoot, 'queued', `${rowId}.md`)
+  if (exists(queuedPath)) {
+    return {
+      ok: false,
+      state: 'queued',
+      path: queuedPath,
+      reason:
+        `row ${rowId} is still in queued/ — nobody has claimed it, so it names no responsible party. ` +
+        'Claim it first (node scripts/claim.mjs ' + rowId + '), then re-run',
+    }
+  }
+  return {
+    ok: false,
+    state: null,
+    path: null,
+    reason: `no row file ${rowId}.md under ${BOARD_SANCTION_DIRS.map((d) => `${d}/`).join(' or ')} in ${boardRoot}`,
+  }
+}
+
 const CHECK = process.argv.includes('--check')
 const ENROLL = process.argv.includes('--enroll')
 const REFUSAL_STATUS = process.argv.includes('--refusal-status')
+const SANCTION = parseLandStructural(process.argv)
 
 // ASSEMBLE-COVER-1 advisory: report node shards on disk that order.nodes
 // doesn't include yet — a mid-flight CGSHARD row is EXPECTED here, so this
@@ -560,6 +833,121 @@ function emitRefusals(refusals, { annotate }) {
   for (const r of refusals) console.log(refusalLine(r, { annotate }))
 }
 
+/**
+ * PART 4's counterpart to refusalLine: the same change, named as SANCTIONED
+ * rather than REFUSED, with the authorising row on the line. Deliberately still
+ * quotes the refusal reason — the classifier's verdict does not change because
+ * a human overrode it, and the log should not pretend otherwise.
+ */
+export function sanctionLine(change, rowId) {
+  return (
+    `SANCTIONED  ${describeChange(change)}: ${change.reason}. ` +
+    `Landing under human ASSEMBLE/LAND row ${rowId} (--land-structural).`
+  )
+}
+
+/**
+ * PART 4 requirement 3: the FULL chain diff, printed before anything is
+ * written, so the human is sanctioning something they have actually seen.
+ *
+ * Per refused change it prints every top-level field that moved, committed
+ * value beside assembled value, complete and pretty-printed — not a truncated
+ * summary. A removal prints the whole object being dropped, since "what is
+ * about to stop existing" is the entire content of that decision. Verbosity is
+ * the point here; this runs once, in front of a person.
+ *
+ * Pure — takes two parsed objects and the refusal list, returns lines. The
+ * self-test drives it directly.
+ *
+ * @param {object} committedObj
+ * @param {object} assembledObj
+ * @param {object[]} refusals
+ * @returns {string[]}
+ */
+export function formatStructuralDiff(committedObj, assembledObj, refusals) {
+  const cChains = byKey(committedObj.chains, 'name')
+  const aChains = byKey(assembledObj.chains, 'name')
+  const cNodes = byKey(committedObj.nodes, 'tool_id')
+  const show = (v) => (v === undefined ? '(field absent)' : JSON.stringify(v, null, 2))
+  const lines = []
+  for (const change of refusals) {
+    lines.push('', `── ${describeChange(change)} ──`, `   why it is refused by default: ${change.reason}`)
+    if (change.kind === 'chain-removed') {
+      lines.push('   REMOVED chain — full committed object:', show(cChains.get(change.key)))
+      continue
+    }
+    if (change.kind === 'node-removed') {
+      lines.push('   REMOVED node — full committed object:', show(cNodes.get(change.key)))
+      continue
+    }
+    const before = cChains.get(change.key)
+    const after = aChains.get(change.key)
+    if (before === undefined || after === undefined) {
+      lines.push(`   (no committed/assembled pair available for ${change.key} — nothing further to show)`)
+      continue
+    }
+    for (const field of changedFields(before, after)) {
+      lines.push(`   field "${field}"`, '   --- committed ---', show(before[field]), '   +++ assembled +++', show(after[field]))
+    }
+  }
+  return lines
+}
+
+/**
+ * PART 4 requirement 4, half one: the ledger entry. Pure, with `now` injected so
+ * the self-test pins the shape without racing the clock.
+ *
+ * @param {string} rowId
+ * @param {string} rowState which board directory held the row: claimed or done
+ * @param {object[]} refusals the changes this row is authorising
+ * @param {Date} [now]
+ */
+export function sanctionEntry(rowId, rowState, refusals, now = new Date()) {
+  return {
+    row: rowId,
+    row_state: rowState,
+    landed_utc: now.toISOString(),
+    sanctioned: refusals.map(describeChange),
+  }
+}
+
+/**
+ * PART 4 requirement 4, half two: append the entry to chaingraph.meta.json's
+ * `structural_landings`.
+ *
+ * WHY META.JSON AND NOT CHAINGRAPH.JSON. chaingraph.json's wrapper text is
+ * spliced verbatim from meta.raw and is the schema-validated, vendored,
+ * externally-consumed artifact; stamping into it would mean editing that
+ * wrapper and dragging schema, spec-page-parity and the worker's vendored copy
+ * into a row whose fence is the refusal path. chaingraph.meta.json is the
+ * assembler's OWN committed output — already written by enrollMissingNodes,
+ * already declared in derived-artifacts.mjs's artifacts[] (so SO #47's
+ * declaration parity is satisfied with no new write target), and committed, so
+ * `git grep <ROW-ID> -- chaingraph/` finds the authorisation years later.
+ *
+ * APPEND-ONLY: prior entries are never rewritten or pruned. The ledger is
+ * placed immediately after `_comment` rather than appended last so a reader
+ * opening the file meets it before 634 node ids, and key order is rebuilt
+ * explicitly so repeated writes are stable.
+ *
+ * Pure: returns the new meta object, writes nothing.
+ *
+ * @param {object} meta
+ * @param {object} entry
+ * @returns {object}
+ */
+export function buildSanctionStamp(meta, entry) {
+  const prior = Array.isArray(meta.structural_landings) ? meta.structural_landings : []
+  const out = {}
+  if ('_comment' in meta) out._comment = meta._comment
+  out.structural_landings = [...prior, entry]
+  for (const [key, value] of Object.entries(meta)) {
+    if (key === '_comment' || key === 'structural_landings') continue
+    out[key] = value
+  }
+  return out
+}
+
 const IN_ACTIONS = process.env.GITHUB_ACTIONS === 'true'
 
 // Diffs one committed/assembled array pair keyed by `keyField`, appending
@@ -682,10 +1070,64 @@ function classifyTexts(committedText, assembledText) {
   }
 }
 
+/**
+ * PART 4's gate. Runs FIRST, before meta.json is even read, so an illegal
+ * invocation is refused on its own terms rather than on the state of the tree —
+ * and so a clean tree (where write mode would exit early as "already up to
+ * date") cannot make the guard untestable.
+ *
+ * ORDER IS LOAD-BEARING: CI, then flag syntax, then mode, then board lookup.
+ * CI first makes the refusal DETERMINISTIC in every environment — a CI runner
+ * gets the CI answer whatever the row id says and whether or not a board
+ * exists. Syntax before board lookup means a malformed id gets its own message
+ * rather than "no such row", which matters on machines that have no board.
+ *
+ * Every failure here exits 1, NOT the usual write-mode exit 0. An ordinary
+ * refusal is a normal outcome that must not be contagious to the rest of the
+ * derived-artifact regen (PART 2); passing this flag illegally is MISUSE, and
+ * misuse should be as loud as possible — most of all if it ever appears in a
+ * workflow, where a hard non-zero reds the run on its first execution.
+ *
+ * @returns {{rowId: string, rowState: string}|null} null when the flag is absent
+ */
+function requireSanction() {
+  if (!SANCTION.present) return null
+  const refuse = (msg) => {
+    console.error(`assemble-chaingraph: REFUSED ${LAND_STRUCTURAL_FLAG} — ${msg}`)
+    console.error('  chaingraph.json was NOT written.')
+    process.exit(1)
+  }
+
+  const ci = detectCI()
+  if (ci.isCI) {
+    refuse(
+      `this is a CI environment (${ci.signals.join(', ')} set) and ${LAND_STRUCTURAL_FLAG} is HUMAN-ONLY. ` +
+      'A structural chain edit needs a person to read the diff and sanction it under a board row; ' +
+      'a mechanism an unattended workflow can reach is the blanket --land-chains that was DECLINED on 2026-08-22. ' +
+      'The unattended path is unchanged: it refuses, and --refusal-status reds the run.',
+    )
+  }
+  if (SANCTION.error) refuse(SANCTION.error)
+  if (CHECK || REFUSAL_STATUS) {
+    refuse(
+      `${LAND_STRUCTURAL_FLAG} is write-mode only — --check and --refusal-status never write, so there is ` +
+      'nothing for a sanction to authorise. Drop the flag to inspect, or drop --check to land.',
+    )
+  }
+
+  const boardRoot = findBoardRoot(root)
+  const row = resolveSanctionRow(SANCTION.rowId, boardRoot)
+  if (!row.ok) refuse(row.reason)
+  console.log(`assemble-chaingraph: ${LAND_STRUCTURAL_FLAG} sanctioned by board row ${SANCTION.rowId} (${row.state}/${SANCTION.rowId}.md).`)
+  return { rowId: SANCTION.rowId, rowState: row.state }
+}
+
 // ── Live run. Guarded so the self-test can `import` the pure classifier above
 // without this script reading meta.json, assembling, or WRITING anything —
 // same main-only guard scripts/check-gate-selftest-pairing.mjs uses. ────────
 function main() {
+const sanction = requireSanction()
+
 const meta = JSON.parse(readFileSync(META_PATH, 'utf8'))
 
 if (!meta.raw) {
@@ -794,15 +1236,45 @@ if (REFUSAL_STATUS) {
       console.error('assemble-chaingraph: committed or assembled chaingraph.json failed to parse — refusing to write (cannot safety-check a malformed tree).')
       process.exit(1)
     }
-    if (result.verdict === 'REFUSED') {
+    if (result.verdict === 'REFUSED' && sanction) {
+      // PART 4. The classifier's verdict is UNCHANGED — this is a human
+      // overriding a refusal that stands, not the classifier being talked out
+      // of it. Print every sanctioned change, then the full field-by-field
+      // diff, THEN stamp, THEN fall through to the one write below.
+      for (const r of result.refusals) console.log(sanctionLine(r, sanction.rowId))
+      console.log(
+        `assemble-chaingraph: SANCTIONED STRUCTURAL LAND — ${result.refusals.length} refused change(s) authorised by ` +
+        `board row ${sanction.rowId}. Full diff of what is being sanctioned follows.`,
+      )
+      for (const line of formatStructuralDiff(JSON.parse(committed), JSON.parse(assembled), result.refusals)) {
+        console.log(line)
+      }
+      if (result.allowed.length > 0) {
+        console.log(`\nassemble-chaingraph: also landing ${result.allowed.length} auto-landable change(s): ${result.allowed.map(describeChange).join('; ')}`)
+      }
+      const entry = sanctionEntry(sanction.rowId, sanction.rowState, result.refusals)
+      writeFileSync(META_PATH, JSON.stringify(buildSanctionStamp(meta, entry), null, 2) + '\n', 'utf8')
+      console.log(`\nassemble-chaingraph: stamped ${sanction.rowId} into ${META_PATH} (structural_landings), then writing chaingraph.json.`)
+    } else if (result.verdict === 'REFUSED') {
       refused = true
       emitRefusals(result.refusals, { annotate: IN_ACTIONS })
       console.log(
         `assemble-chaingraph: REFUSED — ${result.refusals.length} change(s) out of scope for the unattended assembler. ` +
-        'No write, no commit. Run `node scripts/assemble-chaingraph.mjs --refusal-status` for the non-zero status this maps to.',
+        'No write, no commit. Run `node scripts/assemble-chaingraph.mjs --refusal-status` for the non-zero status this maps to. ' +
+        'A human ASSEMBLE/LAND row lands it with `node scripts/assemble-chaingraph.mjs --land-structural=<ROW-ID>`.',
       )
     } else if (result.allowed.length > 0) {
       console.log(`assemble-chaingraph: AUTO-LAND — ${result.allowed.length} in-scope change(s): ${result.allowed.map(describeChange).join('; ')}`)
+    }
+
+    // A sanction over a diff with nothing refused authorises nothing, so it
+    // stamps nothing — the ledger records real overrides only, never every run
+    // that happened to carry the flag.
+    if (sanction && result.verdict !== 'REFUSED') {
+      console.log(
+        `assemble-chaingraph: note — ${LAND_STRUCTURAL_FLAG}=${sanction.rowId} was passed but this diff contains no refused change. ` +
+        'Nothing was sanctioned, nothing was stamped; the write below is the ordinary auto-land.',
+      )
     }
   }
 
