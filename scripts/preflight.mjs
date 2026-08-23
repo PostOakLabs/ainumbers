@@ -209,7 +209,11 @@ const SPAWN_ERRNOS = new Set([
   'ENOENT', 'EACCES', 'EPERM', 'ENOEXEC', 'EISDIR', 'ELOOP',
   'E2BIG', 'EMFILE', 'ENFILE', 'ENOMEM', 'EAGAIN', 'ETXTBSY',
 ]);
-const SHELL_CANNOT_EXEC = /is not recognized as an internal or external command|: command not found|: not found\b|The system cannot find the path specified/;
+// ⚠ Both of these are matched against STDERR ONLY, and both are anchored to the
+// SHELL's own phrasing rather than to loose words like "not found". A gate that
+// prints `✗ registry/kernel/abc.json: not found` as part of a legitimate finding
+// must stay a RESULT — so a bare `: not found` is deliberately NOT a signal here.
+const SHELL_CANNOT_EXEC = /is not recognized as an internal or external command|: command not found|^(?:sh|bash|dash|zsh|\/bin\/\w+)(?::\s*\d+)?:[^\n]*: not found$|The system cannot find the path specified/m;
 const MODULE_LOAD_FAILURE = /ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION|Cannot find module|Cannot find package/;
 const UNCAUGHT_ERROR_NAME = /^(?:\w*Error|\w*Exception)\b|^\s*throw \w+;\s*$/m;
 const STACK_FRAME = /^\s+at\s+\S+/m;
@@ -245,7 +249,6 @@ function firstDiagnosticLine(text) {
  */
 function classifyExecFailure(e) {
   const stderr = e?.stderr?.toString() || '';
-  const stdout = e?.stdout?.toString() || '';
   if (e?.code && SPAWN_ERRNOS.has(e.code)) {
     return { ran: false, reason: `the checker could not be started (${e.code}) — missing, unreadable or not executable` };
   }
@@ -255,11 +258,15 @@ function classifyExecFailure(e) {
   if (e?.status === null || e?.status === undefined) {
     return { ran: false, reason: 'the checker produced no exit status, so it produced no verdict' };
   }
-  if (SHELL_CANNOT_EXEC.test(stderr + stdout)) {
-    return { ran: false, reason: `the checker could not be executed: ${firstDiagnosticLine(stderr || stdout)}` };
+  // ⚠ stderr ONLY, on purpose. A checker's own findings go to stdout as often as
+  // not, and matching them here would reclassify a real result as "no result" —
+  // the exact inversion this row exists to prevent. The shell and node both write
+  // these two classes of failure to stderr.
+  if (SHELL_CANNOT_EXEC.test(stderr)) {
+    return { ran: false, reason: `the checker could not be executed: ${firstDiagnosticLine(stderr)}` };
   }
-  if (MODULE_LOAD_FAILURE.test(stderr + stdout)) {
-    return { ran: false, reason: `the checker never loaded: ${firstDiagnosticLine(stderr || stdout)}` };
+  if (MODULE_LOAD_FAILURE.test(stderr)) {
+    return { ran: false, reason: `the checker never loaded: ${firstDiagnosticLine(stderr)}` };
   }
   if (UNCAUGHT_ERROR_NAME.test(stderr) && STACK_FRAME.test(stderr)) {
     return { ran: false, reason: `the checker crashed before reporting: ${firstDiagnosticLine(stderr)}` };
@@ -359,6 +366,14 @@ function runSelfTest() {
   check('non-zero exit with a plain diagnostic', warned.state === 'WARNED', `state=${warned.state} · ${warned.reason}`);
   const fatal = runAdvisoryChecker('node -e "console.error(\'FATAL: 3 surface(s) out of sync\'); process.exit(2)"');
   check('deliberate FATAL diagnosis (exit 2)', fatal.state === 'WARNED', `state=${fatal.state} · ${fatal.reason}`);
+  // FALSE-POSITIVE GUARDS. A finding that merely CONTAINS the words a shell uses
+  // when it cannot execute something is still a finding — on stdout or stderr.
+  const notFoundStdout = runAdvisoryChecker('node -e "console.log(\'registry/kernel/abc.json: not found\'); process.exit(1)"');
+  check('a finding that says "not found" on stdout stays a result',
+    notFoundStdout.state === 'WARNED', `state=${notFoundStdout.state} · ${notFoundStdout.reason}`);
+  const notFoundStderr = runAdvisoryChecker('node -e "console.error(\'  x 3 declared artifact(s): not found\'); process.exit(1)"');
+  check('a finding that says "not found" on stderr stays a result',
+    notFoundStderr.state === 'WARNED', `state=${notFoundStderr.state} · ${notFoundStderr.reason}`);
 
   // Pinned fixtures: the VERBATIM stderr measured 2026-08-23 from two of the four
   // advisory-on-PR gates this row names. If a future widening of the crash rules
