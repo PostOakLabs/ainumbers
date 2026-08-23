@@ -707,11 +707,16 @@ const GATES = [
   ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
   ['Playground hermetic (A8)',     'node scripts/check-playground-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
-  ['Ledger gate-replay tamper',    'node scripts/gate-replay-tamper.test.mjs'],
-  ['Ledger escalation-closure tamper', 'node scripts/escalation-closure-tamper.test.mjs'],
+  ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
+  ['Ledger escalation-closure tamper (shipped source)', 'node scripts/escalation-closure-tamper.test.mjs'],
   ['OCG verify.html proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-verify-hash-tamper.test.mjs'],
-  ['tools/568 receipt verifier proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-receipt-verifier-568-tamper.test.mjs'],
-  ['art-424 witness checkpoint proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/witness-checkpoint-424-tamper.test.mjs'],
+  ['tools/568 receipt verifier proven-to-reject (AV-REJECT-FIX-1, shipped source)', 'node scripts/ocg-receipt-verifier-568-tamper.test.mjs'],
+  // TAMPER-GATE-SHIPPED-SOURCE-1: retitled off "proven-to-reject". That label claimed a
+  // witness-signature rejection this gate never performs — it exercises the shipped
+  // checkpoint-note parser and the root/origin cross-check only; the Ed25519 / ML-DSA-44
+  // legs of art-424's computeVerifier are NOT run here. Restore a "proven-to-reject"
+  // label only when a gate actually exercises signature verification.
+  ['art-424 checkpoint root/origin tamper (signature legs NOT exercised) (AV-REJECT-FIX-1)', 'node scripts/witness-checkpoint-424-tamper.test.mjs'],
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
   // GATE-SELFTEST-META-1 (0xAlpha 2026-08-21 audit, Tier B Rec 1 / SO #40b): natural
   // home alongside the generator-coverage meta-gate above — same shape, different

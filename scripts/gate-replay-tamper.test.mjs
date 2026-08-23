@@ -17,10 +17,11 @@
  * `chaingraph/kernels/_gateval.mjs` (`rfc6901`, `applyOp`), so the two sources
  * cannot silently diverge either.
  *
- * SELF-PROVING (SO #34c / SO #40b): every run also builds the same suite over a
- * DELIBERATELY-BROKEN source fixture and asserts the suite fails on it. If
- * extraction ever goes blind or the assertions stop discriminating, that check
- * reds — so a green result here can never be a false negative.
+ * SELF-PROVING (SO #34c / SO #40b): every run also TAMPERS the shipped source in
+ * memory (disarming `_replayGates`'s observed-vs-actual comparison) and requires the
+ * whole suite to go red on it. If extraction ever goes blind or the assertions stop
+ * discriminating, that check fails — so a green result here can never be a false
+ * negative, and the row's RED condition is re-proven on every run.
  *
  * Tests (all now executed against the SHIPPED evaluator):
  *   1. Clean composite → gate replay passes.
@@ -35,7 +36,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import { buildShipped } from './lib-extract-shipped.mjs';
+import { buildShipped, mutateSource } from './lib-extract-shipped.mjs';
 import { rfc6901 as kernelRfc6901, applyOp as kernelApplyOp } from '../chaingraph/kernels/_gateval.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -256,25 +257,18 @@ test('shipped inline applyOp ≡ chaingraph/kernels/_gateval.mjs applyOp', () =>
   }
 });
 
-// ── 3. Self-proving: the SAME suite must FAIL on a deliberately-broken source ──
-// A `_replayGates` that rubber-stamps every decision. If the suite above cannot
-// catch this, it is not discriminating and its green means nothing.
-const BROKEN_SOURCE = `
-  const isFiniteNum = x => typeof x === 'number' && Number.isFinite(x);
-  function deepEqual(a, b) { return true; }                       // BUG: everything is equal
-  function rfc6901(doc, pointer) { return { found: true, value: undefined }; }
-  function applyOp(op, found, observed, value) { return true; }
-  function _replayGates(artifact) {
-    const out = artifact.output_payload;
-    const decisions = out && out.decisions;
-    if (!Array.isArray(decisions) || decisions.length === 0) return { status: 'absent' };
-    const results = decisions.map(d => ({ step_id: d.step_id, ok: true }));  // BUG: never flags tamper
-    return { status: 'pass', results, tamper: false };
-  }`;
-const brokenV = buildShipped(BROKEN_SOURCE, { ...EXTRACT_SPEC, file: '<broken-source-fixture>' });
-const brokenFails = runReplaySuite(brokenV);
-test(`self-test: suite red-lines a rubber-stamp evaluator (${brokenFails.length} assertion failures caught)`, () => {
-  if (brokenFails.length === 0) throw new Error('suite passed a rubber-stamp evaluator — the assertions do not discriminate');
+// ── 3. Self-proving: TAMPER THE SHIPPED SOURCE, in process, and require the RED ──
+// The observed-vs-actual comparison in the shipped `_replayGates` is disarmed on a
+// copy of ledger/index.html's own text; the suite above must then fail. This is the
+// row's RED condition, re-proven on every run rather than once in a PR body. If the
+// mutation point ever moves, `mutateSource` throws instead of quietly disarming.
+const TAMPER_NEEDLE = 'const observedMatch = found ? deepEqual(actual, expected)';
+const tamperedSrc = mutateSource(shippedSrc, SHIPPED_REL, TAMPER_NEEDLE,
+  'const observedMatch = found ? true /* TAMPERED IN MEMORY */');
+const tamperedFails = runReplaySuite(buildShipped(tamperedSrc, { ...EXTRACT_SPEC, file: SHIPPED_REL + ' <tampered-in-memory>' }));
+test(`self-test: tampering the SHIPPED comparison reds the suite (${tamperedFails.length} assertion failures caught)`, () => {
+  if (tamperedFails.length === 0)
+    throw new Error('suite stayed green with the shipped observed-value comparison disarmed — it is not reading shipped source, or the assertions do not discriminate');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

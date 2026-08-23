@@ -140,6 +140,26 @@ export function buildShipped(src, spec) {
 }
 
 /**
+ * Return a copy of `src` with `needle` replaced by `replacement` — the in-process
+ * "tamper the SHIPPED verifier" primitive every anchored gate uses for its self-proof.
+ * Throws when the needle is absent or occurs more than once, so a refactor that moves
+ * the mutation point reds the gate with instructions instead of silently disarming the
+ * self-proof (SO #34c: absence is not a pass).
+ */
+export function mutateSource(src, file, needle, replacement) {
+  const hits = src.split(needle).length - 1;
+  if (hits !== 1) {
+    throw new Error(
+      `self-proof mutation point is ${hits === 0 ? 'GONE from' : `AMBIGUOUS in (${hits} hits)`} ${file}:\n` +
+      `    needle: ${needle}\n` +
+      `  The self-proof tampers the shipped verifier and requires the suite to fail.\n` +
+      `  Re-point this needle at the shipped source's current tamper-detection line.`
+    );
+  }
+  return src.replace(needle, replacement);
+}
+
+/**
  * Assert that a shipped function's SOURCE TEXT still contains each required expression.
  * Used where a gate replays a comparison it deliberately does not execute in place
  * (art-424's signature legs), so a drift in the shipped comparison still reds the gate.

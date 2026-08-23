@@ -15,9 +15,10 @@
  * left the SHIPPED page entirely unpinned: ledger/index.html could regress its
  * preimage or drop the tamper branch and every assertion below stayed green.
  *
- * SELF-PROVING (SO #34c / SO #40b): every run also builds the same suite over a
- * DELIBERATELY-BROKEN source fixture and asserts the suite fails on it, so a green
- * result here can never come from a blind extractor or non-discriminating asserts.
+ * SELF-PROVING (SO #34c / SO #40b): every run also TAMPERS the shipped source in
+ * memory (dropping `cgCanon`'s recursive key-sort) and requires the whole suite to go
+ * red on it, so a green result here can never come from a blind extractor or from
+ * assertions that no longer discriminate.
  *
  * Tests (all now executed against the SHIPPED verifier):
  *   1. Clean open record: recomputed hash matches the pinned worker-produced record_hash.
@@ -33,7 +34,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import { buildShipped } from './lib-extract-shipped.mjs';
+import { buildShipped, mutateSource } from './lib-extract-shipped.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -176,35 +177,19 @@ test('extraction: all §22.8 closure symbols located in ' + SHIPPED_REL, () => {
 
 report('shipped §22.8 closure verifier: full tamper suite (10 assertions)', await runClosureSuite(V));
 
-// ── 2. Self-proving: the SAME suite must FAIL on a deliberately-broken source ──
-// A canonicalizer that drops the recursive key-sort plus a closure verifier that
-// rubber-stamps every closure. If the suite cannot catch this, its green is empty.
-const BROKEN_SOURCE = `
-  function cgCanon(v) {
-    if (Array.isArray(v)) return v.map(cgCanon);
-    if (v !== null && typeof v === 'object')
-      return Object.keys(v).reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});  // BUG: no .sort()
-    return v;
-  }
-  async function computeEscalationRecordHash(record) {
-    const bytes = new TextEncoder().encode(JSON.stringify(cgCanon({ decision: record.decision })));  // BUG: halted_steps + mandate_hash dropped
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-  function escalationRecordOf(artifact) { return artifact && artifact.output_payload && artifact.output_payload.escalation_record || null; }
-  function escalationClosureOf(artifact) { return artifact && artifact.output_payload && artifact.output_payload.escalation_closure || null; }
-  async function verifyEscalationClosure(artifact) {
-    const record = escalationRecordOf(artifact);
-    if (!record) return { status: 'absent' };
-    const recomputed = await computeEscalationRecordHash(record);
-    const closure = escalationClosureOf(artifact);
-    if (!closure) return { status: 'open', recordHash: recomputed };
-    return { status: 'closed', recordHash: recomputed, hashMatch: true, decisionValid: true };  // BUG: never flags tamper
-  }`;
-const brokenV = buildShipped(BROKEN_SOURCE, { ...EXTRACT_SPEC, file: '<broken-source-fixture>' });
-const brokenFails = await runClosureSuite(brokenV);
-test(`self-test: suite red-lines a rubber-stamp closure verifier (${brokenFails.length} assertion failures caught)`, () => {
-  if (brokenFails.length === 0) throw new Error('suite passed a rubber-stamp verifier — the assertions do not discriminate');
+// ── 2. Self-proving: TAMPER THE SHIPPED SOURCE, in process, and require the RED ──
+// The recursive key-sort in the shipped `cgCanon` is dropped on a copy of
+// ledger/index.html's own text; the pinned worker hash and every tamper branch that
+// depends on it must then fail. This is the row's RED condition, re-proven on every
+// run rather than once in a PR body. If the mutation point moves, `mutateSource`
+// throws instead of quietly disarming the self-proof.
+const TAMPER_NEEDLE = 'return Object.keys(v).sort().reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {});';
+const tamperedSrc = mutateSource(shippedSrc, SHIPPED_REL, TAMPER_NEEDLE,
+  'return Object.keys(v).reduce((o, k) => { o[k] = cgCanon(v[k]); return o; }, {}); /* TAMPERED IN MEMORY: no .sort() */');
+const tamperedFails = await runClosureSuite(buildShipped(tamperedSrc, { ...EXTRACT_SPEC, file: SHIPPED_REL + ' <tampered-in-memory>' }));
+test(`self-test: tampering the SHIPPED canonicalizer reds the suite (${tamperedFails.length} assertion failures caught)`, () => {
+  if (tamperedFails.length === 0)
+    throw new Error('suite stayed green with the shipped JCS key-sort removed — it is not reading shipped source, or the assertions do not discriminate');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
