@@ -621,6 +621,14 @@ const GATES = [
   // silently stopped existing. Layer 3 of the test is the anti-drift control — it reds if any of the
   // three call sites reintroduces a `?? Infinity` ceiling or a warn-only existsSync branch.
   ['Ratchet baseline loader controls (RED x4 + conversion)', 'node scripts/ratchet-baseline.test.mjs'],
+  // DENOMINATOR-SENTINEL-1 (gate-integrity F-01…F-06, F-08). Sibling control to the loader above: that
+  // one asks "does this ratchet still have a valid CEILING?", this one asks "did that gate actually
+  // examine anything?". Six gates used to print a green line over an empty scope — 0 floors, 0 emitters,
+  // 0 ledger entries, an absent chaingraph.json, 0 vectors — and "0 of 0 passed" is indistinguishable
+  // from full coverage in a CI log. Layer 3 of this test is the anti-drift control: it reds if any of the
+  // six reintroduces its silent default, OR if a denominator assert migrates out of a gate and into THIS
+  // file, which is the wrapper shape the row bans.
+  ['Denominator sentinel controls (RED x6 + boundary + not-a-wrapper)', 'node scripts/denominator-sentinel.test.mjs'],
   ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
   ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
   // FV-FLOOR-DIGEST-GATE-1: enforces the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4,
