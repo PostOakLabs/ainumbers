@@ -1,26 +1,66 @@
 {
   "tool_id": "art-235-test-hpml-escrow",
-  "note": "HPML §1026.35(a) definition + §1026.35(b) escrow requirement. Known constants: HPML = APOR+1.5pp (first-lien standard), APOR+2.5pp (jumbo first-lien), APOR+3.5pp (subordinate lien) per §1026.35(a)(1); Dodd-Frank structural thresholds, unchanged since 2014. Escrow required for first-lien HPML (§1026.35(b)(1)); NOT for subordinate lien. Rural/underserved small-creditor exemption: §1026.35(b)(2)(iii). golden_hash pinned (see vectors).",
+  "note": "Higher-priced mortgage loan definition plus the escrow requirement and its exemptions. Spread tiers are structural statutory percentages: APOR+1.5pp standard first lien, +2.5pp jumbo first lien, +3.5pp subordinate lien; unchanged since 2014 and not indexed. The escrow requirement reaches first-lien higher-priced transactions only. The four-leg small-originator exemption is CONJUNCTIVE and its fourth leg is a restriction; the common-interest-community master-policy exemption is LIMITED to insurance premiums and never reaches property taxes. The two asset limits are indexed annually and carried as dated table entries; the two transaction counts (2,000 transferred first-lien covered transactions; 1,000 first-lien principal-dwelling covered transactions including portfolio) are fixed statutory figures. golden_hash pinned (see vectors).",
   "vectors": [
     {
-      "name": "hpml_first_lien_escrow_required",
-      "description": "First-lien standard loan: APR 7.5%, APOR 5.5% => spread 2pp > 1.5pp HPML threshold. HPML=true, escrow required. Known constant: APOR+1.5pp first-lien per §1026.35(a)(1)(i)(A).",
+      "name": "over_grant_1_closed_maintains_other_escrows",
+      "description": "OVER-GRANT PATH 1, CLOSED. First-lien higher-priced loan; the creditor satisfies legs (A), (B) and (C) but MAINTAINS other escrow accounts outside the two carve-outs, so leg (D) fails and the four-leg test is not satisfied. escrow_required stays true. The pre-rebuild kernel had no leg (D) input at all and returned escrow_required:false on this exact fact pattern.",
       "policy_parameters": {
         "apr_pct": 7.5,
         "apor_pct": 5.5,
         "lien_type": "first",
         "is_jumbo": false,
-        "is_rural_or_underserved": false,
-        "creditor_assets_under_2b": false,
-        "loan_count_under_500": false,
-        "property_is_condo_master_policy": false,
-        "year": 2026
+        "year": 2026,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 120,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "maintains_escrow_for_serviced_loans": true,
+        "serviced_escrows_within_carve_outs": false
       },
       "output_payload": {
         "is_hpml": true,
         "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
         "escrow_exemption": null,
         "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_satisfied",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": false,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
         "apr_spread_pct": 2,
         "apr_pct": 7.5,
         "apor_pct": 5.5,
@@ -29,37 +69,78 @@
         "spread_threshold_pct": 1.5,
         "spread_threshold_basis": "first_lien_standard_1.5pp",
         "year": 2026,
-        "table_version": "HPML-REGZ-2026-01-01",
-        "fr_citation": "Reg Z §1026.35(a)(1); Dodd-Frank Act; Reg Z §1026.35 Final Rule (FR 2013-01730, eff. Jan 10, 2014). Structural thresholds unchanged since 2014.",
-        "regulatory_basis": "Reg Z §1026.35(a)(1) HPML definition; §1026.35(b)(1) escrow requirement (first-lien HPML, minimum 5 years); §1026.35(b)(2) rural/underserved small creditor and condo master-policy exemptions.",
-        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the HPML threshold table (table: hpml). HPML spread thresholds (1.5/2.5/3.5 pp) are structural Dodd-Frank values, not CPI-adjusted.",
-        "note": "HPML escrow applies to first-lien transactions only; subordinate liens are not subject to §1026.35(b) escrow. For HOEPA high-cost test (APOR+6.5pp/8.5pp): use art-234 (test_hoepa_high_cost). APOR must be supplied by caller from FFIEC weekly table (ffiec.gov/ratespread)."
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
       },
       "compliance_flags": [
         "HPML_LOAN",
         "HPML_ESCROW_REQUIRED"
       ],
-      "golden_hash": "7e904605c6175cbf748028e1abe3503d62276c017ffeb5a0349930bec4626dc9"
+      "golden_hash": "3b6cbc4fb2530578355e48fb05c13c7c6bca062f15e1e3745c8cb134891abe2f"
     },
     {
-      "name": "hpml_rural_small_creditor_exempt",
-      "description": "First-lien HPML (spread 2pp > 1.5pp threshold) but rural or underserved area + creditor assets <$2B + <=500 prior-year HPMLs. Escrow exemption applies per §1026.35(b)(2)(iii).",
+      "name": "four_leg_exemption_satisfied_1200_transferred",
+      "description": "THE 2,000-COUNT FLIP, GREEN SIDE. All four legs met, with 1,200 first-lien covered transactions sold, assigned or otherwise transferred by the creditor and its affiliates in the preceding calendar year. 1,200 is at or below the 2,000 statutory count, so the exemption applies. Under the pre-rebuild kernel the caller had to answer a boolean literally named loan_count_under_500, and 1,200 could only be answered false, denying the exemption the rule grants.",
       "policy_parameters": {
         "apr_pct": 7.5,
         "apor_pct": 5.5,
         "lien_type": "first",
         "is_jumbo": false,
-        "is_rural_or_underserved": true,
-        "creditor_assets_under_2b": true,
-        "loan_count_under_500": true,
-        "property_is_condo_master_policy": false,
-        "year": 2026
+        "year": 2026,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 1200,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "maintains_escrow_for_serviced_loans": false
       },
       "output_payload": {
         "is_hpml": true,
         "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
         "escrow_exemption": "rural_or_underserved_small_creditor",
-        "escrow_exemption_basis": "§1026.35(b)(2)(iii): rural or underserved area + creditor assets < $2B + <= 500 first-lien HPMLs originated in prior year",
+        "escrow_exemption_basis": "Four-leg small-originator exemption satisfied: area test met; no more than 2000 first-lien covered transactions sold, assigned or otherwise transferred by the creditor and its affiliates in a qualifying look-back year; total assets of creditor and affiliates below the indexed limit; and no other escrow accounts maintained outside the two carve-outs.",
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "satisfied",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": true,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
         "apr_spread_pct": 2,
         "apr_pct": 7.5,
         "apor_pct": 5.5,
@@ -68,27 +149,1286 @@
         "spread_threshold_pct": 1.5,
         "spread_threshold_basis": "first_lien_standard_1.5pp",
         "year": 2026,
-        "table_version": "HPML-REGZ-2026-01-01",
-        "fr_citation": "Reg Z §1026.35(a)(1); Dodd-Frank Act; Reg Z §1026.35 Final Rule (FR 2013-01730, eff. Jan 10, 2014). Structural thresholds unchanged since 2014.",
-        "regulatory_basis": "Reg Z §1026.35(a)(1) HPML definition; §1026.35(b)(1) escrow requirement (first-lien HPML, minimum 5 years); §1026.35(b)(2) rural/underserved small creditor and condo master-policy exemptions.",
-        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the HPML threshold table (table: hpml). HPML spread thresholds (1.5/2.5/3.5 pp) are structural Dodd-Frank values, not CPI-adjusted.",
-        "note": "HPML escrow applies to first-lien transactions only; subordinate liens are not subject to §1026.35(b) escrow. For HOEPA high-cost test (APOR+6.5pp/8.5pp): use art-234 (test_hoepa_high_cost). APOR must be supplied by caller from FFIEC weekly table (ffiec.gov/ratespread)."
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
       },
       "compliance_flags": [
         "HPML_LOAN",
         "HPML_ESCROW_EXEMPTION_APPLIES"
       ],
-      "golden_hash": "41cd81335dd3de951e8218ab6bae3a2e575f24eabee1ac540c5ab7b3e520d13d"
+      "golden_hash": "93dc6136a6e67313ddefe3c3f6e1a68ab6e7888aba636051f6232dba7f1d814a"
     },
     {
-      "name": "empty_input_finite",
-      "description": "Empty inputs: spread 0pp < 1.5pp HPML threshold. is_hpml=false, escrow_required=false. Verifies empty-input finite invariant.",
+      "name": "four_leg_exemption_denied_2500_transferred",
+      "description": "THE 2,000-COUNT FLIP, RED SIDE. Identical to the preceding vector except 2,500 transferred first-lien covered transactions, which is above the 2,000 count, so leg (B) fails and escrow is required.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 2500,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "maintains_escrow_for_serviced_loans": false
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_satisfied",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": false,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": true,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED"
+      ],
+      "golden_hash": "1c699b263b36b9be782b236e89cb63536253190044c84d4384af34b721209cf1"
+    },
+    {
+      "name": "over_grant_2_closed_common_interest_community_master_policy",
+      "description": "OVER-GRANT PATH 2, CLOSED. Dwelling in a common interest community whose governing association maintains a master policy. This is a LIMITED exemption: insurance premiums need not be escrowed, but the escrow account is still required and property taxes must still be escrowed. The pre-rebuild kernel set escrow_required:false outright on this fact pattern.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "property_in_common_interest_community_with_master_policy": true
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": "common_interest_community_master_policy",
+        "escrow_limited_exemption_basis": "LIMITED exemption only: where the governing association maintains a master policy insuring all dwellings, insurance premiums need not be included in the escrow account. The escrow account itself is still required, and property taxes must still be escrowed.",
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED",
+        "HPML_ESCROW_INSURANCE_PREMIUMS_EXEMPT_TAXES_STILL_REQUIRED"
+      ],
+      "golden_hash": "1575d19ee650e31c13a6615491f5dc32f9667bfd1908a15b0dd05aec1613ad63"
+    },
+    {
+      "name": "portfolio_retained_loans_do_not_count_toward_the_2000",
+      "description": "THE UNIT. The creditor extended 40,000 first-lien principal-dwelling covered transactions in total but sold, assigned or otherwise transferred only 1,800 of them; the rest were retained in portfolio. Only the transferred population counts toward the 2,000 figure, so leg (B) is satisfied and the exemption applies despite the far larger origination volume. The pre-rebuild kernel counted HPMLs ORIGINATED, which would have denied it.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 1800,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "first_lien_principal_dwelling_covered_txns_count": 40000,
+        "maintains_escrow_for_serviced_loans": false
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": "rural_or_underserved_small_creditor",
+        "escrow_exemption_basis": "Four-leg small-originator exemption satisfied: area test met; no more than 2000 first-lien covered transactions sold, assigned or otherwise transferred by the creditor and its affiliates in a qualifying look-back year; total assets of creditor and affiliates below the indexed limit; and no other escrow accounts maintained outside the two carve-outs.",
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "satisfied",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": true,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_EXEMPTION_APPLIES"
+      ],
+      "golden_hash": "4d168c61f425ab370edbf345fa07cad60086085a45cd981a0b80f0871a372d0d"
+    },
+    {
+      "name": "look_back_grace_next_to_last_year_qualifies",
+      "description": "THE LOOK-BACK DISJUNCTION. The application was received before April 1 of the consummation year, so the next-to-last calendar year is an alternative candidate. The preceding year is over the count at 2,500 but the next-to-last year is under it at 900, and the test is satisfied if EITHER candidate year qualifies.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "application_received_date": "2026-02-14",
+        "rural_or_underserved_preceding_year": false,
+        "rural_or_underserved_next_to_last_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 2500,
+        "first_lien_covered_txns_sold_or_transferred_count_next_to_last_year": 900,
+        "creditor_and_affiliate_total_assets": 3100000000,
+        "creditor_and_affiliate_total_assets_next_to_last_year": 900000000,
+        "threshold_parameters": {
+          "small_originator_asset_limit_next_to_last_year": {
+            "value": 2640000000,
+            "effective_from": "2025-01-01",
+            "effective_to": "2025-12-31",
+            "source": "caller-supplied indexed limit for the next-to-last candidate year",
+            "source_digest": null
+          }
+        },
+        "maintains_escrow_for_serviced_loans": false
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": "rural_or_underserved_small_creditor",
+        "escrow_exemption_basis": "Four-leg small-originator exemption satisfied: area test met; no more than 2000 first-lien covered transactions sold, assigned or otherwise transferred by the creditor and its affiliates in a qualifying look-back year; total assets of creditor and affiliates below the indexed limit; and no other escrow accounts maintained outside the two carve-outs.",
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "satisfied",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": true,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": true,
+          "grace_source": "derived_from_application_received_date",
+          "candidate_years": [
+            2025,
+            2024
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_EXEMPTION_APPLIES"
+      ],
+      "golden_hash": "711e1379ad7e5f834ef1a87e680ebb40555f4b8ae6f144c44bbb7480eea6c41d"
+    },
+    {
+      "name": "leg_d_carve_out_pre_june_2021_escrows_only",
+      "description": "LEG (D) CARVE-OUT. The creditor does maintain escrow accounts, but every one of them was established for first-lien higher-priced loans whose applications were received inside the carve-out window, so leg (D) is still satisfied and the exemption applies.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 120,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "maintains_escrow_for_serviced_loans": true,
+        "serviced_escrows_within_carve_outs": true,
+        "carve_out_pre_june_2021_first_lien_hpml_escrows": true,
+        "carve_out_distressed_consumer_accommodation_escrows": false
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": "rural_or_underserved_small_creditor",
+        "escrow_exemption_basis": "Four-leg small-originator exemption satisfied: area test met; no more than 2000 first-lien covered transactions sold, assigned or otherwise transferred by the creditor and its affiliates in a qualifying look-back year; total assets of creditor and affiliates below the indexed limit; and no other escrow accounts maintained outside the two carve-outs.",
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "satisfied",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": true,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_EXEMPTION_APPLIES"
+      ],
+      "golden_hash": "c695008ebd304e5cbc321be89b452793a771f994447dc96cfa3ac9aa685c7a4e"
+    },
+    {
+      "name": "leg_d_carve_out_asserted_without_naming_either_carve_out",
+      "description": "LEG (D) UNEVIDENCED. The caller says the maintained escrows sit inside a carve-out but names neither of the two, so leg (D) cannot be evaluated. The exemption is DENIED and the result is held for manual review, because an exemption that cannot be evidenced is not an exemption.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 120,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "maintains_escrow_for_serviced_loans": true,
+        "serviced_escrows_within_carve_outs": true
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "incomplete",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": true,
+        "retired_input_keys_present": [],
+        "compliance_notes": [
+          "Small-originator exemption NOT granted: no other escrow accounts maintained (D) could not be evaluated from the inputs supplied. All four legs are required and an unevaluable leg denies the exemption."
+        ],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED",
+        "HPML_ESCROW_EXEMPTION_INPUTS_INCOMPLETE",
+        "HPML_MANUAL_REVIEW_REQUIRED"
+      ],
+      "golden_hash": "b150efe01cb0b170a92cd1745c98b57b2cc2d5b94bb5b714112c50fe7f0c27c8"
+    },
+    {
+      "name": "forward_commitment_override_to_non_exempt_acquirer",
+      "description": "THE COMMITMENT-ACQUISITION OVERRIDE. All four legs are met, but the loan is subject at consummation to a commitment to be acquired by a person who does not itself satisfy an exemption path. The escrow account is required notwithstanding the exemption.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 120,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "maintains_escrow_for_serviced_loans": false,
+        "subject_to_commitment_to_be_acquired": true,
+        "acquiring_person_satisfies_exemption_conditions": false
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": true,
+        "small_originator_test": {
+          "status": "satisfied",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": true,
+          "leg_d_no_other_escrows": true,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [
+          "Forward-commitment override applied: the creditor satisfies an exemption path, but the loan is subject at consummation to a commitment to be acquired by a person who does not, so the escrow account is required notwithstanding that path."
+        ],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED",
+        "HPML_ESCROW_FORWARD_COMMITMENT_OVERRIDE"
+      ],
+      "golden_hash": "8b62cdd3b0caebb80bdb9f4a5256ee319724ce1dfcb5ee15b2feabd87a016aef"
+    },
+    {
+      "name": "insured_institution_alternative_path_exempt",
+      "description": "THE ALTERNATIVE EXEMPTION PATH. An insured depository institution with assets under the CY2026 indexed limit and 950 first-lien principal-dwelling covered transactions including portfolio-retained loans, meeting the area and no-other-escrows legs. Exempt by the alternative path even though it does not claim the four-leg path.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "creditor_is_insured_depository_or_credit_union": true,
+        "insured_institution_total_assets": 8400000000,
+        "first_lien_principal_dwelling_covered_txns_count": 950,
+        "rural_or_underserved_preceding_year": true,
+        "maintains_escrow_for_serviced_loans": false
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": "insured_depository_or_credit_union_small_originator",
+        "escrow_exemption_basis": "Insured depository institution or insured credit union exemption satisfied: institution assets at or below the indexed limit; no more than 1000 first-lien principal-dwelling covered transactions extended by the creditor and its affiliates, portfolio-retained loans included; and the area and no-other-escrows legs both met.",
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "satisfied",
+          "leg_a_assets": true,
+          "leg_b_first_lien_principal_dwelling_count": true,
+          "leg_c_area_and_no_other_escrows": true,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_EXEMPTION_APPLIES"
+      ],
+      "golden_hash": "ae09c5b8f7e170b6b2bac6bf55cf87924f15a19b264370d61f29835be98011ea"
+    },
+    {
+      "name": "categorical_pace_transaction_outside_the_requirement",
+      "description": "CATEGORICAL CARVE-OUT. A PACE transaction is outside the escrow requirement entirely and no creditor-size arithmetic is reached. This carve-out is the newest of the five and was absent from the pre-rebuild kernel along with the other four.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "is_pace_transaction": true
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": "categorical_pace_transaction",
+        "escrow_exemption_basis": "Categorical carve-out: the transaction is outside the escrow requirement entirely (pace transaction). No creditor-size test is reached.",
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": "pace_transaction",
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_EXEMPTION_APPLIES"
+      ],
+      "golden_hash": "268678b1ede2be236bf80b4874ddbf6f906035f93b440d7390392f46022b3a9e"
+    },
+    {
+      "name": "asset_limit_unresolved_for_year_denies_exemption",
+      "description": "INDEXED LIMIT NOT RESOLVABLE. Consummation in a year the dated table does not cover and for which the caller supplied no versioned parameter. Leg (C) is indeterminate, the exemption is denied, and the result is held for manual review rather than silently defaulting to a stale figure.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2029,
+        "rural_or_underserved_preceding_year": true,
+        "first_lien_covered_txns_sold_or_transferred_count": 120,
+        "creditor_and_affiliate_total_assets": 900000000,
+        "maintains_escrow_for_serviced_loans": false
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "incomplete",
+          "leg_a_area": true,
+          "leg_b_transferred_txn_count": true,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": true,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": null,
+          "asset_limit_source": "unresolved",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": null,
+          "asset_limit_source": "unresolved",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2028
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2029,
+        "manual_review_required": true,
+        "retired_input_keys_present": [],
+        "compliance_notes": [
+          "Small-originator exemption NOT granted: total assets against the indexed limit (C) could not be evaluated from the inputs supplied. All four legs are required and an unevaluable leg denies the exemption."
+        ],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED",
+        "HPML_ESCROW_EXEMPTION_INPUTS_INCOMPLETE",
+        "HPML_MANUAL_REVIEW_REQUIRED"
+      ],
+      "golden_hash": "08e7b8d2d6bb65bf8d90a7d73fb8f06595ef00cabd36e72208720609c6adb1b4"
+    },
+    {
+      "name": "retired_input_keys_are_ignored_and_held",
+      "description": "INPUT-CONTRACT TRIPWIRE. A caller still sending the retired boolean names gets them IGNORED, a flag, and a manual-review hold, rather than a silent reinterpretation. The retired names encoded a superseded count figure, a stale asset figure, a wrong counting unit, and a carve-out narrower than the rule.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026,
+        "is_rural_or_underserved": true,
+        "creditor_assets_under_2b": true,
+        "loan_count_under_500": true,
+        "property_is_condo_master_policy": true
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": true,
+        "retired_input_keys_present": [
+          "creditor_assets_under_2b",
+          "loan_count_under_500",
+          "is_rural_or_underserved",
+          "property_is_condo_master_policy"
+        ],
+        "compliance_notes": [
+          "Retired input key(s) present and IGNORED: creditor_assets_under_2b, loan_count_under_500, is_rural_or_underserved, property_is_condo_master_policy. Each encoded a superseded figure, a wrong counting unit, or a carve-out that is narrower than the rule. Re-send under the current input names before relying on this result."
+        ],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED",
+        "HPML_RETIRED_INPUT_KEY_PRESENT",
+        "HPML_MANUAL_REVIEW_REQUIRED"
+      ],
+      "golden_hash": "4ebe273a7f5ce1a7525ebe4b10fcd16881e48353acb71c5c69248d4870e936d1"
+    },
+    {
+      "name": "regression_first_lien_escrow_required",
+      "description": "REGRESSION. The pre-rebuild vector 0 fact pattern: first-lien standard loan, APR 7.5 against APOR 5.5, spread 2.0pp over the 1.5pp tier, no exemption claimed. Verdict is unchanged by the rebuild: HPML true, escrow required.",
+      "policy_parameters": {
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2,
+        "apr_pct": 7.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED"
+      ],
+      "golden_hash": "792b6ed433df78ae2eaca7a8de9c494f6bae44540b453da904f51a9abad9a648"
+    },
+    {
+      "name": "regression_subordinate_lien_no_escrow",
+      "description": "REGRESSION. Subordinate-lien loan with a 3.5pp spread is higher-priced but is never in scope for the escrow requirement. Verdict unchanged by the rebuild.",
+      "policy_parameters": {
+        "apr_pct": 9,
+        "apor_pct": 5.5,
+        "lien_type": "subordinate",
+        "is_jumbo": false,
+        "year": 2026
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 3.5,
+        "apr_pct": 9,
+        "apor_pct": 5.5,
+        "lien_type": "subordinate",
+        "is_jumbo": false,
+        "spread_threshold_pct": 3.5,
+        "spread_threshold_basis": "subordinate_lien_3.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_SUBORDINATE_NO_ESCROW"
+      ],
+      "golden_hash": "bc6f356c3d5301da0c8e50c1bbab758b03bdb633a06e0ddedf2d4afb3c830c8d"
+    },
+    {
+      "name": "regression_jumbo_first_lien_at_threshold",
+      "description": "REGRESSION. Jumbo first-lien loan at exactly the 2.5pp jumbo tier. Higher-priced, escrow required. Verdict unchanged by the rebuild.",
+      "policy_parameters": {
+        "apr_pct": 8,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": true,
+        "year": 2026
+      },
+      "output_payload": {
+        "is_hpml": true,
+        "escrow_required": true,
+        "escrow_property_taxes_required": true,
+        "escrow_insurance_premiums_required": true,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 2.5,
+        "apr_pct": 8,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": true,
+        "spread_threshold_pct": 2.5,
+        "spread_threshold_basis": "first_lien_jumbo_2.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [
+        "HPML_LOAN",
+        "HPML_ESCROW_REQUIRED"
+      ],
+      "golden_hash": "480be01e2407edf0e78a986c8b2190b599cf9e79fb01ce81247fd339fb8a1de2"
+    },
+    {
+      "name": "regression_not_higher_priced_below_threshold",
+      "description": "REGRESSION. First-lien loan with a 1.0pp spread, below the 1.5pp tier. Not higher-priced, no escrow requirement, no exemption analysis reached. Verdict unchanged by the rebuild.",
+      "policy_parameters": {
+        "apr_pct": 6.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "year": 2026
+      },
+      "output_payload": {
+        "is_hpml": false,
+        "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
+        "escrow_exemption": null,
+        "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
+        "apr_spread_pct": 1,
+        "apr_pct": 6.5,
+        "apor_pct": 5.5,
+        "lien_type": "first",
+        "is_jumbo": false,
+        "spread_threshold_pct": 1.5,
+        "spread_threshold_basis": "first_lien_standard_1.5pp",
+        "year": 2026,
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
+      },
+      "compliance_flags": [],
+      "golden_hash": "b18682f7fdb2a1d14abc237b8381d6cd9dd415511fb828aca8235bdcb6508d61"
+    },
+    {
+      "name": "regression_empty_input_finite",
+      "description": "REGRESSION. Empty inputs: 0pp spread, not higher-priced, escrow not required, no flags. Verifies the empty-input finite invariant. Verdict unchanged by the rebuild.",
       "policy_parameters": {},
       "output_payload": {
         "is_hpml": false,
         "escrow_required": false,
+        "escrow_property_taxes_required": false,
+        "escrow_insurance_premiums_required": false,
         "escrow_exemption": null,
         "escrow_exemption_basis": null,
+        "escrow_limited_exemption": null,
+        "escrow_limited_exemption_basis": null,
+        "categorical_exemption": null,
+        "forward_commitment_override_applied": false,
+        "small_originator_test": {
+          "status": "not_claimed",
+          "leg_a_area": null,
+          "leg_b_transferred_txn_count": null,
+          "leg_c_assets": null,
+          "leg_d_no_other_escrows": null,
+          "transferred_txn_limit": 2000,
+          "asset_limit_applied": 2785000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "insured_institution_test": {
+          "status": "not_claimed",
+          "leg_a_assets": null,
+          "leg_b_first_lien_principal_dwelling_count": null,
+          "leg_c_area_and_no_other_escrows": null,
+          "txn_limit": 1000,
+          "asset_limit_applied": 12485000000,
+          "asset_limit_source": "dated_table_2026",
+          "asset_limit_provenance": null
+        },
+        "look_back": {
+          "application_before_april_1_grace": false,
+          "grace_source": "not_claimed",
+          "candidate_years": [
+            2025
+          ]
+        },
+        "carve_out_window": {
+          "applications_received_from": "2010-04-01",
+          "applications_received_before": "2021-06-17",
+          "distressed_consumer_accommodations": true
+        },
         "apr_spread_pct": 0,
         "apr_pct": 0,
         "apor_pct": 0,
@@ -97,14 +1437,16 @@
         "spread_threshold_pct": 1.5,
         "spread_threshold_basis": "first_lien_standard_1.5pp",
         "year": 2026,
-        "table_version": "HPML-REGZ-2026-01-01",
-        "fr_citation": "Reg Z §1026.35(a)(1); Dodd-Frank Act; Reg Z §1026.35 Final Rule (FR 2013-01730, eff. Jan 10, 2014). Structural thresholds unchanged since 2014.",
-        "regulatory_basis": "Reg Z §1026.35(a)(1) HPML definition; §1026.35(b)(1) escrow requirement (first-lien HPML, minimum 5 years); §1026.35(b)(2) rural/underserved small creditor and condo master-policy exemptions.",
-        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the HPML threshold table (table: hpml). HPML spread thresholds (1.5/2.5/3.5 pp) are structural Dodd-Frank values, not CPI-adjusted.",
-        "note": "HPML escrow applies to first-lien transactions only; subordinate liens are not subject to §1026.35(b) escrow. For HOEPA high-cost test (APOR+6.5pp/8.5pp): use art-234 (test_hoepa_high_cost). APOR must be supplied by caller from FFIEC weekly table (ffiec.gov/ratespread)."
+        "manual_review_required": false,
+        "retired_input_keys_present": [],
+        "compliance_notes": [],
+        "input_contract_version": "HPML-ESCROW-INPUTS-2",
+        "table_version": "HPML-ESCROW-2026-08-19",
+        "consumes": "art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.",
+        "note": "The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node."
       },
       "compliance_flags": [],
-      "golden_hash": "59fe59445e34ceca44bd623470993267354d1ed5ec3e674a0213db1236f80e0d"
+      "golden_hash": "4032f2ee9e9074986fd60f6aa22fa841183b7146886ad46d394ce5849cbe6c25"
     }
   ]
 }
