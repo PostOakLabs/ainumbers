@@ -1144,7 +1144,20 @@ const GATES = [
   // UNREPAIRABLE. A red here means the probe itself stopped working, which is
   // how the 15-hour red main happened in the first place.
   ['Merge-queue repairability probe control (mutation)', 'node scripts/check-regen-repairable.test.mjs'],
+  // TWO AXES since WORKFLOW-GATE-PARITY-ASSERT-1 (2026-08-23): PRESENCE (does CI
+  // run a node gate preflight doesn't?) and STATUS (is the same gate advisory at
+  // one call site and blocking at another, in a context both can reach?). Variant
+  // 4 of the family MERGEQUEUE-GATE-PARITY-1 proved: "is this gate blocking?" is
+  // decided per call site, not as a property of the gate. Divergence is allowed —
+  // it just has to be DECLARED, so a session reading a local ⚠ ADVISORY can find
+  // out that a required CI context runs the same gate hard (SO #54).
   ['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs'],
+  // The CONTROL for the status axis (SO #40b / GATE-SELFTEST-META-1): a comparison
+  // over two text extractions can quietly compare NOTHING and report "consistent",
+  // which reads exactly like a clean repo. Every case is a mutation control; the
+  // ABSENCE cases (stale declaration, argument drift, uncalled gate, unparseable
+  // `on:` block, an unmodelled softener) are the ones this family is made of.
+  ['Workflow gate parity controls (status axis, mutation)', 'node scripts/check-workflow-gate-parity.test.mjs'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
   // controls that flip each fact and require the verdict to move. Hard here because a red

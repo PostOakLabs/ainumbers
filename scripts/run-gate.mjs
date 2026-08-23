@@ -16,6 +16,15 @@
  * check-workflow-gate-parity.mjs can assert every derived gate in every
  * workflow goes through it instead of re-deriving the logic per file.
  *
+ * ✅ THAT ASSERTION NOW EXISTS (WORKFLOW-GATE-PARITY-ASSERT-1, 2026-08-23) — it
+ * had been specified in this paragraph and never implemented. It is the STATUS
+ * axis of check-workflow-gate-parity.mjs: every advisory-gate command invoked in
+ * a PR-reachable blocking workflow must either go through this wrapper, or carry
+ * a DECLARED_DIVERGENCES entry saying why it deliberately blocks there while
+ * preflight.mjs downgrades it. Divergence is legal; undeclared divergence is not.
+ * Two live divergences are declared today (land-verify.yml's shard-freshness and
+ * registry-kernel-resolve steps); the second is the SO #54 incident.
+ *
  * ⛔ NO CHECK IS EVER SKIPPED. The wrapped command always RUNS and its full
  * output always prints; only the exit-code handling differs by context.
  *
