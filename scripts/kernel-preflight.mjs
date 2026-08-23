@@ -18,10 +18,15 @@
  * Usage:
  *   node scripts/kernel-preflight.mjs <art-id>            full check list
  *   node scripts/kernel-preflight.mjs <art-id> --fast      skip the GPU cycle
- *                                                           preflight (runq-cpu
- *                                                           is a remote-box
- *                                                           binary, absent on a
- *                                                           dev machine)
+ *                                                           preflight outright (it
+ *                                                           probes the WSL namespace
+ *                                                           for the prover binaries:
+ *                                                           ~0.1s while the distro is
+ *                                                           up, ~15s when wsl.exe has
+ *                                                           to cold-start it, which
+ *                                                           is the common case since
+ *                                                           the VM idles out between
+ *                                                           runs)
  *   node scripts/kernel-preflight.mjs <art-id> --page-less  manual override: force the
  *                                                           page-less-shard exemption
  *                                                           (node page + hub-categories
@@ -328,25 +333,126 @@ if (!shouldStop()) {
   }
 }
 
-// 12. GPU cycle preflight (GPU-CYCLE-PREFLIGHT-1) — runq-cpu is a remote GPU-box
-// binary (/root/ocg-zkvm/runq-cpu per GPU-CYCLE-PREFLIGHT-SPEC.md), not present on
-// every machine this command runs from. --fast skips it outright; otherwise this
-// probes for the binary and reports PENDING (not a failure) when absent, FAST/SLOW
-// when it can actually run.
+// 12. GPU cycle preflight (GPU-CYCLE-PREFLIGHT-1) — PROBE WHERE THE PROVER ACTUALLY IS.
+//
+// The prover binaries (/root/ocg-zkvm/runq-cpu and runq-gpu, per GPU-CYCLE-PREFLIGHT-SPEC.md)
+// live in the WSL filesystem namespace. This script runs as a WINDOWS Node process, so the
+// original `existsSync('/root/ocg-zkvm/runq-cpu')` stat-ed the WINDOWS filesystem and could
+// never succeed. It therefore printed "runq-cpu not found ... on this machine" on EVERY run,
+// including runs by sessions that went on to prove successfully minutes later. That line
+// carried no information about capacity, and a competent session acted on it: REGZ-PHANTOM-
+// ROW-FIX-1 stood down under SO #36 and made zero repo edits on a premise that was never true,
+// while another row had re-proved on the same machine hours earlier.
+//
+// So: probe across the WSL bridge, and report only what was actually measured. The three
+// states are kept strictly distinct (SO #34c — absence is a state, never an inference):
+//   PRESENT    the binaries were seen, so this machine HAS prove capacity
+//   ABSENT     the prover's own filesystem namespace WAS reachable and they are not in it
+//   NOT-PROBED the probe could not run at all — this says NOTHING about the binaries
+// The check stays N-A/informational in every state, exactly as before: it never fails a run.
+// --fast still skips the whole thing outright.
+//
+// Cost, measured 2026-08-23 on this host: the probe itself is ~90ms while the distro is
+// already running, but wsl.exe cold-starts a stopped distro, and the WSL VM idles out
+// between preflight runs, so ~15s is the ordinary case. That is the whole price of the
+// check, it is bounded by an explicit 60s timeout, and --fast opts out of it entirely.
 {
   const t0 = Date.now();
+  const LABEL = 'GPU cycle preflight (runq-cpu exec)';
+  const RUNQ = '/root/ocg-zkvm/runq-cpu';
+  const RUNQ_GPU = '/root/ocg-zkvm/runq-gpu';
+  const WSL_CMD = `wsl.exe -e bash -lc "ls -l ${RUNQ} ${RUNQ_GPU}"`;
+
+  // wsl.exe writes its OWN diagnostics (no distro installed, distro terminated, ...) as
+  // UTF-16LE, while anything the guest's bash prints is UTF-8. Sniff for interleaved NULs
+  // so a genuine WSL error is readable in the report instead of NUL-shredded.
+  const decode = (buf) => {
+    if (!buf || !buf.length) return '';
+    const head = buf.subarray(0, Math.min(buf.length, 64));
+    let nul = 0;
+    for (const b of head) if (b === 0) nul += 1;
+    const s = nul > head.length / 4 ? buf.toString('utf16le') : buf.toString('utf8');
+    return s.replace(/\0/g, '').trim();
+  };
+
+  function probeProver() {
+    if (process.platform !== 'win32') {
+      // Already in a POSIX filesystem namespace (running inside WSL itself, or on a Linux
+      // host/CI runner): a direct stat is the authoritative check, and its answer — either
+      // way — is a measurement, not a guess.
+      if (existsSync(RUNQ)) {
+        return { state: 'PRESENT', where: `this filesystem namespace (platform ${process.platform})`, detail: `${RUNQ} stat-ed directly.` };
+      }
+      return { state: 'ABSENT', why: `${RUNQ} is not in this filesystem namespace, and platform "${process.platform}" is already the namespace the prover would live in.` };
+    }
+    // Windows host: the prover is one wsl.exe call away. The guest snippet always exits 0
+    // and prints an explicit marker, so a non-zero exit or a missing marker means the PROBE
+    // failed — it is never read as evidence the binary is absent.
+    const guest = `if [ -x '${RUNQ}' ]; then echo OCG_PROVER_PRESENT; ls -l '${RUNQ}' '${RUNQ_GPU}' 2>&1; else echo OCG_PROVER_ABSENT; fi`;
+    let raw;
+    try {
+      raw = execFileSync('wsl.exe', ['-e', 'bash', '-lc', guest], {
+        stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000, windowsHide: true, encoding: 'buffer',
+      });
+    } catch (e) {
+      if (e && e.code === 'ENOENT') {
+        return { state: 'NOT-PROBED', why: 'wsl.exe is not present on this host (ENOENT), so the WSL filesystem namespace cannot be reached from here.' };
+      }
+      if (e && (e.code === 'ETIMEDOUT' || e.killed)) {
+        return { state: 'NOT-PROBED', why: 'the wsl.exe probe did not return within 60s and was killed.' };
+      }
+      const err = [decode(e && e.stdout), decode(e && e.stderr)].filter(Boolean).join(' / ')
+        || `${(e && e.code) || ''} ${(e && e.message) || ''}`.trim();
+      return { state: 'NOT-PROBED', why: `the wsl.exe probe itself failed: ${err}` };
+    }
+    const out = decode(raw);
+    if (out.includes('OCG_PROVER_PRESENT')) {
+      return {
+        state: 'PRESENT',
+        where: 'the WSL filesystem namespace on this machine',
+        detail: out.split('\n').filter((l) => !l.includes('OCG_PROVER_')).join('\n').trim(),
+      };
+    }
+    if (out.includes('OCG_PROVER_ABSENT')) {
+      return { state: 'ABSENT', why: `the WSL filesystem namespace was reached and ${RUNQ} is not there (or is not executable).` };
+    }
+    return { state: 'NOT-PROBED', why: `the wsl.exe probe returned no recognisable marker${out ? `: ${out}` : ' and no output at all'}.` };
+  }
+
   if (FAST) {
-    record({ label: 'GPU cycle preflight (runq-cpu exec)', status: 'N-A', ms: 0, out: 'cycle_preflight: FAST-SKIPPED (--fast) — run without --fast before booking GPU time.' });
+    record({ label: LABEL, status: 'N-A', ms: 0, out: 'cycle_preflight: FAST-SKIPPED (--fast) — run without --fast before booking GPU time.' });
   } else {
-    const RUNQ = '/root/ocg-zkvm/runq-cpu';
-    if (!existsSync(RUNQ)) {
-      record({ label: 'GPU cycle preflight (runq-cpu exec)', status: 'N-A', ms: Date.now() - t0, out: `cycle_preflight: PENDING — runq-cpu not found at ${RUNQ} on this machine. Run on the GPU box per GPU-CYCLE-PREFLIGHT-SPEC.md before booking a prove.` });
+    const p = probeProver();
+    if (p.state === 'PRESENT') {
+      // Deliberately not carried further here: the exec-preflight recipe needs per-kernel
+      // policy_parameters (prep_pp_vec.mjs) and a KROOT this command cannot derive
+      // generically across the estate's heterogeneous kernels. What it CAN answer — and
+      // what sessions were misreading — is whether prove capacity exists at all.
+      record({ label: LABEL, status: 'N-A', ms: Date.now() - t0, out: [
+        `cycle_preflight: PROVE CAPACITY AVAILABLE — runq-cpu is present in ${p.where}.`,
+        p.detail,
+        `probe: ${WSL_CMD}`,
+        'The FAST/SLOW measurement itself is still a manual step (this command does not',
+        'auto-derive per-kernel policy_parameters). Exec-only preflight, no flock, no GPU:',
+        `  node "$T/prep_pp_vec.mjs" "${ID}" "$KROOT" "$O/pp_${ID}.json" <vectorIndex>`,
+        `  ${RUNQ} exec "$KROOT/${ID}.kernel.mjs" "$O/pp_${ID}.json"`,
+        'KROOT MUST point at YOUR OWN worktree over the /mnt/c bridge, never a shared',
+        'checkout: a shared KROOT proves the OLD kernel bytes and the seal still verifies.',
+      ].filter(Boolean).join('\n') });
+    } else if (p.state === 'ABSENT') {
+      record({ label: LABEL, status: 'N-A', ms: Date.now() - t0, out: [
+        `cycle_preflight: PROVER NOT PRESENT HERE — ${p.why}`,
+        `probe: ${WSL_CMD}`,
+        'This verdict was measured, not inferred. See GPU-CYCLE-PREFLIGHT-SPEC.md.',
+      ].join('\n') });
     } else {
-      // Deliberately not implemented further here: the exec-preflight recipe needs
-      // per-kernel policy_parameters (prep_pp.mjs) and a KROOT this command has no
-      // way to derive generically across 616 heterogeneous kernels. Reported PENDING
-      // with the exact commands to run by hand, per GPU-CYCLE-PREFLIGHT-SPEC.md.
-      record({ label: 'GPU cycle preflight (runq-cpu exec)', status: 'N-A', ms: Date.now() - t0, out: `cycle_preflight: PENDING — runq-cpu found but this command does not auto-derive per-kernel policy_parameters. Run manually: node "$T/prep_pp.mjs" "${ID}" "$KROOT" "$O/pp_${ID}.json" && ${RUNQ} exec "$K" "$O/pp_${ID}.json"` });
+      record({ label: LABEL, status: 'N-A', ms: Date.now() - t0, out: [
+        `cycle_preflight: NOT PROBED — ${p.why}`,
+        'This says NOTHING about whether prove capacity exists: the prover lives in the WSL',
+        'filesystem namespace, which this check could not reach. Determine capacity with:',
+        `  ${WSL_CMD}`,
+        'If those two binaries list, you HAVE prove capacity (GPU-CYCLE-PREFLIGHT-SPEC.md).',
+      ].join('\n') });
     }
   }
 }
