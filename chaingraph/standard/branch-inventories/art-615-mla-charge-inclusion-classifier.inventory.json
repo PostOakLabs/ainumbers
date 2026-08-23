@@ -1,0 +1,124 @@
+{
+  "tool_id": "art-615-mla-charge-inclusion-classifier",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-08-23",
+  "authored_by": "AUTHORING-STANDARD-ADOPT-1",
+  "cohort_role": "calibration — the second counter-pattern node. Inventorying it surfaced a real gap the audits had not recorded (see art-232.4-charge-type-outside-closed-set), which is the point of running the convention over nodes believed clean.",
+  "error_direction": "conservative_toward_finding",
+  "error_direction_rationale": "The MAPR is tested against a 36% CAP (32 CFR 232.4(b)). Understating an included charge understates the MAPR and MISSES a violation at the cap — the harmful direction. Every resolved branch here therefore errs toward INCLUSION, and every unresolvable one returns 'conditional' rather than 'excluded'. The single exception is the unknown-charge-type fall-through, which returns null with no caveat, and that is recorded below as the node's one unrepresented branch precisely because it breaks this direction.",
+  "derived_from": [
+    { "digest": "sha256:e3890b4f3b32cdd2254b18c2313f4d9365b9b4d5b157ffe3f281280e39dd01e0", "clause_path": "32 CFR 232.4(c)-(d)" }
+  ],
+  "branches": [
+    {
+      "id": "art-232.4-c1i-credit-insurance-and-debt-cancellation",
+      "clause": "32 CFR 232.4(c)(1)(i)",
+      "branch": "Any credit insurance premium or fee, single-premium credit insurance charge, debt cancellation contract fee, or debt suspension agreement fee is included in the MAPR.",
+      "disposition": "represented",
+      "evidence": "included_in_mapr"
+    },
+    {
+      "id": "art-232.4-c1ii-credit-related-ancillary-product",
+      "clause": "32 CFR 232.4(c)(1)(ii)",
+      "branch": "Any fee for a credit-related ancillary product sold in connection with the transaction is included.",
+      "disposition": "represented",
+      "evidence": "included_in_mapr"
+    },
+    {
+      "id": "art-232.4-c1iiiA-finance-charges",
+      "clause": "32 CFR 232.4(c)(1)(iii)(A)",
+      "branch": "Finance charges associated with the consumer credit are included, subject only to the bona fide fee exclusion of (d), which reaches a fee OTHER THAN a periodic rate.",
+      "disposition": "represented",
+      "evidence": "citation"
+    },
+    {
+      "id": "art-232.4-c1iiiB-application-fee",
+      "clause": "32 CFR 232.4(c)(1)(iii)(B)",
+      "branch": "An application fee charged to a covered borrower is included, EXCEPT one charged by a Federal credit union or insured depository institution making a short-term small-amount loan, not more than once in any rolling 12-month period.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "MLA_MANUAL_REVIEW_REQUIRED",
+        "payload_marker": "manual_review_required",
+        "fixture": "art-615-mla-charge-inclusion-classifier.fixtures.json#reg-c1iiiB-application-fee-manual-review",
+        "reachability_vector": { "charge_type": "application_fee", "short_term_exception_claimed": true }
+      },
+      "note": "The carve-out turns on three predicates this closed-set lookup does not collect — creditor class, loan terms, and the rolling-12-month history. Claiming it returns 'conditional' plus the predicates by name, never an 'excluded' verdict."
+    },
+    {
+      "id": "art-232.4-c1iiiC-participation-fee",
+      "clause": "32 CFR 232.4(c)(1)(iii)(C); 232.4(c)(2)(ii)(B); 232.4(d)(1)",
+      "branch": "A participation fee is included subject to (c)(2)(ii)(B). On a credit card account a BONA FIDE participation fee may instead be excluded under (d)(1), and the $100-per-annum limit in (c)(2)(ii)(B) by its own terms does not apply to such a fee.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "MLA_CHARGE_CONDITIONAL",
+        "payload_marker": "conditional_limit_usd",
+        "fixture": "art-615-mla-charge-inclusion-classifier.fixtures.json#reg-d3iv-participation-fee-names-100-limit",
+        "reachability_vector": { "charge_type": "participation_fee", "is_credit_card_account": true }
+      }
+    },
+    {
+      "id": "art-232.4-d1-bona-fide-fee-exclusion",
+      "clause": "32 CFR 232.4(d)(1), (d)(3)",
+      "branch": "For a credit card account under an open-end (not home-secured) plan, a bona fide fee other than a periodic rate is excluded, but only to the extent it is bona fide and reasonable for that type of fee under the (d)(3) like-kind and safe-harbour standards.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "MLA_CHARGE_CONDITIONAL",
+        "payload_marker": "included_in_mapr",
+        "fixture": "art-615-mla-charge-inclusion-classifier.fixtures.json#reg-example-d4iiiA-foreign-txn-fee-conditional",
+        "reachability_vector": { "charge_type": "other_credit_card_fee", "is_credit_card_account": true }
+      },
+      "note": "Reachability marker is included_in_mapr === 'conditional'. ⚠ That member is truthy on RESOLVED paths too, so it proves the refusal is reachable and does not, on its own, distinguish a caveat from an answer — the §2.2 mirror requirement is what would. Recorded rather than papered over."
+    },
+    {
+      "id": "art-232.4-d1-bona-fide-exclusion-is-card-only",
+      "clause": "32 CFR 232.4(d)(1)",
+      "branch": "The bona fide fee exclusion reaches credit card accounts only. Off a card, it cannot apply at all.",
+      "disposition": "represented",
+      "evidence": "is_credit_card_account"
+    },
+    {
+      "id": "art-232.4-d2-ineligible-items-carve-back",
+      "clause": "32 CFR 232.4(d)(2)(i)-(ii)",
+      "branch": "The bona fide fee exclusion does NOT apply to credit insurance premiums/fees, single-premium credit insurance, debt cancellation, debt suspension, or credit-related ancillary product fees — so a credit card account does not change the answer for those charges.",
+      "disposition": "represented",
+      "evidence": "basis"
+    },
+    {
+      "id": "art-232.4-c1iv-regulation-z-exclusions-inapplicable",
+      "clause": "32 CFR 232.4(c)(1)(iv)",
+      "branch": "A charge in (c)(1)(i)-(iii) is included in the MAPR even where Regulation Z would exclude it from the finance charge.",
+      "disposition": "represented",
+      "evidence": "basis"
+    },
+    {
+      "id": "art-232.4-c2-mapr-computation",
+      "clause": "32 CFR 232.4(c)(2)(i)-(ii)",
+      "branch": "Computing the MAPR itself — the Regulation Z APR rules for closed-end credit, the § 1026.14(c)-(d) effective-rate rules for open-end credit, and the no-balance billing-cycle rule.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the MAPR arithmetic",
+        "source": "32 CFR 232.4(c)(2); art-616-mla-mapr-actuarial-recompute performs the recomputation",
+        "owner": "art-616, or the CALLER. This node classifies ONE charge for inclusion; it never computes a rate and never compares one to the 36% cap."
+      }
+    },
+    {
+      "id": "art-232.4-b-36-percent-cap",
+      "clause": "32 CFR 232.4(b)",
+      "branch": "The 36% MAPR limit itself.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the 36% MAPR limit and the comparison against it",
+        "source": "32 CFR 232.4(b)",
+        "owner": "the CALLER or a downstream node. Named here because the error direction of THIS node only matters relative to that cap."
+      }
+    },
+    {
+      "id": "art-232.4-charge-type-outside-closed-set",
+      "clause": "32 CFR 232.4(c)(1) chapeau",
+      "branch": "A charge that is not one of the six charge_type values this closed-set lookup knows. The provision's chapeau reaches every charge 'as applicable to the extension of consumer credit'; the kernel's enumeration does not.",
+      "disposition": "unrepresented_known",
+      "error_direction": "conservative_toward_no_finding",
+      "note": "⛔ FINDING, surfaced by this inventory and NOT previously recorded. compute({charge_type:'late_fee'}) returns included_in_mapr:null, citation:null, basis:null, manual_review_required:false, and compliance_flags:['MLA_CHARGE_CLASSIFIED'] — a flag asserting the charge WAS classified when no branch matched. There is no refusal path: the if/else-if chain simply falls through. The harmful direction, because a caller reading a null inclusion as 'not included' understates the MAPR against a cap. ⛔ NOT FIXED HERE: adding the fall-through refusal moves the kernel digest and demands a re-prove in the same row (SO #36), which is outside this row's fence. Recorded for the ORCH to stage."
+    }
+  ]
+}

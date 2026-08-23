@@ -365,6 +365,12 @@ for (const r of results) {
 }
 console.log(rule);
 
+// The authoring convention has no gate that can fire on a kernel nobody wrote yet, so it is printed
+// where an author is already looking (AUTHORING-STANDARD-ADOPT-1). One line, every run, pass or fail.
+console.log('AUTHORING: chaingraph/standard/AUTHORING-STANDARD.md — refusal-carrying exclusions (§1),');
+console.log('           flag-mirror doctrine (§2), documentary citation validation (§3.1), snapshot expiry (§3.2).');
+console.log(rule);
+
 const fails = results.filter((r) => r.status === 'FAIL');
 const totalMs = results.reduce((a, r) => a + r.ms, 0);
 console.log(`TOTAL ${(totalMs / 1000).toFixed(1)}s wall-clock (sum of checks run; ${results.length} check(s) reached${shouldStop() ? ', stopped at first FAIL — pass --keep-going to run every check' : ''})`);
