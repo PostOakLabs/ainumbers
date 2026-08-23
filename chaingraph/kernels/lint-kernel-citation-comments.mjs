@@ -43,6 +43,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from '../../scripts/_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
@@ -144,7 +145,7 @@ function findCitations(src) {
 function differsFromOriginMain(relPath, absPath) {
   let originContent;
   try {
-    originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+    originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
   } catch {
     return true; // absent from origin/main — brand-new kernel, genuinely in scope
   }

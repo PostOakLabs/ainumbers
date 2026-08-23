@@ -14,13 +14,19 @@
  */
 
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const FAIL_ON_DRIFT = false;
 
 const STAMP_URL = process.env.DEPLOY_STAMP_URL || 'https://ainumbers.co/.well-known/deploy-stamp.json';
 
 async function main() {
+  // env: gitEnv() — `ls-remote <url>` needs no local repository, but an inherited GIT_DIR still
+  // brings that repo's config (insteadOf rewrites, url.<base>.pushInsteadOf) into scope, which can
+  // silently redirect which remote answers. Credentials are unaffected: this URL is public, and the
+  // estate carries no GIT_ASKPASS/GIT_SSH_COMMAND in any workflow env (verified 2026-08-23).
   const headSha = execSync('git ls-remote https://github.com/PostOakLabs/ainumbers.git refs/heads/main', {
+    env: gitEnv(),
     encoding: 'utf8',
   })
     .trim()

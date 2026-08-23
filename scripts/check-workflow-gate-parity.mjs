@@ -107,6 +107,7 @@
 //          quietly narrowed until nothing matches.
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { gitEnv } from "./_git-env-lib.mjs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -644,9 +645,17 @@ function nodeGates(text) {
   return out;
 }
 
-/** Tracked workflow files. `git ls-files`, never a directory walk (SO #52). */
+/**
+ * Tracked workflow files. `git ls-files`, never a directory walk (SO #52).
+ *
+ * env: gitEnv() (GIT-ENV-LEAK-SWEEP-1) — this gate runs from preflight, which .githooks/pre-push
+ * invokes from inside `git push`, and git exports GIT_DIR to a hook whenever the push comes from a
+ * linked worktree (every build session here works in .wt/<row>). GIT_DIR beats `cwd`, so without
+ * the scrub this would enumerate the OUTER repository's workflows and check parity against a set
+ * of files belonging to a different tree.
+ */
 function trackedWorkflows() {
-  const out = execFileSync("git", ["ls-files", "--", ".github/workflows"], { cwd: ROOT, encoding: "utf8" });
+  const out = execFileSync("git", ["ls-files", "--", ".github/workflows"], { cwd: ROOT, env: gitEnv(), encoding: "utf8" });
   return out.split("\n").map((l) => l.trim()).filter(Boolean).map((p) => basename(p));
 }
 

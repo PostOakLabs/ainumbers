@@ -36,6 +36,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NODES_DIR = resolve(REPO, 'chaingraph', 'graph', 'nodes');
@@ -50,16 +51,14 @@ const REGISTRY_PATH = resolve(REPO, 'chaingraph', 'standard', 'clause-snapshot-r
 // `repo` says. Measured while building this fix: an un-scrubbed version of this exact call
 // pattern, exercised from a test invoked by the pre-push hook, committed a throwaway sandbox's
 // tree onto the real working branch. Scrub unconditionally, not just in the test.
-function scrubbedEnv() {
-  const e = {};
-  for (const [k, v] of Object.entries(process.env)) {
-    if (!/^GIT_/i.test(k) && v !== undefined) e[k] = v;
-  }
-  return e;
-}
-
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): the private scrubbedEnv() that used to live here IS gitEnv()
+// in scripts/_git-env-lib.mjs now — identical semantics (drop every /^GIT_/i key), one copy for the
+// whole estate, kept honest by scripts/check-git-env-scrub.mjs. This header was one of three places
+// that had each learned this lesson independently and recorded it privately; that is what made the
+// class survive three separate fixes.
 function git(repo, args) {
-  return execFileSync('git', args, { cwd: repo, env: scrubbedEnv(), stdio: ['ignore', 'pipe', 'ignore'] });
+  return execFileSync('git', args, { cwd: repo, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
 // Candidate base refs to diff against, most authoritative first — the SAME pattern

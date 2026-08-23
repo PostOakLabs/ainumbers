@@ -28,6 +28,7 @@ kernel regardless of git diff, so skipping is only safe when nothing they cover 
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -87,6 +88,21 @@ def fail(msg):
     errors.append(msg)
 
 
+# ── git child environment (GIT-ENV-LEAK-SWEEP-1, 2026-08-23) ───────────────────
+# THE PYTHON HALF of scripts/_git-env-lib.mjs's gitEnv(). Python cannot import an .mjs module, so
+# this is the one sanctioned second copy in the estate — scripts/check-git-env-scrub.mjs names this
+# file explicitly for that reason, and a THIRD copy in any language reds that gate.
+#
+# Why it is needed at all: git exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE into the environment
+# of every hook it runs, and this module is reached from scripts/preflight.mjs, which .githooks/
+# pre-push invokes from inside `git push`. Those variables BEAT `cwd` in git's repository discovery,
+# so without the scrub `get_changed_files` would return the OUTER repository's changed files and
+# verify_repo would check a set of paths that has nothing to do with the tree it is verifying.
+# Deleting every key with a GIT_ prefix (not a list of remembered names) excludes the next one too.
+def _git_env():
+    return {k: v for k, v in os.environ.items() if not k.upper().startswith("GIT_")}
+
+
 # ── --changed support ──────────────────────────────────────────────────────────
 def get_changed_files(ref):
     """Union of files touched vs <ref> (committed) and in the working tree (uncommitted).
@@ -95,7 +111,7 @@ def get_changed_files(ref):
         return None
     try:
         subprocess.run(["git", "rev-parse", "--verify", ref],
-                        cwd=str(REPO), capture_output=True, text=True, check=True)
+                        cwd=str(REPO), env=_git_env(), capture_output=True, text=True, check=True)
     except Exception:
         print(f"  ⚠️  --changed {ref}: ref not resolvable — falling back to full scan")
         return None
@@ -103,7 +119,7 @@ def get_changed_files(ref):
     for cmd in (["git", "diff", "--name-only", f"{ref}...HEAD"],
                 ["git", "diff", "--name-only", "HEAD"],
                 ["git", "status", "--porcelain"]):
-        res = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True)
+        res = subprocess.run(cmd, cwd=str(REPO), env=_git_env(), capture_output=True, text=True)
         if res.returncode != 0:
             print(f"  ⚠️  `{' '.join(cmd)}` failed (exit {res.returncode}) — falling back to full scan")
             return None

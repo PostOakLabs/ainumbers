@@ -92,6 +92,7 @@
  *       Print the protected pathspec list for `git diff -- …` (the hook's SSOT read).
  */
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
@@ -155,10 +156,15 @@ export function isBotIdentity(name, email) {
 }
 
 // ── git plumbing ────────────────────────────────────────────────────────────
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): env: gitEnv(). This module is invoked BY .githooks/pre-push
+// (via --print-pathspec) and reads notes on a `cwd` that the self-test points at throwaway fixture
+// repos, so it is exactly the shape where an inherited GIT_DIR beats cwd and the attestation is
+// read from — or written onto — the wrong repository.
 function git(args, cwd, { allowFail = false } = {}) {
   try {
     return execFileSync('git', args, {
       cwd,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 32 * 1024 * 1024,
@@ -527,8 +533,12 @@ function attestBypass(repo, reason) {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       // Same re-entry sentinel the hook uses: this push would otherwise re-invoke
-      // the pre-push hook and re-run preflight on a notes-only ref update.
-      env: { ...process.env, AINUM_PREPUSH_ATTESTING: '1' },
+      // the pre-push hook and re-run preflight on a notes-only ref update. AINUM_PREPUSH_ATTESTING
+      // is passed as gitEnv()'s `extra`, so it survives the scrub — it is not a GIT_* key, and the
+      // scrub only ever removes INHERITED git state, never something set deliberately here.
+      // Credentials are config-resident (Windows credential manager locally, checkout's
+      // http.extraheader in CI), so dropping GIT_ASKPASS/GIT_SSH_COMMAND costs this push nothing.
+      env: gitEnv({ AINUM_PREPUSH_ATTESTING: '1' }),
     });
     console.log(`✓ pushed refs/notes/${NOTES_REF} to origin — the declaration is now readable by CI.`);
   } catch {

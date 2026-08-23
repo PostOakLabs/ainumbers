@@ -31,6 +31,7 @@
 // Zero-dep, node: builtins only.
 
 import { execFileSync } from 'node:child_process'
+import { isolatedChildEnv } from './_git-env-lib.mjs'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -44,6 +45,11 @@ const LIB_SRC = resolve(__dirname, 'lib-shard-order.mjs')
 // from — the same real files, never a reproduction of their content.
 const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
 const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
+// GIT-ENV-LEAK-SWEEP-1: both check-shard-assembly.mjs and denominator-sentinel.mjs now import the
+// shared GIT_* scrub, so the fixture needs the module too or every case dies at import with
+// ERR_MODULE_NOT_FOUND. This copy list is hand-maintained and has no gate behind it — adding an
+// import to any COPIED file silently breaks all 18 cases until the file is named here as well.
+const GIT_ENV_LIB_SRC = resolve(__dirname, '_git-env-lib.mjs')
 // DENOMINATOR-SENTINEL-1: schema-validate.mjs now imports the shared denominator sentinel (it hard-fails
 // instead of printing "! chaingraph.json not found" and exiting 0 with nothing validated). --shard mode
 // returns before that assert, so the fixture repos never trip it — but ESM resolves every import at load,
@@ -76,32 +82,16 @@ const SENTINEL_SRC = resolve(__dirname, 'denominator-sentinel.mjs')
 // leak; building the child env from an explicit list excludes every GIT_* — and
 // anything else not named here — by construction. Names are matched
 // case-insensitively so Windows' own casing is preserved on the way out.
-const CHILD_ENV_ALLOWLIST = [
-  // POSIX + Node runtime essentials
-  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
-  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
-  // Windows runtime essentials (git.exe and node.exe both need these)
-  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
-  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
-  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
-  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
-  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
-  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
-  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
-  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
-]
-const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()))
-
 // Builds the env for every child process this harness spawns. `extra` is
 // applied last so a case can still set what it deliberately means to set
 // (commit dates, GIT_CEILING_DIRECTORIES, the gate's own base-ref vars).
-function childEnv(extra = {}) {
-  const env = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (ALLOWED.has(key.toLowerCase()) && value !== undefined) env[key] = value
-  }
-  return { ...env, ...extra }
-}
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): the 40-key allowlist argued for above used to be written out
+// right here, and check-clause-digest.test.mjs and check-nav-reachability.test.mjs each carried a
+// byte-identical copy of it. It is now isolatedChildEnv() in scripts/_git-env-lib.mjs — same keys,
+// same case-insensitive filter, same `extra`-last override. A de-duplication, not a behaviour
+// change; the local name is kept so every call site below is untouched.
+const childEnv = isolatedChildEnv
 
 let passed = 0
 let failed = 0
@@ -223,6 +213,7 @@ function makeFixture() {
   cpSync(GATE_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
   cpSync(LIB_SRC, join(work, 'scripts/lib-shard-order.mjs'))
   cpSync(SENTINEL_SRC, join(work, 'scripts/denominator-sentinel.mjs'))
+  cpSync(GIT_ENV_LIB_SRC, join(work, 'scripts/_git-env-lib.mjs'))
   mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
   cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
   cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))

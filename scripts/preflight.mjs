@@ -77,6 +77,7 @@
  * comment above `decideL2HardLeg()` for the shape and its measured blast radius.
  */
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,12 +106,20 @@ function resolveRepoPath() {
 // dirty (`git status --porcelain` non-empty) or not a descendant of origin/main
 // (`git merge-base --is-ancestor origin/main HEAD`). Always prints the resolved
 // path + how it was reached; always prints why it was accepted when it is.
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): every git call here passes env: gitEnv(). This is SO #48's
+// own instrument, so it is the worst possible place to answer about the wrong tree. `repoPath` can
+// legitimately be a DIFFERENT repository from the ambient one (--repo=<path>), and under the
+// pre-push hook an inherited GIT_DIR beats `cwd` outright. Measured on this branch before the fix:
+// with GIT_DIR pointed at a second repo, this function printed "REFUSING: <repoPath> ... is not a
+// descendant of origin/main" — a verdict computed from the OTHER repo, attributed by name to
+// repoPath — while the real defect in repoPath (1 dirty path) went entirely unseen.
 function assertRepoFresh(repoPath, via, strict) {
   console.log(`[repo-resolve] site-repo: ${repoPath} (via ${via})`);
   const fixMsg = '   Fix: pass --repo=<path> WITH THE EQUALS (--repo=<path>, not --repo <path>) at a clean, up-to-date checkout, or run from a clean worktree (git fetch + branch off current origin/main).';
   let isGitRepo = true;
   try {
-    execSync('git rev-parse --is-inside-work-tree', { cwd: repoPath, stdio: ['ignore', 'ignore', 'ignore'] });
+    execSync('git rev-parse --is-inside-work-tree', { cwd: repoPath, env: gitEnv(), stdio: ['ignore', 'ignore', 'ignore'] });
   } catch { isGitRepo = false; }
   if (!isGitRepo) {
     console.error(`❌ REFUSING: ${repoPath} is not a git repository (or does not exist).`);
@@ -119,7 +128,7 @@ function assertRepoFresh(repoPath, via, strict) {
   }
   let porcelain = '';
   try {
-    porcelain = execSync('git status --porcelain', { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    porcelain = execSync('git status --porcelain', { cwd: repoPath, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
   } catch { porcelain = ''; }
   if (strict && porcelain) {
     const lines = porcelain.split('\n');
@@ -132,8 +141,8 @@ function assertRepoFresh(repoPath, via, strict) {
   let isDescendant = true;
   if (strict) {
     try {
-      execSync('git rev-parse --verify origin/main', { cwd: repoPath, stdio: 'ignore' });
-      execSync('git merge-base --is-ancestor origin/main HEAD', { cwd: repoPath, stdio: 'ignore' });
+      execSync('git rev-parse --verify origin/main', { cwd: repoPath, env: gitEnv(), stdio: 'ignore' });
+      execSync('git merge-base --is-ancestor origin/main HEAD', { cwd: repoPath, env: gitEnv(), stdio: 'ignore' });
     } catch { isDescendant = false; }
     if (!isDescendant) {
       console.error(`❌ REFUSING: HEAD in ${repoPath} is not a descendant of origin/main (git merge-base --is-ancestor) — stale checkout.`);
@@ -148,7 +157,15 @@ function assertRepoFresh(repoPath, via, strict) {
 
 const { path: REPO, via: REPO_VIA, strict: REPO_STRICT } = resolveRepoPath();
 assertRepoFresh(REPO, REPO_VIA, REPO_STRICT);
-const env = { ...process.env, PYTHONIOENCODING: 'utf-8' }; // Windows: python gates print ✓/✗
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): was `{ ...process.env, ... }`. This object is the environment
+// EVERY gate subprocess below inherits, so scrubbing GIT_* once here protects the whole suite, not
+// just preflight's own git calls — a gate that shells to git can no longer be redirected at the
+// outer repository by the pre-push hook that invoked it.
+//
+// ⚠ This is a no-op OUTSIDE a hook, by construction: with no GIT_* set, gitEnv() returns exactly
+// what `{ ...process.env }` returned. Verdicts and numbers are therefore provably unchanged in CI
+// and in a plain terminal run, and only differ where they were previously WRONG — under a hook.
+const env = gitEnv({ PYTHONIOENCODING: 'utf-8' }); // Windows: python gates print ✓/✗
 
 // --changed <ref>: incremental mode for local/pre-push runs only (PREFLIGHT-BUDGET-1 §1).
 // Scopes verify_repo.py to files touched vs <ref>. CI never passes this — the
@@ -1110,6 +1127,17 @@ const GATES = [
   // six reintroduces its silent default, OR if a denominator assert migrates out of a gate and into THIS
   // file, which is the wrapper shape the row bans.
   ['Denominator sentinel controls (RED x6 + boundary + not-a-wrapper)', 'node scripts/denominator-sentinel.test.mjs'],
+  // GIT-ENV-LEAK-SWEEP-1. Third sibling of the two controls above, and the one that answers "was
+  // this gate even looking at the right REPOSITORY?". Git exports GIT_DIR/GIT_WORK_TREE to every
+  // hook it runs and they beat `cwd`, so a gate that shells to git from inside .githooks/pre-push
+  // can return a well-formed verdict about the OUTER repo. Three modules learned that
+  // independently and fixed it privately (DENOMINATOR-SENTINEL-1, SHARD-HARNESS-ENV-LEAK-1,
+  // check-clause-digest.mjs) and nothing made it general — by the sweep the estate held six copies
+  // of the scrub and 33 unprotected spawn sites. These two entries keep a seventh copy, and any
+  // new unhelpered spawn, from landing. NOTE this pair must run under the HOOK to be meaningful,
+  // which is exactly what preflight gives it — CI alone would never have caught the original.
+  ['git-env scrub coverage (GIT-ENV-LEAK-SWEEP-1)', 'node scripts/check-git-env-scrub.mjs'],
+  ['git-env scrub controls (RED x6 + wrong-tree contrast)', 'node scripts/check-git-env-scrub.test.mjs'],
   ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
   ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
   // FV-FLOOR-DIGEST-GATE-1: enforces the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4,

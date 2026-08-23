@@ -3,6 +3,7 @@
 // pages that name counter_signed_receipt, and a no-op everywhere else.
 // Run:  node scripts/check-copy-hallmarks.test.mjs
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,7 +28,7 @@ function h1PlusH5(text) {
   return { insider, notX, total: insider + notX };
 }
 function gitShow(rev, path) {
-  return execFileSync('git', ['show', `${rev}:${path}`], { cwd: REPO, encoding: 'utf8' });
+  return execFileSync('git', ['show', `${rev}:${path}`], { cwd: REPO, env: gitEnv(), encoding: 'utf8' });
 }
 
 for (const page of ['methods.html', 'fv-explainer.html']) {

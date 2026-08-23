@@ -26,6 +26,7 @@
 // Zero-dep, node: builtins only.
 
 import { execFileSync } from 'node:child_process'
+import { isolatedChildEnv } from './_git-env-lib.mjs'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -41,6 +42,7 @@ const GATE_SRC = resolve(__dirname, 'check-nav-reachability.mjs')
 // already applies to schema-validate.mjs).
 const SHARD_ASSEMBLY_SRC = resolve(__dirname, 'check-shard-assembly.mjs')
 const LIB_SHARD_ORDER_SRC = resolve(__dirname, 'lib-shard-order.mjs')
+const GIT_ENV_LIB_SRC = resolve(__dirname, '_git-env-lib.mjs')
 const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
 const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
 
@@ -52,27 +54,12 @@ const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'open
 // instead of the throwaway fixture. Built as an ALLOWLIST, not copy-and-delete,
 // so the next unnamed GIT_* variable is excluded by construction rather than
 // by memory.
-const CHILD_ENV_ALLOWLIST = [
-  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
-  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
-  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
-  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
-  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
-  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
-  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
-  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
-  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
-  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
-]
-const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()))
-
-function childEnv(extra = {}) {
-  const env = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (ALLOWED.has(key.toLowerCase()) && value !== undefined) env[key] = value
-  }
-  return { ...env, ...extra }
-}
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): the 40-key allowlist and its childEnv() filter used to be
+// written out here. Three harnesses carried a byte-identical copy; all three now share
+// isolatedChildEnv() from scripts/_git-env-lib.mjs. Same key list, same filter, same `extra`-last
+// override — a de-duplication, not a behaviour change. The local name is kept so the call sites
+// below (which pass GIT_AUTHOR_DATE/GIT_COMMITTER_DATE as deliberate `extra`) are untouched.
+const childEnv = isolatedChildEnv
 
 let passed = 0
 let failed = 0
@@ -214,6 +201,9 @@ function makeFixture() {
   cpSync(GATE_SRC, join(work, 'scripts/check-nav-reachability.mjs'))
   cpSync(SHARD_ASSEMBLY_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
   cpSync(LIB_SHARD_ORDER_SRC, join(work, 'scripts/lib-shard-order.mjs'))
+  // GIT-ENV-LEAK-SWEEP-1: check-shard-assembly.mjs (copied above) imports the shared GIT_* scrub,
+  // so the fixture needs it too or the gate dies at import with ERR_MODULE_NOT_FOUND.
+  cpSync(GIT_ENV_LIB_SRC, join(work, 'scripts/_git-env-lib.mjs'))
   mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
   cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
   cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))

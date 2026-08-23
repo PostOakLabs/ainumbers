@@ -82,6 +82,7 @@
  *   node scripts/derived-artifacts.mjs --context  # print "main" or "pr"
  */
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -678,7 +679,7 @@ export function isMainContext() {
   // neither `main` nor a detached HEAD, before the downgrade applies.
   try {
     const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'],
+      cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'],
     }).toString().trim();
     if (!branch || branch === 'HEAD' || branch === 'main') return true; // fail closed
     return false;

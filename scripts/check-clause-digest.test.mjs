@@ -16,6 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { isolatedChildEnv } from './_git-env-lib.mjs';
 
 // CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1's fix, same shape here). Git exports
 // GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/... to every hook it runs. This file is wired into
@@ -26,26 +27,12 @@ import { execFileSync } from 'node:child_process';
 // sandbox's "work" tree onto the real worktree branch, mass-deleting the tracked tree in a
 // bogus commit (recovered with `git reset --hard`). An ALLOWLIST, not copy-and-delete, so the
 // next unnamed GIT_* variable is excluded by construction rather than missed by omission.
-const CHILD_ENV_ALLOWLIST = [
-  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
-  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
-  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
-  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
-  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
-  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
-  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
-  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
-  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
-  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
-];
-const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()));
-function childEnv(extra = {}) {
-  const e = {};
-  for (const [k, v] of Object.entries(process.env)) {
-    if (ALLOWED.has(k.toLowerCase()) && v !== undefined) e[k] = v;
-  }
-  return { ...e, ...extra };
-}
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): the 40-key allowlist and the childEnv() that filtered on it
+// used to be written out here. Three harnesses carried a byte-identical copy; all three now share
+// isolatedChildEnv() from scripts/_git-env-lib.mjs. Same key list, same filter, same `extra`-last
+// override — a de-duplication, not a behaviour change. The local name is kept so the call sites
+// below are untouched.
+const childEnv = isolatedChildEnv;
 function git(cwd, args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: childEnv() });
 }

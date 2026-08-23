@@ -61,6 +61,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync, execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { assertDenominatorOrExit, committedFileCountOrExit } from './denominator-sentinel.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -98,6 +99,7 @@ function gitDiffNames(args) {
   try {
     return execSync(`git diff --name-only --diff-filter=ACM ${args}`, {
       cwd: REPO,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).split('\n').filter(Boolean);
@@ -125,6 +127,7 @@ function computeTouchedFiles(base, head) {
   try {
     mergeBase = execSync(`git merge-base ${base} HEAD`, {
       cwd: REPO,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
