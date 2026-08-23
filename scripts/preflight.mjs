@@ -845,6 +845,7 @@ const timings = []; // [label, ms]
 const results = [];
 let waivedCount = 0;
 const advisoryFailures = []; // [label, cmd] — covered-artifact staleness on a PR
+const coveredFailures = []; // [label, cmd] — covered-artifact staleness on MAIN (hard red, classified below)
 const suiteStart = Date.now();
 
 if (KEEP_GOING) {
@@ -891,6 +892,12 @@ for (const [label, cmd, meta] of GATES) {
       advisoryFailures.push([label, cmd]);
       continue;
     }
+    // MERGEQUEUE-GATE-PARITY-1: same gate, MAIN context — nothing is downgraded
+    // and this stays a hard red, but record it so the classifier below can say
+    // WHICH KIND of red it is (regen lag vs permanent). Those two are
+    // indistinguishable in the log today, and telling them apart by eye is
+    // exactly what did not happen for 15 hours on 2026-08-22/23.
+    if (MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
     const declared = KEEP_GOING ? expectedRedFor(label) : null;
     gateFail(declared ? `✗ (${ms}ms) [EXPECTED-RED via --expect-red ${declared}]` : `✗ (${ms}ms)`);
     console.log('\n' + out.trim() + '\n');
@@ -930,6 +937,33 @@ if (!failed || KEEP_GOING) {
   } else {
     gatePass(`✓ (${ms}ms)`);
     results.push({ label: MFSTSEC_LABEL, state: 'PASS', ms });
+  }
+}
+
+// ── MERGEQUEUE-GATE-PARITY-1: classify a MAIN-context freshness red ─────────
+// Print-only. The gate already failed on its own merits and this NEVER softens
+// that — check-regen-repairable.mjs --diagnose always exits 0 and its output is
+// not consulted for the verdict. What it adds is the one distinction the log
+// cannot make today: is this red REGEN LAG (the single writer is repairing it on
+// this same push; expected, self-clearing) or PERMANENT (nothing will ever clear
+// it; it needs a human PR)? Both printed identically before, and a permanent one
+// sat unnoticed among transient ones for 15 hours.
+if (MAIN_CONTEXT && coveredFailures.length) {
+  const idsFor = new Map(COVERED.filter((c) => c.gate).map((c) => [c.gate, c.id]));
+  const ids = [...new Set(coveredFailures.map(([, cmd]) => idsFor.get(cmd)).filter(Boolean))];
+  if (ids.length) {
+    console.log('');
+    try {
+      const o = execSync(`node scripts/check-regen-repairable.mjs --diagnose --ids ${ids.join(',')}`, {
+        cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      console.log(o.toString().trim());
+    } catch (e) {
+      // Classification is a convenience, never a gate. If it cannot run, say so
+      // plainly and move on — it must not add a way for preflight to fail, and it
+      // must not add a way for preflight to pass either (it touches no verdict).
+      console.log(`ℹ regen-repairability diagnosis unavailable: ${((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim().split('\n')[0]}`);
+    }
   }
 }
 

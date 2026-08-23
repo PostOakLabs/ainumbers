@@ -82,12 +82,31 @@
  * ⛔ There is no skip path, no always(), no continue-on-error, no advisory
  * escape hatch, and no env var that turns this off.
  *
+ * ── --diagnose: THE SAME PROBE, USED AS A CLASSIFIER ON MAIN ─────────────────
+ * On `push: main` nothing is downgraded, so the probe has no verdict to make —
+ * but it still answers the question an operator actually has when main goes red
+ * at a freshness gate, and which cost ORCH a manual investigation on 2026-08-23:
+ *
+ *   REPAIRABLE   -> REGEN LAG. derived-artifacts-regen.yml is repairing this on
+ *                   this very push; the expected human-push → red → bot-regen →
+ *                   green cycle. Nothing to do. (2026-08-23: DEBT-LEDGER-1 at
+ *                   05291cb2, healed by the bot in bae4d9a0.)
+ *   UNREPAIRABLE -> PERMANENT. No workflow will ever clear this; it needs a
+ *                   human PR. (2026-08-23: EUC-SITE-1 / art-99, cleared only by
+ *                   #1486 after 15 hours.)
+ *
+ * Those two look IDENTICAL in the CI log today — one red gate, same wording —
+ * and telling them apart by eye is exactly what did not happen for 15 hours.
+ * `--diagnose` prints the classification and ALWAYS exits 0: on main the gate has
+ * already failed on its own merits and this must never soften that verdict.
+ *
  * Usage:
  *   node scripts/check-regen-repairable.mjs                  # every gated COVERED entry
  *   node scripts/check-regen-repairable.mjs --ids euc-register,counts
  *   node scripts/check-regen-repairable.mjs --gate 'node scripts/gen-euc-register.mjs --check'
+ *   node scripts/check-regen-repairable.mjs --diagnose --ids debt-ledger   # classify only, always exit 0
  *
- * Exit 0 — every stale entry examined is repairable by the main-side regen.
+ * Exit 0 — every stale entry examined is repairable by the main-side regen (or --diagnose).
  * Exit 1 — at least one is NOT, or repairability could not be established.
  */
 import { execSync } from 'node:child_process';
@@ -310,9 +329,11 @@ if (isMain) {
   const argv = process.argv.slice(2);
   const ids = [];
   const gates = [];
+  let diagnose = false;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--ids') ids.push(...(argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean));
     else if (argv[i] === '--gate') gates.push(argv[++i] || '');
+    else if (argv[i] === '--diagnose') diagnose = true;
   }
 
   const entries = selectEntries({ ids, gates });
@@ -324,6 +345,32 @@ if (isMain) {
   }
 
   const res = withScratchWorktree((dir) => probeRepairable({ dir, entries }));
+
+  if (diagnose) {
+    // Classifier mode (main). The gate has already failed on its own merits; this
+    // only says WHICH KIND of red it is, and must never soften that verdict — so
+    // it always exits 0 and never touches the caller's exit code.
+    console.log('regen-repairability diagnosis (classification only — this does NOT change any verdict):');
+    for (const r of res.repaired) {
+      console.log(`  ⏳ ${r.id}: REGEN LAG — the declared regen erases this drift (verified: repaired by the ${r.via}).`);
+      console.log('     derived-artifacts-regen.yml is the single writer (SO #35) and repairs it on this same push.');
+      console.log('     Expected human-push → red → bot-regen → green cycle. No human action needed.');
+    }
+    for (const u of res.unrepairable) {
+      console.log(`  ⛔ ${u.id}: PERMANENT — NOT repairable by the main-side regen [${u.stage}]. ${u.reason}`);
+      console.log('     ⛔ No workflow will ever clear this. It needs a human PR (for a stale/orphaned');
+      console.log('        artifact that is usually a `git rm`), or a generator whose write path repairs');
+      console.log('        what its own --check reports. This is the shape that held main red for 15 hours.');
+    }
+    for (const r of res.notReproduced) {
+      console.log(`  ℹ ${r.id}: not reproduced at HEAD — green on the committed tree.`);
+    }
+    if (!res.repaired.length && !res.unrepairable.length && !res.notReproduced.length) {
+      console.log('  ℹ nothing to classify.');
+    }
+    process.exit(0);
+  }
+
   const { hardFail, lines } = reportProbe(res);
   for (const l of lines) console.log(l);
   process.exit(hardFail ? 1 : 0);
