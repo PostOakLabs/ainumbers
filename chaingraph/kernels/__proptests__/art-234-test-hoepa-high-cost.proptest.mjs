@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:94e054205e12a5b0b9b9712e58a2f35f7e3fc542d175a53f9ee756a49ca835f5
+// kernel_digest_at_authoring: sha256:33e253cd7261b78d5f2c743c7734c526c4b55cc53e446645d379d21add044a6b
 //
 // FV-PROPFLOOR-SHARD-B7-1 — property-test floor for art-234-test-hoepa-high-cost.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (apr_spread subtraction through r4 rounding,
@@ -137,10 +137,13 @@ function checkP5_outOfRangeYearRefuses() {
 }
 
 // ---------- P6 (mandatory): ULP-boundary forcing ----------
+// Annotated as tuples: without this the array widens to (object|string)[][] and the
+// `...overrides` spread below is a checkJs error (TS2698).
+/** @type {Array<[Record<string, unknown>, string]>} */
 const ULP_BOUNDARY_CASES = [
-  [{ year: 2020 }, 'exactly 1 year below the pinned range — must refuse, not serve 2026 bands'],
+  [{ year: 2024 }, 'exactly 1 year below the pinned range — must refuse, not serve 2026 bands'],
   [{ year: 2027 }, 'exactly 1 year above the pinned range — must refuse, not serve 2026 bands'],
-  [{ year: 2021 }, 'earliest pinned year — must resolve'],
+  [{ year: 2025 }, 'earliest pinned year — must resolve'],
   [{ year: 2026 }, 'latest pinned year — must resolve'],
   [{ apr_pct: 13.0, apor_pct: 6.5, lien_type: 'first', is_small_dwelling: false }, 'apr_spread exactly 6.5 (first-lien standard threshold, tolerance -1e-5) — apr_trigger_met must be true'],
   [{ apr_pct: 12.999979, apor_pct: 6.5, lien_type: 'first', is_small_dwelling: false }, 'apr_spread just inside the -1e-5 tolerance band below 6.5 — apr_trigger_met must still be true (tolerance is deliberate, not a bug)'],

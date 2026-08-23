@@ -111,6 +111,9 @@ function checkP3_yearOutOfRange() {
 }
 
 // ---------- P4: forced categorical boundary cases (reclassified float:no — no ULP forcing applicable) ----------
+// Annotated as tuples: without this the array widens to (object|string)[][] and the
+// `...overrides` spread below is a checkJs error (TS2698).
+/** @type {Array<[Record<string, unknown>, string]>} */
 const CATEGORICAL_BOUNDARY_CASES = [
   [{ table: 'qm_points_fees', year: 2021 }, 'earliest pinned year (2021) for qm_points_fees — must resolve, not error'],
   [{ table: 'card_penalty', year: 2026 }, 'latest pinned year (2026) for card_penalty — must resolve, not error'],

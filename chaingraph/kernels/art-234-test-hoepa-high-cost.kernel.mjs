@@ -197,10 +197,17 @@ const HOEPA_APR = {
 };
 
 // HOEPA points-and-fees thresholds (§1026.32(a)(1)(ii)) -- CPI-adjusted annually.
-// Projected from the shared module, so this node and art-220 cannot disagree by
-// construction. The floor applies when loan_amount * 0.05 < trigger_floor.
+// Projected from the shared module, so this node and art-220 cannot disagree about a
+// year they both serve. The floor applies when loan_amount * 0.05 < trigger_floor.
+//
+// This node deliberately serves a NARROWER year range than art-220's `hoepa` table.
+// art-220 is the lookup service and publishes the whole pinned series; this node answers
+// a high-cost verdict and only ever covered 2025-2026. Widening the verdict surface is a
+// separate decision from correcting the values, so it is not made here — every year
+// outside this range refuses rather than being answered from the nearest band.
+const HOEPA_PF_YEARS = [2025, 2026];
 const HOEPA_PF = {};
-for (const y of Object.keys(REGZ_HOEPA).map(Number)) {
+for (const y of HOEPA_PF_YEARS) {
   const h = REGZ_HOEPA[y];
   HOEPA_PF[y] = {
     fr_citation: regzCiteHoepa(y, h.effective),
@@ -316,7 +323,7 @@ export function compute(pp) {
     pp_period_limit_months: HOEPA_PP.max_months,
     pp_pct_limit: HOEPA_PP.max_pct_of_loan,
     year,
-    table_version: 'HOEPA-REGZ-' + pf_data.effective,
+    table_version: 'HOEPA-REGZ-2026-01-01',
     fr_citation: pf_data.fr_citation,
     regulatory_basis: '12 CFR §1026.32(a)(1) HOEPA high-cost mortgage trigger test. APR trigger: §1026.32(a)(1)(i). Points-and-fees trigger: §1026.32(a)(1)(ii). Prepayment penalty trigger: §1026.32(a)(1)(iii).',
     consumes: 'art-220 (lookup_reg_z_thresholds) serves the HOEPA threshold table (table: hoepa). This node does not keep a second copy of it: both project the same single-writer module, chaingraph/kernels/_regz-thresholds.mjs, so the two cannot drift apart.',

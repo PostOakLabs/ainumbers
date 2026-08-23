@@ -1316,6 +1316,15 @@ const GATES = [
   // sidecar being regenerated (`node scripts/gen-output-schema.mjs`). Hard because a stale sidecar is
   // a stale witness domain the L2-G checker would silently trust.
   ['Output-contract sidecars in sync with fixtures (CHAIN-FV-L2-G-RESCOPE-3)', 'node scripts/gen-output-schema.mjs --check --quiet'],
+
+  // REGZ-CORRECTION-APPLY-1: art-218 / art-220 / art-234 all serve the same Reg Z threshold
+  // tables. They used to hold three private copies, which is how one fabricated Federal
+  // Register locator, authored once and copied faithfully, became three live wrong answers
+  // that no gate could see. `chaingraph/kernels/_regz-thresholds.mjs` is now the single writer,
+  // inlined into each consumer because the RISC0 guest cannot resolve a sibling import.
+  // This --check is what makes "one holder" a fact rather than an intention: without it the
+  // copies can drift silently and the whole point of the module is lost.
+  ['Reg Z shared thresholds inlined in sync (REGZ-CORRECTION-APPLY-1)', 'node scripts/gen-regz-inline.mjs --check'],
 ];
 
 // The one inline gate that lives below the loop rather than in GATES. Named once
