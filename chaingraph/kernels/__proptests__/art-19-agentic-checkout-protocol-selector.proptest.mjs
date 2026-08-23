@@ -1,5 +1,5 @@
 // art-19-agentic-checkout-protocol-selector property-test floor (FV-PROPFLOOR-SHARD-A-THRESHOLD-1).
-// kernel_digest_at_authoring: sha256:54bf86b639f6937f1bebc4f6917ea4d67b90b1dac613e45cd88b01467013ba5f
+// kernel_digest_at_authoring: sha256:4219bb286318e4b2c15e45b65ee7be8d960c49a3f2a805aee2e9b9d49ff797e0
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED

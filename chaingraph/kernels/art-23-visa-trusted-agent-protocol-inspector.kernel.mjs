@@ -6,7 +6,7 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'inspect_visa_trusted_agent_protocol',
+  mcp_name: 'inspect_visa_tap_signature',
   mandate_type: 'compliance_control',
   gpu: false,
 };
@@ -136,7 +136,7 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
-export async function buildArtifact(pp, { now = undefined, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
