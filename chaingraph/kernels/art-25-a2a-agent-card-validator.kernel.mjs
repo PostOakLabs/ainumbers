@@ -6,7 +6,7 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'validate_a2a_agent_card',
+  mcp_name: 'verify_a2a_agent_card',
   mandate_type: 'compliance_control',
   gpu: false,
 };

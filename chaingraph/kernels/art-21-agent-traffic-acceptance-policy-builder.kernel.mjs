@@ -6,7 +6,7 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'build_google_ap2_mandate',
+  mcp_name: 'build_agent_traffic_policy',
   mandate_type: 'agent_guardrail_mandate',
   gpu: false,
 };

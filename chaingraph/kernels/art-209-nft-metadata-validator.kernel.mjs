@@ -5,7 +5,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'validate_nft_metadata',
+  mcp_name: 'validate_nft_metadata_art209',
   mandate_type: 'compliance_mandate', gpu: false,
 };
 

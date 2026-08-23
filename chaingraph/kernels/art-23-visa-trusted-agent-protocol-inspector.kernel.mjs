@@ -6,7 +6,7 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'inspect_visa_tap_signature',
+  mcp_name: 'inspect_visa_trusted_agent_protocol',
   mandate_type: 'compliance_control',
   gpu: false,
 };
