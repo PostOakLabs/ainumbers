@@ -131,6 +131,29 @@ test('RED #5 UNDETERMINABLE-FLOOR — a floor that cannot be derived is refused,
   }
 });
 
+test('RED #5b UNDETERMINABLE-FLOOR — an inherited GIT_DIR must NOT be able to answer for another tree', () => {
+  // ⭐ THE REGRESSION THIS PINS, and it was live: git exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE to
+  // every hook, preflight runs from .githooks/pre-push, and with those inherited `git ls-files` ignores
+  // cwd entirely. The case above passed standalone and FAILED under the hook — a temp directory that is
+  // not a repository answered successfully through the leaked GIT_DIR, i.e. the "independent" floor was
+  // being derived from a different repository than the one under check (SO #34b).
+  const tmp = mkdtempSync(join(tmpdir(), 'denominator-sentinel-leak-'));
+  const saved = { GIT_DIR: process.env.GIT_DIR, GIT_WORK_TREE: process.env.GIT_WORK_TREE };
+  try {
+    process.env.GIT_DIR = resolve(REPO, '.git');
+    process.env.GIT_WORK_TREE = REPO;
+    const e = catchState(() => committedFileCount({
+      repoRoot: tmp, pathspec: 'chaingraph/kernels/__proptests__', match: /\.proptest\.mjs$/,
+      label: 'FIXTURE gate', remedy: 'run inside a checkout',
+    }));
+    assert(e?.state === 'UNDETERMINABLE-FLOOR',
+      `a leaked GIT_DIR must not satisfy the derivation — expected UNDETERMINABLE-FLOOR, got ${e?.state ?? 'NO THROW: the floor came from the leaked repo, not from repoRoot'}`);
+  } finally {
+    for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('RED #6 ZERO-VECTOR-FIXTURE — a present corpus file contributing zero vectors is an ERROR, not a skip', () => {
   const claimants = new Map();
   // (a) the headline case: a `vectors` key that yields nothing

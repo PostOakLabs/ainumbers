@@ -148,11 +148,29 @@ export function assertSsotPresent(path, { label, what, remedy }) {
 // ⛔ `git ls-files`, never a directory walk — this workspace holds dozens of live worktrees under .wt/
 // and a recursive walk multiplies the count by that number (SO #52).
 // ⛔ An unanswerable git query is UNDETERMINABLE-FLOOR, never 0 and never "skip the check".
+//
+// ⚠⚠ GIT_DIR IS STRIPPED, AND THAT IS LOAD-BEARING, NOT TIDINESS (SHARD-HARNESS-ENV-LEAK-1 shape,
+// SO #34b — a gate must run in the environment of the thing it validates). Git EXPORTS `GIT_DIR`,
+// `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_PREFIX` and friends to every hook it runs, and preflight runs
+// from `.githooks/pre-push`. With those inherited, `git ls-files` ignores `cwd` entirely and answers from
+// whatever repository the OUTER git command was operating on — so the floor would be derived from a
+// different tree than the one being checked, and the whole point of deriving it independently is lost.
+// ⭐ This was not theoretical: the self-test's UNDETERMINABLE-FLOOR case passed standalone and FAILED
+// under the pre-push hook, because a temp directory that is not a repository still answered successfully
+// through the leaked GIT_DIR. Building the child env by DELETING every `GIT_*` key excludes the next one
+// too, which is the same by-construction argument check-shard-assembly.test.mjs makes for its allowlist.
+function gitEnv() {
+  const env = { ...process.env };
+  for (const k of Object.keys(env)) if (/^GIT_/i.test(k)) delete env[k];
+  return env;
+}
+
 export function committedFileCount({ repoRoot, pathspec, match, label, remedy }) {
   let out;
   try {
     out = execFileSync('git', ['ls-files', '--', pathspec], {
       cwd: repoRoot,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
