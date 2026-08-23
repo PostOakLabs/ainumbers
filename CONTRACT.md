@@ -22,7 +22,7 @@ This is the **Single Source of Truth (SSOT)** for all AINumbers.co builds. It su
 | **Runtime** | Synchronous, deterministic execution. Zero `fetch`, `async`, `WebWorker`, or external network calls after page load. Seeded PRNG allowed *only* for synthetic data. | Ensures bit-for-bit reproducible outputs across sessions and clients. |
 | **Data Safety** | **Zero PII** collected, stored, logged, or transmitted. Input sanitization strips identifiable fields. Output schemas exclude personal data. | Compliance-first design; eliminates regulatory liability. |
 | **Client Storage** | **Forbidden:** `localStorage`, `cookies`, `IndexedDB`, `sessionStorage`, any PII-adjacent cache. All state is in-memory. (`ain_lang` sessionStorage exemption removed — lang toggle deferred; see §1.1.) | Aligns with ePrivacy session-scoping norms; preserves tab-close data wipe. |
-| **Routing & URLs** | Internal cross-links **MUST** use relative paths (`../tools/...`). Absolute URLs reserved **strictly** for `suite-registry.json` and external MCP endpoints. | Build-time resilience + portability; prevents broken links on staging/mirrors. |
+| **Routing & URLs** | Internal cross-links **MUST** use relative paths (`../tools/...`). Absolute URLs reserved **strictly** for the generated registry surfaces (`.well-known/mcp.json`, `mcp/catalog.json`, `mcp/server.json` — §2.1) and external MCP endpoints. | Build-time resilience + portability; prevents broken links on staging/mirrors. |
 | **Content Security Policy** | Every `tools/`, `guides/`, and `chaingraph/` page **MUST** carry a `<meta http-equiv="Content-Security-Policy">` tag matching one of three canonical profiles: `CSP_STANDARD` (static tool/doc pages, no worker/iframe), `CSP_WASM_VM` (pages instantiating a Worker/wasm VM), `CSP_COMPOSER` (Orchestrated Workflow Runner pages and ChainGraph chain pages, §5.3/A3.1, needing `frame-src 'self'` for the same-origin bridge iframe). Enforced by `scripts/check-csp-consistency.mjs` (gates both drift from a profile and absence of a tag; ratchet-only baseline, counts only go down). | No server- or edge-level CSP header exists anywhere in the deploy stack (Cloudflare, `.htaccess`, DreamHost) — the meta tag is the **sole** CSP mechanism, so a missing tag is an absent security control, not redundancy. |
 
 ---
@@ -33,7 +33,15 @@ The lang toggle (`.lang-bar` / `setLang()`) has been **removed from all new buil
 
 **Do not add a lang toggle to new tools or hubs.** Do not include `.lang-bar` CSS, `setLang()`, `TRANSLATIONS` objects, or `sessionStorage` `ain_lang` writes in any new file.
 
-**Grandfathered state (existing tools):** ~187 tools built before this amendment retain `.lang-bar` HTML and `TRANSLATIONS` JS in their source. The AIN Bridge `t()` function in these tools has been pinned to English-only (sessionStorage read removed, Amendment A2). Do not strip their `TRANSLATIONS` blocks until I18N-SPEC.md Option B is ready to replace them; use `scripts/strip_lang_toggle.py --write` at that point. (rationale: `CONTRACT-RATIONALE.md` §1.1)
+**Grandfathered state (existing tools):** tools built before this amendment retain `.lang-bar` HTML and/or `TRANSLATIONS` JS in their source. **The count is not recorded here — derive it:**
+
+```
+git grep -l 'lang-bar'     -- 'tools/*.html' | wc -l   # pages still carrying the toggle markup
+git grep -l 'TRANSLATIONS' -- 'tools/*.html' | wc -l   # pages still carrying the translation tables
+python scripts/strip_lang_toggle.py                    # dry-run; prints "clean / needs-review / unchanged"
+```
+
+*(This replaced a bare "~187", which was undated and unreproducible. The three commands answer three different questions and on 2026-08-23 returned 159, 262, and "clean: 27, needs-review: 5" respectively — no single literal can stand for that, which is why the predicate is now named alongside the instrument. Enumerate with `git grep`/`git ls-files`, never a directory walk: this workspace holds many worktrees and a recursive walk inflates the denominator.)* The AIN Bridge `t()` function in these tools has been pinned to English-only (sessionStorage read removed, Amendment A2). Do not strip their `TRANSLATIONS` blocks until I18N-SPEC.md Option B is ready to replace them; use `scripts/strip_lang_toggle.py --write` at that point. (rationale: `CONTRACT-RATIONALE.md` §1.1)
 
 ### 1.2 Mandatory UI Components
 | Component | Selector/Pattern | Notes |
@@ -74,7 +82,11 @@ Public HTML pages and the `chaingraph.json` descriptions served to agents are re
 
 **Scope: node pages, `chaingraph/art-*.html`.** This section governs how a node page *presents* values it already holds. It adds nothing to the OpenChainGraph envelope, which is normative in SPEC.md (§A5.1/§A5.5). A page **MUST NOT** satisfy any rule here by changing what a kernel emits, by adding or removing an artifact field, or by altering the `execution_hash` preimage `{policy_parameters, output_payload}`. If a rule here appears to require a kernel or envelope-shape change, the rule is not what needs the change: stop and raise it.
 
-**Gate: `scripts/check-node-page-chrome.mjs`** (already blocking, already in `scripts/preflight.mjs`, already scoped to `chaingraph/art-*.html`). Assertions for this section belong there. **No new gate, script, baseline, or dependency is to be created for §1.5.** (rationale: `CONTRACT-RATIONALE.md` §1.5)
+**Enforcement: `DISCIPLINE` — there is no gate for §1.5 (marked honestly, 2026-08-23).** No script in `scripts/` asserts §1.5.1 or §1.5.2; both rules are held by review and by the authoring row, not mechanically.
+
+> **Why this says DISCIPLINE and not a gate name.** Earlier revisions named `scripts/check-node-page-chrome.mjs` as this section's gate. **That gate does not assert anything in §1.5.** It checks site chrome only — exactly one canonical `<nav>` and `<footer>`, the required nav/footer tokens, a non-empty breadcrumb span, the footer `Spec v…` label, and the CSS marker. It never inspects `generated_at`, a results panel, or a decision value; `preflight.mjs` itself lists it as *"Node-page chrome (nav/footer)"*. Naming a gate that does not assert the rule is worse than naming none, because it stops anyone from looking. (The old line was stale twice over: it also described the gate as *"scoped to `chaingraph/art-*.html`"*, which `GUIDE-CHROME-AUDIT-1` widened to all `chaingraph/*.html` on 2026-08-17.)
+>
+> **This is not a licence to add one.** The standing instruction below is unchanged: **no new gate, script, baseline, or dependency is to be created for §1.5.** If §1.5 is ever mechanized, the assertions belong in a gate that actually reads a results panel — and this line gets replaced by its name, not supplemented with it. Until then `DISCIPLINE` is the accurate word, and SO #34c applies: a missing gate result is a distinct state, never a green one. (rationale: `CONTRACT-RATIONALE.md` §1.5)
 
 #### 1.5.1 `generated_at` MUST be visible (RFC 2119: MUST)
 
@@ -100,11 +112,17 @@ A page **MUST NOT** be given a badge for a state it does not compute in order to
 
 ## 🤖 2. Machine-Readable Registry & MCP Contract
 ### 2.1 File Naming & Scope Separation
+
+The registry surfaces are **generated, never hand-written** — `python scripts/regen_catalog.py` is their single writer (§A5.3). Each generated file carries its own `generated` / `last_updated` date and its own `tool_count`: **read the count from the file, never from this contract.**
+
 | File | Purpose | Location |
 |---|---|---|
-| `suite-registry.json` | Suite-level MCP registry (consumed by external agents) | Root `/` |
-| `manifest.json` | Per-tool discovery & validation manifest | `tools/XX-slug/` |
+| `.well-known/mcp.json` | Root discovery shim (`schema_version: well-known-mcp-v1`) — points external agents at the servers, `llms.txt` and the sitemap | `.well-known/` |
+| `mcp/catalog.json` | **Suite-level MCP registry consumed by external agents** (`schema_version: mcp-catalog-v1`) — the full tool array; see §2.3 | `mcp/` |
+| `mcp/server.json` | Server descriptor (`schema_version: mcp-server-v1`) — publisher, endpoints, categories, standards covered | `mcp/` |
 | `<tool_id>.manifest.json` | Per-tool / **per-node** manifest, machine-read by the worker build | `manifests/` (flat) — see §2.7 |
+
+> **Historical correction (2026-08-23).** Earlier revisions of this section named a root `suite-registry.json` as the suite-level registry, and a per-tool `manifest.json` under `tools/XX-slug/`. **Neither has ever existed.** `suite-registry.json` was never committed on any ref — `git rev-list --all --objects` matches it zero times across the whole history — and `tools/` is a flat directory of `.html` files with no per-tool subdirectories (`git ls-files 'tools/*/*'` → 0). The roles those names described are filled by `mcp/catalog.json` and `manifests/<tool_id>.manifest.json` respectively. **Do not "restore" either file:** the correct action on encountering a stale reference is to repoint it at the real surface above.
 
 ### 2.2 Per-Tool `manifest.json` Schema
 ```json
@@ -135,22 +153,32 @@ A page **MUST NOT** be given a badge for a state it does not compute in order to
 **Rules:**
 - `mcp_tool_definition.name` MUST follow `verb_noun_context` snake_case.
 - `mandate_type` lives **in the Policy Mandate payload**, NOT in `manifest.json`.
-- All tools appear in `suite-registry.json` regardless of `ap2_export` value.
+- All tools appear in `mcp/catalog.json` (§2.3) regardless of `ap2_export` value.
 
-### 2.3 Suite-Level `suite-registry.json` Structure
+### 2.3 Suite-Level `mcp/catalog.json` Structure
+
+**Generated by `python scripts/regen_catalog.py` — never hand-edited.** The live file is the SSOT for its own shape and count; the skeleton below records the top-level key set only.
+
 ```json
 {
-  "$schema": "https://ainumbers.co/schema/mcp-manifest-v1.0.json",
-  "name": "AINumbers.co Fintech Intelligence Suite",
-  "publisher": "Post Oak Labs",
-  "suite_url": "https://ainumbers.co",
-  "version": "1.0.0",
-  "tool_count": "dynamic",
-  "ap2_export_count": "dynamic",
-  "license": "CC-BY-4.0",
-  "tools": [ /* array of tool objects mirroring manifest schema */ ]
+  "schema_version": "mcp-catalog-v1",
+  "server_id": "ainumbers-fintech-suite",
+  "name": "AINumbers Fintech Intelligence Suite",
+  "description": "…",
+  "base_url": "https://ainumbers.co",
+  "generated": "YYYY-MM-DD",       // written by the generator, not by hand
+  "tool_count": 0,                 // authoritative value lives in the file
+  "tools": [ /* array of tool objects mirroring the §2.2 manifest schema */ ]
 }
 ```
+
+`tool_count` and `generated` are **generator output, not contract constants** — to read them, read the file:
+
+```
+node -e "const c=require('./mcp/catalog.json');console.log(c.tool_count,c.generated)"
+```
+
+The companion `mcp/server.json` (`schema_version: mcp-server-v1`) carries the publisher block, `endpoints`, `categories`, `standards_covered` and its own `tool_count` / `last_updated`, on the same generated-not-authored basis.
 
 ### 2.4 Prefill Deep-Links (AIN Bridge v1.0) — Amendment A1.1
 Bridge-enabled tools (manifest flags `"prefill": true`, `"bridge_version": "1.0"`) MUST accept:
@@ -260,7 +288,26 @@ Tools MAY accept a `.policy.json` mandate as **input** via drop/choose/paste (Fi
 
 ## 🔢 5. Tool Numbering & Hub Architecture
 ### 5.1 Canonical Ranges (Global & Sequential)
-| Category | T-Range | Status | Notes |
+
+**What this table is, and is not.** The **T-ranges and the RESERVED/available notes are policy** — deliberate allocation decisions that do not decay, and the reason this table exists. The **"live" counts are not policy and are not authoritative here.** Derive the totals instead:
+
+```
+git ls-files 'tools/*.html' | wc -l                  # every tool page
+node scripts/verify-counts.mjs --check               # deriveCounts(): tools.browser, categories, chains, mcp.live
+node -e "const c=require('./mcp/catalog.json');console.log(c.tool_count,c.generated)"
+```
+
+`scripts/counts.mjs` `deriveCounts()` is the single derivation used by every published count sentinel (§6, `verify-counts.mjs`); a number that disagrees with it is wrong by definition. **Never hardcode a count to make a gate pass.**
+
+**Numbering extends well past this table.** The per-category rows below stop at T318; allocation above that has been per-wave rather than per-category, and the table has deliberately not been extended row-by-row — enumerating ~280 further entries by hand would decay the day after it was written. As of 2026-08-23 the numbered tool pages span **T1–T665** (540 numbered files; 282 of them above T318), measured with:
+
+```
+git ls-files 'tools/*.html'   # parse the leading NNN- of each filename
+```
+
+The allocation rules below ("never reset, never reuse RESERVED") bind across the whole span, not only the rows listed.
+
+| Category | T-Range | Status *(live counts as observed 2026-08-23; derive, do not cite)* | Notes |
 |---|---|---|---|
 | Cat-12 AML/KYC | T109–T131 | 22 live | |
 | Cat-13 B2B Payments | T132–T151 | 16 live | T137, T138, T142, T143 RESERVED |
