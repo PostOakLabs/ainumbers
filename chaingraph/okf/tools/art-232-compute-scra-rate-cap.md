@@ -28,7 +28,7 @@ A hash-anchored OpenChainGraph artifact (decision, not context).
 
 ## Chains
 
-**Consumes:** [Compute MLA MAPR](./art-231-compute-mla-mapr.md)
+**Consumes:** [Compute MLA MAPR (closed-end)](./art-231-compute-mla-mapr.md)
 
 **Feeds:** _terminal node_
 

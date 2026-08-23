@@ -175,7 +175,7 @@ status: stable
 - [Compute Disparate Impact Metrics](./art-229-compute-disparity-metrics.md) — `compute_disparity_metrics`
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](./art-23-visa-trusted-agent-protocol-inspector.md) — `inspect_visa_trusted_agent_protocol`
 - [Compute HMDA Rate Spread](./art-230-compute-hmda-rate-spread.md) — `compute_hmda_rate_spread`
-- [Compute MLA MAPR](./art-231-compute-mla-mapr.md) — `compute_mla_mapr`
+- [Compute MLA MAPR (closed-end)](./art-231-compute-mla-mapr.md) — `compute_mla_mapr`
 - [Compute SCRA Rate Cap](./art-232-compute-scra-rate-cap.md) — `compute_scra_rate_cap`
 - [Check CARD Act Ability to Pay](./art-233-check-card-act-ability-to-pay.md) — `check_card_act_ability_to_pay`
 - [HOEPA High-Cost Mortgage Trigger Test](./art-234-test-hoepa-high-cost.md) — `test_hoepa_high_cost`

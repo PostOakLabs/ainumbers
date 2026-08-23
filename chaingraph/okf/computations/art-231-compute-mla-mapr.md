@@ -1,6 +1,6 @@
 ---
 type: Attested Computation
-title: "Compute MLA MAPR — attested computation"
+title: "Compute MLA MAPR (closed-end) — attested computation"
 runtime: server
 computation: "Kernel-backed evaluation for the compliance_mandate decision, producing a hash-anchored OpenChainGraph artifact."
 executor:
@@ -13,9 +13,9 @@ generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
 ---
 
-# Compute MLA MAPR — attested computation
+# Compute MLA MAPR (closed-end) — attested computation
 
-> §10.2 Attested Computation binding for [Compute MLA MAPR](../tools/art-231-compute-mla-mapr.md).
+> §10.2 Attested Computation binding for [Compute MLA MAPR (closed-end)](../tools/art-231-compute-mla-mapr.md).
 
 ## Executor
 
@@ -25,7 +25,7 @@ proof, when attached to an artifact this kernel produced, carries these receipt 
 
 ## Attester
 
-Kernel identity: `sha256:e6ea4f134e6e8a83ead3c9b8c4003302fff90bb70c26a05c76538c4722c64e41` (SPEC.md §17.1 `compute_images`) — a
+Kernel identity: `sha256:302410302655744df0ba87706c7aa12347ad96fd99d175c3ed1d497372abc0d0` (SPEC.md §17.1 `compute_images`) — a
 content-addressed digest of this node's deployed kernel source, already published in the
 Graph Index. Static and dereferenceable; nothing in OpenChainGraph verification depends on
 this OKF bundle, and this concept asserts no execution event or `verified:` status.

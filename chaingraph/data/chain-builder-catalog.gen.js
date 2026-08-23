@@ -2138,10 +2138,10 @@ window.CHAINBUILDER_CATALOG = [
   },
   {
     "tool_id": "art-231-compute-mla-mapr",
-    "display_name": "Compute MLA MAPR",
+    "display_name": "Compute MLA MAPR (closed-end)",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-231-compute-mla-mapr.html",
-    "description": "Computes the Military Annual Percentage Rate (MAPR) per 32 CFR §232.4(c) and checks compliance with the 36% cap. MAPR includes all charges e",
+    "description": "Computes the Military Annual Percentage Rate for CLOSED-END consumer credit and tests it against the 36 percent limit that 10 USC 987(b) imp",
     "consumes": [],
     "feeds": [
       "art-232-compute-scra-rate-cap"
