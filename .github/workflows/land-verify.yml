@@ -161,6 +161,20 @@ jobs:
         # main context, not PR — the queue must still catch a stale count same as a push).
         run: node scripts/run-gate.mjs node scripts/verify-counts.mjs --check
 
+      - name: Registry kernel-resolve coverage
+        # WIRED 2026-08-23. Third instance of this workflow's founding class: a gate that
+        # existed ONLY in scripts/preflight.mjs and in no workflow at all (see the two
+        # earlier cases in this file's header). The divergence is not symmetric and that is what
+        # made it dangerous: main CI stayed GREEN while .githooks/pre-push FAILED for every
+        # session, because a node going non-live (art-99 -> deprecated) stranded its
+        # kernel_digest record as an orphan. Nobody could see the cause from CI, and a red
+        # local preflight actively manufactures --no-verify bypasses — which in turn skip the
+        # attestation note and red main on prepush-attestation.yml. One orphan, three surfaces.
+        # Blocking in both contexts: unlike counts, this artifact IS regenerable in-branch
+        # (--write for missing/stale, git rm for an orphan), so there is no PR that cannot
+        # satisfy it and no reason to downgrade it to advisory.
+        run: node scripts/gen-registry-kernel-resolve.mjs --check
+
       - name: Deadline-wall freshness gate
         run: node scripts/check-deadline-freshness.mjs
 
