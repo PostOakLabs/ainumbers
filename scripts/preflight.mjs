@@ -1127,6 +1127,17 @@ const GATES = [
   // six reintroduces its silent default, OR if a denominator assert migrates out of a gate and into THIS
   // file, which is the wrapper shape the row bans.
   ['Denominator sentinel controls (RED x6 + boundary + not-a-wrapper)', 'node scripts/denominator-sentinel.test.mjs'],
+  // GIT-ENV-LEAK-SWEEP-1. Third sibling of the two controls above, and the one that answers "was
+  // this gate even looking at the right REPOSITORY?". Git exports GIT_DIR/GIT_WORK_TREE to every
+  // hook it runs and they beat `cwd`, so a gate that shells to git from inside .githooks/pre-push
+  // can return a well-formed verdict about the OUTER repo. Three modules learned that
+  // independently and fixed it privately (DENOMINATOR-SENTINEL-1, SHARD-HARNESS-ENV-LEAK-1,
+  // check-clause-digest.mjs) and nothing made it general — by the sweep the estate held six copies
+  // of the scrub and 33 unprotected spawn sites. These two entries keep a seventh copy, and any
+  // new unhelpered spawn, from landing. NOTE this pair must run under the HOOK to be meaningful,
+  // which is exactly what preflight gives it — CI alone would never have caught the original.
+  ['git-env scrub coverage (GIT-ENV-LEAK-SWEEP-1)', 'node scripts/check-git-env-scrub.mjs'],
+  ['git-env scrub controls (RED x6 + wrong-tree contrast)', 'node scripts/check-git-env-scrub.test.mjs'],
   ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
   ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
   // FV-FLOOR-DIGEST-GATE-1: enforces the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4,
