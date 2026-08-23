@@ -36,6 +36,10 @@
  *       a checker which could not run reports `✗ UNAVAILABLE`, that a checker
  *       which ran and warned still reports `⚠ ADVISORY`, and that the result
  *       accounting detects an unrecorded gate instead of absorbing it.
+ *       Also L2-HARDLEG-BLOCKING-1's control: the L2 hard leg BLOCKS when its
+ *       checker produced no verdict and this diff touches a chain shard, does
+ *       NOT block when nothing is touched, and still leaves every untouched
+ *       L2-fail chain advisory. Wired into GATES below, so it actually runs.
  *
  *   node scripts/preflight.mjs --expect-red <gate-id>
  *       Declares a gate expected to be red on THIS invocation. Matched
@@ -62,6 +66,15 @@
  * run is now its own category, `✗ UNAVAILABLE`, counted in the --keep-going
  * totals and named in the final summary line. It is LOUD, not BLOCKING: no
  * advisory was promoted to a hard gate, and the exit code is untouched.
+ *
+ * THE ONE EXCEPTION (L2-HARDLEG-BLOCKING-1). Exactly one leg inside an otherwise
+ * advisory block is HARD: a chain shard added or edited in this diff must not
+ * enter with an `L2-fail` edge (spec §6.1). Being loud about that leg not firing
+ * was not enough — so when, and ONLY when, this diff adds/edits at least one chain
+ * shard AND the L2 checker produced no verdict, preflight now exits 1 instead of
+ * printing `✗ UNAVAILABLE` and passing. Every other advisory, and the rest of the
+ * L2 block, is untouched and still never affects the exit code. See the block
+ * comment above `decideL2HardLeg()` for the shape and its measured blast radius.
  */
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -335,7 +348,80 @@ function printUnavailableBlock() {
   console.log(`\n✗ ${unavailableAdvisories.length} ADVISORY CHECKER(S) UNAVAILABLE — they could not run, so they reported NOTHING:`);
   for (const u of unavailableAdvisories) console.log(`    ✗ ${u.label}\n        ↳ ${u.reason}`);
   console.log('    ⛔ This is NOT "advisory" and NOT a pass — nothing was measured here (SO #34c).');
-  console.log('    It does not block: promoting an advisory to a hard gate is a separate decision.');
+  console.log('    Nothing in THIS roll-up blocks. The one promoted hard leg (L2-HARDLEG-BLOCKING-1,');
+  console.log('    below) exits before this list is ever printed, so it can never appear here.');
+}
+
+// ── L2-HARDLEG-BLOCKING-1: THE ONE HARD LEG INSIDE THE ADVISORY L2 BLOCK ─────
+// The L2 block at the bottom of this file is ADVISORY overall — L2-indeterminate
+// is coverage, not wrongness, L2-G is mid-authoring and L3 is parked — but it
+// carries ONE genuinely hard leg (spec §6.1): a chain shard ADDED or EDITED in
+// this diff must not enter with an `L2-fail` edge.
+//
+// ⛔ THE DEFECT THIS CLOSES. A hard leg living inside an advisory block inherits
+// the block's failure mode: when the checker could not run, the leg did not fire,
+// and NOTHING said the hard leg had been skipped — the surrounding advisory still
+// printed and preflight still said PASSED. ADVISORY-CRASH-DISTINCT-1 made the
+// non-firing VISIBLE (the UNAVAILABLE reason names this leg) and deliberately left
+// it non-blocking, because promoting a hard gate was outside that row's fence.
+//
+// ✅ THE SHAPE, and why it is conditioned rather than absolute. Blocking on EVERY
+// could-not-run would red every push the moment the checker breaks, including the
+// overwhelming majority that touch no chain at all and therefore lose nothing hard.
+// The leg's SUBJECT SET is exactly the touched chain shards, so:
+//   · touched chains ≥ 1 and no verdict  ⇒ BLOCK. The hard leg had real subjects
+//     and did not run over them; an unrun hard leg is an absent result, never a
+//     pass (SO #34c).
+//   · touched chains = 0 and no verdict   ⇒ report `✗ UNAVAILABLE`, do not block.
+//     Nothing hard was lost; the advisory surface is still reported as missing.
+// Measured blast radius (2026-08-23, origin/main 538c41ed): 5 of the last 200
+// commits on main touched a chain shard, so the blocking condition is reachable on
+// ~2.5% of pushes AND only when the checker is simultaneously broken.
+//
+// ⛔ WHY NO CI-ONLY VARIANT. `check-chain-l2-contracts.mjs` is pure Node — no
+// execSync, no network, no external binary, no WSL — so "could not run" here is
+// exceptional (missing file / crash / OOM), NOT the environment-dependent absence
+// SO #53 describes. CI therefore has no extra knowledge to condition on, a broken
+// checker is ALREADY hard-caught there by the `Chain L2 contract-composition
+// selftest` gate that imports it, and an env-conditional gate is precisely the
+// local-vs-CI divergence SO #54 warns about. One rule, both environments.
+//
+// PURE by design: no I/O, no process.exit, no printing. That is what lets the
+// self-test drive the REAL decision instead of a paraphrase of it (SO #34).
+const L2_LEG_STATES = [
+  'BLOCKED-COULD-NOT-RUN', // no verdict AND ≥1 touched chain — the leg did not fire over real subjects
+  'BLOCKED-L2-FAIL',       // verdict says a touched chain carries an L2-fail edge
+  'NO-VERDICT-NO-SUBJECT', // no verdict, but nothing touched — advisory loss only
+  'CHECKED-CLEAN',         // every touched chain was assessed and none is L2-fail
+  'CHECKED-INCOMPLETE',    // ≥1 touched chain absent from the report — assessed NOTHING about it
+  'NO-SUBJECT',            // verdict present, this diff touches no chain shard
+];
+
+/**
+ * Decide the L2 hard leg. ⛔ The ONLY place the blocking question is answered.
+ * @param {null|{chains?: Array<{name:string,verdict:string,findings?:Array<{code:string}>}>}} rep
+ *        the checker's parsed --json report, or null when it produced none
+ * @param {Set<string>} touchedChainNames chain shard names added/edited in this diff
+ * @returns {{state:string, block:boolean, subjects:string[],
+ *            fails:Array<{name:string,findings:Array<{code:string}>}>, unassessed:string[]}}
+ */
+function decideL2HardLeg(rep, touchedChainNames) {
+  const subjects = [...(touchedChainNames || [])].sort();
+  if (!rep) {
+    return subjects.length
+      ? { state: 'BLOCKED-COULD-NOT-RUN', block: true, subjects, fails: [], unassessed: subjects }
+      : { state: 'NO-VERDICT-NO-SUBJECT', block: false, subjects, fails: [], unassessed: [] };
+  }
+  const assessed = new Map((rep.chains || []).map((c) => [c.name, c]));
+  // ⚠ Order matters: a diff touching BOTH a failing chain and an unassessed one
+  // must still block on the failure rather than downgrade to "incomplete".
+  const fails = subjects.map((n) => assessed.get(n)).filter((c) => c && c.verdict === 'L2-fail')
+    .map((c) => ({ name: c.name, findings: c.findings || [] }));
+  const unassessed = subjects.filter((n) => !assessed.has(n));
+  if (fails.length) return { state: 'BLOCKED-L2-FAIL', block: true, subjects, fails, unassessed };
+  if (!subjects.length) return { state: 'NO-SUBJECT', block: false, subjects, fails, unassessed };
+  if (unassessed.length) return { state: 'CHECKED-INCOMPLETE', block: false, subjects, fails, unassessed };
+  return { state: 'CHECKED-CLEAN', block: false, subjects, fails, unassessed };
 }
 
 /**
@@ -350,7 +436,8 @@ function runSelfTest() {
     console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
     if (!ok) failures.push(name);
   };
-  console.log('▶ preflight --self-test (ADVISORY-CRASH-DISTINCT-1: could-not-run is its own state)\n');
+  console.log('▶ preflight --self-test (ADVISORY-CRASH-DISTINCT-1: could-not-run is its own state'
+    + ' · L2-HARDLEG-BLOCKING-1: could-not-run must not skip the hard leg)\n');
 
   console.log('RED — a checker that CANNOT RUN must classify as UNAVAILABLE:');
   for (const [name, cmd] of [
@@ -403,6 +490,56 @@ function runSelfTest() {
     check(`measured red stays advisory: ${name}`, c.ran === true, `ran=${c.ran} · ${c.reason}`);
   }
 
+  // ── L2-HARDLEG-BLOCKING-1 controls ────────────────────────────────────────
+  // Drives the REAL decideL2HardLeg() — the same function the live L2 block calls
+  // — over synthetic reports. Hermetic: no checker is spawned, no estate is read.
+  // ⚠⚠ THE FIRST CONTROL IS THE ROW. On origin/main (538c41ed) this function does
+  // not exist and the equivalent path printed `✗ UNAVAILABLE` and let the push
+  // through; here it must BLOCK.
+  console.log('\nL2 HARD LEG — a checker that could not run must not let a touched chain through (L2-HARDLEG-BLOCKING-1):');
+  const repClean = { chains: [{ name: 'alpha-chain', verdict: 'L2-pass', findings: [] }] };
+  const repFail = {
+    chains: [
+      { name: 'alpha-chain', verdict: 'L2-pass', findings: [] },
+      { name: 'rtp-participation', verdict: 'L2-fail', findings: [{ code: 'shared-input-domain-disjoint' }] },
+    ],
+  };
+  const dNoRunTouched = decideL2HardLeg(null, new Set(['alpha-chain']));
+  check('RED — no verdict + a touched chain shard ⇒ BLOCKS',
+    dNoRunTouched.block === true && dNoRunTouched.state === 'BLOCKED-COULD-NOT-RUN',
+    `state=${dNoRunTouched.state} block=${dNoRunTouched.block} unassessed=${dNoRunTouched.unassessed.join(',')}`);
+  const dNoRunUntouched = decideL2HardLeg(null, new Set());
+  check('GREEN — no verdict + NO touched chain ⇒ does NOT block (a broken checker must not red every push)',
+    dNoRunUntouched.block === false && dNoRunUntouched.state === 'NO-VERDICT-NO-SUBJECT',
+    `state=${dNoRunUntouched.state} block=${dNoRunUntouched.block}`);
+  const dFail = decideL2HardLeg(repFail, new Set(['rtp-participation']));
+  check('RED — checker ran, a TOUCHED chain carries an L2-fail edge ⇒ BLOCKS',
+    dFail.block === true && dFail.state === 'BLOCKED-L2-FAIL' && dFail.fails[0].name === 'rtp-participation',
+    `state=${dFail.state} fails=${dFail.fails.map((f) => f.name).join(',')}`);
+  const dFailUntouched = decideL2HardLeg(repFail, new Set());
+  check('ADVISORY PRESERVED — the same L2-fail chain UNTOUCHED ⇒ does NOT block (rest of L2 stays advisory)',
+    dFailUntouched.block === false && dFailUntouched.state === 'NO-SUBJECT',
+    `state=${dFailUntouched.state} block=${dFailUntouched.block}`);
+  const dBoth = decideL2HardLeg(repFail, new Set(['rtp-participation', 'not-in-report']));
+  check('RED wins — a touched failure plus a touched unassessed chain still blocks on the failure',
+    dBoth.block === true && dBoth.state === 'BLOCKED-L2-FAIL' && dBoth.unassessed.includes('not-in-report'),
+    `state=${dBoth.state} unassessed=${dBoth.unassessed.join(',')}`);
+  const dClean = decideL2HardLeg(repClean, new Set(['alpha-chain']));
+  check('GREEN — a touched chain assessed L2-pass ⇒ does NOT block',
+    dClean.block === false && dClean.state === 'CHECKED-CLEAN' && dClean.unassessed.length === 0,
+    `state=${dClean.state} block=${dClean.block}`);
+  const dIncomplete = decideL2HardLeg(repClean, new Set(['brand-new-chain']));
+  check('NOT SILENT — a touched chain absent from the report reports CHECKED-INCOMPLETE, never "checked, none L2-fail"',
+    dIncomplete.block === false && dIncomplete.state === 'CHECKED-INCOMPLETE'
+      && dIncomplete.unassessed.join(',') === 'brand-new-chain',
+    `state=${dIncomplete.state} unassessed=${dIncomplete.unassessed.join(',')}`);
+  const legStates = [dNoRunTouched, dNoRunUntouched, dFail, dFailUntouched, dBoth, dClean, dIncomplete]
+    .map((d) => d.state);
+  check('every leg outcome is a DECLARED state — no unnamed path where the leg neither fires nor reports',
+    legStates.every((s) => L2_LEG_STATES.includes(s))
+      && new Set(legStates).size === L2_LEG_STATES.length,
+    `${new Set(legStates).size}/${L2_LEG_STATES.length} declared states exercised`);
+
   console.log('\nACCOUNTING — every state is categorised, and an unknown state is DETECTED:');
   const ledger = RESULT_STATES.map((s) => ({ label: `synthetic ${s}`, state: s, ms: 0 }));
   const full = tallyResults(ledger);
@@ -442,7 +579,8 @@ function runSelfTest() {
     for (const f of failures) console.error(`   ✗ ${f}`);
     return 1;
   }
-  console.log('✅ preflight --self-test PASSED — could-not-run, ran-and-warned and the result accounting are all distinguishable.');
+  console.log('✅ preflight --self-test PASSED — could-not-run, ran-and-warned and the result accounting are all');
+  console.log('   distinguishable, and the L2 hard leg blocks rather than silently skipping when its checker cannot run.');
   return 0;
 }
 
@@ -655,6 +793,14 @@ if (!KEEP_GOING && MAIN_CONTEXT && process.env.GITHUB_ACTIONS === 'true') {
 
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
+  // L2-HARDLEG-BLOCKING-1: preflight's OWN reporting controls, run as a gate so they
+  // cannot rot unrun. `--self-test` exits before this array is even built, so there is
+  // no recursion and no gate runs twice — it costs ~1s, spawns only synthetic
+  // subprocesses, reads no estate file and writes nothing. It proves the classifier
+  // (ADVISORY-CRASH-DISTINCT-1) still tells could-not-run from ran-and-warned, and that
+  // the L2 hard leg blocks instead of silently skipping when its checker cannot run.
+  ['Preflight reporting self-test (ADVISORY-CRASH-DISTINCT-1 + L2-HARDLEG-BLOCKING-1)',
+    'node scripts/preflight.mjs --self-test'],
   // BINARY-BYTE-GATE-1 runs FIRST, ahead of the JS syntax gate, on purpose.
   // The syntax gate is structurally BLIND to this class: DISE-SEG-T-2 shipped a
   // raw NUL inside a JS string delimiter in tools/582 and check_tools.js was
@@ -1559,6 +1705,12 @@ gateStart(L1_LABEL);
 // day-one measurement is that the honest surface today is mostly
 // indeterminate (spec §0(c)/§5.2) — promoting that estate-wide would red
 // every chain the day this ships, which spec §6.1 explicitly forbids.
+// ⛔ L2-HARDLEG-BLOCKING-1 (2026-08-23) DID NOT WIDEN THAT. It closed the one way
+// the HARD leg could fail to fire at all: a checker that produced no verdict while
+// this diff touches a chain shard is now a hard failure instead of a printed note.
+// Nothing else here changed tier — the estate's three standing L2-fail chains
+// (dora-operational-resilience, rtp-participation, sme-credit-intelligence, measured
+// 2026-08-23) stay exactly as advisory as they were, because they are untouched.
 const L2_LABEL = 'L2 chain contract composition (advisory on existing / hard on new-changed)';
 gateStart(L2_LABEL);
 {
@@ -1587,15 +1739,37 @@ gateStart(L2_LABEL);
   let rep = null;
   if (r.state !== 'UNAVAILABLE') { try { rep = JSON.parse(r.out); } catch { rep = null; } }
 
+  // L2-HARDLEG-BLOCKING-1: ONE decision function answers the blocking question, and
+  // the self-test above drives that same function. ⛔ Never re-derive it inline here.
+  const leg = decideL2HardLeg(rep, touchedChainNames);
+  const noVerdictReason = r.state === 'UNAVAILABLE'
+    ? r.reason
+    : 'the checker exited but produced no parseable --json report, so there is no L2 verdict to read';
+
   if (!rep) {
     // ADVISORY-CRASH-DISTINCT-1. ⚠ NAME WHAT IS LOST, not just that something is:
     // this block carries a HARD leg (touched chains must not enter with an L2-fail
     // edge), and a checker that cannot run silently takes that leg down with it.
-    // ⛔ Reporting only — promoting this to a blocking failure is a hard-gate
-    // decision and is out of this row's fence, so the exit code is unchanged.
-    gateUnavailable(L2_LABEL, `${r.state === 'UNAVAILABLE'
-      ? r.reason
-      : 'the checker exited but produced no parseable --json report, so there is no L2 verdict to read'} — the new/changed-chain HARD leg did not run either`, r.out);
+    // ⛔ L2-HARDLEG-BLOCKING-1 CLOSED THAT: when the leg HAS subjects, a checker that
+    // produced no verdict is now a hard failure, not a note. When it has none, the
+    // loss is advisory-only and the exit code is still unchanged.
+    if (leg.block) {
+      gateFail(`❌ BLOCKED — ${noVerdictReason}`);
+      console.error(`\n❌ L2 HARD GATE (no verdict): this diff adds/edits ${leg.subjects.length} chain shard(s) and the L2`);
+      console.error('   checker produced no report, so the "a new/changed chain must not enter with an L2-fail');
+      console.error('   edge" leg (spec §6.1) did NOT run over them. An unrun hard leg is an ABSENT result,');
+      console.error('   never a pass (SO #34c):');
+      for (const n of leg.subjects) console.error(`   ? ${n}: UNCHECKED — no L2 verdict exists for this chain`);
+      console.error(`   ↳ ${noVerdictReason}`);
+      const detail = (r.out || '').trim();
+      if (detail) console.error('\n' + detail + '\n');
+      console.error('   Fix: repair the checker, then re-run —');
+      console.error('        node scripts/check-chain-l2-contracts.mjs --quiet --json');
+      console.error('   ⛔ Not waivable by --keep-going: this is discovered after the gate loop, exactly like');
+      console.error('      the L2-fail leg below, and for the same reason.');
+      process.exit(1);
+    }
+    gateUnavailable(L2_LABEL, `${noVerdictReason} — the new/changed-chain HARD leg had no subject either (this diff adds/edits no chain shard), so nothing HARD was lost here; only the advisory estate-wide picture`, r.out);
   } else {
     const s = rep.summary;
     gatePass(`L2-G: ${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate / ${s['L2-not-applicable']} not-applicable across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_in_scope} in-scope edges pass, ${s.edges_not_applicable} n/a)`);
@@ -1605,16 +1779,27 @@ gateStart(L2_LABEL);
     if (rep.l2s) gatePass(`   L2-S: ${rep.l2s['L2S-pass']} pass / ${rep.l2s['L2S-fail']} fail / ${rep.l2s['L2S-indeterminate']} indeterminate over ${rep.l2s.shared_fields_examined} shared input fields, estate-wide`);
     if (rep.l2g_authoring) gatePass(`   L2-G authoring worklist: ${rep.l2g_authoring.open_gate_edges} open gate rules over ${rep.l2g_authoring.distinct_producers} producers ⇒ ${rep.l2g_authoring.batches_required} batches`);
 
-    const touchedFails = rep.chains.filter((c) => touchedChainNames.has(c.name) && c.verdict === 'L2-fail');
-    if (touchedFails.length) {
-      console.error(`\n❌ L2 HARD GATE: ${touchedFails.length} new/changed chain(s) carry an L2-fail edge (spec §6.1 — new chains must not enter with a failing composition):`);
-      for (const c of touchedFails) console.error(`   ✗ ${c.name}: ${c.findings.map((f) => f.code).join(', ')}`);
+    if (leg.block) {
+      console.error(`\n❌ L2 HARD GATE: ${leg.fails.length} new/changed chain(s) carry an L2-fail edge (spec §6.1 — new chains must not enter with a failing composition):`);
+      for (const c of leg.fails) console.error(`   ✗ ${c.name}: ${c.findings.map((f) => f.code).join(', ')}`);
       // Unconditional exit, independent of --keep-going: this is discovered AFTER the main gate loop
       // (and its own keep-going accounting) has already run, so there is no later checkpoint that
       // would otherwise turn a recorded `failed` value into a non-zero exit code.
       process.exit(1);
-    } else if (touchedChainNames.size) {
-      gatePass(`   ✓ ${touchedChainNames.size} touched chain shard(s) checked, none L2-fail.`);
+    } else if (leg.unassessed.length) {
+      // L2-HARDLEG-BLOCKING-1. ⚠ The pre-existing silent green inside this leg: the checker reads
+      // the ASSEMBLED chaingraph/chaingraph.json, and a PR never regenerates it (SO #35 single
+      // writer), so a brand-new chain shard is absent from the report — and the old line below
+      // still said "checked, none L2-fail" about a chain nothing had assessed. It now SAYS SO.
+      // ⛔ Deliberately NOT blocking: that would red every additive chain PR by construction, for
+      // a shard the main-side assembler has not reached yet. Reported, never claimed as checked.
+      gateFail(`   ⚠ ${leg.unassessed.length} of ${leg.subjects.length} touched chain shard(s) NOT CHECKED — absent from the assembled chaingraph.json this checker reads:`);
+      for (const n of leg.unassessed) console.log(`       ? ${n} (shard not yet assembled — SO #35 single writer; no L2 verdict exists for it)`);
+      if (leg.subjects.length > leg.unassessed.length) {
+        console.log(`       ✓ the other ${leg.subjects.length - leg.unassessed.length} touched chain shard(s) were checked, none L2-fail.`);
+      }
+    } else if (leg.subjects.length) {
+      gatePass(`   ✓ ${leg.subjects.length} touched chain shard(s) checked, none L2-fail.`);
     }
   }
 }
