@@ -334,8 +334,20 @@ const SCOPE_EXCLUDE = [
   /\.bundle\.mjs$/,          // inlined/generated bundles (noble crypto, _detmath, _dtree): nobody
                              // hand-edits a bundle, and their JSDoc is upstream's prose, not ours
 ];
+// ⚖ SELF-EXCLUSION, and it is exactly two files. This gate's own header QUOTES the phasing notes it
+// detects, verbatim, as worked examples ("Phasing: only 5 of ~79 kernels ship fixtures today ...
+// Flip to --strict once every kernel has a fixture"), and so does its self-test's fixture corpus.
+// Scanning them would flag the documentation of the rule as a violation of the rule. Same precedent
+// as check-generator-coverage.mjs's SELF_EXCLUDE and check-copy-hallmarks.mjs's PII-banner
+// exemption. ⛔ This list is pinned by the self-test — widening it is how a real phasing note gets
+// parked in a file nobody scans.
+export const SELF_EXCLUDE = new Set([
+  'scripts/check-phasing-notes.mjs',
+  'scripts/check-phasing-notes.test.mjs',
+]);
 
 export function inScope(rel) {
+  if (SELF_EXCLUDE.has(rel)) return false;
   return !SCOPE_EXCLUDE.some((re) => re.test(rel));
 }
 
@@ -392,6 +404,15 @@ export function ratchetVerdict(counts, baseline) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const UPDATE = process.argv.includes('--update-baseline');
   const LIST = process.argv.includes('--list');
+  // `--check` is an explicit alias for the default gate mode. It earns its keep with
+  // check-generator-coverage.mjs, which otherwise sees only the writeFileSync in --update-baseline
+  // and warns about an unguarded generator. The writer here is a deliberate re-pin, not a build
+  // step, so the honest answer is "yes, --check is the gate, and preflight runs it".
+  const CHECK = process.argv.includes('--check');
+  if (CHECK && UPDATE) {
+    console.error('✗ check-phasing-notes: --check (gate) and --update-baseline (re-pin) are mutually exclusive.');
+    process.exit(1);
+  }
 
   const files = scopeFiles();
   // SO #34c / DENOMINATOR-SENTINEL-1: "0 of 0 clean" is indistinguishable from full coverage in a
@@ -424,7 +445,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const per_file = {};
     for (const [rel, hits] of Object.entries(counts)) per_file[rel] = hits.length;
     const doc = {
-      _comment: 'STALE-PHASING-NOTE-SWEEP-1 ratchet pin. Phasing notes with no checkable form (a date or a re-derivation command). Counts only go DOWN: rewrite a note to carry a date/command, then re-pin with `node scripts/check-phasing-notes.mjs --update-baseline`. Loaded through the hard-failing scripts/ratchet-baseline.mjs — deleting this file REDS the gate, it does not switch it off.',
+      _comment: 'STALE-PHASING-NOTE-SWEEP-1 ratchet pin. Phasing notes with no checkable form (a date or a re-derivation command). Counts only go DOWN: rewrite a note to carry a date/command, then re-pin with `node scripts/check-phasing-notes.mjs --update-baseline`. Loaded through the hard-failing scripts/ratchet-baseline.mjs: deleting this file REDS the gate, it does not switch it off.',
       total: liveTotal,
       files: Object.keys(counts).sort(),
       per_file,

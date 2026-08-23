@@ -1011,6 +1011,22 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment
+  // that states a temporary condition and names its own exit ("only 5 of ~79 kernels ship fixtures
+  // today ... Flip to --strict once every kernel has a fixture") is read as permanent fact forever,
+  // because nobody re-reads a comment to check whether it expired. That one kept a coverage gate
+  // lenient long after its stated reason had evaporated (629 of 629 by the time anyone looked —
+  // KERNEL-CONTRACT-STRICT-1, PR #1493). This gate does not forbid phasing; it requires the note to
+  // carry a DATE or a COMMAND so the next reader can re-evaluate instead of inheriting. Ratchet
+  // baseline, hard-failing loader, counts only go down.
+  ['Phasing-note ratchet (STALE-PHASING-NOTE-SWEEP-1)', 'node scripts/check-phasing-notes.mjs'],
+  // Runs beside the gate, never after a failure would hide it. Layer 3 pins nine verbatim
+  // legitimate uses of the same vocabulary ("currently throws later", "once every step above has
+  // succeeded", "pending" as domain vocabulary) so a future loosening of the patterns reds HERE
+  // instead of quietly turning the lint into noise that gets baselined away. Layer 4 is the row's
+  // own known-answer check against the real kernel-contract comment. Run
+  // `node scripts/check-phasing-notes.test.mjs` to see the whole layer list.
+  ['Phasing-note gate controls (RED + GREEN + false-positive + known-answer)', 'node scripts/check-phasing-notes.test.mjs'],
   ['SSOT no dead npm commands (CONTRACT-DEADCMD-FIX-1)', 'node scripts/check-ssot-no-npm.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],

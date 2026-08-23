@@ -525,6 +525,12 @@ for (const file of htmlFiles(REPO)) {
   // icon-system redesign across ~480 tool pages — a CONTRACT-level UI decision,
   // not a copy fix, and out of this WU's scope. Advisory only until Tim scopes
   // an icon-migration WU; re-tighten to blocking once that lands.
+  // ⛔ Do not read the sentence above as a statement of where things stand — it
+  // has no owner and nothing re-evaluates it. Re-derive instead: `node
+  // scripts/check-copy-hallmarks.mjs` prints the live per-page body-emoji count
+  // in its ADVISORY block, which is the debt a flip to blocking would turn red.
+  // Last evaluated 2026-08-23 (STALE-PHASING-NOTE-SWEEP-1): no icon-migration WU
+  // scoped, so still advisory and still pending. Re-date when you re-check.
   const emojiProse = nonExemptEmoji(text).length;
 
   // Overuse counts (visible text), reported per label when non-zero.
