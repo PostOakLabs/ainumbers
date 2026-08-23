@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:210b4f29ed84f0231da695b4d10ddb3efecf22981ed1f946917de4f11ca5bdf2
+// kernel_digest_at_authoring: sha256:1ae198828032158cef3630502b962e02ce05235c503f0b43bea0f76f0feac74a
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-235-test-hpml-escrow.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (apr_pct/apor_pct feed a float subtraction compared
