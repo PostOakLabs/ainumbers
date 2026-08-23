@@ -130,7 +130,25 @@ if (mode === 'check') {
     console.error(`✗ REGISTRY-RESOLVE-STATIC-1 kernel-resolve coverage FAILED — ${problems.length} problem(s):`);
     for (const p of problems.slice(0, 25)) console.error('  • ' + p);
     if (problems.length > 25) console.error(`  … and ${problems.length - 25} more`);
-    console.error('\nRun: node scripts/gen-registry-kernel-resolve.mjs --write');
+    // REMEDY BY PROBLEM CLASS. `--write` creates and refreshes records; it does NOT
+    // delete orphans. One blanket "run --write" told the reader to run a command that
+    // provably cannot fix an orphan failure — which is how this gate sat red on main
+    // while every session's pre-push hook failed and CI stayed green (it was
+    // preflight-only). A remedy that does not resolve the reported failure is worse
+    // than no remedy: it reads as a flaky gate and pushes sessions toward --no-verify.
+    const orphans = problems.filter((p) => p.startsWith('orphan '));
+    const regenerable = problems.length - orphans.length;
+    console.error('');
+    if (regenerable > 0) {
+      console.error(`Missing/stale (${regenerable}) — regenerate: node scripts/gen-registry-kernel-resolve.mjs --write`);
+    }
+    if (orphans.length > 0) {
+      console.error(`Orphans (${orphans.length}) — NOT fixed by --write, which never deletes. Remove the named file(s):`);
+      for (const p of orphans.slice(0, 25)) {
+        console.error(`  git rm registry/kernel/${p.slice('orphan '.length).split(' ')[0]}`);
+      }
+      console.error('An orphan means a kernel left the in-scope set, e.g. a node going non-live.');
+    }
     process.exit(1);
   }
   console.log(`✓ REGISTRY-RESOLVE-STATIC-1 clean — ${wanted.size} record(s) for ${inScope.length} in-scope kernel(s), all current.`);
