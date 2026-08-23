@@ -98,6 +98,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { loadRatchetBaselineOrExit, readBaselineForUpdate } from './ratchet-baseline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -107,6 +108,20 @@ const NODES_DIR = resolve(CG_DIR, 'graph', 'nodes');
 const KDIR = resolve(CG_DIR, 'kernels');
 const PROPTESTS_DIR = resolve(KDIR, '__proptests__');
 const BASELINE_PATH = resolve(HERE, 'fv-floor-coverage-baseline.json');
+
+// RATCHET-BASELINE-LOADER-1: every key this gate reads out of the baseline, declared for the shared
+// hard-failing loader. Both node lists are required, not optional — `unfloored_nodes ?? []` /
+// `known_live_nodes ?? []` would reclassify every REGRESSION and NEW-UNFLOORED finding away
+// (findProvenanceViolations() reads exactly these two lists).
+const BASELINE_REQUIRED_KEYS = [
+  'unfloored',
+  { key: 'unfloored_nodes', type: 'name-list' },
+  { key: 'known_live_nodes', type: 'name-list' },
+];
+const BASELINE_OPTS = {
+  label: 'FV floor coverage ratchet (FV-COVERAGE-GATE-1)',
+  repinCommand: 'node scripts/check-fv-floor-coverage.mjs --update-baseline',
+};
 
 const SUMMARY = process.argv.includes('--summary');
 const LIST_UNFLOORED = process.argv.includes('--list-unfloored');
@@ -292,7 +307,10 @@ function readFloorSource(tool_id) {
 const { results, unfloored, floored, total } = await evaluateCoverage(liveKernels, readKernelSource, readFloorSource, sourceDigest);
 
 if (UPDATE_BASELINE) {
-  const oldBaseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : null;
+  // ⚖ THE ONE SANCTIONED ABSENT-BASELINE PATH (RATCHET-BASELINE-LOADER-1): this mode WRITES the file,
+  // and derives no ceiling from what it reads. Absent ⇒ null ⇒ first-ever pin. An existing-but-corrupt
+  // baseline still hard-fails rather than being overwritten as though it had been a clean first pin.
+  const oldBaseline = readBaselineForUpdate(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
   // First-ever pin: nothing to discriminate against yet — every live kernel is simply "known now."
   const { regressions, newUnfloored } = oldBaseline ? findProvenanceViolations(unfloored, oldBaseline) : { regressions: [], newUnfloored: [] };
   if (regressions.length || newUnfloored.length) {
@@ -322,9 +340,14 @@ if (SUMMARY || LIST_UNFLOORED) {
 // ── strict gate ──────────────────────────────────────────────────────────────────────────────────
 let failed = false;
 
-if (existsSync(BASELINE_PATH)) {
-  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-  const ceiling = baseline.unfloored ?? Infinity;
+// ⛔ NO existsSync() BRANCH AND NO `?? Infinity` — RATCHET-BASELINE-LOADER-1 (gate-integrity F-11).
+// This block used to be `if (existsSync(BASELINE_PATH))` with an else that printed "⚠ no baseline …
+// (not blocking)", and the ceiling inside it read `baseline.unfloored ?? Infinity`. Either the file or
+// just that one key going missing disabled all THREE controls here — REGRESSION, NEW-UNFLOORED and the
+// ceiling — while the gate still printed its green line and exited 0. Both defaults are now hard failures.
+const baseline = loadRatchetBaselineOrExit(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
+{
+  const ceiling = baseline.unfloored;
   const { regressions, newUnfloored } = findProvenanceViolations(unfloored, baseline);
 
   if (regressions.length) {
@@ -344,8 +367,6 @@ if (existsSync(BASELINE_PATH)) {
     console.error(`\n✗ FV floor coverage ratchet FAILED — unfloored count is ${unfloored.length}, baseline ceiling is ${ceiling} (counts only go DOWN).`);
     console.error('  Either author the floor file(s) now, or if this is a deliberate, Tim-approved addition: node scripts/check-fv-floor-coverage.mjs --update-baseline');
   }
-} else {
-  console.error('⚠ no fv-floor-coverage-baseline.json — run --update-baseline to pin the ratchet (not blocking).');
 }
 
 if (unfloored.length) {
