@@ -6,7 +6,7 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name: 'lint_mcp_server_conformance',
+  mcp_name: 'attest_mcp_server',
   mandate_type: 'infrastructure_mandate',
   gpu: false,
 };
