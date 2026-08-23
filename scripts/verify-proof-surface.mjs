@@ -34,6 +34,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertDenominatorOrExit } from './denominator-sentinel.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');                                  // repo/
@@ -158,6 +159,26 @@ console.log(`  emitters missing §16       : ${missing.length}`);
 console.log(`  pages with stale 0.4.x spec_version label: ${labelStale.length}`);
 
 if (LIST_MISSING) { console.log('\nemitters missing §16 surface:'); for (const m of missing) console.log('  · ' + m); }
+
+// ── DENOMINATOR SENTINEL (DENOMINATOR-SENTINEL-1 / F-03) ─────────────────────────────────────────
+// walkHtml() returns [] for a directory that is not there (line ~67), so a moved or renamed page root
+// produced `emitters=0, problems=0` and the closing line read "✓ proof-surface gate GREEN — all 0
+// emitters carry the §16 surface". Both counts were printed and neither was ever asserted.
+//
+// The floor is 1, not the live emitter count: emitters legitimately grow and shrink as pages are
+// authored and retired, so pinning today's 286 would be a hand-maintained ratchet in a gate that has
+// no business carrying one. 1 is the whole distinction that matters here — "this gate examined
+// something" versus "this gate examined nothing and said GREEN".
+//
+// ⭐ Asserted BEFORE the --summary exit on purpose. --summary is a counts-only reporting mode, but an
+// empty scope is not a count worth reporting: `emitters: 0` in summary mode is the same vacuous state
+// wearing a different exit code.
+assertDenominatorOrExit(emitters, 1, {
+  label: 'verify-proof-surface',
+  unit: 'artifact-emitting page(s)',
+  scope: `${files.length} HTML page(s) scanned under ${PAGE_DIRS.map((d) => relative(ROOT, d)).join(', ')}${CHAINS_ONLY ? ' (--chains-only)' : ''}; an emitter carries the "${CANON_SENTINEL}" sentinel`,
+  remedy: 'a page root was moved or renamed, so walkHtml() found nothing to scan — check the PAGE_DIRS paths above still exist',
+});
 
 if (SUMMARY) process.exit(0);
 

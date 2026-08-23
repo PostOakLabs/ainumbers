@@ -44,6 +44,13 @@ const LIB_SRC = resolve(__dirname, 'lib-shard-order.mjs')
 // from — the same real files, never a reproduction of their content.
 const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
 const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
+// DENOMINATOR-SENTINEL-1: schema-validate.mjs now imports the shared denominator sentinel (it hard-fails
+// instead of printing "! chaingraph.json not found" and exiting 0 with nothing validated). --shard mode
+// returns before that assert, so the fixture repos never trip it — but ESM resolves every import at load,
+// so the module has to BE there. Same allowlist rule as the two lines above: copy the real file, never a
+// reproduction of its content. ⚠ If schema-validate.mjs ever grows another sibling import, it belongs here
+// too — the failure mode is a blunt ERR_MODULE_NOT_FOUND across every case in this file, which is loud.
+const SENTINEL_SRC = resolve(__dirname, 'denominator-sentinel.mjs')
 
 // ── CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1) ────────────────
 // Git EXPORTS GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE, GIT_PREFIX, ...) to
@@ -215,6 +222,7 @@ function makeFixture() {
   mkdirSync(join(work, 'scripts'), { recursive: true })
   cpSync(GATE_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
   cpSync(LIB_SRC, join(work, 'scripts/lib-shard-order.mjs'))
+  cpSync(SENTINEL_SRC, join(work, 'scripts/denominator-sentinel.mjs'))
   mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
   cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
   cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))

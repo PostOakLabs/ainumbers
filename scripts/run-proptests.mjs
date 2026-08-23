@@ -13,8 +13,14 @@
 //   it only checks the child's exit code, so a broken file cannot crash the
 //   runner itself.
 //
-//   An EMPTY __proptests__/ directory (no .proptest.mjs files) is a NO-OP
-//   PASS — this is the gate every first shard depends on (§7 row 1 "done").
+//   ⛔ SUPERSEDED 2026-08-23 (DENOMINATOR-SENTINEL-1, gate-integrity finding F-02/F-08). An EMPTY
+//   __proptests__/ directory USED to be a NO-OP PASS — the bootstrap affordance the first rollout
+//   shard depended on (§7 row 1 "done"), when the floor estate was genuinely 0 files. It is now a
+//   HARD FAILURE: 634 floor files are committed, and the audit's EXP-5 renamed the directory and got
+//   `run-proptests: 0 property files found — no-op PASS.` exit 0 — one rename greening the entire
+//   estate with a line that reads like success. The floor is derived from git's index (the committed
+//   *.proptest.mjs count), never from the directory being globbed, so the disappearance of that
+//   directory is exactly what the comparison detects. See assertDenominator below.
 //
 // ZERO-DEP: pure Node built-ins only (node:fs, node:path, node:child_process,
 // node:url). No fast-check, no new package.json dependency — §2's zero-dep
@@ -55,6 +61,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync, execSync } from 'node:child_process';
+import { assertDenominatorOrExit, committedFileCountOrExit } from './denominator-sentinel.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -262,6 +269,31 @@ async function main() {
   }
 
   const allFiles = findPropertyFiles(PROPTESTS_DIR);
+
+  // ── DENOMINATOR SENTINEL (DENOMINATOR-SENTINEL-1 / F-02, F-08) ──────────────────────────────
+  // At the point of check, before any scoping and before a single child process runs: did this gate
+  // discover at least as many floor files as git says are committed? The floor is recomputed from
+  // git's index every run (SO #34 independent derivation) — reading it back out of PROPTESTS_DIR
+  // would make the check tautological against the exact failure it exists to catch.
+  //
+  // ⭐ Placed BEFORE the --base scoping block deliberately. Scoped mode legitimately runs 0 files
+  // when a diff touches no kernel, and that no-op PASS is still correct — but only once we know the
+  // estate it declined to re-run is still THERE. Asserting after the scoping exit would let the
+  // vacuous state hide behind the legitimate one.
+  const committedFloors = committedFileCountOrExit({
+    repoRoot: REPO,
+    pathspec: 'chaingraph/kernels/__proptests__',
+    match: /\.proptest\.mjs$/,
+    label: 'run-proptests',
+    remedy: 'the __proptests__ directory or its files were renamed, moved or deleted — restore them: git checkout origin/main -- chaingraph/kernels/__proptests__',
+  });
+  assertDenominatorOrExit(allFiles.length, committedFloors, {
+    label: 'run-proptests',
+    unit: 'property floor file(s)',
+    scope: `${PROPTESTS_DIR} (*.proptest.mjs); floor = ${committedFloors} committed, derived from git ls-files`,
+    remedy: 'the __proptests__ directory or its files were renamed, moved or deleted — restore them: git checkout origin/main -- chaingraph/kernels/__proptests__',
+  });
+
   let files = allFiles;
 
   if (BASE_REF) {
@@ -282,11 +314,17 @@ async function main() {
     }
   }
 
-  if (files.length === 0) {
-    console.log('run-proptests: 0 property files found — no-op PASS.');
-    console.log(`  (searched: ${PROPTESTS_DIR})`);
-    process.exit(0);
-  }
+  // Formerly the "0 property files found — no-op PASS" exit (EXP-5's silent green). The sentinel
+  // above has already proven allFiles.length >= the committed floor >= 1, and the only path that can
+  // narrow `files` (--base scoping) exits on its own when it selects none, so reaching here with an
+  // empty set means a bug in this file rather than a shrunken estate. It is asserted, not assumed —
+  // an unreachable branch that would print green if it ever became reachable is how F-02 started.
+  assertDenominatorOrExit(files.length, 1, {
+    label: 'run-proptests',
+    unit: 'property floor file(s) selected to run',
+    scope: `${files === allFiles ? 'full estate' : '--base scoped subset'} of ${allFiles.length} discovered file(s)`,
+    remedy: 'this is an internal selection bug in run-proptests.mjs, not a missing floor — the discovery sentinel above already passed',
+  });
 
   console.log(`run-proptests: running ${files.length} property file(s)...`);
 

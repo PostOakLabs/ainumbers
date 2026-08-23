@@ -12,10 +12,15 @@
 //
 // Placement: run in BOTH repos — site (repo/) validates chaingraph.json; worker
 // (mcp-apps-poc/) validates the vendored data/chaingraph/chaingraph.json + kernel fixtures.
+// ⚠ One sibling-file dependency since DENOMINATOR-SENTINEL-1: ../../scripts/denominator-sentinel.mjs
+// (zero-dep, node: builtins only). It is NOT vendored into mcp-apps-poc today — verified by
+// `git ls-files` there, which carries no copy of this gate either — so nothing is broken by it; but a
+// future vendor of this file must take that one module with it.
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertSsotPresentOrExit } from '../../scripts/denominator-sentinel.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCHEMA = process.env.SCHEMA || firstExisting([
@@ -153,8 +158,22 @@ if (shardFlagIdx !== -1) {
 
 // ---- default mode: whole chaingraph.json + fixtures (unchanged) ----
 console.log(`schema-validate · schema=${rel(SCHEMA)}\n`);
-if (existsSync(CHAINGRAPH)) check(`chaingraph.json (${rel(CHAINGRAPH)})`, JSON.parse(readFileSync(CHAINGRAPH, 'utf8')));
-else console.error(`! chaingraph.json not found at ${CHAINGRAPH}`);
+
+// ── DENOMINATOR SENTINEL (DENOMINATOR-SENTINEL-1 / F-01) ─────────────────────────────────────────
+// This branch used to be `if (existsSync(CHAINGRAPH)) check(…) else console.error('! not found')`, and
+// the missing-file arm left `failed === 0`, so the run closed "N checked, 0 failed." and exited 0. The
+// SSOT schema gate validating nothing, green, because the SSOT itself had moved — and note firstExisting()
+// deliberately falls back to paths[0] when nothing exists, so CHAINGRAPH is always a plausible-looking
+// path even when no file is behind it. Absence of the subject is a distinct state, never a pass (SO #34c).
+//
+// The SCHEMA path above is not asserted here: readFileSync(SCHEMA) on line ~112 already throws for a
+// missing schema, which fails closed. Only the silently-tolerated arm needed closing.
+assertSsotPresentOrExit(CHAINGRAPH, {
+  label: 'schema-validate',
+  what: 'chaingraph.json (the OpenChainGraph SSOT catalog this gate exists to validate)',
+  remedy: 'the SSOT moved or was not assembled — restore it: git checkout origin/main -- chaingraph/chaingraph.json, or point this run at it with CHAINGRAPH=<path>',
+});
+check(`chaingraph.json (${rel(CHAINGRAPH)})`, JSON.parse(readFileSync(CHAINGRAPH, 'utf8')));
 
 if (FIXTURES_DIR && existsSync(FIXTURES_DIR)) {
   for (const f of readdirSync(FIXTURES_DIR).filter((n) => n.endsWith('.json'))) {
