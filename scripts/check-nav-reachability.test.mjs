@@ -42,6 +42,7 @@ const GATE_SRC = resolve(__dirname, 'check-nav-reachability.mjs')
 // already applies to schema-validate.mjs).
 const SHARD_ASSEMBLY_SRC = resolve(__dirname, 'check-shard-assembly.mjs')
 const LIB_SHARD_ORDER_SRC = resolve(__dirname, 'lib-shard-order.mjs')
+const GIT_ENV_LIB_SRC = resolve(__dirname, '_git-env-lib.mjs')
 const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
 const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
 
@@ -200,6 +201,9 @@ function makeFixture() {
   cpSync(GATE_SRC, join(work, 'scripts/check-nav-reachability.mjs'))
   cpSync(SHARD_ASSEMBLY_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
   cpSync(LIB_SHARD_ORDER_SRC, join(work, 'scripts/lib-shard-order.mjs'))
+  // GIT-ENV-LEAK-SWEEP-1: check-shard-assembly.mjs (copied above) imports the shared GIT_* scrub,
+  // so the fixture needs it too or the gate dies at import with ERR_MODULE_NOT_FOUND.
+  cpSync(GIT_ENV_LIB_SRC, join(work, 'scripts/_git-env-lib.mjs'))
   mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
   cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
   cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))

@@ -45,6 +45,11 @@ const LIB_SRC = resolve(__dirname, 'lib-shard-order.mjs')
 // from — the same real files, never a reproduction of their content.
 const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
 const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
+// GIT-ENV-LEAK-SWEEP-1: both check-shard-assembly.mjs and denominator-sentinel.mjs now import the
+// shared GIT_* scrub, so the fixture needs the module too or every case dies at import with
+// ERR_MODULE_NOT_FOUND. This copy list is hand-maintained and has no gate behind it — adding an
+// import to any COPIED file silently breaks all 18 cases until the file is named here as well.
+const GIT_ENV_LIB_SRC = resolve(__dirname, '_git-env-lib.mjs')
 // DENOMINATOR-SENTINEL-1: schema-validate.mjs now imports the shared denominator sentinel (it hard-fails
 // instead of printing "! chaingraph.json not found" and exiting 0 with nothing validated). --shard mode
 // returns before that assert, so the fixture repos never trip it — but ESM resolves every import at load,
@@ -208,6 +213,7 @@ function makeFixture() {
   cpSync(GATE_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
   cpSync(LIB_SRC, join(work, 'scripts/lib-shard-order.mjs'))
   cpSync(SENTINEL_SRC, join(work, 'scripts/denominator-sentinel.mjs'))
+  cpSync(GIT_ENV_LIB_SRC, join(work, 'scripts/_git-env-lib.mjs'))
   mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
   cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
   cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))
