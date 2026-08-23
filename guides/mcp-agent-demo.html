@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>MCP Agent Demo · Watch an Agent Use AINumbers · AINumbers.co</title>
-<meta name="description" content="A live MCP agent session replay: the agent discovers AINumbers.co via suite-registry.json, selects the fraud score simulator, constructs a typed invocation, and receives a deterministic JSON response. Client-side replay. Zero PII.">
+<meta name="description" content="A live MCP agent session replay: the agent discovers AINumbers.co via .well-known/mcp.json and mcp/catalog.json, selects the fraud score simulator, constructs a typed invocation, and receives a deterministic JSON response. Client-side replay. Zero PII.">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
 <link rel="canonical" href="https://ainumbers.co/guides/mcp-agent-demo">
@@ -198,7 +198,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
   <div class="container">
     <div class="hero-eyebrow">MCP AGENT DEMO · LIVE INVOCATION</div>
     <h1>Watch an Agent Use AINumbers</h1>
-    <p class="hero-desc">A real MCP session: the agent discovers the suite via <code style="font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal)">suite-registry.json</code>, selects a tool, constructs a typed invocation, and receives a deterministic JSON response. Zero server calls. Zero inference. Client-side replay.</p>
+    <p class="hero-desc">A real MCP session: the agent discovers the suite via <code style="font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--teal)">.well-known/mcp.json</code>, selects a tool, constructs a typed invocation, and receives a deterministic JSON response. Zero server calls. Zero inference. Client-side replay.</p>
     <div class="hero-badges">
       <span class="badge b-teal">MCP v1+</span>
       <span class="badge b-gold">AP2 v1.0</span>
@@ -252,13 +252,13 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
       <div class="card">
         <div class="card-num">01</div>
         <div class="card-title">Discovery</div>
-        <div class="card-body">The agent reads <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">suite-registry.json</code> at the root. 351 tools, typed schemas, MCP v1+ compliant manifest entries. No API key needed: the registry is public and machine-readable.</div>
-        <span class="card-tag">suite-registry.json</span>
+        <div class="card-body">The agent reads <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">.well-known/mcp.json</code> at the root. It points to <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">mcp/server.json</code> for server capabilities and <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">mcp/catalog.json</code> for the full tool list with typed schemas. No API key needed: both are public and machine-readable.</div>
+        <span class="card-tag">.well-known/mcp.json</span>
       </div>
       <div class="card">
         <div class="card-num">02</div>
         <div class="card-title">Typed Invocation</div>
-        <div class="card-body">Every tool exposes a <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifest.json</code> with a full <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code> (JSON Schema Draft-07). The agent constructs a validated call: no prompt engineering, no natural-language parsing required.</div>
+        <div class="card-body">Every tool ships a manifest at <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifests/{tool}.manifest.json</code>, and each catalog entry carries the same <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code> inline (JSON Schema Draft-07). The agent constructs a validated call: no prompt engineering, no natural-language parsing required.</div>
         <span class="card-tag">JSON Schema · Draft-07</span>
       </div>
       <div class="card">
@@ -323,38 +323,53 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 
     <div class="mcp-block" id="mcp-block">
       <button class="mcp-header" onclick="toggleMcp()">
         <div class="mcp-header-left">
-          <span class="mcp-title">Connection snippet &amp; registry preview</span>
+          <span class="mcp-title">Connection snippet &amp; discovery preview</span>
           <span class="mcp-tag">Expandable</span>
         </div>
         <span class="mcp-chevron" id="mcp-chev">&#9660;</span>
       </button>
       <div class="mcp-body" id="mcp-body">
-        <p class="mcp-desc">Connect once. Discover 351 tools via the registry. Each tool's <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifest.json</code> provides the full <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">outputSchema</code>, and <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">policy_mandate</code> envelope spec.</p>
+        <p class="mcp-desc">Connect once. Discover the tool set via <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">.well-known/mcp.json</code>, which resolves to <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">mcp/catalog.json</code>. Each tool's manifest under <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">manifests/</code> provides the full <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">inputSchema</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">outputSchema</code>, and <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal)">policy_mandate</code> envelope spec.</p>
         <div class="mcp-connect">
           <div class="mcp-connect-label">Connect command</div>
           <div class="mcp-connect-cmd">mcp connect https://ainumbers.co/mcp</div>
         </div>
         <div class="code-block">
-          <div class="code-label">suite-registry.json · excerpt</div>
+          <div class="code-label">.well-known/mcp.json · excerpt</div>
           <pre class="code-pre">{
-  <span class="ck">"registry_version"</span>: <span class="cv">"1.0.0"</span>,
-  <span class="ck">"mcp_version"</span>: <span class="cv">"1+"</span>,
-  <span class="ck">"tool_count"</span>: <span class="cn">351</span>,
-  <span class="ck">"categories"</span>: [
-    <span class="cv">"fraud-risk"</span>, <span class="cv">"payments"</span>, <span class="cv">"aml"</span>, <span class="cv">"compliance"</span>,
-    <span class="cv">"esg"</span>, <span class="cv">"credit"</span>, <span class="cv">"capital"</span>, <span class="cv">"liquidity"</span>,
-    <span class="cv">"rbe-deterministic"</span>, <span class="cv">"iso20022"</span>
-  ],
-  <span class="ck">"tools"</span>: [
+  <span class="ck">"schema_version"</span>: <span class="cv">"well-known-mcp-v1"</span>,
+  <span class="ck">"servers"</span>: [
     {
-      <span class="ck">"id"</span>: <span class="cv">"fraud-score-simulator"</span>,
-      <span class="ck">"category"</span>: <span class="cv">"fraud-risk"</span>,
-      <span class="ck">"manifest"</span>: <span class="cv">"https://ainumbers.co/tools/04-fraud-score-simulator/manifest.json"</span>,
-      <span class="ck">"ap2"</span>: <span class="cn">true</span>,
-      <span class="ck">"deterministic"</span>: <span class="cn">true</span>
+      <span class="ck">"id"</span>: <span class="cv">"ainumbers-fintech-suite"</span>,
+      <span class="ck">"server_url"</span>: <span class="cv">"https://ainumbers.co/mcp/server.json"</span>,
+      <span class="ck">"catalog_url"</span>: <span class="cv">"https://ainumbers.co/mcp/catalog.json"</span>,
+      <span class="ck">"execution_model"</span>: <span class="cv">"browser-reference"</span>
     },
-    <span class="cv">"... 350 more tools"</span>
-  ]
+    {
+      <span class="ck">"id"</span>: <span class="cv">"ainumbers-apps"</span>,
+      <span class="ck">"endpoint_url"</span>: <span class="cv">"https://mcp.ainumbers.co/mcp"</span>,
+      <span class="ck">"execution_model"</span>: <span class="cv">"mcp-apps-widgets"</span>
+    }
+  ],
+  <span class="ck">"llms_txt"</span>: <span class="cv">"https://ainumbers.co/llms.txt"</span>,
+  <span class="ck">"sitemap"</span>: <span class="cv">"https://ainumbers.co/sitemap.xml"</span>
+}</pre>
+        </div>
+        <div class="code-block">
+          <div class="code-label">mcp/catalog.json · one tool entry, abridged</div>
+          <pre class="code-pre">{
+  <span class="ck">"name"</span>: <span class="cv">"simulate_fraud_score"</span>,
+  <span class="ck">"inputSchema"</span>: {
+    <span class="ck">"type"</span>: <span class="cv">"object"</span>,
+    <span class="ck">"required"</span>: [<span class="cv">"amount"</span>]
+  },
+  <span class="ck">"metadata"</span>: {
+    <span class="ck">"tool_id"</span>: <span class="cv">"fraud-score-simulator"</span>,
+    <span class="ck">"category"</span>: <span class="cv">"fraud-risk"</span>,
+    <span class="ck">"url"</span>: <span class="cv">"https://ainumbers.co/tools/04-fraud-score-simulator.html"</span>,
+    <span class="ck">"ap2_export"</span>: <span class="cn">true</span>,
+    <span class="ck">"execution_type"</span>: <span class="cv">"browser-reference"</span>
+  }
 }</pre>
         </div>
       </div>
@@ -401,7 +416,7 @@ var STEPS = [
     lines: [
       {type:'cmd',  text:'$ mcp connect ainumbers.co/mcp'},
       {type:'out',  text:'<span class="c-check">✓</span> Connected to AINumbers MCP server'},
-      {type:'out',  text:'<span class="c-check">✓</span> Loaded suite-registry.json — <span class="c-num">351</span> tools available'},
+      {type:'out',  text:'<span class="c-check">✓</span> Read .well-known/mcp.json, catalog at mcp/catalog.json'},
       {type:'blank'},
       {type:'cmd',  text:'$ mcp list-tools --category "fraud-risk"'},
       {type:'out',  text:'<span class="c-arrow">→</span> Returning <span class="c-num">10</span> tools in category <span class="c-str">fraud-risk</span>...'},
