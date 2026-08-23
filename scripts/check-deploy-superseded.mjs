@@ -59,10 +59,10 @@
  * ── WHY "SUPERSEDED" MEANS *DO NOT DEPLOY*, NOT "DEPLOY ANYWAY" ──────────────
  * A superseded run SKIPS the deploy job. That is the whole point: the tree at
  * this commit is stale, so shipping it would publish the stale artifact — the
- * trap. Nothing is deployed until a fully-green preflight says so, and the tree
- * that eventually ships is the REPAIRED one (the bot's commit). Compared with
- * today, a superseded run deploys exactly what today's failed run deployed —
- * nothing — so no window is opened; only the red is removed.
+ * trap. Nothing is ever deployed except behind a fully green preflight, and the
+ * tree that eventually ships is the REPAIRED one (the bot's commit). A
+ * superseded run therefore publishes exactly what the failed run it replaces
+ * published — nothing — so no window is opened; only the red is removed.
  *
  * ── FAIL DIRECTION (deliberately the inverse of a normal gate) ───────────────
  * ⛔ Standing down is the PRIVILEGE here, so standing down is what must be
@@ -222,38 +222,51 @@ export function classifySuperseded({ gates, exec = defaultExec, probe, covered }
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 
 if (isMain) {
-  let workflowText = '';
+  // ⛔ ONE try/catch around the WHOLE CLI, on purpose. An uncaught throw here
+  // would fail the job, skip the preflight job that depends on it, and red the
+  // run — inventing a NEW false red while removing an old one. Every escape
+  // route lands on the same conservative outcome: superseded=false ⇒ Deploy
+  // behaves exactly as it does today.
+  let result = { superseded: false, reason: 'INTERNAL-ERROR', red: [], lines: [] };
   try {
-    workflowText = readFileSync(resolve(REPO, DEPLOY_WORKFLOW), 'utf8');
+    let workflowText = '';
+    try {
+      workflowText = readFileSync(resolve(REPO, DEPLOY_WORKFLOW), 'utf8');
+    } catch (e) {
+      console.log(`⚠ could not read ${DEPLOY_WORKFLOW}: ${e.message} — NOT superseded.`);
+    }
+    const gates = workflowText ? deployGateCommands(workflowText) : [];
+
+    if (process.argv.includes('--gates')) {
+      for (const g of gates) console.log(g);
+      process.exit(0);
+    }
+
+    result = classifySuperseded({
+      gates,
+      probe: (entries) => withScratchWorktree((dir) => probeRepairable({ dir, entries })),
+    });
   } catch (e) {
-    console.log(`⚠ could not read ${DEPLOY_WORKFLOW}: ${e.message} — NOT superseded.`);
+    result.lines.push(`⚠ check-deploy-superseded threw: ${e?.stack || e}`);
+    result.lines.push('  NOT superseded — Deploy proceeds exactly as it does today (its preflight job runs every gate raw).');
   }
-  const gates = workflowText ? deployGateCommands(workflowText) : [];
-
-  if (process.argv.includes('--gates')) {
-    for (const g of gates) console.log(g);
-    process.exit(0);
-  }
-
-  const result = classifySuperseded({
-    gates,
-    probe: (entries) => withScratchWorktree((dir) => probeRepairable({ dir, entries })),
-  });
 
   for (const l of result.lines) console.log(l);
 
-  if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT, `superseded=${result.superseded}\nreason=${result.reason}\n`);
-  }
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    const head = result.superseded
-      ? '### ⏳ Deploy stood down — superseded by the derived-artifacts regen\n\n'
-        + 'Every shared derived artifact that is stale at this commit was DEMONSTRATED repairable by '
-        + '`derived-artifacts-regen.yml`, which is committing that repair on this same push. The bot\'s commit '
-        + 'fires a fresh, fully gated Deploy run — that one ships the repaired tree. Nothing was deployed here.\n\n'
-      : `### Deploy proceeding normally (not superseded — ${result.reason})\n\n`;
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, head + '```\n' + result.lines.join('\n') + '\n```\n');
-  }
+  try {
+    if (process.env.GITHUB_OUTPUT) {
+      appendFileSync(process.env.GITHUB_OUTPUT, `superseded=${result.superseded}\nreason=${result.reason}\n`);
+    }
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      const head = result.superseded
+        ? '### ⏳ Deploy stood down — superseded by the derived-artifacts regen\n\n'
+          + 'Every shared derived artifact that is stale at this commit was DEMONSTRATED repairable by '
+          + '`derived-artifacts-regen.yml`, which is committing that repair on this same push. The bot\'s commit '
+          + 'fires a fresh, fully gated Deploy run — that one ships the repaired tree. Nothing was deployed here.\n\n'
+        : `### Deploy proceeding normally (not superseded — ${result.reason})\n\n`;
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, head + '```\n' + result.lines.join('\n') + '\n```\n');
+    }
+  } catch { /* a summary/output write failure must not change the verdict */ }
 
   // ⛔ ALWAYS 0. See the header's fail-direction note: this script's only power is
   // to make Deploy stand down, so every failure mode must resolve to "do not

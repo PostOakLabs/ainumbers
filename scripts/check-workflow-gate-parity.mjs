@@ -218,6 +218,15 @@ const CI_ONLY = new Map([
     "pull_request should run its substantive job. Reads github.event.pull_request base/head " +
     "SHAs from env:, meaningless outside an actual PR event; always exits 0 (never a pass/fail " +
     "gate, so it has nothing preflight.mjs could usefully assert)."],
+  ["check-deploy-superseded.mjs",
+    "DEPLOY-REGEN-RACE-1's classifier for deploy-to-dreamhost.yml's `supersede` job. MAIN-ONLY BY " +
+    "CONSTRUCTION, which is the named physical reason: it answers \"is this push-to-main Deploy run " +
+    "superseded by the commit derived-artifacts-regen.yml is about to push?\", and on a branch there is no " +
+    "regen bot to race — nothing exists for it to measure. It is also not a gate: it always exits 0 and its " +
+    "only output is a job-level `superseded` flag (standing down is the privilege, so every unknown resolves " +
+    "to \"do not stand down\" = today's behaviour). Its pre-push coverage is its paired control, " +
+    "scripts/check-deploy-superseded.test.mjs, which IS in preflight.mjs's GATES and whose last block " +
+    "re-derives the gate set from the real workflow text, so this entry is not a measurement hole."],
   ["run-gate.mjs",
     "LAND-VERIFY-ADVISORY-SPLIT-1 dispatcher, not a gate itself — it wraps the SAME command " +
     "strings this regex already extracts from the workflow text (e.g. verify-counts.mjs, " +
