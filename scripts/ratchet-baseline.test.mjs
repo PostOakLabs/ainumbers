@@ -27,8 +27,9 @@
 // baseline, run the gate, and restore it. A test that mutates a committed control file and relies on its
 // own cleanup runs on every push via preflight, and one interrupted run leaves a corrupt ceiling in the
 // tree. That evidence was produced by hand, once, under the row (four RED states x three gates, each
-// restored and sha256-verified in the same step, quoted in PR #1481) — and layer 3 above is what makes
-// it durable without the hazard.
+// restored and sha256-verified in the same step, quoted in PR #1483 — including the counterfactual: the
+// same 12 mutations against the pre-fix gates, 9 of which exited 0 and printed a green line) — and
+// layer 3 above is what makes it durable without the hazard.
 
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
