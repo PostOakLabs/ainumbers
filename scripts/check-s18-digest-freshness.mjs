@@ -39,12 +39,25 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { loadRatchetBaselineOrExit } from './ratchet-baseline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
 const KDIR = resolve(REPO, 'chaingraph', 'kernels');
 const BASELINE_PATH = resolve(HERE, 's18-digest-freshness-baseline.json');
+
+// RATCHET-BASELINE-LOADER-1: the keys this gate reads out of the baseline, declared for the shared
+// hard-failing loader. `stale_nodes` is required, not optional — it is what names the NEW stale node(s)
+// in the failure output, and `stale_nodes ?? []` would degrade that report to "all of them are new".
+const BASELINE_REQUIRED_KEYS = [
+  'stale',
+  { key: 'stale_nodes', type: 'name-list' },
+];
+const BASELINE_OPTS = {
+  label: '§18 digest-freshness ratchet (S18-DIGEST-GATE-1)',
+  repinCommand: 'node scripts/check-s18-digest-freshness.mjs --update-baseline',
+};
 
 const SUMMARY = process.argv.includes('--summary');
 const LIST_STALE = process.argv.includes('--list-stale');
@@ -150,9 +163,16 @@ if (SUMMARY || LIST_STALE) {
 
 // ── strict gate: ratchet only, never a hard zero-tolerance red (129 stale exist on main today) ─────
 let failed = false;
-if (existsSync(BASELINE_PATH)) {
-  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-  const ceiling = baseline.stale ?? Infinity;
+// ⛔ NO existsSync() BRANCH AND NO `?? Infinity` — RATCHET-BASELINE-LOADER-1 (gate-integrity F-11).
+// This block used to be `if (existsSync(BASELINE_PATH))` with an else printing "⚠ no baseline …
+// (not blocking)", and the ceiling read `baseline.stale ?? Infinity`. Deleting the file — or just that
+// one key — made `stale.length > ceiling` false for every conceivable count, so the ratchet stopped
+// existing and the gate still printed its green line and exited 0. Both defaults are now hard failures.
+// ⚠ This gate has no --update-baseline read path to exempt: its --update-baseline mode pins the current
+// state outright and never consults the previous file, so the loader here is unconditional.
+const baseline = loadRatchetBaselineOrExit(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
+{
+  const ceiling = baseline.stale;
   if (stale.length > ceiling) {
     failed = true;
     const known = new Set(baseline.stale_nodes ?? []);
@@ -166,8 +186,6 @@ if (existsSync(BASELINE_PATH)) {
     console.error('  Either reprove the node(s) now, or if this is an expected consequence of a kernel edit that');
     console.error('  has not yet been reproven, raise the ceiling deliberately: node scripts/check-s18-digest-freshness.mjs --update-baseline');
   }
-} else {
-  console.error('⚠ no s18-digest-freshness-baseline.json — run --update-baseline to pin the ratchet (not blocking).');
 }
 
 // Always list every stale node, per row's REPORTING requirement — never just a count.

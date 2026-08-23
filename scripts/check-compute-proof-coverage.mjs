@@ -76,12 +76,28 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMainContext } from './derived-artifacts.mjs';
+import { loadRatchetBaselineOrExit, readBaselineForUpdate, assertFiniteCeiling } from './ratchet-baseline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
 const FIXTURES_DIR = resolve(REPO, 'chaingraph', 'kernels', 'fixtures');
 const BASELINE_PATH = resolve(HERE, 'compute-proof-baseline.json');
+
+// RATCHET-BASELINE-LOADER-1: every key this gate actually reads out of the baseline, declared so the
+// shared loader can hard-fail on any of them being absent or the wrong type. The two node lists are
+// required, not optional: `deferred_nodes ?? []` / `known_gpu_false_nodes ?? []` would silently turn
+// every proof REGRESSION into a legitimate-looking brand-new node (the S18-BASELINE-GUARD-1 discriminator
+// reads exactly these two lists).
+const BASELINE_REQUIRED_KEYS = [
+  'deferred',
+  { key: 'deferred_nodes', type: 'name-list' },
+  { key: 'known_gpu_false_nodes', type: 'name-list' },
+];
+const BASELINE_OPTS = {
+  label: '§18 compute-proof coverage ratchet',
+  repinCommand: 'node scripts/check-compute-proof-coverage.mjs --update-baseline',
+};
 
 const SUMMARY = process.argv.includes('--summary');
 const LIST_DEFERRED = process.argv.includes('--list-deferred');
@@ -231,8 +247,16 @@ export function findRegressions(currentDeferred, oldBaseline) {
 // ── ratchetBreach ────────────────────────────────────────────────────────────────────────────────
 // The downward-only ceiling check, as a pure function of the current deferred set and the pinned baseline.
 // `over` is true when the deferred count ROSE above the pin; `added` names the entrants not in the pin.
+//
+// ⛔ NO `?? Infinity` DEFAULT — RATCHET-BASELINE-LOADER-1 (gate-integrity F-11). This line used to read
+// `baseline?.deferred ?? Infinity`, so a baseline with the key deleted (or the whole file gone, which the
+// caller then also tolerated) produced an INFINITE ceiling: `over` was false for every possible count and
+// the gate printed its green line. A ceiling that cannot be breached is not a ratchet. The strict caller
+// now loads through loadRatchetBaselineOrExit(), and this exported pure function — which the self-test
+// calls directly, bypassing that caller — enforces the same rule itself so the guarantee cannot be lost
+// at the seam between them.
 export function ratchetBreach(currentDeferred, baseline) {
-  const ceiling = baseline?.deferred ?? Infinity;
+  const ceiling = assertFiniteCeiling(baseline?.deferred, { label: '§18 compute-proof deferred ratchet', keyName: 'deferred' });
   const known = new Set(baseline?.deferred_nodes ?? []);
   return {
     ceiling,
@@ -267,7 +291,11 @@ const { gpuFalse, gpuTrue, proven, deferred, missing, fixtureGaps } = evaluateCo
 
 // ── --update-baseline ───────────────────────────────────────────────────────────────────────────
 if (UPDATE_BASELINE) {
-  const oldBaseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : null;
+  // ⚖ THE ONE SANCTIONED ABSENT-BASELINE PATH (RATCHET-BASELINE-LOADER-1). This mode is the file's
+  // WRITER: on a first-ever pin there is legitimately nothing to read, and null means "nothing known
+  // before", not "the ceiling is infinite" — no ceiling is derived here at all. An EXISTING but corrupt
+  // baseline still hard-fails, so a damaged pin can never be overwritten as if it were a clean first pin.
+  const oldBaseline = readBaselineForUpdate(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
   const { regressions, newNodes } = findRegressions(deferred, oldBaseline);
   if (regressions.length) {
     console.error(`✗ --update-baseline REFUSED — ${regressions.length} node(s) newly appear in the deferred set but already existed at the last pin:`);
@@ -322,9 +350,17 @@ if (fixtureGaps.length) {
 // (2b) provenance discriminator: independent of the ceiling — a swap (one regression in, one legit prove out)
 // can hold the count flat and still hide a proof regression, so this always runs, not just when the ceiling
 // is breached. See the PROVENANCE DISCRIMINATOR header comment.
-if (existsSync(BASELINE_PATH)) {
-  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-
+// ⛔ NO existsSync() BRANCH — RATCHET-BASELINE-LOADER-1 (gate-integrity F-11). This block used to be
+// wrapped in `if (existsSync(BASELINE_PATH))` with an `else` that printed "⚠ no baseline … (not
+// blocking)" and fell through to the green line. Deleting one file therefore disabled BOTH controls this
+// block holds — the provenance discriminator AND the ceiling — with nothing red anywhere. The loader
+// hard-exits 1 on missing/unparseable/missing-key/non-finite instead.
+// ⚠ DELIBERATELY NOT SUBJECT TO THE ADVISORY-ON-PR SPLIT ABOVE. That split exists for ONE reason: this
+// gate reads chaingraph.json, a main-only generated monolith a PR is FORBIDDEN to reassemble, so a PR
+// cannot satisfy it. The baseline file has the opposite provenance — it is an ordinary committed file
+// that the PR itself may edit or delete — so a PR is fully able to satisfy this, and it blocks there too.
+const baseline = loadRatchetBaselineOrExit(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
+{
   const { regressions } = findRegressions(deferred, baseline);
   if (regressions.length) {
     failed = true;
@@ -340,8 +376,6 @@ if (existsSync(BASELINE_PATH)) {
     if (ratchet.added.length) console.error('  New deferred node(s): ' + ratchet.added.join(', '));
     console.error('  Either prove the node(s) now, or — if a deliberate new deferral — raise the ceiling with: node scripts/check-compute-proof-coverage.mjs --update-baseline');
   }
-} else {
-  console.error('⚠ no compute-proof-baseline.json — run --update-baseline to pin the ratchet (not blocking).');
 }
 
 // ── disposition: advisory on a PR, hard on main (PROVE-COVERAGE-GATE-SPLIT-1) ──────────────────────
