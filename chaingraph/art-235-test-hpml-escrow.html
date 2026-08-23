@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>HPML Escrow Requirement Test &middot; ART-235 &middot; OpenChainGraph &middot; AINumbers.co</title>
-<meta name="description" content="HPML higher-priced mortgage loan definition per Reg Z §1026.35(a) and escrow requirement per §1026.35(b). Tests APR spread against APOR thresholds (1.5pp first-lien, 2.5pp jumbo, 3.5pp subordinate) and applies rural/underserved small-creditor and condo master-policy escrow exemptions. Outputs is_hpml and escrow_required.">
+<meta name="description" content="HPML higher-priced mortgage loan definition per Reg Z §1026.35(a) and escrow requirement per §1026.35(b). Tests APR spread against APOR thresholds (1.5pp first-lien, 2.5pp jumbo, 3.5pp subordinate), then applies every §1026.35(b)(2) exemption: the four-condition small-creditor test including the no-other-escrows leg, the 2,000 transferred first-lien covered transaction count, the CPI-indexed asset limit, the five categorical carve-outs, the insured-depository alternative path, the commitment-to-acquire override, and the condominium master-policy exemption as the insurance-premiums-only exemption it is.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-235-test-hpml-escrow.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,7 +31,12 @@ h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-fa
 .q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
 .q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
 .q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
-input[type="number"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type="number"],input[type="date"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
+.leg{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin:10px 0;background:rgba(255,255,255,.012)}
+.leg-title{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.leg-note{font-size:.66rem;color:var(--muted);line-height:1.55;margin-bottom:6px}
+.leg-verdict{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.15rem .45rem;border-radius:10px;margin-left:6px}
 input:focus,select:focus{border-color:var(--teal)}
 input[type="checkbox"]{width:auto;accent-color:var(--teal);cursor:pointer;margin-right:6px}
 .check-row{display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);padding:.5rem 0}
@@ -134,13 +139,15 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-235 &middot; US Mortgage Compliance</div>
   <h1>HPML Escrow Requirement Test</h1>
-  <p class="sub">Tests the HPML higher-priced mortgage loan definition per Reg Z §1026.35(a) and the resulting escrow obligation per §1026.35(b). A loan is HPML if its APR exceeds the APOR by 1.5 percentage points (first-lien standard), 2.5pp (first-lien jumbo above the FHFA conforming limit), or 3.5pp (subordinate lien). These Dodd-Frank structural thresholds have been unchanged since 2014. First-lien HPMLs must maintain a property-tax-and-insurance escrow for at least 5 years unless a rural/underserved small-creditor or condo master-policy exemption applies. Separate from HOEPA high-cost triggers (art-234).</p>
+  <p class="sub">Tests the HPML higher-priced mortgage loan definition per Reg Z §1026.35(a) and the resulting escrow obligation per §1026.35(b). A loan is HPML if its APR exceeds the APOR by 1.5 percentage points (first-lien standard), 2.5pp (first-lien jumbo above the FHFA conforming limit), or 3.5pp (subordinate lien). These Dodd-Frank structural thresholds have been unchanged since 2014. A first-lien HPML must carry a property-tax-and-insurance escrow for at least 5 years unless an exemption in §1026.35(b)(2) reaches it. Every one of those exemptions is modelled here, including the fourth condition of the small-creditor test that a creditor maintaining other escrow accounts fails. Separate from HOEPA high-cost triggers (art-234).</p>
   <div style="margin-bottom:6px">
     <span class="flag info">Reg Z §1026.35(a)+(b)</span>
-    <span class="flag info">Dodd-Frank structural</span>
+    <span class="flag info">eCFR point-in-time 2026-08-19</span>
     <span class="flag">HPML Definition</span>
     <span class="flag">Escrow Requirement</span>
-    <span class="flag">Rural/Underserved Exemption</span>
+    <span class="flag">Four-Condition Small Creditor Test</span>
+    <span class="flag">Insured Depository Path</span>
+    <span class="flag warn">Master Policy: Insurance Premiums Only</span>
   </div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
 
@@ -170,26 +177,112 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="check-sub">Raises HPML threshold to APOR+2.5pp for first-lien transactions per §1026.35(a)(1)(i)(B).</div>
     </div>
 
-    <div class="section-head" id="escrowExemptHead">Escrow Exemptions (§1026.35(b)(2)) &mdash; First Lien Only</div>
-    <div id="escrowExemptSection">
-      <div class="q">
-        <div class="section-head" style="border:none;padding:0;margin:0 0 6px;font-size:.72rem;color:var(--body)">Rural/underserved small-creditor exemption (all three must apply)</div>
-        <label class="check-row"><input type="checkbox" id="isRural">Property in rural or underserved area</label>
-        <label class="check-row"><input type="checkbox" id="assetsUnder2b">Creditor total assets under $2 billion</label>
-        <label class="check-row"><input type="checkbox" id="loanUnder500">500 or fewer first-lien HPMLs originated in the prior year</label>
-      </div>
-      <div class="q">
-        <div class="section-head" style="border:none;padding:0;margin:0 0 6px;font-size:.72rem;color:var(--body)">Condo master-policy exemption</div>
-        <label class="check-row"><input type="checkbox" id="isCondoMaster">Condominium: HOA master policy covers hazard insurance for all units (§1026.35(b)(2)(ii))</label>
+    <div class="q">
+      <div class="row2">
+        <div>
+          <label class="q-label" for="year">Year of consummation</label>
+          <select id="year">
+            <option value="2026" selected>2026</option>
+            <option value="2025">2025</option>
+            <option value="2027">2027</option>
+          </select>
+        </div>
+        <div>
+          <label class="q-label" for="appDate">Application received date</label>
+          <div class="q-help">Sets the look-back. An application received before April 1 of the consummation year lets legs (A), (B) and (C) qualify on either of the two preceding calendar years.</div>
+          <input type="date" id="appDate" value="">
+        </div>
       </div>
     </div>
 
-    <div class="q">
-      <label class="q-label" for="year">Year</label>
-      <select id="year">
-        <option value="2026" selected>2026</option>
-        <option value="2025">2025</option>
-      </select>
+    <div class="section-head" id="escrowExemptHead">Escrow Exemptions (§1026.35(b)(2)), First Lien Only</div>
+    <div id="escrowExemptSection">
+
+      <div class="leg">
+        <div class="leg-title">§1026.35(b)(2)(i)(A) to (E) &middot; categorical carve-outs</div>
+        <div class="leg-note">Unconditional. Any one of these takes the transaction outside the escrow requirement entirely, before any creditor-size arithmetic is reached.</div>
+        <label class="check-row"><input type="checkbox" id="catCoop">(A) Secured by shares in a cooperative</label>
+        <label class="check-row"><input type="checkbox" id="catConstruction">(B) Finances the initial construction of a dwelling</label>
+        <label class="check-row"><input type="checkbox" id="catBridge">(C) Temporary or bridge loan with a term of twelve months or less</label>
+        <label class="check-row"><input type="checkbox" id="catReverse">(D) Reverse mortgage transaction subject to §1026.33</label>
+        <label class="check-row"><input type="checkbox" id="catPace">(E) PACE transaction as defined in §1026.43(b)(15)</label>
+      </div>
+
+      <div class="leg">
+        <div class="leg-title">§1026.35(b)(2)(iii) &middot; small-creditor exemption &middot; ALL FOUR conditions</div>
+        <div class="leg-note">Comment 35(b)(2)(iii)-1 states the test as four conditions, satisfied together at consummation. A leg the inputs cannot answer denies the exemption.</div>
+
+        <div class="q" style="margin-bottom:.8rem">
+          <span class="q-label">(A) Rural or underserved area</span>
+          <label class="check-row"><input type="checkbox" id="legARural">Extended a first-lien covered transaction in a rural or underserved area in the preceding calendar year</label>
+          <label class="check-row"><input type="checkbox" id="legARuralPrior">Same, in the next-to-last calendar year (used only under the April 1 look-back)</label>
+          <div class="check-sub">The rural and underserved determination at §1026.35(b)(2)(iv) turns on census-block and county datasets that are not inputs here, so this leg is a caller attestation, not a computed result.</div>
+        </div>
+
+        <div class="q" style="margin-bottom:.8rem">
+          <span class="q-label">(B) First-lien covered transactions sold, assigned or otherwise transferred</span>
+          <div class="q-help">No more than 2,000, counted for the creditor and its affiliates together (§1026.32(b)(5)). Counts only transactions that left the balance sheet, or were subject at consummation to a commitment to be acquired. Portfolio-retained loans do not count, and the population is first-lien covered transactions, not HPMLs originated.</div>
+          <div class="row2">
+            <input type="number" id="legBCount" placeholder="preceding calendar year" step="1" min="0">
+            <input type="number" id="legBCountPrior" placeholder="next-to-last calendar year" step="1" min="0">
+          </div>
+        </div>
+
+        <div class="q" style="margin-bottom:.8rem">
+          <span class="q-label">(C) Total assets of creditor and affiliates (USD)</span>
+          <div class="q-help">Strictly less than the limit, which adjusts annually with CPI-W. For calendar year 2026 the limit is $2,785,000,000 (comment 35(b)(2)(iii)-1.iii.E). A year with no published figure and no caller-supplied limit is indeterminate, never a stale default.</div>
+          <div class="row2">
+            <input type="number" id="legCAssets" placeholder="as of preceding December 31" step="1" min="0">
+            <input type="number" id="legCAssetsPrior" placeholder="as of next-to-last December 31" step="1" min="0">
+          </div>
+        </div>
+
+        <div class="q">
+          <span class="q-label">(D) No other escrow accounts maintained</span>
+          <div class="q-help">This leg is a restriction. Once the creditor or its affiliate escrows for any serviced loan outside the two carve-outs, the exemption is lost.</div>
+          <label class="check-row"><input type="checkbox" id="legDMaintains" onchange="handleLegD()">Creditor or affiliate maintains an escrow account for a serviced extension of consumer credit secured by real property or a dwelling</label>
+          <div id="legDCarveOuts" style="display:none;margin-left:22px">
+            <label class="check-row"><input type="checkbox" id="legDWithin">Every such escrow falls within a statutory carve-out</label>
+            <label class="check-row"><input type="checkbox" id="legDCarve1">(D)(1) First-lien HPMLs whose applications were received on or after 2010-04-01 and before 2021-06-17</label>
+            <label class="check-row"><input type="checkbox" id="legDCarve2">(D)(2) Escrows established after consummation as an accommodation to distressed consumers</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="leg">
+        <div class="leg-title">§1026.35(b)(2)(vi) &middot; insured depository or credit union path</div>
+        <div class="leg-note">An alternative route. Its asset test counts the institution alone; its transaction count covers creditor and affiliates and does include portfolio-retained loans (comment 35(b)(2)(vi)(B)-1). It also requires legs (A) and (D) above.</div>
+        <label class="check-row"><input type="checkbox" id="insIsDI" onchange="handleInsDI()">Creditor is an insured depository institution or insured credit union</label>
+        <div id="insDIFields" style="display:none">
+          <div class="row2" style="margin-top:8px">
+            <div>
+              <span class="q-label">Institution total assets (USD)</span>
+              <div class="q-help">At or below the limit. CY2026: $12,485,000,000. Affiliates are not counted here.</div>
+              <input type="number" id="insAssets" placeholder="as of preceding December 31" step="1" min="0">
+            </div>
+            <div>
+              <span class="q-label">First-lien principal-dwelling covered transactions</span>
+              <div class="q-help">No more than 1,000, creditor and affiliates, including portfolio.</div>
+              <input type="number" id="insCount" placeholder="preceding calendar year" step="1" min="0">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="leg">
+        <div class="leg-title">§1026.35(b)(2)(v) &middot; commitment-to-acquire override</div>
+        <div class="leg-note">Requires an escrow account notwithstanding either exemption path where the acquiring person does not itself satisfy one (comment 35(b)(2)(v)-1, forward commitments).</div>
+        <label class="check-row"><input type="checkbox" id="fwdCommit" onchange="handleFwd()">Subject at consummation to a commitment to be acquired by another person</label>
+        <div id="fwdFields" style="display:none;margin-left:22px">
+          <label class="check-row"><input type="checkbox" id="fwdAcquirerOk">The acquiring person itself satisfies §1026.35(b)(2)(iii) or (vi)</label>
+        </div>
+      </div>
+
+      <div class="leg">
+        <div class="leg-title">§1026.35(b)(2)(ii) &middot; master policy &middot; LIMITED exemption</div>
+        <div class="leg-note">Insurance premiums only. Comment 35(b)(2)(ii)-1: the creditor is still required to escrow for property taxes on these dwellings regardless of whether it escrows for insurance. Comment 35(b)(2)(ii)-2 extends it beyond condominiums to planned unit developments and any other ownership arrangement with a governing association obliged to maintain a master policy.</div>
+        <label class="check-row"><input type="checkbox" id="cicMaster">Dwelling in a common interest community whose governing association maintains a master policy insuring all dwellings</label>
+      </div>
     </div>
     <div style="margin-top:20px">
       <button onclick="runHpml()">&#9654; Test HPML Escrow</button>
@@ -201,8 +294,12 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="card">
       <div id="verdictBox" class="verdict-box"></div>
       <div id="escrowBox" class="escrow-box"></div>
+      <div id="componentBox"></div>
       <div class="stat-row" id="statRow"></div>
       <div id="flagRow" style="margin:8px 0"></div>
+      <div id="noteDiv" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px" id="legsHead">Exemption Tests</div>
+      <div id="legsDiv"></div>
       <div class="section-head" style="margin-top:14px">Detail</div>
       <div id="kvDiv"></div>
       <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
@@ -310,29 +407,63 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 var MANIFEST = {
   tool_id: 'art-235-test-hpml-escrow',
-  version: '1.0.0',
+  version: '2.0.0',
   mcp_name: 'test_hpml_escrow',
   title: 'HPML Escrow Requirement Test',
-  description: 'Tests HPML higher-priced mortgage loan definition per Reg Z §1026.35(a) (APR vs APOR: 1.5pp first-lien, 2.5pp jumbo, 3.5pp subordinate) and §1026.35(b) escrow requirement with rural/underserved and condo exemptions. Dodd-Frank structural thresholds, unchanged since 2014.',
+  description: 'Tests HPML higher-priced mortgage loan definition per Reg Z §1026.35(a) (APR vs APOR: 1.5pp first-lien, 2.5pp jumbo, 3.5pp subordinate) and the §1026.35(b) escrow requirement, applying every §1026.35(b)(2) exemption: the five categorical carve-outs at (b)(2)(i)(A) to (E), the four-condition small-creditor test at (b)(2)(iii) including the no-other-escrows leg (D), the insured depository path at (b)(2)(vi), the commitment-to-acquire override at (b)(2)(v), and the master-policy exemption at (b)(2)(ii) as an insurance-premiums-only exemption that leaves the property-tax escrow required.',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
-  regulation: 'Reg Z §1026.35(a)+(b); FR 2013-01730 (Dodd-Frank structural thresholds)',
+  regulation: 'Reg Z §1026.35(a)+(b); eCFR title 12 point-in-time 2026-08-19; 80 FR 59967; 86 FR 9852; 90 FR 2501',
+  input_contract_version: 'HPML-ESCROW-INPUTS-2',
+  retired_inputs: ['is_rural_or_underserved', 'creditor_assets_under_2b', 'loan_count_under_500', 'property_is_condo_master_policy'],
   mcp_tool_definition: {
     name: 'test_hpml_escrow',
-    description: 'Test HPML definition and escrow requirement per Reg Z §1026.35. Returns is_hpml and escrow_required. For HOEPA high-cost triggers (APOR+6.5pp/8.5pp) use test_hoepa_high_cost (art-234).',
+    description: 'Test the HPML definition and the escrow requirement per Reg Z §1026.35. Returns is_hpml, escrow_required, and the two escrow components separately (escrow_property_taxes_required and escrow_insurance_premiums_required), because §1026.35(b)(2)(ii) exempts insurance premiums alone. The §1026.35(b)(2)(iii) exemption needs ALL FOUR of its legs; any leg the inputs cannot answer denies the exemption and sets manual_review_required. For HOEPA high-cost triggers (APOR+6.5pp/8.5pp) use test_hoepa_high_cost (art-234).',
     inputSchema: {
       type: 'object',
       properties: {
         apr_pct: { type: 'number', description: 'Loan APR in percent' },
         apor_pct: { type: 'number', description: 'APOR in percent (FFIEC weekly table)' },
         lien_type: { type: 'string', enum: ['first', 'subordinate'] },
-        is_jumbo: { type: 'boolean', description: 'True if loan amount exceeds FHFA conforming limit' },
-        is_rural_or_underserved: { type: 'boolean' },
-        creditor_assets_under_2b: { type: 'boolean' },
-        loan_count_under_500: { type: 'boolean' },
-        property_is_condo_master_policy: { type: 'boolean' },
-        year: { type: 'integer', default: 2026 }
-      }
+        is_jumbo: { type: 'boolean', description: 'True if the loan amount exceeds the FHFA conforming limit' },
+        year: { type: 'integer', default: 2026, description: 'Calendar year of consummation. Selects the indexed asset limits.' },
+        application_received_date: { type: 'string', description: 'ISO YYYY-MM-DD. An application received before April 1 of the consummation year opens the two-preceding-calendar-year look-back on legs (A), (B) and (C).' },
+        application_received_before_april_1: { type: 'boolean', description: 'Fallback for application_received_date when the exact date is unavailable.' },
+        secured_by_cooperative_shares: { type: 'boolean', description: '§1026.35(b)(2)(i)(A) categorical carve-out.' },
+        finances_initial_construction_of_dwelling: { type: 'boolean', description: '§1026.35(b)(2)(i)(B) categorical carve-out.' },
+        is_bridge_loan_twelve_months_or_less: { type: 'boolean', description: '§1026.35(b)(2)(i)(C) categorical carve-out.' },
+        is_reverse_mortgage: { type: 'boolean', description: '§1026.35(b)(2)(i)(D) categorical carve-out.' },
+        is_pace_transaction: { type: 'boolean', description: '§1026.35(b)(2)(i)(E) categorical carve-out, added by 90 FR 2501 (2025-01-10).' },
+        rural_or_underserved_preceding_year: { type: 'boolean', description: 'Leg (A). Caller attestation: the §1026.35(b)(2)(iv) census-block and county tests are not computed here.' },
+        rural_or_underserved_next_to_last_year: { type: 'boolean', description: 'Leg (A) under the April 1 look-back.' },
+        first_lien_covered_txns_sold_or_transferred_count: { type: 'integer', description: 'Leg (B). Covered transactions secured by first liens that were SOLD, ASSIGNED OR OTHERWISE TRANSFERRED, or subject at consummation to a commitment to be acquired, during the preceding calendar year, counted for the CREDITOR AND ITS AFFILIATES TOGETHER (§1026.32(b)(5)). Portfolio-retained loans are excluded. Limit: no more than 2,000.' },
+        first_lien_covered_txns_sold_or_transferred_count_next_to_last_year: { type: 'integer', description: 'Leg (B) under the April 1 look-back.' },
+        creditor_and_affiliate_total_assets: { type: 'number', description: 'Leg (C). Total assets of creditor and affiliates as of the preceding December 31, in USD. Must be strictly LESS THAN the CPI-indexed limit (CY2026: 2785000000).' },
+        creditor_and_affiliate_total_assets_next_to_last_year: { type: 'number', description: 'Leg (C) under the April 1 look-back, as of the next-to-last December 31.' },
+        maintains_escrow_for_serviced_loans: { type: 'boolean', description: 'Leg (D). True if the creditor or its affiliate maintains an escrow account of the §1026.35(b)(1) type for ANY serviced extension of consumer credit secured by real property or a dwelling. True denies the exemption unless the carve-outs cover every such escrow.' },
+        serviced_escrows_within_carve_outs: { type: 'boolean', description: 'Leg (D). True if every maintained escrow falls within (D)(1) or (D)(2). At least one of the two carve-out flags below must also be set, otherwise the leg is indeterminate.' },
+        carve_out_pre_june_2021_first_lien_hpml_escrows: { type: 'boolean', description: '(D)(1): escrows for first-lien HPMLs whose applications were received on or after 2010-04-01 and before 2021-06-17.' },
+        carve_out_distressed_consumer_accommodation_escrows: { type: 'boolean', description: '(D)(2): escrows established after consummation as an accommodation to distressed consumers.' },
+        creditor_is_insured_depository_or_credit_union: { type: 'boolean', description: 'Opens the §1026.35(b)(2)(vi) alternative path.' },
+        insured_institution_total_assets: { type: 'number', description: '(b)(2)(vi)(A). Institution assets ALONE, affiliates NOT counted. At or below the indexed limit (CY2026: 12485000000).' },
+        insured_institution_total_assets_next_to_last_year: { type: 'number', description: '(b)(2)(vi)(A) under the April 1 look-back.' },
+        first_lien_principal_dwelling_covered_txns_count: { type: 'integer', description: '(b)(2)(vi)(B). Covered transactions secured by a first lien on a principal dwelling, creditor and affiliates, INCLUDING portfolio-retained loans. Limit: no more than 1,000.' },
+        first_lien_principal_dwelling_covered_txns_count_next_to_last_year: { type: 'integer', description: '(b)(2)(vi)(B) under the April 1 look-back.' },
+        subject_to_commitment_to_be_acquired: { type: 'boolean', description: '§1026.35(b)(2)(v). True if the loan is subject at consummation to a commitment to be acquired by another person.' },
+        acquiring_person_satisfies_exemption_conditions: { type: 'boolean', description: '§1026.35(b)(2)(v). False or unanswered means the override applies and escrow is required notwithstanding either exemption path.' },
+        property_in_common_interest_community_with_master_policy: { type: 'boolean', description: '§1026.35(b)(2)(ii). LIMITED exemption: removes the insurance-premium component only. The property-tax escrow remains required (comment 35(b)(2)(ii)-1).' },
+        threshold_parameters: {
+          type: 'object',
+          description: 'Optional versioned overrides for the two indexed asset limits, for years the dated table does not carry. Each accepts a bare number or a {value, effective_from, effective_to, source, source_digest} tuple.',
+          properties: {
+            small_originator_asset_limit: { description: 'Overrides the §1026.35(b)(2)(iii)(C) limit for the consummation year.' },
+            small_originator_asset_limit_next_to_last_year: { description: 'Overrides that limit for the next-to-last candidate year.' },
+            insured_institution_asset_limit: { description: 'Overrides the §1026.35(b)(2)(vi)(A) limit for the consummation year.' },
+            insured_institution_asset_limit_next_to_last_year: { description: 'Overrides that limit for the next-to-last candidate year.' }
+          }
+        }
+      },
+      required: ['apr_pct', 'apor_pct', 'lien_type']
     }
   }
 };
@@ -340,12 +471,348 @@ var MANIFEST = {
 var ANCHOR_BASE = 'https://anchor.ainumbers.co';
 var _lastResult = null;
 
-// HPML spread thresholds -- Dodd-Frank structural, unchanged since 2014
-var HPML = { first_std: 1.5, first_jumbo: 2.5, sub: 3.5 };
-var FR_CITE = 'Reg Z §1026.35(a)(1); Dodd-Frank Act; Reg Z §1026.35 Final Rule (FR 2013-01730, eff. Jan 10, 2014). Structural thresholds unchanged since 2014.';
+// ---------------------------------------------------------------------------------------
+// computeHpmlEscrow(pp) below is a LINE-FOR-LINE PORT of
+// chaingraph/kernels/art-235-test-hpml-escrow.kernel.mjs compute(). The page and the kernel
+// must return the same output_payload for the same policy_parameters, and the conformance
+// fixtures are the shared oracle for both. Do not change one without the other.
+// ---------------------------------------------------------------------------------------
+var HPML_SPREADS = { first_lien_standard_pp: 1.5, first_lien_jumbo_pp: 2.5, subordinate_lien_pp: 3.5 };
+var TRANSFERRED_FIRST_LIEN_TXN_LIMIT = 2000;
+var FIRST_LIEN_PRINCIPAL_DWELLING_TXN_LIMIT = 1000;
+var SMALL_ORIGINATOR_ASSET_LIMIT_BY_YEAR = { 2026: 2785000000 };
+var INSURED_INSTITUTION_ASSET_LIMIT_BY_YEAR = { 2026: 12485000000 };
+var CARVE_OUT_APPLICATION_WINDOW_FROM = '2010-04-01';
+var CARVE_OUT_APPLICATION_WINDOW_BEFORE = '2021-06-17';
+var RETIRED_INPUT_KEYS = ['creditor_assets_under_2b', 'loan_count_under_500', 'is_rural_or_underserved', 'property_is_condo_master_policy'];
 
 function safeNum(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+function num(v) { return (typeof v === 'number' && Number.isFinite(v)) ? v : null; }
+function bool(v) { return typeof v === 'boolean' ? v : null; }
+function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+
+function isoDate(v) {
+  if (typeof v !== 'string' || v.length !== 10) return null;
+  if (v[4] !== '-' || v[7] !== '-') return null;
+  for (var i = 0; i < 10; i++) {
+    if (i === 4 || i === 7) continue;
+    var c = v.charCodeAt(i);
+    if (c < 48 || c > 57) return null;
+  }
+  var mm = Number(v.slice(5, 7));
+  var dd = Number(v.slice(8, 10));
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  return v;
+}
+
+function readVersionedParam(raw) {
+  if (num(raw) !== null) return { value: raw, provenance: null };
+  if (raw && typeof raw === 'object' && num(raw.value) !== null) {
+    return {
+      value: raw.value,
+      provenance: {
+        effective_from: typeof raw.effective_from === 'string' ? raw.effective_from : null,
+        effective_to: typeof raw.effective_to === 'string' ? raw.effective_to : null,
+        source: typeof raw.source === 'string' ? raw.source : null,
+        source_digest: typeof raw.source_digest === 'string' ? raw.source_digest : null
+      }
+    };
+  }
+  return { value: null, provenance: null };
+}
+
+function resolveLimit(table, callerParam, year) {
+  var supplied = readVersionedParam(callerParam);
+  if (supplied.value !== null) return { value: supplied.value, source: 'caller_versioned_parameter', provenance: supplied.provenance };
+  var tabled = has(table, String(year)) ? table[String(year)] : null;
+  if (num(tabled) !== null) return { value: tabled, source: 'dated_table_' + year, provenance: null };
+  return { value: null, source: 'unresolved', provenance: null };
+}
+
+function computeHpmlEscrow(pp) {
+  pp = pp || {};
+  var notes = [];
+  var manualReview = false;
+
+  var apr_pct = safeNum(pp.apr_pct, 0);
+  var apor_pct = safeNum(pp.apor_pct, 0);
+  var lien_type = pp.lien_type === 'subordinate' ? 'subordinate' : 'first';
+  var is_jumbo = Boolean(pp.is_jumbo);
+  var year = Math.round(safeNum(pp.year, 2026));
+
+  var retiredPresent = [];
+  for (var ri = 0; ri < RETIRED_INPUT_KEYS.length; ri++) {
+    if (has(pp, RETIRED_INPUT_KEYS[ri])) retiredPresent.push(RETIRED_INPUT_KEYS[ri]);
+  }
+  if (retiredPresent.length > 0) {
+    manualReview = true;
+    notes.push('Retired input key(s) present and IGNORED: ' + retiredPresent.join(', ') + '. Each encoded a superseded figure, a wrong counting unit, or a carve-out that is narrower than the rule. Re-send under the current input names before relying on this result.');
+  }
+
+  var spread_threshold, spread_basis;
+  if (lien_type === 'subordinate') { spread_threshold = HPML_SPREADS.subordinate_lien_pp; spread_basis = 'subordinate_lien_3.5pp'; }
+  else if (is_jumbo) { spread_threshold = HPML_SPREADS.first_lien_jumbo_pp; spread_basis = 'first_lien_jumbo_2.5pp'; }
+  else { spread_threshold = HPML_SPREADS.first_lien_standard_pp; spread_basis = 'first_lien_standard_1.5pp'; }
+  var apr_spread = r4(apr_pct - apor_pct);
+  var is_hpml = apr_spread >= spread_threshold - 1e-5;
+
+  var escrow_in_scope = is_hpml && lien_type === 'first';
+
+  var applicationDate = isoDate(pp.application_received_date);
+  var declaredGrace = bool(pp.application_received_before_april_1);
+  var grace = false;
+  var graceSource = 'not_claimed';
+  if (applicationDate !== null) { grace = applicationDate < (String(year) + '-04-01'); graceSource = 'derived_from_application_received_date'; }
+  else if (declaredGrace !== null) { grace = declaredGrace; graceSource = 'caller_declared_boolean'; }
+
+  var legA_preceding = bool(pp.rural_or_underserved_preceding_year);
+  var legA_nextToLast = bool(pp.rural_or_underserved_next_to_last_year);
+  var legB_preceding = num(pp.first_lien_covered_txns_sold_or_transferred_count);
+  var legB_nextToLast = num(pp.first_lien_covered_txns_sold_or_transferred_count_next_to_last_year);
+  var legC_preceding = num(pp.creditor_and_affiliate_total_assets);
+  var legC_nextToLast = num(pp.creditor_and_affiliate_total_assets_next_to_last_year);
+  var thresholdParams = (pp.threshold_parameters && typeof pp.threshold_parameters === 'object') ? pp.threshold_parameters : {};
+  var smallLimit = resolveLimit(SMALL_ORIGINATOR_ASSET_LIMIT_BY_YEAR, thresholdParams.small_originator_asset_limit, year);
+  var smallLimitPrior = resolveLimit(SMALL_ORIGINATOR_ASSET_LIMIT_BY_YEAR, thresholdParams.small_originator_asset_limit_next_to_last_year, year - 1);
+
+  var maintainsOther = bool(pp.maintains_escrow_for_serviced_loans);
+  var withinCarveOuts = bool(pp.serviced_escrows_within_carve_outs);
+  var carveOutPriorHpml = bool(pp.carve_out_pre_june_2021_first_lien_hpml_escrows);
+  var carveOutDistressed = bool(pp.carve_out_distressed_consumer_accommodation_escrows);
+
+  var isInsuredInstitution = bool(pp.creditor_is_insured_depository_or_credit_union);
+  var fourLegOwnInputsPresent = (legB_preceding !== null || legB_nextToLast !== null || legC_preceding !== null || legC_nextToLast !== null);
+  var sharedLegInputsPresent = (legA_preceding !== null || legA_nextToLast !== null || maintainsOther !== null || withinCarveOuts !== null);
+  var smallCreditorInputsPresent = fourLegOwnInputsPresent || (sharedLegInputsPresent && isInsuredInstitution !== true);
+
+  function evalLegA() {
+    if (legA_preceding === true) return true;
+    if (grace && legA_nextToLast === true) return true;
+    if (legA_preceding === null && (!grace || legA_nextToLast === null)) return null;
+    return false;
+  }
+  function evalLegB() {
+    if (legB_preceding !== null && legB_preceding <= TRANSFERRED_FIRST_LIEN_TXN_LIMIT) return true;
+    if (grace && legB_nextToLast !== null && legB_nextToLast <= TRANSFERRED_FIRST_LIEN_TXN_LIMIT) return true;
+    if (legB_preceding === null && (!grace || legB_nextToLast === null)) return null;
+    return false;
+  }
+  function evalLegC() {
+    if (legC_preceding !== null && smallLimit.value !== null && legC_preceding < smallLimit.value) return true;
+    if (grace && legC_nextToLast !== null && smallLimitPrior.value !== null && legC_nextToLast < smallLimitPrior.value) return true;
+    var primaryAnswerable = legC_preceding !== null && smallLimit.value !== null;
+    var graceAnswerable = grace && legC_nextToLast !== null && smallLimitPrior.value !== null;
+    if (!primaryAnswerable && !graceAnswerable) return null;
+    return false;
+  }
+  function evalLegD() {
+    if (maintainsOther === null) return null;
+    if (maintainsOther === false) return true;
+    if (withinCarveOuts !== true) return false;
+    if (carveOutPriorHpml !== true && carveOutDistressed !== true) return null;
+    return true;
+  }
+
+  var legA = null, legB = null, legC = null, legD = null;
+  var smallStatus = 'not_claimed';
+  var smallSatisfied = false;
+  if (escrow_in_scope && smallCreditorInputsPresent) {
+    legA = evalLegA(); legB = evalLegB(); legC = evalLegC(); legD = evalLegD();
+    var legs = [legA, legB, legC, legD];
+    if (legs.indexOf(false) !== -1) {
+      smallStatus = 'not_satisfied';
+    } else if (legs.indexOf(null) !== -1) {
+      smallStatus = 'incomplete';
+      manualReview = true;
+      var missing = [];
+      if (legA === null) missing.push('area test (A)');
+      if (legB === null) missing.push('transferred first-lien transaction count (B)');
+      if (legC === null) missing.push('total assets against the indexed limit (C)');
+      if (legD === null) missing.push('no other escrow accounts maintained (D)');
+      notes.push('Small-originator exemption NOT granted: ' + missing.join('; ') + ' could not be evaluated from the inputs supplied. All four legs are required and an unevaluable leg denies the exemption.');
+    } else {
+      smallStatus = 'satisfied';
+      smallSatisfied = true;
+    }
+  }
+
+  var insAssets = num(pp.insured_institution_total_assets);
+  var insAssetsNextToLast = num(pp.insured_institution_total_assets_next_to_last_year);
+  var insCount = num(pp.first_lien_principal_dwelling_covered_txns_count);
+  var insCountNextToLast = num(pp.first_lien_principal_dwelling_covered_txns_count_next_to_last_year);
+  var insLimit = resolveLimit(INSURED_INSTITUTION_ASSET_LIMIT_BY_YEAR, thresholdParams.insured_institution_asset_limit, year);
+  var insLimitPrior = resolveLimit(INSURED_INSTITUTION_ASSET_LIMIT_BY_YEAR, thresholdParams.insured_institution_asset_limit_next_to_last_year, year - 1);
+
+  function evalInsA() {
+    if (insAssets !== null && insLimit.value !== null && insAssets <= insLimit.value) return true;
+    if (grace && insAssetsNextToLast !== null && insLimitPrior.value !== null && insAssetsNextToLast <= insLimitPrior.value) return true;
+    var primaryAnswerable = insAssets !== null && insLimit.value !== null;
+    var graceAnswerable = grace && insAssetsNextToLast !== null && insLimitPrior.value !== null;
+    if (!primaryAnswerable && !graceAnswerable) return null;
+    return false;
+  }
+  function evalInsB() {
+    if (insCount !== null && insCount <= FIRST_LIEN_PRINCIPAL_DWELLING_TXN_LIMIT) return true;
+    if (grace && insCountNextToLast !== null && insCountNextToLast <= FIRST_LIEN_PRINCIPAL_DWELLING_TXN_LIMIT) return true;
+    if (insCount === null && (!grace || insCountNextToLast === null)) return null;
+    return false;
+  }
+
+  var insA = null, insB = null, insC = null;
+  var insStatus = 'not_claimed';
+  var insSatisfied = false;
+  if (escrow_in_scope && isInsuredInstitution === true) {
+    insA = evalInsA();
+    insB = evalInsB();
+    var borrowedA = legA === null ? evalLegA() : legA;
+    var borrowedD = legD === null ? evalLegD() : legD;
+    if (borrowedA === null || borrowedD === null) insC = null;
+    else insC = borrowedA === true && borrowedD === true;
+    var ilegs = [insA, insB, insC];
+    if (ilegs.indexOf(false) !== -1) {
+      insStatus = 'not_satisfied';
+    } else if (ilegs.indexOf(null) !== -1) {
+      insStatus = 'incomplete';
+      manualReview = true;
+      notes.push('Insured-institution exemption NOT granted: one or more of its three legs could not be evaluated from the inputs supplied. An unevaluable leg denies the exemption.');
+    } else {
+      insStatus = 'satisfied';
+      insSatisfied = true;
+    }
+  }
+
+  var CATEGORICAL = [
+    ['secured_by_cooperative_shares', 'cooperative_shares'],
+    ['finances_initial_construction_of_dwelling', 'initial_construction'],
+    ['is_bridge_loan_twelve_months_or_less', 'bridge_loan_twelve_months_or_less'],
+    ['is_reverse_mortgage', 'reverse_mortgage'],
+    ['is_pace_transaction', 'pace_transaction']
+  ];
+  var categorical_exemption = null;
+  if (escrow_in_scope) {
+    for (var ci = 0; ci < CATEGORICAL.length; ci++) {
+      if (pp[CATEGORICAL[ci][0]] === true) { categorical_exemption = CATEGORICAL[ci][1]; break; }
+    }
+  }
+
+  var subjectToCommitment = bool(pp.subject_to_commitment_to_be_acquired);
+  var acquirerQualifies = bool(pp.acquiring_person_satisfies_exemption_conditions);
+
+  var escrow_required = escrow_in_scope;
+  var escrow_exemption = null;
+  var escrow_exemption_basis = null;
+  var forward_commitment_override_applied = false;
+
+  if (escrow_in_scope) {
+    if (categorical_exemption !== null) {
+      escrow_required = false;
+      escrow_exemption = 'categorical_' + categorical_exemption;
+      escrow_exemption_basis = 'Categorical carve-out: the transaction is outside the escrow requirement entirely (' + categorical_exemption.replace(/_/g, ' ') + '). No creditor-size test is reached.';
+    } else if (smallSatisfied || insSatisfied) {
+      var pathKey = smallSatisfied ? 'rural_or_underserved_small_creditor' : 'insured_depository_or_credit_union_small_originator';
+      if (subjectToCommitment === true && acquirerQualifies !== true) {
+        forward_commitment_override_applied = true;
+        escrow_required = true;
+        if (acquirerQualifies === null) {
+          manualReview = true;
+          notes.push('Forward-commitment override applied on an UNANSWERED acquirer test: the loan is subject at consummation to a commitment to be acquired, and it was not stated whether the acquiring person itself satisfies an exemption path. The override is applied because an unevidenced acquirer cannot lift a requirement.');
+        } else {
+          notes.push('Forward-commitment override applied: the creditor satisfies an exemption path, but the loan is subject at consummation to a commitment to be acquired by a person who does not, so the escrow account is required notwithstanding that path.');
+        }
+      } else {
+        escrow_required = false;
+        escrow_exemption = pathKey;
+        escrow_exemption_basis = smallSatisfied
+          ? 'Four-leg small-originator exemption satisfied: area test met; no more than ' + TRANSFERRED_FIRST_LIEN_TXN_LIMIT + ' first-lien covered transactions sold, assigned or otherwise transferred by the creditor and its affiliates in a qualifying look-back year; total assets of creditor and affiliates below the indexed limit; and no other escrow accounts maintained outside the two carve-outs.'
+          : 'Insured depository institution or insured credit union exemption satisfied: institution assets at or below the indexed limit; no more than ' + FIRST_LIEN_PRINCIPAL_DWELLING_TXN_LIMIT + ' first-lien principal-dwelling covered transactions extended by the creditor and its affiliates, portfolio-retained loans included; and the area and no-other-escrows legs both met.';
+      }
+    }
+  }
+
+  var cicMasterPolicy = pp.property_in_common_interest_community_with_master_policy === true;
+  var escrow_property_taxes_required = escrow_required;
+  var escrow_insurance_premiums_required = escrow_required;
+  var escrow_limited_exemption = null;
+  var escrow_limited_exemption_basis = null;
+  if (escrow_required && cicMasterPolicy) {
+    escrow_insurance_premiums_required = false;
+    escrow_limited_exemption = 'common_interest_community_master_policy';
+    escrow_limited_exemption_basis = 'LIMITED exemption only: where the governing association maintains a master policy insuring all dwellings, insurance premiums need not be included in the escrow account. The escrow account itself is still required, and property taxes must still be escrowed.';
+  }
+
+  var compliance_flags = [];
+  if (is_hpml) compliance_flags.push('HPML_LOAN');
+  if (escrow_required) compliance_flags.push('HPML_ESCROW_REQUIRED');
+  if (escrow_exemption) compliance_flags.push('HPML_ESCROW_EXEMPTION_APPLIES');
+  if (escrow_limited_exemption) compliance_flags.push('HPML_ESCROW_INSURANCE_PREMIUMS_EXEMPT_TAXES_STILL_REQUIRED');
+  if (forward_commitment_override_applied) compliance_flags.push('HPML_ESCROW_FORWARD_COMMITMENT_OVERRIDE');
+  if (is_hpml && lien_type === 'subordinate') compliance_flags.push('HPML_SUBORDINATE_NO_ESCROW');
+  if (smallStatus === 'incomplete' || insStatus === 'incomplete') compliance_flags.push('HPML_ESCROW_EXEMPTION_INPUTS_INCOMPLETE');
+  if (retiredPresent.length > 0) compliance_flags.push('HPML_RETIRED_INPUT_KEY_PRESENT');
+  if (manualReview) compliance_flags.push('HPML_MANUAL_REVIEW_REQUIRED');
+
+  var output_payload = {
+    is_hpml: is_hpml,
+    escrow_required: escrow_required,
+    escrow_property_taxes_required: escrow_property_taxes_required,
+    escrow_insurance_premiums_required: escrow_insurance_premiums_required,
+    escrow_exemption: escrow_exemption,
+    escrow_exemption_basis: escrow_exemption_basis,
+    escrow_limited_exemption: escrow_limited_exemption,
+    escrow_limited_exemption_basis: escrow_limited_exemption_basis,
+    categorical_exemption: categorical_exemption,
+    forward_commitment_override_applied: forward_commitment_override_applied,
+    small_originator_test: {
+      status: smallStatus,
+      leg_a_area: legA,
+      leg_b_transferred_txn_count: legB,
+      leg_c_assets: legC,
+      leg_d_no_other_escrows: legD,
+      transferred_txn_limit: TRANSFERRED_FIRST_LIEN_TXN_LIMIT,
+      asset_limit_applied: smallLimit.value,
+      asset_limit_source: smallLimit.source,
+      asset_limit_provenance: smallLimit.provenance
+    },
+    insured_institution_test: {
+      status: insStatus,
+      leg_a_assets: insA,
+      leg_b_first_lien_principal_dwelling_count: insB,
+      leg_c_area_and_no_other_escrows: insC,
+      txn_limit: FIRST_LIEN_PRINCIPAL_DWELLING_TXN_LIMIT,
+      asset_limit_applied: insLimit.value,
+      asset_limit_source: insLimit.source,
+      asset_limit_provenance: insLimit.provenance
+    },
+    look_back: {
+      application_before_april_1_grace: grace,
+      grace_source: graceSource,
+      candidate_years: grace ? [year - 1, year - 2] : [year - 1]
+    },
+    carve_out_window: {
+      applications_received_from: CARVE_OUT_APPLICATION_WINDOW_FROM,
+      applications_received_before: CARVE_OUT_APPLICATION_WINDOW_BEFORE,
+      distressed_consumer_accommodations: true
+    },
+    apr_spread_pct: apr_spread,
+    apr_pct: r4(apr_pct),
+    apor_pct: r4(apor_pct),
+    lien_type: lien_type,
+    is_jumbo: is_jumbo,
+    spread_threshold_pct: spread_threshold,
+    spread_threshold_basis: spread_basis,
+    year: year,
+    manual_review_required: manualReview,
+    retired_input_keys_present: retiredPresent,
+    compliance_notes: notes,
+    input_contract_version: 'HPML-ESCROW-INPUTS-2',
+    table_version: 'HPML-ESCROW-2026-08-19',
+    consumes: 'art-220 (lookup_reg_z_thresholds) supplies the higher-priced spread table. The spread tiers are structural statutory percentages and are not indexed; the two asset limits ARE indexed annually and are carried as dated table entries here.',
+    note: 'The escrow requirement reaches first-lien higher-priced transactions only; subordinate liens are never in scope. escrow_required is the account; escrow_property_taxes_required and escrow_insurance_premiums_required are its two components, and the common-interest-community master-policy exemption removes the insurance component ALONE. APOR must be supplied by the caller from the FFIEC weekly table. For the high-cost trigger test use art-234 (test_hoepa_high_cost), not this node.'
+  };
+
+  return { output_payload: output_payload, compliance_flags: compliance_flags };
+}
 
 function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
 async function computeExecHash(pp, op) {
@@ -363,84 +830,107 @@ function handleLienChange() {
   document.getElementById('escrowExemptSection').style.display = show ? '' : 'none';
 }
 
-function runHpml() {
-  var apr = safeNum(document.getElementById('aprPct').value, 0);
-  var apor = safeNum(document.getElementById('aporPct').value, 0);
+function handleLegD() {
+  document.getElementById('legDCarveOuts').style.display = document.getElementById('legDMaintains').checked ? '' : 'none';
+}
+function handleInsDI() {
+  document.getElementById('insDIFields').style.display = document.getElementById('insIsDI').checked ? '' : 'none';
+}
+function handleFwd() {
+  document.getElementById('fwdFields').style.display = document.getElementById('fwdCommit').checked ? '' : 'none';
+}
+
+/** Reads a numeric field, returning null (not 0) when the caller left it blank. */
+function optNum(id) {
+  var raw = document.getElementById(id).value;
+  if (raw === null || String(raw).trim() === '') return null;
+  var n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+function chk(id) { return document.getElementById(id).checked; }
+
+/** Builds policy_parameters from the form. Only answered fields are emitted, so an
+ *  unanswered leg stays unanswered rather than defaulting to a value nobody asserted. */
+function readForm() {
   var lien = document.getElementById('lienType').value;
-  var isJumbo = document.getElementById('isJumbo').checked;
-  var isRural = document.getElementById('isRural').checked;
-  var assetsOk = document.getElementById('assetsUnder2b').checked;
-  var loanOk = document.getElementById('loanUnder500').checked;
-  var isCondo = document.getElementById('isCondoMaster').checked;
-  var year = parseInt(document.getElementById('year').value) || 2026;
+  var pp = {
+    apr_pct: safeNum(document.getElementById('aprPct').value, 0),
+    apor_pct: safeNum(document.getElementById('aporPct').value, 0),
+    lien_type: lien,
+    is_jumbo: chk('isJumbo'),
+    year: parseInt(document.getElementById('year').value, 10) || 2026
+  };
+  if (lien !== 'first') return pp;
 
-  // Determine threshold
-  var threshold, threshBasis;
-  if (lien === 'subordinate') {
-    threshold = HPML.sub; threshBasis = 'subordinate_lien_3.5pp';
-  } else if (isJumbo) {
-    threshold = HPML.first_jumbo; threshBasis = 'first_lien_jumbo_2.5pp';
-  } else {
-    threshold = HPML.first_std; threshBasis = 'first_lien_standard_1.5pp';
-  }
+  var appDate = document.getElementById('appDate').value;
+  if (appDate) pp.application_received_date = appDate;
 
-  var spread = r4(apr - apor);
-  var isHpml = spread >= threshold - 1e-5;
+  if (chk('catCoop')) pp.secured_by_cooperative_shares = true;
+  if (chk('catConstruction')) pp.finances_initial_construction_of_dwelling = true;
+  if (chk('catBridge')) pp.is_bridge_loan_twelve_months_or_less = true;
+  if (chk('catReverse')) pp.is_reverse_mortgage = true;
+  if (chk('catPace')) pp.is_pace_transaction = true;
 
-  // Escrow: first-lien HPML only
-  var escrowRequired = isHpml && lien === 'first';
-  var escrowExemption = null;
-  var escrowExemptionBasis = null;
+  var legBCount = optNum('legBCount');
+  var legBCountPrior = optNum('legBCountPrior');
+  var legCAssets = optNum('legCAssets');
+  var legCAssetsPrior = optNum('legCAssetsPrior');
+  var claimsFourLeg = legBCount !== null || legBCountPrior !== null || legCAssets !== null || legCAssetsPrior !== null;
+  var isDI = chk('insIsDI');
 
-  if (escrowRequired) {
-    if (isRural && assetsOk && loanOk) {
-      escrowRequired = false;
-      escrowExemption = 'rural_or_underserved_small_creditor';
-      escrowExemptionBasis = '§1026.35(b)(2)(iii): rural or underserved area + creditor assets < $2B + <= 500 first-lien HPMLs originated in prior year';
-    } else if (isCondo) {
-      escrowRequired = false;
-      escrowExemption = 'condo_master_policy';
-      escrowExemptionBasis = '§1026.35(b)(2)(ii): condominium where HOA master policy covers hazard insurance for all units';
+  if (claimsFourLeg || chk('legARural') || chk('legARuralPrior') || chk('legDMaintains') || isDI) {
+    pp.rural_or_underserved_preceding_year = chk('legARural');
+    if (chk('legARuralPrior')) pp.rural_or_underserved_next_to_last_year = true;
+    pp.maintains_escrow_for_serviced_loans = chk('legDMaintains');
+    if (chk('legDMaintains')) {
+      pp.serviced_escrows_within_carve_outs = chk('legDWithin');
+      if (chk('legDCarve1')) pp.carve_out_pre_june_2021_first_lien_hpml_escrows = true;
+      if (chk('legDCarve2')) pp.carve_out_distressed_consumer_accommodation_escrows = true;
     }
   }
+  if (legBCount !== null) pp.first_lien_covered_txns_sold_or_transferred_count = legBCount;
+  if (legBCountPrior !== null) pp.first_lien_covered_txns_sold_or_transferred_count_next_to_last_year = legBCountPrior;
+  if (legCAssets !== null) pp.creditor_and_affiliate_total_assets = legCAssets;
+  if (legCAssetsPrior !== null) pp.creditor_and_affiliate_total_assets_next_to_last_year = legCAssetsPrior;
 
-  var flags = [];
-  if (isHpml) flags.push('HPML_LOAN');
-  if (escrowRequired) flags.push('HPML_ESCROW_REQUIRED');
-  if (escrowExemption) flags.push('HPML_ESCROW_EXEMPTION_APPLIES');
-  if (isHpml && lien === 'subordinate') flags.push('HPML_SUBORDINATE_NO_ESCROW');
+  if (isDI) {
+    pp.creditor_is_insured_depository_or_credit_union = true;
+    var insAssetsV = optNum('insAssets');
+    var insCountV = optNum('insCount');
+    if (insAssetsV !== null) pp.insured_institution_total_assets = insAssetsV;
+    if (insCountV !== null) pp.first_lien_principal_dwelling_covered_txns_count = insCountV;
+  }
 
-  var pp = { apr_pct: apr, apor_pct: apor, lien_type: lien, is_jumbo: isJumbo, is_rural_or_underserved: isRural, creditor_assets_under_2b: assetsOk, loan_count_under_500: loanOk, property_is_condo_master_policy: isCondo, year: year };
-  var op = {
-    is_hpml: isHpml,
-    escrow_required: escrowRequired,
-    escrow_exemption: escrowExemption,
-    escrow_exemption_basis: escrowExemptionBasis,
-    apr_spread_pct: spread,
-    apr_pct: r4(apr),
-    apor_pct: r4(apor),
-    lien_type: lien,
-    is_jumbo: isJumbo,
-    spread_threshold_pct: threshold,
-    spread_threshold_basis: threshBasis,
-    year: year,
-    table_version: 'HPML-REGZ-2026-01-01',
-    fr_citation: FR_CITE,
-    regulatory_basis: 'Reg Z §1026.35(a)(1) HPML definition; §1026.35(b)(1) escrow requirement (first-lien HPML, minimum 5 years); §1026.35(b)(2) rural/underserved small creditor and condo master-policy exemptions.',
-    consumes: 'art-220 (lookup_reg_z_thresholds) supplies the HPML threshold table (table: hpml). HPML spread thresholds (1.5/2.5/3.5 pp) are structural Dodd-Frank values, not CPI-adjusted.',
-    note: 'HPML escrow applies to first-lien transactions only; subordinate liens are not subject to §1026.35(b) escrow. For HOEPA high-cost test (APOR+6.5pp/8.5pp): use art-234 (test_hoepa_high_cost). APOR must be supplied by caller from FFIEC weekly table (ffiec.gov/ratespread).'
-  };
+  if (chk('fwdCommit')) {
+    pp.subject_to_commitment_to_be_acquired = true;
+    pp.acquiring_person_satisfies_exemption_conditions = chk('fwdAcquirerOk');
+  }
+  if (chk('cicMaster')) pp.property_in_common_interest_community_with_master_policy = true;
+  return pp;
+}
 
+function legBadge(v) {
+  if (v === true) return '<span class="badge ok">MET</span>';
+  if (v === false) return '<span class="badge fail">NOT MET</span>';
+  return '<span class="badge warn">UNANSWERED</span>';
+}
+
+function runHpml() {
+  var pp = readForm();
+  var res = computeHpmlEscrow(pp);
+  var op = res.output_payload;
+  var flags = res.compliance_flags;
   _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
 
-  // Verdict
+  var isHpml = op.is_hpml;
+  var lien = op.lien_type;
+
   var vColor = isHpml ? 'var(--warn)' : 'var(--green)';
   var vBg = isHpml ? 'rgba(245,158,11,.08)' : 'rgba(34,197,94,.08)';
   var vBox = document.getElementById('verdictBox');
   vBox.style.color = vColor; vBox.style.background = vBg; vBox.style.border = '1px solid ' + vColor;
   vBox.textContent = isHpml ? 'HIGHER-PRICED MORTGAGE LOAN (HPML)' : 'NOT HPML (spread below threshold)';
 
-  // Escrow box
   var eBox = document.getElementById('escrowBox');
   if (!isHpml) {
     eBox.style.display = 'none';
@@ -449,52 +939,99 @@ function runHpml() {
     eBox.style.background = 'rgba(20,184,166,.06)';
     eBox.style.border = '1px solid rgba(20,184,166,.25)';
     eBox.style.color = 'var(--teal-lt)';
-    eBox.textContent = 'ESCROW: Not required (subordinate lien — §1026.35(b) escrow applies first-lien only)';
-  } else if (escrowRequired) {
+    eBox.textContent = 'ESCROW: Not required (subordinate lien; the §1026.35(b) escrow requirement reaches first liens only)';
+  } else if (op.escrow_required) {
     eBox.style.display = 'block';
     eBox.style.background = 'rgba(239,68,68,.08)';
     eBox.style.border = '1px solid rgba(239,68,68,.3)';
     eBox.style.color = 'var(--red)';
-    eBox.textContent = 'ESCROW REQUIRED: Maintain property-tax-and-insurance escrow for minimum 5 years (§1026.35(b)(1))';
+    eBox.textContent = op.forward_commitment_override_applied
+      ? 'ESCROW REQUIRED under the §1026.35(b)(2)(v) commitment-to-acquire override, notwithstanding the exemption path the creditor otherwise satisfies'
+      : 'ESCROW REQUIRED: maintain a property-tax-and-insurance escrow for a minimum of 5 years (§1026.35(b)(1))';
   } else {
     eBox.style.display = 'block';
     eBox.style.background = 'rgba(34,197,94,.06)';
     eBox.style.border = '1px solid rgba(34,197,94,.25)';
     eBox.style.color = 'var(--green)';
-    eBox.textContent = 'ESCROW EXEMPTION: ' + escrowExemption + ' — ' + escrowExemptionBasis;
+    eBox.textContent = 'ESCROW EXEMPTION: ' + op.escrow_exemption + '. ' + op.escrow_exemption_basis;
+  }
+
+  var cBox = document.getElementById('componentBox');
+  if (isHpml && lien === 'first' && op.escrow_required) {
+    cBox.innerHTML = '<div class="escrow-box" style="background:rgba(20,184,166,.05);border:1px solid rgba(20,184,166,.25);color:var(--text);font-weight:400">'
+      + '<div style="margin-bottom:4px">Escrow components</div>'
+      + '<div>Property taxes: ' + (op.escrow_property_taxes_required ? '<span style="color:var(--red)">REQUIRED</span>' : '<span style="color:var(--green)">not required</span>') + '</div>'
+      + '<div>Insurance premiums: ' + (op.escrow_insurance_premiums_required ? '<span style="color:var(--red)">REQUIRED</span>' : '<span style="color:var(--green)">not required</span>') + '</div>'
+      + (op.escrow_limited_exemption ? '<div style="margin-top:6px;font-size:.7rem;color:var(--body)">' + op.escrow_limited_exemption_basis + '</div>' : '')
+      + '</div>';
+  } else {
+    cBox.innerHTML = '';
   }
 
   document.getElementById('statRow').innerHTML =
-    '<div class="stat"><span class="stat-val" style="color:'+(isHpml?'var(--warn)':'var(--green)')+'">'+( isHpml?'HPML':'Not HPML')+'</span><span class="stat-key">Status</span></div>'+
-    '<div class="stat"><span class="stat-val">'+spread+' pp</span><span class="stat-key">APR Spread</span></div>'+
-    '<div class="stat"><span class="stat-val">'+threshold+' pp</span><span class="stat-key">Threshold</span></div>'+
-    '<div class="stat"><span class="stat-val" style="color:'+(escrowRequired?'var(--red)':escrowExemption?'var(--green)':'var(--body)')+'">'+( escrowRequired?'Required':escrowExemption?'Exempt':'N/A')+'</span><span class="stat-key">Escrow</span></div>';
+    '<div class="stat"><span class="stat-val" style="color:' + (isHpml ? 'var(--warn)' : 'var(--green)') + '">' + (isHpml ? 'HPML' : 'Not HPML') + '</span><span class="stat-key">Status</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.apr_spread_pct + ' pp</span><span class="stat-key">APR Spread</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.spread_threshold_pct + ' pp</span><span class="stat-key">Threshold</span></div>' +
+    '<div class="stat"><span class="stat-val" style="color:' + (op.escrow_required ? 'var(--red)' : op.escrow_exemption ? 'var(--green)' : 'var(--body)') + '">' + (op.escrow_required ? 'Required' : op.escrow_exemption ? 'Exempt' : 'N/A') + '</span><span class="stat-key">Escrow</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.small_originator_test.transferred_txn_limit + '</span><span class="stat-key">(B) Limit</span></div>' +
+    '<div class="stat"><span class="stat-val" style="font-size:.8rem">' + (op.small_originator_test.asset_limit_applied === null ? 'unresolved' : '$' + op.small_originator_test.asset_limit_applied.toLocaleString('en-US')) + '</span><span class="stat-key">(C) Limit ' + op.year + '</span></div>';
 
-  document.getElementById('flagRow').innerHTML = flags.length ? flags.map(function(f) {
-    var cls = f === 'HPML_ESCROW_REQUIRED' ? 'fail' : (f === 'HPML_LOAN' ? 'warn' : 'ok');
-    return '<span class="badge '+cls+'">'+f+'</span>';
+  document.getElementById('flagRow').innerHTML = flags.length ? flags.map(function (f) {
+    var cls = (f === 'HPML_ESCROW_REQUIRED' || f === 'HPML_ESCROW_FORWARD_COMMITMENT_OVERRIDE') ? 'fail'
+      : (f === 'HPML_LOAN' || f === 'HPML_MANUAL_REVIEW_REQUIRED' || f === 'HPML_ESCROW_EXEMPTION_INPUTS_INCOMPLETE' || f === 'HPML_RETIRED_INPUT_KEY_PRESENT' || f === 'HPML_ESCROW_INSURANCE_PREMIUMS_EXEMPT_TAXES_STILL_REQUIRED') ? 'warn' : 'ok';
+    return '<span class="badge ' + cls + '">' + f + '</span>';
   }).join('') : '<span class="badge ok">NO HPML FLAGS</span>';
 
+  document.getElementById('noteDiv').innerHTML = op.compliance_notes.length
+    ? op.compliance_notes.map(function (n) { return '<div class="pii-notice" style="border-left-color:var(--warn);color:var(--body)">' + n + '</div>'; }).join('')
+    : '';
+
+  var showLegs = isHpml && lien === 'first';
+  document.getElementById('legsHead').style.display = showLegs ? '' : 'none';
+  var s = op.small_originator_test, ins = op.insured_institution_test;
+  document.getElementById('legsDiv').innerHTML = !showLegs ? '' : (
+    '<div class="leg"><div class="leg-title">§1026.35(b)(2)(iii) four-condition test &middot; ' + s.status.replace(/_/g, ' ') + '</div>'
+    + '<div class="kv"><span class="kv-k">(A) Rural or underserved area</span><span class="kv-v">' + legBadge(s.leg_a_area) + '</span></div>'
+    + '<div class="kv"><span class="kv-k">(B) No more than ' + s.transferred_txn_limit + ' first-lien covered transactions sold, assigned or transferred (creditor and affiliates; portfolio excluded)</span><span class="kv-v">' + legBadge(s.leg_b_transferred_txn_count) + '</span></div>'
+    + '<div class="kv"><span class="kv-k">(C) Assets below ' + (s.asset_limit_applied === null ? 'the indexed limit (unresolved for ' + op.year + ')' : '$' + s.asset_limit_applied.toLocaleString('en-US')) + ' (' + s.asset_limit_source + ')</span><span class="kv-v">' + legBadge(s.leg_c_assets) + '</span></div>'
+    + '<div class="kv"><span class="kv-k">(D) No other escrow accounts maintained outside the (D)(1) and (D)(2) carve-outs</span><span class="kv-v">' + legBadge(s.leg_d_no_other_escrows) + '</span></div>'
+    + '</div>'
+    + '<div class="leg"><div class="leg-title">§1026.35(b)(2)(vi) insured depository path &middot; ' + ins.status.replace(/_/g, ' ') + '</div>'
+    + '<div class="kv"><span class="kv-k">(A) Institution assets at or below ' + (ins.asset_limit_applied === null ? 'the indexed limit (unresolved for ' + op.year + ')' : '$' + ins.asset_limit_applied.toLocaleString('en-US')) + ' (affiliates not counted)</span><span class="kv-v">' + legBadge(ins.leg_a_assets) + '</span></div>'
+    + '<div class="kv"><span class="kv-k">(B) No more than ' + ins.txn_limit + ' first-lien principal-dwelling covered transactions (portfolio included)</span><span class="kv-v">' + legBadge(ins.leg_b_first_lien_principal_dwelling_count) + '</span></div>'
+    + '<div class="kv"><span class="kv-k">(C) Legs (iii)(A) and (iii)(D) both met</span><span class="kv-v">' + legBadge(ins.leg_c_area_and_no_other_escrows) + '</span></div>'
+    + '</div>'
+    + '<div class="leg"><div class="leg-title">Look-back window applied</div>'
+    + '<div class="kv"><span class="kv-k">Application received before April 1 of ' + op.year + '</span><span class="kv-v">' + (op.look_back.application_before_april_1_grace ? 'yes' : 'no') + ' (' + op.look_back.grace_source.replace(/_/g, ' ') + ')</span></div>'
+    + '<div class="kv"><span class="kv-k">Candidate calendar year(s) tested</span><span class="kv-v">' + op.look_back.candidate_years.join(', ') + '</span></div>'
+    + '</div>'
+  );
+
   document.getElementById('kvDiv').innerHTML = [
-    ['APR', apr + '%'],
-    ['APOR', apor + '%'],
-    ['Spread', spread + ' pp'],
-    ['HPML threshold', threshold + ' pp (' + threshBasis + ')'],
-    ['Lien type', lien],
-    ['Jumbo', isJumbo ? 'Yes (above FHFA conforming limit)' : 'No'],
-    ['Is HPML', isHpml ? 'Yes' : 'No'],
-    ['Escrow required', escrowRequired ? 'Yes' : 'No'],
-    ['Escrow exemption', escrowExemption || 'None'],
-    ['Exemption basis', escrowExemptionBasis || 'N/A'],
-    ['Table version', 'HPML-REGZ-2026-01-01'],
-    ['FR citation', FR_CITE],
-  ].map(function(x){return '<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+String(x[1]).substring(0,90)+'</span></div>';}).join('');
+    ['APR', op.apr_pct + '%'],
+    ['APOR', op.apor_pct + '%'],
+    ['Spread', op.apr_spread_pct + ' pp'],
+    ['HPML threshold', op.spread_threshold_pct + ' pp (' + op.spread_threshold_basis + ')'],
+    ['Lien type', op.lien_type],
+    ['Jumbo', op.is_jumbo ? 'Yes (above FHFA conforming limit)' : 'No'],
+    ['Is HPML', op.is_hpml ? 'Yes' : 'No'],
+    ['Escrow account required', op.escrow_required ? 'Yes' : 'No'],
+    ['Property-tax escrow required', op.escrow_property_taxes_required ? 'Yes' : 'No'],
+    ['Insurance-premium escrow required', op.escrow_insurance_premiums_required ? 'Yes' : 'No'],
+    ['Full exemption', op.escrow_exemption || 'None'],
+    ['Limited exemption', op.escrow_limited_exemption || 'None'],
+    ['Categorical carve-out', op.categorical_exemption || 'None'],
+    ['Commitment-to-acquire override', op.forward_commitment_override_applied ? 'Applied' : 'Not applied'],
+    ['Manual review required', op.manual_review_required ? 'Yes' : 'No'],
+    ['Input contract', op.input_contract_version],
+    ['Table version', op.table_version]
+  ].map(function (x) { return '<div class="kv"><span class="kv-k">' + x[0] + '</span><span class="kv-v">' + String(x[1]).substring(0, 90) + '</span></div>'; }).join('');
 
   document.getElementById('resultsPanel').classList.add('show');
   document.getElementById('execHashBox').textContent = 'computing...';
   document.getElementById('verifyResult').textContent = '';
   document.getElementById('anchorBtn').style.display = 'none';
-  computeExecHash(pp, op).then(function(h) {
+  computeExecHash(pp, op).then(function (h) {
     document.getElementById('execHashBox').textContent = h;
     var aBtn = document.getElementById('anchorBtn');
     aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
