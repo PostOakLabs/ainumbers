@@ -477,15 +477,81 @@ Stated plainly, including where it undercuts itself.
 
 ## 6. Cohort — the first run of this convention, and the measured fill quality
 
-⭐ **The row's precondition, and the promotion criterion of §1.7.** Six nodes, chosen for contrast,
-inventoried on 2026-08-23. Every number below is **re-derivable** — ⛔ do not trust this table, run
-the gate:
+⭐ **The promotion criterion of §1.7, discharged.** Six nodes, inventoried 2026-08-23. Every number
+below is **re-derivable** — ⛔ do not trust this table, run the gate:
 
 ```
 node scripts/check-branch-inventory.mjs --metrics
 ```
 
-See `chaingraph/standard/branch-inventories/` for the six inventory files and
-`scripts/check-branch-inventory.mjs --metrics` for the live figures. The cohort composition, the
-selection rationale, the fill-quality metric and its result are recorded in §6 of that gate's
-`--metrics` output and in the row's check-off.
+### 6.1 Who is in it, and why
+
+| Node | Role | Why this one |
+|---|---|---|
+| `art-637-globe-de-minimis-exclusion` | calibration | a counter-pattern node the audits recorded as producing zero findings — establishes what a well-filled inventory looks like |
+| `art-615-mla-charge-inclusion-classifier` | calibration | second counter-pattern; the MLA carve-out is a textbook multi-predicate refusal |
+| `art-617-m3p-monthly-cap-calculator` | calibration | the third counter-pattern, and the one that refuses via a **declared domain** rather than a review flag |
+| `art-396-compute-15c3-3-reserve` | gapped | its **only** pinned snapshot is a head-of-provision exemption list — the cleanest test of the dominant silent-green vector |
+| `art-536-reg-w-affiliate-transaction-tester` | gapped | six pinned snapshots, **four of them exemption lists**, against a node that already refuses well on one other axis |
+| `art-447-securitization-risk-retention-check` | gapped | **nine** pinned snapshots against one rate and one boolean — the over-citation case (SO #39(iii)) |
+
+### 6.2 The metric, and what it does and does not measure
+
+> **Fill quality = the share of inventory rows whose declared disposition is CONFIRMED BY EXECUTING
+> THE KERNEL.** `unrepresented_known` rows are findings: counted, never scored — a row is not "done"
+> because the author admitted the gap.
+
+| | |
+|---|---:|
+| Nodes inventoried | 6 |
+| Branches enumerated from primary text | **71** |
+| Refusal reachability (declared path actually fires) | **12 / 12 · 100%** |
+| Representation evidence (named payload member appears) | **30 / 30 · 100%** |
+| Assumptions of use (value + source + owner all named) | **11 / 11 · 100%** |
+| **FILL QUALITY** | **53 / 53 · 100%** |
+| `unrepresented_known` findings, unscored | **18 · 25.4% of all branches** |
+
+⚠ **READ THE 100% CORRECTLY, BECAUSE IT IS THE EASIEST NUMBER HERE TO OVERCLAIM.** These six
+inventories were authored by one session **holding the gate**, so what is measured is *"can the
+convention be filled correctly and cheaply"* — ✅ yes — and ⛔ **not** *"will a rushed author fill it
+correctly"*, which is §5.6's open question and which no single cohort can answer. The number is not
+vacuous, because `scripts/check-branch-inventory.test.mjs` proves by mutation that an unreachable
+refusal, a fabricated representation, an unregistered clause digest and a missing fixture each turn
+the gate red. It is the *right* number for the promotion criterion — the criterion asked whether
+declared refusals survive someone looking, and all twelve did.
+
+### 6.3 What the run actually found — the number that carries the argument
+
+⭐ **18 of 71 branches (25.4%) are `unrepresented_known`, and they are not evenly spread.** The three
+calibration nodes produced **one** between them; the three gapped nodes produced **seventeen**. Every
+one of the seventeen is a branch of a paragraph the node **already pins as a clause snapshot** —
+these are not uncited provisions, they are cited-and-unexercised ones, invisible to every gate the
+estate runs today.
+
+Four findings worth naming, all first surfaced by this run:
+
+1. **`art-396` — `compute({})` returns `deposit_sufficient: true`.** An empty input yields an
+   affirmative "no deposit required". Its sole pinned snapshot is 17 CFR 240.15c3-3(k), which is
+   entirely about when the rule **does not apply**, and none of (k)(1), (k)(1)(iv), (k)(2)(i),
+   (k)(2)(ii) or (k)(3) is reachable. Declared direction: `conservative_toward_no_finding` — the
+   harmful one.
+2. **`art-615` — a charge type outside the closed set falls through every branch** and returns
+   `included_in_mapr: null` with `MLA_CHARGE_CLASSIFIED` raised: a flag asserting classification
+   happened when no branch matched. Found on a node believed clean, which is exactly why calibration
+   nodes were included.
+3. **`art-447` — the QRM exemption is labelled `Sec_.19` in a runtime payload string.** QRM is
+   12 CFR 244.13; 244.19 is the general-exemptions section. A wrong documentary locator shipping on
+   every MCP call — §3.1's class, live.
+4. **`art-536` / `art-447` — head-of-provision exemption lists at scale.** 12 CFR 223.42 alone
+   carries eleven exempt classes, several multi-condition; 12 CFR 244.19 carries roughly fourteen.
+   Pinned, cited, exercised by nothing.
+
+⛔ **None of the four is fixed here.** Each needs a kernel edit, which moves the digest and demands a
+re-prove in the same row (SO #36) — outside this row's fence. They are recorded in the inventories,
+in the branch rows named above, for the ORCH to stage.
+
+⚖ **What this says about the §1.7 promotion criterion.** The convention is fillable, the refusals it
+declares are real, and it surfaced four defects that every existing gate is green on. What it has not
+yet shown is durability under authors who did not write it. ⇒ ✅ **Keep it a convention. Re-measure
+after the next cohort of nodes runs it unassisted; ⛔ do not buy a permanent schema field on one
+session's fill rate.**

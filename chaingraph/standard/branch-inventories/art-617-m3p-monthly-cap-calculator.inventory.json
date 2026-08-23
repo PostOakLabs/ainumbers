@@ -1,0 +1,113 @@
+{
+  "tool_id": "art-617-m3p-monthly-cap-calculator",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-08-23",
+  "authored_by": "AUTHORING-STANDARD-ADOPT-1",
+  "cohort_role": "calibration — the third counter-pattern node, and the one that carries a DECLARED DOMAIN rather than a review flag. It is why the closed mirror list of AUTHORING-STANDARD.md §2.2 had to include domain_errors: without it, the doctrine's own gate would have counted the estate's cleanest refusal design as a violation.",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The output is a per-month cap, not a test against a threshold: the kernel does not decide whether anything is over or under a limit, so there is no one-sided error to declare. Every input outside the declared domain is refused rather than approximated, which is the reason the direction question does not arise here rather than an answer to it.",
+  "derived_from": [
+    { "digest": "sha256:884d7a32607752e5550c66f152673b413dfd6acbf7364bfd233dfcb46d821c61", "clause_path": "(c)(1)(i)-(ii)" }
+  ],
+  "branches": [
+    {
+      "id": "art-423.137-c1i-first-month-cap",
+      "clause": "42 CFR 423.137(c)(1)(i)",
+      "branch": "First month: (annual out-of-pocket threshold minus the enrollee's incurred costs) divided by the number of months remaining in the plan year.",
+      "disposition": "represented",
+      "evidence": "cap_cents"
+    },
+    {
+      "id": "art-423.137-c1ii-subsequent-month-cap",
+      "clause": "42 CFR 423.137(c)(1)(ii)",
+      "branch": "Subsequent months: the calculation carries the remaining owed balance and newly incurred costs, divided by the months remaining.",
+      "disposition": "represented",
+      "evidence": "numerator_breakdown"
+    },
+    {
+      "id": "art-423.137-c1-two-branches-are-disjoint",
+      "clause": "42 CFR 423.137(c)(1)(i)-(ii)",
+      "branch": "The provision has exactly two calculation branches and they are mutually exclusive for a given month.",
+      "disposition": "represented",
+      "evidence": "branch"
+    },
+    {
+      "id": "art-423.137-c1i-annual-threshold-value",
+      "clause": "42 CFR 423.137(c)(1)(i), citing s.1860D-2(b)(4)(B)",
+      "branch": "The annual out-of-pocket threshold itself, which the provision incorporates by reference to the Act and which changes each plan year.",
+      "disposition": "represented",
+      "evidence": "annual_oop_threshold_source_digest",
+      "note": "Represented rather than out_of_scope_by_input: the kernel carries the threshold with its own source and source_digest in the payload, so the value travels with its provenance rather than being asserted bare or pushed onto an unnamed caller. This is the shape AUTHORING-STANDARD.md §1.2 asks of a relocated constant when relocation is not available."
+    },
+    {
+      "id": "art-423.137-c1i-A-bill-the-lesser",
+      "clause": "42 CFR 423.137(c)(1)(i)(A)",
+      "branch": "Where first-month out-of-pocket costs are LESS than the cap, the sponsor bills the lesser of actual costs or the cap.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the billed amount",
+        "source": "42 CFR 423.137(c)(1)(i)(A)",
+        "owner": "the PDP sponsor or MA organization. This node computes the CAP; it does not compute what is billed, and a caller that treats cap_cents as the invoice amount will over-bill an enrollee whose actual costs are lower."
+      }
+    },
+    {
+      "id": "art-423.137-c1i-B-pre-plan-year-election",
+      "clause": "42 CFR 423.137(c)(1)(i)(B)",
+      "branch": "An enrollee who opts in BEFORE the plan year starts has the (c)(1)(i) calculation applied to their first month of active coverage within the plan year.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "which calendar month counts as the first month, and the months_remaining that follows from it",
+        "source": "42 CFR 423.137(c)(1)(i)(B)",
+        "owner": "the CALLER, who supplies branch and months_remaining. The kernel enforces the declared range but cannot tell a correct first-month identification from an incorrect one."
+      }
+    },
+    {
+      "id": "art-423.137-c1-branch-outside-declared-domain",
+      "clause": "42 CFR 423.137(c)(1)",
+      "branch": "An input naming neither of the provision's two branches.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "M3P_INPUT_OUT_OF_DECLARED_DOMAIN",
+        "payload_marker": "domain_errors",
+        "fixture": "art-617-m3p-monthly-cap-calculator.fixtures.json#invalid-branch-rejected",
+        "reachability_vector": { "branch": "bogus", "months_remaining": 1 }
+      }
+    },
+    {
+      "id": "art-423.137-c1i-incurred-costs-outside-threshold",
+      "clause": "42 CFR 423.137(c)(1)(i)",
+      "branch": "Incurred costs above the annual out-of-pocket threshold are outside the provision: the subtraction would be negative and the provision describes no such case.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "M3P_INPUT_OUT_OF_DECLARED_DOMAIN",
+        "payload_marker": "domain_errors",
+        "fixture": "art-617-m3p-monthly-cap-calculator.fixtures.json#invalid-incurred-out-of-range",
+        "reachability_vector": { "branch": "first_month", "incurred_TrOOP_cents": 210001, "months_remaining": 1 }
+      }
+    },
+    {
+      "id": "art-423.137-c4-single-annual-threshold",
+      "clause": "42 CFR 423.137(c)(4)",
+      "branch": "Remaining owed and newly incurred amounts count once each against the SAME annual threshold; a pair summing above it is not a state the provision describes.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "M3P_INPUT_OUT_OF_DECLARED_DOMAIN",
+        "payload_marker": "domain_errors",
+        "fixture": "art-617-m3p-monthly-cap-calculator.fixtures.json#invalid-subsequent-sum-exceeds-threshold",
+        "reachability_vector": { "branch": "subsequent_month", "remaining_owed_cents": 150000, "newly_incurred_cents": 100000, "months_remaining": 1 }
+      }
+    },
+    {
+      "id": "art-423.137-c3-months-remaining-range",
+      "clause": "42 CFR 423.137(c)(3)",
+      "branch": "For a subsequent month the months remaining in the plan year is at most 11, because at 12 it would be the first month.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "M3P_INPUT_OUT_OF_DECLARED_DOMAIN",
+        "payload_marker": "domain_errors",
+        "fixture": "art-617-m3p-monthly-cap-calculator.fixtures.json#invalid-months-out-of-range-subsequent",
+        "reachability_vector": { "branch": "subsequent_month", "remaining_owed_cents": 1000, "newly_incurred_cents": 0, "months_remaining": 12 }
+      }
+    }
+  ]
+}
