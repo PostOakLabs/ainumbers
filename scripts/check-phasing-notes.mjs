@@ -169,7 +169,16 @@ const FUTURE_CHANGE = [
   [/\bpromote\s+(?:it|this|that)\s+to\b[^.;]{0,80}\b(?:once|until|when|after)\b/i, '"promote to ... once"'],
   [/\brevisit\b[^.;]{0,80}\b(?:once|when|after|if\s+the)\b/i, '"revisit once/when"'],
   [/\bphasing\s*:/i, '"Phasing:" label'],
-  [/\b(?:advisory|warn(?:ing)?(?:[\s-]only)?|lenient|soft[\s-]fail(?:s|ing)?|non[\s-]blocking)\b[^.;]{0,60}\buntil\b/i, '"advisory/warn-only ... until"'],
+  // ⚠ THE PAST-TENSE GUARD WAS EARNED IN THE MERGE QUEUE. The first version of this pattern was
+  // `advisory … [^.;]{0,60} … until`, and a PR that merged while this one sat in the queue added an
+  // incident NARRATIVE that matched it:
+  //   "…on the (locally correct) reading that the gate was advisory, and `land-verify / required`
+  //    stayed red until the record was written in-PR."
+  // That is a past-tense account of a condition that ALREADY resolved — the same non-signal as
+  // "until now", one clause longer. A phasing note is a claim about the PRESENT with an exit in the
+  // FUTURE; narration of a closed incident is neither. The tempered token below refuses the match
+  // when a past-tense verb sits between the advisory word and its "until".
+  [/\b(?:advisory|warn(?:ing)?(?:[\s-]only)?|lenient|soft[\s-]fail(?:s|ing)?|non[\s-]blocking)\b(?:(?!\b(?:was|were|stayed|remained|had|used\s+to)\b)[^.;]){0,60}\buntil\b/i, '"advisory/warn-only ... until"'],
   // ⚠ A bare "until X lands/ships" was tried and REMOVED — it fires on ordinary operational prose
   // that names no future edit: preflight.mjs's "will read RED until the batched vendor land runs —
   // an expected window, not breakage" describes a RECURRING window, not a phasing decision. The

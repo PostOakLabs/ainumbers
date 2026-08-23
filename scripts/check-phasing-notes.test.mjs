@@ -91,6 +91,11 @@ const LEGIT = [
   // "until ... lands" describing a RECURRING operational window, naming no future edit (scripts/preflight.mjs)
   ['// an assembled chaingraph.json change means the worker repo freshness gate will read RED',
    '// until the batched vendor land runs — an expected window, not breakage.'].join('\n'),
+  // "advisory ... until" narrating a CLOSED incident in the past tense. This one was caught by the
+  // merge queue: a PR merging alongside added it, and the first version of the pattern went red on
+  // it against the merged result (scripts/check-workflow-gate-parity.mjs).
+  ['// deferred a missing registry record to main\'s writer on the (locally correct) reading that',
+   '// the gate was advisory, and `land-verify / required` stayed red until the record was written.'].join('\n'),
   // "pending" as ordinary domain vocabulary — the single highest-volume keyword in the naive sweep
   "// An unpopulated slot returns a clear 'pending' error rather than emit an invented concept.",
   // a bare "currently" with no exit condition at all — an observation, not a phase
