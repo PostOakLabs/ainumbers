@@ -124,6 +124,45 @@
  * so failing there would leave every OTHER shared artifact stale as well. The
  * refusal must be loud, not contagious.
  *
+ * ── PART 3: THE DRIFT LABEL (HASH-NEUTRAL / HASH-MOVING) ──────────────────
+ *
+ * `--check` exits 1 on ANY drift, then prints WHICH KIND it is. That label is
+ * advice to a human, not a gate: it tells a session whether the drift its PR
+ * causes will be picked up by the unattended main-side regen, or whether it
+ * needs an explicit ASSEMBLE/LAND row. A FALSE "hash-moving" is therefore not
+ * cosmetic — NODE-DESC-CLAUSE-PIN-1 (PR #1470) checked off BLOCKED-complete and
+ * cost a successor ASSEMBLE-LAND row on a five-node diff that moved no hash at
+ * all (golden-parity clean, 2126 vectors / 637 nodes, zero execution_hash lines
+ * in the shard diff). 599 of 633 live nodes still need a description-layer
+ * touch for the enumeration audit, so every one of those hits it.
+ *
+ * WHAT THE LABEL MEANS. chaingraph.json stores no literal execution_hash; the
+ * hash preimage is `{policy_parameters, output_payload}` and it lives in
+ * FIXTURES AND RECEIPTS, never on a node object. So the question a node diff
+ * actually asks is: can this field's change reach the hash, the kernel, the
+ * registration identity, or the runtime envelope? For most fields the honest
+ * answer is yes-or-unknown, and unknown must read HASH-MOVING.
+ *
+ * SO IT IS A CLOSED ALLOWLIST, NOT A PROJECTION. Projecting a node onto
+ * `{policy_parameters, output_payload}` before comparing — the shape this rule
+ * was first described as — is UNIMPLEMENTABLE: a node carries neither key, so
+ * the projection is `{}` for every node and EVERY edit, `compute_proof` swaps
+ * included, would classify hash-neutral. That is the exact inverse of the
+ * intent. NODE_HASH_NEUTRAL_FIELDS below is built the way the chain side is
+ * built instead (COPY_ONLY_CHAIN_FIELDS): a frozen list of fields whose change
+ * is provably inert, with EVERYTHING ELSE REFUSING BY DEFAULT. A field added to
+ * the schema tomorrow reads HASH-MOVING until someone deliberately classifies
+ * it, and is NAMED in the printed verdict when it does.
+ *
+ * NODE ADDITION AND NODE REMOVAL ARE STRUCTURAL and stay HASH-MOVING whatever
+ * their field content — they are decided on the key sets, before any field
+ * comparison happens, so no allowlist entry can swallow them.
+ *
+ * CHAINS ARE UNAFFECTED. Chain drift keeps the whole-object comparison
+ * SHARD-DRIFT-CHAINS-1 gave it: a chain-only semantic edit (steps, title,
+ * domain) is vendored content and must not read HASH-NEUTRAL. The chain side's
+ * finer three-verdict classification is classifyAssembly's job, above.
+ *
  * CANONICAL ORDER (CS-2, replaces CS-1's migration-mode byte-parity glue):
  * nodes are emitted sorted by tool_id, chains sorted by name, both via a
  * numeric-aware natural sort (so "art-9" < "art-10" < "art-100", not
@@ -180,6 +219,86 @@ export const REFUSAL_EXIT_CODE = 3
  * would drop the guard and is the one change this file must not accept.
  */
 export const COPY_ONLY_CHAIN_FIELDS = Object.freeze(['description', 'title'])
+
+/**
+ * SHARD-DRIFT-HASH-NEUTRAL-1. The ONLY node top-level fields whose change may
+ * read HASH-NEUTRAL in classifyDrift's label (PART 3 of the header). Built as a
+ * CLOSED ALLOWLIST on the COPY_ONLY_CHAIN_FIELDS pattern, so anything absent —
+ * including a field the schema gains tomorrow — reads HASH-MOVING by default.
+ *
+ * A field earns a seat only when BOTH hold: (1) its change is provably inert to
+ * the execution hash, the kernel, the registration identity and the runtime
+ * artifact envelope, and (2) there is a real, recurring reason to edit it, so
+ * the seat buys something. (2) is why this list is shorter than the candidates
+ * the row offered — an inert field nobody ever edits is pure risk surface.
+ *
+ * PER-MEMBER JUSTIFICATION — each one, not the list as a whole:
+ *
+ *   description        Reader-facing prose. Already the landed precedent on the
+ *                      chain side (COPY_ONLY_CHAIN_FIELDS). No kernel reads it;
+ *                      it is not in the hash preimage. Independently policed by
+ *                      check-copy-hallmarks.mjs (CONTRACT §1.4), so admitting it
+ *                      here removes no scrutiny. This is the field the
+ *                      enumeration-audit sweep touches on 599 nodes.
+ *
+ *   display_name       The node analogue of chain `title`, which is already on
+ *                      the chain allowlist. A presentation label: gen-canvas,
+ *                      gen-chaingraph-hub and gen-agentic-payments-map render it
+ *                      as a caption. It is NOT identity — `tool_id` is node
+ *                      identity and `mcp_name` is registration identity, and
+ *                      both stay HASH-MOVING below.
+ *
+ *   standards_basis    A provenance DECLARATION (implements_standard /
+ *                      cites_informative / not_applicable), not compute input.
+ *                      KERNEL-CITATION-CLASS-1 puts citations in node metadata
+ *                      precisely BECAUSE they are outside the behaviour surface
+ *                      — kernel source may not carry them at all. Its value is
+ *                      validated independently by check-clause-digest.mjs
+ *                      (CLAUSE-DIGEST-GATE-1) on every PR, so a wrong value reds
+ *                      a dedicated gate rather than riding in on this label.
+ *
+ *   cited_clause_digest  Same class: a sha256 locator into
+ *                      chaingraph/standard/clause-snapshot-registry.json. It
+ *                      digests the CITED TEXT, never the computation, and the
+ *                      same CLAUSE-DIGEST-GATE-1 resolves it against the
+ *                      registry. Paired with standards_basis because the pinner
+ *                      writes them together — splitting them would refuse the
+ *                      exact diff this row exists to admit.
+ *
+ * DELIBERATELY EXCLUDED, with the reason, so nobody re-litigates them blind:
+ *
+ *   url                A machine-resolvable link target, not wording. The chain
+ *                      side refused `composer_url` a seat on ITS allowlist for
+ *                      exactly this reason and gave it a GUARDED path instead
+ *                      (verdict (a2): auto-land iff the target exists).
+ *                      classifyDrift is a pure two-text label with no existence
+ *                      predicate wired into it, so no guard is available here —
+ *                      and check-node-complete.mjs requires a node's url to
+ *                      resolve. An unguarded seat would be the carve-out
+ *                      CHAIN-CLASSIFY-COMPOSER-URL-1 declined to make.
+ *
+ *   mandate_type       Envelope taxonomy, not prose: it travels INTO the emitted
+ *                      artifact (gen-canvas/gen-chain-runners put it on the
+ *                      mandate object; gen-openapi declares it in the envelope
+ *                      description). It is the node analogue of chain `domain`,
+ *                      which the chain side classes structural.
+ *
+ *   wave               Inert to hash and behaviour, but it fails test (2): a
+ *                      node's build cohort is set once by new-kernel.mjs and
+ *                      never swept, while it does feed a published surface
+ *                      (gen-euc-register). Zero benefit, non-zero surface.
+ *
+ *   Every other clause field (cited_clause_source, clause_retrieved_date,
+ *   clause_snapshot_location, cited_clause_paragraphs, ...) — fail-closed by
+ *   construction. Not listed is not a judgement that they matter; it is the
+ *   default this list exists to preserve.
+ */
+export const NODE_HASH_NEUTRAL_FIELDS = Object.freeze([
+  'cited_clause_digest',
+  'description',
+  'display_name',
+  'standards_basis',
+])
 
 /**
  * The site's published origin. CHAINURL-GATE-1 (scripts/check-chain-composer-urls.mjs)
@@ -457,25 +576,70 @@ function diffByKey(committedArr, assembledArr, keyField, changedIds) {
   }
 }
 
-// Returns { verdict: 'HASH-NEUTRAL' | 'HASH-MOVING' | null, changedIds }.
+// SHARD-DRIFT-HASH-NEUTRAL-1. Diffs the node arrays keyed tool_id and appends
+// only the HASH-MOVING changes to `changes`.
+//
+// STRUCTURE FIRST, FIELDS SECOND — the order is load-bearing. Additions and
+// removals are decided on the KEY SETS, before any field comparison runs, so a
+// node appearing or disappearing is HASH-MOVING whatever its content and no
+// allowlist entry can swallow it. A tool_id rename reaches here as both halves
+// and reports both.
+//
+// For a node present on both sides, `changedFields` (canonical, key-order
+// insensitive — so CS-2 shard reformatting still registers as no change) gives
+// the differing top-level fields; the ones NOT on the frozen allowlist are what
+// make it hash-moving. Filtering against the allowlist is what makes this
+// fail-closed: an unrecognised field name simply is not in the list, so it
+// survives the filter and is named in the verdict.
+function diffNodes(committedArr, assembledArr, changes) {
+  const cMap = byKey(committedArr, 'tool_id')
+  const aMap = byKey(assembledArr, 'tool_id')
+  for (const [id, after] of aMap) {
+    if (!cMap.has(id)) {
+      changes.push({ kind: 'node-added', key: id, fields: [] })
+      continue
+    }
+    const moving = changedFields(cMap.get(id), after).filter((f) => !NODE_HASH_NEUTRAL_FIELDS.includes(f))
+    if (moving.length > 0) changes.push({ kind: 'node-modified', key: id, fields: moving })
+  }
+  for (const id of cMap.keys()) {
+    if (!aMap.has(id)) changes.push({ kind: 'node-removed', key: id, fields: [] })
+  }
+}
+
+/** One-line summary of a drift entry: the key, plus the fields that moved it. */
+export function describeDrift(c) {
+  return c.fields?.length ? `${c.key} [${c.fields.join(', ')}]` : c.key
+}
+
+// Returns { verdict: 'HASH-NEUTRAL' | 'HASH-MOVING' | null, changedIds, changes }.
 // verdict is null only on a JSON.parse failure (caller falls back to the
 // plain DRIFT message, no verdict claimed). SHARD-DRIFT-CHAINS-1: folds
 // .chains into the same verdict — a chain-only semantic edit (steps,
 // title, domain) is vendored content too and must not read HASH-NEUTRAL.
 // Chains have no `id` field (keyed `name`), so nodes and chains diff via
-// separate maps (diffByKey) rather than one shared map.
-function classifyDrift(committedText, assembledText) {
+// separate maps rather than one shared map.
+//
+// SHARD-DRIFT-HASH-NEUTRAL-1 splits the two sides apart: nodes go through
+// diffNodes (allowlist-aware, above), chains keep diffByKey's whole-object
+// comparison EXACTLY as SHARD-DRIFT-CHAINS-1 wrote it. `changedIds` keeps its
+// old shape and order (nodes then chains) for every existing reader; `changes`
+// is additive and carries the field names the label is now able to name.
+export function classifyDrift(committedText, assembledText) {
   let committedObj, assembledObj
   try {
     committedObj = JSON.parse(committedText)
     assembledObj = JSON.parse(assembledText)
   } catch {
-    return { verdict: null, changedIds: [] }
+    return { verdict: null, changedIds: [], changes: [] }
   }
-  const changedIds = []
-  diffByKey(committedObj.nodes, assembledObj.nodes, 'tool_id', changedIds)
-  diffByKey(committedObj.chains, assembledObj.chains, 'name', changedIds)
-  return { verdict: changedIds.length === 0 ? 'HASH-NEUTRAL' : 'HASH-MOVING', changedIds }
+  const changes = []
+  diffNodes(committedObj.nodes ?? [], assembledObj.nodes ?? [], changes)
+  const chainIds = []
+  diffByKey(committedObj.chains ?? [], assembledObj.chains ?? [], 'name', chainIds)
+  for (const name of chainIds) changes.push({ kind: 'chain-changed', key: name, fields: [] })
+  const changedIds = changes.map((c) => c.key)
+  return { verdict: changedIds.length === 0 ? 'HASH-NEUTRAL' : 'HASH-MOVING', changedIds, changes }
 }
 
 function readShard(dir, id) {
@@ -584,11 +748,16 @@ if (REFUSAL_STATUS) {
         break
       }
     }
-    const { verdict, changedIds } = classifyDrift(committed, assembled)
+    const { verdict, changes } = classifyDrift(committed, assembled)
     if (verdict === 'HASH-NEUTRAL') {
-      console.error('  HASH-NEUTRAL DRIFT — run the assembler and commit chaingraph.json in THIS push. Do NOT ride ASSEMBLE-LAND. Do NOT --no-verify.')
+      // The advice, not just the label. SHARD-DRIFT-HASH-NEUTRAL-1 routes the
+      // description/declaration sweep here, and the pre-SO-#35 wording ("commit
+      // chaingraph.json in THIS push") would have sent 599 sessions to write a
+      // shared derived artifact from a PR. The single writer is the main-side
+      // regen; this drift needs nothing from you.
+      console.error('  HASH-NEUTRAL DRIFT — no hash can move here. The main-side derived-artifacts regen assembles and commits chaingraph.json after merge (SO #35 single writer). Do NOT regenerate it in this PR, do NOT check off BLOCKED-complete, do NOT stage an ASSEMBLE-LAND successor.')
     } else if (verdict === 'HASH-MOVING') {
-      console.error(`  HASH-MOVING DRIFT — BLOCKED-complete per RUNBOOK -0.7; the ASSEMBLE-LAND lands it per -0.6. (${changedIds.length} node(s) changed: ${changedIds.slice(0, 10).join(', ')}${changedIds.length > 10 ? ', ...' : ''})`)
+      console.error(`  HASH-MOVING DRIFT — BLOCKED-complete per RUNBOOK -0.7; the ASSEMBLE-LAND lands it per -0.6. (${changes.length} change(s): ${changes.slice(0, 10).map(describeDrift).join('; ')}${changes.length > 10 ? '; ...' : ''})`)
     }
     // Additive: tells a reader whether the main-side regen will land this
     // drift on its own or hand it back for a human ASSEMBLE/LAND row.
