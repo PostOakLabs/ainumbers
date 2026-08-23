@@ -442,4 +442,9 @@ if (isMain) {
   process.exit(hardFail ? 1 : 0);
 }
 
-export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv };
+// withScratchWorktree is exported (MERGEQUEUE-GATE-PARITY-1) so
+// check-regen-repairable.mjs reuses this exact throwaway-worktree discipline —
+// mkdtemp + `git worktree add --detach HEAD` + guaranteed `git worktree remove
+// --force` in a finally — rather than growing a second, subtly different
+// implementation of it. One scratch-worktree mechanism, one cleanup path.
+export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree };
