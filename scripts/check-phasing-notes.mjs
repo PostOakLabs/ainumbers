@@ -95,10 +95,14 @@
 // Zero-dependency. Self-test (SO #40(b), RED before GREEN): scripts/check-phasing-notes.test.mjs.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadRatchetBaselineOrExit, readBaselineForUpdate, assertFiniteCeiling } from './ratchet-baseline.mjs';
+// gitSync, never a bare execFileSync('git', …): git exports GIT_DIR/GIT_WORK_TREE into every hook's
+// environment and those WIN over `cwd`, so an unscrubbed `git ls-files` run from the pre-push hook
+// would enumerate the OUTER repository and hand this gate a well-formed verdict about the wrong tree
+// (GIT-ENV-LEAK-SWEEP-1). That matters here more than most: the enumeration IS this gate's scope.
+import { gitSync } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -361,7 +365,7 @@ export function inScope(rel) {
 }
 
 function scopeFiles() {
-  const raw = execFileSync('git', ['ls-files', '-z', '--', ...SCOPE_GLOBS], { cwd: REPO, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const raw = gitSync(['ls-files', '-z', '--', ...SCOPE_GLOBS], { cwd: REPO, maxBuffer: 32 * 1024 * 1024 });
   const all = raw.split('\0').filter(Boolean).map((p) => p.replace(/\\/g, '/'));
   return [...new Set(all)].filter(inScope).sort();
 }
