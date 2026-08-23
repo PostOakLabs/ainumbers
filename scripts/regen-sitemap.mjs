@@ -13,6 +13,27 @@
  * Preserves existing <lastmod> per URL (re-runs only date genuinely-new
  * pages, not the whole file) — same doctrine as the prior Python script.
  *
+ * ── STATUS FILTER (GENERATOR-STATUS-FILTER-1) — THE SHARPEST CASE ───────────
+ * ⛔ A DEPARTED PAGE'S URL MUST DROP WHEN ITS NODE'S STATUS FLIPS, **EVEN WHILE
+ *    THE FILE EXISTS**. This generator walks the filesystem, so before this
+ *    change a URL lived exactly as long as its file did. That is unfixable by
+ *    deleting the file, because keeping the file is the CORRECT retirement
+ *    shape: ART99-GHOST-CLEANUP-1 retains art-99's page as a retirement-banner
+ *    stub precisely so a rebuilt successor can inherit the URL. So the file
+ *    legitimately remains while the node is not live ⇒ file presence can NEVER
+ *    be the liveness test. Only chaingraph.json's `status` can answer, via the
+ *    shared lens in scripts/_node-status.mjs.
+ * ⛔ Only pages the GRAPH KNOWS are eligible to drop. A tools/ or docs/ page
+ *    with no chaingraph node is not in the lens and is never filtered — absence
+ *    from the graph is not a departure. Measured on origin/main ffa230dc:
+ *    exactly ONE URL changes (art-99's), 1851 -> 1850.
+ * ⛔ Same mechanism rots on ANY retirement style, not just deprecation — the
+ *    disclosures/postmortem-log.html redirect shim (#1361) is still advertised
+ *    here for the same reason. That one is NOT fixed by this filter: a redirect
+ *    shim is not a graph node, so nothing declares its status. Stated rather
+ *    than silently left, so the next reader knows it is a known remainder and
+ *    not an oversight in this filter.
+ *
  * Usage:
  *   node scripts/regen-sitemap.mjs          # write sitemap.xml
  *   node scripts/regen-sitemap.mjs --check  # freshness gate (exit 1 if stale)
@@ -20,6 +41,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadStatusLens } from './_node-status.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -27,6 +49,7 @@ const SITEMAP_PATH = resolve(REPO, 'sitemap.xml');
 const MANIFEST = JSON.parse(readFileSync(resolve(HERE, 'published-dirs.json'), 'utf8'));
 const BASE = 'https://ainumbers.co';
 const CHECK = process.argv.includes('--check');
+const LENS = loadStatusLens(REPO);
 
 function toolSortKey(fname) {
   const m = fname.match(/^(\d+)/);
@@ -39,10 +62,20 @@ function cmpTool(a, b) {
   return an !== bn ? an - bn : as.localeCompare(bs);
 }
 
-function listHtml(dirAbs) {
+/**
+ * THE ONE PLACE a discovered file is refused publication. Both the flat lister
+ * and the recursive walker route through it, so the two cannot drift apart —
+ * which is how a filter ends up applied to tools/ and forgotten on chaingraph/.
+ * @param {string} rel repo-relative path, forward slashes, e.g. `tools/1-x.html`
+ */
+function isPublishable(rel) {
+  return !LENS.isNonLivePath(rel);
+}
+
+function listHtml(dirAbs, dirRel) {
   let entries;
   try { entries = readdirSync(dirAbs); } catch { return []; }
-  return entries.filter((f) => f.endsWith('.html'));
+  return entries.filter((f) => f.endsWith('.html') && isPublishable(`${dirRel}/${f}`));
 }
 
 function walkHtmlRecursive(dirAbs, dirRel, excludeSet) {
@@ -55,7 +88,7 @@ function walkHtmlRecursive(dirAbs, dirRel, excludeSet) {
     const abs = join(dirAbs, e.name);
     if (e.isDirectory()) {
       found = found.concat(walkHtmlRecursive(abs, rel, excludeSet));
-    } else if (e.name.endsWith('.html')) {
+    } else if (e.name.endsWith('.html') && isPublishable(rel)) {
       found.push(rel);
     }
   }
@@ -77,12 +110,12 @@ function urlEntry(relPath, lastmod, changefreq = 'monthly', priority = '0.8') {
 }
 
 function main() {
-  const toolFiles = listHtml(resolve(REPO, 'tools')).sort(cmpTool);
-  const guideFiles = listHtml(resolve(REPO, 'guides')).sort();
-  const disclosureFiles = listHtml(resolve(REPO, 'disclosures')).sort();
-  const docsFiles = listHtml(resolve(REPO, 'docs')).sort();
-  const ledgerFiles = listHtml(resolve(REPO, 'ledger')).sort();
-  const trustFiles = listHtml(resolve(REPO, 'trust')).sort();
+  const toolFiles = listHtml(resolve(REPO, 'tools'), 'tools').sort(cmpTool);
+  const guideFiles = listHtml(resolve(REPO, 'guides'), 'guides').sort();
+  const disclosureFiles = listHtml(resolve(REPO, 'disclosures'), 'disclosures').sort();
+  const docsFiles = listHtml(resolve(REPO, 'docs'), 'docs').sort();
+  const ledgerFiles = listHtml(resolve(REPO, 'ledger'), 'ledger').sort();
+  const trustFiles = listHtml(resolve(REPO, 'trust'), 'trust').sort();
 
   const excludeSet = new Set(MANIFEST.recursiveExcludeSubdirs || []);
   let chaingraphFiles = [];
@@ -158,6 +191,13 @@ function main() {
 
   writeFileSync(SITEMAP_PATH, output, 'utf8');
   console.log(`regen-sitemap: written (${toolFiles.length} tools, ${guideFiles.length} guides, ${chaingraphFiles.length} chaingraph, ${disclosureFiles.length} disclosures, ${docsFiles.length} docs, ${ledgerFiles.length} ledger, ${attestationsFiles.length} attestations, ${trustFiles.length} trust, ${total} total).`);
+  // Named, never silent: a URL that vanished from the sitemap while its file is
+  // still on disk must be explainable from this run's own output.
+  const withheld = [...LENS.nonLivePaths].filter((p) => existsSync(resolve(REPO, p))).sort();
+  if (withheld.length) {
+    console.log(`regen-sitemap: ${withheld.length} URL(s) WITHHELD — file present, node not live (status filter, GENERATOR-STATUS-FILTER-1):`);
+    for (const p of withheld) console.log(`  − ${BASE}/${p}  [${LENS.statusByPath.get(p)}]`);
+  }
 }
 
 main();

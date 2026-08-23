@@ -269,6 +269,56 @@ def check_ap2(changed=None):
 # scope-drift apart independently (DISCOVER-1 §D-2).
 PUBLISHED_DIRS = json.loads((REPO / "scripts" / "published-dirs.json").read_text(encoding="utf-8"))
 
+# ── STATUS FILTER (GENERATOR-STATUS-FILTER-1) ────────────────────────────────
+# ⛔ SCOPE IS SHARED WITH THE GENERATOR, AND SO IS LIVENESS. The directory scope
+# above already comes from one manifest so generator and gate cannot drift. The
+# MEMBERSHIP rule had no such pairing: regen-sitemap.mjs now withholds the URL of
+# a page whose node has LEFT SERVICE, while this gate still demanded that every
+# .html file on disk appear in sitemap.xml. Two rules, opposite verdicts, same
+# file — measured: with only the generator fixed, this gate failed with
+# "[SITEMAP] 1 file(s) missing: chaingraph/art-99-….html" and the row's own
+# requirement was unsatisfiable.
+#
+# The file legitimately stays: ART99-GHOST-CLEANUP-1 (PR #1501) kept art-99's
+# page as a retirement-banner stub so a rebuilt successor can inherit the URL.
+# ⇒ File presence is not publishability. Same shape as the `noindex` guides skip
+# below, which this estate has accepted since DISCOVER-1.
+#
+# ⛔ The asymmetry matches scripts/_node-status.mjs exactly and deliberately:
+# ONLY an explicit, non-"live" status withholds a page. A missing status, or a
+# page with no node at all, is published as before — this filter can only ever
+# subtract pages the graph NAMES as departed.
+_NON_LIVE_PAGES_CACHE = None
+
+
+def _non_live_page_paths():
+    """Repo-relative page paths of nodes chaingraph.json declares NOT live."""
+    global _NON_LIVE_PAGES_CACHE
+    if _NON_LIVE_PAGES_CACHE is not None:
+        return _NON_LIVE_PAGES_CACHE
+    base = "https://ainumbers.co/"
+    paths = set()
+    try:
+        cg = json.loads((REPO / "chaingraph" / "chaingraph.json").read_text(encoding="utf-8"))
+    except Exception:
+        # Unreadable graph -> filter NOTHING. This gate then behaves exactly as it
+        # did before this change (every file must be listed), which is the strict
+        # direction. A broken read must never quietly excuse a missing URL.
+        _NON_LIVE_PAGES_CACHE = paths
+        return paths
+    for node in cg.get("nodes", []):
+        status = node.get("status")
+        if not isinstance(status, str) or status == "" or status == "live":
+            continue
+        url = node.get("url")
+        if not isinstance(url, str) or not url.startswith(base):
+            continue
+        rel = url[len(base):].split("#")[0].split("?")[0]
+        if rel:
+            paths.add(rel)
+    _NON_LIVE_PAGES_CACHE = paths
+    return paths
+
 
 def _walk_html(dir_path, exclude_rel_prefixes):
     for p in sorted(dir_path.rglob("*.html")):
@@ -289,24 +339,43 @@ def check_sitemap(changed=None):
     )
 
     missing = []
+    non_live = _non_live_page_paths()
+    withheld = []
 
     for dname in PUBLISHED_DIRS["flatDirs"]:
         d = REPO / dname
         for path in _touched(sorted(d.glob("*.html")), changed):
+            rel = f"{dname}/{path.name}"
+            if rel in non_live:
+                withheld.append(rel)   # node left service; the generator withholds the URL
+                continue
             if dname in ("tools", "guides"):
                 content = path.read_text(encoding="utf-8", errors="replace")
                 if dname == "guides" and "noindex" in content:
                     continue  # redirect stubs don't belong in sitemap
-            if f"{dname}/{path.name}" not in sitemap_locs:
-                missing.append(f"{dname}/{path.name}")
+            if rel not in sitemap_locs:
+                missing.append(rel)
 
     for dname in PUBLISHED_DIRS["recursiveDirs"]:
         d = REPO / dname
         exclude = [ex for ex in PUBLISHED_DIRS.get("recursiveExcludeSubdirs", []) if ex.startswith(dname + "/")]
         for path in _touched(list(_walk_html(d, exclude)), changed):
             rel = str(path.relative_to(REPO)).replace("\\", "/")
+            if rel in non_live:
+                withheld.append(rel)   # node left service; the generator withholds the URL
+                continue
             if rel not in sitemap_locs:
                 missing.append(rel)
+
+    # THE OTHER HALF OF THE SAME RULE, and it is the half that catches a
+    # regression. A withheld page must be ABSENT from sitemap.xml, not merely
+    # excused from being present — otherwise reverting the generator's status
+    # filter would sail through this gate unnoticed.
+    still_listed = sorted(p for p in withheld if p in sitemap_locs)
+    if still_listed:
+        fail(f"[SITEMAP] {len(still_listed)} departed page(s) still advertised in sitemap.xml:")
+        for f in still_listed[:25]:
+            fail(f"  {f} — node is not live; run: node scripts/regen-sitemap.mjs")
 
     if missing:
         fail(f"[SITEMAP] {len(missing)} file(s) missing from sitemap.xml:")
@@ -314,10 +383,13 @@ def check_sitemap(changed=None):
             fail(f"  {f}")
         if len(missing) > 25:
             fail(f"  ... and {len(missing) - 25} more — run: node scripts/regen-sitemap.mjs")
+    elif still_listed:
+        pass  # already failed above; do not print a green line over a red result
     else:
         dirs_checked = ", ".join(PUBLISHED_DIRS["flatDirs"] + PUBLISHED_DIRS["recursiveDirs"])
         scope = "touched pages" if changed is not None else "all pages"
-        print(f"  ✅ Sitemap: {scope} present ({dirs_checked})")
+        note = f"; {len(withheld)} withheld (node not live, file kept)" if withheld else ""
+        print(f"  ✅ Sitemap: {scope} present ({dirs_checked}){note}")
 
 
 # ── Check 5: Node hash + syntax gates ─────────────────────────────────────────

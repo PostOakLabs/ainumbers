@@ -1054,6 +1054,17 @@ const GATES = [
   ['Flag-mirror doctrine fixture proof (SO #40b pairing)', 'node scripts/check-flag-mirror.test.mjs'],
   ['Chain composer-url existence (CHAINURL-GATE-1)', 'node scripts/check-chain-composer-urls.mjs'],
   ['Chain handoff-register regression (CHAINNARRATIVE-CLARIFY-1)', 'node scripts/check-chain-handoff-register.mjs'],
+  // GENERATOR-STATUS-FILTER-1: a chain step that resolves to a NON-LIVE node is a
+  // LIVE INTEROP DEFECT — find_chain advertises the departed entry tool as callable
+  // while the worker registers node tools live-only, so an agent following the
+  // estate's own recipe gets -32602 Tool not found. Nothing checked this before:
+  // a status flip never touches graph/chains/*.json (assembler blind), validate-chains
+  // only checks that a step RESOLVES, and L1 is advisory-and-always-exits-0.
+  // HARD here, and therefore hard in scripts-verify / required, which runs this whole
+  // suite (SO #54 — naming the context rather than assuming "advisory locally").
+  ['Chain step-status (GENERATOR-STATUS-FILTER-1)', 'node scripts/check-chain-step-status.mjs'],
+  ['Chain step-status controls (RED+GREEN)', 'node scripts/check-chain-step-status.test.mjs'],
+  ['Node status lens controls (GENERATOR-STATUS-FILTER-1)', 'node scripts/_node-status.test.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
   ['OCG conformance roster self-claim (OCG-CONFROSTER-BUILD-1)', 'node scripts/gen-ocg-conformance-roster.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
@@ -1089,6 +1100,12 @@ const GATES = [
   // registration status alongside this gate for whether output now exists on disk.
   ['F1 registry errata log freshness (REGISTRY-ERRATA-RETRY-1)', 'node scripts/gen-registry-errata.mjs --check'],
   ['EUC register entries freshness (EUC-SITE-1)', 'node scripts/gen-euc-register.mjs --check'],
+  // GENERATOR-STATUS-FILTER-1: the write path now PRUNES the stale entries it owns,
+  // so the drift the gate above reports is finally repairable by main's writer —
+  // the premise scripts/check-regen-repairable.mjs tests. Six prune controls
+  // (real event / idempotent / CAP RED / confirm-prune / NOT-MINE / unchanged)
+  // need a runner or they are a control that never fires.
+  ['EUC register prune controls (GENERATOR-STATUS-FILTER-1)', 'node scripts/gen-euc-register.test.mjs'],
   ['EUC register page freshness (EUC-SITE-1)', 'node scripts/gen-euc-register-page.mjs --check'],
   ['Clause edge report freshness (CLAUSE-EDGE-TYPES-1)', 'node scripts/gen-clause-edge-report.mjs --check'],
   ['Clause edge report page freshness (CLAUSE-EDGE-TYPES-1)', 'node scripts/gen-clause-edge-report-page.mjs --check'],
