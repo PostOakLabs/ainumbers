@@ -63,6 +63,23 @@ const PATTERN_DEFINERS = new Set([
 /** The single sanctioned Python copy — Python cannot import an .mjs module (stated, not implied). */
 const PYTHON_SCRUB_HOME = 'scripts/verify_repo.py';
 
+/**
+ * Files exempt from check A ONLY, because they carry deliberately-unscrubbed git spawns as STRING
+ * LITERALS — RED fixtures written out to throwaway repos at run time. Linting a control's own
+ * counterexamples is meaningless: the fixtures are unscrubbed on purpose, and that is the thing
+ * being tested. The detectors read source text, not an AST, so they cannot tell a call from a
+ * string that contains one.
+ *
+ * ⚠ NARROW BY DESIGN: this exempts only COVERAGE. Checks B (single copy), C (provenance) and D
+ * (denominator) still apply to these files, and the RED fixtures they emit are written into
+ * separate files inside the fixture repo, where the gate scans them normally — which is exactly
+ * how R1..R6 prove the gate still sees an unscrubbed spawn. A second entry here would need the
+ * same argument made in writing.
+ */
+const FIXTURE_BEARING = new Set([
+  'scripts/check-git-env-scrub.test.mjs',
+]);
+
 // ── source enumeration ───────────────────────────────────────────────────────────────────────
 // ⛔ `git ls-files`, never a directory walk: this workspace holds dozens of live worktrees under
 // .wt/ and .worktrees/, and a recursive walk multiplies the file set by that number, sweeping in
@@ -248,7 +265,7 @@ function scan() {
     // Pass 1: locate the spawn sites and their argument text. Pass 2: decide coverage, using a
     // clean-token set seeded from exactly those arguments.
     const found = [];
-    for (const re of (isPy ? [PY_SPAWN] : [JS_ARGV0, JS_SHELL])) {
+    for (const re of (FIXTURE_BEARING.has(rel) ? [] : (isPy ? [PY_SPAWN] : [JS_ARGV0, JS_SHELL]))) {
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(src)) !== null) {
