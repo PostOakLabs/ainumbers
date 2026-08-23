@@ -50,7 +50,7 @@ sitemap.xml / robots.txt / llms.txt
 
 The live MCP server (`https://mcp.ainumbers.co/mcp`, streamable HTTP, no auth) lives in a separate repo, [PostOakLabs/ainumbers-mcp-apps](https://github.com/PostOakLabs/ainumbers-mcp-apps), deployed to Cloudflare Workers. That server vendors tool HTML, manifests, and ChainGraph kernels from this repo at build time (`generate.mjs`, run from the worker repo) and re-registers every time `chaingraph.json` or a manifest changes and gets re-vendored.
 
-Every tool ships a `manifest.json` for MCP auto-discovery. `mcp/catalog.json` and `suite-registry.json` are the machine-readable bulk indices the worker repo's `generate.mjs` reads from.
+Every tool ships a manifest at `manifests/{tool}.manifest.json` for MCP auto-discovery, and `mcp/catalog.json` is the machine-readable bulk index the worker repo's `generate.mjs` reads from. Agents discovering the suite from outside start at `.well-known/mcp.json`, which resolves to `mcp/server.json` for capabilities and `mcp/catalog.json` for the tool list.
 
 ## Architecture
 
