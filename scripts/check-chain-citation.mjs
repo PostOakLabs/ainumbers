@@ -36,10 +36,15 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHAINS_DIR = resolve(REPO, 'chaingraph', 'graph', 'chains');
-const env = process.env;
+// GIT-ENV-LEAK-SWEEP-1: was `process.env`. Every git call below derives the TOUCHED-FILE SET, and
+// this gate runs from preflight, which the pre-push hook invokes — where git exports GIT_DIR and it
+// beats `cwd`. Un-scrubbed, `git diff --name-only HEAD` answers about the OUTER repository, so this
+// gate examines that tree's changes and silently gates nothing in the tree it names.
+const env = gitEnv();
 
 function touchedChainFiles() {
   const touched = new Set();

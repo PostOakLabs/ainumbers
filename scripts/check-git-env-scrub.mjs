@@ -103,6 +103,47 @@ function callArgumentText(src, open) {
   return src.slice(open); // unbalanced: hand back the rest, better over-inclusive than silent
 }
 
+/**
+ * Replace every comment with spaces, preserving length and newlines so byte offsets and line
+ * numbers stay exact. Without this the detectors below match their own prose: this file and
+ * _git-env-lib.mjs both DOCUMENT the call shapes they hunt for, and a header that merely mentions
+ * 'GIT_DIR' would be indicted as a private re-implementation. String and template literals are
+ * respected so a `//` inside a URL is not mistaken for a comment.
+ */
+function blankComments(src) {
+  const out = src.split('');
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === "'" || c === '"' || c === '`') {
+      const q = c;
+      i++;
+      while (i < src.length && src[i] !== q) { if (src[i] === '\\') i++; i++; }
+      i++;
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') { out[i] = ' '; i++; }
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) {
+        if (src[i] !== '\n') out[i] = ' ';
+        i++;
+      }
+      out[i] = ' '; out[i + 1] = ' ';
+      i += 2;
+      continue;
+    }
+    if (c === '#' && src[i + 1] !== '!') { // Python comments; '#!' shebang is harmless either way
+      while (i < src.length && src[i] !== '\n') { out[i] = ' '; i++; }
+      continue;
+    }
+    i++;
+  }
+  return out.join('');
+}
+
 /** Text of `name`'s definition in `src`, or '' — used to grow the clean-token set to a fixpoint. */
 function definitionText(src, name) {
   const decl = new RegExp(
@@ -111,27 +152,38 @@ function definitionText(src, name) {
   let m;
   while ((m = decl.exec(src)) !== null) {
     const from = m.index;
-    const opener = src.slice(from).search(/[({[]/);
-    text += opener === -1
-      ? src.slice(from, from + 400)
-      : callArgumentText(src, from + opener);
+    // The flat slice catches a one-line alias (`const env = gitEnv()`, `const childEnv = isolated…`)
+    // whose whole RHS sits outside any bracket; the balanced construct catches a multi-line object
+    // or function body that runs past it. Both, because either alone has a real blind spot.
+    const opener = src.slice(from, from + 200).search(/[({[]/);
+    text += src.slice(from, from + 400);
+    if (opener !== -1) text += callArgumentText(src, from + opener);
   }
   return text;
 }
 
-/** Identifiers in this file whose env is provably scrubbed, computed to a fixpoint. */
-function cleanTokens(src) {
+/**
+ * Identifiers in this file whose env is provably scrubbed, to a fixpoint.
+ *
+ * Seeded from the identifiers that actually appear in git spawn arguments — NOT from every
+ * identifier in the file. preflight.mjs alone has ~1,500 identifiers and building a regex per
+ * identifier over a 1,600-line file made this gate take minutes; the seeded set is a couple of
+ * dozen and it runs in well under a second. Same verdicts, since an identifier that never appears
+ * in a spawn call cannot make one clean.
+ */
+function cleanTokens(src, argTexts) {
   const clean = new Set(['gitEnv', 'isolatedChildEnv']);
-  const idents = new Set((src.match(/\b[A-Za-z_$][\w$]*\b/g) || []));
-  for (let pass = 0; pass < 4; pass++) {
+  const candidates = new Set();
+  for (const t of argTexts) for (const id of t.match(/\b[A-Za-z_$][\w$]*\b/g) || []) candidates.add(id);
+  for (let pass = 0; pass < 5; pass++) {
     let grew = false;
-    for (const id of idents) {
+    for (const id of [...candidates]) {
       if (clean.has(id)) continue;
       const def = definitionText(src, id);
-      if (def && [...clean].some((t) => def.includes(`${t}(`) || def.includes(`${t},`) || def.includes(`...${t}`))) {
-        clean.add(id);
-        grew = true;
-      }
+      if (!def) continue;
+      if ([...clean].some((t) => def.includes(t))) { clean.add(id); grew = true; continue; }
+      // Not clean yet, but its definition may name a helper that IS — pull those in and retry.
+      for (const nested of def.match(/\b[A-Za-z_$][\w$]*\b/g) || []) candidates.add(nested);
     }
     if (!grew) break;
   }
@@ -165,9 +217,12 @@ function scan() {
   const provenance = [];
 
   for (const rel of trackedSources()) {
-    let src;
-    try { src = readFileSync(resolve(REPO, rel), 'utf8'); } catch { continue; }
+    let raw;
+    try { raw = readFileSync(resolve(REPO, rel), 'utf8'); } catch { continue; }
     const isPy = rel.endsWith('.py');
+    // Every detector below reads the COMMENT-MASKED source; only the exemption lookup reads `raw`,
+    // because an exemption is by definition written in a comment.
+    const src = blankComments(raw);
 
     // ── B. SINGLE COPY ──────────────────────────────────────────────────────────────────────
     // Three independent tells of a private re-implementation. Assembled from fragments so this
@@ -190,22 +245,24 @@ function scan() {
     }
 
     // ── A. COVERAGE ─────────────────────────────────────────────────────────────────────────
-    const clean = isPy ? new Set(['_git_env', 'GIT_ENV']) : cleanTokens(src);
-    const patterns = isPy ? [PY_SPAWN] : [JS_ARGV0, JS_SHELL];
-    for (const re of patterns) {
+    // Pass 1: locate the spawn sites and their argument text. Pass 2: decide coverage, using a
+    // clean-token set seeded from exactly those arguments.
+    const found = [];
+    for (const re of (isPy ? [PY_SPAWN] : [JS_ARGV0, JS_SHELL])) {
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(src)) !== null) {
         const open = src.indexOf('(', m.index);
-        const args = callArgumentText(src, open);
-        const line = lineOf(src, m.index);
-        sites.push({ rel, line });
-        const covered = [...clean].some((t) => args.includes(t));
-        if (covered) continue;
-        const ex = exemptionFor(src, m.index);
-        if (ex && typeof ex === 'string') exemptions.push({ rel, line, reason: ex });
-        else violations.push({ rel, line, snippet: args.slice(0, 90).replace(/\s+/g, ' '), shortReason: ex?.tooShort });
+        found.push({ index: m.index, args: callArgumentText(src, open), line: lineOf(src, m.index) });
       }
+    }
+    const clean = isPy ? new Set(['_git_env', 'GIT_ENV']) : cleanTokens(src, found.map((f) => f.args));
+    for (const f of found) {
+      sites.push({ rel, line: f.line });
+      if ([...clean].some((t) => f.args.includes(t))) continue;
+      const ex = exemptionFor(raw, f.index);
+      if (ex && typeof ex === 'string') exemptions.push({ rel, line: f.line, reason: ex });
+      else violations.push({ rel, line: f.line, snippet: f.args.slice(0, 90).replace(/\s+/g, ' '), shortReason: ex?.tooShort });
     }
   }
   return { sites, violations, exemptions, copies, provenance };

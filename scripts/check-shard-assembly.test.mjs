@@ -31,6 +31,7 @@
 // Zero-dep, node: builtins only.
 
 import { execFileSync } from 'node:child_process'
+import { isolatedChildEnv } from './_git-env-lib.mjs'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -76,32 +77,16 @@ const SENTINEL_SRC = resolve(__dirname, 'denominator-sentinel.mjs')
 // leak; building the child env from an explicit list excludes every GIT_* — and
 // anything else not named here — by construction. Names are matched
 // case-insensitively so Windows' own casing is preserved on the way out.
-const CHILD_ENV_ALLOWLIST = [
-  // POSIX + Node runtime essentials
-  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
-  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
-  // Windows runtime essentials (git.exe and node.exe both need these)
-  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
-  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
-  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
-  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
-  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
-  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
-  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
-  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
-]
-const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()))
-
 // Builds the env for every child process this harness spawns. `extra` is
 // applied last so a case can still set what it deliberately means to set
 // (commit dates, GIT_CEILING_DIRECTORIES, the gate's own base-ref vars).
-function childEnv(extra = {}) {
-  const env = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (ALLOWED.has(key.toLowerCase()) && value !== undefined) env[key] = value
-  }
-  return { ...env, ...extra }
-}
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): the 40-key allowlist argued for above used to be written out
+// right here, and check-clause-digest.test.mjs and check-nav-reachability.test.mjs each carried a
+// byte-identical copy of it. It is now isolatedChildEnv() in scripts/_git-env-lib.mjs — same keys,
+// same case-insensitive filter, same `extra`-last override. A de-duplication, not a behaviour
+// change; the local name is kept so every call site below is untouched.
+const childEnv = isolatedChildEnv
 
 let passed = 0
 let failed = 0
