@@ -733,6 +733,14 @@ const GATES = [
   // registration drifted it on all three of 2026-08-21's registrations, and SO #35
   // forbids the PR that caused the drift from repairing it.
   ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
+  // GENERATOR-PRUNES-ORPHANS-1: --write now PRUNES the orphans it owns, so the
+  // six prune controls (PRUNE GREEN / CAP RED / real-event pass / NOT-MINE /
+  // idempotent / unchanged) need a runner or they are a gate that never fires.
+  // Hard here, and therefore hard in scripts-verify / required, which runs this
+  // whole suite (SO #54: advisory locally is not evidence of advisory in CI —
+  // here the reverse, and it is the reason this line is not enough on its own
+  // to be called "covered" without saying which context runs it).
+  ['Kernel-resolve prune controls (GENERATOR-PRUNES-ORPHANS-1)', 'node scripts/gen-registry-kernel-resolve.test.mjs'],
   // FV-AGENTSURFACE-BUILD-1: unified FV-status artifact per spec_digest. Also moved
   // into the shared derived set by NODE-FANOUT-REGEN-CLOSE-1 (COVERED id 'fv-status'),
   // same advisory-on-PR / blocking-on-main split as the gate above.
