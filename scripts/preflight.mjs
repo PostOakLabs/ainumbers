@@ -26,8 +26,16 @@
  *       Combine with --keep-going for the cheapest full report a session can read.
  *   node scripts/preflight.mjs --keep-going
  *       Runs EVERY gate, collects every result, prints a per-gate
- *       PASS / FAIL / DID-NOT-RUN list with totals derived from the gate list at
- *       runtime, and exits 1 if any unwaived gate failed.
+ *       PASS / FAIL / ADVISORY / UNAVAILABLE / DID-NOT-RUN list with totals derived
+ *       from the gate list at runtime, and exits 1 if any unwaived gate failed.
+ *
+ *   node scripts/preflight.mjs --self-test
+ *       ADVISORY-CRASH-DISTINCT-1's own control. Exits immediately after the
+ *       reporting machinery is defined — no gate runs, no git diff, no estate
+ *       scan — and proves, with REAL subprocesses and the REAL classifier, that
+ *       a checker which could not run reports `✗ UNAVAILABLE`, that a checker
+ *       which ran and warned still reports `⚠ ADVISORY`, and that the result
+ *       accounting detects an unrecorded gate instead of absorbing it.
  *
  *   node scripts/preflight.mjs --expect-red <gate-id>
  *       Declares a gate expected to be red on THIS invocation. Matched
@@ -45,6 +53,15 @@
  * get real coverage. A command that stops proves nothing about what it never
  * reached, so under --keep-going "did not run" is reported as its own category
  * and is NEVER folded into "passed" (SO #34c: absence of a red is not a pass).
+ *
+ * WHY `✗ UNAVAILABLE` EXISTS (ADVISORY-CRASH-DISTINCT-1). The same order, one
+ * level down. Every advisory surface here used to sit in a bare try/catch, so a
+ * checker that CRASHED, a checker that was MISSING, and a checker that ran fine
+ * and had something mild to say all printed the same reassuring line. Absence of
+ * a result is a distinct state, never a soft pass — so a checker that could not
+ * run is now its own category, `✗ UNAVAILABLE`, counted in the --keep-going
+ * totals and named in the final summary line. It is LOUD, not BLOCKING: no
+ * advisory was promoted to a hard gate, and the exit code is untouched.
  */
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -154,6 +171,236 @@ const EXPECT_RED = process.argv.reduce((acc, a, i) => {
 const KEEP_GOING = KEEP_GOING_FLAG || EXPECT_RED.length > 0;
 const expectedRedFor = (label) =>
   EXPECT_RED.find((id) => label.toLowerCase().includes(id.toLowerCase())) || null;
+
+// ── ADVISORY-CRASH-DISTINCT-1: A CHECKER THAT COULD NOT RUN IS NOT AN ADVISORY ──
+// SO #34c ("a missing gate result is a DISTINCT state, never a green one"), applied
+// to the advisory surfaces. Before this, every advisory in this file sat in a bare
+// `try { … } catch { … }`, so THREE different outcomes printed the same line:
+//   · the checker ran and had something mild to say   → a real, readable result
+//   · the checker was missing / could not be spawned  → NO RESULT AT ALL
+//   · the checker crashed (syntax error, throw, kill) → NO RESULT AT ALL
+// The last two now print `✗ UNAVAILABLE` — their own category, counted in the
+// --keep-going totals and named in the final summary line — because "we learned
+// nothing" must never read like "we learned something mild".
+//
+// ⛔ WHAT THIS DELIBERATELY DOES NOT DO. It does not promote any advisory to a
+// hard gate: UNAVAILABLE is LOUD, not BLOCKING, and no exit code changes. That
+// promotion is a separate decision and is explicitly out of this row's fence.
+//
+// CLASSIFICATION IS EVIDENCE-BASED AND DELIBERATELY NARROW. The DEFAULT is "it
+// ran" — a failure is only called UNAVAILABLE on positive evidence that no verdict
+// was produced:
+//   (1) a spawn-class errno on the child (ENOENT/EACCES/…) — it never started;
+//   (2) killed by a signal — it died before reaching a verdict;
+//   (3) no exit status at all;
+//   (4) the shell could not execute it ("is not recognized…", "command not found")
+//       — the Windows path, where a missing binary surfaces as exit 1, not ENOENT;
+//   (5) a module-resolution failure — node never reached the checker's own code;
+//   (6) an UNCAUGHT throw: an error-name line AND a stack frame in stderr.
+// ⚠ (6) requires BOTH halves on purpose, and the whole rule set was VERIFIED BY
+// MEASUREMENT (2026-08-23) against the real red output of the four gates this row
+// names — CGSHARD-1, REGISTRY-RESOLVE-STATIC-1, EUC-SITE-1 (both legs) and the
+// kernel-VM explainer freshness gate. Every one exits 1 with a plain diagnostic
+// line, no stack frame, no error-name line ⇒ every one still classifies as RAN and
+// still prints `⚠ ADVISORY`. A checker that deliberately exits non-zero to report
+// a finding IS a result, and stays one. Two of those measured stderr bodies are
+// pinned as fixtures in the self-test below so that guarantee cannot silently rot.
+const SPAWN_ERRNOS = new Set([
+  'ENOENT', 'EACCES', 'EPERM', 'ENOEXEC', 'EISDIR', 'ELOOP',
+  'E2BIG', 'EMFILE', 'ENFILE', 'ENOMEM', 'EAGAIN', 'ETXTBSY',
+]);
+const SHELL_CANNOT_EXEC = /is not recognized as an internal or external command|: command not found|: not found\b|The system cannot find the path specified/;
+const MODULE_LOAD_FAILURE = /ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION|Cannot find module|Cannot find package/;
+const UNCAUGHT_ERROR_NAME = /^(?:\w*Error|\w*Exception)\b|^\s*throw \w+;\s*$/m;
+const STACK_FRAME = /^\s+at\s+\S+/m;
+
+// Every state a run-list result may carry. The --keep-going tally is derived from
+// THIS list, so a new state that nobody wired into the summary shows up as
+// `uncategorised` instead of quietly vanishing out of the accounting.
+const RESULT_STATES = ['PASS', 'FAIL', 'EXPECTED-RED', 'DID-NOT-RUN', 'ADVISORY', 'UNAVAILABLE'];
+
+// Advisory checkers whose result never arrived. Filled from BOTH the main gate loop
+// (a shared-derived-artifact gate that is advisory on a PR) and the trailing advisory
+// block at the bottom of this file, then surfaced in the FINAL summary line — the one
+// line every invocation prints, including a plain fail-fast run that never reaches the
+// --keep-going summary block.
+const unavailableAdvisories = []; // [{ label, reason }]
+
+// Node leads a crash with a LOCATION header (`C:\…\x.mjs:12`, `[eval]:1`) and a
+// caret line before the sentence that says what actually happened, so "first
+// non-empty line" reports the least useful part. Prefer the first line that names
+// a cause; fall back to the first non-empty line only if none does.
+const CAUSE_LINE = /^(?:\w*Error|\w*Exception)\b|Cannot find (?:module|package)|is not recognized as an internal or external command|: command not found|: not found\b|The system cannot find the path specified/;
+function firstDiagnosticLine(text) {
+  const lines = (text || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const line = lines.find((l) => CAUSE_LINE.test(l)) || lines[0];
+  if (!line) return '(no output)';
+  return line.length > 160 ? `${line.slice(0, 157)}…` : line;
+}
+
+/**
+ * Did the checker actually produce a verdict, or did it never get that far?
+ * @param {any} e the error `execSync` threw
+ * @returns {{ ran: boolean, reason: string }}
+ */
+function classifyExecFailure(e) {
+  const stderr = e?.stderr?.toString() || '';
+  const stdout = e?.stdout?.toString() || '';
+  if (e?.code && SPAWN_ERRNOS.has(e.code)) {
+    return { ran: false, reason: `the checker could not be started (${e.code}) — missing, unreadable or not executable` };
+  }
+  if (e?.signal) {
+    return { ran: false, reason: `the checker was killed by ${e.signal} before producing a verdict` };
+  }
+  if (e?.status === null || e?.status === undefined) {
+    return { ran: false, reason: 'the checker produced no exit status, so it produced no verdict' };
+  }
+  if (SHELL_CANNOT_EXEC.test(stderr + stdout)) {
+    return { ran: false, reason: `the checker could not be executed: ${firstDiagnosticLine(stderr || stdout)}` };
+  }
+  if (MODULE_LOAD_FAILURE.test(stderr + stdout)) {
+    return { ran: false, reason: `the checker never loaded: ${firstDiagnosticLine(stderr || stdout)}` };
+  }
+  if (UNCAUGHT_ERROR_NAME.test(stderr) && STACK_FRAME.test(stderr)) {
+    return { ran: false, reason: `the checker crashed before reporting: ${firstDiagnosticLine(stderr)}` };
+  }
+  return { ran: true, reason: `the checker ran and exited ${e?.status}` };
+}
+
+/**
+ * Execute an advisory checker and return exactly ONE of three outcomes. ⛔ Never
+ * throws — an advisory must not be able to abort preflight, which is precisely why
+ * these lived in a swallowing try/catch in the first place. The swallowing is kept;
+ * the CONFLATION is what this removes.
+ *   { state: 'RAN',         out }          executed, exited 0
+ *   { state: 'WARNED',      out, reason }  executed, exited non-zero — a real result
+ *   { state: 'UNAVAILABLE', out, reason }  never produced a verdict
+ */
+function runAdvisoryChecker(cmd) {
+  try {
+    return { state: 'RAN', out: execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] }).toString(), reason: '' };
+  } catch (e) {
+    const c = classifyExecFailure(e);
+    const out = (e?.stdout?.toString() || '') + (e?.stderr?.toString() || '');
+    return { state: c.ran ? 'WARNED' : 'UNAVAILABLE', out, reason: c.reason };
+  }
+}
+
+/** Print the `✗ UNAVAILABLE` line for an advisory and record it for the summary. */
+function gateUnavailable(label, reason, out) {
+  gateFail(`✗ UNAVAILABLE — ${reason}`);
+  const detail = (out || '').trim();
+  if (detail) console.log('\n' + detail + '\n');
+  unavailableAdvisories.push({ label, reason });
+}
+
+/**
+ * Tally a result ledger by state. `uncategorised` is the load-bearing field: a
+ * result whose state is not in RESULT_STATES is COUNTED AS MISSING rather than
+ * silently dropped, so `accounted` can never be talked up to match `length`.
+ */
+function tallyResults(rs) {
+  const counts = Object.fromEntries(RESULT_STATES.map((s) => [s, 0]));
+  let uncategorised = 0;
+  for (const r of rs) {
+    if (Object.prototype.hasOwnProperty.call(counts, r.state)) counts[r.state] += 1;
+    else uncategorised += 1;
+  }
+  return { counts, accounted: RESULT_STATES.reduce((n, s) => n + counts[s], 0), uncategorised };
+}
+
+/** The clause appended to the FINAL summary line when an advisory produced no result. */
+function unavailableClause(n) {
+  return n ? `  ⚠ ${n} advisory checker(s) ✗ UNAVAILABLE — they could not run, so they reported NOTHING.` : '';
+}
+
+/**
+ * ADVISORY-CRASH-DISTINCT-1's control (SO #40b: prove RED before GREEN). Runs the
+ * REAL classifier over REAL failed subprocesses and the REAL tally over a synthetic
+ * ledger — it does not re-implement any of it. Hermetic: no network, no estate scan,
+ * no filesystem writes, ~1s.
+ */
+function runSelfTest() {
+  const failures = [];
+  const check = (name, ok, detail) => {
+    console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
+    if (!ok) failures.push(name);
+  };
+  console.log('▶ preflight --self-test (ADVISORY-CRASH-DISTINCT-1: could-not-run is its own state)\n');
+
+  console.log('RED — a checker that CANNOT RUN must classify as UNAVAILABLE:');
+  for (const [name, cmd] of [
+    ['missing script (module resolution)', 'node scripts/__advisory_crash_distinct_1_absent__.mjs'],
+    ['missing binary (shell cannot execute)', '__advisory_crash_distinct_1_no_such_binary__ --check'],
+    ['syntax error in the checker', 'node -e "const = ;"'],
+    ['uncaught throw in the checker', 'node -e "throw new Error(\'acd1 self-test crash\')"'],
+  ]) {
+    const r = runAdvisoryChecker(cmd);
+    check(name, r.state === 'UNAVAILABLE', `state=${r.state}${r.reason ? ` · ${r.reason}` : ''}`);
+  }
+
+  console.log('\nWARN — a checker that RAN and warned must stay a result, never UNAVAILABLE:');
+  const warnCmd = 'node -e "console.error(\'gen-x --check: artifact is stale, re-run the generator\'); process.exit(1)"';
+  const warned = runAdvisoryChecker(warnCmd);
+  check('non-zero exit with a plain diagnostic', warned.state === 'WARNED', `state=${warned.state} · ${warned.reason}`);
+  const fatal = runAdvisoryChecker('node -e "console.error(\'FATAL: 3 surface(s) out of sync\'); process.exit(2)"');
+  check('deliberate FATAL diagnosis (exit 2)', fatal.state === 'WARNED', `state=${fatal.state} · ${fatal.reason}`);
+
+  // Pinned fixtures: the VERBATIM stderr measured 2026-08-23 from two of the four
+  // advisory-on-PR gates this row names. If a future widening of the crash rules
+  // would reclassify a genuine single-writer staleness warning as "could not run",
+  // it reds here instead of on somebody's push.
+  const MEASURED = [
+    ['CGSHARD-1 (assemble-chaingraph --check)',
+      'DRIFT  chaingraph.json does NOT match assembled output from shards.\n'
+      + '  committed length: 3432250, assembled length: 3432095\n'
+      + '  first diff at byte 2855:\n'
+      + '  HASH-NEUTRAL DRIFT — no hash can move here. The main-side derived-artifacts regen assembles and commits chaingraph.json after merge (SO #35 single writer).\n'
+      + '  ASSEMBLY VERDICT: AUTO-LAND — node-modified 503-canton-tokenization-readiness-diagnostic\n'],
+    ['REGISTRY-RESOLVE-STATIC-1 (gen-registry-kernel-resolve --check)',
+      '✗ REGISTRY-RESOLVE-STATIC-1 kernel-resolve coverage FAILED — 1 problem(s):\n'
+      + '  • stale 00bf25e2ac76c12d2bc9de448a1c9d767c67581310b599637d193d2f949b708a.json (on-disk content does not match recomputed record)\n\n'
+      + 'Missing/stale (1) — regenerate: node scripts/gen-registry-kernel-resolve.mjs --write\n'],
+    ['EUC-SITE-1 (gen-euc-register --check)',
+      'gen-euc-register --check: 1 entries drifted from chaingraph.json, e.g. 503-canton-tokenization-readiness-diagnostic.register.json -- re-run `node scripts/gen-euc-register.mjs`\n'],
+    ['kernel-VM explainer freshness (gen-kernel-vm-explainer --check)',
+      'gen-kernel-vm-explainer --check: chaingraph/kernel-vm-explainer.html is out of sync with the generator.\nRun `node chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs` to regenerate.\n'],
+  ];
+  for (const [name, stderr] of MEASURED) {
+    const c = classifyExecFailure({ status: 1, signal: null, stdout: Buffer.from(''), stderr: Buffer.from(stderr) });
+    check(`measured red stays advisory: ${name}`, c.ran === true, `ran=${c.ran} · ${c.reason}`);
+  }
+
+  console.log('\nACCOUNTING — every state is categorised, and an unknown state is DETECTED:');
+  const ledger = RESULT_STATES.map((s) => ({ label: `synthetic ${s}`, state: s, ms: 0 }));
+  const full = tallyResults(ledger);
+  check('one of every state is fully accounted for',
+    full.accounted === ledger.length && full.uncategorised === 0,
+    `accounted=${full.accounted}/${ledger.length} uncategorised=${full.uncategorised}`);
+  check('ADVISORY and UNAVAILABLE are counted, not dropped',
+    full.counts.ADVISORY === 1 && full.counts.UNAVAILABLE === 1,
+    `ADVISORY=${full.counts.ADVISORY} UNAVAILABLE=${full.counts.UNAVAILABLE}`);
+  const rogueLedger = [...ledger, { label: 'synthetic rogue', state: 'SOMETHING-NEW', ms: 0 }];
+  const rogue = tallyResults(rogueLedger);
+  check('an unknown state fails the reconciliation instead of being absorbed (RED control)',
+    rogue.uncategorised === 1 && rogue.accounted !== rogueLedger.length,
+    `uncategorised=${rogue.uncategorised} accounted=${rogue.accounted} of ${rogueLedger.length}`);
+
+  console.log('\nSUMMARY — the UNAVAILABLE count reaches the final summary line:');
+  check('clause present when an advisory could not run', /UNAVAILABLE/.test(unavailableClause(2)), unavailableClause(2).trim());
+  check('clause absent when every advisory reported', unavailableClause(0) === '', '(empty)');
+
+  console.log('');
+  if (failures.length) {
+    console.error(`❌ preflight --self-test FAILED: ${failures.length} control(s) red:`);
+    for (const f of failures) console.error(`   ✗ ${f}`);
+    return 1;
+  }
+  console.log('✅ preflight --self-test PASSED — could-not-run, ran-and-warned and the result accounting are all distinguishable.');
+  return 0;
+}
+
+if (process.argv.includes('--self-test')) process.exit(runSelfTest());
 
 // HELMGATE-DECOUPLE-1 (2026-07-31): the 4 helm drift/freshness gates below
 // assert helm.html against helm/version.json + helm/guide-freshness.json —
@@ -719,6 +966,14 @@ const GATES = [
   // self-test" vs "does every --check generator get invoked").
   ['Gate self-test pairing (meta-gate, GATE-SELFTEST-META-1)', 'node scripts/check-gate-selftest-pairing.mjs'],
   ['Gate self-test pairing fixture proof', 'node scripts/check-gate-selftest-pairing.test.mjs'],
+  // ADVISORY-CRASH-DISTINCT-1: preflight's OWN reporting control, in the meta-gate
+  // cluster because that is what it is — a check on this repo's instruments, not on
+  // its content. `--self-test` exits before any gate, git diff or estate scan runs,
+  // so this costs ~1s and cannot recurse. It proves, with real subprocesses and the
+  // real classifier, that could-not-run and ran-and-warned stay distinguishable and
+  // that the result accounting still detects an unrecorded gate. Without it the
+  // classifier is exactly the kind of checker that rots green.
+  ['Preflight advisory-state controls (ADVISORY-CRASH-DISTINCT-1)', 'node scripts/preflight.mjs --self-test'],
   ['Standards vectors (IBAN/LEI/BIC/UETR/ABA)', 'node scripts/standards-vectors.test.mjs'],
   ['Authority contradiction gate (CB4-CONTRADICTION-GATE-1)', 'node scripts/check-authority-contradiction.mjs'],
   ['Authority contradiction gate fixture proof', 'node scripts/check-authority-contradiction.test.mjs'],
@@ -876,10 +1131,31 @@ for (const [label, cmd, meta] of GATES) {
     const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
     // Shared derived artifact + PR context ⇒ warn and CONTINUE. Same output, no
     // early break, no hidden failure — main's regen owns this artifact now.
+    //
+    // ADVISORY-CRASH-DISTINCT-1: two changes, both reporting-only.
+    //  (a) SPLIT the outcome. A gate whose checker RAN and found the artifact
+    //      stale is a result and still reads `⚠ ADVISORY` (the CGSHARD-1 /
+    //      REGISTRY-RESOLVE-STATIC-1 / EUC-SITE-1 / kernel-VM-explainer shape,
+    //      measured). A gate whose checker COULD NOT RUN reported nothing at all
+    //      and now reads `✗ UNAVAILABLE`.
+    //  (b) RECORD a result on both paths. This `continue` used to leave the
+    //      ledger short by one, which is exactly what produced the trailing
+    //      `RESULT ACCOUNTING MISMATCH` — and made an otherwise clean
+    //      --keep-going run exit 1 while every gate it ran was green.
+    // ⛔ Neither path changes the exit code: advisory-on-PR stays advisory.
     if (!MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) {
-      gateFail(`⚠ (${ms}ms) ADVISORY`);
-      console.log('\n' + out.trim() + '\n');
-      advisoryFailures.push([label, cmd]);
+      const c = classifyExecFailure(e);
+      if (c.ran) {
+        gateFail(`⚠ (${ms}ms) ADVISORY`);
+        console.log('\n' + out.trim() + '\n');
+        advisoryFailures.push([label, cmd]);
+        results.push({ label, state: 'ADVISORY', ms, note: meta?.note });
+      } else {
+        gateFail(`✗ (${ms}ms) UNAVAILABLE — ${c.reason}`);
+        console.log('\n' + out.trim() + '\n');
+        unavailableAdvisories.push({ label, reason: c.reason });
+        results.push({ label, state: 'UNAVAILABLE', ms, note: `${c.reason} — this gate reported NOTHING; ⛔ absence of a result is not a pass (SO #34c)` });
+      }
       continue;
     }
     const declared = KEEP_GOING ? expectedRedFor(label) : null;
@@ -943,7 +1219,10 @@ if (KEEP_GOING) {
   const hardFails = of('FAIL');
   const waived = of('EXPECTED-RED');
   const didNotRun = of('DID-NOT-RUN');
+  const advisory = of('ADVISORY');
+  const unavailable = of('UNAVAILABLE');
   waivedCount = waived.length;
+  const tally = tallyResults(results);
 
   const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
   const rule = '─'.repeat(78);
@@ -961,9 +1240,14 @@ if (KEEP_GOING) {
   console.log(`  PASS ....................... ${passed.length}`);
   console.log(`  FAIL (unwaived) ............ ${hardFails.length}`);
   console.log(`  EXPECTED-RED (waived) ...... ${waived.length}${waived.length ? `   [declared this run: ${EXPECT_RED.join(', ')}]` : ''}`);
+  console.log(`  ADVISORY (ran, warned) ..... ${advisory.length}   ⚠ the checker RAN — shared derived artifact stale on a PR (SO #35)`);
+  console.log(`  UNAVAILABLE (could not run)  ${unavailable.length}   ⛔ its own category — the checker produced NO result (SO #34c)`);
   console.log(`  DID NOT RUN ................ ${didNotRun.length}   ⛔ its own category — never counted as a pass`);
-  const accounted = passed.length + hardFails.length + waived.length + didNotRun.length;
-  console.log(`  accounted for .............. ${accounted}`);
+  // Derived from RESULT_STATES, not from a hand-written sum: a state added to the
+  // ledger without being wired in here lands in `uncategorised` and reds the
+  // reconciliation below, instead of quietly shrinking `accounted`.
+  const accounted = tally.accounted;
+  console.log(`  accounted for .............. ${accounted}${tally.uncategorised ? `   ⛔ plus ${tally.uncategorised} result(s) in an UNRECOGNISED state` : ''}`);
   console.log(rule);
 
   if (failed) {
@@ -1040,12 +1324,27 @@ try {
 // pre-push. ADVISORY BY DESIGN, exit 0 always: the live baseline carries known
 // L1-fail chains, and promotion to a hard gate is a SEPARATE later decision to
 // be taken once that baseline is triaged — never a side effect of this line.
-gateStart('L1 chain edge contracts (advisory)');
-try {
-  const out = execSync('node scripts/check-chain-edge-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
-  const s = JSON.parse(out).summary;
-  gatePass(`${s['L1-pass']} pass / ${s['L1-fail']} fail / ${s['L1-indeterminate']} indeterminate across ${s.chains_walked} chains (${s.edges_decided}/${s.edges_total} edges decided)`);
-} catch { gatePass('(advisory check unavailable — skipped)'); }
+// ADVISORY-CRASH-DISTINCT-1: `(advisory check unavailable — skipped)` used to be
+// printed for BOTH a crashed checker and a checker that ran — and it was printed
+// through gatePass(), so under --quiet it was suppressed entirely. A checker that
+// could not run now says so, in its own category.
+const L1_LABEL = 'L1 chain edge contracts (advisory)';
+gateStart(L1_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-chain-edge-contracts.mjs --quiet --json');
+  let s = null;
+  if (r.state !== 'UNAVAILABLE') { try { s = JSON.parse(r.out).summary; } catch { s = null; } }
+  if (!s) {
+    // A parseable --json report IS this checker's result. No report ⇒ no verdict,
+    // whether the process died or exited 0 having printed something unreadable.
+    gateUnavailable(L1_LABEL, r.state === 'UNAVAILABLE'
+      ? r.reason
+      : 'the checker exited but produced no parseable --json report, so there is no L1 verdict to read', r.out);
+  } else {
+    gatePass(`${s['L1-pass']} pass / ${s['L1-fail']} fail / ${s['L1-indeterminate']} indeterminate across ${s.chains_walked} chains (${s.edges_decided}/${s.edges_total} edges decided)`);
+    if (r.state === 'WARNED') gatePass(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
+  }
+}
 
 // ── L2 chain contract composition: ADVISORY on existing chains, HARD on new/
 //    changed ones ───────────────────────────────────────────────────────────
@@ -1059,8 +1358,9 @@ try {
 // day-one measurement is that the honest surface today is mostly
 // indeterminate (spec §0(c)/§5.2) — promoting that estate-wide would red
 // every chain the day this ships, which spec §6.1 explicitly forbids.
-gateStart('L2 chain contract composition (advisory on existing / hard on new-changed)');
-try {
+const L2_LABEL = 'L2 chain contract composition (advisory on existing / hard on new-changed)';
+gateStart(L2_LABEL);
+{
   const touchedChainFiles = new Set();
   const collectDiff = (args) => {
     try {
@@ -1082,28 +1382,41 @@ try {
       .map((f) => f.slice('chaingraph/graph/chains/'.length, -'.json'.length)),
   );
 
-  const out = execSync('node scripts/check-chain-l2-contracts.mjs --quiet --json', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
-  const rep = JSON.parse(out);
-  const s = rep.summary;
-  gatePass(`L2-G: ${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate / ${s['L2-not-applicable']} not-applicable across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_in_scope} in-scope edges pass, ${s.edges_not_applicable} n/a)`);
-  // ⛔ Print L2-S and the authoring worklist too. A summary showing only L2-G would silently hide the
-  // coupling that actually decides on this estate — and its fails, which are advisory on existing
-  // chains but hard the moment a touched chain carries one (they land in chains[].findings, below).
-  if (rep.l2s) gatePass(`   L2-S: ${rep.l2s['L2S-pass']} pass / ${rep.l2s['L2S-fail']} fail / ${rep.l2s['L2S-indeterminate']} indeterminate over ${rep.l2s.shared_fields_examined} shared input fields, estate-wide`);
-  if (rep.l2g_authoring) gatePass(`   L2-G authoring worklist: ${rep.l2g_authoring.open_gate_edges} open gate rules over ${rep.l2g_authoring.distinct_producers} producers ⇒ ${rep.l2g_authoring.batches_required} batches`);
+  const r = runAdvisoryChecker('node scripts/check-chain-l2-contracts.mjs --quiet --json');
+  let rep = null;
+  if (r.state !== 'UNAVAILABLE') { try { rep = JSON.parse(r.out); } catch { rep = null; } }
 
-  const touchedFails = rep.chains.filter((c) => touchedChainNames.has(c.name) && c.verdict === 'L2-fail');
-  if (touchedFails.length) {
-    console.error(`\n❌ L2 HARD GATE: ${touchedFails.length} new/changed chain(s) carry an L2-fail edge (spec §6.1 — new chains must not enter with a failing composition):`);
-    for (const c of touchedFails) console.error(`   ✗ ${c.name}: ${c.findings.map((f) => f.code).join(', ')}`);
-    // Unconditional exit, independent of --keep-going: this is discovered AFTER the main gate loop
-    // (and its own keep-going accounting) has already run, so there is no later checkpoint that
-    // would otherwise turn a recorded `failed` value into a non-zero exit code.
-    process.exit(1);
-  } else if (touchedChainNames.size) {
-    gatePass(`   ✓ ${touchedChainNames.size} touched chain shard(s) checked, none L2-fail.`);
+  if (!rep) {
+    // ADVISORY-CRASH-DISTINCT-1. ⚠ NAME WHAT IS LOST, not just that something is:
+    // this block carries a HARD leg (touched chains must not enter with an L2-fail
+    // edge), and a checker that cannot run silently takes that leg down with it.
+    // ⛔ Reporting only — promoting this to a blocking failure is a hard-gate
+    // decision and is out of this row's fence, so the exit code is unchanged.
+    gateUnavailable(L2_LABEL, `${r.state === 'UNAVAILABLE'
+      ? r.reason
+      : 'the checker exited but produced no parseable --json report, so there is no L2 verdict to read'} — the new/changed-chain HARD leg did not run either`, r.out);
+  } else {
+    const s = rep.summary;
+    gatePass(`L2-G: ${s['L2-pass']} pass / ${s['L2-fail']} fail / ${s['L2-indeterminate']} indeterminate / ${s['L2-not-applicable']} not-applicable across ${rep.target_set_size} target chains (${s.edges_pass}/${s.edges_in_scope} in-scope edges pass, ${s.edges_not_applicable} n/a)`);
+    // ⛔ Print L2-S and the authoring worklist too. A summary showing only L2-G would silently hide the
+    // coupling that actually decides on this estate — and its fails, which are advisory on existing
+    // chains but hard the moment a touched chain carries one (they land in chains[].findings, below).
+    if (rep.l2s) gatePass(`   L2-S: ${rep.l2s['L2S-pass']} pass / ${rep.l2s['L2S-fail']} fail / ${rep.l2s['L2S-indeterminate']} indeterminate over ${rep.l2s.shared_fields_examined} shared input fields, estate-wide`);
+    if (rep.l2g_authoring) gatePass(`   L2-G authoring worklist: ${rep.l2g_authoring.open_gate_edges} open gate rules over ${rep.l2g_authoring.distinct_producers} producers ⇒ ${rep.l2g_authoring.batches_required} batches`);
+
+    const touchedFails = rep.chains.filter((c) => touchedChainNames.has(c.name) && c.verdict === 'L2-fail');
+    if (touchedFails.length) {
+      console.error(`\n❌ L2 HARD GATE: ${touchedFails.length} new/changed chain(s) carry an L2-fail edge (spec §6.1 — new chains must not enter with a failing composition):`);
+      for (const c of touchedFails) console.error(`   ✗ ${c.name}: ${c.findings.map((f) => f.code).join(', ')}`);
+      // Unconditional exit, independent of --keep-going: this is discovered AFTER the main gate loop
+      // (and its own keep-going accounting) has already run, so there is no later checkpoint that
+      // would otherwise turn a recorded `failed` value into a non-zero exit code.
+      process.exit(1);
+    } else if (touchedChainNames.size) {
+      gatePass(`   ✓ ${touchedChainNames.size} touched chain shard(s) checked, none L2-fail.`);
+    }
   }
-} catch { gatePass('(advisory check unavailable — skipped)'); }
+}
 
 // ── Advisory (non-blocking): version-prose drift ────────────────────────────
 // The version-of-record gate (spec-version-consistency) enforces the <meta>
@@ -1111,17 +1424,44 @@ try {
 // bump doesn't leave the hub/spec pages describing an old version. It is NOISY
 // (legitimately flags the AP2 *protocol* version + OCG layer versions), so it's
 // ADVISORY, not a gate — eyeball it after a spec bump.
-gateStart('version-prose drift (advisory)');
-try {
-  execSync('node chaingraph/standard/spec-version-consistency.mjs --remnants', { cwd: REPO, env, stdio: 'ignore' });
-  gatePass('see `node chaingraph/standard/spec-version-consistency.mjs --remnants` after any spec-version bump');
-} catch { gatePass('(advisory check unavailable — skipped)'); }
+// ADVISORY-CRASH-DISTINCT-1: this one was the sharpest case of the defect. The
+// script exits 1 when surfaces are genuinely out of sync and 2 on its own FATAL
+// diagnosis — both REAL results — yet every one of those, plus a crash and a
+// missing file, printed the same "(advisory check unavailable — skipped)". The
+// findings the checker did produce were thrown away with the ones it could not.
+const VERSION_PROSE_LABEL = 'version-prose drift (advisory)';
+gateStart(VERSION_PROSE_LABEL);
+{
+  const r = runAdvisoryChecker('node chaingraph/standard/spec-version-consistency.mjs --remnants');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(VERSION_PROSE_LABEL, r.reason, r.out);
+  } else if (r.state === 'WARNED') {
+    // Ran and reported. Advisory, exactly as before — this NEVER blocks.
+    gateFail(`⚠ ADVISORY — ${r.reason}`);
+    console.log('\n' + r.out.trim() + '\n');
+  } else {
+    gatePass('see `node chaingraph/standard/spec-version-consistency.mjs --remnants` after any spec-version bump');
+  }
+}
 
+// ── ADVISORY-CRASH-DISTINCT-1: checkers that produced NO result ─────────────
+// Printed last, immediately above the verdict, so it cannot be scrolled past. An
+// UNAVAILABLE is not a failure and not an advisory — it is the absence of either,
+// which is precisely why it needs a name (SO #34c). ⛔ It does NOT block: no
+// advisory was promoted to a hard gate by this row.
+if (unavailableAdvisories.length) {
+  console.log(`\n✗ ${unavailableAdvisories.length} ADVISORY CHECKER(S) UNAVAILABLE — they could not run, so they reported NOTHING:`);
+  for (const u of unavailableAdvisories) console.log(`    ✗ ${u.label}\n        ↳ ${u.reason}`);
+  console.log('    ⛔ This is NOT "advisory" and NOT a pass — nothing was measured here (SO #34c).');
+  console.log('    It does not block: promoting an advisory to a hard gate is a separate decision.');
+}
+
+const UNAVAILABLE_CLAUSE = unavailableClause(unavailableAdvisories.length);
 if (KEEP_GOING && waivedCount) {
   // Reached only via --expect-red: every gate ran, the declared one(s) are still
   // red, and saying "PASSED" here would be the exact overclaim this mode removes.
-  console.log(`\n⚠️  preflight COMPLETE — every gate reached; ${waivedCount} DECLARED-RED gate(s) waived (${EXPECT_RED.join(', ')}), every other gate green.`);
+  console.log(`\n⚠️  preflight COMPLETE — every gate reached; ${waivedCount} DECLARED-RED gate(s) waived (${EXPECT_RED.join(', ')}), every other gate green.${UNAVAILABLE_CLAUSE}`);
   console.log('   This is NOT an unqualified pass. The waived gate(s) above are still red.');
 } else {
-  console.log('\n✅ preflight PASSED — all hard CI gates green. Safe to push.');
+  console.log(`\n✅ preflight PASSED — all hard CI gates green. Safe to push.${UNAVAILABLE_CLAUSE}`);
 }
