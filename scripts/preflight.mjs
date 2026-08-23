@@ -600,6 +600,12 @@ const GATES = [
   // (see the file's own header for why it is deliberately not a *.proptest.mjs).
   ['art-27 exhaustive enumeration (ART27-HARNESS-INREPO-1)',
     'node chaingraph/kernels/__proptests__/art-27-agentic-readiness-diagnostic.exhaustive.mjs'],
+  // RATCHET-BASELINE-LOADER-1 (gate-integrity F-11). Runs BEFORE the three ratchet gates it protects:
+  // if a baseline file has been deleted, corrupted, key-stripped or given a non-finite ceiling, this
+  // names the state directly instead of a gate downstream printing a green line over a ratchet that has
+  // silently stopped existing. Layer 3 of the test is the anti-drift control — it reds if any of the
+  // three call sites reintroduces a `?? Infinity` ceiling or a warn-only existsSync branch.
+  ['Ratchet baseline loader controls (RED x4 + conversion)', 'node scripts/ratchet-baseline.test.mjs'],
   ['FV floor coverage ratchet (FV-COVERAGE-GATE-1)', 'node scripts/check-fv-floor-coverage.mjs'],
   ['FV floor coverage fixture proof', 'node scripts/check-fv-floor-coverage.test.mjs'],
   // FV-FLOOR-DIGEST-GATE-1: enforces the executed-digest authoring rule (FV-PBT-FLOOR-BUILD-SPEC.md §4,
