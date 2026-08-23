@@ -151,15 +151,41 @@ test('SPAWN EDGE — NON-module path literals are NOT dragged in', () => {
   assert(!set.includes('chaingraph/chaingraph.json'), `a data path must NOT be dragged in, got ${JSON.stringify(set)}`)
 })
 
-test('SPAWN EDGE — DATA literals that merely NAME a .mjs file are not targets', () => {
-  // denominator-sentinel.mjs's real shape: module filenames held in a frozen
-  // array as DATA. A looser basename rule demanded these be copied; this one
-  // must not, because they are not inside a path-building call at all.
+test('SPAWN EDGE — the accepted trade-off: a DATA literal naming a real SIBLING is over-copied', () => {
+  // Stated as a test rather than left implicit, because it is a deliberate
+  // asymmetry. The literal rule cannot tell `execFileSync('node', [x])` from a
+  // filename held as data, so a literal that resolves to a real neighbouring
+  // file is copied even when nothing executes it. An extra file in a throwaway
+  // fixture costs nothing; a MISSED spawn target costs a silent green, which is
+  // the defect this row closes. The direction of the error is the point.
   const repo = scratch('sbx-spawn4-')
-  write(repo, 'scripts/gate.mjs', "export const GATES = Object.freeze(['golden-parity.test.mjs', 'determinism-replay.test.mjs'])\n")
+  write(repo, 'scripts/gate.mjs', "export const GATES = Object.freeze(['golden-parity.test.mjs'])\n")
   write(repo, 'scripts/golden-parity.test.mjs', 'export const g = 1\n')
   const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
-  assert(set.length === 1, `data literals must not become dependencies, got ${JSON.stringify(set)}`)
+  assert(set.includes('scripts/golden-parity.test.mjs'), `expected the over-copy, got ${JSON.stringify(set)}`)
+  assert(set.length === 2, `and nothing beyond it, got ${JSON.stringify(set)}`)
+})
+
+test('SPAWN EDGE — a CONCATENATED script path is derived, with no path call to anchor on', () => {
+  // The hole the resolve/join rule alone left: no call to match, and missing it
+  // restores the silent green (gate spawns a script that is not there, swallows
+  // the crash, reports a verdict anyway).
+  const repo = scratch('sbx-concat-')
+  write(repo, 'scripts/gate.mjs', "const SUB = ROOT + '/scripts/sub-gate.mjs'\nvoid SUB\n")
+  write(repo, 'scripts/sub-gate.mjs', 'export const s = 1\n')
+  const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
+  assert(set.includes('scripts/sub-gate.mjs'), `got ${JSON.stringify(set)}`)
+})
+
+test('SPAWN EDGE — a module literal naming NO reachable repo file is ignored', () => {
+  // Exactly denominator-sentinel.mjs's real situation: the file it names lives
+  // in another directory entirely, so neither anchor resolves and the loose
+  // literal rule stays quiet.
+  const repo = scratch('sbx-elsewhere-')
+  write(repo, 'scripts/gate.mjs', "export const G = ['golden-parity.test.mjs']\n")
+  write(repo, 'chaingraph/kernels/golden-parity.test.mjs', 'export const g = 1\n')
+  const set = deriveSandboxFiles({ roots: ['scripts/gate.mjs'], repoRoot: repo })
+  assert(set.length === 1, `a file in an unrelated directory must not be dragged in, got ${JSON.stringify(set)}`)
 })
 
 test('RED — a script path assembled from a runtime value refuses', () => {

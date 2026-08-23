@@ -175,8 +175,23 @@ const isModule = (rel) => /\.(mjs|cjs|js)$/.test(rel)
 // Restricting to MODULE extensions is load-bearing, not incidental: the same
 // call sites also build 'chaingraph/chaingraph.json' and 'nav-island-baseline
 // .json' paths, and those must NOT be copied — every fixture creates its own.
+//
+// TWO PATTERNS, unioned, because either alone leaves a hole:
+//   (a) the segments of a resolve(...)/join(...) call, so a path assembled from
+//       several literals is reconstructed;
+//   (b) ANY module-extension string literal on a non-comment line, so a path
+//       built by concatenation (`ROOT + '/scripts/x.mjs'`) is caught too. That
+//       form has no path call to anchor on, and missing it would restore the
+//       silent green — the gate spawns a script that is not there and reports a
+//       verdict anyway.
+// (b) is loose by design and still measures clean, because a candidate only
+// counts when it RESOLVES to a real repo file under one of the two plausible
+// anchors: 'golden-parity.test.mjs' exists at chaingraph/kernels/, matching
+// neither <repo>/ nor <repo>/scripts/, so it is correctly ignored. An occasional
+// extra copy would be harmless; a missed spawn target would not be.
 const RE_PATH_CALL = /\b(?:resolve|join)[ \t]*\(([^()]*)\)/g
 const RE_STRING_ARG = /^(['"])(.*)\1$/
+const RE_MODULE_LITERAL = /(['"`])([A-Za-z0-9_.\-/\\]+\.(?:mjs|cjs|js))\1/g
 
 /**
  * Repo-file paths a module spawns or otherwise names as an executable script,
@@ -215,6 +230,21 @@ export function parseScriptReferences(source) {
     }
     refs.push(segments)
   }
+
+  // (b) standalone module-extension literals, wherever they appear.
+  RE_MODULE_LITERAL.lastIndex = 0
+  let s
+  while ((s = RE_MODULE_LITERAL.exec(source)) !== null) {
+    const lineStart = source.lastIndexOf('\n', s.index) + 1
+    let lineEnd = source.indexOf('\n', s.index)
+    if (lineEnd === -1) lineEnd = source.length
+    if (looksLikeComment(source.slice(lineStart, lineEnd))) continue
+    const value = s[2]
+    // Relative import specifiers are the import graph's business, already walked.
+    if (value.startsWith('./') || value.startsWith('../')) continue
+    refs.push(value.split(/[/\\]/).filter(Boolean))
+  }
+
   return { refs, unresolvable }
 }
 
