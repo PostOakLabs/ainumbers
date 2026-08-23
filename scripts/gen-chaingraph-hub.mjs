@@ -23,8 +23,9 @@ const categories = JSON.parse(readFileSync(categoriesPath, 'utf8'));
 // ── STATUS FILTER (GENERATOR-STATUS-FILTER-1) ────────────────────────────────
 // This filter used to be URL SHAPE ONLY. A node that leaves service keeps its
 // page file and keeps its `/chaingraph/art-` url, so the hub kept rendering its
-// card between two live neighbours — measured on art-99 after PR #1477 flipped
-// it to "deprecated": the card survived every regen, and `--check` stayed GREEN
+// card between two live neighbours — measured 2026-08-23 on art-99, which PR
+// #1477 retired to "deprecated" on 2026-08-22: the card survived every regen on
+// main through 57f6b05e, and `--check` stayed GREEN
 // the whole time, because the gate only ever compared the card count against
 // this same status-blind set. The shard's `status` is the only field that can
 // answer; see scripts/_node-status.mjs for the shared predicate and for why a

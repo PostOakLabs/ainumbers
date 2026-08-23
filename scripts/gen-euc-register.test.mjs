@@ -46,8 +46,9 @@ console.log('▶ gen-euc-register prune controls (GENERATOR-STATUS-FILTER-1)');
 
 try {
   heading(1, 'THE REAL EVENT — one node leaves service, its entry is classified STALE and PRUNED');
-  // The #1486 shape: art-99 flipped to "deprecated", so the live set stopped
-  // producing its filename while the file kept shipping.
+  // The #1486 shape, measured 2026-08-23: art-99 was retired to "deprecated" on
+  // 2026-08-22, so the live set stopped producing its filename while the file
+  // kept shipping. Re-derive with `node scripts/gen-euc-register.mjs --check`.
   const live = ['art-98-x.register.json', 'art-100-y.register.json'];
   plant([...live, 'art-99-mica-transitional-deadline-router.register.json', 'index.json']);
   const c1 = classifyRegisterDir(readdirSync(DIR), new Set(live));
