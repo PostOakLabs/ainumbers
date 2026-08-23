@@ -2189,7 +2189,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "HPML Definition and Escrow Requirement Test",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-235-test-hpml-escrow.html",
-    "description": "Tests whether a loan qualifies as a Higher-Priced Mortgage Loan (HPML) per Reg Z §1026.35(a)(1): APOR+1.5pp first-lien, APOR+2.5pp jumbo, AP",
+    "description": "Tests whether a closed-end consumer credit transaction secured by a principal dwelling is a Higher-Priced Mortgage Loan per Reg Z §1026.35(a",
     "consumes": [
       "art-220-reg-z-threshold-lookup"
     ],
