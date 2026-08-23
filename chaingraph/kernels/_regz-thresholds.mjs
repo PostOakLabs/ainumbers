@@ -1,21 +1,33 @@
-import { executionHash } from './_hash.mjs';
+// _regz-thresholds.mjs - single-writer Regulation Z threshold data for OpenChainGraph kernels.
+//
+// PURPOSE. Three kernels (art-218 QM points-and-fees, art-220 threshold lookup,
+// art-234 HOEPA high-cost) each carried their own private copy of the same Reg Z
+// annual-adjustment tables. A wrong Federal Register locator authored once was then
+// faithfully copied into all three, so a single bad cell became three live wrong
+// answers and no gate could see the disagreement. This module is the ONE place those
+// values live. Edit a number here, and every consumer moves together.
+//
+// ⛔ NEVER freeze a value into this module that has not been read out of pinned primary
+// text. The whole point of one holder is that one holder is auditable; a guessed cell
+// here is worse than a guessed cell in one kernel, because it lands everywhere at once.
+//
+// ⚠ HOW CONSUMERS CONSUME IT - INLINED, NOT IMPORTED. The RISC0 zkVM guest resolves
+// only `_hash`; a sibling `import` is unavailable in-guest, exactly as `_detmath.bundle.mjs`
+// documents for its own consumers. Measured 2026-08-23 on this toolchain with a two-line
+// probe kernel, identical but for the import:
+//     import { PROBE_TABLE } from './_probe_data.mjs'  ->  {"error":"ocg_run","code":-3,"msg":"undefined"}
+//     const PROBE_TABLE = { ... }                      ->  {"output":{"imported_ok":true,...}}
+// So the block between the REGZ-SHARED markers below is COPIED verbatim into each
+// consumer kernel by `node scripts/gen-regz-inline.mjs`, and
+// `node scripts/gen-regz-inline.mjs --check` fails if any copy has drifted from this
+// file. That check is the thing that makes "one holder" true rather than aspirational.
+//
+// PROVENANCE. Every figure below is from the correction spec verified against pinned
+// primary text on 2026-08-23 (workspace-root research/clause-snapshots/):
+//   12-CFR-1026-SuppI-cmt-32a1ii-43e3ii-89FR95080-2026-08-23.txt  (QM + HOEPA series)
+//   12-CFR-1026.52-b1ii-safe-harbors-ecfr-2026-08-23.txt          (card penalty safe harbors)
+//   TILA-129H-hpml-appraisal-exemption-series-2026-08-23.txt      (appraisal exemption series)
 
-const TOOL_ID = 'art-220-reg-z-threshold-lookup';
-const TOOL_VERSION = '1.0.0';
-
-export const meta = {
-  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'lookup_reg_z_thresholds',
-  mandate_type: 'compliance_mandate', gpu: false,
-};
-
-// Reg Z threshold lookup service.
-// This node exists because agents reliably hallucinate current-year dollar thresholds.
-// Tables: qm_points_fees | hoepa | hpml | card_penalty
-// All values version-pinned with Federal Register citations.
-// Input: { year, table } → returns the full threshold row for that year.
-
-/* ===== inlined _regz-thresholds (RISC0 guest provides only _hash; sibling import is unavailable in-guest) ===== */
 // ---- REGZ-SHARED-BEGIN ----
 // Federal Register locators for the Reg Z annual threshold adjustment rules.
 // `cite` is null where the published page reference is not yet pinned from primary
@@ -170,145 +182,15 @@ const REGZ_CARD_PENALTY = {
   2026: { fr_citation: 'Reg Z §1026.52(b)(1)(ii)', effective: '2013-08-22', late_fee_first: 32, late_fee_subsequent: 43, returned_payment: 32, over_limit: 32, note: REGZ_CARD_OBSERVED_NOTE },
 };
 // ---- REGZ-SHARED-END ----
-/* ===== END inlined _regz-thresholds ===== */
 
-// The four served tables are PROJECTIONS of the shared module above, never second copies.
-// Each figure exists once, in `_regz-thresholds.mjs`; what follows only reshapes it into
-// the row this node has always emitted. Key order is deliberate — the conformance fixtures
-// compare serialized output, so these literals must stay in their published order.
-
-// ---- QM POINTS-AND-FEES (§1026.43(e)(3)) ----
-function regzQmRow(year) {
-  const y = REGZ_QM_TIERS[year];
-  const t = y.tiers;
-  return {
-    fr_citation: regzCiteShort(year, y.effective),
-    effective: y.effective,
-    tier_1_min: t[0].threshold_min,
-    tier_1_pct: t[0].limit_pct,
-    tier_2_fixed: t[1].limit_fixed,
-    tier_3_min: t[2].threshold_min,
-    tier_3_pct: t[2].limit_pct,
-    tier_4_fixed: t[3].limit_fixed,
-    tier_5_pct: t[4].limit_pct,
-  };
-}
-
-// ---- HOEPA HIGH-COST MORTGAGE (§1026.32(a)(1)) ----
-// Rate spread trigger: APR > APOR + threshold pp.
-// Points-and-fees trigger: 5% of loan, or the annually adjusted dollar floor.
-function regzHoepaRow(year) {
-  const h = REGZ_HOEPA[year];
-  return {
-    fr_citation: regzCiteShort(year, h.effective),
-    effective: h.effective,
-    rate_spread_first_lien_pp: h.rate_spread_first_lien_pp,
-    rate_spread_sub_lien_pp: h.rate_spread_sub_lien_pp,
-    points_fees_pct: h.points_fees_pct,
-    points_fees_floor: h.points_fees_floor,
-  };
-}
-
-// ---- HPML HIGHER-PRICED MORTGAGE (§1026.35) ----
-// The rate thresholds (1.5 pp first lien; 2.5 pp jumbo first lien at or above the FHFA
-// conforming limit; 3.5 pp subordinate lien) are structural and do not move annually.
-// The dollar figure is the TILA §129H APPRAISAL exemption, adjusted every year and
-// indexed to CPI-W. It was previously mislabelled an escrow threshold, which it is not.
-function regzHpmlRow(year) {
-  const h = REGZ_HPML[year];
-  return {
-    fr_citation: 'Reg Z §1026.35(a)(1) (rate thresholds, stable); TILA §129H appraisal exemption: ' + h.appraisal_cite,
-    effective: h.effective,
-    first_lien_pp: h.first_lien_pp,
-    first_lien_jumbo_pp: h.first_lien_jumbo_pp,
-    sub_lien_pp: h.sub_lien_pp,
-    appraisal_exemption_threshold: h.appraisal_exemption_threshold,
-  };
-}
-
-const QM_POINTS_FEES = {};
-const HOEPA = {};
-const HPML = {};
-for (const y of Object.keys(REGZ_QM_TIERS).map(Number)) {
-  QM_POINTS_FEES[y] = regzQmRow(y);
-  HOEPA[y] = regzHoepaRow(y);
-  HPML[y] = regzHpmlRow(y);
-}
-
-// ---- CARD ACT PENALTY FEES (§1026.52(b)) ----
-// Served straight from the shared module. No court holding is asserted here: see the
-// module's own note on why an unsourced vacatur narrative was removed rather than replaced.
-const CARD_PENALTY = REGZ_CARD_PENALTY;
-
-const TABLES = {
-  qm_points_fees: QM_POINTS_FEES,
-  hoepa: HOEPA,
-  hpml: HPML,
-  card_penalty: CARD_PENALTY,
+export {
+  REGZ_FR,
+  REGZ_QM_TIERS,
+  REGZ_HOEPA,
+  REGZ_HPML,
+  REGZ_CARD_PENALTY,
+  regzPrettyDate,
+  regzCiteLong,
+  regzCiteShort,
+  regzCiteHoepa,
 };
-
-const VALID_TABLES = Object.keys(TABLES);
-
-function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
-
-export function compute(pp) {
-  pp = pp || {};
-
-  const year = Math.round(safeNum(pp.year, 2026));
-  const table = String(pp.table || 'qm_points_fees');
-
-  if (!VALID_TABLES.includes(table)) {
-    return {
-      output_payload: {
-        error: 'unknown_table', table, valid_tables: VALID_TABLES,
-        year, note: 'Supported tables: qm_points_fees, hoepa, hpml, card_penalty',
-      },
-      compliance_flags: ['LOOKUP_TABLE_UNKNOWN'],
-    };
-  }
-
-  const tableData = TABLES[table];
-  const row = tableData[year];
-  const available_years = Object.keys(tableData).map(Number).sort((a, b) => a - b);
-
-  if (!row) {
-    return {
-      output_payload: {
-        error: 'year_not_in_table', table, year, available_years,
-        note: 'Only years ' + available_years[0] + '-' + available_years[available_years.length - 1] + ' are in this version-pinned table.',
-      },
-      compliance_flags: ['LOOKUP_YEAR_UNAVAILABLE'],
-    };
-  }
-
-  const output_payload = {
-    table,
-    year,
-    available_years,
-    data: row,
-    regulatory_basis: 'Reg Z 12 CFR 1026 (version-pinned threshold table)',
-    note: 'This node exists because agents hallucinate current-year dollar thresholds. Values are pinned at build time; refresh yearly. Always verify at consumerfinance.gov for the latest effective rule.',
-  };
-
-  return { output_payload, compliance_flags: [] };
-}
-
-export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
-    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
-    chaingraph_version: '0.4.0',
-    mandate_type: meta.mandate_type,
-    tool_id: TOOL_ID,
-    tool_version: TOOL_VERSION,
-    generated_at: now ?? null,
-    execution_hash: hash,
-    chain: { parent_hashes, parent_tool_ids, chain_depth },
-    policy_parameters: pp,
-    output_payload,
-    compliance_flags,
-    compute_mode: 'server',
-    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
-  };
-}
