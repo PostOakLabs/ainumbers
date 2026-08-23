@@ -123,37 +123,7 @@ jobs:
           node-version: '20'
 
       - name: Preflight (full gate suite)
-        # 2026-08-23: on `push: main` the suite runs to COMPLETION (--keep-going)
-        # instead of stopping at the first red.
-        #
-        # WHY: preflight's default is fail-fast, so a red main reports exactly one
-        # gate and conceals every gate after it. Measured directly: the EUC
-        # register freshness gate was first-failure and masked the debt-ledger
-        # freshness gate entirely; clearing the first one in #1486 did not turn
-        # main green, it merely promoted the next red into view. "main is red" was
-        # never a count of one, and the log said it was. A fix-forward aimed at a
-        # one-item list is aimed at the wrong target.
-        #
-        # ⛔ ZERO SEMANTICS CHANGE, and --keep-going is not a waiver: every gate
-        # runs with the identical predicate, EXPECTED-RED requires an explicit
-        # --expect-red (NOT passed here, so nothing is waived), any unwaived red
-        # still exits 1, and its result-accounting reconciliation FAILS CLOSED if
-        # a gate produced no result at all. Identical cost on a green run — the
-        # same gates execute either way; it costs more only when main is already
-        # red, which is exactly when the full inventory is worth paying for.
-        #
-        # PR and merge_group stay fail-fast: a red there ejects/blocks the branch
-        # anyway and the author iterates, so first-red is the cheaper signal.
-        # EVENT_NAME crosses via env:, never `${{ }}` inside a run: body — same
-        # injection-safe plumbing the `relevant` job above uses.
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT_NAME" = "push" ]; then
-            node scripts/preflight.mjs --keep-going
-          else
-            node scripts/preflight.mjs
-          fi
+        run: node scripts/preflight.mjs
 
   scripts-verify-required:
     name: scripts-verify / required

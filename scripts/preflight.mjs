@@ -151,7 +151,10 @@ const EXPECT_RED = process.argv.reduce((acc, a, i) => {
   if (a === '--expect-red' && process.argv[i + 1]) acc.push(process.argv[i + 1]);
   return acc;
 }, []);
-const KEEP_GOING = KEEP_GOING_FLAG || EXPECT_RED.length > 0;
+// `let`, not `const`: a CI run on main promotes this to true below, once
+// isMainContext() is available (see the MAIN_CONTEXT assignment). Every branch
+// that reads KEEP_GOING is far below that point — first use is the gate loop.
+let KEEP_GOING = KEEP_GOING_FLAG || EXPECT_RED.length > 0;
 const expectedRedFor = (label) =>
   EXPECT_RED.find((id) => label.toLowerCase().includes(id.toLowerCase())) || null;
 
@@ -325,6 +328,40 @@ function derivedRegenLiveScopeTouched() {
 const DERIVED_REGEN_LIVE_SCOPE_TOUCHED = derivedRegenLiveScopeTouched();
 const MAIN_CONTEXT = isMainContext();
 const ADVISORY_ON_PR = advisoryGates();
+
+// MERGEQUEUE-GATE-PARITY-1: a CI run in a MAIN context (push to main, schedule)
+// runs the suite to COMPLETION, not fail-fast.
+//
+// WHY: preflight's default is fail-fast, so a red main reports exactly ONE gate
+// and conceals every gate after it. Measured on the 2026-08-22/23 red main — the
+// EUC register freshness gate was first-failure and masked the debt-ledger
+// freshness gate entirely; clearing the first one in PR #1486 did not turn main
+// green, it merely promoted the next red into view. "main is red" was never a
+// count of one, and the log said it was, so a fix-forward was aimed at a
+// one-item list that was not the real list.
+//
+// ⛔ NOT A WAIVER, and no gate's semantics move: every gate runs with the
+// identical predicate either way, EXPECTED-RED requires an explicit
+// --expect-red (never passed by CI, so nothing is waived), any unwaived red
+// still exits 1, and the run-list accounting reconciliation FAILS CLOSED if a
+// gate produced no result at all. Cost is identical on a green run — the same
+// gates execute; it costs more only when main is ALREADY red, which is exactly
+// when the complete inventory is worth paying for.
+//
+// ⚖ Scoped to CI: a local pre-push run is untouched and stays fail-fast (fast
+// feedback while iterating). PR and merge_group runs are untouched too — a red
+// there blocks the branch anyway and the author iterates, so first-red is the
+// cheaper signal. This lives here rather than as a `--keep-going` argument in
+// scripts-verify.yml on purpose: the merge App has no `workflows` permission, so
+// a PR touching .github/workflows/** cannot be merged by the automerge label at
+// all (measured 2026-08-23, run 32647684237: "refusing to allow a GitHub App to
+// create or update workflow ... without `workflows` permission"). Keeping the
+// decision beside the logic it governs also means the local and CI meanings of
+// "run to completion" can never drift apart in two files.
+if (!KEEP_GOING && MAIN_CONTEXT && process.env.GITHUB_ACTIONS === 'true') {
+  KEEP_GOING = true;
+  console.log('▶ CI main context — running the full suite to completion (a red main is never a count of one).');
+}
 
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
