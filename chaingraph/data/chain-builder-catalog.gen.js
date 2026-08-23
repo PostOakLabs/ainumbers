@@ -7337,7 +7337,7 @@ window.CHAINBUILDER_CATALOG = [
       "art-100-mica-casp-authorization-readiness",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
-    "status": "live"
+    "status": "deprecated"
   },
   {
     "tool_id": "cry-01-zk-compliance-proof-generator",
