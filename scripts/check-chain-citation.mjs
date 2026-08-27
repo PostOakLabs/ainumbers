@@ -25,18 +25,32 @@
  *
  * "Touched" = modified/staged in the working tree, or differs from the
  * upstream merge-base — same detection check-gate-rationale.mjs (CB-1) uses.
+ * ⚠ That `@{u}` base-ref pattern carries CLAUSE-DIGEST-SCOPE-FIX-1's known-and-deferred
+ * staleness defect (check-clause-digest.mjs's own header names this file explicitly:
+ * "carries the same latent defect ... reported, not fixed, here"). Left AS-IS in THIS row —
+ * fixing it would also move check-gate-rationale.mjs's shared detection and is a separate,
+ * previously-reported fence.
  *
- * ⚠ `chains[].name` is the chain id, NOT `chain_id`; `steps[].tool_id` spans
- * two namespaces. Both have produced false findings in this estate — see
- * memory `project-ainumbers-bank-chains-1-art433-correction`.
+ * TOUCHTAX-DIFFSCOPE-1 (2026-08-27, J19 §3.3): a DIFFERENT, narrower defect, fixed here — a
+ * chain with NO declaration at all (a pre-existing gap) was forced into a hard FAILURE merely
+ * by touching the file ANYWHERE, even for a change with nothing to do with citations (the same
+ * "touch tax" class as CLAUSE-DIGEST-GATE-1/KERNEL-CITATION-CLASS-1/jsdoc-checkjs). Within an
+ * already-touched file (the `@{u}` detection above, unchanged), the missing-declaration failure
+ * is now shielded down to a gap unless this diff's own changed lines (via the shared
+ * scripts/diff-scope.mjs helper, origin/main-based) actually touch the citation-declaration
+ * area (`regulatory_citations` / `regulatory_basis_status` / `regulatory_basis_decided_by` /
+ * `regulatory_basis_decided_at`, at chain or step level). A genuinely new/edited declaration is
+ * still validated exactly as before. Undeterminable diff or a brand-new chain: fails CLOSED,
+ * full scope, never shielded.
  *
- * Usage: node scripts/check-chain-citation.mjs
+ * Usage: node scripts/check-chain-citation.mjs [--diff-scope <REF>]
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { resolveDiffScopeRef, changedLineSet } from './diff-scope.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHAINS_DIR = resolve(REPO, 'chaingraph', 'graph', 'chains');
@@ -86,33 +100,63 @@ function chainHasDeclaration(chain) {
   return false;
 }
 
+// citationAreaTouched — TOUCHTAX-DIFFSCOPE-1: did THIS diff's own new/changed lines (not the
+// file as a whole) actually touch the citation-declaration area? Text-marker search, not a JSON-
+// position parser (same pragmatic choice diff-scope.mjs's lineOfText() documents) — the four
+// declaration-related keys are unambiguous literal substrings. Fails CLOSED by construction:
+// undeterminable scope or a brand-new chain both return true (fully in scope, no shield).
+export function citationAreaTouched(fileText, scope) {
+  if (!scope.ok || scope.isNew) return true;
+  const fileLines = fileText.split('\n');
+  const markers = ['regulatory_citations', 'regulatory_basis_status', 'regulatory_basis_decided_by', 'regulatory_basis_decided_at'];
+  for (const lineNo of scope.lines) {
+    const text = fileLines[lineNo - 1] || '';
+    if (markers.some((mk) => text.includes(mk))) return true;
+  }
+  return false;
+}
+
+const baseRef = resolveDiffScopeRef(REPO, { envVar: 'CHAIN_CITATION_BASE_REF' });
 const touched = touchedChainFiles();
 const files = readdirSync(CHAINS_DIR).filter((f) => f.endsWith('.json'));
 
 const failures = [];
 const gaps = [];
+let shieldedGapCount = 0;
 
 for (const name of files) {
   const abs = join(CHAINS_DIR, name);
   const rel = relative(REPO, abs).replace(/\\/g, '/');
+  const fileText = readFileSync(abs, 'utf8');
   let chain;
   try {
-    chain = JSON.parse(readFileSync(abs, 'utf8'));
+    chain = JSON.parse(fileText);
   } catch (e) {
     failures.push(`${rel}: unparseable JSON (${e.message})`);
     continue;
   }
   if (chainHasDeclaration(chain)) continue;
   const chainId = chain.name || '(no name)';
-  if (touched.has(rel)) {
+  if (!touched.has(rel)) {
+    gaps.push(`${rel} [${chainId}]: no citation declaration`);
+    continue;
+  }
+  const scope = changedLineSet(REPO, rel, baseRef);
+  if (citationAreaTouched(fileText, scope)) {
     failures.push(`${rel} [${chainId}]: no L2-or-better regulatory_citations and no regulatory_basis_status:"not_assessed" — this chain is NEW/EDITED, one declaration is required`);
   } else {
-    gaps.push(`${rel} [${chainId}]: no citation declaration`);
+    // File touched, but NOT in the citation-declaration area (TOUCHTAX-DIFFSCOPE-1) — the
+    // missing declaration is pre-existing debt this diff did not create, shielded to a gap.
+    gaps.push(`${rel} [${chainId}]: no citation declaration (pre-existing — this diff's changes did not touch the citation-declaration area, TOUCHTAX-DIFFSCOPE-1)`);
+    shieldedGapCount++;
   }
 }
 
 if (gaps.length) {
   console.log(`check-chain-citation: ${gaps.length} pre-existing gap(s), NOT gating (CLAUSE-BINDING-BUILD-SPEC.md §0.3/§3 — never backfilled, never a ratio):\n  ` + gaps.join('\n  '));
+}
+if (shieldedGapCount) {
+  console.log(`check-chain-citation: ${shieldedGapCount} of those gap(s) were touched-file failures SHIELDED to gaps (TOUCHTAX-DIFFSCOPE-1, J19 §3.3) — the diff never touched the citation-declaration area.`);
 }
 
 if (failures.length) {

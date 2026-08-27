@@ -30,13 +30,26 @@
  * Pre-existing gap (untouched nodes with no standards_basis) is reported as a COUNT, never a ratio,
  * never a CI failure, never backfilled (SPEC.md §30.4).
  *
- * Usage: node scripts/check-clause-digest.mjs
+ * TOUCHTAX-DIFFSCOPE-1 (2026-08-27, J19 §3.3): FILE-level touch scoping alone still re-gated every
+ * PRE-EXISTING citation in a touched node merely because the FILE changed somewhere else — blocked
+ * PAYROLL, then blocked a one-line description fix on four unrelated nodes (DESC-HONESTY-APPLY-1).
+ * The gate now shields at LINE granularity too, via scripts/diff-scope.mjs (the shared helper wired
+ * into this gate, KERNEL-CITATION-CLASS-1 and jsdoc-checkjs alike — one helper, not three copies):
+ * a `standards_basis` declaration or a `cited_clause_digest[]` entry whose own line is BYTE-IDENTICAL
+ * to origin/main is treated as pre-existing debt (a gap, never a failure) even when the surrounding
+ * node file differs elsewhere. A genuinely NEW or CHANGED declaration/entry is validated exactly as
+ * before — nothing about NEW bytes is weakened (Tim's no-waiver ruling stands). Override the base ref
+ * with `--diff-scope <REF>` or `CLAUSE_DIGEST_BASE_REF`; an undeterminable diff fails CLOSED (nothing
+ * is shielded), never open.
+ *
+ * Usage: node scripts/check-clause-digest.mjs [--diff-scope <REF>]
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { resolveDiffScopeRef, changedLineSet, isPreExisting, lineOfText } from './diff-scope.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NODES_DIR = resolve(REPO, 'chaingraph', 'graph', 'nodes');
@@ -70,24 +83,14 @@ function git(repo, args) {
 // Measured on a real rebased branch: @{u} resolved to a merge-base 17 commits behind
 // origin/main, pulling in unrelated already-merged node shards. origin/main is the actual
 // integration target and is what must be diffed against, in every environment.
+// resolveBaseRef — thin wrapper over the shared scripts/diff-scope.mjs resolver, keeping this
+// gate's own env-var override name (CLAUSE_DIGEST_BASE_REF, CLAUSE-DIGEST-SCOPE-FIX-1) and adding
+// `--diff-scope <REF>` (GATE-MANIFEST-DRAFT.md §3 PREREQ-1) for free, via the shared candidate chain.
 function resolveBaseRef(repo) {
-  const candidates = [];
-  if (process.env.CLAUSE_DIGEST_BASE_REF) candidates.push(process.env.CLAUSE_DIGEST_BASE_REF);
-  candidates.push('origin/main');
-  if (process.env.GITHUB_BASE_REF) candidates.push(`origin/${process.env.GITHUB_BASE_REF}`);
-  for (const ref of candidates) {
-    try {
-      // `^{commit}` is a cmd.exe escape sequence on Windows and gets silently mangled if this
-      // were run through a shell (execSync with a string) — execFileSync passes argv straight
-      // to git with no shell in between, which is why every call in this module uses it.
-      git(repo, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
-      return ref;
-    } catch { /* does not resolve in this checkout — try next candidate */ }
-  }
-  return null;
+  return resolveDiffScopeRef(repo, { envVar: 'CLAUSE_DIGEST_BASE_REF' });
 }
 
-export function touchedNodeFiles(repo = REPO) {
+export function touchedNodeFiles(repo = REPO, baseRef = resolveBaseRef(repo)) {
   const touched = new Set();
   const add = (out) => out.toString().split('\n').forEach((f) => f && touched.add(f.trim()));
   try {
@@ -99,7 +102,6 @@ export function touchedNodeFiles(repo = REPO) {
   try {
     add(git(repo, ['ls-files', '--others', '--exclude-standard']));
   } catch { /* no untracked files */ }
-  const baseRef = resolveBaseRef(repo);
   if (baseRef) {
     try {
       const base = git(repo, ['merge-base', baseRef, 'HEAD']).toString().trim();
@@ -117,12 +119,31 @@ export function loadRegistryDigests(registryPath) {
 
 const ENTRY_REQUIRED = ['digest', 'source_url', 'retrieved_at', 'clause_path'];
 
-/** Pure validator: given a parsed node object + the set of registered digests, return
- *  { ok, reasons[] }. Unit-tested directly — no filesystem, no git — by check-clause-digest.test.mjs. */
-export function validateNode(node, registryDigests) {
+/**
+ * Pure validator: given a parsed node object + the set of registered digests, return
+ * { ok, reasons[] }. Unit-tested directly — no filesystem, no git — by check-clause-digest.test.mjs.
+ *
+ * TOUCHTAX-DIFFSCOPE-1: optional 3rd arg `{ isPreExisting }` — a predicate `(descriptor) => boolean`
+ * deciding whether a given requirement's underlying bytes are pre-existing (byte-identical to
+ * origin/main) and therefore exempt, per J19 §3.3. `descriptor` is one of:
+ *   { kind: 'basis' }                    — the standards_basis declaration itself
+ *   { kind: 'entries-empty' }            — the "cited_clause_digest must be non-empty" requirement
+ *   { kind: 'entry', index, entry }      — one cited_clause_digest[i] entry
+ * Omitting the 3rd arg (every existing call site/test) makes `isPreExisting` always report `false`
+ * — i.e. IDENTICAL behaviour to before this row, byte for byte. Shielding is opt-in per call site,
+ * never a default that could silently soften an existing caller.
+ */
+export function validateNode(node, registryDigests, { isPreExisting: shieldedFn } = {}) {
+  const shielded = (descriptor) => (typeof shieldedFn === 'function' ? !!shieldedFn(descriptor) : false);
   const reasons = [];
   const basis = node.standards_basis;
-  if (basis !== 'implements_standard' && basis !== 'not_applicable' && basis !== 'cites_informative') {
+  const basisValid = basis === 'implements_standard' || basis === 'not_applicable' || basis === 'cites_informative';
+  if (!basisValid) {
+    if (shielded({ kind: 'basis' })) {
+      // The declaration itself is byte-identical to origin/main — pre-existing gap this diff did
+      // not write, never gated (SPEC.md §30.4), even though the file changed somewhere else.
+      return { ok: true, reasons: [], shieldedGap: true };
+    }
     reasons.push(`standards_basis missing or invalid (got ${JSON.stringify(basis)}) — must declare "implements_standard", "not_applicable", or "cites_informative" (SPEC.md §30.3)`);
     return { ok: false, reasons };
   }
@@ -130,10 +151,12 @@ export function validateNode(node, registryDigests) {
 
   const entries = Array.isArray(node.cited_clause_digest) ? node.cited_clause_digest : [];
   if (entries.length === 0) {
+    if (shielded({ kind: 'entries-empty' })) return { ok: true, reasons: [], shieldedGap: true };
     reasons.push(`standards_basis is "${basis}" but cited_clause_digest is empty/missing (SPEC.md §30.1${basis === 'cites_informative' ? '/§30.3a' : ''})`);
     return { ok: false, reasons };
   }
   entries.forEach((e, i) => {
+    if (shielded({ kind: 'entry', index: i, entry: e })) return; // byte-identical to origin/main — the PAYROLL kill-proof: pre-existing debt is never re-gated merely because the file moved elsewhere
     if (!e || typeof e !== 'object') { reasons.push(`cited_clause_digest[${i}] is not an object`); return; }
     const missing = ENTRY_REQUIRED.filter((k) => !e[k]);
     if (missing.length) { reasons.push(`cited_clause_digest[${i}] missing required member(s): ${missing.join(', ')}`); return; }
@@ -144,20 +167,48 @@ export function validateNode(node, registryDigests) {
   return { ok: reasons.length === 0, reasons };
 }
 
+/**
+ * Build the `isPreExisting` predicate main() passes into validateNode() for one touched node file.
+ * Maps each descriptor to a line number via a plain text search (lineOfText — digests/keys are
+ * effectively-unique strings, see diff-scope.mjs's header) and asks the shared line-diff scope
+ * whether that line is byte-identical to origin/main. Fails CLOSED by construction: `isPreExisting()`
+ * itself already returns `false` whenever `scope.ok` is false or the needle can't be located — there
+ * is no branch here that could accidentally shield something undeterminable.
+ */
+export function makeIsPreExisting(fileText, scope) {
+  return (descriptor) => {
+    let lineNum = -1;
+    if (descriptor.kind === 'basis' || descriptor.kind === 'entries-empty') {
+      // No single line represents "the array is empty" — the declaration line is the closest
+      // stable anchor, and an unchanged declaration with an unchanged (pre-existing) empty array
+      // is the same pre-existing-gap class either way.
+      lineNum = lineOfText(fileText, '"standards_basis"');
+    } else if (descriptor.kind === 'entry') {
+      if (!descriptor.entry || !descriptor.entry.digest) return false; // no stable identifier to locate -> not shielded, must validate
+      lineNum = lineOfText(fileText, descriptor.entry.digest);
+    }
+    if (lineNum === -1) return false; // can't locate the anchor line -> fail closed, not shielded
+    return isPreExisting(scope, lineNum);
+  };
+}
+
 function main() {
-  const touched = touchedNodeFiles();
+  const baseRef = resolveBaseRef(REPO);
+  const touched = touchedNodeFiles(REPO, baseRef);
   const registryDigests = loadRegistryDigests(REGISTRY_PATH);
   const files = existsSync(NODES_DIR) ? readdirSync(NODES_DIR).filter((f) => f.endsWith('.json')) : [];
 
   const failures = [];
   let gapCount = 0;
+  let shieldedGapCount = 0;
 
   for (const name of files) {
     const abs = join(NODES_DIR, name);
     const rel = relative(REPO, abs).replace(/\\/g, '/');
+    const fileText = readFileSync(abs, 'utf8');
     let node;
     try {
-      node = JSON.parse(readFileSync(abs, 'utf8'));
+      node = JSON.parse(fileText);
     } catch (e) {
       failures.push(`${rel}: unparseable JSON (${e.message})`);
       continue;
@@ -170,12 +221,20 @@ function main() {
       if (undeclared) gapCount++;
       continue; // never retro-gated (SPEC.md §30.4)
     }
-    const { ok, reasons } = validateNode(node, registryDigests);
+    // TOUCHTAX-DIFFSCOPE-1: the FILE is touched, but only bytes this diff actually wrote are
+    // gated — a standards_basis declaration or cited_clause_digest[] entry that is byte-identical
+    // to origin/main is pre-existing debt, shielded regardless of what else in the file moved.
+    const scope = changedLineSet(REPO, rel, baseRef);
+    const { ok, reasons, shieldedGap } = validateNode(node, registryDigests, { isPreExisting: makeIsPreExisting(fileText, scope) });
+    if (shieldedGap) shieldedGapCount++;
     if (!ok) failures.push(`${rel} [${node.tool_id ?? '(no tool_id)'}]: ${reasons.join('; ')}`);
   }
 
   console.log(`check-clause-digest: SCOPE — this gate proves retrieval happened, it does NOT prove the retrieved text was read correctly (SPEC.md §30.0).`);
   console.log(`check-clause-digest: ${gapCount} pre-existing node(s) with no standards_basis declaration (gap, NOT gating, never backfilled — SPEC.md §30.4).`);
+  if (shieldedGapCount) {
+    console.log(`check-clause-digest: ${shieldedGapCount} touched node(s) had a pre-existing (byte-identical to origin/main) gap shielded from re-gating (TOUCHTAX-DIFFSCOPE-1, J19 §3.3) — not a failure, not backfilled.`);
+  }
 
   if (failures.length) {
     console.error(`\ncheck-clause-digest: ${failures.length} FAILURE(s) on NEW/CHANGED node(s):\n  ` + failures.join('\n  '));

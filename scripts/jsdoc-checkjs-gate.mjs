@@ -48,6 +48,23 @@
 // an UNTOUCHED file, and this fix targets exactly that, nothing wider. A gate
 // that passes everything is not a fix.
 //
+// RULE (3) — LINE-SCOPE, not just file-scope (TOUCHTAX-DIFFSCOPE-1, 2026-08-27, J19 §3.3).
+// Rule (1) above scopes to touched FILES, but `tsc --checkJs` reports every diagnostic in a
+// touched file's whole program — including one on a line this diff never wrote. Measured: the
+// `Property 'now' does not exist` diagnostic this file's own DENOISE PASS note already names
+// below blocked REGZ-CORRECTION-APPLY-1 (#1502) on three kernels whose only change was a
+// one-line COMMENT deletion elsewhere in the same file — a pre-existing type gap, unrelated to
+// the diff, re-gated purely because the file was touched at all. A diagnostic on a touched file
+// is now BLOCKING only if its own line is new/changed vs origin/main (via the shared
+// scripts/diff-scope.mjs helper — the SAME module check-clause-digest.mjs and
+// KERNEL-CITATION-CLASS-1 use, one helper, not three copies); a diagnostic on a line
+// byte-identical to origin/main is reported for visibility, never blocking. A diagnostic in a
+// BRAND-NEW file, or when the diff itself is undeterminable (no base ref, shallow clone), stays
+// fully in scope — fails CLOSED, never open (SO #34c). Nothing about a diagnostic on a genuinely
+// NEW or CHANGED line is weakened: rule (1)'s own worked example above (the C13 set) already
+// relied on every kernel there being untouched; a PR that directly edits a kernel with this exact
+// destructuring shape still fails on that kernel's own new/changed lines, exactly as documented.
+//
 // DENOISE PASS (JSDOC-CHECKJS-DENOISE-1, 2026-08-11) — measured on the
 // FV-PROPFLOOR-SHARD-C13-1 file set (PR #1165), 68 raw tsc errors:
 //   - `chaingraph/kernels/globals.d.ts` ambient-declares `scalbn` (a hand-
@@ -84,7 +101,7 @@
 //     every kernel in the C13 set. A PR that directly adds or edits a
 //     kernel with this exact destructuring shape will hit it for real.
 //
-// Usage: node scripts/jsdoc-checkjs-gate.mjs <file> [<file> ...]
+// Usage: node scripts/jsdoc-checkjs-gate.mjs [--diff-scope <REF>] <file> [<file> ...]
 //   Each <file> is a root file to type-check (same list already computed by
 //   the workflow's "List new/touched kernel files" step — passed through as
 //   shell array elements, never re-parsed from string). Exit 0 = no blocking
@@ -94,6 +111,10 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveDiffScopeRef, changedLineSet } from './diff-scope.mjs';
+
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const PROPTEST_DIR = 'chaingraph/kernels/__proptests__/';
 // (code, message-pattern) pairs — BOTH must match, and only inside
@@ -125,11 +146,21 @@ export function isAllowlistedNodeGlobal(path, code, message) {
   return NODE_GLOBAL_ALLOWLIST.some((rule) => rule.code === code && rule.pattern.test(message));
 }
 
-// classifyDiagnostics — pure function over tsc's raw stdout+stderr text and
-// the touched-file list. No filesystem or process access, so a unit test can
-// feed it a captured tsc transcript directly. Returns per-line classification
-// plus the counts the CLI entry point uses to decide pass/fail.
-export function classifyDiagnostics(tscOutput, touchedFiles) {
+// classifyDiagnostics — pure function over tsc's raw stdout+stderr text, the
+// touched-file list, and (TOUCHTAX-DIFFSCOPE-1) an optional per-file changed-
+// line map. No filesystem or process access, so a unit test can feed it a
+// captured tsc transcript directly. Returns per-line classification plus the
+// counts the CLI entry point uses to decide pass/fail.
+//
+// `changedLinesByFile`: Map<normalizedPath, Set<lineNumber> | 'ALL'>. A path
+// ABSENT from the map (the default — omitting the 3rd arg reproduces every
+// existing caller's EXACT prior behaviour, byte for byte) or mapped to 'ALL'
+// means "no line-level shield available for this file" — every diagnostic on
+// a touched file stays fully in scope, same as before this row. Only a path
+// mapped to an actual Set() gets line-level shielding, and only for line
+// numbers NOT in that set (fail CLOSED: an unmapped/undeterminable file is
+// the SAFE default, never the shielded one).
+export function classifyDiagnostics(tscOutput, touchedFiles, changedLinesByFile = new Map()) {
   const touched = new Set(touchedFiles.map(normalizePath));
   const lines = (tscOutput || '').split(/\r?\n/);
 
@@ -137,6 +168,7 @@ export function classifyDiagnostics(tscOutput, touchedFiles) {
   let blocking = 0;
   let ignoredDependency = 0;
   let ignoredAllowlisted = 0;
+  let ignoredPreExisting = 0;
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -145,8 +177,9 @@ export function classifyDiagnostics(tscOutput, touchedFiles) {
       classified.push({ kind: 'unparsed', line });
       continue;
     }
-    const [, rawPath, , , code, message] = m;
+    const [, rawPath, rawLine, , code, message] = m;
     const path = normalizePath(rawPath);
+    const lineNo = parseInt(rawLine, 10);
 
     if (!touched.has(path)) {
       ignoredDependency++;
@@ -158,11 +191,19 @@ export function classifyDiagnostics(tscOutput, touchedFiles) {
       classified.push({ kind: 'ignored-allowlisted', line, path, code });
       continue;
     }
+    const changedSet = changedLinesByFile.get(path);
+    if (changedSet && changedSet !== 'ALL' && !changedSet.has(lineNo)) {
+      // Line-diff proves this exact line is byte-identical to origin/main — pre-existing type
+      // debt this diff did not write, shielded even though the FILE as a whole is touched.
+      ignoredPreExisting++;
+      classified.push({ kind: 'ignored-pre-existing', line, path, code });
+      continue;
+    }
     blocking++;
     classified.push({ kind: 'blocking', line, path, code });
   }
 
-  return { classified, blocking, ignoredDependency, ignoredAllowlisted };
+  return { classified, blocking, ignoredDependency, ignoredAllowlisted, ignoredPreExisting };
 }
 
 // GLOBALS_DTS — ambient scalbn declaration (see its own header for the
@@ -244,21 +285,37 @@ export function runTsc(files, tsconfigJson) {
 
 // ── CLI entry point ──────────────────────────────────────────────────────
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (IS_MAIN) {
 
-const files = process.argv.slice(2).filter(Boolean);
+// --diff-scope <REF> is a gate flag, not a root file — strip it before building the file list.
+const argv = process.argv.slice(2);
+const diffScopeArgIdx = argv.indexOf('--diff-scope');
+const files = argv.filter((a, i) => a && i !== diffScopeArgIdx && i !== diffScopeArgIdx + 1);
 if (files.length === 0) {
   console.log('jsdoc-checkjs-gate: no files given — nothing to check.');
   process.exit(0);
 }
 
+// TOUCHTAX-DIFFSCOPE-1: per-touched-file line-diff vs origin/main, via the shared
+// scripts/diff-scope.mjs helper. A file whose scope cannot be determined (undeterminable base
+// ref, or a brand-new file) is left OUT of the map entirely — classifyDiagnostics's default for
+// an absent key is "no shield, fully in scope", which is the fail-CLOSED behaviour SO #34c
+// requires. This is a pure lookup add-on: rule (1)'s existing touched-file scoping is unchanged.
+const baseRef = resolveDiffScopeRef(REPO, {});
+const changedLinesByFile = new Map();
+for (const f of files) {
+  const rel = normalizePath(f);
+  const scope = changedLineSet(REPO, rel, baseRef);
+  if (scope.ok && !scope.isNew) changedLinesByFile.set(rel, scope.lines);
+  // else: leave unset — undeterminable or brand-new both fall back to "no shield" by omission.
+}
+
 const tsconfigJson = readFileSync(TSCONFIG_PATH, 'utf8');
 const result = runTsc(files, tsconfigJson);
 const output = `${result.stdout || ''}${result.stderr || ''}`;
-const { classified, blocking, ignoredDependency, ignoredAllowlisted } = classifyDiagnostics(output, files);
+const { classified, blocking, ignoredDependency, ignoredAllowlisted, ignoredPreExisting } = classifyDiagnostics(output, files, changedLinesByFile);
 
 // GitHub Actions' hosted runner has a DEFAULT tsc problem matcher always
 // active (no add-matcher call anywhere in this repo — confirmed by grep).
@@ -283,13 +340,15 @@ function formatIgnored(diagLine) {
 for (const c of classified) {
   if (c.kind === 'ignored-dependency') console.log(`[pre-existing dependency, not in this diff, ignored] ${formatIgnored(c.line)}`);
   else if (c.kind === 'ignored-allowlisted') console.log(`[allowlisted: no @types/node in __proptests__ floor files (SO #10), ignored] ${formatIgnored(c.line)}`);
+  else if (c.kind === 'ignored-pre-existing') console.log(`[pre-existing line, byte-identical to origin/main, TOUCHTAX-DIFFSCOPE-1, ignored] ${formatIgnored(c.line)}`);
   else if (c.kind === 'blocking') console.log(`[BLOCKING] ${c.line}`);
   else console.log(c.line);
 }
 
 const summaryLine =
   `jsdoc-checkjs-gate summary: ${blocking} blocking, ${ignoredDependency} pre-existing dependency diagnostic(s) ignored, ` +
-  `${ignoredAllowlisted} allowlisted (no @types/node) diagnostic(s) ignored, checked ${files.length} touched file(s).`;
+  `${ignoredAllowlisted} allowlisted (no @types/node) diagnostic(s) ignored, ${ignoredPreExisting} pre-existing (unchanged) line diagnostic(s) shielded, ` +
+  `checked ${files.length} touched file(s).`;
 // On a clean run, restate the denominator as a ::notice:: so it's visible
 // on the run without mailing a failure digest — a plain console.log line
 // here would not annotate at all, but a notice keeps a green run's summary
@@ -305,7 +364,7 @@ if (blocking > 0) {
 // tsc exiting non-zero with zero parseable diagnostics means something other
 // than a type error went wrong (bad flags, npx/network failure, a crash) —
 // never silently treat that as a pass.
-if (result.status !== 0 && blocking === 0 && ignoredDependency === 0 && ignoredAllowlisted === 0) {
+if (result.status !== 0 && blocking === 0 && ignoredDependency === 0 && ignoredAllowlisted === 0 && ignoredPreExisting === 0) {
   console.error(`\n✗ jsdoc-checkjs-gate FAILED — tsc exited ${result.status} with no parseable diagnostics (see output above); treating as failure rather than a silent pass.`);
   process.exit(result.status || 1);
 }
