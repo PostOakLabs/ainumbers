@@ -97,16 +97,16 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          # fetch-depth 0 (was 1, 2026-08-27, NAV-SUBGATE-CRASH-1 PREREQ-4): this job
-          # runs base-ref-consuming gates — the Nav reachability gate below reaches
-          # check-shard-assembly.mjs, which resolves origin/main. On the push:main
-          # trigger depth 1 happens to leave origin/main resolvable (it is HEAD), but
-          # the workflow_dispatch trigger can run this job from any ref, where depth 1
-          # leaves origin/main absent entirely and every base-ref gate fails closed —
-          # the shape board/NAV-ISLAND-DIAGNOSTIC-2026-08-27.md measured. Depth 0 makes
-          # the guarantee unconditional instead of trigger-dependent. The helm-scope
-          # step below is unaffected: its `git fetch --depth=1 origin "$BEFORE"` is a
-          # no-op when the object is already present.
+          # fetch-depth 0 (was 1, 2026-08-27): this job runs base-ref-consuming
+          # gates — the Nav reachability gate below reaches check-shard-assembly.mjs,
+          # which resolves origin/main. On the push:main trigger depth 1 happens to
+          # leave origin/main resolvable (it is HEAD), but the workflow_dispatch
+          # trigger can run this job from any ref, where depth 1 leaves origin/main
+          # absent entirely and every base-ref gate fails closed — measured
+          # 2026-08-27 as the cause of false "new island" reports. Depth 0 makes the
+          # guarantee unconditional instead of trigger-dependent. The helm-scope step
+          # below is unaffected: its `git fetch --depth=1 origin "$BEFORE"` is a no-op
+          # when the object is already present.
           fetch-depth: 0
           persist-credentials: false
 
@@ -115,12 +115,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🧭 Assert base ref resolvable (PREREQ-4)
-        # SO #34b, and the tripwire for the fetch-depth above. Three-second red naming
-        # the cause instead of a twenty-minute misdiagnosis chasing a page that is not
-        # broken (0xAlpha/2026-08-27-GATE-FRICTION-AUDIT.md §3.2 pt 2). Plain git, no
-        # gate script: an environment precondition, not a gate, so it adds nothing for
-        # check-workflow-gate-parity.mjs to pair against.
+      - name: 🧭 Assert base ref resolvable
+        # The tripwire for the fetch-depth above. Three-second red naming the cause
+        # instead of a twenty-minute hunt for a page that is not broken. Plain git,
+        # no gate script: an environment precondition, not a gate, so it adds nothing
+        # for check-workflow-gate-parity.mjs to pair against.
         shell: bash
         run: |
           set -euo pipefail
