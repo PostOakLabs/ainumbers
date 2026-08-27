@@ -75,6 +75,24 @@ const OMNIBUS_OUT_OF_SCOPE = [
   'Cancellation regime (Art 24 as replaced, annual cancellation on 1 November, and the 1 November 2027 derogation for 2026-vintage certificates): not modelled by this tool',
 ];
 
+// Reader-facing rendering of each conditional flag. `caveats` mirrors the raised
+// flag set into output_payload so a consumer reading only the payload can still
+// see that this result carries a qualification.
+const CAVEAT_TEXT = {
+  CBAM_FACTOR_YEAR_OUT_OF_TABLE:        'Requested year is outside the published factor table; the full unabated factor was applied as a conservative fallback.',
+  DE_MINIMIS_INPUT_MISSING:             'No annual imported net mass was declared, so the mass-based de minimis exemption could not be screened and was not applied.',
+  DE_MINIMIS_SECTOR_EXCLUDED:           'The de minimis exemption does not reach electricity or hydrogen, so no exemption was applied despite the declared mass.',
+  DE_MINIMIS_EXEMPT:                    'Declared annual net mass does not exceed the threshold, so every obligation is exempted and all liability figures are zero.',
+  DE_MINIMIS_THRESHOLD_EXCEEDED_ALL_GOODS: 'Declared annual net mass exceeds the threshold, which pulls all goods imported that calendar year into scope.',
+  QUARTER_PRICE_FALLBACK:               'At least one quarter had no caller-supplied quarterly average; the single reference price was used for that quarter.',
+  HOLDING_RULE_PRE_2027:                'A quarterly holding schedule was requested for a vintage the minimum-holding obligation does not yet bind; no holding requirement was asserted.',
+  HOLDING_GRACE_QUARTER_APPLIED:        'A threshold-exceedance quarter was supplied, so the holding obligation is first enforced at the end of the following quarter.',
+  HOLDING_REQUIREMENT_SHORTFALL:        'The projected holdings fall short of the quarterly minimum in at least one quarter.',
+  ORIGIN_PRICE_CREDIT_APPLIED:          'An origin carbon price was supplied and credited; it must be verified against the origin scheme before relying on it.',
+  ORIGIN_PRICE_UNVERIFIED:              'No origin carbon price was supplied, so no credit was deducted.',
+  HIGH_CBAM_FACTOR_YEAR:                'The vintage falls in the steep part of the free-allocation phase-out; liability rises sharply year on year.',
+};
+
 export function compute(pp) {
   const {
     embedded_emissions_tco2e      = 0,
@@ -201,6 +219,8 @@ export function compute(pp) {
   if (!origin_carbon_price_eur_per_t)     compliance_flags.push('ORIGIN_PRICE_UNVERIFIED');
   if (cbam_factor >= 0.485)               compliance_flags.push('HIGH_CBAM_FACTOR_YEAR');
 
+  const caveats = compliance_flags.filter((f) => f in CAVEAT_TEXT).map((f) => CAVEAT_TEXT[f]);
+
   const output_payload = {
     certificate_liability_eur,
     certificates_required,
@@ -226,6 +246,7 @@ export function compute(pp) {
     holding_basis: 'at least 50% of embedded emissions imported since start of calendar year (Annex IV default values without the point-4.1 mark-up, or the prior-year surrendered count for the same CN codes and countries of origin); the free-allocation adjustment under Art 31 is taken into account',
     quarterly_holding_schedule,
     surrender_deadline,
+    caveats,
     omnibus_out_of_scope: OMNIBUS_OUT_OF_SCOPE,
     reference: {
       cbam_factor_source:   'CBAM factor schedule: Directive 2003/87/EC Art 10a(1a), applied through the Art 31 free-allocation adjustment (LOCATOR-UNRETRIEVED: the directive text itself was not retrieved; values carried forward unchanged). Confirmed untouched by Reg. (EU) 2025/2083, whose Art 1 amendment list contains no Art 31 and no directive amendment.',
