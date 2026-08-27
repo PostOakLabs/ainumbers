@@ -3477,7 +3477,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Federal Withholding Calculator (Percentage Method)",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-338-compute-federal-withholding.html",
-    "description": "Federal income tax withholding via the IRS Publication 15-T (2025) percentage method, Worksheet 1A, for a 2020-or-later Form W-4. Supports s",
+    "description": "Federal income tax withholding via the IRS Publication 15-T percentage method, Worksheet 1A, for a 2020-or-later Form W-4. tax_year is a req",
     "consumes": [],
     "feeds": [
       "art-339-compute-gross-to-net"
@@ -3489,7 +3489,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Gross-to-Net Payroll Calculator (FICA)",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-339-compute-gross-to-net.html",
-    "description": "Gross-to-net payroll calculation: FICA (Social Security 6.2% up to the 2025 $176,100 wage base, Medicare 1.45% uncapped, Additional Medicare",
+    "description": "Gross-to-net payroll calculation: FICA (Social Security 6.2% up to the OASDI contribution and benefit base for the selected tax year, Medica",
     "consumes": [
       "art-338-compute-federal-withholding"
     ],
