@@ -1,0 +1,49 @@
+{
+  "tool_id": "656-derivatives-margin-workbench",
+  "version": "1.0.0",
+  "title": "Derivatives Margin Workbench",
+  "description": "Computes event-market linear PnL (settlement vs strike, scalar payoff), margin health (unrealized PnL, buffer, liquidation price, leverage) against a caller-declared venue margin model (regulated-DCM or offshore-perp class, with its own initial/maintenance margin rates rather than an internal per-venue lookup table), and, when a second position is supplied, two-position correlation-VaR cross-margin efficiency (siloed vs shared capital requirement). Closed-form pedagogical approximations of the same computations live risk engines run, not a stress-grid or SPAN-style margin system, and not financial advice.",
+  "category": "derivatives",
+  "tags": ["margin health", "liquidation price", "cross margin efficiency", "event market pnl", "derivatives", "perp margin", "venue margin model"],
+  "audience": ["trader", "compliance", "engineer"],
+  "input_schema": {
+    "type": "object",
+    "required": ["event_market", "margin"],
+    "properties": {
+      "event_market": { "type": "object", "description": "side, strike, settlement_value, unit_value, n_contracts, min_price, max_price for the linear/scalar event-market payoff." },
+      "margin": { "type": "object", "description": "side, entry_price, mark_price, notional, margin_posted, margin_mode (isolated or cross), and venue_margin_model {class, label, imr, mmr} declared by the caller, never looked up by venue name." },
+      "cross_margin": { "type": "object", "description": "Optional second position: position_b_notional, position_b_imr, correlation, weight_a, weight_b. Enables the cross-margin efficiency block." }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "event_market": { "type": "object", "description": "settlement_delta, pnl, settlement_in_range." },
+      "margin": { "type": "object", "description": "unrealized_pnl, margin_balance, maintenance_threshold, buffer, buffer_pct, liquidation_price, leverage_ratio, health (GREEN/AMBER/RED)." },
+      "cross_margin": { "type": ["object", "null"], "description": "siloed_margin, shared_margin, efficiency_ratio, capital_saved, benefit (SIGNIFICANT/MODERATE/MINIMAL/NONE). null unless a second position was supplied." },
+      "warnings": { "type": "array", "description": "Reader-facing mirror of the raised compliance_flags, one message per flag." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_derivatives_margin_workbench",
+    "description": "Computes event-market linear PnL, margin health against a caller-declared venue margin model, and two-position correlation-VaR cross-margin efficiency. Use when an agent needs margin buffer, liquidation price, leverage, or cross-margin capital efficiency for a declared derivatives position, without assuming any one venue's margin mechanics.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["event_market", "margin"],
+      "properties": {
+        "event_market": { "type": "object" },
+        "margin": { "type": "object" },
+        "cross_margin": { "type": "object" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/656-derivatives-margin-workbench.html",
+    "function_name": "runWorkbench",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
