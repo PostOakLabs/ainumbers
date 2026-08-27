@@ -586,6 +586,7 @@ status: stable
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md)
 - [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md)
 - [Verify Receipt](./art-652-verify-receipt.md)
+- [Publish Market Mark Head](./art-655-publish-market-mark-head.md)
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md)
 - [Forecast Accuracy Scorer](./art-657-forecast-accuracy-scorer.md)
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md)
