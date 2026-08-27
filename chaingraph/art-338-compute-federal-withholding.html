@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Federal Withholding Calculator &middot; ART-338 &middot; OpenChainGraph &middot; AINumbers.co</title>
-<meta name="description" content="Federal income tax withholding via the IRS Publication 15-T (2025) percentage method, Worksheet 1A, for a 2020-or-later Form W-4. Federal only, not tax advice.">
+<meta name="description" content="Federal income tax withholding via the IRS Publication 15-T percentage method, Worksheet 1A, for a 2020-or-later Form W-4. Select the tax year; 2025 and 2026 editions supported. Federal only, not tax advice.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-338-compute-federal-withholding.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -129,7 +129,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-338 &middot; US Payroll Compliance</div>
   <h1>Federal Withholding Calculator</h1>
-  <p class="sub">Federal income tax withholding via the IRS Publication 15-T (2025) percentage method, Worksheet 1A, for a 2020-or-later Form W-4. Supports single/MFS, married filing jointly, and head of household, plus Step 3 dependents credit and Step 4(a)/(b)/(c) adjustments. Feeds ART-339 Gross-to-Net Payroll Calculator.</p>
+  <p class="sub">Federal income tax withholding via the IRS Publication 15-T percentage method, Worksheet 1A, for a 2020-or-later Form W-4. Select the tax year: the 2025 and 2026 editions are both supported. Supports single/MFS, married filing jointly, and head of household, plus Step 3 dependents credit and Step 4(a)/(b)/(c) adjustments. Feeds ART-339 Gross-to-Net Payroll Calculator.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">IRS Pub 15-T (2025)</span>
     <span class="flag info">Worksheet 1A</span>
@@ -138,7 +138,6 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
   <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Federal withholding only. Not tax advice. State and local withholding are out of scope for this tool. The Form W-4 Step 2 multiple-jobs checkbox withholding table is not implemented in v1 &mdash; results assume the box is not checked.</div>
-  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Withholding tables are the 2025 Pub 15-T edition. For 2026 payrolls the IRS 2026 tables apply and results here will differ. A corrected release is scheduled; do not rely on this tool for 2026 filing values.</div>
 
   <div class="card">
     <div class="section-head">Pay &amp; Filing Status</div>
@@ -157,6 +156,14 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
           <option value="quarterly">Quarterly (4/yr)</option>
           <option value="semiannually">Semiannually (2/yr)</option>
           <option value="daily">Daily (260/yr)</option>
+        </select>
+      </div>
+      <div class="q">
+        <label class="q-label" for="taxYear">Tax year</label>
+        <div class="q-help">Selects the Pub 15-T edition. 2026 is Section 1; 2025 is Section 4.</div>
+        <select id="taxYear">
+          <option value="2026" selected>2026</option>
+          <option value="2025">2025</option>
         </select>
       </div>
       <div class="q">
@@ -307,20 +314,21 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 var MANIFEST = {
   tool_id: 'art-338-compute-federal-withholding',
-  version: '1.0.0',
+  version: '1.1.0',
   mcp_name: 'compute_federal_withholding',
   title: 'Federal Withholding Calculator',
   description: 'Federal income tax withholding via IRS Pub 15-T (2025) percentage method, Worksheet 1A. STANDARD schedule only (Step 2 checkbox not supported). Federal only, not tax advice.',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
-  regulation: 'IRS Publication 15-T (2025), Section 4, Percentage Method Tables for Automated Payroll Systems; Worksheet 1A',
+  regulation: 'IRS Publication 15-T (2025 Section 4 / 2026 Section 1), Percentage Method Tables for Automated Payroll Systems; Worksheet 1A',
   mcp_tool_definition: {
     name: 'compute_federal_withholding',
-    description: 'Compute federal income tax withholding per pay period via the IRS Pub 15-T percentage method and Worksheet 1A.',
+    description: 'Compute federal income tax withholding per pay period via the IRS Pub 15-T percentage method and Worksheet 1A, for the given tax year.',
     inputSchema: {
       type: 'object',
-      required: ['gross_wages_per_period'],
+      required: ['tax_year', 'gross_wages_per_period'],
       properties: {
+        tax_year: { type: 'string', enum: ['2025', '2026'], description: 'Calendar year the pay period falls in. Selects the Pub 15-T edition. An unsupported year fails closed rather than defaulting.' },
         gross_wages_per_period: { type: 'number' },
         pay_frequency: { type: 'string', enum: ['weekly','biweekly','semimonthly','monthly','quarterly','semiannually','daily'] },
         filing_status: { type: 'string', enum: ['single_or_mfs','married_filing_jointly','head_of_household'] },
@@ -335,44 +343,89 @@ var MANIFEST = {
 
 var ANCHOR_BASE = 'https://anchor.ainumbers.co';
 var _lastResult = null;
-var CONSTANTS_VERSION = '2025';
-
+// Year-keyed, mirroring chaingraph/kernels/art-338-compute-federal-withholding.kernel.mjs.
+// Keep these two in lockstep: a page that falls back to a single hard-coded edition
+// silently disagrees with the kernel it claims to represent.
+// Table 3 pay-period counts are identical across editions, so they are not year-keyed.
 var PAY_PERIODS_PER_YEAR = { daily:260, weekly:52, biweekly:26, semimonthly:24, monthly:12, quarterly:4, semiannually:2 };
-var MULTIPLE_JOBS_BACKOUT_AMOUNT = { married_filing_jointly:12900, single_or_mfs:8600, head_of_household:8600 };
 
-// STANDARD Withholding Rate Schedules, 2025 Annual Percentage Method table (IRS Pub 15-T 2025 Section 4).
-var ANNUAL_BRACKETS = {
-  single_or_mfs: [
-    { at_least:0,      less_than:6400,   base_tax:0,         rate:0.00 },
-    { at_least:6400,   less_than:18325,  base_tax:0,         rate:0.10 },
-    { at_least:18325,  less_than:54875,  base_tax:1192.50,   rate:0.12 },
-    { at_least:54875,  less_than:109750, base_tax:5578.50,   rate:0.22 },
-    { at_least:109750, less_than:203700, base_tax:17651.00,  rate:0.24 },
-    { at_least:203700, less_than:256925, base_tax:40199.00,  rate:0.32 },
-    { at_least:256925, less_than:632750, base_tax:57231.00,  rate:0.35 },
-    { at_least:632750, less_than:null,   base_tax:188769.75, rate:0.37 }
-  ],
-  married_filing_jointly: [
-    { at_least:0,      less_than:17100,  base_tax:0,         rate:0.00 },
-    { at_least:17100,  less_than:40950,  base_tax:0,         rate:0.10 },
-    { at_least:40950,  less_than:114050, base_tax:2385.00,   rate:0.12 },
-    { at_least:114050, less_than:223800, base_tax:11157.00,  rate:0.22 },
-    { at_least:223800, less_than:411700, base_tax:35302.00,  rate:0.24 },
-    { at_least:411700, less_than:518150, base_tax:80398.00,  rate:0.32 },
-    { at_least:518150, less_than:768700, base_tax:114462.00, rate:0.35 },
-    { at_least:768700, less_than:null,   base_tax:202154.50, rate:0.37 }
-  ],
-  head_of_household: [
-    { at_least:0,      less_than:13900,  base_tax:0,         rate:0.00 },
-    { at_least:13900,  less_than:30900,  base_tax:0,         rate:0.10 },
-    { at_least:30900,  less_than:78750,  base_tax:1700.00,   rate:0.12 },
-    { at_least:78750,  less_than:117250, base_tax:7442.00,   rate:0.22 },
-    { at_least:117250, less_than:211200, base_tax:15912.00,  rate:0.24 },
-    { at_least:211200, less_than:264400, base_tax:38460.00,  rate:0.32 },
-    { at_least:264400, less_than:640250, base_tax:55484.00,  rate:0.35 },
-    { at_least:640250, less_than:null,   base_tax:187031.50, rate:0.37 }
-  ]
+var PARAMS = {
+  '2025': {
+    // IRS Pub 15-T (2025), Section 4, STANDARD Withholding Rate Schedules, ANNUAL.
+    multiple_jobs_backout_amount: { married_filing_jointly:12900, single_or_mfs:8600, head_of_household:8600 },
+    regulatory_basis: 'IRS Publication 15-T (2025), Section 4, Percentage Method Tables for Automated Payroll Systems; Worksheet 1A.',
+    annual_brackets: {
+      single_or_mfs: [
+        { at_least:0,      less_than:6400,   base_tax:0,         rate:0.00 },
+        { at_least:6400,   less_than:18325,  base_tax:0,         rate:0.10 },
+        { at_least:18325,  less_than:54875,  base_tax:1192.50,   rate:0.12 },
+        { at_least:54875,  less_than:109750, base_tax:5578.50,   rate:0.22 },
+        { at_least:109750, less_than:203700, base_tax:17651.00,  rate:0.24 },
+        { at_least:203700, less_than:256925, base_tax:40199.00,  rate:0.32 },
+        { at_least:256925, less_than:632750, base_tax:57231.00,  rate:0.35 },
+        { at_least:632750, less_than:null,   base_tax:188769.75, rate:0.37 }
+      ],
+      married_filing_jointly: [
+        { at_least:0,      less_than:17100,  base_tax:0,         rate:0.00 },
+        { at_least:17100,  less_than:40950,  base_tax:0,         rate:0.10 },
+        { at_least:40950,  less_than:114050, base_tax:2385.00,   rate:0.12 },
+        { at_least:114050, less_than:223800, base_tax:11157.00,  rate:0.22 },
+        { at_least:223800, less_than:411700, base_tax:35302.00,  rate:0.24 },
+        { at_least:411700, less_than:518150, base_tax:80398.00,  rate:0.32 },
+        { at_least:518150, less_than:768700, base_tax:114462.00, rate:0.35 },
+        { at_least:768700, less_than:null,   base_tax:202154.50, rate:0.37 }
+      ],
+      head_of_household: [
+        { at_least:0,      less_than:13900,  base_tax:0,         rate:0.00 },
+        { at_least:13900,  less_than:30900,  base_tax:0,         rate:0.10 },
+        { at_least:30900,  less_than:78750,  base_tax:1700.00,   rate:0.12 },
+        { at_least:78750,  less_than:117250, base_tax:7442.00,   rate:0.22 },
+        { at_least:117250, less_than:211200, base_tax:15912.00,  rate:0.24 },
+        { at_least:211200, less_than:264400, base_tax:38460.00,  rate:0.32 },
+        { at_least:264400, less_than:640250, base_tax:55484.00,  rate:0.35 },
+        { at_least:640250, less_than:null,   base_tax:187031.50, rate:0.37 }
+      ]
+    }
+  },
+  '2026': {
+    // IRS Pub 15-T (2026), Section 1, STANDARD Withholding Rate Schedules, ANNUAL.
+    multiple_jobs_backout_amount: { married_filing_jointly:12900, single_or_mfs:8600, head_of_household:8600 },
+    regulatory_basis: 'IRS Publication 15-T (2026), Section 1, Percentage Method Tables for Automated Payroll Systems and Withholding on Periodic Payments of Pensions and Annuities; Worksheet 1A.',
+    annual_brackets: {
+      single_or_mfs: [
+        { at_least:0,      less_than:7500,   base_tax:0,         rate:0.00 },
+        { at_least:7500,   less_than:19900,  base_tax:0,         rate:0.10 },
+        { at_least:19900,  less_than:57900,  base_tax:1240.00,   rate:0.12 },
+        { at_least:57900,  less_than:113200, base_tax:5800.00,   rate:0.22 },
+        { at_least:113200, less_than:209275, base_tax:17966.00,  rate:0.24 },
+        { at_least:209275, less_than:263725, base_tax:41024.00,  rate:0.32 },
+        { at_least:263725, less_than:648100, base_tax:58448.00,  rate:0.35 },
+        { at_least:648100, less_than:null,   base_tax:192979.25, rate:0.37 }
+      ],
+      married_filing_jointly: [
+        { at_least:0,      less_than:19300,  base_tax:0,         rate:0.00 },
+        { at_least:19300,  less_than:44100,  base_tax:0,         rate:0.10 },
+        { at_least:44100,  less_than:120100, base_tax:2480.00,   rate:0.12 },
+        { at_least:120100, less_than:230700, base_tax:11600.00,  rate:0.22 },
+        { at_least:230700, less_than:422850, base_tax:35932.00,  rate:0.24 },
+        { at_least:422850, less_than:531750, base_tax:82048.00,  rate:0.32 },
+        { at_least:531750, less_than:788000, base_tax:116896.00, rate:0.35 },
+        { at_least:788000, less_than:null,   base_tax:206583.50, rate:0.37 }
+      ],
+      head_of_household: [
+        { at_least:0,      less_than:15550,  base_tax:0,         rate:0.00 },
+        { at_least:15550,  less_than:33250,  base_tax:0,         rate:0.10 },
+        { at_least:33250,  less_than:83000,  base_tax:1770.00,   rate:0.12 },
+        { at_least:83000,  less_than:121250, base_tax:7740.00,   rate:0.22 },
+        { at_least:121250, less_than:217300, base_tax:16155.00,  rate:0.24 },
+        { at_least:217300, less_than:271750, base_tax:39207.00,  rate:0.32 },
+        { at_least:271750, less_than:656150, base_tax:56631.00,  rate:0.35 },
+        { at_least:656150, less_than:null,   base_tax:191171.00, rate:0.37 }
+      ]
+    }
+  }
 };
+var SUPPORTED_TAX_YEARS = Object.keys(PARAMS);
 
 function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
 async function computeExecHash(pp, op) {
@@ -385,8 +438,7 @@ async function computeExecHash(pp, op) {
 function r2(v) { return isFinite(v) ? Math.round(v * 100) / 100 : 0; }
 function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 
-function bracketFor(filingStatus, annualWageAmount) {
-  var rows = ANNUAL_BRACKETS[filingStatus];
+function bracketFor(rows, annualWageAmount) {
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i];
     if (annualWageAmount >= row.at_least && (row.less_than === null || annualWageAmount < row.less_than)) return row;
@@ -398,6 +450,15 @@ function runWithholding() {
   var grossWages = Math.max(0, safe(document.getElementById('grossWages').value, 0));
   var payFrequency = document.getElementById('payFrequency').value;
   var filingStatus = document.getElementById('filingStatus').value;
+  var taxYear = document.getElementById('taxYear').value;
+  if (!Object.prototype.hasOwnProperty.call(PARAMS, taxYear)) {
+    var vb = document.getElementById('verdictBox');
+    vb.style.color = 'var(--red)'; vb.style.background = 'rgba(239,68,68,.08)'; vb.style.border = '1px solid var(--red)';
+    vb.textContent = 'UNSUPPORTED TAX YEAR';
+    _lastResult = null;
+    return;
+  }
+  var params = PARAMS[taxYear];
   var step3Credit = Math.max(0, safe(document.getElementById('step3Credit').value, 0));
   var step4aIncome = Math.max(0, safe(document.getElementById('step4aIncome').value, 0));
   var step4bDeductions = Math.max(0, safe(document.getElementById('step4bDeductions').value, 0));
@@ -408,11 +469,11 @@ function runWithholding() {
 
   var line1c = r2(grossWages * periodsPerYear);
   var line1e = r2(line1c + step4aIncome);
-  var backout = MULTIPLE_JOBS_BACKOUT_AMOUNT[filingStatus];
+  var backout = params.multiple_jobs_backout_amount[filingStatus];
   var line1h = r2(step4bDeductions + backout);
   var adjustedAnnualWageAmount = Math.max(0, r2(line1e - line1h));
 
-  var bracket = bracketFor(filingStatus, adjustedAnnualWageAmount);
+  var bracket = bracketFor(params.annual_brackets[filingStatus], adjustedAnnualWageAmount);
   var excess = r2(adjustedAnnualWageAmount - bracket.at_least);
   var tentativeAnnual = r2(bracket.base_tax + excess * bracket.rate);
   var tentativePerPeriod = r2(tentativeAnnual / periodsPerYear);
@@ -426,6 +487,7 @@ function runWithholding() {
   if (bracket.rate >= 0.37) flags.push('TOP_MARGINAL_BRACKET');
 
   var pp = {
+    tax_year: taxYear,
     gross_wages_per_period: grossWages, pay_frequency: payFrequency, filing_status: filingStatus,
     step3_dependents_credit_annual: step3Credit, step4a_other_income_annual: step4aIncome,
     step4b_deductions_annual: step4bDeductions, step4c_extra_withholding_per_period: step4cExtra
@@ -442,8 +504,10 @@ function runWithholding() {
     tentative_withholding_this_period: tentativePerPeriod,
     step3_credit_this_period: line3b,
     step4c_extra_withholding_per_period: step4cExtra,
-    constants_version: CONSTANTS_VERSION,
-    regulatory_basis: 'IRS Publication 15-T (2025), Section 4, Percentage Method Tables for Automated Payroll Systems; Worksheet 1A.',
+    constants_version: taxYear,
+    supported_tax_years: SUPPORTED_TAX_YEARS,
+    regulatory_basis: params.regulatory_basis,
+    error: null,
     note: 'STANDARD Withholding Rate Schedules only (Form W-4 Step 2 multiple-jobs checkbox not supported in v1). Federal withholding only; not tax advice; state and local withholding out of scope.'
   };
 
@@ -506,7 +570,7 @@ function exportArtifact() {
     chaingraph_version: '0.4.0',
     mandate_type: 'compliance_mandate',
     tool_id: 'art-338-compute-federal-withholding',
-    tool_version: '1.0.0',
+    tool_version: '1.1.0',
     generated_at: __generatedAtCapture,
     execution_hash: hash,
     chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },

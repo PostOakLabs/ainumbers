@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-282-social-security-claiming-optimizer';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -9,18 +9,32 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-// Social Security claiming-age decision support (Social Security Act Sec.202/216(l);
-// 20 CFR 404.409-410). Inputs are USER-SUPPLIED off the claimant's own SSA statement --
+// Social Security claiming-age decision support (Social Security Act Sec.202/216(l)).
+// Inputs are USER-SUPPLIED off the claimant's own SSA statement --
 // no SSA API, no PII stored. Computes: Full Retirement Age (FRA) by birth year;
 // early-claim reduction (5/9 of 1% per month for the first 36 months before FRA, 5/12
 // of 1% per month beyond that -- Sec.202(q)); delayed retirement credit (2/3 of 1% per
 // month, i.e. 8%/year, for months worked past FRA up to age 70 -- Sec.202(w));
-// earnings-test withholding below FRA (labeled-snapshot annual exempt amount,
-// $1-for-$2 withholding above it -- Sec.203(f)); lifetime present value at 62, FRA, 70,
+// earnings-test withholding below FRA (annual exempt amount, defaulted and
+// user-overridable, $1-for-$2 withholding above it -- Sec.203(f)); lifetime PV at 62, FRA, 70,
 // and the user's chosen claim age (annuity-style PV loop, portable +-*'/ only, no
 // engine transcendentals); and the 62-vs-70 undiscounted break-even age. Pure
 // arithmetic, NaN-safe, zero network, zero PII (no SSN/name ever accepted).
-const SS_EARNINGS_TEST_ANNUAL_LIMIT_2026 = 23400; // labeled snapshot, user-overridable -- re-verify annually
+//
+// EARNINGS-TEST EXEMPT AMOUNT. The default below is the 2026 annual exempt
+// amount for a claimant who attains normal retirement age AFTER 2026
+// ($24,480, SSA Exempt Amounts Under the Earnings Test, retrieved 2026-08-23).
+// v1.0.0 shipped $23,400 -- the 2025 amount carrying a 2026 label -- which
+// overstated withheld benefit by up to $540 a year for a below-FRA claimant
+// with earnings above the limit.
+//
+// The default is now OVERRIDABLE via `claimant.earningsTestAnnualLimit`, so a
+// claimant in a later year, or one attaining NRA in the current year (whose
+// higher exempt amount and $1-for-$3 rate are out of scope here), can supply
+// the figure from their own SSA statement rather than wait for a code change.
+// Only the $1-for-$2 withholding below FRA is modeled (Sec.203(f)); the
+// year-of-NRA-attainment $1-for-$3 rule is declared out of scope.
+const SS_EARNINGS_TEST_ANNUAL_LIMIT_DEFAULT = 24480;
 
 function fraYears(birthYear) {
   const y = Number.isFinite(Number(birthYear)) ? Number(birthYear) : 1960;
@@ -72,6 +86,12 @@ export function compute(pp) {
   const earningsIfWorking = g(claimant.earningsIfWorking, 0);
   const discountRatePct = g(claimant.discountRatePct, 3);
   const longevityAge = Math.min(110, Math.max(claimAge + 1, g(claimant.longevityAge, 85)));
+  // User-supplied exempt amount wins over the pinned default; a non-finite or
+  // negative entry falls back to the default rather than producing a negative
+  // withholding threshold.
+  const suppliedLimit = g(claimant.earningsTestAnnualLimit, -1);
+  const earningsTestAnnualLimit = suppliedLimit >= 0 ? suppliedLimit : SS_EARNINGS_TEST_ANNUAL_LIMIT_DEFAULT;
+  const earningsTestLimitSource = suppliedLimit >= 0 ? 'user_supplied' : 'pinned_default_2026';
 
   const fra = fraYears(birthYear);
 
@@ -81,7 +101,7 @@ export function compute(pp) {
     const monthlyBenefit = pia * factor;
     const years = Math.max(0, longevityAge - age);
     const withheld = age < fra
-      ? Math.min(monthlyBenefit * 12, Math.max(0, earningsIfWorking - SS_EARNINGS_TEST_ANNUAL_LIMIT_2026) / 2)
+      ? Math.min(monthlyBenefit * 12, Math.max(0, earningsIfWorking - earningsTestAnnualLimit) / 2)
       : 0;
     const annualNet = monthlyBenefit * 12 - withheld;
     const lifetimePV = pvOfAnnuity(annualNet, years, discountRatePct);
@@ -102,7 +122,7 @@ export function compute(pp) {
 
   const userChoice = candidates[3];
   const compliance_flags = ['SS_CLAIMING_AGE_MODELED'];
-  if (userChoice.age < fra && earningsIfWorking > SS_EARNINGS_TEST_ANNUAL_LIMIT_2026) compliance_flags.push('SS_EARNINGS_TEST_WITHHOLDING_APPLIES');
+  if (userChoice.age < fra && earningsIfWorking > earningsTestAnnualLimit) compliance_flags.push('SS_EARNINGS_TEST_WITHHOLDING_APPLIES');
   if (recommendedClaimAge !== userChoice.age) compliance_flags.push('SS_ALTERNATE_CLAIM_AGE_HAS_HIGHER_PV');
 
   return {
@@ -115,14 +135,15 @@ export function compute(pp) {
       recommendedClaimAge,
       lifetimePV: userChoice.lifetimePV,
       breakEvenAge62vs70: breakEvenAge,
-      earningsTestAnnualLimit: SS_EARNINGS_TEST_ANNUAL_LIMIT_2026,
+      earningsTestAnnualLimit,
+      earningsTestLimitSource,
       longevityAge,
     },
     compliance_flags,
   };
 }
 
-export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
