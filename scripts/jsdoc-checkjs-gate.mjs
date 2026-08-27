@@ -116,6 +116,20 @@ import { resolveDiffScopeRef, changedLineSet } from './diff-scope.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+// parseArgv — strip a `--diff-scope <REF>` gate flag out of the file-argument list. Exported and
+// unit-tested (JSDOC-GATE-DIFFSCOPE-OFFBYONE-1) so the absent-flag case — indexOf returns -1,
+// which an earlier version treated as "exclude index 0" and silently dropped the FIRST file
+// argument on every normal invocation — can never regress silently again.
+export function parseArgv(argv) {
+  const diffScopeArgIdx = argv.indexOf('--diff-scope');
+  const files = argv.filter((a, i) => {
+    if (!a) return false;
+    if (diffScopeArgIdx === -1) return true;
+    return i !== diffScopeArgIdx && i !== diffScopeArgIdx + 1;
+  });
+  return { files, diffScopeRef: diffScopeArgIdx !== -1 ? argv[diffScopeArgIdx + 1] : null };
+}
+
 const PROPTEST_DIR = 'chaingraph/kernels/__proptests__/';
 // (code, message-pattern) pairs — BOTH must match, and only inside
 // PROPTEST_DIR, for a diagnostic to be allowlisted. See header rule (2).
@@ -289,10 +303,9 @@ import { readFileSync } from 'node:fs';
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (IS_MAIN) {
 
-// --diff-scope <REF> is a gate flag, not a root file — strip it before building the file list.
-const argv = process.argv.slice(2);
-const diffScopeArgIdx = argv.indexOf('--diff-scope');
-const files = argv.filter((a, i) => a && i !== diffScopeArgIdx && i !== diffScopeArgIdx + 1);
+// --diff-scope <REF> is a gate flag, not a root file — strip it before building the file list
+// (parseArgv, JSDOC-GATE-DIFFSCOPE-OFFBYONE-1 — see its own header for the off-by-one this fixes).
+const { files } = parseArgv(process.argv.slice(2));
 if (files.length === 0) {
   console.log('jsdoc-checkjs-gate: no files given — nothing to check.');
   process.exit(0);

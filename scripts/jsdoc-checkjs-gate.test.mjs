@@ -8,7 +8,7 @@
 //
 // Zero-dependency. Non-zero exit blocks.  node scripts/jsdoc-checkjs-gate.test.mjs
 
-import { classifyDiagnostics, normalizePath, isAllowlistedNodeGlobal } from './jsdoc-checkjs-gate.mjs';
+import { classifyDiagnostics, normalizePath, isAllowlistedNodeGlobal, parseArgv } from './jsdoc-checkjs-gate.mjs';
 
 const out = [];
 let fail = 0;
@@ -78,6 +78,32 @@ log('— allowlist (rule 2) still takes priority over line-shielding, same as be
 
 log('— normalizePath is unchanged (sanity import check) —');
 ok(normalizePath('./a/b.mjs') === 'a/b.mjs', 'strips a leading ./');
+
+log('— parseArgv: JSDOC-GATE-DIFFSCOPE-OFFBYONE-1 regression — the normal (flag-absent) case —');
+{
+  // This is THE real invocation shape: preflight.mjs / CI never pass --diff-scope. An earlier
+  // version of this filter treated indexOf('--diff-scope')===-1 as "exclude index -1+1===0" and
+  // silently dropped the FIRST file argument — caught live landing REGZ-CORRECTION-APPLY-1 (#1502),
+  // where `--only art-218 art-220 art-234` reported "checked 2 touched file(s)", not 3.
+  const { files, diffScopeRef } = parseArgv(['art-218.kernel.mjs', 'art-220.kernel.mjs', 'art-234.kernel.mjs']);
+  ok(files.length === 3, `all 3 files survive when --diff-scope is absent (got ${files.length})`);
+  ok(files[0] === 'art-218.kernel.mjs', 'the FIRST file is NOT dropped (the exact regression)');
+  ok(diffScopeRef === null, 'diffScopeRef is null when the flag is absent');
+}
+
+log('— parseArgv: --diff-scope <REF> IS stripped correctly when present, anywhere in argv —');
+{
+  const atStart = parseArgv(['--diff-scope', 'abc123', 'a.mjs', 'b.mjs']);
+  ok(atStart.files.length === 2 && atStart.files[0] === 'a.mjs' && atStart.files[1] === 'b.mjs', 'flag+value at start: both files survive, ref stripped');
+  ok(atStart.diffScopeRef === 'abc123', 'diffScopeRef captured correctly (flag at start)');
+
+  const atEnd = parseArgv(['a.mjs', 'b.mjs', '--diff-scope', 'def456']);
+  ok(atEnd.files.length === 2 && atEnd.files[0] === 'a.mjs' && atEnd.files[1] === 'b.mjs', 'flag+value at end: both files survive');
+  ok(atEnd.diffScopeRef === 'def456', 'diffScopeRef captured correctly (flag at end)');
+}
+
+log('— parseArgv: no files at all —');
+ok(parseArgv([]).files.length === 0, 'empty argv yields an empty file list, not a crash');
 
 console.log(`\n${fail} failure(s) of ${out.filter((s) => s.startsWith('✓') || s.startsWith('✗')).length} assertion(s).`);
 process.exit(fail ? 1 : 0);
