@@ -10,7 +10,7 @@
 //
 // Zero-dependency. Non-zero exit blocks.  node scripts/check-clause-digest.test.mjs
 
-import { validateNode, touchedNodeFiles, makeIsPreExisting } from './check-clause-digest.mjs';
+import { validateNode, touchedNodeFiles, makeIsPreExisting, readOriginFileText } from './check-clause-digest.mjs';
 import { changedLineSet } from './diff-scope.mjs';
 import { buildRegistryEntry, EXCERPT_MAX_BYTES } from '../chaingraph/standard/pin-clause-snapshot.mjs';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
@@ -280,6 +280,72 @@ log('— TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the B4 fixture shape, against a real 
       const { ok: pass, reasons } = validateNode(node, REGISTRY, { isPreExisting: makeIsPreExisting(fileText, undeterminedScope) });
       ok(!pass, '(iii) FAIL CLOSED: with an undeterminable diff, NOTHING is shielded — even the legacy entry now fails');
       ok(reasons.some((r) => r.includes(legacyEntry.digest)), '(iii) the previously-shielded legacy digest is named once shielding cannot be trusted');
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+log('— TOUCHTAX-DIFFSCOPE-1: ABSENT-KEY shielding — the REGZ-CORRECTION-APPLY-1 (#1502) shape —');
+{
+  const rel = (f) => f.replace(/\\/g, '/');
+  const root = mkdtempSync(join(tmpdir(), 'cdg-abskey-'));
+  try {
+    const originDir = join(root, 'origin.git');
+    const workDir = join(root, 'work');
+    git(root, ['init', '--bare', '-q', '-b', 'main', originDir]);
+    git(root, ['clone', '-q', originDir, workDir]);
+    git(workDir, ['config', 'user.email', 't@t.test']);
+    git(workDir, ['config', 'user.name', 't']);
+    mkdirSync(join(workDir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+
+    const nodePath = join(workDir, 'chaingraph', 'graph', 'nodes', 'art-regz-fixture.json');
+    // standards_basis was NEVER declared — matches REGZ-CORRECTION-APPLY-1's own check-off: "written,
+    // tested, REVERTED because digests must resolve ... out of fence". No `standards_basis` key at all.
+    const baseNode = { tool_id: 'art-regz-fixture', threshold_2024: 1305, description: 'before' };
+    writeFileSync(nodePath, JSON.stringify(baseNode, null, 2) + '\n');
+    git(workDir, ['add', '-A']);
+    git(workDir, ['commit', '-q', '-m', 'base: node with NO standards_basis key at all']);
+    git(workDir, ['push', '-q', 'origin', 'HEAD:main']);
+    git(workDir, ['fetch', '-q', 'origin']);
+
+    // The REGZ diff: correct a real threshold value elsewhere in the file. standards_basis stays
+    // entirely absent — before AND after. This must NOT newly demand a declaration.
+    const corrected = { ...baseNode, threshold_2024: 1309 };
+    writeFileSync(nodePath, JSON.stringify(corrected, null, 2) + '\n');
+    {
+      const fileText = readFileSync(nodePath, 'utf8');
+      const scope = changedLineSet(workDir, 'chaingraph/graph/nodes/art-regz-fixture.json', 'origin/main');
+      const originFileText = readOriginFileText('origin/main', 'chaingraph/graph/nodes/art-regz-fixture.json', workDir);
+      const node = JSON.parse(fileText);
+      const { ok: pass, reasons, shieldedGap } = validateNode(node, REGISTRY, { isPreExisting: makeIsPreExisting(fileText, scope, originFileText) });
+      ok(pass, 'a node whose standards_basis key was NEVER present (absent before AND after this diff) is NOT newly gated by an unrelated field correction — the REGZ #1502 shape');
+      ok(shieldedGap === true, 'reported as a shielded pre-existing gap, not a pass-by-accident');
+      ok(reasons.length === 0, 'zero reasons — nothing to report as a failure');
+    }
+
+    // Control: if the key is genuinely NEW (this diff is the FIRST time it appears, with an invalid
+    // value), it must still fail — the absent-key shield never covers a real regression the other
+    // direction (someone declaring a bad basis for the first time).
+    const withNewBadBasis = { ...corrected, standards_basis: 'yes_probably' };
+    writeFileSync(nodePath, JSON.stringify(withNewBadBasis, null, 2) + '\n');
+    {
+      const fileText = readFileSync(nodePath, 'utf8');
+      const scope = changedLineSet(workDir, 'chaingraph/graph/nodes/art-regz-fixture.json', 'origin/main');
+      const originFileText = readOriginFileText('origin/main', 'chaingraph/graph/nodes/art-regz-fixture.json', workDir);
+      const node = JSON.parse(fileText);
+      const { ok: pass, reasons } = validateNode(node, REGISTRY, { isPreExisting: makeIsPreExisting(fileText, scope, originFileText) });
+      ok(!pass, 'a NEWLY added (this diff) invalid standards_basis value still fails — the absent-key shield only covers absence that was ALREADY absence');
+      ok(reasons.some((r) => r.includes('missing or invalid')), 'failure names the invalid-value reason');
+    }
+
+    // Control: originFileText null (undeterminable) must fail CLOSED even for the absent-key case.
+    {
+      const fileText = readFileSync(nodePath, 'utf8');
+      const undeterminedScope = changedLineSet(workDir, 'chaingraph/graph/nodes/art-regz-fixture.json', null);
+      const node = JSON.parse(fileText);
+      const { ok: pass } = validateNode(node, REGISTRY, { isPreExisting: makeIsPreExisting(fileText, undeterminedScope, null) });
+      ok(!pass, 'FAIL CLOSED: originFileText null (undeterminable) never shields the absent-key case either');
     }
   } finally {
     rmSync(root, { recursive: true, force: true });

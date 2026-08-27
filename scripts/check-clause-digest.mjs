@@ -90,6 +90,18 @@ function resolveBaseRef(repo) {
   return resolveDiffScopeRef(repo, { envVar: 'CLAUSE_DIGEST_BASE_REF' });
 }
 
+// readOriginFileText — origin/main's raw text for `relPath`, or null if it can't be read (absent
+// at baseRef, or any git failure). Used only for the ABSENT-KEY shielding fallback in
+// makeIsPreExisting() — see that function's header for why this is needed alongside line-diffing.
+export function readOriginFileText(baseRef, relPath, repo = REPO) {
+  if (!baseRef) return null;
+  try {
+    return git(repo, ['show', `${baseRef}:${relPath}`]).toString();
+  } catch {
+    return null;
+  }
+}
+
 export function touchedNodeFiles(repo = REPO, baseRef = resolveBaseRef(repo)) {
   const touched = new Set();
   const add = (out) => out.toString().split('\n').forEach((f) => f && touched.add(f.trim()));
@@ -174,8 +186,20 @@ export function validateNode(node, registryDigests, { isPreExisting: shieldedFn 
  * whether that line is byte-identical to origin/main. Fails CLOSED by construction: `isPreExisting()`
  * itself already returns `false` whenever `scope.ok` is false or the needle can't be located — there
  * is no branch here that could accidentally shield something undeterminable.
+ *
+ * `originFileText` (optional, `null` when undeterminable — e.g. the file is brand new, or the diff
+ * itself is undeterminable): origin/main's raw text for this SAME file. Needed for the ABSENT-KEY
+ * case: `standards_basis` missing entirely has no line to anchor on (`lineOfText` returns -1), which
+ * used to fall straight to "not shielded" — wrongly re-gating a node whose declaration was ALREADY
+ * absent on origin/main and stayed absent, merely because some OTHER field in the same file changed
+ * (measured live landing REGZ-CORRECTION-APPLY-1's #1502: art-218/220/234 corrected real threshold
+ * values elsewhere in the same node file; standards_basis was undeclared before and after — a
+ * genuine no-op for this requirement, not new debt). The key-absent case is now shielded when the
+ * key is ALSO absent from origin/main's version of the SAME file — i.e. its absence itself did not
+ * change. If origin/main's content can't be read (originFileText null) or DOES carry the key (this
+ * diff evidently DELETED a prior declaration — a real, gate-worthy change), it stays unshielded.
  */
-export function makeIsPreExisting(fileText, scope) {
+export function makeIsPreExisting(fileText, scope, originFileText = null) {
   return (descriptor) => {
     let lineNum = -1;
     if (descriptor.kind === 'basis' || descriptor.kind === 'entries-empty') {
@@ -183,11 +207,17 @@ export function makeIsPreExisting(fileText, scope) {
       // stable anchor, and an unchanged declaration with an unchanged (pre-existing) empty array
       // is the same pre-existing-gap class either way.
       lineNum = lineOfText(fileText, '"standards_basis"');
+      if (lineNum === -1) {
+        // Key entirely absent from the CURRENT file — shield only if it was ALSO absent on
+        // origin/main (the absence itself is then unchanged, pre-existing debt).
+        if (originFileText === null) return false; // undeterminable -> fail closed
+        return !originFileText.includes('"standards_basis"');
+      }
     } else if (descriptor.kind === 'entry') {
       if (!descriptor.entry || !descriptor.entry.digest) return false; // no stable identifier to locate -> not shielded, must validate
       lineNum = lineOfText(fileText, descriptor.entry.digest);
+      if (lineNum === -1) return false; // can't locate the anchor line -> fail closed, not shielded
     }
-    if (lineNum === -1) return false; // can't locate the anchor line -> fail closed, not shielded
     return isPreExisting(scope, lineNum);
   };
 }
@@ -225,7 +255,8 @@ function main() {
     // gated — a standards_basis declaration or cited_clause_digest[] entry that is byte-identical
     // to origin/main is pre-existing debt, shielded regardless of what else in the file moved.
     const scope = changedLineSet(REPO, rel, baseRef);
-    const { ok, reasons, shieldedGap } = validateNode(node, registryDigests, { isPreExisting: makeIsPreExisting(fileText, scope) });
+    const originFileText = scope.ok && !scope.isNew ? readOriginFileText(baseRef, rel) : null;
+    const { ok, reasons, shieldedGap } = validateNode(node, registryDigests, { isPreExisting: makeIsPreExisting(fileText, scope, originFileText) });
     if (shieldedGap) shieldedGapCount++;
     if (!ok) failures.push(`${rel} [${node.tool_id ?? '(no tool_id)'}]: ${reasons.join('; ')}`);
   }
