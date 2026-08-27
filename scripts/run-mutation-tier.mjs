@@ -144,12 +144,27 @@ function runStryker(configPath, cwd, strykerVersion) {
 }
 
 // ── per-kernel scratch build + run ───────────────────────────────────────
+// MUTATION-TIER-PBTCOMMON-FIX-1: this only copied chaingraph/kernels/_*.mjs (the kernel-side
+// shared helpers: _hash.mjs, _head.mjs, etc.) — never chaingraph/kernels/__proptests__/_*.mjs,
+// the FLOOR-side shared helper `_pbt-common.mjs` (summarize/mulberry32/pick/findShapeViolations/
+// FIXTURES_DIR) that 50 of 635 proptests import via `./_pbt-common.mjs`. Any of those 50, once
+// touched, hard-failed this gate with ERR_MODULE_NOT_FOUND inside Stryker's sandbox — a scratch
+// wiring gap, not a kernel/proptest defect (SO #34: the fix belongs in the copier, not in every
+// consuming proptest). Discovered building art-655-publish-market-mark-head (DERIV-WF-HEAD-1),
+// the first PR to touch a `_pbt-common.mjs`-importing kernel since this gate went live.
 function ensureSharedLibsCopied(scratchKernelsDir) {
   if (existsSync(path.join(scratchKernelsDir, '_hash.mjs'))) return; // already primed this process
   mkdirSync(scratchKernelsDir, { recursive: true });
   for (const f of readdirSync(KERNELS_DIR)) {
     if (f.startsWith('_') && f.endsWith('.mjs')) {
       cpSync(path.join(KERNELS_DIR, f), path.join(scratchKernelsDir, f));
+    }
+  }
+  const scratchProptestsDir = path.join(scratchKernelsDir, '__proptests__');
+  mkdirSync(scratchProptestsDir, { recursive: true });
+  for (const f of readdirSync(PROPTESTS_DIR)) {
+    if (f.startsWith('_') && f.endsWith('.mjs')) {
+      cpSync(path.join(PROPTESTS_DIR, f), path.join(scratchProptestsDir, f));
     }
   }
 }

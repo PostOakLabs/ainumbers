@@ -63,9 +63,83 @@ if [ -n "$quarantine_only" ]; then
   exit 0
 fi
 
+# PREREQ-EXPECTRED-FLAG-1 (2026-08-27, J22 builder-contract addendum, §2
+# ":139-:143"): "if your row's diff is red on a branch purely because its
+# target exists only on an unmerged branch/shard ... you push normally; the
+# hook accepts a declared --expect-red per invocation." scripts/preflight.mjs
+# has carried `--expect-red <gate-id>` since PREFLIGHT-KEEPGOING-1
+# (2026-08-15, #1283) — it waives ONLY gates whose label substring-matches a
+# declared id, and any OTHER red gate still fails the run (see preflight.mjs's
+# own EXPECT_RED / expectedRedFor). What was missing was the HOOK-side half:
+# a per-invocation way to declare the id(s) to a `git push`, forward them into
+# preflight, and disclose the declaration somewhere it can't be silently
+# dropped.
+#
+# PER-INVOCATION ONLY, by design (contract: "There is no waiver file on
+# purpose: a persisted waiver accumulates silently"). Declare via an env var
+# prefixed onto the ONE push command — nothing written to disk, nothing that
+# survives the process:
+#   AINUM_EXPECT_RED="<gate-id>[,<gate-id>...]" [AINUM_EXPECT_RED_ROW="<row-id>"] git push ...
+# Multiple ids are comma-separated; each is matched by preflight.mjs as a
+# case-insensitive SUBSTRING of a gate label — identical semantics to calling
+# `preflight.mjs --expect-red <id>` once per id directly. Zero gate semantics
+# lives here: nothing in this hook inspects WHY a gate is red — that
+# discipline (by-construction, documented in the row, never a defect in your
+# own diff) is on the pusher, per SO #27/the contract, not mechanically
+# checked. What IS mechanically guaranteed: any gate NOT named in the
+# declaration — including a genuine defect on an undeclared gate — still
+# fails the preflight run and still blocks this push (see preflight.mjs:
+# EXPECTED-RED only covers a matched label; every other FAIL stays FAIL).
+set --
+if [ -n "$AINUM_EXPECT_RED" ]; then
+  _ier_ifs=$IFS
+  IFS=','
+  for _ier_id in $AINUM_EXPECT_RED; do
+    _ier_trim=$(printf '%s' "$_ier_id" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    [ -n "$_ier_trim" ] && set -- "$@" --expect-red "$_ier_trim"
+  done
+  IFS=$_ier_ifs
+  echo "════════════════════════════════════════════════════════════════"
+  echo "⚠ pre-push: --expect-red DECLARED for THIS invocation only (env, not persisted): $AINUM_EXPECT_RED"
+  echo "  Scope: by-construction red only (target exists only on an unmerged branch/shard)."
+  echo "  Any OTHER red gate, or a genuine defect on a named one, still blocks this push."
+  echo "════════════════════════════════════════════════════════════════"
+fi
+
 echo "pre-push: running scripts/preflight.mjs --changed origin/main (bypass with 'git push --no-verify') ..."
-node scripts/preflight.mjs --changed origin/main
+node scripts/preflight.mjs --changed origin/main "$@"
 status=$?
+
+# Disclosure — DISCLOSURE, not permission: runs regardless of outcome, so a
+# declaration that failed to clear the push (RED control) is logged exactly
+# like one that succeeded (GREEN control). "The tooling enforces it, not
+# honor" (J21 invariant 5): this append happens whether or not the pusher
+# would have remembered to report it.
+if [ -n "$AINUM_EXPECT_RED" ]; then
+  _ier_denied=false
+  [ "$status" -ne 0 ] && _ier_denied=true
+  if [ "$_ier_denied" = "false" ]; then
+    echo "✅ pre-push: --expect-red ACCEPTED — [$AINUM_EXPECT_RED] was the only red; push proceeds. Declaration made, not silent."
+  else
+    echo "⛔ pre-push: --expect-red did NOT clear this push — a red exists outside [$AINUM_EXPECT_RED] (or a declared id matched no gate). Still blocking, by design." 1>&2
+  fi
+  _ier_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr -d '\r\n'; }
+  _ier_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  _ier_gate=$(_ier_json_escape "$AINUM_EXPECT_RED")
+  _ier_row=$(_ier_json_escape "${AINUM_EXPECT_RED_ROW:-unspecified}")
+  _ier_branch=$(_ier_json_escape "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)")
+  _ier_sha=$(git rev-parse HEAD 2>/dev/null)
+  # AINUM_GUARDRAIL_METRICS_PATH is a TEST-ONLY override (see .githooks/pre-push.test.mjs);
+  # production always resolves to the workspace-root metrics file at its fixed absolute path.
+  _ier_metrics_file="${AINUM_GUARDRAIL_METRICS_PATH:-/c/dev/Claude/Projects/AINumbers/board/reference/GUARDRAIL-METRICS.jsonl}"
+  _ier_line="{\"event\":\"expect-red-declaration\",\"ts\":\"$_ier_ts\",\"gate\":\"$_ier_gate\",\"mechanism\":\"--expect-red\",\"row\":\"$_ier_row\",\"branch\":\"$_ier_branch\",\"commit\":\"$_ier_sha\",\"denied\":$_ier_denied}"
+  if [ -f "$_ier_metrics_file" ] && printf '%s\n' "$_ier_line" >> "$_ier_metrics_file" 2>/dev/null; then
+    echo "pre-push: --expect-red declaration appended to GUARDRAIL-METRICS.jsonl as an override event (denied=$_ier_denied)."
+  else
+    echo "pre-push: (non-fatal) could not append the --expect-red declaration to GUARDRAIL-METRICS.jsonl (path: $_ier_metrics_file)." 1>&2
+  fi
+fi
+
 if [ "$status" -ne 0 ]; then
   echo "pre-push: preflight FAILED — push blocked. Fix the gate above, or 'git push --no-verify' to override." 1>&2
   exit 1
