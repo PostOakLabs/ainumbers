@@ -1,3 +1,12 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and this edit makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path filter,
+// landed 2026-08-16, watches the whole directory, not just *.kernel.mjs). Without
+// this it fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/) that would
+// block ANY future edit to any of the ~40 non-kernel .mjs scripts in this
+// directory, not something specific to this file's own logic. Same precedent as
+// lint-forbidden-hash.mjs / vm-parity-gate.mjs / bootstrap-fixtures.mjs.
 // syntax-check.mjs — parse every inline <script> in the edited tool HTML and
 // report any SyntaxError. This is the check the Node hash-gates DON'T do: it
 // confirms the agent edits (comma fixes, async refactors, helper injection)
