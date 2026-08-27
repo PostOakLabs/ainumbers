@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (634 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (635 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6772,6 +6772,16 @@ window.CHAINBUILDER_CATALOG = [
     "consumes": [],
     "feeds": [],
     "status": "planned"
+  },
+  {
+    "tool_id": "art-656-derivatives-margin-workbench",
+    "display_name": "Derivatives Margin Workbench",
+    "mandate_type": "derivatives_margin_health",
+    "url": "https://ainumbers.co/tools/656-derivatives-margin-workbench.html",
+    "description": "Computes three related derivatives calculations from one declared position: event-market linear PnL (settlement vs strike, scalar payoff), m",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
   },
   {
     "tool_id": "art-66-fria-postmarket-monitoring-builder",
