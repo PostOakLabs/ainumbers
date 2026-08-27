@@ -107,6 +107,27 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Assert base ref resolvable (PREREQ-4)
+        # SO #34b, and the tripwire for the fetch-depth above. The Nav
+        # reachability gate below reaches check-shard-assembly.mjs, which
+        # resolves origin/<base>; if the checkout does not carry that ref the
+        # sub-gate fails closed and this job's real subject is a CHECKOUT
+        # defect, not a content defect. Asserting it HERE makes that a
+        # three-second red naming the cause instead of a twenty-minute
+        # misdiagnosis chasing a page that is not broken (0xAlpha/
+        # 2026-08-27-GATE-FRICTION-AUDIT.md §3.2 pt 2). Plain git, no gate
+        # script: this is an environment precondition, not a gate, so it adds
+        # nothing for check-workflow-gate-parity.mjs to pair against.
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF:-main}"
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base ref $BASE does not resolve in this checkout. Base-ref-consuming gates in this job would fail CLOSED and mis-report. Set fetch-depth: 0 on this job's actions/checkout step."
+            exit 1
+          fi
+          echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
+
       - name: Binary/control-byte gate (NUL + stray control bytes)
         # Runs first: a NUL byte makes a file read as BINARY to grep and ripgrep,
         # so every grep-based gate after it silently stops matching that file

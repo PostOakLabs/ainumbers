@@ -125,6 +125,26 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Assert base ref resolvable (PREREQ-4)
+        # SO #34b, and the tripwire for the fetch-depth above. This job runs several
+        # base-ref-consuming gates (check-shard-assembly, check-s18-digest-freshness,
+        # check-node-complete, the touched-floor-files diff). With origin/<base>
+        # unresolvable some fail closed and some silently degrade to "0 touched",
+        # and neither says so in a way the reader can act on. Three-second red here
+        # naming the cause, instead of a twenty-minute misdiagnosis
+        # (0xAlpha/2026-08-27-GATE-FRICTION-AUDIT.md §3.2 pt 2). Plain git, no gate
+        # script: an environment precondition, not a gate, so it adds nothing for
+        # check-workflow-gate-parity.mjs to pair against.
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF:-main}"
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base ref $BASE does not resolve in this checkout. Base-ref-consuming gates in this job would fail CLOSED or silently degrade. Set fetch-depth: 0 on this job's actions/checkout step."
+            exit 1
+          fi
+          echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
+
       # Advisory on a branch, hard on main (2026-08-22). chaingraph.json is a generated monolith that only
       # the main-branch regeneration job may rewrite, so a branch that proves nodes edits the node shards
       # and cannot reassemble the monolith this gate reads. The committed monolith therefore stays stale for
