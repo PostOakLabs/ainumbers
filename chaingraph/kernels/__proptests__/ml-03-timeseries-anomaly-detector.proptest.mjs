@@ -1,5 +1,5 @@
 // ml-03-timeseries-anomaly-detector.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:ae20b291caf5eac025d4e7103782427565fe7cf0c99f4045122257c87db0d9c6
+// kernel_digest_at_authoring: sha256:68c52ada17aebcba1771f1718aaf659e807e7f952d1603e22834565914456341
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -9,26 +9,32 @@
 // ⭐ HIGHEST-SCRUTINY ITEM IN THIS SHARD (per WU row): the iterative time-series
 // generation/anomaly-injection loop's termination bound and a boundedness property on the
 // anomaly flags/scores.
-// ⛔⛔ GENUINE FINDING, NOT MASKED BY THIS FLOOR: the anomaly-injection loop (kernel lines
-// 1616-1626) is an UNBOUNDED do-while --
+// ✅ FIXED by ML03-HANG-FIX-1 (kernel_digest_at_authoring above is now STALE -- see the fix
+// commit for the new digest). The anomaly-injection loop used to be an UNBOUNDED do-while --
 //   do { idx = validStart + Math.floor(genRng() * (nP - validStart - 20)); }
 //   while (usedPositions.has(idx));
-// -- with no attempt cap. Empirically confirmed (not analysis-only) to hang indefinitely for
+// -- with no attempt cap, empirically confirmed (not analysis-only) to hang indefinitely for
 // `compute({ nPeriods: 60, windowSize: 21, seasonPeriod: 7, nAnomalies: 30, seed: 1 })` (5s
-// external timeout, process killed). This is exactly the convergence-or-report obligation spec
-// §3 requires for an iterative class-C kernel, and the kernel currently provides neither --
-// it hangs. This floor's fence is `__proptests__/*.proptest.mjs` + manifest only (no kernel
-// edits), so this property test deliberately stays inside a parameter zone where the available
-// distinct injection positions (nP - max(winSize,sP) - 20) is always far greater than
-// nAnomalies, and never exercises the hang. The finding has been flagged out-of-band for a
-// dedicated fix WU (task_e43a9f4d) rather than silently worked around here.
+// external timeout, process killed). This was exactly the convergence-or-report obligation spec
+// §3 requires for an iterative class-C kernel, and the kernel provided neither. ML03-HANG-FIX-1
+// bounded the loop by construction: a request is now classified satisfiable/unsatisfiable up
+// front from the window's actual capacity (`availablePositions = nP - max(winSize,sP) - 20`,
+// floored at 0) with no RNG involved, so a satisfiable request runs the identical do-while/RNG
+// sequence as before (hash-neutral for every fixture that predates this fix -- verified via
+// golden-parity + this file's own fixture oracle) and an unsatisfiable one clamps to capacity,
+// declares the shortfall in `output_payload` (`anomaly_request_unsatisfiable`,
+// `anomalies_requested`, `anomalies_injected`, `anomaly_injection_capacity`) and
+// `compliance_flags` (`ANOMALY_COUNT_EXCEEDS_INJECTABLE_CAPACITY`), and still returns promptly --
+// never a silent clamp. P5 below asserts this boundary directly instead of avoiding it.
 // Checks: fixture-oracle gate, termination-within-the-documented-safe-zone (n_periods always
 // equals min(nPeriods,720); the rolling-window z-score loop is bounded by nP-winSize
 // iterations), the mandatory determinism property (same seed -> byte-identical output, since
 // the LCG PRNG has no hidden entropy source), boundedness (flag_rate in [0,1],
-// high_severity_flags + medium_severity_flags <= anomalies_flagged, max_abs_z_score >= 0), and
+// high_severity_flags + medium_severity_flags <= anomalies_flagged, max_abs_z_score >= 0),
 // ULP-boundary forcing on the zThreshold >= comparison and the HIGH/MEDIUM severity (5, 3.5) and
-// verdict (8, 3, 6, 2, 4) classification boundaries.
+// verdict (8, 3, 6, 2, 4) classification boundaries, and (P5) the anomaly-injection-capacity
+// boundary itself: a satisfiable request always terminates untouched, an unsatisfiable one
+// always terminates AND refuses via a machine-readable, caller-visible signal.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/ml-03-timeseries-anomaly-detector.proptest.mjs
@@ -162,6 +168,67 @@ function checkP4_ulp_forcing() {
   return { name: 'P4_ulp_boundary_forcing_zthreshold_and_verdict_classification', trials: checked, violations };
 }
 
+// ---------- P5 (ML03-HANG-FIX-1): a satisfiable request always terminates untouched; an
+// unsatisfiable one always terminates AND declares a machine-readable refusal ----------
+function checkP5_anomalyCapacityBoundary() {
+  let violations = 0, checked = 0;
+  const HANG_TIMEOUT_MS = 5000; // the original bug reproduced as an indefinite hang (killed
+                                 // after 5s external timeout) -- any observed duration anywhere
+                                 // near that is treated as a violation, never as "just slow".
+
+  // The exact previously-hanging case quoted in the row body.
+  {
+    const t0 = Date.now();
+    const { output_payload, compliance_flags } = compute({ nPeriods: 60, windowSize: 21, seasonPeriod: 7, nAnomalies: 30, seed: 1 });
+    const ms = Date.now() - t0;
+    checked++;
+    if (ms > HANG_TIMEOUT_MS) violations++;
+    if (output_payload.anomaly_request_unsatisfiable !== true) violations++;
+    if (output_payload.anomalies_requested !== 30) violations++;
+    if (output_payload.anomaly_injection_capacity !== 19) violations++;
+    if (output_payload.anomalies_injected !== 19) violations++;
+    if (output_payload.anomalies_injected >= output_payload.anomalies_requested) violations++; // genuine shortfall
+    if (!compliance_flags.includes('ANOMALY_COUNT_EXCEEDS_INJECTABLE_CAPACITY')) violations++;
+  }
+
+  // Randomized unsatisfiable sweep: nAnomalies deliberately set far past window capacity.
+  for (let i = 0; i < TRIALS; i++) {
+    const nPeriods = 40 + Math.floor(rand() * 100);
+    const windowSize = 7 + Math.floor(rand() * 20);
+    const seasonPeriod = 5 + Math.floor(rand() * 10);
+    const nAnomalies = 200 + Math.floor(rand() * 200); // always exceeds any capacity these ranges can produce
+    const pp = { nPeriods, windowSize, seasonPeriod, nAnomalies, seed: Math.floor(rand() * 1e6) };
+    const validStart = Math.max(windowSize, seasonPeriod);
+    const capacity = Math.max(0, nPeriods - validStart - 20);
+    checked++;
+    if (nAnomalies <= capacity) { violations++; continue; } // sanity: ranges above must stay unsatisfiable
+    const t0 = Date.now();
+    const { output_payload, compliance_flags } = compute(pp);
+    if (Date.now() - t0 > HANG_TIMEOUT_MS) violations++;
+    if (output_payload.anomaly_request_unsatisfiable !== true) violations++;
+    if (output_payload.anomalies_requested !== nAnomalies) violations++;
+    if (output_payload.anomaly_injection_capacity !== capacity) violations++;
+    if (output_payload.anomalies_injected !== capacity) violations++;
+    if (!compliance_flags.includes('ANOMALY_COUNT_EXCEEDS_INJECTABLE_CAPACITY')) violations++;
+  }
+
+  // Satisfiable requests (the pre-existing safe zone) must terminate and carry NO refusal signal
+  // at all -- the fix must not touch the in-range path.
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = randomPP(rand);
+    checked++;
+    const t0 = Date.now();
+    const { output_payload } = compute(pp);
+    if (Date.now() - t0 > HANG_TIMEOUT_MS) violations++;
+    if ('anomaly_request_unsatisfiable' in output_payload) violations++;
+    if ('anomalies_requested' in output_payload) violations++;
+    if ('anomalies_injected' in output_payload) violations++;
+    if ('anomaly_injection_capacity' in output_payload) violations++;
+  }
+
+  return { name: 'P5_ML03_HANG_FIX_1_satisfiable_terminates_untouched_unsatisfiable_terminates_and_refuses', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -173,6 +240,7 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_determinism());
 results.properties.push(checkP3_boundedness());
 results.properties.push(checkP4_ulp_forcing());
+results.properties.push(checkP5_anomalyCapacityBoundary());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

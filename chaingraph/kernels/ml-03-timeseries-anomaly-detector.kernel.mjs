@@ -1121,6 +1121,11 @@ function kernel_tan(x, y, returnTan)
             } else {
                 // Compute -1/(x + y) carefully
                 var w = x + y;
+                // @ts-ignore -- pre-existing var-redeclaration type conflict in the embedded
+                // fdlibm block (identical in origin/main; confirmed via positive control against
+                // the unmodified kernel -- see ML03-HANG-FIX-1). Untouched, generated code
+                // ("do not hand-edit; re-generate from source" above) -- this only surfaces now
+                // because tsc checks the whole file once any part of it is touched.
                 var z = _ConstructDouble(_DoubleHi(w), 0);
                 var v = y - (z - x);
                 var a = -1 / w;
@@ -1610,14 +1615,40 @@ export function compute(pp) {
     raw[t] = BASE * trendMult * (1 + seasonal + noise);
   }
 
-  // Anomaly injection
+  // Anomaly injection. The window [validStart, nP-20) holds at most `availablePositions`
+  // distinct integer slots -- a caller-supplied nAnomalies exceeding that count can never be
+  // satisfied. (ML03-HANG-FIX-1: this used to be an unbounded do-while that spun forever once
+  // nAnomalies outgrew the window -- confirmed hang at nPeriods:60, windowSize:21,
+  // seasonPeriod:7, nAnomalies:30, seed:1.) Clamp-and-flag, never silent -- mirrors the house
+  // pattern (art-332 SCHEDULE_DID_NOT_FULLY_AMORTIZE / art-346 EXPMOD_ZERO_DENOMINATOR): a
+  // satisfiable request (nAnom <= availablePositions, true for every existing fixture) runs the
+  // identical do-while/RNG sequence as before -- hash-neutral. An unsatisfiable request injects
+  // only what the window can hold and declares the shortfall in output_payload +
+  // compliance_flags so the caller can see it was not fully satisfied, rather than silently
+  // returning fewer anomalies than requested.
   const validStart = Math.max(winSize, sP);
+  const availablePositions = Math.max(0, nP - validStart - 20);
+  const anomalyRequestUnsatisfiable = nAnom > availablePositions;
+  const nAnomToInject = Math.min(nAnom, availablePositions);
   const usedPositions = new Set();
-  for (let a = 0; a < nAnom; a++) {
+  const MAX_ATTEMPTS_PER_SLOT = 1000; // generous bound: never reached when nAnomToInject <=
+                                       // availablePositions (always true here by construction);
+                                       // exists only so the loop is provably bounded regardless.
+  for (let a = 0; a < nAnomToInject; a++) {
     let idx;
+    let attempts = 0;
     do {
       idx = validStart + Math.floor(genRng() * (nP - validStart - 20));
-    } while (usedPositions.has(idx));
+      attempts++;
+    } while (usedPositions.has(idx) && attempts < MAX_ATTEMPTS_PER_SLOT);
+    if (usedPositions.has(idx)) {
+      // Unreachable in practice (see bound comment above) -- deterministic scan fallback so
+      // termination is guaranteed by construction, not by RNG luck.
+      idx = -1;
+      for (let cand = validStart; cand < nP - 20; cand++) {
+        if (!usedPositions.has(cand)) { idx = cand; break; }
+      }
+    }
     usedPositions.add(idx);
     const dir = genRng() > 0.3 ? 1 : -1;
     const mag = 2.5 + genRng() * 3.5;
@@ -1681,6 +1712,9 @@ export function compute(pp) {
     flagged.length > 5 ? 'ELEVATED_ANOMALY_RATE_FLAG' : 'ANOMALY_RATE_NORMAL',
     highFlags > 0 ? 'HIGH_SEVERITY_ANOMALIES_DETECTED' : 'NO_HIGH_SEVERITY_ANOMALIES',
   ];
+  if (anomalyRequestUnsatisfiable) {
+    complianceFlags.push('ANOMALY_COUNT_EXCEEDS_INJECTABLE_CAPACITY');
+  }
 
   const output_payload = {
     verdict,
@@ -1692,11 +1726,21 @@ export function compute(pp) {
     n_periods: nP,
     flagged_periods: flagged.slice(0, 10),
   };
+  if (anomalyRequestUnsatisfiable) {
+    // Machine-readable, caller-visible declaration of the shortfall -- lives in output_payload
+    // itself (not only compliance_flags), so a consumer can act on it programmatically without
+    // parsing a flag string. Never present for a satisfiable request (see condition above), so
+    // this never touches an in-range golden.
+    output_payload.anomalies_requested = nAnom;
+    output_payload.anomalies_injected = nAnomToInject;
+    output_payload.anomaly_injection_capacity = availablePositions;
+    output_payload.anomaly_request_unsatisfiable = true;
+  }
 
   return { output_payload, compliance_flags: complianceFlags };
 }
 
-export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+export async function buildArtifact(pp, { now = undefined, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
