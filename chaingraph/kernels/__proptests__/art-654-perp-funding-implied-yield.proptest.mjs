@@ -3,17 +3,34 @@
 // spec: DERIV-WORKFLOWS-BUILD-SPEC.md (DERIVMATH row, AT-13 + AT-15) + DERIV-WF-DERIVMATH-1
 // human_sign_off: PENDING (this row does not sign -- manifest-level signature per spec §4)
 //
-// ZERO external dependencies -- Node built-ins plus the in-repo _pbt-common.mjs helpers only.
+// ZERO external dependencies -- Node built-ins only. Self-contained deliberately: the
+// mutation-tier sandbox (scripts/run-mutation-tier.mjs's ensureSharedLibsCopied) only
+// mirrors `chaingraph/kernels/_*.mjs`, not `chaingraph/kernels/__proptests__/_pbt-common.mjs`,
+// so a proptest file importing that helper ERR_MODULE_NOT_FOUNDs inside the sandbox even
+// though it runs fine standalone. Same fixture-oracle/mulberry32 shapes, inlined.
 //
 // Run: node chaingraph/kernels/__proptests__/art-654-perp-funding-implied-yield.proptest.mjs
 
 import { compute } from '../art-654-perp-funding-implied-yield.kernel.mjs';
-import { runFixtureOracle, summarize, mulberry32, pick } from './_pbt-common.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const KERNEL_ID = 'art-654-perp-funding-implied-yield';
-const rand = mulberry32(0x654);
 
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(0x654);
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
+
 const MECHANISMS = ['offshore-8h-twap', 'kalshi-periodic'];
 const SIDES = ['long', 'short'];
 
@@ -32,6 +49,20 @@ function mkValidPP(rng, overrides = {}) {
   };
   if (mechanism === 'offshore-8h-twap') base.clamp_pct = randRange(rng, 0, 1);
   return { ...base, ...overrides };
+}
+
+// ---------- fixture oracle ----------
+function runFixtureOracle() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', `${KERNEL_ID}.fixtures.json`);
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  const failures = [];
+  for (const vec of fixtures.vectors) {
+    const { output_payload } = compute(vec.policy_parameters);
+    if (JSON.stringify(output_payload) !== JSON.stringify(vec.output_payload)) {
+      failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
+    }
+  }
+  return { total: fixtures.vectors.length, failures };
 }
 
 // ---------- P1: determinism -- compute() is a pure function of pp ----------
@@ -126,7 +157,7 @@ function checkP5_kalshiIdentity() {
   return { name: 'P5_kalshi_periodic_funding_rate_equals_premium_index', checked, violations };
 }
 
-// ---------- P6: chaining -- a valid prev_funding_hash always flows through to chain.* via buildArtifact-shape fields ----------
+// ---------- P6: chaining -- a valid prev_funding_hash always flows through, backward-compatibly ----------
 function checkP6_chainedFlag() {
   let violations = 0, checked = 0;
   const validHash = 'sha256:' + '7'.repeat(64);
@@ -173,12 +204,11 @@ function checkP7_forced() {
 }
 
 // ---------- run ----------
-let oracle;
-try {
-  oracle = runFixtureOracle(KERNEL_ID, compute);
-} catch (e) {
-  oracle = { total: 1, failures: [{ name: 'fixture-oracle-load', expected: '(compute() implemented)', got: String((e && e.message) || e) }] };
-}
+const oracle = runFixtureOracle();
+console.log(`=== ${KERNEL_ID} — class-K floor property test ===`);
+console.log(`fixture-oracle: ${oracle.total - oracle.failures.length}/${oracle.total} PASS`);
+if (oracle.failures.length) console.log('FIXTURE ORACLE FAILURES:', JSON.stringify(oracle.failures, null, 2));
+
 const properties = [
   checkP1_determinism(),
   checkP2_signConvention(),
@@ -187,10 +217,14 @@ const properties = [
   checkP5_kalshiIdentity(),
   checkP6_chainedFlag(),
 ];
+for (const p of properties) {
+  console.log(`  [${p.violations === 0 ? 'PASS' : 'FAIL'}] ${p.name} — ${p.checked} checked, ${p.violations} violations`);
+}
 const boundaryForced = checkP7_forced();
-const anyBoundaryImplausible = boundaryForced.some((b) => !b.plausible);
-
-const ok = summarize(KERNEL_ID, oracle, properties) && !anyBoundaryImplausible;
 console.log(`  boundary-forced: ${boundaryForced.filter((b) => b.plausible).length}/${boundaryForced.length} plausible`);
-if (anyBoundaryImplausible) console.log('BOUNDARY-FORCED FAILURES:', JSON.stringify(boundaryForced.filter((b) => !b.plausible), null, 2));
+if (boundaryForced.some((b) => !b.plausible)) console.log('BOUNDARY-FORCED FAILURES:', JSON.stringify(boundaryForced.filter((b) => !b.plausible), null, 2));
+
+const ok = oracle.failures.length === 0
+  && properties.every((p) => p.violations === 0)
+  && boundaryForced.every((b) => b.plausible);
 process.exit(ok ? 0 : 1);
