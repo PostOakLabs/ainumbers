@@ -67,12 +67,12 @@ const NODES_DIR = resolve(HERE, '..', 'graph', 'nodes');
 // Determinism, checked (do not "fix" this into something CI-unstable without re-reading this note):
 //   - --check (the ONLY invocation in CI/preflight: land-verify.yml, deploy-to-dreamhost.yml,
 //     scripts/preflight.mjs) never reads valid_from — it only compares image_id digests — so this
-//     wall-clock value cannot make --check flap, on any day, in any timezone.
+//     wall-clock value cannot make --check flap, on any run, in any timezone.
 //   - --write only ever writes when the canonically-parsed JSON actually changes
 //     (GENERATOR-NOOP-STABILITY-1's no-op guard, below). Re-running --write against an unmoved
-//     digest is a no-op regardless of what "today" is, so a given identity's date is written
-//     exactly once — the day it first appears — and is never rewritten after that (its recorded
-//     date is then a historical fact `validFrom` below preserves, same as before this row).
+//     digest is always a no-op, so a given identity's date is written a single time — the run it
+//     first appears in — and is never rewritten afterward (its recorded date is then a historical
+//     fact `validFrom` below preserves, same as before this row).
 const VALID_FROM = new Date().toISOString().slice(0, 10);
 
 const mode = process.argv.includes('--write') ? 'write'
