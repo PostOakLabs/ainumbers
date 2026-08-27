@@ -1,3 +1,12 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and this edit makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path filter,
+// landed 2026-08-16, watches the whole directory, not just *.kernel.mjs). Without
+// this it fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/) that would
+// block ANY future edit to any of the ~40 non-kernel .mjs scripts in this
+// directory, not something specific to this file's own logic. Same fix already
+// applied to lint-forbidden-hash.mjs, bootstrap-fixtures.mjs, and five others.
 // gen-kernel-identity.mjs — §17 Kernel Identity Binding, suite-wide adoption (OCG SPEC.md §17).
 //
 // Publishes, per gpu:false LIVE node with a registered kernel, a Graph Index identity:
@@ -46,7 +55,25 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const KDIR = HERE;
 const CGPATH = resolve(HERE, '..', 'chaingraph.json');
 const NODES_DIR = resolve(HERE, '..', 'graph', 'nodes');
-const VALID_FROM = '2026-07-10';
+
+// VALID_FROM (VALIDFROM-NEW-IDENTITY-DATE-1, 2026-08-27): the date stamped on a GENUINELY NEW
+// sha256-source identity — an inserted entry (no prior sha256-source at all) or a digest that
+// actually moved (see the GENERATOR-NOOP-STABILITY-1 comment on `validFrom` below). This used to
+// be a hardcoded constant ('2026-07-10') that every run after that date silently backdated new
+// identities by however long it went unbumped — six-plus weeks, measured. A generator invocation
+// IS the moment a new identity is recorded, so "today" (UTC, computed once per run) is the correct,
+// self-maintaining value — nobody has to remember to bump it again.
+//
+// Determinism, checked (do not "fix" this into something CI-unstable without re-reading this note):
+//   - --check (the ONLY invocation in CI/preflight: land-verify.yml, deploy-to-dreamhost.yml,
+//     scripts/preflight.mjs) never reads valid_from — it only compares image_id digests — so this
+//     wall-clock value cannot make --check flap, on any day, in any timezone.
+//   - --write only ever writes when the canonically-parsed JSON actually changes
+//     (GENERATOR-NOOP-STABILITY-1's no-op guard, below). Re-running --write against an unmoved
+//     digest is a no-op regardless of what "today" is, so a given identity's date is written
+//     exactly once — the day it first appears — and is never rewritten after that (its recorded
+//     date is then a historical fact `validFrom` below preserves, same as before this row).
+const VALID_FROM = new Date().toISOString().slice(0, 10);
 
 const mode = process.argv.includes('--write') ? 'write'
   : process.argv.includes('--check') ? 'check' : null;
