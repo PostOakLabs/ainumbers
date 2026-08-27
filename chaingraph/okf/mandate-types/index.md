@@ -23,6 +23,7 @@ status: stable
 - [derivatives_margin_health](./derivatives_margin_health.md) (3)
 - [disclosure_template](./disclosure_template.md) (1)
 - [event_market_pnl](./event_market_pnl.md) (2)
+- [forecast_accuracy_score](./forecast_accuracy_score.md) (1)
 - [governance_mandate](./governance_mandate.md) (2)
 - [infrastructure_mandate](./infrastructure_mandate.md) (6)
 - [liquidity_mandate](./liquidity_mandate.md) (2)
