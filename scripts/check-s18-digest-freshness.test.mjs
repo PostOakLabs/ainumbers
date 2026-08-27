@@ -501,9 +501,27 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // this is a pure scope removal, not a staleness event. Measured both sides, not assumed:
   // 487/603 fresh + 116 stale before the flip, 486/602 fresh + 116 stale after -- art-99 was in the
   // FRESH set, so denominator -1, fresh -1, stale UNCHANGED at 116.
+  // 116 -> 117 post-LANDER-BATCH-1 / PAYROLL-CITATION-DELETE-3 (2026-08-27): art-282-social-
+  // security-claiming-optimizer (optimize_social_security_claim_age) moves from FRESH to STALE.
+  // THIS IS A REAL STALENESS EVENT, NOT A DENOMINATOR MOVE -- do not read it as one. Tim ruled the
+  // deletion of art-282's unverified `20 CFR 404.409-410` citation comment (kernel L12-13). That
+  // deletion moved the kernel's source digest 9d2c7e30 -> 99f40a73 AFTER the row's groth16
+  // re-prove had already sealed a journal.kernel_digest of 9d2c7e30, and the row's fence carried an
+  // explicit "zero re-proves". So the receipt is intact and still verifies -- it just attests bytes
+  // that no longer exist, over a one-line comment that changes no behaviour at all.
+  // TREATMENT, per SO #36's second limb and the art-365 doctrine: the kernel is NOT re-proved for a
+  // comment. The correction RIDES art-282's NEXT LEGITIMATE RE-PROVE; until then the stale receipt
+  // is the named caveat, and it stays visible here rather than being absorbed.
+  // NO CEILING WAS RAISED: the ratchet baseline (scripts/s18-digest-freshness-baseline.json) is 133
+  // and was not touched; 117 <= 133, so the gate itself stayed green throughout. Only this
+  // exact-match calibration moved.
+  // Measured both sides, not assumed: 486/602 fresh + 116 stale on origin/main 47779a29,
+  // 485/602 fresh + 117 stale on this branch. Denominator UNCHANGED at 602. Set-differenced
+  // node-by-node rather than inferred from the counts: exactly one node entered the stale set
+  // (optimize_social_security_claim_age) and zero nodes left it.
   assert(total === 602, `expected 602 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 486, `expected 486 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 116, `expected 116 stale (unaffected by ART99-NONLIVE-FLIP-1 -- art-99 left the denominator from the FRESH set), got ${stale.length}`);
+  assert(fresh.length === 485, `expected 485 fresh (calibration set), got ${fresh.length}`);
+  assert(stale.length === 117, `expected 117 stale (art-282's sealed receipt predates Tim's ruled citation-comment deletion; rides its next legitimate re-prove), got ${stale.length}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
