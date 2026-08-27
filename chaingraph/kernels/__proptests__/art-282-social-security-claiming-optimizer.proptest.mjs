@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:9d2c7e3087335619cc0b73d88aee628911bb8cc330020b36cb609549c58fb144
+// kernel_digest_at_authoring: sha256:99f40a737e6d7b92ec4f32aa3efb6ba4d5055ad3ede1e3cc9c4e41aa81326e4c
 //
 // FV-PROPFLOOR-SHARD-B10-1 — property-test floor for art-282-social-security-claiming-optimizer.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (fraYears interpolates by month fractions,
