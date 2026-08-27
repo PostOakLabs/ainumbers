@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (637 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (638 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6772,6 +6772,18 @@ window.CHAINBUILDER_CATALOG = [
     "consumes": [],
     "feeds": [],
     "status": "planned"
+  },
+  {
+    "tool_id": "art-655-publish-market-mark-head",
+    "display_name": "Publish Market Mark Head",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Publishes one SPEC.md §HEAD-1 head-commit publication event for a market's mark-price print stream (stream = \"mark:<venue>:<pair>\"), so a se",
+    "consumes": [
+      "art-560-oracle-price-aggregation"
+    ],
+    "feeds": [],
+    "status": "live"
   },
   {
     "tool_id": "art-656-derivatives-margin-workbench",
