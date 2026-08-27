@@ -589,6 +589,7 @@ status: stable
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md)
 - [Forecast Accuracy Scorer](./art-657-forecast-accuracy-scorer.md)
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md)
+- [Compile NAV-Error Evidence Pack](./art-660-compile-nav-error-evidence-pack.md)
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md)
 - [Overdraft / NSF Fee Recomputation](./art-662-odnsf-fee-recompute.md)
 - [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md)
