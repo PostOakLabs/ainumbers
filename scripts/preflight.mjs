@@ -844,6 +844,7 @@ const GATES = [
     TOUCHED_KERNEL_FILES_JSDOC.length
       ? null
       : { notRun: 'this push touches no chaingraph/kernels/**/*.mjs file, so the JSDoc CheckJS gate had nothing to examine' }],
+  ['JSDoc CheckJS fixture proof (classifyDiagnostics, TOUCHTAX-DIFFSCOPE-1)', 'node scripts/jsdoc-checkjs-gate.test.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
@@ -1046,8 +1047,14 @@ const GATES = [
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
+  // TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the shared line-level diff-scoping helper — one module,
+  // wired into check-clause-digest.mjs, KERNEL-CITATION-CLASS-1 and jsdoc-checkjs alike (see
+  // scripts/diff-scope.mjs's own header). Proven here once so the three consumers below don't
+  // each need their own copy of the mutation-provable primitive proof.
+  ['Diff-scope helper fixture proof (TOUCHTAX-DIFFSCOPE-1)', 'node scripts/diff-scope.test.mjs'],
   ['Cited clause digest (CLAUSE-DIGEST-GATE-1, SPEC.md §30)', 'node scripts/check-clause-digest.mjs'],
   ['Cited clause digest fixture proof', 'node scripts/check-clause-digest.test.mjs'],
+  ['Kernel citation comments fixture proof (KERNEL-CITATION-CLASS-1, TOUCHTAX-DIFFSCOPE-1)', 'node chaingraph/kernels/lint-kernel-citation-comments.test.mjs'],
   ['Branch inventory reachability (AUTHORING-STANDARD §1)', 'node scripts/check-branch-inventory.mjs'],
   ['Branch inventory fixture proof (SO #40b pairing)', 'node scripts/check-branch-inventory.test.mjs'],
   ['Flag-mirror doctrine (AUTHORING-STANDARD §2)', 'node scripts/check-flag-mirror.mjs'],

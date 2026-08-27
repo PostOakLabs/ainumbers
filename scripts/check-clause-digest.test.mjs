@@ -10,9 +10,10 @@
 //
 // Zero-dependency. Non-zero exit blocks.  node scripts/check-clause-digest.test.mjs
 
-import { validateNode, touchedNodeFiles } from './check-clause-digest.mjs';
+import { validateNode, touchedNodeFiles, makeIsPreExisting } from './check-clause-digest.mjs';
+import { changedLineSet } from './diff-scope.mjs';
 import { buildRegistryEntry, EXCERPT_MAX_BYTES } from '../chaingraph/standard/pin-clause-snapshot.mjs';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -207,6 +208,79 @@ log('— scoping: no origin/main resolvable (shallow/no-remote checkout) degrade
     try { touched = touchedNodeFiles(root); } catch { threw = true; }
     ok(!threw, 'no origin/main and no upstream at all — resolveBaseRef fails closed to null, function does not throw');
     ok([...touched].some((f) => rel(f).endsWith('untracked.json')), 'the working-tree/staged/untracked legs still catch local work with no base ref');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+log('— TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the B4 fixture shape, against a real sandbox —');
+{
+  const rel = (f) => f.replace(/\\/g, '/');
+  const root = mkdtempSync(join(tmpdir(), 'cdg-diffscope-'));
+  try {
+    const originDir = join(root, 'origin.git');
+    const workDir = join(root, 'work');
+    git(root, ['init', '--bare', '-q', '-b', 'main', originDir]);
+    git(root, ['clone', '-q', originDir, workDir]);
+    git(workDir, ['config', 'user.email', 't@t.test']);
+    git(workDir, ['config', 'user.name', 't']);
+    mkdirSync(join(workDir, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+
+    const nodePath = join(workDir, 'chaingraph', 'graph', 'nodes', 'art-fixture.json');
+    const legacyEntry = { digest: UNREGISTERED_DIGEST, source_url: 'https://old.example.gov', retrieved_at: '2026-01-01', clause_path: '(old)' };
+    const baseNode = {
+      tool_id: 'art-fixture',
+      standards_basis: 'implements_standard',
+      cited_clause_digest: [legacyEntry],
+      description: 'before',
+    };
+    writeFileSync(nodePath, JSON.stringify(baseNode, null, 2) + '\n');
+    git(workDir, ['add', '-A']);
+    git(workDir, ['commit', '-q', '-m', 'base: node with a pre-existing UNREGISTERED (invalid) legacy citation']);
+    git(workDir, ['push', '-q', 'origin', 'HEAD:main']);
+    git(workDir, ['fetch', '-q', 'origin']);
+
+    // (ii) touch the file for an UNRELATED reason only (description) — the legacy citation line
+    // never moves. This is the DESC-HONESTY-APPLY-1 / PAYROLL shape.
+    const touchedOnlyDesc = { ...baseNode, description: 'after' };
+    writeFileSync(nodePath, JSON.stringify(touchedOnlyDesc, null, 2) + '\n');
+    {
+      const fileText = readFileSync(nodePath, 'utf8');
+      const scope = changedLineSet(workDir, 'chaingraph/graph/nodes/art-fixture.json', 'origin/main');
+      const node = JSON.parse(fileText);
+      const { ok: pass, reasons } = validateNode(node, REGISTRY, { isPreExisting: makeIsPreExisting(fileText, scope) });
+      ok(pass, '(ii) untouched legacy citation line stays GREEN under the shield (the PAYROLL kill-proof), despite the FILE differing from origin/main');
+      ok(reasons.length === 0, '(ii) no reasons reported for the shielded legacy entry');
+    }
+
+    // (i) a NEW unpinned citation is added alongside the untouched legacy one — must RED, naming
+    // the new entry, while the legacy one stays shielded.
+    const newUnpinned = { digest: 'sha256:' + 'c'.repeat(64), source_url: 'https://new.example.gov', retrieved_at: '2026-08-27', clause_path: '(new)' };
+    const withNewCitation = { ...baseNode, description: 'after', cited_clause_digest: [legacyEntry, newUnpinned] };
+    writeFileSync(nodePath, JSON.stringify(withNewCitation, null, 2) + '\n');
+    {
+      const fileText = readFileSync(nodePath, 'utf8');
+      const scope = changedLineSet(workDir, 'chaingraph/graph/nodes/art-fixture.json', 'origin/main');
+      const node = JSON.parse(fileText);
+      const { ok: pass, reasons } = validateNode(node, REGISTRY, { isPreExisting: makeIsPreExisting(fileText, scope) });
+      ok(!pass, '(i) adding a NEW unregistered citation turns the gate RED');
+      ok(reasons.length === 1, `(i) exactly ONE reason reported (the new entry only, not the shielded legacy one) — got ${reasons.length}`);
+      ok(reasons.some((r) => r.includes(newUnpinned.digest)), '(i) the failing reason names the NEW digest, not the legacy one');
+      ok(!reasons.some((r) => r.includes(legacyEntry.digest)), '(i) the legacy (shielded) digest is NOT named in any failure reason');
+    }
+
+    // (iii) fail-closed: an UNDETERMINABLE base ref must never exempt anything — the legacy entry
+    // that was GREEN under a resolvable shield goes RED again when the comparison itself cannot be
+    // trusted. This is the mutation-of-the-shield control: break diff-scoping, prove it fails CLOSED.
+    {
+      const fileText = readFileSync(nodePath, 'utf8'); // still the withNewCitation content on disk
+      const undeterminedScope = changedLineSet(workDir, 'chaingraph/graph/nodes/art-fixture.json', null);
+      ok(undeterminedScope.ok === false, '(iii) an unresolvable base ref reports ok:false (undeterminable)');
+      const node = JSON.parse(fileText);
+      const { ok: pass, reasons } = validateNode(node, REGISTRY, { isPreExisting: makeIsPreExisting(fileText, undeterminedScope) });
+      ok(!pass, '(iii) FAIL CLOSED: with an undeterminable diff, NOTHING is shielded — even the legacy entry now fails');
+      ok(reasons.some((r) => r.includes(legacyEntry.digest)), '(iii) the previously-shielded legacy digest is named once shielding cannot be trusted');
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
