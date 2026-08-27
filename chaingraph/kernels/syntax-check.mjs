@@ -17,14 +17,25 @@
 // on a real SyntaxError without executing. (An earlier version used `new Function`,
 // which parses as a FUNCTION BODY, not a script, and produced false positives on
 // tools with large top-level blocks.)
+//
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B2 of GATE-MANIFEST-DRAFT.md §1):
+// scope the scan to files touched vs <REF> instead of every page in the four
+// dirs below. Undeterminable diff BLOCKS (fail-closed) rather than silently
+// widening to a full scan — see scripts/_changed-files-lib.js, the ONE
+// incremental-diff mechanism every --changed gate reuses.
 
 import vm from 'node:vm';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveChangedScope, isTouched } from '../../scripts/_changed-files-lib.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
+
+const changedIdx = process.argv.indexOf('--changed');
+const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
+const changed = resolveChangedScope(changedRef, { gate: 'syntax-check.mjs (B2)', failClosed: true });
 
 function htmlFiles() {
   const out = [];
@@ -39,7 +50,9 @@ function htmlFiles() {
   add('chaingraph/chains');          // chain viewers (agentic-policy etc.)
   add('tools');                      // ALL catalog tools (full-suite syntax coverage)
   add('guides');                     // composers + guide hubs
-  return out;
+  let all = out;
+  if (changed) all = all.filter((f) => isTouched(relative(REPO, f), changed));
+  return all;
 }
 
 // Extract classic inline <script> bodies. Skip src=, type=module, JSON-LD, importmap.

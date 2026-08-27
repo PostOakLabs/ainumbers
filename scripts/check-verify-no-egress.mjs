@@ -26,16 +26,27 @@
 //      navigator.sendBeacon, dynamic import()) or load an external <script src>.
 //
 // Exit 1 with a diagnosis on any violation. Zero-dependency.
+//
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B7 of GATE-MANIFEST-DRAFT.md §1):
+// this gate already checks exactly one fixed file, so scoping only matters
+// when that file is untouched — skip it (nothing to re-verify this diff).
+// Undeterminable diff falls back to a FULL scan (fail-open, safe-by-cost).
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // FENCE: verify path only. Do NOT add anchor.ainumbers.co / anchor-*.html here.
-const VERIFY_PATHS = [
+const ALL_VERIFY_PATHS = [
   'chaingraph/verify.html',
 ];
+
+const changedArgIdx = process.argv.indexOf('--changed');
+const changedRef = changedArgIdx !== -1 ? process.argv[changedArgIdx + 1] : null;
+const CHANGED = resolveChangedScope(changedRef, { gate: 'check-verify-no-egress.mjs (B7)', failClosed: false });
+const VERIFY_PATHS = CHANGED ? ALL_VERIFY_PATHS.filter(p => isTouched(p, CHANGED)) : ALL_VERIFY_PATHS;
 
 const FORBIDDEN_PATTERNS = [
   [/\bfetch\s*\(/, 'fetch('],
@@ -96,4 +107,4 @@ if (failed) {
   process.exit(1);
 }
 
-console.log(`check-verify-no-egress: 0 violations across ${VERIFY_PATHS.length} verify-path file(s) (connect-src 'none' + no network-capable JS API).`);
+console.log(`check-verify-no-egress: 0 violations across ${VERIFY_PATHS.length} verify-path file(s)${CHANGED ? ' (touched-scope)' : ''} (connect-src 'none' + no network-capable JS API).`);

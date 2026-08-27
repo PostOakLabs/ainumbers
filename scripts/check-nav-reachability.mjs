@@ -59,10 +59,27 @@
 // is leaked, orphaned, schema-invalid, or already registered is NOT in that
 // section and stays a real island. Excused pages are never added to the
 // baseline: they are not islands yet, not islands the reader should accept.
+//
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B6 of GATE-MANIFEST-DRAFT.md §1),
+// PLAIN check mode only. Reachability is a GRAPH property, not a per-file
+// property, so the graph itself is still built from every page on disk —
+// that read is unavoidable for a correct global answer and is not what makes
+// this gate expensive for a builder session; the noise is the FAILURE
+// REPORT. So --changed narrows what can FAIL the gate to NEW islands that
+// are themselves a touched page, the same "does this property hold for a
+// touched file" shape every other --changed gate uses. Known scope gap,
+// stated plainly rather than hidden: a touched file that removes the ONLY
+// inbound link to an UNTOUCHED page turns that page into a new island too;
+// such a case is surfaced as an advisory (not a failure) under --changed so
+// it is never silently dropped — run without --changed for the hard check.
+// Undeterminable diff falls back to a FULL scan (fail-open, safe-by-cost) —
+// never combined with --init/--update/--prune/--baseline-check, which are
+// already whole-estate operations by design.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, relative, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
 
 const ROOT = process.env.NAV_ROOT ? resolve(process.env.NAV_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -72,6 +89,11 @@ const MODE = (process.argv.includes('--init') || process.argv.includes('--update
   : process.argv.includes('--prune') ? 'prune'
   : process.argv.includes('--baseline-check') ? 'baseline-check'
   : 'check';
+const changedArgIdx = process.argv.indexOf('--changed');
+const changedRef = changedArgIdx !== -1 ? process.argv[changedArgIdx + 1] : null;
+const CHANGED = MODE === 'check'
+  ? resolveChangedScope(changedRef, { gate: 'check-nav-reachability.mjs (B6)', failClosed: false })
+  : null;
 
 // Sibling git worktrees + tooling dirs are foreign checkouts, not site content.
 // '.wt' is the canonical worktree dir per workspace-root CLAUDE.md ("Worktrees live
@@ -261,12 +283,21 @@ if (pruned.length) {
   console.warn(`nav-reachability: ${pruned.length} baseline entr(y/ies) now reachable — prune with --update:`);
   for (const p of pruned) console.warn(`  ${p}`);
 }
-if (created.length) {
-  console.error(`\nnav-reachability: ${created.length} NEW island(s) — page(s) no nav path reaches:`);
-  for (const p of created) console.error(`  ${p}`);
+// --changed scoping: only a NEW island that is ITSELF a touched page fails
+// here (see header note on the scope gap). Untouched new islands are still
+// surfaced, as an advisory, so --changed never silently drops a real finding.
+const createdFailing = CHANGED ? created.filter(p => isTouched(p, CHANGED)) : created;
+const createdOutsideScope = CHANGED ? created.filter(p => !isTouched(p, CHANGED)) : [];
+if (createdOutsideScope.length) {
+  console.warn(`nav-reachability(--changed): ${createdOutsideScope.length} NEW island(s) found OUTSIDE the touched scope — not failed here, run without --changed to enforce:`);
+  for (const p of createdOutsideScope) console.warn(`  ${p}`);
+}
+if (createdFailing.length) {
+  console.error(`\nnav-reachability: ${createdFailing.length} NEW island(s) — page(s) no nav path reaches:`);
+  for (const p of createdFailing) console.error(`  ${p}`);
   console.error(`\nFix: link the page from a hub / nav / directory (e.g. guides/index.html), or`);
   console.error(`if it is an intentional redirect shim add <meta http-equiv="refresh"> + robots noindex,`);
   console.error(`or (rarely) accept it as by-design with: node scripts/check-nav-reachability.mjs --update`);
   process.exit(1);
 }
-console.log(`nav-reachability: OK — 0 new islands (${islands.length} accepted in baseline, ${reach.size} pages reachable).`);
+console.log(`nav-reachability: OK — 0 new islands${CHANGED ? ' in touched scope' : ''} (${islands.length} accepted in baseline, ${reach.size} pages reachable).`);
