@@ -9,8 +9,8 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-// Social Security claiming-age decision support (Social Security Act Sec.202/216(l);
-// 20 CFR 404.409-410). Inputs are USER-SUPPLIED off the claimant's own SSA statement --
+// Social Security claiming-age decision support (Social Security Act Sec.202/216(l)).
+// Inputs are USER-SUPPLIED off the claimant's own SSA statement --
 // no SSA API, no PII stored. Computes: Full Retirement Age (FRA) by birth year;
 // early-claim reduction (5/9 of 1% per month for the first 36 months before FRA, 5/12
 // of 1% per month beyond that -- Sec.202(q)); delayed retirement credit (2/3 of 1% per
