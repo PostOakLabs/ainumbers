@@ -20,23 +20,14 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { executionHash } from './_hash.mjs';
+// The brace matcher that used to live here now lives in scripts/lib-extract-shipped.mjs,
+// so this gate and the four ledger/verifier tamper gates share ONE extraction path
+// (TAMPER-GATE-SHIPPED-SOURCE-1). Behaviour is unchanged apart from the shared version
+// throwing on an ambiguous signature instead of silently taking the first match.
+import { extractFn } from '../../scripts/lib-extract-shipped.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..'); // chaingraph/kernels -> repo/
-
-// ── extract a top-level function definition by brace matching ─────────────────
-function extractFn(src, sigRe) {
-  const m = src.match(sigRe);
-  if (!m) return null;
-  let i = src.indexOf('{', m.index);
-  if (i < 0) return null;
-  let depth = 0;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}') { depth--; if (depth === 0) { i++; break; } }
-  }
-  return src.slice(m.index, i);
-}
 
 // Build the inline hasher from an HTML file's own cgCanon + executionHashLocal.
 // Returns an async (pp, op) => hex, or null when the file has no inline copy.

@@ -19,6 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertDenominatorOrExit } from './denominator-sentinel.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -35,7 +36,22 @@ const STALE_THRESHOLD_DAYS = 120;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const data = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
-const entries = data.entries ?? [];
+
+// ── DENOMINATOR SENTINEL (DENOMINATOR-SENTINEL-1 / F-05) ─────────────────────────────────────────
+// `data.entries ?? []` was the hole: a MISSING ledger file throws here (readFileSync), which fails
+// closed and is fine — but an EMPTIED or RENAMED `entries` key inside a present file degraded silently
+// to zero entries, and the gate closed with "✓ deadline-freshness gate clean — 0 entries, all verified
+// within 120 days." Every entry vacuously fresh, nothing checked, exit 0.
+//
+// Asserted before --summary as well as before the strict path: the ledger being non-empty is a
+// precondition of this gate having anything to say in EITHER mode, not a property of the verdict.
+const entries = Array.isArray(data.entries) ? data.entries : [];
+assertDenominatorOrExit(entries.length, 1, {
+  label: 'check-deadline-freshness',
+  unit: 'dated deadline entr(y|ies)',
+  scope: `data/reg-deadlines.json → .entries[]${Array.isArray(data.entries) ? '' : ' (absent or not an array — present keys: ' + Object.keys(data).join(', ') + ')'}`,
+  remedy: 'the entries[] array was emptied, renamed or replaced — restore it: git checkout origin/main -- data/reg-deadlines.json',
+});
 
 const now = new Date();
 

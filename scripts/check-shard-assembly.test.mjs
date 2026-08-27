@@ -31,19 +31,41 @@
 // Zero-dep, node: builtins only.
 
 import { execFileSync } from 'node:child_process'
+import { isolatedChildEnv } from './_git-env-lib.mjs'
+import { assertSandboxCompleteOrExit, deriveSandboxFiles, namedModuleNotFound, REPO_ROOT } from './lib-sandbox-deps.mjs'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const GATE_SRC = resolve(__dirname, 'check-shard-assembly.mjs')
-const LIB_SRC = resolve(__dirname, 'lib-shard-order.mjs')
-// SHARD-SCHEMA-PARITY-1: the gate now shells to schema-validate.mjs --shard,
-// so every fixture repo needs a real copy of both it and the schema it reads
-// from — the same real files, never a reproduction of their content.
-const SCHEMA_VALIDATE_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'schema-validate.mjs')
-const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'openchain-graph-v0.4.schema.json')
+
+// ── THE SANDBOX FILE SET IS DERIVED, NOT TYPED (SANDBOX-FILELIST-GATE-1) ──
+// This used to be seven hand-written `const *_SRC = resolve(...)` lines, and
+// twice in two days a single added import to one of the COPIED modules took the
+// whole suite out: DENOMINATOR-SENTINEL-1 (PR #1492) reddened 13 of 18 cases,
+// GIT-ENV-LEAK-SWEEP-1 (PR #1498) reddened all 18 with ERR_MODULE_NOT_FOUND.
+// Each was fixed by adding the missing filename here, which is precisely why it
+// recurred — and each was caught by a before/after diff rather than by the
+// change itself, so a session that did not happen to diff would have shipped a
+// dead suite reading as a pass.
+//
+// Now only what CANNOT be derived is declared:
+//   ROOTS  — the ONE script the fixture executes, the gate under test. The
+//            closure is shut under BOTH edges, `import` and `node <script>`, so
+//            schema-validate.mjs arrives on its own (SHARD-SCHEMA-PARITY-1: the
+//            gate spawns `node schema-validate.mjs --shard <path>`) and so does
+//            everything either of them imports.
+//   EXTRAS — non-module data the gate readFileSync()s at runtime, which no
+//            import or spawn edge points at.
+// _git-env-lib.mjs, lib-shard-order.mjs, denominator-sentinel.mjs and
+// schema-validate.mjs are no longer named anywhere, and the next added import
+// needs no edit here at all. See scripts/lib-sandbox-deps.mjs for the
+// derive-vs-gate reasoning and for what derivation still cannot see. Real files
+// are copied verbatim, never a reproduction of their content — unchanged.
+const SANDBOX_ROOTS = ['scripts/check-shard-assembly.mjs']
+const SANDBOX_EXTRAS = ['chaingraph/standard/openchain-graph-v0.4.schema.json']
+const SANDBOX_FILES = deriveSandboxFiles({ roots: SANDBOX_ROOTS, extras: SANDBOX_EXTRAS })
 
 // ── CHILD-ENVIRONMENT ISOLATION (SHARD-HARNESS-ENV-LEAK-1) ────────────────
 // Git EXPORTS GIT_DIR (and GIT_INDEX_FILE, GIT_WORK_TREE, GIT_PREFIX, ...) to
@@ -69,32 +91,16 @@ const SCHEMA_JSON_SRC = resolve(__dirname, '..', 'chaingraph', 'standard', 'open
 // leak; building the child env from an explicit list excludes every GIT_* — and
 // anything else not named here — by construction. Names are matched
 // case-insensitively so Windows' own casing is preserved on the way out.
-const CHILD_ENV_ALLOWLIST = [
-  // POSIX + Node runtime essentials
-  'PATH', 'HOME', 'SHELL', 'TERM', 'TZ', 'USER', 'LOGNAME',
-  'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'XDG_CONFIG_HOME',
-  // Windows runtime essentials (git.exe and node.exe both need these)
-  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'ComSpec',
-  'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432',
-  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'LOGONSERVER',
-  'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT',
-  'PROCESSOR_ARCHITECTURE', 'PROCESSOR_ARCHITEW6432',
-  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
-  'PUBLIC', 'SESSIONNAME', 'SystemDrive', 'SystemRoot',
-  'TEMP', 'TMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'windir',
-]
-const ALLOWED = new Set(CHILD_ENV_ALLOWLIST.map((k) => k.toLowerCase()))
-
 // Builds the env for every child process this harness spawns. `extra` is
 // applied last so a case can still set what it deliberately means to set
 // (commit dates, GIT_CEILING_DIRECTORIES, the gate's own base-ref vars).
-function childEnv(extra = {}) {
-  const env = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (ALLOWED.has(key.toLowerCase()) && value !== undefined) env[key] = value
-  }
-  return { ...env, ...extra }
-}
+//
+// GIT-ENV-LEAK-SWEEP-1 (2026-08-23): the 40-key allowlist argued for above used to be written out
+// right here, and check-clause-digest.test.mjs and check-nav-reachability.test.mjs each carried a
+// byte-identical copy of it. It is now isolatedChildEnv() in scripts/_git-env-lib.mjs — same keys,
+// same case-insensitive filter, same `extra`-last override. A de-duplication, not a behaviour
+// change; the local name is kept so every call site below is untouched.
+const childEnv = isolatedChildEnv
 
 let passed = 0
 let failed = 0
@@ -212,12 +218,20 @@ function makeFixture() {
   // commit 0 — scripts only, no chaingraph/graph/ yet. schema-validate.mjs +
   // the schema JSON go in here too (chaingraph/standard/, not chaingraph/graph/)
   // since the gate shells out to the REAL file — SHARD-SCHEMA-PARITY-1.
-  mkdirSync(join(work, 'scripts'), { recursive: true })
-  cpSync(GATE_SRC, join(work, 'scripts/check-shard-assembly.mjs'))
-  cpSync(LIB_SRC, join(work, 'scripts/lib-shard-order.mjs'))
-  mkdirSync(join(work, 'chaingraph/standard'), { recursive: true })
-  cpSync(SCHEMA_VALIDATE_SRC, join(work, 'chaingraph/standard/schema-validate.mjs'))
-  cpSync(SCHEMA_JSON_SRC, join(work, 'chaingraph/standard/openchain-graph-v0.4.schema.json'))
+  // Every path is repo-relative and copied to the SAME relative path, which is
+  // what makes '../../scripts/denominator-sentinel.mjs' resolve in the fixture
+  // exactly as it does in the repo.
+  for (const rel of SANDBOX_FILES) {
+    const dest = join(work, ...rel.split('/'))
+    mkdirSync(dirname(dest), { recursive: true })
+    cpSync(resolve(REPO_ROOT, rel), dest)
+  }
+  // Reads the tree that was ACTUALLY built and names any module an imported file
+  // cannot reach — once, before a single case runs, instead of leaving it to
+  // resurface as 18 unrelated-looking failures with the real cause nowhere in
+  // the output. Independent of the derivation above by construction: it consults
+  // the sandbox on disk, never the derived list (STANDING-ORDERS #34).
+  assertSandboxCompleteOrExit(work, SANDBOX_FILES, 'check-shard-assembly.test.mjs')
   commit(work, 'scripts only')
   const preChaingraphSha = git(work, ['rev-parse', 'HEAD']).trim()
 
@@ -246,7 +260,19 @@ function runGate(work, args = [], env = {}) {
     return { status: 0, out }
   } catch (e) {
     if (e.status === undefined) throw e
-    return { status: e.status, out: (e.stdout || '') + (e.stderr || '') }
+    const out = (e.stdout || '') + (e.stderr || '')
+    // SANDBOX-FILELIST-GATE-1: a module-not-found escaping the child is a
+    // SANDBOX defect, never a gate verdict. Node's own text already names both
+    // halves the diagnosis needs, so it is rewritten rather than passed through
+    // as a bare ERR_MODULE_NOT_FOUND buried in a stack trace. Catches what the
+    // pre-run check cannot see — a missing shell-out target is not an import.
+    const named = namedModuleNotFound(out, work)
+    if (named) {
+      console.error(`\ncheck-shard-assembly.test.mjs: FIXTURE SANDBOX IS INCOMPLETE — this is not a gate failure.`)
+      console.error(`  ${named}`)
+      process.exit(1)
+    }
+    return { status: e.status, out }
   }
 }
 

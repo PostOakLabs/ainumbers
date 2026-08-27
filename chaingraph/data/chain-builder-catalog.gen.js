@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (634 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (635 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -2138,10 +2138,10 @@ window.CHAINBUILDER_CATALOG = [
   },
   {
     "tool_id": "art-231-compute-mla-mapr",
-    "display_name": "Compute MLA MAPR",
+    "display_name": "Compute MLA MAPR (closed-end)",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-231-compute-mla-mapr.html",
-    "description": "Computes the Military Annual Percentage Rate (MAPR) per 32 CFR §232.4(c) and checks compliance with the 36% cap. MAPR includes all charges e",
+    "description": "Computes the Military Annual Percentage Rate for CLOSED-END consumer credit and tests it against the 36 percent limit that 10 USC 987(b) imp",
     "consumes": [],
     "feeds": [
       "art-232-compute-scra-rate-cap"
@@ -2189,7 +2189,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "HPML Definition and Escrow Requirement Test",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-235-test-hpml-escrow.html",
-    "description": "Tests whether a loan qualifies as a Higher-Priced Mortgage Loan (HPML) per Reg Z §1026.35(a)(1): APOR+1.5pp first-lien, APOR+2.5pp jumbo, AP",
+    "description": "Tests whether a closed-end consumer credit transaction secured by a principal dwelling is a Higher-Priced Mortgage Loan per Reg Z §1026.35(a",
     "consumes": [
       "art-220-reg-z-threshold-lookup"
     ],
@@ -6772,6 +6772,16 @@ window.CHAINBUILDER_CATALOG = [
     "consumes": [],
     "feeds": [],
     "status": "planned"
+  },
+  {
+    "tool_id": "art-656-derivatives-margin-workbench",
+    "display_name": "Derivatives Margin Workbench",
+    "mandate_type": "derivatives_margin_health",
+    "url": "https://ainumbers.co/tools/656-derivatives-margin-workbench.html",
+    "description": "Computes three related derivatives calculations from one declared position: event-market linear PnL (settlement vs strike, scalar payoff), m",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
   },
   {
     "tool_id": "art-66-fria-postmarket-monitoring-builder",

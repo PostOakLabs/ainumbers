@@ -21,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertDenominatorOrExit } from './denominator-sentinel.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -35,7 +36,22 @@ const STALE_THRESHOLD_DAYS = 120;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const data = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
-const entries = data.entries ?? [];
+
+// ── DENOMINATOR SENTINEL (DENOMINATOR-SENTINEL-1 / F-05) ─────────────────────────────────────────
+// Same hole as the sibling deadline gate, same fix, stated once in each because the two gates share a
+// shape and no code: `data.entries ?? []` turned an emptied or renamed `entries` key inside a present
+// file into "✓ bank-fact-freshness gate clean — 0 fact(s), all verified within 120 days." A deleted
+// FILE throws at readFileSync above and fails closed; deleted CONTENT did not.
+//
+// Asserted before --summary as well as before the strict path — a ledger with nothing in it is not a
+// count worth reporting in either mode.
+const entries = Array.isArray(data.entries) ? data.entries : [];
+assertDenominatorOrExit(entries.length, 1, {
+  label: 'check-bank-fact-freshness',
+  unit: 'dated regulatory fact(s)',
+  scope: `data/bank-fact-freshness.json → .entries[]${Array.isArray(data.entries) ? '' : ' (absent or not an array — present keys: ' + Object.keys(data).join(', ') + ')'}`,
+  remedy: 'the entries[] array was emptied, renamed or replaced — restore it: git checkout origin/main -- data/bank-fact-freshness.json',
+});
 
 const now = new Date();
 const stale = [];

@@ -20,7 +20,7 @@ status: stable
 - [crypto_regulatory_mandate](./crypto_regulatory_mandate.md) (1)
 - [cryptographic_mandate](./cryptographic_mandate.md) (13)
 - [currency_basket_index](./currency_basket_index.md) (1)
-- [derivatives_margin_health](./derivatives_margin_health.md) (2)
+- [derivatives_margin_health](./derivatives_margin_health.md) (3)
 - [disclosure_template](./disclosure_template.md) (1)
 - [event_market_pnl](./event_market_pnl.md) (2)
 - [governance_mandate](./governance_mandate.md) (2)

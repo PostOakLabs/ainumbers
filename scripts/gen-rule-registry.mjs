@@ -54,6 +54,7 @@ import { createHash } from 'node:crypto';
 import { resolve, dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRY_DIR = resolve(REPO, 'chaingraph', 'kernels', 'data', 'rule-registry');
@@ -302,7 +303,7 @@ function listEntryFiles(dir = ENTRY_DIR) {
 /** Branch-awareness, same technique as check-shard-assembly.mjs: is `path` present on the base ref? */
 function presentOnBaseRef(pathRel, baseRef) {
   try {
-    execSync(`git cat-file -e ${baseRef}:${pathRel}`, { cwd: REPO, stdio: 'ignore' });
+    execSync(`git cat-file -e ${baseRef}:${pathRel}`, { cwd: REPO, env: gitEnv(), stdio: 'ignore' });
     return true;
   } catch { return false; }
 }
@@ -310,7 +311,7 @@ function presentOnBaseRef(pathRel, baseRef) {
 function resolveBaseRef(explicit) {
   if (explicit) return explicit;
   for (const ref of ['origin/main', 'main']) {
-    try { execSync(`git rev-parse --verify ${ref}`, { cwd: REPO, stdio: 'ignore' }); return ref; } catch { /* next */ }
+    try { execSync(`git rev-parse --verify ${ref}`, { cwd: REPO, env: gitEnv(), stdio: 'ignore' }); return ref; } catch { /* next */ }
   }
   return null;
 }

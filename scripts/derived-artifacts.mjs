@@ -82,6 +82,7 @@
  *   node scripts/derived-artifacts.mjs --context  # print "main" or "pr"
  */
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -591,6 +592,23 @@ export const EXCLUDED = [
        + 'gap — same shape and same reason as check-node-complete.mjs directly above.',
   },
   {
+    what: 'scripts/assemble-chaingraph.selftest.mjs (ASSEMBLE-CHAIN-CLASSIFY-1 / ASSEMBLE-LAND-STRUCTURAL-1)',
+    script: 'scripts/assemble-chaingraph.selftest.mjs',
+    share: 'n/a — a paired self-test, not a generator',
+    why: 'NOT A GENERATOR — it is the mutation/tamper proof for assemble-chaingraph.mjs\'s classifier, the '
+       + 'same CONTROL class the fan-out gate already skips structurally for *.test.mjs. It matched the '
+       + 'heuristic only from ASSEMBLE-LAND-STRUCTURAL-1 onward, when case 20 gained a literal \'--check\' '
+       + 'token: it spawns the real assembler as a child process to prove --land-structural is refused under '
+       + '--check, and CHECK_FLAG_RE cannot tell an argv token it PASSES from a freshness mode it PUBLISHES. '
+       + 'It reads the node graph (chaingraph.meta.json, graph/nodes, chaingraph.json) because its fixtures '
+       + 'are live shards by design, and it reads chaingraph.json only to assert byte-length INVARIANCE '
+       + 'across a refused run. Measured, not assumed: its four writeFileSync calls all target a throwaway '
+       + 'mkdtemp board fixture that its own finally-block removes, and it has no --check mode and no repo '
+       + 'write path at all, so there is no derived artifact for main to own and no regen command that could '
+       + 'converge. Listed so the fan-out gate reads a decision rather than a gap — same shape and same '
+       + 'reason as check-node-complete.mjs and check-derived-declare-parity.mjs above.',
+  },
+  {
     what: 'registry/lineage/** (via scripts/gen-registry-lineage.mjs — REGISTRY-LINEAGE-RETRY-1)',
     script: 'scripts/gen-registry-lineage.mjs',
     share: 'n/a',
@@ -678,7 +696,7 @@ export function isMainContext() {
   // neither `main` nor a detached HEAD, before the downgrade applies.
   try {
     const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'],
+      cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'],
     }).toString().trim();
     if (!branch || branch === 'HEAD' || branch === 'main') return true; // fail closed
     return false;

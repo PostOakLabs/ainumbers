@@ -163,7 +163,7 @@ status: stable
 - [Build Adverse Action Notice](../tools/art-228-build-adverse-action-notice.md)
 - [Compute Disparate Impact Metrics](../tools/art-229-compute-disparity-metrics.md)
 - [Compute HMDA Rate Spread](../tools/art-230-compute-hmda-rate-spread.md)
-- [Compute MLA MAPR](../tools/art-231-compute-mla-mapr.md)
+- [Compute MLA MAPR (closed-end)](../tools/art-231-compute-mla-mapr.md)
 - [Compute SCRA Rate Cap](../tools/art-232-compute-scra-rate-cap.md)
 - [Check CARD Act Ability to Pay](../tools/art-233-check-card-act-ability-to-pay.md)
 - [HOEPA High-Cost Mortgage Trigger Test](../tools/art-234-test-hoepa-high-cost.md)

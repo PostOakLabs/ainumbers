@@ -154,6 +154,21 @@ function ensureSharedLibsCopied(scratchKernelsDir) {
   }
 }
 
+// __proptests__/_*.mjs shared helpers (e.g. _pbt-common.mjs, imported by 50+ proptest floors
+// via a relative './_pbt-common.mjs' specifier) never got copied into the sandbox — only the
+// top-level chaingraph/kernels/_*.mjs helpers did (above). Any kernel whose proptest imports
+// one threw ERR_MODULE_NOT_FOUND on its first mutation-tier run, mistested as a kernel defect.
+// Same copy-underscore-helpers shape as ensureSharedLibsCopied, scoped to __proptests__/.
+function ensureSharedProptestLibsCopied(scratchProptestsDir) {
+  mkdirSync(scratchProptestsDir, { recursive: true });
+  for (const f of readdirSync(PROPTESTS_DIR)) {
+    if (f.startsWith('_') && f.endsWith('.mjs')) {
+      const dest = path.join(scratchProptestsDir, f);
+      if (!existsSync(dest)) cpSync(path.join(PROPTESTS_DIR, f), dest);
+    }
+  }
+}
+
 function runOneKernel(id, scratchRoot, opts, strykerVersion) {
   const kernelFile = `${id}.kernel.mjs`;
   const proptestFile = `${id}.proptest.mjs`;
@@ -174,10 +189,11 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
 
   const scratchKernelsDir = path.join(scratchRoot, 'chaingraph', 'kernels');
   ensureSharedLibsCopied(scratchKernelsDir);
-  mkdirSync(path.join(scratchKernelsDir, '__proptests__'), { recursive: true });
+  const scratchProptestsDir = path.join(scratchKernelsDir, '__proptests__');
+  ensureSharedProptestLibsCopied(scratchProptestsDir);
   mkdirSync(path.join(scratchKernelsDir, 'fixtures'), { recursive: true });
   cpSync(kernelPath, path.join(scratchKernelsDir, kernelFile));
-  cpSync(proptestPath, path.join(scratchKernelsDir, '__proptests__', proptestFile));
+  cpSync(proptestPath, path.join(scratchProptestsDir, proptestFile));
   cpSync(fixturesPath, path.join(scratchKernelsDir, 'fixtures', fixturesFile));
 
   const reportPath = path.join(scratchRoot, 'reports', id, 'mutation-report.json');

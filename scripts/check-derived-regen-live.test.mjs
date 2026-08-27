@@ -34,7 +34,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runLiveScan, withinEntryDuplicates, crossEntryShares, cleanGitEnv } from './check-derived-regen-live.mjs';
+import { runLiveScan, withinEntryDuplicates, crossEntryShares } from './check-derived-regen-live.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 
 let pass = 0;
 let fail = 0;
@@ -59,12 +60,14 @@ function assert(cond, msg) {
 // ── fixture repo builder ────────────────────────────────────────────────────
 // A real git repo (not a bare directory) — runLiveScan needs `git status` and
 // `git checkout` to behave, so a synthetic in-memory tree cannot stand in.
-// GIT_EXEC_OPTS uses cleanGitEnv() (imported from the module under test) —
-// running this file FROM a pre-push hook inherits GIT_DIR/GIT_INDEX_FILE
-// pointing at the OUTER repo, which silently redirected every git call below
-// at the wrong repository ("fatal: this operation must be run in a work
-// tree", reproduced by exporting GIT_DIR before running this file directly).
-const GIT_EXEC_OPTS = { stdio: ['ignore', 'pipe', 'pipe'], env: cleanGitEnv() };
+// GIT_EXEC_OPTS uses gitEnv() (GIT-ENV-LEAK-SWEEP-1; was cleanGitEnv() re-exported by the module
+// under test, now the estate-wide helper directly) — running this file FROM a pre-push hook
+// inherits GIT_DIR/GIT_INDEX_FILE pointing at the OUTER repo, which silently redirected every git
+// call below at the wrong repository ("fatal: this operation must be run in a work tree",
+// reproduced by exporting GIT_DIR before running this file directly).
+// Identity is unchanged for the fixture: `git config user.email/user.name` are set on the repo
+// below, so commits here never depended on inherited GIT_AUTHOR_*/GIT_COMMITTER_* to begin with.
+const GIT_EXEC_OPTS = { stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() };
 const roots = [];
 function makeRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'derived-regen-selftest-'));

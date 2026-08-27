@@ -146,13 +146,19 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { gitEnv } from './_git-env-lib.mjs'
 import { findUnlistedShards } from './lib-shard-order.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 
 const NODES_BLOCKING = true // NODE-REGISTRATION-GAP-1: promoted from advisory.
-const CHAINS_BLOCKING = false // ← Flip to true once a chain-leak incident is measured.
+// ← Flip to true once a chain-leak incident is measured. WHERE THIS STANDS, and how to re-check it
+// instead of trusting this sentence: `node scripts/check-shard-assembly.mjs` prints every unlisted
+// chain it finds as an ADVISORY line, and `git log --grep="chain-leak"` is the incident record.
+// Last evaluated 2026-08-23 (STALE-PHASING-NOTE-SWEEP-1): zero chain-leak incidents on record, so
+// the condition is still pending. ⛔ Re-date this line when you re-check it; do not read it as fact.
+const CHAINS_BLOCKING = false
 
 // SHARD-SCHEMA-PARITY-1: schema conformance below is BLOCKING, unconditionally,
 // with no waiver mechanism — see the header comment.
@@ -201,6 +207,7 @@ function git(args) {
   try {
     return execFileSync('git', args, {
       cwd: root,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     })
@@ -211,7 +218,7 @@ function git(args) {
 
 function gitOk(args) {
   try {
-    execFileSync('git', args, { cwd: root, stdio: 'ignore' })
+    execFileSync('git', args, { cwd: root, env: gitEnv(), stdio: 'ignore' })
     return true
   } catch {
     return false

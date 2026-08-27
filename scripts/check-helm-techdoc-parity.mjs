@@ -32,6 +32,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -157,7 +158,10 @@ export function collectIssues(markdown, page, manifest, vendoredBytes) {
 function checkBehindUpstream(manifest) {
   let out;
   try {
+    // env: gitEnv() — see check-deploy-drift.mjs: `ls-remote <url>` needs no local repository, but
+    // an inherited GIT_DIR still brings that repo's config (insteadOf rewrites) into scope.
     out = execFileSync('git', ['ls-remote', manifest.sourceRepo, `refs/heads/${manifest.sourceBranch}`], {
+      env: gitEnv(),
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 20000,
     }).toString().trim();
