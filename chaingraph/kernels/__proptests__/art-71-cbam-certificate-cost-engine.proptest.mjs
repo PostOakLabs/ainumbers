@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:80df4fc1195a5177c803aad81d51aabbfad003ca7e5c117591b4f557b278f2d9
+// kernel_digest_at_authoring: sha256:f784ccbb763352a07c031fb57633183dbb797180e9001157005c900b7a40bfa2
 //
 // FV-PROPFLOOR-SHARD-B16-1 — property-test floor for art-71-cbam-certificate-cost-engine.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — net_liability_eur / eua_reference_price feeds
@@ -98,7 +98,95 @@ function checkP3_certsIdentity() {
   return { name: 'P3_certificates_required_exact_ceil_of_net_liability_over_eua_price', trials: checked, violations };
 }
 
-// ---------- P4 (mandatory): ULP-boundary forcing ----------
+// ---------- P4: year-keying — a pre-2027 vintage NEVER receives a numeric holding requirement ----------
+// This is the property that distinguishes the year-keyed correction from a blanket
+// 0.80 -> 0.50 constant swap: under a blanket swap every row below would carry a number.
+function checkP4_holdingRequirementYearKeyed() {
+  let violations = 0, checked = 0;
+  const SCHED = [
+    { quarter: 'Q1', emissions: 2500 }, { quarter: 'Q2', emissions: 2500 },
+    { quarter: 'Q3', emissions: 2500 }, { quarter: 'Q4', emissions: 2500 },
+  ];
+  for (let i = 0; i < TRIALS; i++) {
+    const year = YEARS[Math.floor(rand() * YEARS.length)];
+    const pp = {
+      embedded_emissions_tco2e: randRange(rand, 0, 100000),
+      cbam_factor_year: year,
+      origin_carbon_price_eur_per_t: randRange(rand, 0, 50),
+      eua_reference_price: randRange(rand, 1, 200),
+      import_schedule: SCHED,
+      annual_imported_net_mass_t: randRange(rand, 51, 100000), // above de minimis: obligations live
+      cbam_sector: 'iron_steel',
+    };
+    const r = compute(pp);
+    checked++;
+    const rows = r.output_payload.quarterly_holding_schedule;
+    if (year < 2027) {
+      if (!rows.every((q) => q.holding_required === null && q.holding_applies === false)) violations++;
+    } else if (!rows.every((q) => Number.isInteger(q.holding_required) && q.holding_required >= 0)) {
+      violations++;
+    }
+  }
+  return { name: 'P4_holding_requirement_null_before_2027_numeric_from_2027', trials: checked, violations };
+}
+
+// ---------- P5: the enforced holding requirement is exactly ceil(cumulative * 0.50) ----------
+function checkP5_holdingShareIsFiftyPercent() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = {
+      embedded_emissions_tco2e: randRange(rand, 0, 100000),
+      cbam_factor_year: 2027 + Math.floor(rand() * 8),
+      origin_carbon_price_eur_per_t: randRange(rand, 0, 50),
+      eua_reference_price: randRange(rand, 1, 200),
+      import_schedule: [{ quarter: 'Q1', emissions: randRange(rand, 0, 50000) }],
+      annual_imported_net_mass_t: randRange(rand, 51, 100000),
+      cbam_sector: 'cement',
+    };
+    const r = compute(pp);
+    checked++;
+    const share = r.output_payload.quarterly_holding_minimum_share;
+    for (const q of r.output_payload.quarterly_holding_schedule) {
+      if (!q.holding_enforced) continue;
+      if (share !== 0.5) { violations++; break; }
+      if (q.holding_required !== Math.ceil(q.cumulative_certs_required * 0.5)) { violations++; break; }
+    }
+  }
+  return { name: 'P5_enforced_holding_required_is_exact_ceil_of_half_cumulative', trials: checked, violations };
+}
+
+// ---------- P6: de minimis exemption zeroes every liability field, and only ever below the threshold ----------
+function checkP6_deMinimisExemptionZeroesLiability() {
+  let violations = 0, checked = 0;
+  const SECTORS = ['iron_steel', 'aluminium', 'fertilisers', 'cement', 'electricity', 'hydrogen'];
+  // Mass is drawn so that the EXACT threshold and its two neighbouring ULPs are hit
+  // often, not almost-never: "does not cumulatively exceed" makes 50 t itself exempt,
+  // and a `<` / `<=` slip at exactly that point is invisible to uniform random floats.
+  const EXACT = [50, 50 - Number.EPSILON * 50, 50 + Number.EPSILON * 50, 0, 100];
+  for (let i = 0; i < TRIALS; i++) {
+    const mass = rand() < 0.25 ? EXACT[Math.floor(rand() * EXACT.length)] : randRange(rand, 0, 120);
+    const sector = SECTORS[Math.floor(rand() * SECTORS.length)];
+    const pp = {
+      embedded_emissions_tco2e: randRange(rand, 1, 100000),
+      cbam_factor_year: YEARS[Math.floor(rand() * YEARS.length)],
+      eua_reference_price: randRange(rand, 1, 200),
+      annual_imported_net_mass_t: mass,
+      cbam_sector: sector,
+    };
+    const r = compute(pp);
+    checked++;
+    const o = r.output_payload;
+    const expectExempt = mass <= 50 && sector !== 'electricity' && sector !== 'hydrogen';
+    if (o.de_minimis_exemption !== expectExempt) { violations++; continue; }
+    if (o.de_minimis_exemption) {
+      const zeroed = [o.certificate_liability_eur, o.certificates_required, o.net_liability_eur, o.gross_liability_tco2e, o.origin_price_credit];
+      if (!zeroed.every((v) => v === 0)) violations++;
+    }
+  }
+  return { name: 'P6_de_minimis_exemption_iff_below_threshold_and_in_scope_sector_and_zeroes_liability', trials: checked, violations };
+}
+
+// ---------- P7 (mandatory): ULP-boundary forcing ----------
 const ULP_BOUNDARY_CASES = [
   [{ embedded_emissions_tco2e: 0, cbam_factor_year: 2026, eua_reference_price: 65 }, 'embedded_emissions_tco2e exactly zero — gross_liability_tco2e/net_liability_eur/certificates_required must all be exactly 0'],
   [{ embedded_emissions_tco2e: -0, cbam_factor_year: 2026, eua_reference_price: 65 }, 'embedded_emissions_tco2e negative zero — must behave as zero, no NaN'],
@@ -110,9 +198,16 @@ const ULP_BOUNDARY_CASES = [
   [{ embedded_emissions_tco2e: 500, cbam_factor_year: 2034, eua_reference_price: 65, origin_carbon_price_eur_per_t: 1e10 }, 'origin_carbon_price_eur_per_t astronomically large — origin_price_credit must clamp via Math.min to the gross_liability*eua_reference_price cap, net_liability_eur must clamp to exactly 0 (Math.max(0, ...))'],
   [{ embedded_emissions_tco2e: 1e9, cbam_factor_year: 2026, eua_reference_price: 65 }, 'embedded_emissions_tco2e at a very large magnitude — must remain finite, not overflow to Infinity'],
   [{ embedded_emissions_tco2e: 500, cbam_factor_year: 2026, eua_reference_price: 65, import_schedule: [{ quarter: 'Q1', emissions: 500 }] }, 'single-entry import_schedule — quarterly_holding_schedule division by import_schedule.length(=1) must not distort cumulative_certs_required'],
+  [{ embedded_emissions_tco2e: 1000, cbam_factor_year: 2027, eua_reference_price: 65, annual_imported_net_mass_t: 50, cbam_sector: 'iron_steel' }, 'net mass EXACTLY at the 50 t de minimis threshold — the comparison is "does not cumulatively exceed", so exactly 50 t is EXEMPT, not liable'],
+  [{ embedded_emissions_tco2e: 1000, cbam_factor_year: 2027, eua_reference_price: 65, annual_imported_net_mass_t: 50 + Number.EPSILON * 50, cbam_sector: 'iron_steel' }, 'net mass one ULP ABOVE 50 t — must flip to the exceedance branch, no exemption'],
+  [{ embedded_emissions_tco2e: 1000, cbam_factor_year: 2027, eua_reference_price: 65, annual_imported_net_mass_t: 0, cbam_sector: 'iron_steel' }, 'zero declared net mass — exempt (0 does not exceed 50), liability fields exactly 0'],
+  [{ embedded_emissions_tco2e: 1000, cbam_factor_year: 2027, eua_reference_price: 65, annual_imported_net_mass_t: 10, cbam_sector: 'electricity' }, 'electricity below the threshold — the de minimis article does not apply to electricity, so NO exemption despite the small mass'],
+  [{ embedded_emissions_tco2e: 1000, cbam_factor_year: 2026, eua_reference_price: 65, annual_imported_net_mass_t: 5000, cbam_sector: 'iron_steel', import_schedule: [{ quarter: 'Q1', emissions: 1000 }] }, '2026 vintage with a live import schedule — holding_required must be null (obligation not yet in force), never a number'],
+  [{ embedded_emissions_tco2e: 8000, cbam_factor_year: 2027, eua_reference_price: 65, annual_imported_net_mass_t: 5000, cbam_sector: 'iron_steel', threshold_exceeded_quarter: 'Q4', import_schedule: [{ quarter: 'Q1', emissions: 2000 }, { quarter: 'Q2', emissions: 2000 }, { quarter: 'Q3', emissions: 2000 }, { quarter: 'Q4', emissions: 2000 }] }, 'threshold exceeded in the LAST quarter — the grace runs past the year end, so no quarter in this year is enforced and every holding_required is 0'],
+  [{ embedded_emissions_tco2e: 4000, cbam_factor_year: 2026, eua_reference_price: 65, eua_quarter_avg_prices: {}, annual_imported_net_mass_t: 5000, cbam_sector: 'iron_steel', import_schedule: [{ quarter: 'Q1', emissions: 4000 }] }, 'empty quarterly-average price map on a 2026 vintage — must fall back to eua_reference_price and raise QUARTER_PRICE_FALLBACK, never divide by undefined'],
 ];
 
-function checkP4_forced() {
+function checkP7_forced() {
   const rows = [];
   for (const [pp, label] of ULP_BOUNDARY_CASES) {
     const r = compute(pp);
@@ -132,7 +227,10 @@ if (!oracleOk) {
 results.properties.push(checkP1_certsBoundedNonNegativeInteger());
 results.properties.push(checkP2_grossLiabilityMonotonic());
 results.properties.push(checkP3_certsIdentity());
-results.boundary_forced = checkP4_forced();
+results.properties.push(checkP4_holdingRequirementYearKeyed());
+results.properties.push(checkP5_holdingShareIsFiftyPercent());
+results.properties.push(checkP6_deMinimisExemptionZeroesLiability());
+results.boundary_forced = checkP7_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 const anyBoundaryImplausible = results.boundary_forced.some((b) => !b.plausible);
