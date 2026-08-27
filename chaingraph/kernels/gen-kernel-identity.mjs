@@ -313,23 +313,42 @@ if (mode === 'check') {
 
 // --- WRITE (surgical text upsert) ------------------------------------------
 // Locate each in-scope node's text span via its unique `      "tool_id": "<id>",` anchor.
-const edits = []; // { start, end, replacement }
-let stamped = 0, inserted = 0, replaced = 0;
-
-for (const n of inScope) {
-  // Node's own tool_id line is the SHALLOWEST-indent occurrence of this id (nested chain-step
-  // refs to the same tool_id sit deeper, e.g. 10 spaces vs. 6 — but node indent isn't uniformly
-  // 6 across the file, so scan all occurrences and pick the least-indented one).
+//
+// GENKERNELID-UPSERT-FIX-1 (2026-08-27): a node's END boundary used to be found by re-searching
+// for "the next tool_id at THIS node's OWN indent" — which silently assumed every node in
+// chaingraph.json shares one uniform indent. It does not: the monolith mixes 2-space and 6-space
+// top-level node formatting (assembler output vs. hand-edited legacy), so that search would skip
+// straight past a differently-indented neighbor and land on the next SAME-indent node, sometimes
+// dozens of nodes later — swallowing every node in between into one oversized blockTxt. When one
+// of the swallowed nodes ALSO needed its own edit, the two edits' [start,end) ranges overlapped;
+// the apply-loop below assumes non-overlapping ranges (each edit's offsets are computed once
+// against the pristine `raw`, then spliced in descending-start order), so an overlap desyncs a
+// later (lower-start) edit's `end` against the already-mutated `out`, corrupting the splice — in
+// the Lander's reproduced monolith --write, this produced literal `{e,` garbage mid-token and an
+// uncaught JSON.parse SyntaxError (fails closed: nothing was ever written to disk, but every
+// monolith --write crashed, blocking the single-writer Lander's whole batch).
+//
+// Fix: stop re-deriving "the next node" via a same-indent text search. We already trust the
+// shallowest-occurrence anchor search to find each node's OWN start correctly (that part was never
+// wrong) — so run it ONCE for every node in cg.nodes, in the SAME order they appear in the parsed
+// array (which matches their physical order in the file), and take a node's end as the TRUE next
+// node's own start, whatever indent that next node happens to use. No indent assumption left.
+const nodeStarts = (cg.nodes ?? []).map((n) => {
   const idRe = new RegExp(`\\n( *)"tool_id": ${JSON.stringify(n.tool_id)},`, 'g');
   let m2, best = null;
   while ((m2 = idRe.exec(raw))) { if (!best || m2[1].length < best[1].length) best = m2; }
   if (!best) { console.error(`! could not locate node anchor for ${n.tool_id}`); process.exit(3); }
-  const at = best.index + 1; // skip the leading \n
-  const anchorLen = best[0].length - 1;
-  const nodeIndent = best[1];
-  // Node block ends at the next node's tool_id anchor (any indent) or EOF.
-  const nextTool = raw.indexOf('\n' + nodeIndent + '"tool_id": "', at + anchorLen);
-  const end = nextTool < 0 ? raw.length : nextTool;
+  return best.index + 1; // skip the leading \n
+});
+const nodeIndexByToolId = new Map((cg.nodes ?? []).map((n, i) => [n.tool_id, i]));
+
+const edits = []; // { start, end, replacement }
+let stamped = 0, inserted = 0, replaced = 0;
+
+for (const n of inScope) {
+  const i = nodeIndexByToolId.get(n.tool_id);
+  const at = nodeStarts[i];
+  const end = (i + 1 < nodeStarts.length) ? nodeStarts[i + 1] : raw.length;
   const blockTxt = raw.slice(at, end);
 
   let upsert;
