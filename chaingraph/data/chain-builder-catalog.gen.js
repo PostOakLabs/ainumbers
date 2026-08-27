@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (636 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (637 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6806,6 +6806,19 @@ window.CHAINBUILDER_CATALOG = [
       "451-sr11-7-model-risk-management-gap-assessor",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-660-compile-nav-error-evidence-pack",
+    "display_name": "Compile NAV-Error Evidence Pack",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-660-compile-nav-error-evidence-pack.html",
+    "description": "Packages one already-produced recompute_fund_nav receipt and one already-produced test_nav_error_materiality receipt into a CSSF Circular 24",
+    "consumes": [
+      "art-373-recompute-fund-nav",
+      "art-374-test-nav-error-materiality"
+    ],
+    "feeds": [],
     "status": "live"
   },
   {
