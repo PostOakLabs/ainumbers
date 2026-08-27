@@ -1,9 +1,10 @@
 {
   "tool_id": "art-282-social-security-claiming-optimizer",
-  "note": "golden_hash filled by `node golden-parity.test.mjs --update`.",
+  "note": "golden_hash filled by `node golden-parity.test.mjs --update`. The earnings-test annual exempt amount defaults to the 2026 figure ($24,480, SSA Exempt Amounts Under the Earnings Test) and is overridable via claimant.earningsTestAnnualLimit. v1.0.0 shipped $23,400, the 2025 amount under a 2026 label.",
   "vectors": [
     {
       "name": "claim-at-62-early",
+      "description": "Claimant born 1960 (FRA 67), PIA $2,000, claiming at 62 with no earnings. Earnings test does not bind, but the payload carries the corrected exempt amount ($24,480) and its source.",
       "policy_parameters": {
         "claimant": {
           "birthYear": 1960,
@@ -23,13 +24,19 @@
         "recommendedClaimAge": 70,
         "lifetimePV": 284540.1995057521,
         "breakEvenAge62vs70": 81,
-        "earningsTestAnnualLimit": 23400,
+        "earningsTestAnnualLimit": 24480,
+        "earningsTestLimitSource": "pinned_default_2026",
         "longevityAge": 85
       },
-      "golden_hash": "051be1dc4533236e3d9c332d8ccdde924f5b24b7220497effeb31588d0dd3990"
+      "compliance_flags": [
+        "SS_CLAIMING_AGE_MODELED",
+        "SS_ALTERNATE_CLAIM_AGE_HAS_HIGHER_PV"
+      ],
+      "golden_hash": "396f99381e99a2f8becae58401fd55f4a8e8fc4b0b0d33ddff878d4062d6c8e3"
     },
     {
       "name": "claim-at-70-delayed",
+      "description": "Same claimant delaying to 70 - delayed retirement credits apply, earnings test does not (claimant is past FRA).",
       "policy_parameters": {
         "claimant": {
           "birthYear": 1960,
@@ -49,13 +56,85 @@
         "recommendedClaimAge": 70,
         "lifetimePV": 365931.13662792975,
         "breakEvenAge62vs70": 81,
-        "earningsTestAnnualLimit": 23400,
+        "earningsTestAnnualLimit": 24480,
+        "earningsTestLimitSource": "pinned_default_2026",
         "longevityAge": 85
       },
-      "golden_hash": "967352c89c4a409efe7ea27a2606f682a0c73c43b39ee8fa463f31a1aa9b34f3"
+      "compliance_flags": [
+        "SS_CLAIMING_AGE_MODELED"
+      ],
+      "golden_hash": "8579ebe0248073ae9626f6c4db68db9cd1c26423f29f9fe33fbbc9998c313f79"
+    },
+    {
+      "name": "earnings-test-binds-2026-default",
+      "description": "Claiming at 63 (below FRA 67) with $60,000 of earnings. Withholding is $1 for every $2 above the exempt amount: (60,000 - 24,480)/2 = $17,760 withheld. Under the pre-fix $23,400 amount the same facts withheld $18,300 - $540 a year too much.",
+      "policy_parameters": {
+        "claimant": {
+          "birthYear": 1960,
+          "pia": 2000,
+          "claimAge": 63,
+          "earningsIfWorking": 60000,
+          "discountRatePct": 3,
+          "longevityAge": 85
+        }
+      },
+      "output_payload": {
+        "birthYear": 1960,
+        "fullRetirementAge": 67,
+        "pia": 2000,
+        "claimAge": 63,
+        "monthlyBenefitAtClaimAge": 1500,
+        "recommendedClaimAge": 70,
+        "lifetimePV": 3939.6057927274956,
+        "breakEvenAge62vs70": 70,
+        "earningsTestAnnualLimit": 24480,
+        "earningsTestLimitSource": "pinned_default_2026",
+        "longevityAge": 85
+      },
+      "compliance_flags": [
+        "SS_CLAIMING_AGE_MODELED",
+        "SS_EARNINGS_TEST_WITHHOLDING_APPLIES",
+        "SS_ALTERNATE_CLAIM_AGE_HAS_HIGHER_PV"
+      ],
+      "golden_hash": "093ef735aeaab5c30468a80728d3c5fa19bbd28de5fbca8ec08b3d440b12be61"
+    },
+    {
+      "name": "earnings-test-user-override",
+      "description": "The same facts with claimant.earningsTestAnnualLimit supplied from the claimant's own SSA statement - the override wins over the pinned default and earningsTestLimitSource reports user_supplied. This is the input that lets a claimant in a later year get a correct answer without a code change.",
+      "policy_parameters": {
+        "claimant": {
+          "birthYear": 1960,
+          "pia": 2000,
+          "claimAge": 63,
+          "earningsIfWorking": 60000,
+          "discountRatePct": 3,
+          "longevityAge": 85,
+          "earningsTestAnnualLimit": 25000
+        }
+      },
+      "output_payload": {
+        "birthYear": 1960,
+        "fullRetirementAge": 67,
+        "pia": 2000,
+        "claimAge": 63,
+        "monthlyBenefitAtClaimAge": 1500,
+        "recommendedClaimAge": 70,
+        "lifetimePV": 8207.512068182283,
+        "breakEvenAge62vs70": 70,
+        "earningsTestAnnualLimit": 25000,
+        "earningsTestLimitSource": "user_supplied",
+        "longevityAge": 85
+      },
+      "compliance_flags": [
+        "SS_CLAIMING_AGE_MODELED",
+        "SS_EARNINGS_TEST_WITHHOLDING_APPLIES",
+        "SS_ALTERNATE_CLAIM_AGE_HAS_HIGHER_PV"
+      ],
+      "golden_hash": "870e9fe7f08a394003010ef25695d0887b74b95cb0ab40eab67a4ed7a23e42ef"
     },
     {
       "name": "empty-input",
+      "description": "No claimant at all - every default applies, NaN-safe, finite gate.",
       "policy_parameters": {},
       "output_payload": {
         "birthYear": 1960,
@@ -66,10 +145,15 @@
         "recommendedClaimAge": 62,
         "lifetimePV": 0,
         "breakEvenAge62vs70": 70,
-        "earningsTestAnnualLimit": 23400,
+        "earningsTestAnnualLimit": 24480,
+        "earningsTestLimitSource": "pinned_default_2026",
         "longevityAge": 85
       },
-      "golden_hash": "df41546b31e5afe9f2225c64e2c3a2ffaabad2ae3dc974f8f5a00f3c3116512f"
+      "compliance_flags": [
+        "SS_CLAIMING_AGE_MODELED",
+        "SS_ALTERNATE_CLAIM_AGE_HAS_HIGHER_PV"
+      ],
+      "golden_hash": "584190a6747d0ce2e05d3f932e0d0b1d8529dc2cadf10b27b183b06a93a19965"
     }
   ]
 }
