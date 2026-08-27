@@ -209,6 +209,12 @@ export function compute(pp) {
     chain_valid,
     chain_verified_by,
     chain_errors,
+    // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD.md, flag-mirror section): NAV_HEAD_STRUCTURAL_ERROR
+    // is a conditional compliance_flags member (raised only when validateHeadShape/
+    // validateVerificationClaim reject the input) with nothing in output_payload to route on
+    // otherwise -- chain-gate steps read output_payload only, never compliance_flags. errors
+    // mirrors that one condition: non-empty exactly when structural_error is non-null.
+    errors: structural_error ? [structural_error] : [],
     not_proven: NOT_PROVEN,
     fence: 'This node never accepts or handles private key material and never itself runs an Ed25519 verify. signature_valid/chain_valid are the CALLER\'s own verification claim, asserted and digested into this receipt, never independently re-derived. head_hash is the one field this node DOES independently recompute (pure SHA-256 over the caller-supplied head, never trusted as a caller-asserted value).',
     regulatory_framework: 'SPEC.md §HEAD-1 (this estate\'s own head-commit primitive, PROV-HEAD-1, DONE/merged) applied to a tokenized fund\'s daily-NAV stream per NAV-LINEAGE-BUILD-SPEC.md §3; not itself a fund-administration, custody, or NAV-error disclosure requirement.',

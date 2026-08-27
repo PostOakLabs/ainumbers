@@ -1,5 +1,5 @@
 // art-659-publish-fund-nav-head — class-B property-test floor.
-// kernel_digest_at_authoring: sha256:8a0aec162b25b840e744e7b5c9e95693aba152690b9e6c0fbdb67dc5ab44233a
+// kernel_digest_at_authoring: sha256:1cd183efa21280ceaa0367c7ba45c67583630689b6666de5e668953baf3c37b4
 // spec: NAV-LINEAGE-BUILD-SPEC.md §3
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §3)
 //
