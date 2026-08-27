@@ -586,6 +586,7 @@ status: stable
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md)
 - [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md)
 - [Verify Receipt](./art-652-verify-receipt.md)
+- [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md)
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md)
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md)
 - [Overdraft / NSF Fee Recomputation](./art-662-odnsf-fee-recompute.md)
