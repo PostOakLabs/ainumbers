@@ -56,6 +56,13 @@ import { fileURLToPath } from 'node:url';
 // a second copy, so the axis that ACCEPTS the pageless waiver and the SSOT gate that
 // POLICES it cannot drift apart.
 import { resolveOwnPage, checkPageless } from '../chaingraph/standard/check-pageless-consistency.mjs';
+// RATCHET-BASELINE-SWEEP-2 (F-11 remainder): the (c)/(d) legacy ceiling below used to be read with
+// a bare `existsSync(BASELINE_PATH)` branch (missing file ⇒ warn-only, ratchet skipped entirely) and
+// `baseline.legacy_count ?? 0` (a NaN/Infinity-typed ceiling compares false against every count, i.e.
+// always passes) — the same gate-integrity F-11 shape RATCHET-BASELINE-LOADER-1 (PR #1483) converted
+// three sibling gates away from. This file now routes through that shared loader instead of carrying a
+// second copy of the validation.
+import { loadRatchetBaselineOrExit, readBaselineForUpdate } from './ratchet-baseline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -64,17 +71,26 @@ const KDIR = resolve(REPO, 'chaingraph', 'kernels');
 const PROPTEST_DIR = resolve(KDIR, '__proptests__');
 const FIXTURES_DIR = resolve(KDIR, 'fixtures');
 const BASELINE_PATH = resolve(HERE, 'node-completeness-baseline.json');
+// Every key the (c)/(d) legacy ratchet reads out of the baseline, declared for the shared loader.
+// `legacy_ids` is required (not optional) — `baseline.legacy_ids ?? []` would silently reclassify
+// every pre-existing legacy fail as "new" in the printed diff the moment the list key went missing.
+const BASELINE_REQUIRED_KEYS = [
+  'legacy_count',
+  { key: 'legacy_ids', type: 'name-list' },
+];
+const BASELINE_OPTS = {
+  label: 'NODE-COMPLETENESS-GATE-1 (c)/(d) legacy ratchet',
+  repinCommand: 'node scripts/check-node-complete.mjs --all --update-baseline',
+};
 
 const argv = process.argv.slice(2);
 const ALL = argv.includes('--all');
 const ALL_CHANGED = argv.includes('--all-changed');
 const UPDATE_BASELINE = argv.includes('--update-baseline');
 const singleId = argv.find((a) => !a.startsWith('--'));
-
-if (!ALL && !ALL_CHANGED && !singleId) {
-  console.error('Usage: node scripts/check-node-complete.mjs <art-id> | --all-changed | --all [--update-baseline]');
-  process.exit(2);
-}
+// RATCHET-BASELINE-SWEEP-2: the CLI usage-check (a `process.exit(2)` side effect) moved down into the
+// `IS_MAIN` guard below — it must not fire just because this module was IMPORTED (by a self-test, say)
+// with no matching argv of its own.
 
 function git(args) {
   try {
@@ -192,7 +208,7 @@ function checkFixturesAndProptest(id) {
 }
 
 // ── per-node evaluation ──────────────────────────────────────────────────────────────────────────────
-function evaluateNode(id) {
+export function evaluateNode(id) {
   const shardPath = resolve(NODES_DIR, `${id}.json`);
   if (!existsSync(shardPath)) {
     return { id, malformed: true, checks: {}, note: `no chaingraph/graph/nodes/${id}.json shard file.` };
@@ -217,7 +233,7 @@ function evaluateNode(id) {
   };
 }
 
-function isHardFail(result, { ratchetLegacy }) {
+export function isHardFail(result, { ratchetLegacy }) {
   if (result.malformed) return true;
   const c = result.checks;
   if (c.identity.status === 'FAIL' || c.registration.status === 'FAIL' || c.fixtures.status === 'FAIL') return true;
@@ -266,7 +282,45 @@ function allIds() {
   return readdirSync(NODES_DIR).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
 }
 
+// ── legacyRatchetVerdict ─────────────────────────────────────────────────────────────────────────
+// Pure: given the CURRENT legacyFails list and an ALREADY-VALIDATED baseline object (loaded via the
+// shared loader — never a raw JSON.parse here), decide PASS/FAIL for the (c)/(d) ratchet and format
+// the same messages the CLI used to print inline. Split out so a self-test can drive it directly
+// against fixture baseline objects without paying for a full --all sweep (evaluateNode() alone spawns
+// two subprocesses per node — see checkIdentity/checkRegistration above — so a 600+ node estate makes
+// re-running the CLI end-to-end per mutation prohibitively slow; this function is the exact code path
+// the CLI calls, just addressable without the expensive discovery phase around it).
+export function legacyRatchetVerdict(legacyFails, baseline) {
+  const ceiling = baseline.legacy_count;
+  const known = new Set(baseline.legacy_ids);
+  if (legacyFails.length > ceiling) {
+    const added = legacyFails.filter((r) => !known.has(r.id));
+    return {
+      failed: true,
+      lines: [
+        `✗ (c)/(d) legacy ratchet FAILED — count rose to ${legacyFails.length}, baseline ceiling is ${ceiling}.`,
+        ...(added.length ? ['  New legacy (c)/(d) fail(s):', ...added.map((r) => `    - ${r.id}`)] : []),
+      ],
+    };
+  }
+  return {
+    failed: false,
+    lines: [`✓ (c)/(d) legacy count (${legacyFails.length}) is at or below baseline ceiling (${ceiling}).`],
+  };
+}
+
 // ── modes ────────────────────────────────────────────────────────────────────────────────────────────
+// RATCHET-BASELINE-SWEEP-2: guarded on IS_MAIN (not bare top-level) so this file can be IMPORTED (by
+// its self-test, to reach legacyRatchetVerdict/evaluateNode/isHardFail directly) without the CLI usage
+// check or any of the three modes firing off the importer's own process.argv.
+const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (IS_MAIN) {
+
+if (!ALL && !ALL_CHANGED && !singleId) {
+  console.error('Usage: node scripts/check-node-complete.mjs <art-id> | --all-changed | --all [--update-baseline]');
+  process.exit(2);
+}
+
 if (singleId) {
   const result = evaluateNode(singleId);
   printNodeReport(result);
@@ -301,6 +355,11 @@ if (ALL_CHANGED) {
   const legacyFails = results.filter((r) => !r.malformed && (r.checks.url.status === 'FAIL' || r.checks.page.status === 'FAIL'));
 
   if (UPDATE_BASELINE) {
+    // ⚖ THE ONE SANCTIONED ABSENT-BASELINE PATH (RATCHET-BASELINE-LOADER-1): reading via
+    // readBaselineForUpdate() before the unconditional overwrite below means a CORRUPT existing
+    // baseline hard-fails here rather than being silently replaced as though it had been a clean
+    // first pin. Absent ⇒ null (legal — this IS the first-pin writer path).
+    readBaselineForUpdate(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
     const baseline = {
       _comment: 'Ratchet ceiling for NODE-COMPLETENESS-GATE-1 (c)/(d) legacy debt — counts only go DOWN. Regenerate with: node scripts/check-node-complete.mjs --all --update-baseline',
       legacy_count: legacyFails.length,
@@ -320,30 +379,23 @@ if (ALL_CHANGED) {
   if (hardFails.length) for (const r of hardFails) console.log(`    - ${r.id}`);
   console.log(`  Legacy (c)/(d) fails: ${legacyFails.length}`);
 
-  let baseline = { legacy_count: 0, legacy_ids: [] };
-  let baselineFailure = false;
-  if (existsSync(BASELINE_PATH)) {
-    baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-    if (legacyFails.length > (baseline.legacy_count ?? 0)) {
-      baselineFailure = true;
-      const known = new Set(baseline.legacy_ids ?? []);
-      const added = legacyFails.filter((r) => !known.has(r.id));
-      console.log(`✗ (c)/(d) legacy ratchet FAILED — count rose to ${legacyFails.length}, baseline ceiling is ${baseline.legacy_count ?? 0}.`);
-      if (added.length) {
-        console.log('  New legacy (c)/(d) fail(s):');
-        for (const r of added) console.log(`    - ${r.id}`);
-      }
-    } else {
-      console.log(`✓ (c)/(d) legacy count (${legacyFails.length}) is at or below baseline ceiling (${baseline.legacy_count ?? 0}).`);
-    }
-  } else {
-    console.log('⚠ no node-completeness-baseline.json — run --update-baseline to pin the (c)/(d) ratchet (not blocking here, but preflight wiring should not run --all without one).');
-  }
+  // ⛔ NO existsSync() BRANCH AND NO `?? 0` DEFAULT — RATCHET-BASELINE-LOADER-1 (gate-integrity F-11).
+  // This block used to be `if (existsSync(BASELINE_PATH)) {…} else { console.log('⚠ no baseline … (not
+  // blocking …)'); }` — deleting the file skipped the ratchet check entirely (baselineFailure stayed
+  // false, and --all exited 0 as long as no HARD axis failed). A present-but-corrupt baseline also
+  // silently passed via `legacyFails.length > (baseline.legacy_count ?? 0)`: a NaN/string/Infinity
+  // -typed ceiling makes that comparison false unconditionally (`5 > "five"` and `5 > Infinity` are
+  // both `false`) — the exact `?? Infinity` shape one level down, without even needing the `??`.
+  const baseline = loadRatchetBaselineOrExit(BASELINE_PATH, BASELINE_REQUIRED_KEYS, BASELINE_OPTS);
+  const verdict = legacyRatchetVerdict(legacyFails, baseline);
+  for (const line of verdict.lines) console.log(line);
 
-  if (hardFails.length || baselineFailure) {
+  if (hardFails.length || verdict.failed) {
     console.log(`\nNODE-COMPLETENESS-GATE-1 --all: FAIL.`);
     process.exit(1);
   }
   console.log(`\nNODE-COMPLETENESS-GATE-1 --all: PASS.`);
   process.exit(0);
 }
+
+} // IS_MAIN
