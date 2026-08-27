@@ -1,3 +1,12 @@
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and this edit makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path filter,
+// landed 2026-08-16, watches the whole directory, not just *.kernel.mjs). Without
+// this it fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/) that would
+// block ANY future edit to any of the ~40 non-kernel .mjs scripts in this
+// directory, not something specific to this file's own logic. Same precedent as
+// lint-forbidden-hash.mjs / vm-parity-gate.mjs / bootstrap-fixtures.mjs.
 // syntax-check.mjs — parse every inline <script> in the edited tool HTML and
 // report any SyntaxError. This is the check the Node hash-gates DON'T do: it
 // confirms the agent edits (comma fixes, async refactors, helper injection)
@@ -17,14 +26,25 @@
 // on a real SyntaxError without executing. (An earlier version used `new Function`,
 // which parses as a FUNCTION BODY, not a script, and produced false positives on
 // tools with large top-level blocks.)
+//
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B2 of GATE-MANIFEST-DRAFT.md §1):
+// scope the scan to files touched vs <REF> instead of every page in the four
+// dirs below. Undeterminable diff BLOCKS (fail-closed) rather than silently
+// widening to a full scan — see scripts/_changed-files-lib.js, the ONE
+// incremental-diff mechanism every --changed gate reuses.
 
 import vm from 'node:vm';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveChangedScope, isTouched } from '../../scripts/_changed-files-lib.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
+
+const changedIdx = process.argv.indexOf('--changed');
+const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
+const changed = resolveChangedScope(changedRef, { gate: 'syntax-check.mjs (B2)', failClosed: true });
 
 function htmlFiles() {
   const out = [];
@@ -39,7 +59,9 @@ function htmlFiles() {
   add('chaingraph/chains');          // chain viewers (agentic-policy etc.)
   add('tools');                      // ALL catalog tools (full-suite syntax coverage)
   add('guides');                     // composers + guide hubs
-  return out;
+  let all = out;
+  if (changed) all = all.filter((f) => isTouched(relative(REPO, f), changed));
+  return all;
 }
 
 // Extract classic inline <script> bodies. Skip src=, type=module, JSON-LD, importmap.

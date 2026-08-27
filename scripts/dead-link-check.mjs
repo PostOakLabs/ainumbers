@@ -6,15 +6,27 @@
 //   - a dead link NOT in the baseline   -> FAIL (exit 1)   [recurrence guard]
 //   - a baseline entry that is now live  -> WARN (prune)    [keeps baseline honest]
 // Flags: --init / --update  regenerate the baseline from current state, exit 0.
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B6 of GATE-MANIFEST-DRAFT.md §1):
+// only scan OUTBOUND links from files touched vs <REF> (link targets still
+// resolve against the full tree — existsSync, not a parse — so correctness is
+// unaffected). Undeterminable diff falls back to a FULL scan (fail-open,
+// safe-by-cost) — never combined with --init/--update, which regenerate the
+// baseline from the full estate by design.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
 
 const ROOT = process.env.DLC_ROOT ? resolve(process.env.DLC_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = process.env.DLC_BASELINE ? resolve(process.env.DLC_BASELINE)
   : join(ROOT, 'scripts', 'dead-link-baseline.json');
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
+const changedArgIdx = process.argv.indexOf('--changed');
+const changedRef = changedArgIdx !== -1 ? process.argv[changedArgIdx + 1] : null;
+const CHANGED = MODE === 'check'
+  ? resolveChangedScope(changedRef, { gate: 'dead-link-check.mjs (B6)', failClosed: false })
+  : null;
 
 const CHECK_EXT = new Set(['.html','.htm','.css','.js','.mjs','.json','.png','.jpg','.jpeg','.gif','.svg','.webp','.ico','.pdf','.xml','.txt','.woff','.woff2','.md']);
 // Sibling git worktrees are checked out as literal subdirs (repo/worktrees/*,
@@ -45,13 +57,22 @@ function skip(v){
   if(/^(mailto:|tel:|javascript:|data:|#)/i.test(v)) return true;
   return false;
 }
+// Scan set: every file, or (with --changed, determinable) only touched files.
+// Link TARGETS still resolve against the full tree via existsSync below —
+// only which files' own OUTBOUND links get parsed is scoped.
+function scanSet(){
+  const all = walk(ROOT);
+  if (!CHANGED) return all;
+  return all.filter(f => isTouched(f.slice(ROOT.length+1), CHANGED));
+}
+
 // HELM-BETA-LABEL-1 (phil, 2026-08-06): a bare loopback anchor is a
 // port-squat/phish class issue (any local process can bind that port and
 // impersonate Helm), so it is NEVER baselineable, unlike the general
 // dead-link check above. Checked on every run, both modes.
 function localhostAnchors(){
   const bad=[];
-  for(const file of walk(ROOT)){
+  for(const file of scanSet()){
     const rel=file.slice(ROOT.length+1).replace(/\\/g,'/');
     const html=stripCode(readFileSync(file,'utf8'));
     for(const raw of links(html)){
@@ -70,7 +91,7 @@ if(badLocal.length){
 
 function deadLinks(){
   const dead=[];
-  for(const file of walk(ROOT)){
+  for(const file of scanSet()){
     const rel=file.slice(ROOT.length+1).replace(/\\/g,'/');
     const html=stripCode(readFileSync(file,'utf8'));
     for(const raw of links(html)){
@@ -96,8 +117,11 @@ let baseline={dead:[]};
 if(existsSync(BASELINE)){try{baseline=JSON.parse(readFileSync(BASELINE,'utf8'));}catch{}}
 const baseSet=new Set(baseline.dead||[]); const curSet=new Set(current);
 const isNew=current.filter(d=>!baseSet.has(d));
-const fixed=[...baseSet].filter(d=>!curSet.has(d));
-console.log('dead-link-check: '+current.length+' dead link(s) total, '+baseSet.size+' baselined.');
+// A --changed run only re-checked touched files' own outbound links, so a
+// baseline entry sourced from an UNTOUCHED file can't be claimed "fixed"
+// here — it was never re-scanned this run.
+const fixed=[...baseSet].filter(d=>!curSet.has(d) && (!CHANGED || isTouched(d.split(' -> ')[0], CHANGED)));
+console.log('dead-link-check: '+current.length+' dead link(s) total, '+baseSet.size+' baselined.'+(CHANGED?' (touched-scope: '+scanSet().length+' file(s) scanned)':''));
 if(fixed.length){console.log('\n  '+fixed.length+' baselined link(s) now resolve - prune with --update:');for(const f of fixed.slice(0,50))console.log('    - '+f);}
 if(isNew.length){console.error('\nNEW dead link(s) introduced ('+isNew.length+') - must be fixed:');for(const d of isNew)console.error('   X '+d);console.error('\nFix the link target, or (only if intentional) regenerate the baseline with --update.');process.exit(1);}
 console.log('\nNo new dead links. (baseline of '+baseSet.size+' pre-existing; burn down over time.)');

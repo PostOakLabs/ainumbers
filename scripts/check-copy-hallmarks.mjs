@@ -103,10 +103,21 @@
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, relative, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE_PATH = resolve(REPO, 'scripts', 'copy-hallmarks-baseline.json');
 const UPDATE = process.argv.includes('--update');
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B5 of GATE-MANIFEST-DRAFT.md §1):
+// scope the scan to pages touched vs <REF>. Undeterminable diff BLOCKS
+// (fail-closed) rather than silently widening to a full scan. Never combined
+// with --update/--report, which regenerate the baseline/metrics from the
+// full estate by design.
+const changedArgIdx = process.argv.indexOf('--changed');
+const changedRef = changedArgIdx !== -1 ? process.argv[changedArgIdx + 1] : null;
+const CHANGED = (!UPDATE && !process.argv.includes('--report'))
+  ? resolveChangedScope(changedRef, { gate: 'check-copy-hallmarks.mjs (B5)', failClosed: true })
+  : null;
 // --report is local/dev-only (COPY-HALLMARK-METRICS-1): writes the Tier-1
 // H1+H5 remediation ranking to WORKSPACE-ROOT research/ (never repo/research/,
 // per workspace CLAUDE.md's path-ambiguity trap). Never invoked by preflight
@@ -460,7 +471,8 @@ function headerText(prose) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
 
 const findings = {}; // rel path -> { emdash, jargon: [msg], twotone, hallmarks: [msg] }
-for (const file of htmlFiles(REPO)) {
+const scanFiles = CHANGED ? htmlFiles(REPO).filter((f) => isTouched(relative(REPO, f), CHANGED)) : htmlFiles(REPO);
+for (const file of scanFiles) {
   const rel = relative(REPO, file).replace(/\\/g, '/');
   const raw = readFileSync(file, 'utf8');
   const prose = proseHtml(raw); // tags intact, badges/script/style/pre/code/comments gone
@@ -546,12 +558,16 @@ for (const file of htmlFiles(REPO)) {
 }
 
 // chaingraph.json descriptions — served to agents over MCP; em-dash gate only
-// (jargon there is check-shipped-prose.mjs territory).
-const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
-let cgEmdash = 0;
-for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
-for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], notX: 0, panel: [] };
+// (jargon there is check-shipped-prose.mjs territory). Scoped runs only pay
+// for this when chaingraph.json itself is in the touched set — never write
+// to it (out of this row's fence; this gate only reads it).
+if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
+  const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  let cgEmdash = 0;
+  for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
+  for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
+  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], notX: 0, panel: [] };
+}
 
 if (REPORT) {
   const date = process.env.COPY_HALLMARK_REPORT_DATE || new Date().toISOString().slice(0, 10);
@@ -637,7 +653,10 @@ for (const [rel, f] of Object.entries(findings)) {
   if (f.loadbearing) advisories.push(`${rel}: ${f.loadbearing} "load-bearing" hit(s) — likely a metaphor for important/required; reviewer clears literal-structural/domain uses (advisory)`);
   if (f.emojiProse) advisories.push(`${rel}: ${f.emojiProse} emoji glyph(s) in body text (advisory — see script header comment)`);
 }
+// Untouched files were never scanned in a --changed run — only claim "now
+// clean" for a baseline entry this run actually scanned.
 for (const rel of Object.keys(baseline)) {
+  if (CHANGED && !isTouched(rel, CHANGED)) continue;
   if (!findings[rel]) improvements.push(`${rel}: clean (baseline entry can be dropped)`);
 }
 
@@ -652,6 +671,6 @@ if (failures.length) {
   console.error(`\nFix the copy (see CONTRACT.md §1.4 + memory feedback-anti-ai-tell-copy-ban). Em-dashes/jargon: baseline burns down with --update. ANTI-AI-TELL hits (italics-emphasis, "not just X but", "it's not X, it's Y" pivot, dramatic fragments, validation-phrasing, filler-vocab, emoji-in-headers/prose): zero-tolerance, no baseline — rewrite the copy.`);
   process.exit(1);
 }
-console.log(`copy-hallmarks: OK (${Object.keys(baseline).length} baselined file(s) within budget, 0 ANTI-AI-TELL hits).`);
+console.log(`copy-hallmarks: OK (${Object.keys(baseline).length} baselined file(s) within budget, 0 ANTI-AI-TELL hits)${CHANGED ? ` — touched-scope: ${scanFiles.length} file(s) scanned` : ''}.`);
 
 }

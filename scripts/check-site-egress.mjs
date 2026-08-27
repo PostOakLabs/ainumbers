@@ -29,10 +29,19 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = join(ROOT, 'scripts', 'site-egress-baseline.json');
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
+// --changed <REF> (PREREQ-CHANGED-SCOPING-1, B7 of GATE-MANIFEST-DRAFT.md §1):
+// scope the scan to files touched vs <REF>. Undeterminable diff falls back to
+// a FULL scan (fail-open, safe-by-cost). Never combined with --init/--update.
+const changedArgIdx = process.argv.indexOf('--changed');
+const changedRef = changedArgIdx !== -1 ? process.argv[changedArgIdx + 1] : null;
+const CHANGED = MODE === 'check'
+  ? resolveChangedScope(changedRef, { gate: 'check-site-egress.mjs (B7)', failClosed: false })
+  : null;
 
 const SCAN_DIRS = ['tools', 'guides', 'chaingraph'];
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'worktrees']);
@@ -69,10 +78,11 @@ function rootHtmlFiles() {
     .map(e => join(ROOT, e.name));
 }
 
-const files = [
+let files = [
   ...rootHtmlFiles(),
   ...SCAN_DIRS.flatMap(d => existsSync(join(ROOT, d)) ? walk(join(ROOT, d)) : []),
 ];
+if (CHANGED) files = files.filter(f => isTouched(f.slice(ROOT.length + 1), CHANGED));
 
 // found[rel] = { pattern: count }
 const found = {};
@@ -138,11 +148,13 @@ if (newViolations.length) {
   process.exit(1);
 }
 
-const healedFiles = Object.keys(baseFiles).filter(f => !found[f]);
-const healedExt = Object.keys(baseExt).filter(f => !externalScripts[f]);
+// Untouched files were never re-scanned in a --changed run — only claim
+// "no longer matches" for a baseline entry this run actually scanned.
+const healedFiles = Object.keys(baseFiles).filter(f => !found[f] && (!CHANGED || isTouched(f, CHANGED)));
+const healedExt = Object.keys(baseExt).filter(f => !externalScripts[f] && (!CHANGED || isTouched(f, CHANGED)));
 if (healedFiles.length || healedExt.length) {
   console.warn(`check-site-egress: ${healedFiles.length + healedExt.length} baselined file(s) no longer match — prune with --update.`);
 }
 
 const totalBaselined = Object.values(baseFiles).reduce((s, p) => s + Object.values(p).reduce((a, b) => a + b, 0), 0);
-console.log(`check-site-egress: 0 new violations across ${files.length} scanned file(s) (${totalBaselined} baseline-shielded hit(s) in ${Object.keys(baseFiles).length} file(s); ${[...ALLOWLIST_PATHS, ...ALLOWLIST_FILES].join(', ')} excluded per lawful exception).`);
+console.log(`check-site-egress: 0 new violations across ${files.length} scanned file(s)${CHANGED ? ' (touched-scope)' : ''} (${totalBaselined} baseline-shielded hit(s) in ${Object.keys(baseFiles).length} file(s); ${[...ALLOWLIST_PATHS, ...ALLOWLIST_FILES].join(', ')} excluded per lawful exception).`);
