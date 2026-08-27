@@ -15,16 +15,19 @@
 // CommonJS on purpose: scripts/check_tools.js is CJS (`require`) and every
 // other consumer is ESM (`.mjs`), which can `import` a CJS module's named
 // exports directly — one file serves both without a second port.
+//
+// Every git child goes through scripts/_git-env-lib.mjs's gitSync/gitEnv
+// (GIT-ENV-LEAK-SWEEP-1, SO #57) — never a raw execFileSync('git', ...) —
+// so this helper answers about the REPO at `cwd`, never an ambient
+// GIT_DIR/GIT_WORK_TREE a pre-push hook exported into this process. _git-
+// env-lib.mjs is ESM; Node 22.12+'s synchronous require(esm) loads it from
+// this CJS file directly, no second scrub, no async split.
 'use strict';
 
-const { execFileSync } = require('node:child_process');
 const path = require('node:path');
+const { gitSync } = require('./_git-env-lib.mjs');
 
 const REPO = path.resolve(__dirname, '..');
-
-function run(cmd, cwd) {
-  return execFileSync('git', cmd, { cwd, encoding: 'utf8' });
-}
 
 /**
  * Union of files touched vs <ref> (committed) and in the working tree
@@ -36,7 +39,7 @@ function run(cmd, cwd) {
  */
 function getChangedFiles(ref, { repo = REPO } = {}) {
   try {
-    execFileSync('git', ['rev-parse', '--verify', ref], { cwd: repo, stdio: 'ignore' });
+    gitSync(['rev-parse', '--verify', ref], { cwd: repo });
   } catch {
     return null; // ref not resolvable, or git itself unavailable
   }
@@ -49,15 +52,25 @@ function getChangedFiles(ref, { repo = REPO } = {}) {
   for (const cmd of cmds) {
     let out;
     try {
-      out = run(cmd, repo);
+      out = gitSync(cmd, { cwd: repo });
     } catch {
       return null; // any of the three failing is undeterminable, same as verify_repo.py
     }
-    for (let line of out.split('\n')) {
-      line = line.trim();
+    for (const rawLine of out.split('\n')) {
+      if (!rawLine) continue;
+      // `git status --porcelain` prefixes each line with a fixed-width 2-char
+      // status code + space (e.g. " M path", "?? path") — slice the RAW line
+      // BEFORE trimming. The porcelain status's first column is a literal
+      // space for "modified/deleted in worktree, not staged" (the single most
+      // common state), so trimming first collapses that leading space and
+      // throws off the fixed 3-char offset, corrupting the path (this is a
+      // real bug ported straight out of verify_repo.py's identical
+      // strip-then-slice order — fixed here rather than propagated. It was
+      // latent there and here: an unstaged " M"/" D" file is already caught
+      // by `git diff --name-only HEAD` above, so the corrupted duplicate
+      // never masked a real touched file — worth fixing anyway).
+      const line = (cmd[0] === 'status' ? rawLine.slice(3) : rawLine).trim();
       if (!line) continue;
-      // `git status --porcelain` prefixes each line with a 2-char status code + space.
-      if (cmd[0] === 'status') line = line.slice(3);
       changed.add(line.replace(/\\/g, '/'));
     }
   }
