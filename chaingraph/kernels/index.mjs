@@ -583,6 +583,7 @@ import * as art651    from './art-651-authzen-conformance-fixture.kernel.mjs';
 import * as art652    from './art-652-verify-receipt.kernel.mjs';
 import * as art653    from './art-653-pta-verifier.kernel.mjs';
 import * as art656    from './art-656-derivatives-margin-workbench.kernel.mjs';
+import * as art657    from './art-657-forecast-accuracy-scorer.kernel.mjs';
 import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.mjs';
 import * as art661    from './art-661-interest-accrual-recompute.kernel.mjs';
 import * as art662    from './art-662-odnsf-fee-recompute.kernel.mjs';
@@ -1220,6 +1221,7 @@ export const KERNELS = {
   'art-652-verify-receipt':                                     art652,
   'art-653-pta-verifier':                                       art653,
   'art-656-derivatives-margin-workbench':                       art656,
+  'art-657-forecast-accuracy-scorer':                           art657,
   'art-66-fria-postmarket-monitoring-builder':                  art66,
   'art-661-interest-accrual-recompute':                         art661,
   'art-662-odnsf-fee-recompute':                                art662,
