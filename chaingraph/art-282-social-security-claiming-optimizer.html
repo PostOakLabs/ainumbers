@@ -141,7 +141,6 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
-  <div class="pii-notice" style="border-left-color:var(--warn)">⚠ The earnings-test exempt amount here is the 2025 figure ($23,400). The 2026 amount is $24,480. This tool has no input that overrides the exempt amount, so for a claimant below full retirement age with earnings above it, the withheld benefit is overstated by up to $540 a year. A corrected release is scheduled.</div>
 
   <div class="info-box">
     <div class="ib-title">Scope</div>
@@ -172,6 +171,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="form-group">
         <label class="form-label" for="earningsIfWorking">earningsIfWorking (annual)</label>
         <input type="number" id="earningsIfWorking" value="0" step="any" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="earningsTestAnnualLimit">earningsTestAnnualLimit (annual exempt amount)</label>
+        <input type="number" id="earningsTestAnnualLimit" value="24480" step="any" min="0">
       </div>
       <div class="form-group">
         <label class="form-label" for="discountRatePct">discountRatePct</label>
@@ -323,6 +326,7 @@ const MANIFEST = {
             pia: { type: 'number' },
             claimAge: { type: 'number' },
             earningsIfWorking: { type: 'number' },
+            earningsTestAnnualLimit: { type: 'number', description: 'Annual earnings-test exempt amount. Defaults to the pinned 2026 figure ($24,480) when omitted or negative.' },
             discountRatePct: { type: 'number' },
             longevityAge: { type: 'number' }
           }
@@ -332,7 +336,10 @@ const MANIFEST = {
   }
 };
 
-const SS_EARNINGS_TEST_ANNUAL_LIMIT_2026 = 23400;
+// 2026 annual exempt amount for a claimant attaining NRA after 2026.
+// SSA, Exempt Amounts Under the Earnings Test, retrieved 2026-08-23.
+// Overridable via claimant.earningsTestAnnualLimit.
+const SS_EARNINGS_TEST_ANNUAL_LIMIT_DEFAULT = 24480;
 
 function fraYears(birthYear) {
   const y = Number.isFinite(Number(birthYear)) ? Number(birthYear) : 1960;
@@ -375,6 +382,9 @@ function compute(pp) {
   const pia = g(claimant.pia, 0);
   const claimAge = Math.min(70, Math.max(62, g(claimant.claimAge, 67)));
   const earningsIfWorking = g(claimant.earningsIfWorking, 0);
+  const suppliedLimit = g(claimant.earningsTestAnnualLimit, -1);
+  const earningsTestAnnualLimit = suppliedLimit >= 0 ? suppliedLimit : SS_EARNINGS_TEST_ANNUAL_LIMIT_DEFAULT;
+  const earningsTestLimitSource = suppliedLimit >= 0 ? 'user_supplied' : 'pinned_default_2026';
   const discountRatePct = g(claimant.discountRatePct, 3);
   const longevityAge = Math.min(110, Math.max(claimAge+1, g(claimant.longevityAge, 85)));
   const fra = fraYears(birthYear);
@@ -384,7 +394,7 @@ function compute(pp) {
     const factor = monthlyFactor(age, fra);
     const monthlyBenefit = pia * factor;
     const years = Math.max(0, longevityAge - age);
-    const withheld = age < fra ? Math.min(monthlyBenefit*12, Math.max(0, earningsIfWorking - SS_EARNINGS_TEST_ANNUAL_LIMIT_2026)/2) : 0;
+    const withheld = age < fra ? Math.min(monthlyBenefit*12, Math.max(0, earningsIfWorking - earningsTestAnnualLimit)/2) : 0;
     const annualNet = monthlyBenefit*12 - withheld;
     const lifetimePV = pvOfAnnuity(annualNet, years, discountRatePct);
     return { age, monthlyBenefit, annualNet, lifetimePV };
@@ -404,7 +414,7 @@ function compute(pp) {
 
   const userChoice = candidates[3];
   const compliance_flags = ['SS_CLAIMING_AGE_MODELED'];
-  if (userChoice.age < fra && earningsIfWorking > SS_EARNINGS_TEST_ANNUAL_LIMIT_2026) compliance_flags.push('SS_EARNINGS_TEST_WITHHOLDING_APPLIES');
+  if (userChoice.age < fra && earningsIfWorking > earningsTestAnnualLimit) compliance_flags.push('SS_EARNINGS_TEST_WITHHOLDING_APPLIES');
   if (recommendedClaimAge !== userChoice.age) compliance_flags.push('SS_ALTERNATE_CLAIM_AGE_HAS_HIGHER_PV');
 
   return {
@@ -412,7 +422,7 @@ function compute(pp) {
       birthYear, fullRetirementAge: fra, pia, claimAge: userChoice.age,
       monthlyBenefitAtClaimAge: userChoice.monthlyBenefit, recommendedClaimAge,
       lifetimePV: userChoice.lifetimePV, breakEvenAge62vs70: breakEvenAge,
-      earningsTestAnnualLimit: SS_EARNINGS_TEST_ANNUAL_LIMIT_2026, longevityAge,
+      earningsTestAnnualLimit, earningsTestLimitSource, longevityAge,
     },
     compliance_flags,
   };
@@ -433,6 +443,7 @@ function getParams() {
       pia: Number(document.getElementById('pia').value) || 0,
       claimAge: Number(document.getElementById('claimAge').value) || 67,
       earningsIfWorking: Number(document.getElementById('earningsIfWorking').value) || 0,
+      earningsTestAnnualLimit: Number(document.getElementById('earningsTestAnnualLimit').value),
       discountRatePct: Number(document.getElementById('discountRatePct').value) || 0,
       longevityAge: Number(document.getElementById('longevityAge').value) || 85,
     }
@@ -441,14 +452,15 @@ function getParams() {
 
 function loadPreset(key) {
   const P = {
-    early: { birthYear:1960, pia:2000, claimAge:62, earningsIfWorking:0, discountRatePct:3, longevityAge:85 },
-    delayed: { birthYear:1960, pia:2000, claimAge:70, earningsIfWorking:0, discountRatePct:3, longevityAge:85 },
+    early: { birthYear:1960, pia:2000, claimAge:62, earningsIfWorking:0, earningsTestAnnualLimit:24480, discountRatePct:3, longevityAge:85 },
+    delayed: { birthYear:1960, pia:2000, claimAge:70, earningsIfWorking:0, earningsTestAnnualLimit:24480, discountRatePct:3, longevityAge:85 },
   };
   const p=P[key]; if(!p) return;
   document.getElementById('birthYear').value = p.birthYear;
   document.getElementById('pia').value = p.pia;
   document.getElementById('claimAge').value = p.claimAge;
   document.getElementById('earningsIfWorking').value = p.earningsIfWorking;
+  if (p.earningsTestAnnualLimit !== undefined) document.getElementById('earningsTestAnnualLimit').value = p.earningsTestAnnualLimit;
   document.getElementById('discountRatePct').value = p.discountRatePct;
   document.getElementById('longevityAge').value = p.longevityAge;
 }

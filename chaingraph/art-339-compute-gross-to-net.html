@@ -129,7 +129,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-339 &middot; US Payroll Compliance</div>
   <h1>Gross-to-Net Payroll Calculator</h1>
-  <p class="sub">FICA (Social Security 6.2% up to the 2025 $176,100 wage base, Medicare 1.45% uncapped, Additional Medicare Tax 0.9% on cumulative wages over $200,000), pretax deduction ordering, and net pay for a single pay period. Consumes ART-338 Federal Withholding Calculator's output as its federal_withholding_per_period input.</p>
+  <p class="sub">FICA (Social Security 6.2% up to the wage base for the selected tax year, Medicare 1.45% uncapped, Additional Medicare Tax 0.9% on cumulative wages over $200,000), pretax deduction ordering, and net pay for a single pay period. Consumes ART-338 Federal Withholding Calculator's output as its federal_withholding_per_period input.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">IRC 3101/3121</span>
     <span class="flag info">SSA 2025 Wage Base</span>
@@ -138,11 +138,18 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
   <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
   <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; Federal FICA and net pay only. Not tax advice. State/local withholding and state disability/unemployment employee contributions are out of scope for this tool.</div>
-  <div class="pii-notice" style="border-left-color:var(--warn)">&#9888; The Social Security wage base here is the 2025 figure ($176,100). The 2026 base is $184,500; for 2026 wages between those amounts this tool under-computes both the employee and employer Social Security shares. A corrected release is scheduled.</div>
 
   <div class="card">
     <div class="section-head">Pay &amp; YTD Tracking</div>
     <div class="row3">
+      <div class="q">
+        <label class="q-label" for="taxYear">Tax year</label>
+        <div class="q-help">Selects the SSA contribution and benefit base. 2026: $184,500. 2025: $176,100.</div>
+        <select id="taxYear">
+          <option value="2026" selected>2026</option>
+          <option value="2025">2025</option>
+        </select>
+      </div>
       <div class="q">
         <label class="q-label" for="grossWages">Gross wages this pay period ($)</label>
         <input type="number" id="grossWages" value="3000" step="1" min="0">
@@ -298,11 +305,12 @@ var MANIFEST = {
   regulation: 'IRC 3101/3121; SSA 2025 Contribution and Benefit Base; IRC 3101(b)(2)',
   mcp_tool_definition: {
     name: 'compute_gross_to_net',
-    description: 'Compute FICA taxes and net pay for a single pay period given gross wages, federal withholding, YTD FICA wages, and pretax/post-tax deductions.',
+    description: 'Compute FICA taxes and net pay for a single pay period given the tax year, gross wages, federal withholding, YTD FICA wages, and pretax/post-tax deductions.',
     inputSchema: {
       type: 'object',
-      required: ['gross_wages_per_period'],
+      required: ['tax_year', 'gross_wages_per_period'],
       properties: {
+        tax_year: { type: 'string', enum: ['2025', '2026'], description: 'Calendar year the pay period falls in. Selects the SSA contribution and benefit base. An unsupported year fails closed rather than defaulting.' },
         gross_wages_per_period: { type: 'number' },
         federal_withholding_per_period: { type: 'number' },
         pretax_reduces_fica_and_fit: { type: 'number' },
@@ -315,8 +323,20 @@ var MANIFEST = {
 
 var ANCHOR_BASE = 'https://anchor.ainumbers.co';
 var _lastResult = null;
-var CONSTANTS_VERSION = '2025';
-var SS_WAGE_BASE_2025 = 176100;
+// Year-keyed, mirroring chaingraph/kernels/art-339-compute-gross-to-net.kernel.mjs.
+// Keep these two in lockstep: a page that falls back to a single hard-coded base
+// silently disagrees with the kernel it claims to represent.
+var PARAMS = {
+  '2025': {
+    ss_wage_base: 176100,
+    regulatory_basis: 'IRC 3101/3121 (FICA); SSA 2025 Contribution and Benefit Base ($176,100 OASDI wage base); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold).'
+  },
+  '2026': {
+    ss_wage_base: 184500,
+    regulatory_basis: 'IRC 3101/3121 (FICA); SSA 2026 Contribution and Benefit Base ($184,500 OASDI wage base); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold).'
+  }
+};
+var SUPPORTED_TAX_YEARS = Object.keys(PARAMS);
 var SS_EMPLOYEE_RATE = 0.062;
 var MEDICARE_RATE = 0.0145;
 var ADDITIONAL_MEDICARE_THRESHOLD = 200000;
@@ -339,12 +359,21 @@ function runGrossToNet() {
   var pretax = Math.max(0, safe(document.getElementById('pretaxDeductions').value, 0));
   var posttax = Math.max(0, safe(document.getElementById('posttaxDeductions').value, 0));
   var ytdBefore = Math.max(0, safe(document.getElementById('ytdFicaWages').value, 0));
+  var taxYear = document.getElementById('taxYear').value;
+  if (!Object.prototype.hasOwnProperty.call(PARAMS, taxYear)) {
+    var vb = document.getElementById('verdictBox');
+    vb.style.color = 'var(--red)'; vb.style.background = 'rgba(239,68,68,.08)'; vb.style.border = '1px solid var(--red)';
+    vb.textContent = 'UNSUPPORTED TAX YEAR';
+    _lastResult = null;
+    return;
+  }
+  var params = PARAMS[taxYear];
 
   var flags = ['FEDERAL_ONLY_NOT_TAX_ADVICE'];
 
   var ficaWages = Math.max(0, r2(grossWages - pretax));
 
-  var ssRoom = Math.max(0, r2(SS_WAGE_BASE_2025 - ytdBefore));
+  var ssRoom = Math.max(0, r2(params.ss_wage_base - ytdBefore));
   var ssTaxable = Math.min(ficaWages, ssRoom);
   var ssTax = r2(ssTaxable * SS_EMPLOYEE_RATE);
   if (ssTaxable < ficaWages) flags.push('SS_WAGE_BASE_REACHED');
@@ -364,11 +393,13 @@ function runGrossToNet() {
   if (grossWages <= 0) flags.push('GROSS_TO_NET_ZERO_WAGES');
 
   var pp = {
+    tax_year: taxYear,
     gross_wages_per_period: grossWages, federal_withholding_per_period: federalWithholding,
     pretax_reduces_fica_and_fit: pretax, post_tax_other_deductions: posttax,
     ytd_fica_wages_before_period: ytdBefore
   };
   var op = {
+    tax_year: taxYear,
     net_pay: Math.max(0, netPay),
     fica_wages_this_period: ficaWages,
     social_security_tax: ssTax,
@@ -381,11 +412,13 @@ function runGrossToNet() {
     pretax_reduces_fica_and_fit: pretax,
     post_tax_other_deductions: posttax,
     ytd_fica_wages_after_period: ytdAfter,
-    ss_wage_base: SS_WAGE_BASE_2025,
+    ss_wage_base: params.ss_wage_base,
     additional_medicare_threshold: ADDITIONAL_MEDICARE_THRESHOLD,
-    constants_version: CONSTANTS_VERSION,
-    regulatory_basis: 'IRC 3101/3121 (FICA); SSA 2025 Contribution and Benefit Base ($176,100 OASDI wage base); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold).',
-    note: 'Federal FICA and net pay only; not tax advice. State/local withholding and state disability/unemployment employee contributions out of scope. federal_withholding_per_period is a declared input (e.g. from compute_federal_withholding), not recomputed here.'
+    constants_version: taxYear,
+    supported_tax_years: SUPPORTED_TAX_YEARS,
+    regulatory_basis: params.regulatory_basis,
+    error: null,
+    note: 'Federal FICA and net pay only; not tax advice. State/local withholding and state disability/unemployment employee contributions out of scope. federal_withholding_per_period is a declared input (e.g. from compute_federal_withholding, which must be called with the same tax_year), not recomputed here.'
   };
 
   _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
