@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:fa90218bd6b3bc32b4f1576091449faaf753c2601b28576dc3521ea785f7dc0c
+// kernel_digest_at_authoring: sha256:3e47de0970d976aa0ae29c66249d8ae11cf754a870d516336914a0a2f3a3825d
 //
 // FV-PROPFLOOR-SHARD-B20-1 — property-test floor for art-338-compute-federal-withholding.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — bracket math divides/rounds dollar
@@ -149,6 +149,7 @@ function checkP5_unknownYearAlwaysFailsClosed() {
 }
 
 // ---------- P4 (mandatory): ULP-boundary forcing ----------
+/** @type {Array<[Record<string, any>, string]>} */
 const ULP_BOUNDARY_CASES = [
   // --- the year key is itself a boundary: fail-closed cases -------------------
   [{ gross_wages_per_period: 2000, pay_frequency: 'biweekly', filing_status: 'single_or_mfs' }, 'tax_year absent entirely (the v1.0.0 call shape) — must fail closed with unsupported_or_missing_tax_year and compute NO withholding, never silently apply a default edition'],

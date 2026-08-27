@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:0719cb9b6e5088acd0d73ce2bdba0b07ebfa10870788ac0128a5526b751da9c5
+// kernel_digest_at_authoring: sha256:9d2c7e3087335619cc0b73d88aee628911bb8cc330020b36cb609549c58fb144
 //
 // FV-PROPFLOOR-SHARD-B10-1 — property-test floor for art-282-social-security-claiming-optimizer.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (fraYears interpolates by month fractions,
@@ -110,6 +110,7 @@ function checkP3_fraTable() {
 }
 
 // ---------- P4 (mandatory): ULP-boundary forcing ----------
+/** @type {Array<[Record<string, any>, string]>} */
 const ULP_BOUNDARY_CASES = [
   [{ claimAge: 62 }, 'claimAge at its own Math.max(62) floor — reduction factor must apply the maximum early-claim penalty without throwing'],
   [{ claimAge: 70 }, 'claimAge at its own Math.min(70) ceiling — delayed credit must cap correctly, no further credit beyond 70'],

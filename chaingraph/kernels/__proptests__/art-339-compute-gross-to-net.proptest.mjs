@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:fd285c684058bd427ccec71858a2fbe55c159a89ad7e785489b5b4632bdca261
+// kernel_digest_at_authoring: sha256:884e9783d26552ef06435b323571abcc4f1cecc3b10648477fa0291b39dab877
 //
 // FV-PROPFLOOR-SHARD-B20-1 — property-test floor for art-339-compute-gross-to-net.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — FICA wage-base and Additional
@@ -145,6 +145,7 @@ function checkP5_unknownYearAlwaysFailsClosed() {
 }
 
 // ---------- P4 (mandatory): ULP-boundary forcing ----------
+/** @type {Array<[Record<string, any>, string]>} */
 const ULP_BOUNDARY_CASES = [
   // --- the year key is itself a boundary: fail-closed cases -------------------
   [{ gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year absent entirely (the v1.0.0 call shape, which silently applied the 2025 base) — must fail closed with unsupported_or_missing_tax_year and compute NOTHING'],
