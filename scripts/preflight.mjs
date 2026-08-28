@@ -868,6 +868,8 @@ const GATES = [
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below.
   ["Year-fallback parity lint (FAIL-CLOSED-PARITY-LINT-1)", "node scripts/check-year-fallback-parity.mjs"],
   ["Year-fallback parity lint fixture proof (SO #40b pairing)", "node scripts/check-year-fallback-parity.test.mjs"],
+  ["Floor label strength lint (FLOOR-LABEL-LINT-1)", "node scripts/check-floor-label-strength.mjs"],
+  ["Floor label strength lint fixture proof (SO #40b pairing)", "node scripts/check-floor-label-strength.test.mjs"],
   // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
   // above) — the FULL per-kernel composite (syntax/exports/hash-lint/guest-builtin/VM-
   // parity/tsc/proptest-floor/registration/hub-categories/node-page/clause-digest), not
