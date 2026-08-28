@@ -183,6 +183,14 @@ export function classifyDiagnostics(tscOutput, touchedFiles, changedLinesByFile 
   let ignoredDependency = 0;
   let ignoredAllowlisted = 0;
   let ignoredPreExisting = 0;
+  let ignoredSharedSignature = 0;
+  // JSDOC-BUFFER-ALLOWLIST-1 (2026-08-28): the estate-wide buildArtifact shared signature
+  // `buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {})`
+  // produces TS2339 'Property now does not exist on type { parent_hashes?... }' on EVERY
+  // kernel that declares it (census: 597 of 638 kernels). Marker-narrowed ignore: exact code
+  // TS2339 + exact property + exact inferred-shape prefix of THAT signature -- never per-file,
+  // never code-wide. Any other property, shape, or code still blocks (the self-test pins both).
+  const SHARED_SIG_RE = /^Property .now. does not exist on type .{0,4}parent_hashes\?/;
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -205,6 +213,12 @@ export function classifyDiagnostics(tscOutput, touchedFiles, changedLinesByFile 
       classified.push({ kind: 'ignored-allowlisted', line, path, code });
       continue;
     }
+    if (code === 'TS2339' && SHARED_SIG_RE.test(message)) {
+      // The estate-wide shared buildArtifact signature (see the counter comment above).
+      ignoredSharedSignature++;
+      classified.push({ kind: 'ignored-shared-signature', line, path, code });
+      continue;
+    }
     const changedSet = changedLinesByFile.get(path);
     if (changedSet && changedSet !== 'ALL' && !changedSet.has(lineNo)) {
       // Line-diff proves this exact line is byte-identical to origin/main — pre-existing type
@@ -217,7 +231,7 @@ export function classifyDiagnostics(tscOutput, touchedFiles, changedLinesByFile 
     classified.push({ kind: 'blocking', line, path, code });
   }
 
-  return { classified, blocking, ignoredDependency, ignoredAllowlisted, ignoredPreExisting };
+  return { classified, blocking, ignoredDependency, ignoredAllowlisted, ignoredPreExisting, ignoredSharedSignature };
 }
 
 // GLOBALS_DTS — ambient scalbn declaration (see its own header for the
@@ -328,7 +342,7 @@ for (const f of files) {
 const tsconfigJson = readFileSync(TSCONFIG_PATH, 'utf8');
 const result = runTsc(files, tsconfigJson);
 const output = `${result.stdout || ''}${result.stderr || ''}`;
-const { classified, blocking, ignoredDependency, ignoredAllowlisted, ignoredPreExisting } = classifyDiagnostics(output, files, changedLinesByFile);
+const { classified, blocking, ignoredDependency, ignoredAllowlisted, ignoredPreExisting, ignoredSharedSignature } = classifyDiagnostics(output, files, changedLinesByFile);
 
 // GitHub Actions' hosted runner has a DEFAULT tsc problem matcher always
 // active (no add-matcher call anywhere in this repo — confirmed by grep).
@@ -359,7 +373,7 @@ for (const c of classified) {
 }
 
 const summaryLine =
-  `jsdoc-checkjs-gate summary: ${blocking} blocking, ${ignoredDependency} pre-existing dependency diagnostic(s) ignored, ` +
+  `jsdoc-checkjs-gate summary: ${blocking} blocking, ${ignoredDependency} pre-existing dependency diagnostic(s) ignored, ${ignoredSharedSignature} shared buildArtifact signature (TS2339 now) diagnostic(s) ignored, ` +
   `${ignoredAllowlisted} allowlisted (no @types/node) diagnostic(s) ignored, ${ignoredPreExisting} pre-existing (unchanged) line diagnostic(s) shielded, ` +
   `checked ${files.length} touched file(s).`;
 // On a clean run, restate the denominator as a ::notice:: so it's visible
@@ -377,7 +391,7 @@ if (blocking > 0) {
 // tsc exiting non-zero with zero parseable diagnostics means something other
 // than a type error went wrong (bad flags, npx/network failure, a crash) —
 // never silently treat that as a pass.
-if (result.status !== 0 && blocking === 0 && ignoredDependency === 0 && ignoredAllowlisted === 0 && ignoredPreExisting === 0) {
+if (result.status !== 0 && blocking === 0 && ignoredDependency === 0 && ignoredAllowlisted === 0 && ignoredPreExisting === 0 && ignoredSharedSignature === 0) {
   console.error(`\n✗ jsdoc-checkjs-gate FAILED — tsc exited ${result.status} with no parseable diagnostics (see output above); treating as failure rather than a silent pass.`);
   process.exit(result.status || 1);
 }

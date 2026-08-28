@@ -105,5 +105,26 @@ log('— parseArgv: --diff-scope <REF> IS stripped correctly when present, anywh
 log('— parseArgv: no files at all —');
 ok(parseArgv([]).files.length === 0, 'empty argv yields an empty file list, not a crash');
 
+log("— JSDOC-BUFFER-ALLOWLIST-1: the shared buildArtifact signature (TS2339 now) ignore class —");
+{
+  // The EXACT estate-wide shape (census: 597 of 638 kernels): TS2339, property now, inferred
+  // shape { parent_hashes?... } -- the buildArtifact(pp, { now, ... } = {}) signature.
+  const path = "chaingraph/kernels/art-anysig.kernel.mjs";
+  const sharedTsc = [
+    `${path}(234,43): error TS2339: Property ${String.fromCharCode(39)}now${String.fromCharCode(39)} does not exist on type ${String.fromCharCode(123)} parent_hashes?: undefined[]; parent_tool_ids?: undefined[]; chain_depth?: number; ${String.fromCharCode(125)}.`,
+  ].join("");
+  const shared = classifyDiagnostics(sharedTsc, [path]);
+  ok(shared.ignoredSharedSignature === 1, "the shared buildArtifact signature diagnostic is ignored-shared-signature (one landing, 597 kernels)");
+  ok(shared.blocking === 0, "zero blocking for the shared signature alone");
+  // FALSE BRANCH A: same code TS2339, DIFFERENT property -- must stay blocking.
+  const otherProp = `${path}(10,1): error TS2339: Property foo does not exist on type { parent_hashes?: undefined[]; }.`;
+  ok(classifyDiagnostics(otherProp, [path]).blocking === 1, "a TS2339 on a DIFFERENT property (foo) is still BLOCKING");
+  // FALSE BRANCH B: property now, DIFFERENT inferred shape ({} -- not the shared signature) -- blocking.
+  const otherShape = `${path}(10,1): error TS2339: Property now does not exist on type {}.`;
+  ok(classifyDiagnostics(otherShape, [path]).blocking === 1, "a TS2339 now on a DIFFERENT shape ({}) is still BLOCKING");
+  // FALSE BRANCH C: different code entirely -- blocking.
+  const otherCode = `${path}(10,1): error TS2304: Cannot find name nope.`;
+  ok(classifyDiagnostics(otherCode, [path]).blocking === 1, "a genuine TS2304 is still BLOCKING (the gate stays real)");
+}
 console.log(`\n${fail} failure(s) of ${out.filter((s) => s.startsWith('✓') || s.startsWith('✗')).length} assertion(s).`);
 process.exit(fail ? 1 : 0);

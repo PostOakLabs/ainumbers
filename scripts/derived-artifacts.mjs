@@ -479,6 +479,12 @@ export const COVERED = [
  */
 export const EXCLUDED = [
   {
+    what: 'consume-vow evidence reads (via scripts/check-vow-vs-code.mjs)',
+    script: 'scripts/check-vow-vs-code.mjs',
+    share: 'n/a -- the gate writes nothing at all (measured 2026-08-28: read-only source scan; the only writeFileSync targets its own baseline JSON, which is not derived from the node graph)',
+    why: 'READ-ONLY STATIC LINT, not a generator. It READS chaingraph/graph/nodes/<id>.json solely to check the declared consumes[] evidence for consume-vow language in kernels (VOW-VS-CODE-LINT-1); it has no regen mode, no artifact output, and is idempotent by construction (zero writes). Classification demanded by NODE-FANOUT-REGEN-CLOSE-1; a MEASURED reason, not a shrug.',
+  },
+  {
     what: 'sitemap.xml (via scripts/regen-sitemap.mjs)',
     script: 'scripts/regen-sitemap.mjs',
     share: '94% — the HIGHEST measured skew rate of any artifact (124/132)',

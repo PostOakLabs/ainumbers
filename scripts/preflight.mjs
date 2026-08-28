@@ -857,6 +857,25 @@ const GATES = [
   ['Quantization parity (§24.6)',  'node chaingraph/kernels/quantization-parity.test.mjs'],
   ['Seed replay (§24.6.2)',        'node chaingraph/kernels/seed-replay.test.mjs'],
   ['Kernel determinism lint',      'node scripts/check-kernel-determinism.mjs'],
+  // FAIL-CLOSED-PARITY-LINT-1 (J24 L1 lint-family batch): a year-keyed pinned-table lookup
+  // that silently falls back onto a default row answers a 2019 question with 2026 numbers
+  // and 2026 citations -- worse than an error: a wrong answer that looks retrieved, and
+  // reproduces. Detects the same-table default-row fallback shape in
+  // chaingraph/kernels/*.kernel.mjs and ratchets it to zero via
+  // scripts/year-fallback-parity-baseline.json (art-218:115, art-234:85 and art-365:68
+  // pinned; their fix belongs to REGZ-CORRECTION-APPLY-1, PR #1502). Vocabulary:
+  // LOOKUP_YEAR_UNAVAILABLE (registered NOT_EVALUABLE alias, subcode NOT_EVALUABLE-LOOKUP).
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below.
+  ["Year-fallback parity lint (FAIL-CLOSED-PARITY-LINT-1)", "node scripts/check-year-fallback-parity.mjs"],
+  ["Year-fallback parity lint fixture proof (SO #40b pairing)", "node scripts/check-year-fallback-parity.test.mjs"],
+  ["Floor label strength lint (FLOOR-LABEL-LINT-1)", "node scripts/check-floor-label-strength.mjs"],
+  ["Floor label strength lint fixture proof (SO #40b pairing)", "node scripts/check-floor-label-strength.test.mjs"],
+  ["Narrative vocab lint (NARRATIVE-VOCAB-LINT-1)", "node scripts/check-narrative-vocab.mjs"],
+  ["Narrative vocab lint fixture proof (SO #40b pairing)", "node scripts/check-narrative-vocab.test.mjs"],
+  ["Vow-vs-code lint (VOW-VS-CODE-LINT-1)", "node scripts/check-vow-vs-code.mjs"],
+  ["Vow-vs-code lint fixture proof (SO #40b pairing)", "node scripts/check-vow-vs-code.test.mjs"],
+  ["Frozen clock lint (NO-CLOCK-LINT-1)", "node scripts/lint-frozen-clock.mjs"],
+  ["Frozen clock lint fixture proof (SO #40b pairing)", "node scripts/lint-frozen-clock.test.mjs"],
   // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
   // above) — the FULL per-kernel composite (syntax/exports/hash-lint/guest-builtin/VM-
   // parity/tsc/proptest-floor/registration/hub-categories/node-page/clause-digest), not
