@@ -587,6 +587,7 @@ status: stable
 - [Publish Market Mark Head](./art-655-publish-market-mark-head.md) — `publish_market_mark_head`
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md) — `compute_derivatives_margin_workbench`
 - [Forecast Accuracy Scorer](./art-657-forecast-accuracy-scorer.md) — `compute_forecast_accuracy_score`
+- [Publish Index Head](./art-658-publish-index-head.md) — `publish_index_head`
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md) — `build_fria_monitoring_plan`
 - [Compile NAV-Error Evidence Pack](./art-660-compile-nav-error-evidence-pack.md) — `compile_nav_error_evidence_pack`
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md) — `compute_interest_accrual_recompute`
