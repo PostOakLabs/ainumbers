@@ -872,6 +872,8 @@ const GATES = [
   ["Floor label strength lint fixture proof (SO #40b pairing)", "node scripts/check-floor-label-strength.test.mjs"],
   ["Narrative vocab lint (NARRATIVE-VOCAB-LINT-1)", "node scripts/check-narrative-vocab.mjs"],
   ["Narrative vocab lint fixture proof (SO #40b pairing)", "node scripts/check-narrative-vocab.test.mjs"],
+  ["Vow-vs-code lint (VOW-VS-CODE-LINT-1)", "node scripts/check-vow-vs-code.mjs"],
+  ["Vow-vs-code lint fixture proof (SO #40b pairing)", "node scripts/check-vow-vs-code.test.mjs"],
   ["Frozen clock lint (NO-CLOCK-LINT-1)", "node scripts/lint-frozen-clock.mjs"],
   ["Frozen clock lint fixture proof (SO #40b pairing)", "node scripts/lint-frozen-clock.test.mjs"],
   // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
