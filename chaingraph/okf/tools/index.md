@@ -584,6 +584,7 @@ status: stable
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md) — `build_ai_conformity_pack`
 - [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md) — `compute_authzen_conformance_fixture`
 - [Verify Receipt](./art-652-verify-receipt.md) — `compute_verify_receipt`
+- [Perp Funding Implied Yield](./art-654-perp-funding-implied-yield.md) — `compute_perp_funding_implied_yield`
 - [Publish Market Mark Head](./art-655-publish-market-mark-head.md) — `publish_market_mark_head`
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md) — `compute_derivatives_margin_workbench`
 - [Forecast Accuracy Scorer](./art-657-forecast-accuracy-scorer.md) — `compute_forecast_accuracy_score`

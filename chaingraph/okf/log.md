@@ -8,4 +8,4 @@ status: stable
 
 # Generation log
 
-- 2026-07-14 — generated 637 concepts across 34 mandate types from chaingraph.json v1.67.0 (spec v0.8.13).
+- 2026-07-14 — generated 638 concepts across 35 mandate types from chaingraph.json v1.67.0 (spec v0.8.13).
