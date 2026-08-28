@@ -213,9 +213,25 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       files: Object.keys(counts).sort(),
       per_file,
     };
-    if (prior && liveTotal > prior.total) {
-      console.error("X check-narrative-vocab --update-baseline REFUSED: this would raise the pinned ceiling " + prior.total + " -> " + liveTotal + ". A ratchet only moves down.");
-      process.exit(1);
+    if (prior) {
+      // Regression check on ALREADY-PINNED files only: a pinned file gaining hits is a real
+      // regression and is refused. Files NEW since the last pin (estate growth -- kernels land
+      // on main continuously) are absorbed by the re-pin, loudly named here. The total ceiling
+      // alone cannot distinguish the two, which is why this is per-file (found live 2026-08-28:
+      // art-654 landed post-pin and the old total-only guard refused a legitimate re-pin).
+      let regression = null;
+      for (const rel of Object.keys(prior.per_file || {})) {
+        const live = (counts[rel] || []).length;
+        if (live > prior.per_file[rel]) regression = rel + ": " + live + " live vs pin " + prior.per_file[rel];
+      }
+      if (regression) {
+        console.error("X check-narrative-vocab --update-baseline REFUSED: a pinned file GAINED hits -- a real regression.");
+        console.error("  " + regression);
+        console.error("  A ratchet only moves down; convert the prose to the dated-observation form instead.");
+        process.exit(1);
+      }
+      const newFiles = Object.keys(counts).filter((rel) => !prior.per_file || !Object.prototype.hasOwnProperty.call(prior.per_file, rel));
+      if (newFiles.length) console.log("check-narrative-vocab: absorbing " + newFiles.length + " newly-landed kernel(s) into the baseline (estate growth, disclosed): " + newFiles.join(", "));
     }
     writeFileSync(BASELINE_PATH, JSON.stringify(doc, null, 2) + NL);
     console.log("check-narrative-vocab: baseline pinned at " + liveTotal + " hit(s) across " + doc.files.length + " file(s).");
