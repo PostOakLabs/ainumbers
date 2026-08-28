@@ -26,6 +26,12 @@ on:
       # any workflow edit runs the full preflight so check-workflow-gate-parity
       # sees a newly-added CI gate and fails if preflight doesn't also run it
       - '.github/workflows/**'
+      # 2026-08-28: the bot heal commit e0c21019 for
+      # fv-explainer.html touched only that file - outside this filter, so the
+      # staleness red ran unwatched ~13 min until the next watched-path push.
+      # Watch the file. MUST stay byte-identical to the scripts-verify list in
+      # scripts/ci-paths.json (the relevant job consumes the same list).
+      - 'fv-explainer.html'
   pull_request:
     # ready_for_review added (DRAFTCI-2, 2026-07-20): draft PRs are skipped
     # below, so a readied draft must trigger a fresh run or it could merge
@@ -48,6 +54,18 @@ on:
   # does for pull_request.
   merge_group:
     types: [checks_requested]
+  # Manual-dispatch shape (2026-08-28):
+  # lets the gate be exercised on demand on main (e.g. right after a bot heal
+  # commit) without waiting for the next watched-path push. dry_run gates
+  # nothing BY DECLARATION: this workflow only reports (preflight + status),
+  # it has no irreversible steps, so the dry-run is the full
+  # suite and every mode runs it.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry-run marker. This workflow has no irreversible steps; the full preflight suite runs in every mode.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -106,6 +124,11 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Report dispatch mode
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: 'echo workflow_dispatch dry_run=$DRY_RUN - report-only workflow, no irreversible steps, full preflight suite runs in every mode'
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
