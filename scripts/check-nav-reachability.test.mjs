@@ -542,7 +542,7 @@ test('CONTRACT NO-REGRESSION — a sub-gate exit 1 that DID complete is still pa
   commit(work, 'a shard published to main and never registered')
   git(work, ['push', '-q', 'origin', 'main'])
   git(work, ['checkout', '-q', 'mcp-verify-receipt-tool-1'])
-  git(work, ['merge', '-q', '--no-edit', 'main'])
+  git(work, ['-c', 'user.email=gate@test.invalid', '-c', 'user.name=gate-test', 'merge', '-q', '--no-edit', 'main'])
 
   const { status, out } = runGate(work)
   assert(status === 0, `a completed sub-gate must still be parsed; expected exit 0, got ${status}\n${out}`)
