@@ -40,3 +40,7 @@ demonstration, the issue route for a bare idea:
 
 A merged proposal is not a shipped tool — it enters the normal spec → work-unit
 pipeline like any other build. Nothing here auto-merges or auto-builds.
+
+## Build directives
+
+Read CLAUDE.md and CONTRACT.md before any work; they are the build directives.
