@@ -23,6 +23,12 @@
 //      has reached the base ref ("main context") — proves the
 //      accommodation is branch-scoped, not a standing grant
 //
+// PLUS, since NAV-SUBGATE-CRASH-1 (2026-08-27), a FIFTH state that is neither
+// green nor red-as-an-island: the sub-gate could not run, so no nav verdict was
+// computed at all -> NOT_EVALUABLE, exit 2. See the B6(iii) kill-proof block
+// near the bottom of this file; that block is the manifest's own sub-gate
+// control (0xAlpha/audits/GATE-MANIFEST-DRAFT.md §2, B6 row (iii)).
+//
 // Zero-dep, node: builtins only.
 
 import { execFileSync } from 'node:child_process'
@@ -250,7 +256,15 @@ function makeFixture() {
 }
 
 // Runs the REAL gate inside the fixture and returns {status, out}.
-function runGate(work, args = []) {
+//
+// `opts.deliberateSandboxBreak` — NAV-SUBGATE-CRASH-1. The B6(iii) kill-proof
+// cases REMOVE or CORRUPT the sub-gate on purpose, so a module-not-found in the
+// output is the thing under test, not a harness defect. Without this opt-out the
+// SANDBOX-FILELIST-GATE-1 guard below would kill the whole suite on the one case
+// that proves the gate now reports a missing sub-gate instead of an island.
+// ⛔ It is per-call and never a default: an ACCIDENTALLY incomplete sandbox in
+// any other case still aborts the run exactly as before.
+function runGate(work, args = [], opts = {}) {
   try {
     const out = execFileSync(process.execPath, [join(work, 'scripts/check-nav-reachability.mjs'), ...args], {
       cwd: work,
@@ -269,7 +283,7 @@ function runGate(work, args = []) {
     // halves the diagnosis needs, so it is rewritten rather than passed through
     // as a bare ERR_MODULE_NOT_FOUND. Catches what the pre-run check cannot see
     // — a missing shell-out target is not an import.
-    const named = namedModuleNotFound(out, work)
+    const named = opts.deliberateSandboxBreak ? null : namedModuleNotFound(out, work)
     if (named) {
       console.error(`\ncheck-nav-reachability.test.mjs: FIXTURE SANDBOX IS INCOMPLETE — this is not a gate failure.`)
       console.error(`  ${named}`)
@@ -392,6 +406,148 @@ test('STATE 4 / MUTATION (real art-652 tree) — the SAME PENDING-ASSEMBLE page 
   assert(!/excused as PENDING-ASSEMBLE/.test(after.out), `post-publish must NOT still be excused:\n${after.out}`)
   assert(/chaingraph\/art-652-verify-receipt\.html/.test(after.out), `expected the page now named as an island, got:\n${after.out}`)
   assert(/NEW island\(s\)/.test(after.out), `expected the new-island failure, got:\n${after.out}`)
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// B6 (iii) — THE SUB-GATE CONTROL. "the NAV-SUBGATE-CRASH-1 kill-proof"
+// (0xAlpha/audits/GATE-MANIFEST-DRAFT.md §2, B6 fixture row):
+//
+//   "force the base-ref sub-check to fail -> verdict must be NOT_EVALUABLE /
+//    fail-closed, and the parent must NOT emit an island verdict"
+//
+// Each case takes the EXACT tree of STATE 1 — the real art-652 pre-registration
+// tree that passes green — and breaks ONLY the sub-gate. Nothing about the page,
+// the shard or the link graph changes, so any difference in the verdict is
+// attributable to the sub-gate and to nothing else. That is what makes these
+// controls rather than tests.
+//
+// THE MEASURED "BEFORE", quoted so the contrast is on the record
+// (board/NAV-ISLAND-DIAGNOSTIC-2026-08-27.md, same commit 53359d3f):
+//   full clone  -> "nav-reachability: OK — 0 new islands"              exit 0
+//   --depth 1   -> "nav-reachability: 1 NEW island(s) — page(s) no nav
+//                   path reaches: chaingraph/art-654-..."              exit 1
+//                  ...with NO module error and no mention of the sub-gate
+//                  anywhere in the output.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// The shape every kill-proof case must show: no island verdict, no pass, a named
+// NOT_EVALUABLE, and the words "sub-gate could not run".
+function assertKillProof(status, out, mustMention) {
+  assert(status === 2, `expected exit 2 (NOT_EVALUABLE), got ${status}\n${out}`)
+  assert(/NOT_EVALUABLE-PREMISE/.test(out), `expected the enum verdict token, got:\n${out}`)
+  assert(/SUB-GATE COULD NOT RUN/.test(out), `the message must say the sub-gate could not run, got:\n${out}`)
+  assert(!/NEW island\(s\)/.test(out), `the parent must NOT emit an island verdict:\n${out}`)
+  assert(!/nav-reachability: OK/.test(out), `and must not pass either:\n${out}`)
+  assert(!/excused as PENDING-ASSEMBLE/.test(out), `nothing may be excused off an unevaluated sub-gate:\n${out}`)
+  if (mustMention) assert(mustMention.test(out), `expected ${mustMention} in the diagnosis, got:\n${out}`)
+}
+
+// The tree that is green under STATE 1, rebuilt per case.
+function art652Branch() {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'mcp-verify-receipt-tool-1'])
+  writeArt652Shard(work)
+  commit(work, 'feat(chaingraph): add verify_receipt Evidence Envelope v0.1 verifier (art-652) (#1401)')
+  return work
+}
+
+test('B6(iii) KILL-PROOF A — base ref unresolvable (the measured shallow-clone case): NOT_EVALUABLE, no island verdict', () => {
+  const work = art652Branch()
+
+  // Control first: the SAME tree is green while the base ref resolves.
+  const before = runGate(work)
+  assert(before.status === 0 && /excused as PENDING-ASSEMBLE/.test(before.out), `control must be green first, got ${before.status}\n${before.out}`)
+
+  // Reproduce the diagnostic's mechanical cause exactly — "No origin/main ref
+  // exists at all" (git clone --depth 1 --branch X implies single-branch mode).
+  // Dropping the remote removes refs/remotes/origin/*, which IS that condition,
+  // not a simulation of it.
+  git(work, ['remote', 'remove', 'origin'])
+  assert(git(work, ['for-each-ref', 'refs/remotes']).trim() === '', 'fixture setup: refs/remotes must now be empty')
+
+  const { status, out } = runGate(work)
+  assertKillProof(status, out, /BASE REF UNRESOLVED/)
+  assert(/art-652-verify-receipt\.html/.test(out), `the unclassified candidate page should still be named, got:\n${out}`)
+  assert(/fetch-depth: 0/.test(out), `the diagnosis must point at the CHECKOUT, not at the page:\n${out}`)
+})
+
+test('B6(iii) KILL-PROOF B — sub-gate missing (cannot be spawned at all): NOT_EVALUABLE, no island verdict', () => {
+  const work = art652Branch()
+  rmSync(join(work, 'scripts/check-shard-assembly.mjs'), { force: true })
+
+  const { status, out } = runGate(work, [], { deliberateSandboxBreak: true })
+  // Node reports a missing script as ERR_MODULE_NOT_FOUND on stderr — #1489's
+  // "never loaded" rule, reused not reinvented.
+  assertKillProof(status, out, /never loaded|could not be started/)
+})
+
+test('B6(iii) KILL-PROOF C — sub-gate crashes on load (syntax error): NOT_EVALUABLE, no island verdict', () => {
+  const work = art652Branch()
+  writeFileSync(join(work, 'scripts/check-shard-assembly.mjs'), 'this is not ( valid javascript\n', 'utf8')
+
+  const { status, out } = runGate(work)
+  assertKillProof(status, out, /crashed before reporting|never loaded|SyntaxError/)
+})
+
+test('B6(iii) KILL-PROOF D — sub-gate exits with an undocumented code: NOT_EVALUABLE, no island verdict', () => {
+  const work = art652Branch()
+  // Exits 3 while printing a perfectly well-formed PENDING-ASSEMBLE section for
+  // the page under test. Under the old string-match this would have EXCUSED the
+  // page — a false GREEN off a sub-gate in a state the parent cannot read. The
+  // contract refuses to parse it: the same fail-closed direction as the
+  // false-island case, seen from the opposite side.
+  writeFileSync(
+    join(work, 'scripts/check-shard-assembly.mjs'),
+    "console.log('check-shard-assembly: PENDING-ASSEMBLE — 1 node shard(s) present on this branch but ABSENT from the base ref:')\n" +
+    "console.log('  - art-652-verify-receipt  (mcp_name: compute_verify_receipt)  [new on this branch]')\n" +
+    "console.log('check-shard-assembly: OK — all 1/1 node shard(s)')\n" +
+    'process.exit(3)\n',
+    'utf8',
+  )
+
+  const { status, out } = runGate(work)
+  assertKillProof(status, out, /not one of its documented exit codes/)
+})
+
+test('B6(iii) KILL-PROOF E — sub-gate dies mid-report, before any completion line: NOT_EVALUABLE, no island verdict', () => {
+  const work = art652Branch()
+  // Prints a plausible opening line, then dies with a DOCUMENTED exit code, no
+  // stack and no completion marker — the shape neither an exit-code threshold
+  // nor a crash regex can catch, and the reason the contract demands POSITIVE
+  // completion evidence rather than absence of a crash signal.
+  writeFileSync(
+    join(work, 'scripts/check-shard-assembly.mjs'),
+    "console.log('check-shard-assembly: branch-aware split against origin/main @ deadbeefcafe, resolved via default; 1 node shard(s) published there.')\n" +
+    'process.exit(1)\n',
+    'utf8',
+  )
+
+  const { status, out } = runGate(work)
+  assertKillProof(status, out, /without printing any of its completion lines/)
+})
+
+// ── CONTRACT NO-REGRESSION — exit 1 is still a REAL result ───────────────────
+// The contract must not turn every non-zero sub-gate exit into NOT_EVALUABLE.
+// check-shard-assembly.mjs exits 1 on a real finding while still printing a
+// correct PENDING-ASSEMBLE section for an unrelated id, and that section stays
+// authoritative. Trading the false positive for a false negative — or for a
+// permanent NOT_EVALUABLE — is the failure mode this case guards.
+test('CONTRACT NO-REGRESSION — a sub-gate exit 1 that DID complete is still parsed, page still excused, exit 0', () => {
+  const work = art652Branch()
+  // A leaked shard unrelated to art-652: published to origin/main and never
+  // registered, so check-shard-assembly reports a real node-case failure and
+  // exits 1 — while art-652 stays genuinely PENDING-ASSEMBLE in the same run.
+  git(work, ['checkout', '-q', 'main'])
+  nodeShard(work, 'art-nip-leaked')
+  commit(work, 'a shard published to main and never registered')
+  git(work, ['push', '-q', 'origin', 'main'])
+  git(work, ['checkout', '-q', 'mcp-verify-receipt-tool-1'])
+  git(work, ['-c', 'user.email=gate@test.invalid', '-c', 'user.name=gate-test', 'merge', '-q', '--no-edit', 'main'])
+
+  const { status, out } = runGate(work)
+  assert(status === 0, `a completed sub-gate must still be parsed; expected exit 0, got ${status}\n${out}`)
+  assert(/excused as PENDING-ASSEMBLE/.test(out) && /art-652-verify-receipt/.test(out), `expected art-652 still excused, got:\n${out}`)
+  assert(!/NOT_EVALUABLE/.test(out), `a sub-gate that completed is NOT unevaluable:\n${out}`)
 })
 
 // ── NO-REGRESSION — a clean tree with no candidate node pages stays fast+green ──
