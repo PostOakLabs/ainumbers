@@ -3,6 +3,7 @@
 // escape, baseline ratchets both directions, false-positive-safe engineering prose.
 import { verdictFor, ratchetVerdict } from "./check-narrative-vocab.mjs";
 import { readFileSync } from "node:fs";
+import { gitEnv } from "./_git-env-lib.mjs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,7 +49,7 @@ const baseline = JSON.parse(readFileSync(resolve(HERE, "narrative-vocab-baseline
 const liveCounts = {};
 const RE = /Kernel-Preflight-sentinel/; // placeholder, replaced below
 const { execSync } = await import("node:child_process");
-const files = execSync("git ls-files -z -- chaingraph/kernels/*.kernel.mjs", { cwd: REPO }).toString().split(String.fromCharCode(0)).filter((p) => p.endsWith(".kernel.mjs"));
+const files = execSync("git ls-files -z -- chaingraph/kernels/*.kernel.mjs", { cwd: REPO, env: gitEnv() }).toString().split(String.fromCharCode(0)).filter((p) => p.endsWith(".kernel.mjs"));
 for (const f of files) {
   const v = verdictFor(readFileSync(resolve(REPO, f.replace(/\\/g, "/")), "utf8"));
   if (v.red) liveCounts[f.replace(/\\/g, "/")] = v.hits.map((h) => h.kind);
