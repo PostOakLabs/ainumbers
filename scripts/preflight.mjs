@@ -872,6 +872,8 @@ const GATES = [
   ["Floor label strength lint fixture proof (SO #40b pairing)", "node scripts/check-floor-label-strength.test.mjs"],
   ["Narrative vocab lint (NARRATIVE-VOCAB-LINT-1)", "node scripts/check-narrative-vocab.mjs"],
   ["Narrative vocab lint fixture proof (SO #40b pairing)", "node scripts/check-narrative-vocab.test.mjs"],
+  ["Frozen clock lint (NO-CLOCK-LINT-1)", "node scripts/lint-frozen-clock.mjs"],
+  ["Frozen clock lint fixture proof (SO #40b pairing)", "node scripts/lint-frozen-clock.test.mjs"],
   // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
   // above) — the FULL per-kernel composite (syntax/exports/hash-lint/guest-builtin/VM-
   // parity/tsc/proptest-floor/registration/hub-categories/node-page/clause-digest), not
