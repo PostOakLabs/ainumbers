@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (639 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (640 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6772,6 +6772,16 @@ window.CHAINBUILDER_CATALOG = [
     "consumes": [],
     "feeds": [],
     "status": "planned"
+  },
+  {
+    "tool_id": "art-654-perp-funding-implied-yield",
+    "display_name": "Perp Funding Implied Yield",
+    "mandate_type": "perp_funding_rate",
+    "url": "https://ainumbers.co/chaingraph/art-654-perp-funding-implied-yield.html",
+    "description": "Recomputes a perpetual-contract funding rate and its simple-annualized implied yield from caller-declared inputs, for either of two declared",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
   },
   {
     "tool_id": "art-655-publish-market-mark-head",
