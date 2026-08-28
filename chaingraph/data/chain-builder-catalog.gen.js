@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (638 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (639 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6802,6 +6802,19 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/art-657-forecast-accuracy-scorer.html",
     "description": "Scores a batch of resolved probabilistic forecasts (a stated probability paired with the realized yes/no outcome) using two textbook proper ",
     "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-658-publish-index-head",
+    "display_name": "Publish Index Head",
+    "mandate_type": "attestation_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-658-publish-index-head.html",
+    "description": "Publishes one SPEC.md §HEAD-1 head-commit publication event for an index or benchmark's per-stream publication history, so an index administ",
+    "consumes": [
+      "art-646-compile-rebalance-evidence-pack",
+      "art-647-record-index-correction"
+    ],
     "feeds": [],
     "status": "live"
   },
