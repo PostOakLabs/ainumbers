@@ -216,7 +216,17 @@ export const COVERED = [
     // SO #28's "catalog counts". Python, but ubuntu-latest ships python3 and
     // preflight already shells to python for check_index_sync.py.
     regen: 'python scripts/regen_catalog.py',
-    gate: null, // no --check mode; check-catalog-parity.mjs covers orphans only
+    // SITEMAP-MAINSIDE-1 (2026-08-29): this entry's own regen already writes
+    // tools.html (and index.html) main-side — SO #35 forbids a PR from doing it
+    // again. But preflight.mjs's separate 'Index sync (tools↔homepage)' gate
+    // (python scripts/check_index_sync.py --strict --no-color) checks freshness
+    // of exactly that pair and was never wired into this file's `gate` field, so
+    // it stayed HARD on every PR context regardless — a PR blocked on content it
+    // is forbidden to write (blocked #1410/#1411, the pattern this row exists to
+    // close). Wiring it here is what makes preflight.mjs's generic string-match
+    // ADVISORY_ON_PR categorisation (built from every COVERED .gate) downgrade it
+    // on a PR while it stays BLOCKING on main, same as every other entry below.
+    gate: 'python scripts/check_index_sync.py --strict --no-color',
     // Measured 2026-08-16 by running the generator in a clean worktree: it writes
     // exactly these. Two phantom paths ('catalog.json', 'data/catalog.json') were
     // listed here before and made `git add --pathspec-from-file` abort — see
@@ -447,6 +457,22 @@ export const COVERED = [
     share: '27%',
   },
   {
+    id: 'sitemap-xml',
+    // SITEMAP-MAINSIDE-1 (2026-08-29): migrates the ORIGINAL SITEMAP-MAIN-REGEN-1
+    // exclusion in from DISCOVER-1 territory. sitemap.xml had the HIGHEST measured
+    // co-modification skew of any artifact in this file (94%, 124/132 page-adding
+    // commits) yet was left PR-side because SO #35's own sequencing (order #35,
+    // "sequencing is load-bearing") required the main-side regen workflow to exist
+    // and be proven FIRST. It now does (chaingraph-assemble, counts, and six more
+    // entries above all landed after it) — this entry closes the last exclusion the
+    // row's own header named. Idempotent: gen-sitemap.mjs scans scripts/published-
+    // dirs.json's directory set from the filesystem, no wall-clock field.
+    regen: 'node scripts/regen-sitemap.mjs',
+    gate: 'node scripts/regen-sitemap.mjs --check',
+    artifacts: ['sitemap.xml'],
+    share: '94% (124/132; the highest measured skew of any artifact in this file)',
+  },
+  {
     id: 'debt-ledger',
     // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
     // Finding 3): owns ONE self-delimited region of fv-explainer.html
@@ -483,14 +509,6 @@ export const EXCLUDED = [
     script: 'scripts/check-vow-vs-code.mjs',
     share: 'n/a -- the gate writes nothing at all (measured 2026-08-28: read-only source scan; the only writeFileSync targets its own baseline JSON, which is not derived from the node graph)',
     why: 'READ-ONLY STATIC LINT, not a generator. It READS chaingraph/graph/nodes/<id>.json solely to check the declared consumes[] evidence for consume-vow language in kernels (VOW-VS-CODE-LINT-1); it has no regen mode, no artifact output, and is idempotent by construction (zero writes). Classification demanded by NODE-FANOUT-REGEN-CLOSE-1; a MEASURED reason, not a shrug.',
-  },
-  {
-    what: 'sitemap.xml (via scripts/regen-sitemap.mjs)',
-    script: 'scripts/regen-sitemap.mjs',
-    share: '94% — the HIGHEST measured skew rate of any artifact (124/132)',
-    why: 'Out of scope by row order (SITEMAP-MAIN-REGEN-1 step 5): sitemap.xml is DISCOVER-1 territory, '
-       + 'not the SO #28 shard set. The row requires the skew rate be MEASURED and STATED, then left '
-       + 'unchanged pending a follow-up judgment. ⛔ No silent scope creep. The measurement is the 94% above.',
   },
   {
     what: 'chaingraph/clause-edges/index.json (via scripts/gen-clause-edge-report.mjs)',
