@@ -18,16 +18,34 @@ const check = (name, ok, detail) => {
   if (!ok) failures.push(name);
 };
 const readFloor = (id) => readFileSync(resolve(FLOORS, id + ".proptest.mjs"), "utf8");
+const baseline = JSON.parse(readFileSync(resolve(HERE, "floor-label-strength-baseline.json"), "utf8"));
 
 console.log("CONTROL 1 RED -- a real census floor is flagged, naming the weakness:");
-const a223 = verdictFor(readFloor("art-223-conforming-loan-limit"));
-check("art-223 (the audit F-A carrier) is RED: outcome language, zero literal pins",
-  a223.red === true && a223.outcome === true && a223.pins === 0, JSON.stringify(a223));
-const a223src = readFloor("art-223-conforming-loan-limit");
-const weakLabel = (a223src.match(/'[^']*must[^']*'/) || [""])[0];
-const weakPred = (a223src.match(/(?:Number\.isFinite|typeof)\([^)]*\)/) || [""])[0];
-check("its labels use outcome language and its predicates are finite/enum only",
-  weakLabel !== "" && weakPred !== "", (weakLabel + " | " + weakPred).slice(0, 110));
+// Re-anchored by ASSEMBLE-LAND-WITHHELD-0829-1 (2026-08-29): the merged PR legitimately
+// FIXED art-223's floor (it gained literal pins; baseline re-pinned 116 -> 115), so the old
+// hardcoded art-223 RED anchor went stale. The control keeps its semantics -- the lint
+// must flag a REAL live census floor -- by anchoring on the first baseline-named floor that is
+// still red. If the estate is fixed without a re-pin (or the lint stops flagging), no carrier is
+// found and this control REDs, which is the correct signal.
+const redCarrier = baseline.files
+  .slice()
+  .sort()
+  .map((f) => f.replace(/^.*\//, "").replace(/\.proptest\.mjs$/, ""))
+  .find((id) => {
+    try { return verdictFor(readFloor(id)).red; } catch { return false; }
+  });
+check("a baseline-named live census floor is RED: outcome language, zero literal pins",
+  redCarrier !== undefined, redCarrier ?? "no red carrier found -- baseline stale or lint broken; re-pin with " + "node scripts/check-floor-label-strength.mjs --update-baseline");
+if (redCarrier !== undefined) {
+  const carrier = verdictFor(readFloor(redCarrier));
+  check(redCarrier + " is RED with outcome language and zero pins",
+    carrier.red === true && carrier.outcome === true && carrier.pins === 0, JSON.stringify(carrier));
+  const carrierSrc = readFloor(redCarrier);
+  const weakLabel = (carrierSrc.match(/'[^']*must[^']*'/) || [""])[0];
+  const weakPred = (carrierSrc.match(/(?:Number\.isFinite|typeof)\([^)]*\)/) || [""])[0];
+  check("its labels use outcome language and its predicates are finite/enum only",
+    weakLabel !== "" && weakPred !== "", (weakLabel + " | " + weakPred).slice(0, 110));
+}
 
 console.log("CONTROL 2 GREEN -- a floor whose label outcome IS pinned passes:");
 const a11 = verdictFor(readFloor("art-11-vop-batch-match-rate-analyser"));
@@ -49,7 +67,6 @@ const pc = verdictFor(photocopyFloor);
 check("self-oracle photocopy predicate + outcome labels = still RED", pc.red === true, JSON.stringify(pc));
 
 console.log("CONTROL 4 BASELINE -- legacy shielded, NEW fails, counts only go down:");
-const baseline = JSON.parse(readFileSync(resolve(HERE, "floor-label-strength-baseline.json"), "utf8"));
 const liveCounts = {};
 const floorFiles = readdirSync(FLOORS).filter((f) => f.endsWith(".proptest.mjs")).sort();
 let outcomeFiles = 0;
