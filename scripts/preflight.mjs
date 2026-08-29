@@ -1188,6 +1188,11 @@ const GATES = [
   // money-math (compute() + its module-scope helpers) from peripheral (buildArtifact()/meta)
   // BEFORE the mutation gate below trusts it to score anything.
   ['Mutation tier classifier self-test (MUTATION-TIERED-ROLLOUT-1)', 'node chaingraph/kernels/mutation-tier-split.test.mjs'],
+  // SANDBOX-FILELIST-SWEEP-2: pure fixture-repo self-test, always runs (milliseconds, no Stryker
+  // invocation) — proves the scratch sandbox is DERIVED from the real import graph rather than a
+  // `_`-prefix filename convention, and reproduces the near-miss the convention shape could not
+  // catch before trusting the mutation gate below to build a complete sandbox.
+  ['Mutation tier sandbox dependency self-test (SANDBOX-FILELIST-SWEEP-2)', 'node scripts/run-mutation-tier.test.mjs'],
   // MUTATION-TIERED-ROLLOUT-1: PR-incremental mutation gate, generalized from FV-STRYKER-PILOT-1
   // (board/done/FV-STRYKER-PILOT-1.md). Scoped to TOUCHED_KERNEL_IDS — the SAME touched-kernel-id
   // set the per-kernel `Kernel preflight (${id})` gates above already use — so a push touching

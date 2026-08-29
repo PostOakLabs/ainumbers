@@ -9,6 +9,15 @@
 // wasm binary, and rewrites the one bare-specifier import (@jitl/quickjs-ffi-types) to a
 // relative path -- see chaingraph/vm/README.md for why @jitl/quickjs-ng-*-singlefile-* doesn't
 // exist and this wasmfile+wasmBinary approach is the hermetic equivalent.
+//
+// SANDBOX-FILELIST-SWEEP-2 DISPOSITION -- DECLARED OUT, not converted to scripts/lib-sandbox-deps.mjs.
+// That module derives a repo-relative file LIST from OUR OWN static import graph, to keep a fixture
+// in sync with what a copied module imports. This script runs the opposite direction: it pulls
+// named files OUT of a third-party npm tarball (quickjs-emscripten-core's dist/ output) INTO the
+// repo, and those filenames are content-hashed by upstream's esbuild build, not by anything in this
+// repository's import graph -- there is nothing here for derivation to walk. The list below
+// (['index.mjs', 'chunk-TAV5CUKK.mjs', ...]) is necessarily hand-maintained and self-declares its
+// own staleness risk in the trailing console.log ("If chunk filenames changed ... update").
 
 import { execSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, cpSync, rmSync } from 'node:fs';

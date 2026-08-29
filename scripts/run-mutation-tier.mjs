@@ -75,6 +75,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
+import { checkSandboxComplete, deriveSandboxFiles } from './lib-sandbox-deps.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
@@ -144,44 +145,40 @@ function runStryker(configPath, cwd, strykerVersion) {
 }
 
 // ── per-kernel scratch build + run ───────────────────────────────────────
-// MUTATION-TIER-PBTCOMMON-FIX-1: this only copied chaingraph/kernels/_*.mjs (the kernel-side
-// shared helpers: _hash.mjs, _head.mjs, etc.) — never chaingraph/kernels/__proptests__/_*.mjs,
-// the FLOOR-side shared helper `_pbt-common.mjs` (summarize/mulberry32/pick/findShapeViolations/
-// FIXTURES_DIR) that 50 of 635 proptests import via `./_pbt-common.mjs`. Any of those 50, once
-// touched, hard-failed this gate with ERR_MODULE_NOT_FOUND inside Stryker's sandbox — a scratch
-// wiring gap, not a kernel/proptest defect (SO #34: the fix belongs in the copier, not in every
-// consuming proptest). Discovered building art-655-publish-market-mark-head (DERIV-WF-HEAD-1),
-// the first PR to touch a `_pbt-common.mjs`-importing kernel since this gate went live.
-function ensureSharedLibsCopied(scratchKernelsDir) {
-  if (existsSync(path.join(scratchKernelsDir, '_hash.mjs'))) return; // already primed this process
-  mkdirSync(scratchKernelsDir, { recursive: true });
-  for (const f of readdirSync(KERNELS_DIR)) {
-    if (f.startsWith('_') && f.endsWith('.mjs')) {
-      cpSync(path.join(KERNELS_DIR, f), path.join(scratchKernelsDir, f));
-    }
+// MUTATION-TIER-PBTCOMMON-FIX-1 fixed a scratch wiring gap (chaingraph/kernels/__proptests__/
+// _pbt-common.mjs, imported by 50+ proptest floors, never got copied — only the top-level
+// chaingraph/kernels/_*.mjs helpers did) by adding a SECOND glob scoped to __proptests__/. That
+// is the same shape as the bug it fixed, not a different one: both scope by filename CONVENTION
+// (starts with `_`) rather than by what the copied kernel/proptest pair actually imports. It
+// looks derived and is not — a shared helper introduced without the `_` prefix, or a proptest
+// that starts importing a non-underscore sibling, breaks the same way the pilot's ERR_MODULE_NOT_FOUND
+// did (see run-mutation-tier.test.mjs for the reproduced break, SANDBOX-FILELIST-SWEEP-2).
+//
+// deriveSandboxFiles() (scripts/lib-sandbox-deps.mjs, SANDBOX-FILELIST-GATE-1) walks the REAL
+// relative-import closure of the kernel + proptest pair instead, so the copied set is correct by
+// construction rather than by naming convention, and throws a NAMED error — never a bare
+// ERR_MODULE_NOT_FOUND — for anything it cannot resolve. checkSandboxComplete() then verifies the
+// tree actually written to scratch, independent of the derivation that built it (STANDING-ORDERS
+// #34 — a gate may not read the value it validates from the artifact under test).
+//
+// Both kernels and proptests are pure compute + property-test modules with no `node <script>`
+// shell-out anywhere in their closure (measured: zero execFileSync/execSync/spawnSync hits across
+// chaingraph/kernels/*.{kernel,proptest}.mjs and chaingraph/kernels/_*.mjs, chaingraph/kernels/
+// __proptests__/_*.mjs) — so there is no second edge for this harness to miss.
+// `repoRoot` defaults to the real repository and is overridable only so
+// run-mutation-tier.test.mjs can drive this against a throwaway fixture repo
+// instead of writing synthetic kernels into the real chaingraph/kernels/.
+export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot, repoRoot = REPO) {
+  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath], repoRoot });
+  for (const rel of files) {
+    const dest = path.join(scratchRoot, rel);
+    if (existsSync(dest)) continue; // already primed by an earlier kernel this process
+    mkdirSync(path.dirname(dest), { recursive: true });
+    cpSync(path.join(repoRoot, rel), dest);
   }
-  const scratchProptestsDir = path.join(scratchKernelsDir, '__proptests__');
-  mkdirSync(scratchProptestsDir, { recursive: true });
-  for (const f of readdirSync(PROPTESTS_DIR)) {
-    if (f.startsWith('_') && f.endsWith('.mjs')) {
-      cpSync(path.join(PROPTESTS_DIR, f), path.join(scratchProptestsDir, f));
-    }
-  }
-}
-
-// __proptests__/_*.mjs shared helpers (e.g. _pbt-common.mjs, imported by 50+ proptest floors
-// via a relative './_pbt-common.mjs' specifier) never got copied into the sandbox — only the
-// top-level chaingraph/kernels/_*.mjs helpers did (above). Any kernel whose proptest imports
-// one threw ERR_MODULE_NOT_FOUND on its first mutation-tier run, mistested as a kernel defect.
-// Same copy-underscore-helpers shape as ensureSharedLibsCopied, scoped to __proptests__/.
-function ensureSharedProptestLibsCopied(scratchProptestsDir) {
-  mkdirSync(scratchProptestsDir, { recursive: true });
-  for (const f of readdirSync(PROPTESTS_DIR)) {
-    if (f.startsWith('_') && f.endsWith('.mjs')) {
-      const dest = path.join(scratchProptestsDir, f);
-      if (!existsSync(dest)) cpSync(path.join(PROPTESTS_DIR, f), dest);
-    }
-  }
+  const problem = checkSandboxComplete(scratchRoot, files);
+  if (problem) throw new Error(problem);
+  return files;
 }
 
 function runOneKernel(id, scratchRoot, opts, strykerVersion) {
@@ -202,17 +199,16 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
     return { id, hardFail: 'non-canonical kernel shape (no `export function buildArtifact` found) — add it to excludedKernels in mutation-tiers.config.json instead of running it unsplit' };
   }
 
-  const scratchKernelsDir = path.join(scratchRoot, 'chaingraph', 'kernels');
-  ensureSharedLibsCopied(scratchKernelsDir);
-  const scratchProptestsDir = path.join(scratchKernelsDir, '__proptests__');
-  ensureSharedProptestLibsCopied(scratchProptestsDir);
-  mkdirSync(path.join(scratchKernelsDir, 'fixtures'), { recursive: true });
-  cpSync(kernelPath, path.join(scratchKernelsDir, kernelFile));
-  cpSync(proptestPath, path.join(scratchProptestsDir, proptestFile));
-  cpSync(fixturesPath, path.join(scratchKernelsDir, 'fixtures', fixturesFile));
+  const kernelRelPath = `chaingraph/kernels/${kernelFile}`;
+  const proptestRelPath = `chaingraph/kernels/__proptests__/${proptestFile}`;
+  const fixturesRelPath = `chaingraph/kernels/fixtures/${fixturesFile}`;
+  try {
+    copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot);
+  } catch (e) {
+    return { id, hardFail: e.message };
+  }
 
   const reportPath = path.join(scratchRoot, 'reports', id, 'mutation-report.json');
-  const kernelRelPath = `chaingraph/kernels/${kernelFile}`;
   const config = {
     mutate: [kernelRelPath],
     testRunner: 'command',
