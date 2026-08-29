@@ -591,6 +591,7 @@ import * as art66     from './art-66-fria-postmarket-monitoring-builder.kernel.m
 import * as art660    from './art-660-compile-nav-error-evidence-pack.kernel.mjs';
 import * as art661    from './art-661-interest-accrual-recompute.kernel.mjs';
 import * as art662    from './art-662-odnsf-fee-recompute.kernel.mjs';
+import * as art663    from './art-663-apy-earned-recompute.kernel.mjs';
 import * as art664    from './art-664-loan-servicing-waterfall-recompute.kernel.mjs';
 import * as art665    from './art-665-gl-tieout-recompute.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
@@ -1233,6 +1234,7 @@ export const KERNELS = {
   'art-660-compile-nav-error-evidence-pack':                    art660,
   'art-661-interest-accrual-recompute':                         art661,
   'art-662-odnsf-fee-recompute':                                art662,
+  'art-663-apy-earned-recompute':                               art663,
   'art-664-loan-servicing-waterfall-recompute':                 art664,
   'art-665-gl-tieout-recompute':                                art665,
   'art-67-agentic-ai-risk-classifier':                          art67,
