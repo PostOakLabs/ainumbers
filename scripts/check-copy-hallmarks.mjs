@@ -104,6 +104,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSy
 import { resolve, dirname, relative, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
+import { isSkipDir } from './_walk-skip-dirs.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE_PATH = resolve(REPO, 'scripts', 'copy-hallmarks-baseline.json');
@@ -387,17 +388,19 @@ const BADGE_ELEMENT = /<(span|div|a|p)\b[^>]*\bclass\s*=\s*["'][^"']*\b(?:badge|
 const CONTROL_ELEMENT = /<(button|div|span)\b[^>]*\bclass\s*=\s*["'][^"']*\b(?:btn|icon)\b[^"']*["'][^>]*>[\s\S]*?<\/\1>/gi;
 const BUTTON_TAG = /<button\b[^>]*>[\s\S]*?<\/button>/gi;
 
-// '.wt'/'worktrees' are sibling git worktree checkouts (canonical locations per
-// workspace-root CLAUDE.md), not site content — same exclusion check-nav-reachability.mjs
-// applies, needed here too or a live sibling worktree's copy of every page double-counts.
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'scripts', '.claude', '.wt', 'worktrees']);
+// isSkipDir() (scripts/_walk-skip-dirs.mjs, WT-IGNORE-GATES-1 item c) is the
+// shared worktree/VCS exclusion — a sibling git worktree checkout ('.wt/*',
+// '.claude/worktrees/*', etc.) is not site content, or a live sibling
+// worktree's copy of every page double-counts. 'scripts' is this walker's
+// OWN extra exclusion (non-content, not a worktree concern) layered on top.
+const EXTRA_SKIP_DIRS = new Set(['scripts']);
 
 function htmlFiles(dir, out = []) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) {
-      if (!SKIP_DIRS.has(name)) htmlFiles(p, out);
+      if (!isSkipDir(name) && !EXTRA_SKIP_DIRS.has(name)) htmlFiles(p, out);
     } else if (name.endsWith('.html')) {
       out.push(p);
     }
