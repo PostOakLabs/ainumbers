@@ -1,0 +1,132 @@
+{
+  "tool_id": "art-663-apy-earned-recompute",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-08-29",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The verdict compares the recomputed yield against the caller-supplied disclosed figure using the cited rule text's own symmetric accuracy statement (a disclosed yield is accurate if not more than 0.05 percentage points above or below the value determined under Appendix A). The kernel adds no one-sided approximation of its own: the comparison band is symmetric, taken verbatim as a versioned parameter, and the arithmetic recompute is exact up to the deterministic pow. No direction of error is established by the kernel, so undirected is the honest value.",
+  "derived_from": [
+    {
+      "digest": "sha256:a31899e46c5b515c6e5b69bc6ec15ca0a4fb67e4e89ad45c772872cc4dc0a8fc",
+      "clause_path": "12 CFR part 1030 Appendix A Part II sections A and B; 1030.2(d); 1030.2(n); 1030.3(f)(1)-(2); 1030.6(a)-(b)"
+    }
+  ],
+  "branches": [
+    {
+      "id": "part-ii-a-general-formula-represented",
+      "clause": "Appendix A Part II.A",
+      "branch": "The general formula: APY Earned = 100 [(1 + Interest earned/Balance)^(365/Days in period) - 1], with Balance the average daily balance for the period, Interest earned the actual interest earned for the period, and Days in period the actual number of days for the period.",
+      "disposition": "represented",
+      "evidence": "apy_earned_computed",
+      "note": "compute() evaluates exactly this expression (deterministic pow) and reports it in output_payload.apy_earned_computed (unrounded) and apy_earned_computed_rounded; the three inputs map to interest_earned, average_daily_balance (or balance_segments) and days_in_period."
+    },
+    {
+      "id": "part-ii-b-special-formula-declared-unsupported",
+      "clause": "Appendix A Part II.B",
+      "branch": "Institutions that use the daily balance method and issue periodic statements more often than the period for which interest is compounded use a SPECIAL formula for the annual percentage yield earned.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "SPECIAL_FORMULA_NOT_IMPLEMENTED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "interest_earned": 4.11,
+          "days_in_period": 30,
+          "average_daily_balance": 1000,
+          "disclosed_apy_earned": 5,
+          "special_formula_declared": true
+        },
+        "fixture": "art-663-apy-earned-recompute.reachability.json#special-formula-case-refused"
+      }
+    },
+    {
+      "id": "part-ii-nonpositive-balance-undefined",
+      "clause": "Appendix A Part II.A",
+      "branch": "The formula is defined in terms of a division by the average daily Balance; the source text is silent on a zero or negative balance, where the expression is undefined on this domain.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "AVERAGE_DAILY_BALANCE_NONPOSITIVE",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "interest_earned": 5.25,
+          "days_in_period": 30,
+          "average_daily_balance": 0,
+          "disclosed_apy_earned": 6.58
+        },
+        "fixture": "art-663-apy-earned-recompute.reachability.json#zero-average-daily-balance-refused"
+      }
+    },
+    {
+      "id": "interest-definition-noninterest-amounts-held",
+      "clause": "1030.2(n)",
+      "branch": "Interest means any payment to a consumer or to an account for the use of funds in the account; it does NOT include bonuses, consideration worth $10 or less, fee waivers or absorptions of expenses.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "NEGATIVE_INTEREST_EARNED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "interest_earned": -1,
+          "days_in_period": 30,
+          "average_daily_balance": 1000,
+          "disclosed_apy_earned": 6.58
+        },
+        "fixture": "art-663-apy-earned-recompute.reachability.json#negative-interest-refused"
+      }
+    },
+    {
+      "id": "adb-method-definition-input-owned",
+      "clause": "1030.2(d)",
+      "branch": "Average daily balance method: the average daily balance is determined by adding the full amount of principal in the account for each day of the period and dividing by the number of days in the period.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "average_daily_balance (or balance_segments spans: {balance, days})",
+        "source": "caller-declared input, mapped from the bank ledger and product-terms extracts per the Core Output Verification pack input contract (two generic CSV shapes; the extract-to-contract mapping is the bank's one-time step)",
+        "owner": "the caller (bank), not this node — the kernel verifies only that span days sum to the declared period length and computes the days-weighted mean; it never reads the day-by-day principal ledger"
+      }
+    },
+    {
+      "id": "rounding-to-two-decimals-represented",
+      "clause": "1030.3(f)(1)",
+      "branch": "The annual percentage yield earned shall be rounded to the nearest one-hundredth of one percentage point (.01%) and expressed to two decimal places.",
+      "disposition": "represented",
+      "evidence": "apy_earned_computed_rounded",
+      "note": "output_payload.apy_earned_computed_rounded reports the computed yield at two decimals (declared half-up on a non-negative domain); the declared mode is recorded in the shard rounding_steps."
+    },
+    {
+      "id": "accuracy-tolerance-represented",
+      "clause": "1030.3(f)(2)",
+      "branch": "The annual percentage yield earned is considered accurate if not more than one-twentieth of one percentage point (.05%) above or below the value determined in accordance with Appendix A.",
+      "disposition": "represented",
+      "evidence": "within_accuracy_band",
+      "note": "output_payload.accuracy_band_pp carries the band (default 0.05, versioned with source provenance), within_accuracy_band the comparison result, and verdict the MATCHES/DIVERGES outcome."
+    },
+    {
+      "id": "periodic-statement-yield-term-input-owned",
+      "clause": "1030.6(a)(1)",
+      "branch": "A periodic statement must include the annual percentage yield earned during the statement period, using that term, calculated according to Appendix A.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "disclosed_apy_earned (the yield figure as disclosed)",
+        "source": "caller-declared input, taken from the institution's own periodic statement",
+        "owner": "the caller (bank) — this node diffs against the figure as supplied; it does not render statements and does not own the disclosure act"
+      }
+    },
+    {
+      "id": "period-other-than-statement-period-input-owned",
+      "clause": "1030.6(b); Appendix A Part II preamble",
+      "branch": "If an institution uses the average daily balance method and calculates interest for a period other than the statement period, the annual percentage yield earned must reflect that other period.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "one consistent period across interest_earned, average_daily_balance/balance_segments and days_in_period",
+        "source": "caller-declared inputs; which period the figures describe cannot be inferred by the kernel",
+        "owner": "the caller (bank) — the kernel refuses span/period mismatches (SEGMENT_DAYS_MISMATCH) but cannot detect a caller who mixes periods across the three inputs"
+      }
+    },
+    {
+      "id": "days-in-period-definition-represented",
+      "clause": "Appendix A Part II.A",
+      "branch": "Days in period is the actual number of days for the period.",
+      "disposition": "represented",
+      "evidence": "days_in_period",
+      "note": "input days_in_period, validated as an integer 1..366 and echoed in output_payload; it is the denominator of the annualization exponent (365/days), never inferred from dates."
+    }
+  ]
+}
