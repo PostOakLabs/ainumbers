@@ -7,7 +7,7 @@ import { gitEnv } from './_git-env-lib.mjs';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cosignVocabHits, insiderHits, aiVocabHits, notXCount, visibleText, panelHits } from './check-copy-hallmarks.mjs';
+import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, notXCount, visibleText, panelHits } from './check-copy-hallmarks.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -47,6 +47,41 @@ for (const page of ['methods.html', 'fv-explainer.html']) {
 const aiFlavored = 'This pivotal feature will delve into and showcase how we foster a robust tapestry of trust, a myriad of options in the realm of finance.';
 ok(aiVocabHits(aiFlavored).length >= 4, `AI-vocab detector fires on a deliberately AI-flavored sentence — got ${JSON.stringify(aiVocabHits(aiFlavored))}`);
 ok(aiVocabHits('This tool computes the leverage ratio with robust error handling.').length === 0, 'AI-vocab detector does not fire on ordinary finance/eng prose ("leverage ratio", "robust error handling")');
+
+// --- ABSOLUTES (CLAIMS-ABSOLUTES-GATE-1) ---
+// RED-first (SO #40b): d1649cc6 is the commit immediately BEFORE
+// CLAIMS-WORDING-FIX-1's PR #1449 merged (121758de) — its pinned-wording
+// fixes replaced "mathematically proven" and "a fully verified v0.4
+// artifact" on these two pages. Prove the detector trips on the real
+// pre-fix text, then that the current on-disk (post-fix) text is clean of
+// that exact term, closing the loop the wording-fix row opened.
+for (const [rev, page, label] of [
+  ['d1649cc6', 'chaingraph/ocg-legacy-vs-ocg.html', 'mathematically proven'],
+  ['d1649cc6', 'chaingraph/ocg-guide-export.html', 'fully verified'],
+]) {
+  const oldHtml = gitShow(rev, page);
+  const newHtml = readFileSync(resolve(REPO, page), 'utf8');
+  const oldHits = absolutesHits(visibleText(oldHtml));
+  const newHits = absolutesHits(visibleText(newHtml));
+  ok(oldHits.some((h) => h.startsWith(label)), `(pre-fix) ${rev}:${page} trips the absolutes detector on "${label}" — got ${JSON.stringify(oldHits)}`);
+  ok(!newHits.some((h) => h.startsWith(label)), `(post-fix) ${page} on disk is clean of "${label}" — got ${JSON.stringify(newHits)}`);
+}
+
+// (negative control) regime/tool NOUNS are a different word shape entirely —
+// the audit's own §1.3.4 false-positive classes must never trip this gate.
+const regimeNouns = 'The Bank Guarantee & SBLC Structuring Tool covers URDG 758. The NYDFS Certification builder tracks IAL 2 and IAL 3 assurance levels.';
+ok(absolutesHits(regimeNouns).length === 0, `(negative control) regime/tool nouns (bank guarantee, NYDFS Certification, IAL levels) do not trip the absolutes detector — got ${JSON.stringify(absolutesHits(regimeNouns))}`);
+
+// (negative control, compliant form) euc-register.html's actual trust-line
+// shape, quoted verbatim from the shipped page — the colon+mechanism form
+// must stay legal.
+const compliantTrustLine = 'independently verified: zkVM execution proof (risc0/groth16-bn254)';
+ok(absolutesHits(compliantTrustLine).length === 0, `(negative control) compliant "independently verified: <mechanism>" form does not trip — got ${JSON.stringify(absolutesHits(compliantTrustLine))}`);
+
+// (positive control, bare form) the same phrase without a named mechanism is
+// still an unqualified absolute claim and must trip.
+const bareVerified = 'Eligible workflows with an independently verified proof.';
+ok(absolutesHits(bareVerified).length === 1 && absolutesHits(bareVerified)[0].startsWith('independently verified (bare)'), `(positive control) bare "independently verified" (no colon) trips the detector — got ${JSON.stringify(absolutesHits(bareVerified))}`);
 
 // (scope) marker absent -> no-op, even with every banned word present. This is
 // the "not a sitewide ban" guarantee: ordinary tool copy full of "Accept",
