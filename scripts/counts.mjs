@@ -94,6 +94,20 @@ export async function deriveCounts() {
   const toolsHtml = readFileSync(resolve(repoRoot, 'tools.html'), 'utf8')
   const categories = (toolsHtml.match(/class="cat-heading"/g) || []).length
 
+  // cat.* — per-category .tool-card counts in tools.html (TOOLSHTML-CATCOUNT-GATE-1).
+  // Mirrors tools.html's own runtime counter exactly: only tags carrying
+  // class="tool-card" count. The featured-callout divs and the cat-8 heading's own
+  // data-cat attribute (both used for filter visibility, not counting) are excluded,
+  // so cat.8 here and byCat['cat-8'] in the page agree by construction. Card keys are
+  // "cat-N" / "mcp" / "rbe"; sentinels use the dot form ("cat.8", "cat.mcp", "cat.rbe")
+  // because the <!--COUNT:...--> comment-sentinel regex forbids hyphens in keys.
+  const catCounts = {}
+  for (const m of toolsHtml.matchAll(/<[^>]*\bdata-cat="([^"]+)"[^>]*>/g)) {
+    if (!/\bclass="[^"]*tool-card/.test(m[0])) continue
+    const key = 'cat.' + m[1].replace(/^cat-/, '')
+    catCounts[key] = (catCounts[key] || 0) + 1
+  }
+
   // chains
   const chaingraph = JSON.parse(readFileSync(resolve(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'))
   const chains = (chaingraph.chains ?? []).length
@@ -174,6 +188,7 @@ export async function deriveCounts() {
     'categories':        categories,
     'chains':            chains,
     'workflows.recipes': workflowsRecipes,
+    ...catCounts,
     'mcp.live':          mcpLive,
     'mcp.widgets':       mcpWidgets,
     'openapi.ops':       openapiOps,
