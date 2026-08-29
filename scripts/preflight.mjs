@@ -1074,6 +1074,10 @@ const GATES = [
   // `node scripts/check-phasing-notes.test.mjs` to see the whole layer list.
   ['Phasing-note gate controls (RED + GREEN + false-positive + known-answer)', 'node scripts/check-phasing-notes.test.mjs'],
   ['SSOT no dead npm commands (CONTRACT-DEADCMD-FIX-1)', 'node scripts/check-ssot-no-npm.mjs'],
+  ['Retired mcp-toggle tombstone (§1.2, RETIREMENT-TOMBSTONE-GATES-1)', 'node scripts/check-retired-mcp-toggle.mjs'],
+  ['Retired mcp-toggle tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-mcp-toggle.test.mjs'],
+  ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)', 'node scripts/check-retired-ap2-version.mjs'],
+  ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
