@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveChangedScope, isTouched } from './_changed-files-lib.js';
+import { isSkipDir } from './_walk-skip-dirs.mjs';
 
 const ROOT = process.env.DLC_ROOT ? resolve(process.env.DLC_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,14 +30,9 @@ const CHANGED = MODE === 'check'
   : null;
 
 const CHECK_EXT = new Set(['.html','.htm','.css','.js','.mjs','.json','.png','.jpg','.jpeg','.gif','.svg','.webp','.ico','.pdf','.xml','.txt','.woff','.woff2','.md']);
-// Sibling git worktrees are checked out as literal subdirs (repo/worktrees/*,
-// repo/.claude/worktrees/*) — their WIP HTML is a foreign checkout, not this
-// worktree's content, and must never fail this worktree's push.
-const SKIP_DIRS = new Set(['.git','node_modules','.github','worktrees']);
-
 function walk(dir, out=[]) {
   for (const e of readdirSync(dir, { withFileTypes:true })) {
-    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name) && !e.name.startsWith('.git')) walk(join(dir,e.name), out); }
+    if (e.isDirectory()) { if (!isSkipDir(e.name)) walk(join(dir,e.name), out); }
     else if (e.isFile() && /\.html?$/i.test(e.name)) out.push(join(dir,e.name));
   }
   return out;

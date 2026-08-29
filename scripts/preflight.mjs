@@ -1714,10 +1714,17 @@ if (MAIN_CONTEXT && coveredFailures.length) {
 const totalMs = Date.now() - suiteStart;
 console.log(`\nTOTAL ${(totalMs / 1000).toFixed(1)}s`);
 
+// WT-IGNORE-GATES-1 (d): per-gate wall-clock timing, every run — with 187 gates
+// the slow ones were invisible unless the whole suite blew its budget. Always
+// printed (a summary block, like TOTAL above — not gated behind --quiet).
+const topTimings = [...timings].sort((a, b) => b[1] - a[1]).slice(0, 10);
+if (topTimings.length) {
+  console.log(`\nSLOWEST ${topTimings.length} GATE(S) (of ${timings.length} timed):`);
+  for (const [label, ms] of topTimings) console.log(`    ${String(ms).padStart(6)}ms — ${label}`);
+}
+
 if (totalMs > BUDGET_MS) {
-  const slowest = [...timings].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  console.log(`⚠️  BUDGET ADVISORY: preflight took ${(totalMs / 1000).toFixed(1)}s, over the ${(BUDGET_MS / 1000).toFixed(0)}s budget. Slowest 3 gates:`);
-  for (const [label, ms] of slowest) console.log(`    ${ms}ms — ${label}`);
+  console.log(`\n⚠️  BUDGET ADVISORY: preflight took ${(totalMs / 1000).toFixed(1)}s, over the ${(BUDGET_MS / 1000).toFixed(0)}s budget (see slowest gates above).`);
   console.log('    (advisory only — not a hard fail; wall-clock budgets are machine-dependent)');
 }
 
