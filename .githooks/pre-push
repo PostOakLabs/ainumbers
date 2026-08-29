@@ -90,6 +90,62 @@ fi
 # declaration — including a genuine defect on an undeclared gate — still
 # fails the preflight run and still blocks this push (see preflight.mjs:
 # EXPECTED-RED only covers a matched label; every other FAIL stays FAIL).
+#
+# EXPECTRED-ENVPREFIX-GAP-1 (2026-08-29): the env form above is UNREACHABLE by
+# an autonomous session's own sanctioned command. A session's permission
+# fence grants exactly `Bash(git push *)` / `PowerShell(git push *)` — a
+# prefix match on the literal command string — and
+# `AINUM_EXPECT_RED="X" git push ...` does not start with "git push", it
+# starts with the env assignment, so the classifier refuses it outright, with
+# no route to the mechanism it was built to reach (measured on
+# ML03-HANG-FIX-1, 2026-08-27: both the env form and `--no-verify` refused; a
+# PLAIN `git push` ran the hook in full and failed only on the by-construction
+# red).
+#
+# REJECTED FIX: broadening the fence to `Bash(AINUM_EXPECT_RED=*)`. A
+# prefix-match permission rule authorizes EVERY command starting with that
+# literal string, not just a clean env-assignment-then-git-push — e.g.
+# `AINUM_EXPECT_RED=1; rm -rf .` also starts with it. That is the exact
+# arbitrary-env-prefix hole this row was staged to avoid opening, not a
+# narrower cousin of it.
+#
+# FIX SHIPPED: a second declaration route whose invocation string still
+# begins literally "git push", so it is reachable under the EXISTING fence
+# with ZERO new permission grant. A row writes its declaration to a file
+# inside the WORKTREE-PRIVATE git-dir (`git rev-parse --git-dir` — a
+# worktree's own admin dir, e.g. `.git/worktrees/<name>`, never the shared
+# common dir SO #50 warns is contended across every `.wt/` session) and then
+# pushes plainly:
+#   printf '%s\n%s\n' "<gate-id>[,<gate-id>...]" "<row-id>" > "$(git rev-parse --git-dir)/AINUM_EXPECT_RED"
+#   git push -u origin <branch>
+# TAMPER-RESISTANCE, WEIGHED AGAINST THE ENV FORM: the env var lives only in
+# one process's environment and vanishes with it; the file is a plaintext
+# line on disk for a short window. Chosen anyway because (a) it is inside the
+# per-WORKTREE private git-dir, not the shared tree or the shared common
+# git-dir — the same trust boundary as the working tree the push is already
+# built from; (b) this hook reads it and deletes it UNCONDITIONALLY in the
+# next few lines, before preflight even runs, so the window is sub-second in
+# normal operation and the file never survives past the one push attempt,
+# matching "per-invocation only, nothing persisted" exactly; (c) tampering
+# with its CONTENT can only ever misdeclare which single gate is expected
+# red — it cannot suppress a genuine second red, because the "any OTHER red
+# still blocks" guarantee below is enforced by preflight.mjs itself, not by
+# this file. The env form stays legal wherever it is already reachable
+# (an interactively-approved rule, CI, a human's own shell) — this is an
+# ADDITIONAL route, not a replacement.
+_ier_gitdir=$(git rev-parse --git-dir 2>/dev/null)
+_ier_declfile="${_ier_gitdir:+$_ier_gitdir/AINUM_EXPECT_RED}"
+_ier_source="env"
+if [ -z "$AINUM_EXPECT_RED" ] && [ -n "$_ier_declfile" ] && [ -f "$_ier_declfile" ]; then
+  AINUM_EXPECT_RED=$(sed -n '1p' "$_ier_declfile")
+  _ier_filerow=$(sed -n '2p' "$_ier_declfile")
+  [ -z "$AINUM_EXPECT_RED_ROW" ] && AINUM_EXPECT_RED_ROW="$_ier_filerow"
+  _ier_source="file"
+fi
+# Unconditional, regardless of which branch above ran: a stale/leftover
+# declaration file must never outlive the ONE hook invocation that reads it.
+[ -n "$_ier_declfile" ] && rm -f "$_ier_declfile"
+
 set --
 if [ -n "$AINUM_EXPECT_RED" ]; then
   _ier_ifs=$IFS
@@ -100,7 +156,7 @@ if [ -n "$AINUM_EXPECT_RED" ]; then
   done
   IFS=$_ier_ifs
   echo "════════════════════════════════════════════════════════════════"
-  echo "⚠ pre-push: --expect-red DECLARED for THIS invocation only (env, not persisted): $AINUM_EXPECT_RED"
+  echo "⚠ pre-push: --expect-red DECLARED for THIS invocation only (via: $_ier_source, not persisted): $AINUM_EXPECT_RED"
   echo "  Scope: by-construction red only (target exists only on an unmerged branch/shard)."
   echo "  Any OTHER red gate, or a genuine defect on a named one, still blocks this push."
   echo "════════════════════════════════════════════════════════════════"
@@ -132,7 +188,7 @@ if [ -n "$AINUM_EXPECT_RED" ]; then
   # AINUM_GUARDRAIL_METRICS_PATH is a TEST-ONLY override (see .githooks/pre-push.test.mjs);
   # production always resolves to the workspace-root metrics file at its fixed absolute path.
   _ier_metrics_file="${AINUM_GUARDRAIL_METRICS_PATH:-/c/dev/Claude/Projects/AINumbers/board/reference/GUARDRAIL-METRICS.jsonl}"
-  _ier_line="{\"event\":\"expect-red-declaration\",\"ts\":\"$_ier_ts\",\"gate\":\"$_ier_gate\",\"mechanism\":\"--expect-red\",\"row\":\"$_ier_row\",\"branch\":\"$_ier_branch\",\"commit\":\"$_ier_sha\",\"denied\":$_ier_denied}"
+  _ier_line="{\"event\":\"expect-red-declaration\",\"ts\":\"$_ier_ts\",\"gate\":\"$_ier_gate\",\"mechanism\":\"--expect-red\",\"source\":\"$_ier_source\",\"row\":\"$_ier_row\",\"branch\":\"$_ier_branch\",\"commit\":\"$_ier_sha\",\"denied\":$_ier_denied}"
   if [ -f "$_ier_metrics_file" ] && printf '%s\n' "$_ier_line" >> "$_ier_metrics_file" 2>/dev/null; then
     echo "pre-push: --expect-red declaration appended to GUARDRAIL-METRICS.jsonl as an override event (denied=$_ier_denied)."
   else

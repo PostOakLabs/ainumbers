@@ -8,7 +8,7 @@
  * declared --expect-red per invocation." scripts/preflight.mjs has carried the
  * matching `--expect-red <gate-id>` flag since PREFLIGHT-KEEPGOING-1 (2026-08-15,
  * #1283); this file proves the HOOK-side half added by this row: forwarding a
- * per-invocation declaration (env var AINUM_EXPECT_RED, never a file) into that
+ * per-invocation declaration (env var, or the EXPECTRED-ENVPREFIX-GAP-1 file route) into that
  * flag, disclosing it in the push output, and logging it as an override event —
  * without ever letting the declaration wave through a red gate it did not name.
  *
@@ -79,6 +79,11 @@ function makeSandbox() {
   writeFileSync(hookDst, readFileSync(HOOK_SRC, 'utf8'));
   chmodSync(hookDst, 0o755);
   writeFileSync(join(dir, 'scripts', 'preflight.mjs'), MOCK_PREFLIGHT);
+  // EXPECTRED-ENVPREFIX-GAP-1: the file-based route resolves its declaration
+  // path off `git rev-parse --git-dir`, so the sandbox needs a REAL (if tiny)
+  // git repo for that lookup to succeed — a plain temp dir has no git-dir at
+  // all, and the hook's file-route block silently no-ops without one.
+  spawnSync('git', ['init', '-q'], { cwd: dir });
   return dir;
 }
 
@@ -196,6 +201,70 @@ let greenDenied;
     'NO PERSISTENCE: the unflagged push forwards no --expect-red args (no state survived)');
   assert(plain.metricsLines.length === linesAfterFlagged,
     `NO PERSISTENCE: the unflagged push appended nothing new to the metrics log (had ${linesAfterFlagged}, now ${plain.metricsLines.length})`);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ── 6. FILE-BASED ROUTE (EXPECTRED-ENVPREFIX-GAP-1) — reachable under the
+//      EXISTING Bash(git push *) rule, since the invocation stays literally
+//      "git push"; no env var, no new permission grant.
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  writeFileSync(join(dir, '.git', 'AINUM_EXPECT_RED'), 'gate-c\nTEST-ROW-2\n');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' }); // AINUM_EXPECT_RED unset — file is the ONLY channel here
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-c']),
+    `file-based route forwards the declared id exactly like the env form (got ${JSON.stringify(r.argv)})`);
+  assert(r.status === 0, 'file-based route: GREEN control — declared id + preflight accepts ⇒ push proceeds');
+  assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')),
+    'file-based route: the declaration file is deleted by the hook — never survives past this one invocation');
+  assert(r.metricsLines.length === 1, `file-based route: exactly one override event appended (got ${r.metricsLines.length})`);
+  if (r.metricsLines.length === 1) {
+    const parsed = JSON.parse(r.metricsLines[0]);
+    assert(parsed.source === 'file', `file-based route: logged source is "file" (got ${parsed.source})`);
+    assert(parsed.row === 'TEST-ROW-2', `file-based route: row id read from the declaration file's second line (got ${parsed.row})`);
+  }
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ── 7. FILE-BASED ROUTE, STILL BLOCKS (load-bearing) — a genuine second red
+//      still fails the push exactly like the env route does.
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  writeFileSync(join(dir, '.git', 'AINUM_EXPECT_RED'), 'gate-c\n');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
+  assert(r.status !== 0, 'file-based route, STILL BLOCKS: a genuine red still fails the push even with a file declaration');
+  assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')), 'file-based route: declaration file deleted even when the push is still denied');
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ── 8. FILE NEVER OUTLIVES A LATER, UNFLAGGED PUSH ────────────────────────
+//      The whole design rests on "per-invocation only" — prove the file
+//      cannot leak a waiver into a push that never asked for one.
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  writeFileSync(join(dir, '.git', 'AINUM_EXPECT_RED'), 'gate-c\n');
+  const first = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  assert(first.status === 0, 'file-route setup: first push (with declaration) succeeds');
+  const second = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
+  assert(second.status !== 0, 'NO PERSISTENCE (file route): a later push with no file and a genuine red still blocks');
+  assert(JSON.stringify(second.argv) === JSON.stringify(['--changed', 'origin/main']),
+    'NO PERSISTENCE (file route): the later push forwards no --expect-red (the file did not survive)');
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// ── 9. ENV TAKES PRECEDENCE OVER A STALE FILE, AND THE STALE FILE IS STILL
+//      CONSUMED (never left behind for a third push to accidentally inherit).
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  writeFileSync(join(dir, '.git', 'AINUM_EXPECT_RED'), 'gate-from-file\n');
+  const r = runHook(dir, { AINUM_EXPECT_RED: 'gate-from-env', MOCK_PREFLIGHT_EXIT: '0' });
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-from-env']),
+    `env wins when both are present (got ${JSON.stringify(r.argv)})`);
+  assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')),
+    'a stale file is still deleted even when the env form is the one actually used');
   rmSync(dir, { recursive: true, force: true });
 }
 
