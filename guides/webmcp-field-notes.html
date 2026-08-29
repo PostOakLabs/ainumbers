@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>WebMCP Field Notes: A Real Session, Bugs Included | AINumbers.co</title>
+<meta name="description" content="A complete, unedited walkthrough of calling an AINumbers calculator through WebMCP: every command, every error, every fix, and the receipt at the end.">
+<link rel="canonical" href="https://ainumbers.co/guides/webmcp-field-notes.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "WebMCP Field Notes: A Real Session, Bugs Included",
+  "description": "A complete, unedited walkthrough of calling an AINumbers calculator through WebMCP, including the errors encountered and how each was resolved.",
+  "author": { "@type": "Organization", "name": "AINumbers.co" },
+  "publisher": { "@type": "Organization", "name": "AINumbers.co" },
+  "about": "WebMCP, browser agent tools, verifiable computation"
+}
+</script>
+<style>
+  :root {
+    --bg: #0b1020; --panel: #111731; --panel2: #0e1428; --line: #232c4d;
+    --text: #dce3f2; --mute: #8b96b3; --teal: #35d0ba; --gold: #e8b34b;
+    --red: #e06c75; --green: #7be3a0; --blue: #7aa2f7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Sora', sans-serif; line-height: 1.65; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+  h1 { font-family: 'DM Serif Display', serif; font-size: 2.4rem; line-height: 1.15; margin-bottom: 0.75rem; }
+  h2 { font-family: 'DM Serif Display', serif; font-size: 1.55rem; margin: 2.8rem 0 0.8rem; color: var(--teal); }
+  h3 { font-size: 1.02rem; margin: 1.6rem 0 0.5rem; color: var(--gold); font-weight: 600; }
+  p { margin: 0.7rem 0; }
+  .kicker { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.18em; color: var(--teal); text-transform: uppercase; margin-bottom: 0.6rem; }
+  .lede { color: var(--mute); font-size: 1.05rem; }
+  a { color: var(--blue); }
+  .term { background: #090d1a; border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1.1rem; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; overflow-x: auto; white-space: pre; line-height: 1.55; }
+  .term .in { color: var(--text); }
+  .term .out { color: var(--mute); }
+  .term .ok { color: var(--green); }
+  .term .err { color: var(--red); }
+  .term .warn { color: var(--gold); }
+  .snippet { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--teal); border-radius: 8px; padding: 0.9rem 1.1rem; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; overflow-x: auto; white-space: pre; line-height: 1.55; }
+  .lesson { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1.2rem; margin: 1.2rem 0; }
+  .lesson b { color: var(--teal); }
+  .steps { counter-reset: step; margin: 1rem 0; }
+  .steps li { list-style: none; margin: 0.55rem 0; padding-left: 2.2rem; position: relative; }
+  .steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 0; top: 0.1rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--teal); color: #06251f; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
+  .hash { color: var(--green); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; word-break: break-all; white-space: normal; }
+  .note { color: var(--mute); font-size: 0.88rem; }
+  .toc { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.4rem; margin: 1.4rem 0; }
+  .toc li { margin: 0.25rem 0 0.25rem 1.1rem; }
+  table.tiers { border-collapse: collapse; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; width: 100%; }
+  table.tiers td { border: 1px solid var(--line); padding: 0.4rem 0.8rem; }
+  table.tiers td:first-child { color: var(--mute); }
+  table.tiers td:last-child { text-align: right; }
+  .footer-note { margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--line); color: var(--mute); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Guides &middot; WebMCP &middot; Worked Example</div>
+  <h1>WebMCP field notes: a real session, bugs included</h1>
+  <p class="lede">This is what actually happens when you call the Reg&nbsp;Z threshold calculator through WebMCP, the draft W3C API that lets a web page offer tools to AI agents. It does not work on the first try, and that is the point: this page is a complete session, every command, every error the browser throws, what each one means, and the cryptographic receipt at the end. Nothing cleaned up, because the debugging is the useful part.</p>
+
+  <div class="toc">
+    What happened, in order
+    <ol>
+      <li>Launching Chrome with WebMCP enabled</li>
+      <li>The console refuses to let you paste (by design)</li>
+      <li>Error one: the API is not there at all</li>
+      <li>Error two: the API moved</li>
+      <li>Proving the fix with a probe tool</li>
+      <li>The full call, and the receipt</li>
+      <li>What changed on this site because of it</li>
+    </ol>
+  </div>
+
+  <h2>1. Launching Chrome with WebMCP enabled</h2>
+  <p>WebMCP is new, so Chrome keeps it behind a feature switch. Close every Chrome window, then start it from the Run box (Windows key + R):</p>
+  <div class="snippet"><code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --enable-features=WebMCP</code></div>
+  <p>Then open the calculator this whole example runs against: <a href="../chaingraph/art-220-reg-z-threshold-lookup.html">Reg&nbsp;Z Threshold Lookup</a>. It is an ordinary page with two dropdowns. Everything below happens in the browser DevTools console (press F12, pick the Console tab).</p>
+
+  <h2>2. The console refuses to let you paste</h2>
+  <p>The first paste does nothing except produce a yellow warning:</p>
+  <div class="term"><span class="warn">Warning: Don't paste code into the DevTools Console that you don't
+understand or haven't reviewed yourself. This could allow attackers to
+steal your identity or take control of your computer. Please type
+"allow pasting" below and press Enter to allow pasting.</span></div>
+  <div class="lesson">What this is: Chrome's one-time protection against a real scam where strangers talk people into pasting hostile code. Type the two words <span style="font-family:'JetBrains Mono',monospace">allow pasting</span> at the console prompt and press Enter. Chrome remembers permanently. Every snippet on this page is shown in full so you can read what you are about to run, which is exactly the habit the warning is asking for.</div>
+
+  <h2>3. Error one: the API is not there at all</h2>
+  <p>With pasting unlocked, ask the page what tools it offers:</p>
+  <div class="snippet">const tools = await navigator.modelContext.getTools();
+console.log(tools.length, tools[0].name);</div>
+  <p>Which gets you this:</p>
+  <div class="term"><span class="err">Uncaught TypeError: Cannot read properties of undefined (reading 'getTools')</span></div>
+  <div class="lesson">Diagnosis: <span style="font-family:'JetBrains Mono',monospace">navigator.modelContext</span> did not exist, meaning the feature switch never took effect. The cause is sneaky: Chrome keeps background processes running even when all its windows are closed, so the flagged launch just opens a window inside the old, unflagged instance. Fix: kill every Chrome process, then relaunch:</div>
+  <div class="snippet">taskkill /IM chrome.exe /F</div>
+  <p>After a genuinely fresh start, the check worth running first comes back healthy:</p>
+  <div class="term"><span class="in">&gt; "modelContext" in navigator</span>
+<span class="ok">true</span></div>
+
+  <h2>4. Error two: the API moved</h2>
+  <p>Same snippet after the restart. A different failure this time, with a very informative warning above it:</p>
+  <div class="term"><span class="warn">navigator.modelContext is deprecated. Please use document.modelContext instead.</span>
+<span class="err">Uncaught TypeError: Cannot read properties of undefined (reading 'name')</span></div>
+  <p>Checking both surfaces shows the tool list empty everywhere:</p>
+  <div class="term"><span class="in">&gt; const mc = document.modelContext ?? navigator.modelContext;
+  const t = await mc.getTools();
+  console.log(t);</span>
+<span class="out">[]</span></div>
+  <div class="lesson">Diagnosis: this page registered its tool on <span style="font-family:'JetBrains Mono',monospace">navigator.modelContext</span>, which was correct when the integration shipped and passed its test harness. Newer Chrome moved the API to <span style="font-family:'JetBrains Mono',monospace">document.modelContext</span> and turned the old path into a deprecated alias whose registrations quietly go nowhere. The page worked on the browser it was tested on and broke on the browser you are probably running. Draft APIs do this, and a test that passed last month is not a test that passes today.</div>
+
+  <h2>5. Proving the fix with a probe tool</h2>
+  <p>Before changing anything on the site, confirm the mechanism with a throwaway tool registered the new way:</p>
+  <div class="snippet">document.modelContext.registerTool({
+  name: "probe-tool",
+  description: "probe",
+  inputSchema: { type: "object", properties: {} },
+  async execute() { return "ok"; }
+});
+console.log((await document.modelContext.getTools()).map(t => t.name));</div>
+  <div class="term"><span class="ok">['probe-tool']</span></div>
+  <p>One line of output, and the diagnosis is confirmed: registration through <span style="font-family:'JetBrains Mono',monospace">document.modelContext</span> lands; registration through the deprecated alias does not.</p>
+
+  <h2>6. The full call, and the receipt</h2>
+  <p>With the mechanism proven, the real calculator tool gets registered the new way (the page itself now does this at load) and called exactly as an agent would:</p>
+  <div class="snippet">const tools = await document.modelContext.getTools();
+const tool = tools.find(t => t.name === "art-220-reg-z-threshold-lookup-compute");
+const result = await document.modelContext.executeTool(
+  tool,
+  JSON.stringify({ tableType: "qm_points_fees", tableYear: 2026 })
+);
+console.log(JSON.parse(result));</div>
+  <p class="note">One trap worth knowing: the second argument to executeTool is a JSON <span style="font-family:'JetBrains Mono',monospace">string</span>, not an object. Passing an object fails with "Failed to parse input arguments."</p>
+  <p>Two things happened at once. The console received the structured answer, and the page itself rendered the human view of the same result, because the tool drives the same function as the submit button. The answer:</p>
+  <table class="tiers">
+    <tr><td>fr_citation</td><td>FR 2025-22773, effective 2026-01-01</td></tr>
+    <tr><td>tier_1_min</td><td>$137,958</td></tr>
+    <tr><td>tier_1_pct</td><td>3%</td></tr>
+    <tr><td>tier_2_fixed</td><td>$4,139</td></tr>
+    <tr><td>tier_3_min</td><td>$27,592</td></tr>
+    <tr><td>tier_3_pct</td><td>5%</td></tr>
+    <tr><td>tier_4_fixed</td><td>$1,380</td></tr>
+    <tr><td>tier_5_pct</td><td>8%</td></tr>
+  </table>
+  <p>And beneath it, the execution hash:</p>
+  <p class="hash">sha256:43d43e1b5ac519566dd345496b655fe80a2f815428ab17703c092c15f490c8b6</p>
+  <div class="lesson">Why that hash matters: it is SHA-256 over the canonical form (RFC 8785) of the inputs and outputs together. The continuous-integration harness, on a different Chrome build, on a different day, produced the same hash for the same inputs. Same question, same answer, same fingerprint, on any machine. That is the property that lets an agent verify a result instead of trusting the page that produced it. The kernel behind the page is additionally sealed with a zero-knowledge proof.</div>
+
+  <h2>7. What changed on this site because of it</h2>
+  <p>The session found a live defect: the page registered its tool only on the deprecated surface, so current Chrome visitors got no tool at all. The fix is the pattern this site now ships:</p>
+  <div class="snippet">const mc = document.modelContext ??
+  (("modelContext" in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({ /* same tool object */ });
+}</div>
+  <ul class="steps">
+    <li>Prefer the current surface, fall back to the old one, and if neither exists do nothing: browsers without WebMCP get a byte-identical page.</li>
+    <li>Verification now runs against the current stable desktop Chrome, not only the build that passed last time. An API in draft moves; the tests have to move with it.</li>
+    <li>This page you are reading is the third artifact of the session. The debugging was too useful to throw away, so it became the worked example.</li>
+  </ul>
+
+  <h3>Try it yourself</h3>
+  <p>Everything above is reproducible in about two minutes: launch Chrome with the flag (step 1), open the <a href="../chaingraph/art-220-reg-z-threshold-lookup.html">calculator</a>, and paste the snippet from section 6. The registration is already done for you by the page. Compare the tier values with the form's output and check the hash.</p>
+
+  <div class="footer-note">
+    <p>The pattern here, one page serving humans through a form and agents through a tool with a shared receipt, is how every agent-callable calculator on this site works. WebMCP is a draft W3C specification; API names on this page reflect current Chrome behavior and may change again. Values shown are the pinned 2026 Reg&nbsp;Z table (FR 2025-22773); always verify at consumerfinance.gov before production compliance use.</p>
+  </div>
+</div>
+</body>
+</html>
