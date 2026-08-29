@@ -151,6 +151,24 @@ def _pii_scan_dirs():
     return dirs
 
 
+# PII-GATE-ABSENCE-1 (2026-08-29): the old regex only ever matched literal
+# <div class="pii-notice"> / "pii-bar"> with no other attributes. Measured
+# against the live estate (git grep, sha 8cdb82d6), the disclosure sentence
+# actually ships under at least eight different wrapper shapes across template
+# generations — class="pii-notice", "pii", "pii-notice-inline", "pii-banner",
+# "scope-note" (+ a <span data-i18n="pii.banner">, or on a few older pages a
+# bare unlabeled <span>), "disclaimer", "privacy-text", "req-pii-note" — and
+# new ones keep appearing (see tools/152-baas-provider-comparator.html, the
+# template CLAUDE.md itself names, which the old regex never matched at all).
+# Enumerating wrapper classes is therefore a losing game. Instead: does the
+# canonical sentence appear anywhere on the page (pass); if not, does the
+# page still carry a recognizable ATTEMPT at it (the phrase "processed
+# locally", present in every variant seen, canonical or drifted) — that's a
+# wording drift, not an absence; if neither, the page never got a notice at
+# all. All three states are real per SO #34c ("absence is not a pass").
+PII_ATTEMPT_SIGNAL = "processed locally"
+
+
 def check_pii_text(changed=None):
     bad = []
     scanned = 0
@@ -159,18 +177,21 @@ def check_pii_text(changed=None):
         for path in _touched(sorted(d.glob("*.html")), changed):
             scanned += 1
             text = path.read_text(encoding="utf-8", errors="replace")
-            m = re.search(r'<div\s+class="(?:pii-notice|pii-bar)">(.*?)</div>', text, re.S)
-            if m:
+            if CANON_PII_PREFIX in text:
                 n += 1
-                if CANON_PII_PREFIX not in m.group(1):
-                    bad.append(str(path.relative_to(REPO)))
+                continue
+            rel = str(path.relative_to(REPO))
+            if PII_ATTEMPT_SIGNAL in text:
+                bad.append(f"{rel}  (non-canonical text)")
+            else:
+                bad.append(f"{rel}  (MISSING privacy notice)")
     if bad:
-        fail(f"[PII] {len(bad)} page(s) have wrong pii-notice text (CONTRACT §1.3):")
+        fail(f"[PII] {len(bad)} page(s) missing or with non-canonical pii-notice text (CONTRACT §1.3):")
         for f in bad:
             fail(f"  {f}")
     else:
         scope = f"{scanned} touched page(s)" if changed is not None else f"{scanned} pages scanned across tools/ + chaingraph/workbench/ + chaingraph/canvas/"
-        print(f"  ✅ PII text: {n} pii-notice divs all carry canonical §1.3 text ({scope})")
+        print(f"  ✅ PII text: {n} pages carry canonical §1.3 text ({scope})")
 
 
 # ── Check 2: Manifest coverage ────────────────────────────────────────────────
