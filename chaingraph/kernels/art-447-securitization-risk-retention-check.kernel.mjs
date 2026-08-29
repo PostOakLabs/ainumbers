@@ -14,7 +14,8 @@ export const meta = {
 // basis, no hedging/sale, retainer must not be established or operate for the sole purpose of
 // securitising exposures) and the U.S. Credit Risk Retention Rule (Dodd-Frank Sec.941, Reg RR,
 // 12 CFR Part 244: 5% base retention with a Qualified Residential Mortgage (QRM) exemption,
-// QRM locator: see node metadata regulatory_basis). Deterministic point-in-time structural check from caller-supplied retention method,
+// QRM locator: see node metadata regulatory_basis). Deterministic point-in-time
+// structural check from caller-supplied retention method,
 // exposure/retained amounts, and jurisdiction-specific flags -- no valuation model, no live
 // exposure feed.
 //
