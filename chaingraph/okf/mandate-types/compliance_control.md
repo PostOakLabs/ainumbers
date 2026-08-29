@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-77"]
+tags: ["compliance_control", "count-78"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-77 tool(s) in this mandate-type group:
+78 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -87,5 +87,6 @@ status: stable
 - [Verify Receipt](../tools/art-652-verify-receipt.md)
 - [Interest Accrual Recompute](../tools/art-661-interest-accrual-recompute.md)
 - [Overdraft / NSF Fee Recomputation](../tools/art-662-odnsf-fee-recompute.md)
+- [APY-Earned Recompute](../tools/art-663-apy-earned-recompute.md)
 - [Loan Servicing Waterfall Recompute](../tools/art-664-loan-servicing-waterfall-recompute.md)
 - [GL Tie-Out Recompute](../tools/art-665-gl-tieout-recompute.md)

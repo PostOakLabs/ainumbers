@@ -593,6 +593,7 @@ status: stable
 - [Compile NAV-Error Evidence Pack](./art-660-compile-nav-error-evidence-pack.md) — `compile_nav_error_evidence_pack`
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md) — `compute_interest_accrual_recompute`
 - [Overdraft / NSF Fee Recomputation](./art-662-odnsf-fee-recompute.md) — `compute_odnsf_fee_recompute`
+- [APY-Earned Recompute](./art-663-apy-earned-recompute.md) — `compute_apy_earned_recompute`
 - [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md) — `compute_loan_servicing_waterfall_recompute`
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md) — `compute_gl_tieout_recompute`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
