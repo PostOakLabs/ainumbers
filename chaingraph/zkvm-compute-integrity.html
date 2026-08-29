@@ -450,7 +450,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
 
     <div class="lesson">
       <h3>What it costs</h3>
-      <p>The full suite proved on a single consumer GPU (an RTX 3080) in about five and a half hours. The Groth16 wrap ran roughly 252 seconds per kernel. The first toolchain build took 5 to 15 minutes. Verifying any of the proofs is milliseconds. Proving is the investment and it is a one-time, off-line cost; verifying is free and universal. If you have no GPU, a proving network (such as Boundless or Succinct) is an option for the proving step, but keep it out of the verify path.</p>
+      <p>The full suite proved on a single consumer GPU (an RTX 3080) in about five and a half hours. The Groth16 wrap ran roughly 252 seconds per kernel. The first toolchain build took 5 to 15 minutes. Verifying any of the proofs is milliseconds. Proving is the investment and it is a one-time, off-line cost; verifying is free and universal. The proving card is a singleton shared across the estate, and the operating policy is to use it rather than ration it: an idle card gets booked in daytime for a job of any cycle class, and only SLOW jobs above the 30-million-cycle line wait for the overnight lane, and only when the card is contended. If you have no GPU, a proving network (such as Boundless or Succinct) is an option for the proving step, but keep it out of the verify path.</p>
     </div>
 
     <div class="lesson">
@@ -466,14 +466,14 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     <div class="lesson">
       <h3>Triage before you prove</h3>
       <p>Before generating a single proof, sort your kernels into three buckets: the ones using only basic arithmetic are ready immediately, the ones using integer powers need a quick check that the exponent really is an integer, and the transcendental ones need the deterministic math work first. That sort is your project plan. We classified all of ours up front, and it told us exactly where the hard work was.</p>
-      <p>Measure before you prove. The host can run a kernel in the guest in execute mode, which reports the cycle count and produces no proof. A normal node runs in a few million cycles; the practical ceiling for proving one on a consumer GPU is around fifty million. Reading the cycle count first is what kept a faithful URL parser from ever reaching the prover: execute mode reported over five billion cycles, and the decision to find a cheaper predicate was made in seconds instead of after a failed overnight run.</p>
+      <p>Measure before you prove. The host runs the kernel in the guest in execute-only mode, which reports cycle counts and produces no proof; it needs no GPU and no lock on the proving card, so it can run while someone else is proving. Measure the maximum cycle count across every fixture vector, never just the first: one production kernel's first vector understated its worst vector by 2.9 times, and a single-vector reading would have mis-sized the job. Classify each kernel against the 30-million-cycle line at spec time, at or under it is a routine prove, above it is a SLOW job whose cost gets justified before the card is booked. Reading the cycle count first is what kept a faithful URL parser from ever reaching the prover: execute mode reported over five billion cycles, and the decision to find a cheaper predicate was made in seconds instead of after a failed overnight run.</p>
     </div>
 
     <h3>Proving the heavy tail, animated</h3>
-    <p>The lessons above compress into one repeatable pipeline for a kernel too expensive to prove at default settings: measure its cycle count first, run the GPU batch overnight rather than live, step the segment size down the ladder if a card runs out of memory partway through, and if it is still too costly, reach for a second, native-compiled guest image instead of the universal JS one. The diagram walks that pipeline left to right.</p>
+    <p>The lessons above compress into one repeatable pipeline for a kernel too expensive to prove at default settings: measure its cycle count first with the execute-only preflight, book the proving card when it is idle instead of hoarding the job for nighttime, step the segment size down the ladder if a card runs out of memory partway through, and if it is still too costly, reach for a second, native-compiled guest image instead of the universal JS one. The diagram walks that pipeline left to right.</p>
     <div class="cap">the heavy-tail pipeline</div>
     <div class="scene" style="max-width:820px;margin:0 auto 1rem">
-      <svg id="ht18" viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Proving pipeline for expensive kernels: measure cycle count, run an overnight GPU batch, then step the segment-size ladder down if memory-bound" style="width:100%;max-width:680px;display:block">
+      <svg id="ht18" viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Proving pipeline for expensive kernels: measure cycle count with the execute-only preflight, book the GPU batch when the card is idle, then step the segment-size ladder down if memory-bound" style="width:100%;max-width:680px;display:block">
         <defs>
           <style>
             #ht18 .n{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#a8c4de}
@@ -499,14 +499,14 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
         <text x="20" y="92" class="n">no proof, just</text>
         <text x="20" y="104" class="n">cycle count</text>
         <text x="20" y="126" class="n" fill="#14b8a6">normal: ~few M cycles</text>
-        <text x="20" y="140" class="cap">GPU ceiling ~50M</text>
+        <text x="20" y="140" class="cap">FAST/SLOW line: 30M</text>
         <circle id="ht18-dp" cx="14" cy="43" r="4" fill="#14b8a6"/>
 
         <path id="ht18-a1" d="M184,94 L246,94" fill="none" stroke="#14b8a6" stroke-width="1.5" marker-end="url(#ht18-m)"/>
 
         <g id="ht18-b2">
           <rect x="249" y="35" width="176" height="118" rx="7" fill="#0c1a2e" stroke="#d4a847" stroke-width="1.5"/>
-          <text x="337" y="55" text-anchor="middle" class="l" fill="#d4a847">2 · Overnight batch</text>
+          <text x="337" y="55" text-anchor="middle" class="l" fill="#d4a847">2 · GPU batch</text>
           <line x1="249" y1="62" x2="425" y2="62" stroke="#d4a847" stroke-width=".5" opacity=".35"/>
           <text x="261" y="80" class="n">GPU succinct prove,</text>
           <text x="261" y="92" class="n">RISC0_DEV_MODE=0,</text>
