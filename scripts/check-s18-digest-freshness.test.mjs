@@ -515,14 +515,26 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // NO CEILING WAS RAISED: the ratchet baseline (scripts/s18-digest-freshness-baseline.json) is 133
   // and was not touched; 117 <= 133, so the gate itself stayed green throughout. Only this
   // exact-match calibration moved.
-  // Measured both sides, not assumed: 486/602 fresh + 116 stale on origin/main 47779a29,
-  // 485/602 fresh + 117 stale on this branch. Denominator UNCHANGED at 602. Set-differenced
-  // node-by-node rather than inferred from the counts: exactly one node entered the stale set
-  // (optimize_social_security_claim_age) and zero nodes left it.
-  assert(total === 602, `expected 602 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 485, `expected 485 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 117, `expected 117 stale (art-282's sealed receipt predates Tim's ruled citation-comment deletion; rides its next legitimate re-prove), got ${stale.length}`);
-});
+   // Measured both sides, not assumed: 486/602 fresh + 116 stale on origin/main 47779a29,
+   // 485/602 fresh + 117 stale on this branch. Denominator UNCHANGED at 602. Set-differenced
+   // node-by-node rather than inferred from the counts: exactly one node entered the stale set
+   // (optimize_social_security_claim_age) and zero nodes left it.
+   // 117 -> 116 post-ART26-REPROVE-1 (2026-08-29): the SO #36 carry for SILENT-DEGRADE-FIX-1.
+   // simulate_x402_flow's superseded 2026-06-28 receipt (journal 6024a5a3, pre-existing §18 drift)
+   // was replaced by a fresh groth16 seal over the landed atob-guarded kernel bytes: sealed
+   // journal.kernel_digest = sha256:24dadadd4a0901134a41d251fcac134657970dc8015251d06ab4757f1bcaf17e,
+   // re-derived from the landed bytes (VERIFY_PASS in 129s, proven vector 'minimal'), and the in-PR
+   // assemble folded the updated shard into chaingraph.json. This is the freshness flip the row
+   // staged 2026-08-15 exists for. NO CEILING WAS RAISED: the ratchet baseline is 133 and was not
+   // touched; 116 <= 133, so the gate itself stays green. Only this exact-match calibration moved.
+   // Measured both sides, not assumed: 485/602 fresh + 117 stale on origin/main 80a5a112,
+   // 486/602 fresh + 116 stale on this branch post-re-prove. Denominator UNCHANGED at 602.
+   // Set-differenced node-by-node rather than inferred from the counts: exactly one node LEFT the
+   // stale set (simulate_x402_flow) and zero nodes entered it.
+   assert(total === 602, `expected 602 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 486, `expected 486 fresh (calibration set), got ${fresh.length}`);
+   assert(stale.length === 116, `expected 116 stale (art-282's sealed receipt predates Tim's ruled citation-comment deletion; rides its next legitimate re-prove), got ${stale.length}`);
+ });
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
