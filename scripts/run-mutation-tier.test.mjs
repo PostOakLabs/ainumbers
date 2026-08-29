@@ -21,10 +21,10 @@
  * Run: node scripts/run-mutation-tier.test.mjs
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, cpSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, cpSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { copySandboxDeps } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision } from './run-mutation-tier.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -91,7 +91,6 @@ function oldConventionCopy(fx, scratchRoot) {
 }
 
 console.log('run-mutation-tier controls — sandbox dependency copying');
-
 test('R1 the OLD `_`-prefix convention silently drops a non-underscore sibling (the reproduced near-miss)', () => {
   const fx = buildFixtureRepo();
   const scratchRoot = mkdtempSync(join(tmpdir(), 'rmt-scratch-old-'));
@@ -128,6 +127,105 @@ test('R3 a genuinely missing dependency fails with ONE NAMED line, never a bare 
   assert(!/ERR_MODULE_NOT_FOUND/.test(threw.message), `must not be a bare ERR_MODULE_NOT_FOUND:\n${threw.message}`);
   assert(/helper\.mjs/.test(threw.message) && /fixture-id\.proptest\.mjs/.test(threw.message),
     `must name BOTH the missing file and its importer:\n${threw.message}`);
+});
+
+// ── decomposed scoring controls (MUTATION-DECOMPOSED-SCORE-1) ────────────
+
+console.log('\nrun-mutation-tier controls — decomposed scoring (fixture-leg neutralization, EXP-D shape)');
+
+const LOCAL_ORACLE_SRC = [
+  'import { compute } from "../fixture-id.kernel.mjs";',
+  'function runFixtureOracle() {',
+  '  const failures = checkVectors(compute);',
+  '  return failures.length === 0;',
+  '}',
+  'const oracleOk = runFixtureOracle();',
+].join('\n');
+
+const COMMON_ORACLE_SRC = [
+  'import { readFileSync } from "node:fs";',
+  'export function runFixtureOracle(kernelId, compute, wrapPP = (pp) => pp) {',
+  '  const fixtures = JSON.parse(readFileSync(path, "utf8"));',
+  '  return { total: fixtures.vectors.length, failures };',
+  '}',
+].join('\n');
+
+test('R4 the EXP-D short-circuit inserts exactly one line into a LOCAL runFixtureOracle declaration (sync and async), preserving the body', () => {
+  for (const decl of ['function runFixtureOracle() {', 'async function runFixtureOracle() {']) {
+    const src = LOCAL_ORACLE_SRC.replace('function runFixtureOracle() {', decl);
+    const patched = shortCircuitFixtureOracle(src, 'boolean');
+    assert(patched !== null, `patcher must find the ${decl} declaration`);
+    const hits = patched.split('MUTATION-DECOMPOSED-SCORE-1 fixture-leg neutralization').length - 1;
+    assert(hits === 1, `exactly one short-circuit insertion expected, got ${hits}`);
+    assert(/\{\n  return true; \/\* MUTATION-DECOMPOSED-SCORE-1/.test(patched), 'the short-circuit must be the FIRST body statement');
+    assert(patched.includes('return failures.length === 0;'), 'the original body must survive below the short-circuit');
+    assert(patched.includes(decl), 'the declaration itself must be unchanged');
+  }
+  assert(shortCircuitFixtureOracle('export const oracle = 1;\n', 'boolean') === null,
+    'a floor with no runFixtureOracle declaration must return null (caller raises a NAMED failure), never a guessed patch');
+});
+
+test('R5 neutralizationTargets routes the patch: local declaration -> proptest, _pbt-common import -> shared helper, neither -> null', () => {
+  const local = neutralizationTargets(LOCAL_ORACLE_SRC);
+  assert(local && local.patchProptest === true && local.patchCommon === false, 'a local declaration patches the proptest itself');
+  const imported = neutralizationTargets(
+    'import { mulberry32, pick, runFixtureOracle, findShapeViolations, summarize } from "./_pbt-common.mjs";\nconst oracle = runFixtureOracle(KERNEL_ID, compute);\n');
+  assert(imported && imported.patchProptest === false && imported.patchCommon === true, 'an imported runFixtureOracle patches the _pbt-common.mjs copy');
+  assert(neutralizationTargets('import { compute } from "../k.kernel.mjs";\nconsole.log(compute({}));\n') === null,
+    'a floor exposing no fixture oracle at all is NAMED (null), never silently scored');
+});
+
+test('R6 the OBJECT variant keeps the _pbt-common call contract: { total, failures } always-pass, body preserved', () => {
+  const patched = shortCircuitFixtureOracle(COMMON_ORACLE_SRC, 'object');
+  assert(patched !== null, 'patcher must find the exported _pbt-common declaration (params containing parens: wrapPP = (pp) => pp)');
+  assert(patched.includes('return { total: 0, failures: [] };'), 'the object-variant short-circuit must return the always-pass { total, failures } shape');
+  assert(patched.includes('return { total: fixtures.vectors.length, failures };'), 'the original body must survive below the short-circuit');
+  assert(patched.includes('wrapPP = (pp) => pp'), 'parameter defaults containing parens must not break the declaration match');
+});
+
+test('R7 decomposeMoneyMath reproduces the EXP-D per-mutant diff exactly (fixture/property/run2-only), tier-scoped to money-math', () => {
+  const ranges = [[9000, 9100]]; // m6 sits inside the peripheral range and must be excluded from the money-math diff
+  const mutant = (id, status, line) => ({ id, status, location: { start: { line } } });
+  const reportAsShipped = { files: { 'chaingraph/kernels/fixture-id.kernel.mjs': { mutants: [
+    mutant('m1', 'Killed', 10), mutant('m2', 'Killed', 20), mutant('m3', 'Killed', 30),
+    mutant('m4', 'Killed', 40), mutant('m5', 'Survived', 50), mutant('m6', 'Killed', 9050),
+  ] } } };
+  const reportNeutralized = { files: { 'chaingraph/kernels/fixture-id.kernel.mjs': { mutants: [
+    mutant('m1', 'Killed', 10), mutant('m2', 'Killed', 20), mutant('m3', 'Killed', 30),
+    mutant('m5', 'Survived', 50), mutant('m6', 'Killed', 9050), mutant('m7', 'Killed', 60),
+  ] } } };
+  const d = decomposeMoneyMath(reportAsShipped, reportNeutralized, 'chaingraph/kernels/fixture-id.kernel.mjs', ranges);
+  assert(d.total === 5, `money-math total must exclude peripheral m6 (expected 5, got ${d.total})`);
+  assert(d.killedAsShipped === 4, `as-shipped kills (expected 4, got ${d.killedAsShipped})`);
+  assert(d.propertyKills === 3, `killed in BOTH runs = property leg (expected 3, got ${d.propertyKills})`);
+  assert(d.fixtureKills === 1, `killed as-shipped only = fixture leg (expected 1, got ${d.fixtureKills})`);
+  assert(d.run2OnlyKills === 1, `neutralized-only kills must be SURFACED as the anomaly count (expected 1, got ${d.run2OnlyKills})`);
+  assert(d.propertyRatio === 60, `propertyRatio over the tier total (expected 60, got ${d.propertyRatio})`);
+  assert(d.propertyKills + d.fixtureKills === d.killedAsShipped, 'the two legs must sum to the as-shipped killed count exactly');
+});
+
+test('R8 NULL is never PASS (SO #34c): the pre-fix peripheral expression is reproduced as a negative control, and decomposedGateDecision returns a distinct NULL', () => {
+  // The pre-fix line verbatim (run-mutation-tier.mjs peripheral pass, pre-row) as a NEGATIVE
+  // control — same shape as R1's oldConventionCopy: the bug is demonstrated, not asserted away.
+  const oldPeripheralPass = (peScore, floor) => peScore === null || peScore >= floor;
+  const newPeripheralPass = (peScore, floor) => peScore !== null && peScore >= floor;
+  assert(oldPeripheralPass(null, 70) === true, 'the pre-fix logic must pass a null score (if this ever fails, the reproduced defect no longer reproduces)');
+  assert(newPeripheralPass(null, 70) === false, 'the fixed logic must never pass a null score');
+  const src = readFileSync(join(import.meta.dirname, 'run-mutation-tier.mjs'), 'utf8');
+  assert(src.includes('pe.score !== null && pe.score >= config.peripheralBreakFloor'), 'the fixed peripheral pass expression must be in run-mutation-tier.mjs');
+  assert(!src.includes('pe.score === null || pe.score >= config.peripheralBreakFloor'), 'the pre-fix expression must be gone from run-mutation-tier.mjs');
+
+  const cfg40 = { propertyKillsBreakFloor: 40 };
+  const fixtureRidden = { total: 100, killedAsShipped: 60, propertyKills: 0, fixtureKills: 60, run2OnlyKills: 0, propertyRatio: 0 };
+  const faithful = { total: 30, killedAsShipped: 20, propertyKills: 20, fixtureKills: 0, run2OnlyKills: 0, propertyRatio: 66.7 };
+  assert(decomposedGateDecision(fixtureRidden, cfg40) === 'FAIL',
+    'BLEND NOT GATED: high fixture kills + zero property kills must FAIL the propertyKills gate even though the blended score would pass');
+  assert(decomposedGateDecision(faithful, cfg40) === 'PASS', 'a genuinely property-borne floor must PASS the propertyKills gate');
+  assert(decomposedGateDecision({ ...fixtureRidden, error: 'fixture-neutralized stryker run did not run to completion: x' }, cfg40) === 'NULL',
+    'a decomposed run that could not complete is the distinct NULL non-pass, never FAIL-as-data nor PASS');
+  assert(decomposedGateDecision({ total: 0, killedAsShipped: 0, propertyKills: 0, fixtureKills: 0, run2OnlyKills: 0, propertyRatio: null }, cfg40) === 'NULL',
+    'a null propertyRatio is the distinct NULL non-pass, never PASS (SO #34c)');
+  assert(decomposedGateDecision(null, cfg40) === 'NULL', 'no decomposed result at all is NULL, never PASS (SO #34c)');
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
