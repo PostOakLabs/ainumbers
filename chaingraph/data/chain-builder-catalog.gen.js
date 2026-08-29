@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (640 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (641 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6872,6 +6872,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/662-odnsf-fee-recompute.html",
     "description": "Independently recomputes overdraft (OD) and non-sufficient-funds (NSF) fee events from a caller-supplied posted-transaction ledger and openi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-663-apy-earned-recompute",
+    "display_name": "APY-Earned Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/663-apy-earned-recompute.html",
+    "description": "Recomputes the annual percentage yield earned for a periodic statement from caller-declared inputs: the interest actually earned for the per",
     "consumes": [],
     "feeds": [],
     "status": "live"
