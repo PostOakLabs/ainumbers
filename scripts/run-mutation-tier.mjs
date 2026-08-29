@@ -581,11 +581,15 @@ async function main() {
     }
     if (r.tiers.other.total > 0) console.log(`  ⚠ ${r.tiers.other.total} mutant(s) in an unrecognised location — treated as a hard fail`);
     console.log(`  runtime: ${(r.runtimeMs / 1000).toFixed(1)}s`);
-    // ── decomposed reporting + gate (MUTATION-DECOMPOSED-SCORE-1) ──
+    // ── decomposed reporting + gate (MUTATION-DECOMPOSED-SCORE-1, shipped 2026-08-29) ──
     // The decomposed gate decision reads ONLY propertyKills (via decomposedGateDecision);
-    // the blended as-shipped score is never consulted for it. While decomposedGateMode is
-    // 'advisory' the verdict is printed and never gates; flipping to 'enforced' ADDS this
-    // gate to the existing floors (floors only tighten — SO #41 ratchet).
+    // the blended as-shipped score is never consulted for it. As of 2026-08-29 the config
+    // (chaingraph/kernels/mutation-tiers.config.json) ships decomposedGateMode='advisory'
+    // with propertyKillsBreakFloor=0 (measured 6-kernel basis recorded in that config), so
+    // the verdict printed below never gates and the as-shipped blended floors keep gating
+    // unchanged. Wherever this stands today, read that config's decomposedGateMode key:
+    // once a future row sets it to 'enforced' there, the branch below ADDS the propertyKills
+    // gate on top of the existing floors (floors only tighten — SO #41 ratchet).
     let decGateFail = false;
     if (r.decomposed) {
       const dec = r.decomposed;
