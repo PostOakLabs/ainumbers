@@ -336,6 +336,31 @@ export const COVERED = [
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
+    id: 'registry-absence-tree',
+    // REGISTRY-ABSENCE-TREE-BUILD-1. The F2 NEGATIVE half: the ainumbers-simple-v1
+    // sorted-key absence tree over registry/kernel/*, published as ONE fixed-path
+    // artifact (registry/absence/tree.json). COVERED-safe by construction: pure
+    // function of the key set (no wall-clock, no network), byte-identical on a
+    // second pass, fixed literal path list — unlike its lineage/errata siblings
+    // in EXCLUDED below, nothing here writes an unbounded tile set.
+    // ⚠ The lineage BINDING is a different surface with a different writer: the
+    // {tree_root, key_count} entry is appended to registry-lineage-records.json
+    // and published via gen-registry-lineage.mjs (EXCLUDED — Sigsum budget + tile
+    // paths). When a node registration grows the key set, THIS regen updates
+    // tree.json automatically, and the binding half of
+    // `gen-registry-absence-tree.mjs --check` (wired directly into preflight.mjs,
+    // hard in every context) goes red BY DESIGN until the two-command
+    // append+publish remedy runs — printed with the failure. That is the same
+    // deliberate red-until-anchored philosophy as the node-registration gap gate.
+    regen: 'node scripts/gen-registry-absence-tree.mjs --write',
+    gate: 'node scripts/gen-registry-absence-tree.mjs --check',
+    artifacts: ['registry/absence/tree.json'],
+    // Reads the registry/kernel output of registry-kernel-resolve; a stale key
+    // set would publish a stale tree. Order is load-bearing, as with euc-register.
+    after: 'registry-kernel-resolve',
+    share: 'n/a (new 2026-08-30, REGISTRY-ABSENCE-TREE-BUILD-1)',
+  },
+  {
     id: 'euc-register',
     // EUC-SITE-1. Was EXCLUDED as NON-IDEMPOTENT ("601 wall-clock rewrites per
     // invocation"). ⛔ THAT REASON IS NO LONGER TRUE and the stale exclusion is
