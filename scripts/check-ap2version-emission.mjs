@@ -40,6 +40,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { gitEnv } from './_git-env-lib.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const BASELINE_PATH = resolve(REPO, 'scripts', 'ap2version-emission-baseline.json');
@@ -118,7 +119,7 @@ export function emissionLines(html) {
 }
 
 function trackedHtmlFiles() {
-  const out = execSync('git ls-files -- "*.html"', { cwd: REPO, encoding: 'utf8' });
+  const out = execSync('git ls-files -- "*.html"', { cwd: REPO, encoding: 'utf8', env: gitEnv() });
   return out.split('\n').map((s) => s.replace(/\r/g, '').trim()).filter(Boolean);
 }
 
