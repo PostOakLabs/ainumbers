@@ -13,13 +13,13 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isSkipDir } from './_walk-skip-dirs.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = join(ROOT, 'scripts', 'csp-consistency-baseline.json');
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
 
 const SCAN_DIRS = ['tools', 'chaingraph', 'guides'];
-const SKIP_DIRS = new Set(['.git', 'node_modules', 'worktrees']);
 
 // Named canonical profiles (2026-07-14 survey: these two cover ~88% of the
 // 834-file estate already; everything else is legacy drift, baselined below).
@@ -36,7 +36,7 @@ const CANONICAL_VALUES = new Set(Object.values(PROFILES));
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(join(dir, e.name), out); }
+    if (e.isDirectory()) { if (!isSkipDir(e.name)) walk(join(dir, e.name), out); }
     else if (e.isFile() && e.name.endsWith('.html')) out.push(join(dir, e.name));
   }
   return out;
