@@ -89,9 +89,24 @@
  *     legal" per the style contract (CONTRACT.md §1.4 / research doc rule 2) —
  *     DEFAULT_NOTX_CAP tolerates a few before requiring a baseline entry.
  *
+ * ABSOLUTES (bucket "absolutes", CLAIMS-ABSOLUTES-GATE-1, 2026-08-29 —
+ * 0xAlpha public-claims-liability-audit.md §4 gate-catchable item 1): a
+ * fourth baseline+ratchet bucket, same shape as jargon/bold/insider/aiVocab
+ * above, for absolute/certainty-claim terms — "this cannot fail/be broken/
+ * contain an error" phrasing no software system can actually back. This is
+ * the standing extension of the one-time pinned-wording fixes CLAIMS-
+ * WORDING-FIX-1 applied to the E1-E3/B1/B7 audit families: those exact terms
+ * ("tamper-proof", "mathematically proven", "fully verified", etc.) are now
+ * gated everywhere so the families cannot regrow on a new page. Regime/tool
+ * NOUNS ("bank guarantee", "NYDFS Certification", "IAL levels") are a
+ * different word shape entirely and never match. "independently verified" is
+ * exempt only in its compliant named-mechanism form ("independently
+ * verified: <mechanism>", the shape euc-register.html's trust line actually
+ * ships); the bare form (no colon) is still an unqualified absolute claim.
+ *
  * Usage:
  *   node scripts/check-copy-hallmarks.mjs            # gate (preflight + CI)
- *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold/insider/aiVocab/notX baseline
+ *   node scripts/check-copy-hallmarks.mjs --update   # regenerate the em-dash/jargon/bold/insider/aiVocab/absolutes/notX baseline
  *   node scripts/check-copy-hallmarks.mjs --report   # write the Tier-1 H1+H5 remediation ranking to workspace-root research/
  *
  * Style rule of record: CONTRACT.md §1.4 (reader-facing copy).
@@ -195,6 +210,42 @@ const AI_VOCAB = [
 export function aiVocabHits(text) {
   const hits = [];
   for (const [re, label] of AI_VOCAB) {
+    const m = text.match(re) || [];
+    if (m.length) hits.push(`${label} ×${m.length}`);
+  }
+  return hits;
+}
+// ABSOLUTES (CLAIMS-ABSOLUTES-GATE-1): total/binary guarantee claims from the
+// 0xAlpha public-claims-liability-audit.md §4 E1-E3/B1/B7 families ("this
+// cannot fail/be broken/contain an error") — the standing gate that keeps
+// CLAIMS-WORDING-FIX-1's one-time pinned-wording fixes from regrowing
+// elsewhere. Regime/tool nouns ("bank guarantee", "NYDFS Certification",
+// "IAL levels") are a different word shape and never match these patterns.
+// "independently verified" is exempt only when followed by a colon, the
+// shape euc-register.html's trust line actually ships ("independently
+// verified: zkVM execution proof (risc0/groth16-bn254)", verified 2026-08-29
+// via `git grep -n "independently verified:" -- '*.html'` — 26/26 hits on
+// that exact mechanism string, 0 elsewhere). Known false-negative: a colon
+// can also start an unrelated clause (chaingraph/art-573-...html:138, "...is
+// independently verified: you assert those facts.") — that reads as a
+// disclaimer denying verification, not an over-claim, so under-flagging it
+// is the safe direction and not worth a mechanism-name allowlist here.
+const ABSOLUTES = [
+  [/\btamper[\s-]?proof\b/gi, 'tamper-proof'],
+  [/\berror[\s-]?free\b/gi, 'error-free'],
+  [/\bbug[\s-]?free\b/gi, 'bug-free'],
+  [/\bflawless(?:ly)?\b/gi, 'flawless'],
+  [/\bunforgeable\b/gi, 'unforgeable'],
+  [/\bcryptographically guaranteed\b/gi, 'cryptographically guaranteed'],
+  [/\bprovably correct\b/gi, 'provably correct'],
+  [/\bbank[\s-]?grade\b/gi, 'bank-grade'],
+  [/\bmathematically proven\b/gi, 'mathematically proven'],
+  [/\bfully verified\b/gi, 'fully verified'],
+  [/\bindependently verified\b(?!\s*:)/gi, 'independently verified (bare)'],
+];
+export function absolutesHits(text) {
+  const hits = [];
+  for (const [re, label] of ABSOLUTES) {
     const m = text.match(re) || [];
     if (m.length) hits.push(`${label} ×${m.length}`);
   }
@@ -496,6 +547,7 @@ for (const file of scanFiles) {
   const loadbearing = (text.match(LOADBEARING) || []).length;
   const insider = insiderHits(text);
   const aiVocab = aiVocabHits(text);
+  const absolutes = absolutesHits(text);
   const notX = notXCount(text);
   const panel = panelHits(prose);
 
@@ -555,8 +607,8 @@ for (const file of scanFiles) {
     if (n) overuse[label] = n;
   }
 
-  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || notX || panel.length) {
-    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, notX, panel };
+  if (emdash || jargon.length || twotoneHP || triad || loadbearing || cosignVocab.length || hallmarks.length || emojiProse || bold || doubleEscaped || Object.keys(overuse).length || insider.length || aiVocab.length || absolutes.length || notX || panel.length) {
+    findings[rel] = { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel };
   }
 }
 
@@ -569,7 +621,7 @@ if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
   let cgEmdash = 0;
   for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
   for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], notX: 0, panel: [] };
+  if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [] };
 }
 
 if (REPORT) {
@@ -592,9 +644,9 @@ if (UPDATE) {
     const overDebt = {};
     for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
     const notXDebt = f.notX > DEFAULT_NOTX_CAP ? f.notX : 0;
-    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + (notXDebt ? 1 : 0) + f.panel.length;
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + (notXDebt ? 1 : 0) + f.panel.length;
     if (debt) {
-      baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length };
+      baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length, absolutes: f.absolutes.length };
       if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
       if (notXDebt) baseline[rel].notX = notXDebt;
       if (f.panel.length) baseline[rel].panel = f.panel.length;
@@ -611,10 +663,11 @@ const improvements = [];
 const advisories = [];
 
 for (const [rel, f] of Object.entries(findings)) {
-  const b = baseline[rel] || { emdash: 0, jargon: 0, bold: 0, insider: 0, aiVocab: 0 };
+  const b = baseline[rel] || { emdash: 0, jargon: 0, bold: 0, insider: 0, aiVocab: 0, absolutes: 0 };
   const bBold = b.bold || 0;
   const bInsider = b.insider || 0;
   const bAiVocab = b.aiVocab || 0;
+  const bAbsolutes = b.absolutes || 0;
   const bPanel = b.panel || 0;
   if (f.emdash > b.emdash) failures.push(`${rel}: ${f.emdash} em-dash(es) in visible text (baseline ${b.emdash})`);
   else if (f.emdash < b.emdash) improvements.push(`${rel}: em-dash ${b.emdash} -> ${f.emdash}`);
@@ -625,6 +678,8 @@ for (const [rel, f] of Object.entries(findings)) {
   else if (f.insider.length < bInsider) improvements.push(`${rel}: insider-register ${bInsider} -> ${f.insider.length}`);
   if (f.aiVocab.length > bAiVocab) failures.push(`${rel}: AI-vocabulary hit(s): ${f.aiVocab.join('; ')} (baseline ${bAiVocab})`);
   else if (f.aiVocab.length < bAiVocab) improvements.push(`${rel}: AI-vocabulary ${bAiVocab} -> ${f.aiVocab.length}`);
+  if (f.absolutes.length > bAbsolutes) failures.push(`${rel}: absolute/certainty-claim hit(s): ${f.absolutes.join('; ')} (baseline ${bAbsolutes}) — CONTRACT §1.4: rewrite as a falsifiable, scoped claim (e.g. hash-anchored/tamper-evident, ZK-proven, hash-committed and recomputable) instead of an unqualified guarantee`);
+  else if (f.absolutes.length < bAbsolutes) improvements.push(`${rel}: absolutes ${bAbsolutes} -> ${f.absolutes.length}`);
   // PANEL (scope-box negation-wall shape): BLOCKING for new/changed pages — a
   // file absent from the baseline gets zero tolerance, same shape as jargon/
   // insider/aiVocab above. The baseline is legacy-estate shielding ONLY,
