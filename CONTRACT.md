@@ -343,8 +343,8 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - **Tool:** `tools/{number}-{kebab-slug}.html`
 - **Index Update:** Add `data-cat="cat-XX"` to all tool cards in `index.html`. Update sidebar badges, hero stats, and MCP summary table rows.
 
-### 5.4 The `start.html` family-hub rule (Amendment, START-NAV-1)
-`start.html`'s "Explore the suite" grid links FAMILIES, never individual tools. One card per family hub; grid hard cap 12 cards. A new surface earns `start.html` presence by joining (or founding) a family hub, never by adding its own card. Card additions require a founding hub page and must cite this rule in the PR.
+### 5.4 The `start.html` intent-grid rule (Amendment, START-NAV-1; amended 2026-08-30, RETIREMENT-TOMBSTONE-GATES-1)
+`start.html`'s "Explore the suite" grid is **grouped by visitor activity, not by surface**: cards sit under short activity row-labels ("Run and build", "Verify and evidence", "Convert and inspect", "Connect", "Read") and link the surface that serves that activity — orchestration surfaces, verification tools, hubs, or guides — directly. This supersedes the original START-NAV-1 family-hub-only / 12-card-cap design: that redesign was deliberate, so the rule is amended to match the shipped page rather than the page reverted to the rule (the retirement-claims-without-readers class this row closes). A new entry joins the activity row matching what a visitor is trying to do; no founding hub page is required, and the card count is derived from the live page, never fixed here.
 
 ---
 
@@ -482,7 +482,7 @@ The canonical orchestration artifact is the CHAINGRAPH §4 schema. Every ChainGr
 - `/chaingraph/` is the **sole** orchestration namespace. Chain pages at `/chaingraph/chains/<id>.html`; nodes at `/chaingraph/<code>-<slug>.html`; hub at `/chaingraph/chaingraph-hub.html`.
 - **Chain slug convention (normative, 2026-06-22):** `<domain-word>-<specifics>`, lowercase-kebab, spelled-out domain — NO invented initialisms (bad: `aer-fit`, `tcm-collateral`; good: `agent-economy-fit`, `treasury-clearing-collateral`). Proper-noun product/regulation names are allowed lowercase (mica, arc, canton, cbam, pqc). `mcp_name` stays `verb_object` snake_case and is NEVER renamed to match the slug. Add `.htaccess 301`s when renaming existing slugs.
 - **DEPRECATED and removed** on conversion: page architecture #4 (Composer Runner), the Scenario Guide type, the Live Workflow type, and the 3 Diagnostic pages (rebuilt as single-node ChainGraphs). **Hubs are retained** as category navigation.
-- Deprecated pages are **hard-removed** (no 301 redirects). The `guides/` directory retains only hubs + explicitly-kept utility/demo pages (`regression-replayer.html`, `mcp-agent-demo.html`).
+- Deprecated pages are **hard-removed** (no 301 redirects). The `guides/` directory retains hubs, the two explicitly-kept utility/demo pages (`regression-replayer.html`, `mcp-agent-demo.html`), and — by deliberate design (amended 2026-08-30, RETIREMENT-TOMBSTONE-GATES-1) — hand-built non-hub pages (evidence packs, scenario walkthroughs, benchmark issues, reference guides) that were never part of the composer/Scenario-Guide removal and remain sanctioned. The earlier "hubs + two pages only" wording no longer matched the directory; it is amended here rather than the pages being deleted.
 
 ### A3.4 · No duplication (RFC 2119: MUST)
 
