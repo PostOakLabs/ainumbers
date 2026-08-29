@@ -14,7 +14,7 @@ export const meta = {
 // basis, no hedging/sale, retainer must not be established or operate for the sole purpose of
 // securitising exposures) and the U.S. Credit Risk Retention Rule (Dodd-Frank Sec.941, Reg RR,
 // 12 CFR Part 244: 5% base retention with a Qualified Residential Mortgage (QRM) exemption,
-// Sec_.19). Deterministic point-in-time structural check from caller-supplied retention method,
+// QRM locator: see node metadata regulatory_basis). Deterministic point-in-time structural check from caller-supplied retention method,
 // exposure/retained amounts, and jurisdiction-specific flags -- no valuation model, no live
 // exposure feed.
 //
@@ -77,7 +77,7 @@ export function compute(pp) {
     retained_interest_hedged_or_sold: hedgingOrSaleDetected,
     compliant,
     breach_reasons,
-    regulatory_basis: 'EU Securitisation Regulation (EU) 2017/2402 Art.6 (originator/sponsor/original-lender net economic interest, ongoing 5% retention, no hedging/sale, sole-purpose-entity prohibition); U.S. Credit Risk Retention Rule (Dodd-Frank Sec.941, Reg RR, 12 CFR Part 244) 5% base retention with Sec_.19 Qualified Residential Mortgage exemption.',
+    regulatory_basis: 'EU Securitisation Regulation (EU) 2017/2402 Art.6 (originator/sponsor/original-lender net economic interest, ongoing 5% retention, no hedging/sale, sole-purpose-entity prohibition); U.S. Credit Risk Retention Rule (Dodd-Frank Sec.941, Reg RR, 12 CFR Part 244) 5% base retention with 12 CFR 244.13 Qualified Residential Mortgage exemption.',
     note: 'Deterministic structural check from caller-supplied retention method, exposure/retained nominal amounts, and jurisdiction-specific flags for a single reporting date.',
   };
 
