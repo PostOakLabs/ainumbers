@@ -274,7 +274,9 @@ async function main() {
     process.exit(0);
   }
 
-  const scratchRoot = path.join(os.tmpdir(), 'ain-mutation-tier');
+  // SO #55: session-private scratch — a fixed shared root rmSync EPERM'd against an
+  // orphaned peer-session run (ASSEMBLE-LAND-WITHHELD-0829-1 BLOCKED diagnosis).
+  const scratchRoot = path.join(os.tmpdir(), `ain-mutation-tier-${process.pid}`);
   rmSync(scratchRoot, { recursive: true, force: true });
   mkdirSync(scratchRoot, { recursive: true });
 
