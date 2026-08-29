@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:7c47eb66621889efcbc72476358adf9d81118f0c4692dc01375cb7251f1ada8e
+// kernel_digest_at_authoring: sha256:5883fbca274a63382c8b81936dfcb2845d8cb0df79e94ddd8f1801a346d38de6
 //
 // FV-PROPFLOOR-SHARD-B24-1 — property-test floor for art-447-securitization-risk-retention-check.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (retained/total exposure amounts feed a percentage
