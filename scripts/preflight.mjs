@@ -1095,6 +1095,13 @@ const GATES = [
   ['Flag-mirror doctrine fixture proof (SO #40b pairing)', 'node scripts/check-flag-mirror.test.mjs'],
   ['Chain composer-url existence (CHAINURL-GATE-1)', 'node scripts/check-chain-composer-urls.mjs'],
   ['Chain handoff-register regression (CHAINNARRATIVE-CLARIFY-1)', 'node scripts/check-chain-handoff-register.mjs'],
+  // CHAIN-CITATION-PROCESS-ORDER-1 (Tim directive 2026-08-22): check-chain-citation.mjs was
+  // previously UNWIRED; this row wires the gate (citation half, CB-2) AND its process-order
+  // extension (a chain whose title/description names a statutory process must declare a pinned
+  // process_order or sequence_not_statutory:true; baseline-shielded legacy, counts only down).
+  // Paired self-test wired as its own entry per GATE-SELFTEST-META-1/SO #40b.
+  ['Chain citation + process-order declaration (CB-2, CHAIN-CITATION-PROCESS-ORDER-1)', 'node scripts/check-chain-citation.mjs'],
+  ['Chain citation + process-order controls (RED+GREEN)', 'node scripts/check-chain-citation.test.mjs'],
   // GENERATOR-STATUS-FILTER-1: a chain step that resolves to a NON-LIVE node is a
   // LIVE INTEROP DEFECT — find_chain advertises the departed entry tool as callable
   // while the worker registers node tools live-only, so an agent following the
