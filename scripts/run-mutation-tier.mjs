@@ -174,8 +174,6 @@ function runStryker(configPath, cwd, strykerVersion) {
 // SANDBOX copy of the floor's fixture-oracle entry point, never a tracked byte,
 // never a second neutralization mechanism.
 
-const ORACLE_BOOL_SHORT_CIRCUIT =
-  'return true; /* MUTATION-DECOMPOSED-SCORE-1 fixture-leg neutralization (audit EXP-D shape: one-line short-circuit of the fixture oracle) */';
 const ORACLE_OBJECT_SHORT_CIRCUIT =
   'return { total: 0, failures: [] }; /* MUTATION-DECOMPOSED-SCORE-1 fixture-leg neutralization (audit EXP-D shape; _pbt-common runFixtureOracle call contract is { total, failures }) */';
 
@@ -185,15 +183,32 @@ const PBT_COMMON_IMPORT_RE =
   /import\s*\{[^}]*\brunFixtureOracle\b[^}]*\}\s*from\s*['"]\.\/_pbt-common\.mjs['"]/;
 
 /**
- * shortCircuitFixtureOracle — insert the one-line EXP-D short-circuit as the
- * first statement of the `runFixtureOracle` declaration in `source`.
+ * shortCircuitFixtureOracle — neutralize the fixture leg of a floor's
+ * `runFixtureOracle` in a SANDBOX copy of its source.
+ *
+ * variant 'object' (the shared _pbt-common.mjs helper; callers read
+ * `{ total, failures }`): insert an always-pass empty-oracle return of that
+ * SAME shape as the first body statement — the helper has no side effects to
+ * preserve.
+ *
  * variant 'boolean' (per-proptest local declarations, callers read a truthy
- * `oracleOk`) returns `true`; variant 'object' (the shared _pbt-common.mjs
- * helper, callers read `{ total, failures }`) returns an always-pass
- * empty-oracle result of that SAME shape, so the call contract is preserved
- * and the neutralized floor still runs to its properties. Returns the patched
- * source, or null when no declaration is found (the caller must surface that
- * as a NAMED failure — an unneutralizable floor is never silently scored 0).
+ * `oracleOk`): a naive first-statement `return true` was measured BROKEN on
+ * 2026-08-29 (5/5 live floors): the estate's generated floors populate
+ * `results.fixture_oracle` INSIDE runFixtureOracle and their final summary
+ * reads it back (`fixture_oracle_total: results.fixture_oracle.total`), so
+ * skipping the body crashes the neutralized floor before any mutant runs.
+ * The neutralization therefore WRAPS the declaration instead: the original
+ * body runs VERBATIM (side effects intact, real diff still computed and
+ * reported by the floor's own summary) and only the VERDICT is neutralized —
+ * an object-shaped result reports zero failures, anything else reports true.
+ * The wrapper mirrors the declaration's async-ness so awaited and plain calls
+ * keep their contracts. THE ESTATE ASSUMPTION this relies on: floors exit at
+ * top level, never from inside the oracle body (the generator shape, measured
+ * across the live floors above) — a floor that exited inside its oracle body
+ * would report fixtureKills=0 falsely and must be fixed at the floor.
+ *
+ * Returns the patched source, or null when no declaration is found (the
+ * caller must surface that as a NAMED condition — never a silently guessed 0).
  *
  * @param {string} source
  * @param {'boolean'|'object'} [variant]
@@ -207,8 +222,30 @@ export function shortCircuitFixtureOracle(source, variant = 'boolean') {
   if (parenEnd === -1) return null;
   const brace = source.indexOf('{', parenEnd + 1);
   if (brace === -1) return null;
-  const stmt = variant === 'object' ? ORACLE_OBJECT_SHORT_CIRCUIT : ORACLE_BOOL_SHORT_CIRCUIT;
-  return source.slice(0, brace + 1) + '\n  ' + stmt + source.slice(brace + 1);
+  const bodyEnd = scanBalanced(source, brace);
+  if (bodyEnd === -1) return null;
+  if (variant === 'object') {
+    return source.slice(0, brace + 1) + '\n  ' + ORACLE_OBJECT_SHORT_CIRCUIT + source.slice(brace + 1);
+  }
+
+  // boolean variant — verdict-neutralizing wrapper (see JSDoc above).
+  const declStart = m.index + (m[0][0] === '\n' ? 1 : 0);
+  const indent = /^[ \t]*/.exec(m[0].slice(m[0][0] === '\n' ? 1 : 0))[0];
+  const isAsync = /\basync\b/.test(m[0]);
+  const RENAMED = '__mtds1_orig_runFixtureOracle';
+  const FUNC_DECL = 'function runFixtureOracle';
+  const renameIdx = source.indexOf(FUNC_DECL, declStart);
+  if (renameIdx === -1 || renameIdx > parenIdx) return null;
+  let out = source.slice(0, renameIdx) + `function ${RENAMED}` + source.slice(renameIdx + FUNC_DECL.length);
+  const shiftedBodyEnd = bodyEnd + (RENAMED.length + 'function '.length - FUNC_DECL.length);
+  const aw = isAsync ? 'await ' : '';
+  const wrapper =
+    `\n${indent}${isAsync ? 'async ' : ''}function runFixtureOracle(...__mtds1_args) { /* MUTATION-DECOMPOSED-SCORE-1 fixture-leg neutralization (EXP-D verdict short-circuit; original body runs verbatim below, only the verdict is neutralized) */` +
+    `\n${indent}  const __mtds1_result = ${aw}${RENAMED}(...__mtds1_args);` +
+    `\n${indent}  if (__mtds1_result && typeof __mtds1_result === 'object') return { ...__mtds1_result, failures: [] };` +
+    `\n${indent}  return true;` +
+    `\n${indent}}`;
+  return out.slice(0, shiftedBodyEnd + 1) + wrapper + out.slice(shiftedBodyEnd + 1);
 }
 
 /**
@@ -404,9 +441,14 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
     const commonScratchPath = path.join(scratchRoot, commonScratchRelPath);
     const targets = neutralizationTargets(readFileSync(proptestScratchPath, 'utf8'));
     if (!targets) {
-      return { id, hardFail: 'decomposed: cannot neutralize the fixture leg — no local runFixtureOracle declaration in __proptests__/' + proptestFile + ' and none imported from _pbt-common.mjs (an unneutralizable floor is a NAMED failure, never a guessed 0 — SO #34c)' };
-    }
-    const patched = [];
+      // Audit §2 (proptest-oracle-vacuity): a minority of floors carry NO fixture leg at
+      // all — there is nothing to neutralize and a second run would be byte-identical to
+      // the first. Report the trivial decomposition honestly (fixtureKills = 0 BY
+      // CONSTRUCTION, propertyRatio = the as-shipped score) instead of a named hard fail
+      // or a wasted duplicate Stryker run.
+      decomposed = { fixtureLegAbsent: true, ...decomposeMoneyMath(report, report, kernelRelPath, peripheralRanges), runtimeMs: 0 };
+    } else {
+      const patched = [];
     try {
       if (targets.patchCommon) {
         const commonOriginal = readFileSync(commonScratchPath, 'utf8');
@@ -459,6 +501,7 @@ function runOneKernel(id, scratchRoot, opts, strykerVersion) {
       }
     } finally {
       for (const [p, original] of patched) writeFileSync(p, original);
+    }
     }
   }
 
@@ -554,7 +597,8 @@ async function main() {
         decGateFail = true;
       } else {
         const fixtureShare = dec.killedAsShipped > 0 ? Number(((100 * dec.fixtureKills) / dec.killedAsShipped).toFixed(1)) : 0;
-        console.log(`  decomposed:  property ${dec.propertyRatio}% (killed ${dec.propertyKills}/${dec.total})  fixture-leg ${dec.fixtureKills} kill(s) (${fixtureShare}% of as-shipped kills)  floor=${config.propertyKillsBreakFloor}%  ${decState === 'PASS' ? 'PASS' : `FAIL${decEnforced ? '' : ' (advisory — not gating)'}`}`);
+        const absentNote = dec.fixtureLegAbsent ? '  [no fixture leg — property-only floor, fixtureKills=0 by construction]' : '';
+        console.log(`  decomposed:  property ${dec.propertyRatio}% (killed ${dec.propertyKills}/${dec.total})  fixture-leg ${dec.fixtureKills} kill(s) (${fixtureShare}% of as-shipped kills)  floor=${config.propertyKillsBreakFloor}%  ${decState === 'PASS' ? 'PASS' : `FAIL${decEnforced ? '' : ' (advisory — not gating)'}`}${absentNote}`);
         if (dec.run2OnlyKills > 0) {
           console.log(`  ⚠ ${dec.run2OnlyKills} mutant(s) killed ONLY in the fixture-neutralized run — the two runs are not clean subsets (determinism noise); the decomposition is reported, never summed into either leg`);
         }

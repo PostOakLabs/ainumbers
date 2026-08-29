@@ -150,19 +150,37 @@ const COMMON_ORACLE_SRC = [
   '}',
 ].join('\n');
 
-test('R4 the EXP-D short-circuit inserts exactly one line into a LOCAL runFixtureOracle declaration (sync and async), preserving the body', () => {
+test('R4 the boolean-variant neutralization WRAPS the local runFixtureOracle (body runs verbatim, verdict forced to pass), sync and async', () => {
   for (const decl of ['function runFixtureOracle() {', 'async function runFixtureOracle() {']) {
     const src = LOCAL_ORACLE_SRC.replace('function runFixtureOracle() {', decl);
     const patched = shortCircuitFixtureOracle(src, 'boolean');
     assert(patched !== null, `patcher must find the ${decl} declaration`);
     const hits = patched.split('MUTATION-DECOMPOSED-SCORE-1 fixture-leg neutralization').length - 1;
-    assert(hits === 1, `exactly one short-circuit insertion expected, got ${hits}`);
-    assert(/\{\n  return true; \/\* MUTATION-DECOMPOSED-SCORE-1/.test(patched), 'the short-circuit must be the FIRST body statement');
-    assert(patched.includes('return failures.length === 0;'), 'the original body must survive below the short-circuit');
-    assert(patched.includes(decl), 'the declaration itself must be unchanged');
+    assert(hits === 1, `exactly one wrapper insertion expected, got ${hits}`);
+    assert(patched.includes('function __mtds1_orig_runFixtureOracle('), 'the original declaration must be RENAMED, not deleted');
+    assert(patched.includes('return failures.length === 0;'), 'the original body must survive VERBATIM (side effects the floor summary reads stay intact)');
+    assert(patched.includes('function runFixtureOracle(...__mtds1_args)'), 'a wrapper with the ORIGINAL name must be appended');
+    assert(patched.includes("if (__mtds1_result && typeof __mtds1_result === 'object') return { ...__mtds1_result, failures: [] };"),
+      'an object-shaped result must be neutralized to zero failures (call contract preserved)');
+    assert(patched.includes('  return true;'), 'a truthy result must be neutralized to true (oracleOk contract)');
+    assert(patched.indexOf('function __mtds1_orig_runFixtureOracle(') < patched.indexOf('function runFixtureOracle(...__mtds1_args)'),
+      'the wrapper must come AFTER the renamed original');
+    if (decl.startsWith('async')) {
+      assert(/async function runFixtureOracle\(\.\.\.__mtds1_args\)/.test(patched), 'an async declaration must get an async wrapper');
+      assert(patched.includes('await __mtds1_orig_runFixtureOracle('), 'the async wrapper must await the original');
+    } else {
+      assert(/[^a-z]function runFixtureOracle\(\.\.\.__mtds1_args\)/.test(patched), 'a sync declaration must get a sync wrapper');
+      assert(!patched.includes('await __mtds1_orig_runFixtureOracle('), 'the sync wrapper must not await');
+    }
+    // The wrapper must be a SIBLING of the renamed original, not nested inside it: the
+    // renamed body's closing brace comes before the wrapper declaration.
+    const bodyEnd = patched.indexOf('return failures.length === 0;');
+    const wrapperStart = patched.indexOf('function runFixtureOracle(...__mtds1_args)');
+    assert(bodyEnd !== -1 && wrapperStart > bodyEnd && /\}\s*\n\s*(async\s+)?function runFixtureOracle\(\.\.\.__mtds1_args\)/.test(patched.slice(bodyEnd)),
+      'the wrapper must be inserted after the renamed body closes, never inside it');
   }
   assert(shortCircuitFixtureOracle('export const oracle = 1;\n', 'boolean') === null,
-    'a floor with no runFixtureOracle declaration must return null (caller raises a NAMED failure), never a guessed patch');
+    'a floor with no runFixtureOracle declaration must return null (caller raises a NAMED condition), never a guessed patch');
 });
 
 test('R5 neutralizationTargets routes the patch: local declaration -> proptest, _pbt-common import -> shared helper, neither -> null', () => {
