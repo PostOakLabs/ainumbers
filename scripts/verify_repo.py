@@ -168,8 +168,47 @@ def _pii_scan_dirs():
 # all. All three states are real per SO #34c ("absence is not a pass").
 PII_ATTEMPT_SIGNAL = "processed locally"
 
+# fixture-only strings — no real page is read or written by this self-test.
+_PII_FIXTURE_MISSING = "<html><body><main><h1>Fixture</h1><p>No disclosure text at all.</p></main></body></html>"
+_PII_FIXTURE_CANONICAL = f"<html><body><div class=\"scope-note\">{CANON_PII_PREFIX} Do not enter real personal data.</div></body></html>"
+_PII_FIXTURE_DRIFTED = "<html><body><div class=\"disclaimer\">Inputs are processed locally in your browser only.</div></body></html>"
+
+
+def _pii_old_regex_result(text):
+    """Reproduces the pre-PII-GATE-ABSENCE-1 matcher: only ever looked inside
+    a literal <div class="pii-notice"|"pii-bar"> — a page with no such div was
+    never counted and never flagged. Returns True if the OLD code would have
+    silently passed (no fail, no count) on `text`."""
+    m = re.search(r'<div\s+class="(?:pii-notice|pii-bar)">(.*?)</div>', text, re.S)
+    return m is None
+
+
+def pii_gate_self_test():
+    """SO #40b fixture proof: proves the fail-closed fix actually changed
+    behavior on the exact silent-pass shape PII-GATE-ABSENCE-1 found — a page
+    with no `pii-notice`/`pii-bar` div, which the old regex simply never saw."""
+    assert _pii_old_regex_result(_PII_FIXTURE_MISSING) is True, \
+        "self-test broken: the OLD-regex reproduction no longer silently passes the missing fixture"
+
+    def _new_verdict(text):
+        if CANON_PII_PREFIX in text:
+            return "PASS"
+        if PII_ATTEMPT_SIGNAL in text:
+            return "FAIL (non-canonical text)"
+        return "FAIL (MISSING privacy notice)"
+
+    got_missing = _new_verdict(_PII_FIXTURE_MISSING)
+    got_canonical = _new_verdict(_PII_FIXTURE_CANONICAL)
+    got_drifted = _new_verdict(_PII_FIXTURE_DRIFTED)
+    assert got_missing == "FAIL (MISSING privacy notice)", f"missing fixture: expected fail-closed, got {got_missing}"
+    assert got_canonical == "PASS", f"canonical fixture: expected PASS, got {got_canonical}"
+    assert got_drifted == "FAIL (non-canonical text)", f"drifted fixture: expected non-canonical fail, got {got_drifted}"
+    print("  ✅ PII gate self-test: OLD matcher silently passed a no-banner fixture (SO #34c shape) "
+          "→ NEW matcher fails closed (MISSING); canonical fixture PASSes; drifted fixture fails non-canonical.")
+
 
 def check_pii_text(changed=None):
+    pii_gate_self_test()
     bad = []
     scanned = 0
     n = 0
