@@ -50,6 +50,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isolatedChildEnv } from '../scripts/_git-env-lib.mjs';
 
 const HOOK_SRC = fileURLToPath(new URL('./pre-push', import.meta.url));
 
@@ -83,7 +84,11 @@ function makeSandbox() {
   // path off `git rev-parse --git-dir`, so the sandbox needs a REAL (if tiny)
   // git repo for that lookup to succeed — a plain temp dir has no git-dir at
   // all, and the hook's file-route block silently no-ops without one.
-  spawnSync('git', ['init', '-q'], { cwd: dir });
+  // GIT-ENV-LEAK-SWEEP-1: isolatedChildEnv, not ambient process.env — this
+  // spawns `git init` inside a throwaway temp dir, and an inherited GIT_DIR
+  // from the OUTER pre-push invocation would re-init that repo instead
+  // (SHARD-HARNESS-ENV-LEAK-1's exact failure shape).
+  spawnSync('git', ['init', '-q'], { cwd: dir, env: isolatedChildEnv() });
   return dir;
 }
 
