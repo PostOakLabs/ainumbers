@@ -1,5 +1,5 @@
 // art-91-ownership-50pct-aggregator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C12-1).
-// kernel_digest_at_authoring: sha256:e9c64c8db5775e8026d5eb5f187c30ac771e734dcf374bc086fcbb03f9a7966d
+// kernel_digest_at_authoring: sha256:b11141989c4ba450fb1156c03f7307a5eb328631dfbada5c4e0d45cca04237b6
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -13,8 +13,8 @@
 // walk is no longer single-pass: aggregateOwnership() solves a Jacobi fixpoint that re-reads
 // every node each round, so a `visited` Set no longer bounds anything. Three things bound it
 // instead — contributions rise monotonically, they are clamped to 1 INSIDE the relaxation
-// loop, and the loop carries a hard round ceiling (nodeIds.length + 1024) on top of the 1e-12
-// convergence test. That termination bound is asserted explicitly below (P1), including a
+// loop, and the loop carries a hard round ceiling (nodeIds.length + 1024) on top of stopping
+// the moment a round raises nothing. That termination bound is asserted explicitly below (P1), including a
 // deliberately cyclic graph, not just implied by "it's a for-loop". The predecessor of this
 // comment claimed the visited-Set bound; that mechanism was ALSO the aggregation defect the
 // row above fixed (a node dequeued once never re-propagated a later increase), which is why
@@ -209,6 +209,92 @@ function checkP5_edge_order_invariance() {
   return { name: 'P5_output_invariant_under_edges_permutation', trials: checked, violations };
 }
 
+// ---------- P6: exact aggregation oracle — hand-computed expectations ----------
+// The invariant properties above (bounded, terminating, order-independent) all hold for a
+// traversal that returns the WRONG number, which is exactly what the pre-fix kernel did. This
+// pins the arithmetic itself against values derived by hand from the ownership graph, node by
+// node. The cyclic case is the load-bearing one: its expected values are the solution of the
+// linear system, so a relaxation that stops early or accumulates a stale contribution misses
+// them, while the clamp-and-terminate properties above would not notice.
+const EXACT_CASES = [
+  {
+    name: 'chain_two_hops',
+    // A->B 60; B->C 90. C = 0.60 * 0.90 = 54%.
+    edges: [['A', 'B', 60], ['B', 'C', 90]],
+    expect: { A: [100, true], B: [60, true], C: [54, true] },
+  },
+  {
+    name: 'parallel_paths_below_threshold',
+    // A->B 30, A->C 30, B->D 50, C->D 50. D = 30*50 + 30*50 = 15 + 15 = 30%, under 50.
+    edges: [['A', 'B', 30], ['A', 'C', 30], ['B', 'D', 50], ['C', 'D', 50]],
+    expect: { A: [100, true], B: [30, false], C: [30, false], D: [30, false] },
+  },
+  {
+    name: 'three_way_convergence_crosses_threshold',
+    // A->B/C/D 25 each, each wholly owning E. E = 25 + 25 + 25 = 75%. No single path reaches 50.
+    edges: [['A', 'B', 25], ['A', 'C', 25], ['A', 'D', 25],
+      ['B', 'E', 100], ['C', 'E', 100], ['D', 'E', 100]],
+    expect: { A: [100, true], B: [25, false], C: [25, false], D: [25, false], E: [75, true] },
+  },
+  {
+    name: 'diamond_reconverges_to_whole',
+    // A->B 100; B->C 50, B->D 50; C->E 100, D->E 100. E = 50 + 50 = 100%.
+    edges: [['A', 'B', 100], ['B', 'C', 50], ['B', 'D', 50], ['C', 'E', 100], ['D', 'E', 100]],
+    expect: { A: [100, true], B: [100, true], C: [50, true], D: [50, true], E: [100, true] },
+  },
+  {
+    name: 'cycle_converges_to_linear_system_solution',
+    // A->B 50; B->C 80; C->B 50. Solving b = 0.5 + 0.5c and c = 0.8b gives
+    // b = 0.5 / 0.6 = 5/6 = 83.33%, c = 0.8 * 5/6 = 2/3 = 66.67%. Neither is a
+    // single-path product, and both are strictly above what a truncated walk returns.
+    edges: [['A', 'B', 50], ['B', 'C', 80], ['C', 'B', 50]],
+    expect: { A: [100, true], B: [83.33, true], C: [66.67, true] },
+  },
+];
+
+function checkP6_exact_aggregation_values() {
+  let violations = 0, checked = 0;
+  for (const c of EXACT_CASES) {
+    const ids = [...new Set(c.edges.flatMap(([f, t]) => [f, t]))];
+    const pp = {
+      ownership_graph: {
+        nodes: ids.map((id) => (id === 'A' ? { id, listed: true, list_source: 'ofac' } : { id })),
+        edges: c.edges.map(([from, to, pct]) => ({ from, to, pct })),
+      },
+    };
+    const { output_payload } = compute(pp);
+    for (const [id, [pct, blocked]] of Object.entries(c.expect)) {
+      const v = output_payload.entity_verdicts.find((e) => e.id === id);
+      checked++;
+      if (!v || v.ofac_pct !== pct || v.constructively_blocked !== blocked) violations++;
+    }
+  }
+  return { name: 'P6_exact_aggregation_matches_hand_computed_values', trials: checked, violations };
+}
+
+// ---------- P7: controlling_path tie-break is canonical, not edge-order dependent ----------
+// Two shortest paths of equal length reach T. The reported one must be the lexicographically
+// smaller hop, whichever way the caller lists the edges.
+function checkP7_controlling_path_tie_break() {
+  let violations = 0, checked = 0;
+  const edgeSets = [
+    [['A', 'M', 100], ['A', 'N', 100], ['M', 'T', 100], ['N', 'T', 100]],
+    [['N', 'T', 100], ['A', 'N', 100], ['M', 'T', 100], ['A', 'M', 100]],
+  ];
+  for (const edges of edgeSets) {
+    const pp = {
+      ownership_graph: {
+        nodes: [{ id: 'A', listed: true, list_source: 'ofac' }, { id: 'M' }, { id: 'N' }, { id: 'T' }],
+        edges: edges.map(([from, to, pct]) => ({ from, to, pct })),
+      },
+    };
+    const v = compute(pp).output_payload.entity_verdicts.find((e) => e.id === 'T');
+    checked++;
+    if (!v || JSON.stringify(v.controlling_path) !== JSON.stringify(['A', 'M', 'T'])) violations++;
+  }
+  return { name: 'P7_controlling_path_tie_break_is_canonical', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -221,6 +307,8 @@ results.properties.push(checkP2_boundedness_pct_clamped());
 results.properties.push(checkP3_ulp_forcing_50pct_threshold());
 results.properties.push(checkP4_self_listed_always_blocked());
 results.properties.push(checkP5_edge_order_invariance());
+results.properties.push(checkP6_exact_aggregation_values());
+results.properties.push(checkP7_controlling_path_tie_break());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

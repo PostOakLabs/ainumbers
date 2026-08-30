@@ -30,43 +30,64 @@ export const meta = {
 // Default thresholds per regime (verify against current guidance)
 const DEFAULT_THRESHOLDS = { ofac_50: 0.50, eu_50: 0.50, bis_50: 0.50 };
 
-// Relaxation stops when no node's contribution rises by more than this in a full round.
-const CONVERGENCE_EPSILON = 1e-12;
 // Hard round ceiling so a cyclic ownership graph can never spin forever. A directed
 // acyclic graph is exact after at most (node count) rounds; the constant is slack for
 // circular cross-holdings, whose contribution series converges geometrically.
 const MAX_RELAXATION_ROUNDS_SLACK = 1024;
 
 /**
- * Index an adjacency map for fixpoint relaxation: the sorted node id set, plus each
- * node's incoming edges as {from, frac}.
+ * Total order on the canonical sort key both edge lists carry.
  *
- * Both the node list and every in-edge list are sorted, so neither the traversal nor
- * the order of the floating-point additions below depends on how the caller happened
- * to serialize edges[]. Float addition is not associative, so an unsorted in-edge list
- * would leave a residual order dependence at the last significant bit.
+ * @param {{key: string}} a - left edge record
+ * @param {{key: string}} b - right edge record
+ * @returns {number} negative, zero or positive per Array.prototype.sort
+ */
+function byKey(a, b) {
+  if (a.key < b.key) return -1;
+  if (a.key > b.key) return 1;
+  return 0;
+}
+
+/**
+ * Index an adjacency map: the sorted node id set, each node's incoming edges as
+ * {from, frac}, and each node's outgoing neighbours.
+ *
+ * Every list here is sorted, so nothing downstream depends on how the caller happened
+ * to serialize edges[]. Two distinct reasons, both needed:
+ *   - in-edges: float addition is not associative, so an unsorted summation order
+ *     would leave a residual order dependence at the last significant bit;
+ *   - out-edges: the path walk breaks ties by visit order, so an unsorted neighbour
+ *     list would report a different controlling_path for the same graph — and path
+ *     length is what raises the layered-ownership flag.
  *
  * @param {Object} adjMap - adjacency map: from → [{to, pct}]
- * @returns {{nodeIds: string[], inEdges: Object}}
+ * @returns {{nodeIds: string[], inEdges: Object, outEdges: Object}}
  */
 function buildTraversalIndex(adjMap) {
   const inEdges = {};
+  const outEdges = {};
   const ids = new Set();
   for (const from of Object.keys(adjMap)) {
     ids.add(from);
     for (const { to, pct } of adjMap[from]) {
       ids.add(to);
+      const frac = pct / 100; // pct is 0–100
+      // Sort key. A fraction never stringifies with a space in it, so the last space
+      // in the key always separates id from fraction: two different (id, fraction)
+      // pairs cannot collide, and equal keys are genuinely identical records whose
+      // relative order cannot matter.
       if (!inEdges[to]) inEdges[to] = [];
-      inEdges[to].push({ from, frac: pct / 100 }); // pct is 0–100
+      inEdges[to].push({ from, frac, key: `${from} ${frac}` });
+      if (!outEdges[from]) outEdges[from] = [];
+      outEdges[from].push({ to, frac, key: `${to} ${frac}` });
     }
   }
   const nodeIds = [...ids].sort();
   for (const id of nodeIds) {
-    if (inEdges[id]) {
-      inEdges[id].sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.frac - b.frac));
-    }
+    if (inEdges[id]) inEdges[id].sort(byKey);
+    if (outEdges[id]) outEdges[id].sort(byKey);
   }
-  return { nodeIds, inEdges };
+  return { nodeIds, inEdges, outEdges };
 }
 
 /**
@@ -80,10 +101,14 @@ function buildTraversalIndex(adjMap) {
  *
  * solved by Jacobi relaxation: every round recomputes each node purely from the
  * PREVIOUS round's values, so the sweep order cannot affect the result. Values start
- * at 0 and only ever rise, so the iteration is monotone and bounded above by 1 and
- * therefore converges; the round ceiling is a belt-and-braces stop for circular
- * holdings. Clamping at 1 inside the loop (not only on the way out) is what makes a
- * cycle terminate at all: no entity can be more than 100% owned.
+ * at 0, and a node is only ever written when its new value is strictly greater, so
+ * the iteration is monotone and bounded above by 1 and therefore converges. A round
+ * in which nothing rose is the fixpoint exactly — no tolerance is involved, which
+ * matters because stopping on a small-delta tolerance instead would under-report a
+ * cycle whose loop gain is close to 1, and under-reporting is the direction that
+ * misses a block. The round ceiling is a belt-and-braces stop for circular holdings.
+ * Clamping at 1 inside the loop (not only on the way out) is what makes a cycle
+ * terminate at all: no entity can be more than 100% owned.
  *
  * A single-pass traversal cannot compute this. A node's contribution is a running sum
  * over parallel paths, so it can rise after the node has already been expanded, and a
@@ -102,20 +127,19 @@ function solveContributions(source, graph) {
   const maxRounds = nodeIds.length + MAX_RELAXATION_ROUNDS_SLACK;
   for (let round = 0; round < maxRounds; round++) {
     const next = new Map(contributions);
-    let maxDelta = 0;
+    let rose = false;
     for (const id of nodeIds) {
       if (id === source) continue; // pinned; an edge back into the origin cannot raise it
       let sum = 0;
       for (const { from, frac } of (inEdges[id] || [])) sum += (contributions.get(from) || 0) * frac;
-      if (sum > 1) sum = 1;
-      const prev = contributions.get(id) || 0;
-      if (sum > prev) {
+      sum = Math.min(sum, 1.0); // no entity is more than wholly owned; also what halts a cycle
+      if (sum > (contributions.get(id) || 0)) {
         next.set(id, sum);
-        if (sum - prev > maxDelta) maxDelta = sum - prev;
+        rose = true;
       }
     }
+    if (!rose) break; // nothing rose anywhere: this IS the fixpoint, exactly
     contributions = next;
-    if (maxDelta <= CONVERGENCE_EPSILON) break;
   }
   return contributions;
 }
@@ -161,9 +185,16 @@ function listedNodes(nodes) {
 }
 
 /**
- * Recover a controlling path (first BFS path from source to target).
+ * Recover a controlling path: the shortest ownership path from source to target,
+ * ties broken by node id. Walking the sorted out-edge lists is what makes the tie
+ * break, and therefore the reported path, independent of the caller's edges[] order.
+ *
+ * @param {string} source - starting node id
+ * @param {string} target - end node id
+ * @param {{outEdges: Object}} graph - output of buildTraversalIndex
+ * @returns {string[]} node ids from source to target, or [] if unreachable
  */
-function findPath(source, target, adjMap) {
+function findPath(source, target, graph) {
   if (source === target) return [source];
   const prev = new Map();
   const queue = [source];
@@ -172,7 +203,7 @@ function findPath(source, target, adjMap) {
   while (queue.length > 0) {
     const cur = queue.shift();
     if (cur === target) break;
-    for (const { to } of (adjMap[cur] || [])) {
+    for (const { to } of (graph.outEdges[cur] || [])) {
       if (!visited.has(to)) {
         visited.add(to);
         prev.set(to, cur);
@@ -232,7 +263,7 @@ export function compute(pp) {
       total_eu   = Math.min(total_eu   + (src.list_source === 'eu'   || src.list_source === 'both' ? frac : 0), 1);
       total_bis  = Math.min(total_bis  + (src.list_source === 'bis'  || src.list_source === 'both' ? frac : 0), 1);
       // For composite aggregation, track the best contributing path
-      const path = findPath(src.id, target, adjMap);
+      const path = findPath(src.id, target, graph);
       if (path.length > 0) controlling_paths.push({ from: src.id, pct: +(frac * 100).toFixed(2), path });
     }
 
