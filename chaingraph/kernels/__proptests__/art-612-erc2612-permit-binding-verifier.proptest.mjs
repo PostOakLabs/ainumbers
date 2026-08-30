@@ -1,5 +1,5 @@
 // art-612-erc2612-permit-binding-verifier property-test floor (ETHMATH-PERMIT-1).
-// kernel_digest_at_authoring: sha256:a1bb4dd8ffefcc70f0f060116f108f2ff146c650f95ac1ed8d962c838b721ffd
+// kernel_digest_at_authoring: sha256:fb926fb791303faef08bdd4aca04d282680a27d02be6e83ba9a074e37102c708
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED
