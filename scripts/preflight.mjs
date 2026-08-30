@@ -1177,6 +1177,13 @@ const GATES = [
   ['AP2 bulk contract-gap ratchet (AP2-DEBT-BASELINE-1)', 'node scripts/check-ap2-contract.mjs'],
   ['AP2 contract-gap gate controls (SO #40b pairing)', 'node scripts/check-ap2-contract.test.mjs'],
   ['Policy Mandate v1.1 additivity (§3.1.1 A10.5, MANDATE-V11-CAVEATS-1)', 'node scripts/validate-policy-mandate.test.mjs'],
+  // AP2VERSION-RETIREMENT-SWEEP-1: the in-payload ap2_version field is RETIRED
+  // (CONTRACT §3.1/§A3.2). Emission-shape-only ratchet — a bare ap2_version:
+  // payload literal in live JS of any tracked .html is RED; validator/quoted-key
+  // back-compat paths never fire it. Baseline grandfathers the 41 files whose
+  // kept in-file validator hard-requires the field on their own export path.
+  ['AP2 version-field emission ratchet (AP2VERSION-RETIREMENT-SWEEP-1)', 'node scripts/check-ap2version-emission.mjs'],
+  ['AP2 version-field emission ratchet fixture proof (SO #40b pairing)', 'node scripts/check-ap2version-emission.test.mjs'],
   ['§16 proof surface (chains)',   'node scripts/verify-proof-surface.mjs --chains-only'],
   ['§16 proof binding (unit)',     'node chaingraph/kernels/proof-binding.test.mjs'],
   ['§PPH-1 policy_parameters_hash', 'node chaingraph/kernels/policy-params-hash.test.mjs'],
