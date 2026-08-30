@@ -1359,6 +1359,8 @@ const GATES = [
   ['Amendment detection gate (CB7-AMENDMENT-DETECT-1)', 'node scripts/check-amendment-detection.mjs'],
   ['Amendment detection gate fixture proof', 'node scripts/check-amendment-detection.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
+  ['Citation drift -- pinned numbers vs clause snapshot (CITATION-DRIFT-GATE-1)', 'node scripts/check-citation-drift.mjs'],
+  ['Citation drift gate fixture proof', 'node scripts/check-citation-drift.test.mjs'],
   ['Template integrity (advisory, TPL-GATE-1)', 'node scripts/check-template-integrity.mjs'],
   ['CSV-injection sanitization (WB-5)', 'node scripts/check-csv-injection.mjs'],
   ['Workbook unit fixtures (WB-1)',     'node chaingraph/workbook/workbook.test.mjs'],
