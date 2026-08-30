@@ -5,10 +5,10 @@
  * one allowlisted host, mcp.ainumbers.co (SI-6, START-INFRA-BUILD-SPEC.md §6).
  * Modeled on scripts/check-ledger-hermetic.mjs (CONTRACT §A7.2).
  *
- * SI-6 has not shipped the page yet (CONTRACT-A8-1 lands the amendment +
- * gate ahead of the build it gates). Until mcp-playground.html exists, this
- * gate exits 0 with a notice rather than failing on a missing file — it
- * polices what the page calls, not whether the page calls anything.
+ * SI-6 has shipped the page — mcp-playground.html is tracked on main — so
+ * this gate polices what the page calls, not whether the page calls
+ * anything. The missing-file branch below is a defensive no-op for a
+ * deleted/renamed file; it is not the live path.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
