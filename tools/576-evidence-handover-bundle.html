@@ -12,15 +12,15 @@
 <!-- manifest.json
 {
   "tool_id": "evidence-handover-bundle",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "Evidence Handover Bundle",
-  "description": "Packages a case-file binder manifest plus its caller-pasted referenced receipts into one client-side zip: a self-contained offline verify.html (zero network calls at verify time), the raw JSON receipts, and a plain-English README explaining what verified does and does not mean. Built for handing an examiner a bundle they can open on an air-gapped machine.",
+  "description": "Packages a case-file binder manifest plus its caller-pasted referenced receipts into one client-side zip: a self-contained offline verify.html (zero network calls at verify time), the raw JSON receipts, and a plain-English README explaining what verified does and does not mean. Optionally attaches a pre-captured DNSSEC chain (dig +dnssec output the caller ran externally) as a corroboration item; this tool never queries DNS itself and never validates the chain. Built for handing an examiner a bundle they can open on an air-gapped machine.",
   "category": "cat-31",
-  "tags": ["case file","binder","examiner","offline","handover","zip","evidence bundle","air-gapped","merkle root"],
+  "tags": ["case file","binder","examiner","offline","handover","zip","evidence bundle","air-gapped","merkle root","dnssec"],
   "audience": ["engagement partner","examiner","compliance","deal counsel","engineer"],
-  "input_schema": {"type":"object","properties":{"binder":{"type":"object"},"receipts":{"type":"array"}},"required":["binder"]},
+  "input_schema": {"type":"object","properties":{"binder":{"type":"object"},"receipts":{"type":"array"},"dnssec_chain_capture":{"type":"object","description":"Optional. A DNSSEC chain the caller captured externally (dig +dnssec), pasted in raw. Not fetched or validated by this tool."}},"required":["binder"]},
   "output_schema": {"type":"object","properties":{"zip_filename":{"type":"string"},"file_count":{"type":"number"}}},
-  "mcp_tool_definition": {"name":"build_evidence_handover_bundle","description":"Builds an offline zip bundle (self-contained verify.html, binder + receipt JSON files, README) from a case-file binder manifest and the receipts it references. The worker never sees receipt contents.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"A case-file binder manifest (ainumbers-casefile-binder-v1)"},"receipts":{"type":"array","description":"Optional list of receipt JSON objects the caller has in hand, matched to binder entries by digest"}},"required":["binder"]}},
+  "mcp_tool_definition": {"name":"build_evidence_handover_bundle","description":"Builds an offline zip bundle (self-contained verify.html, binder + receipt JSON files, README) from a case-file binder manifest and the receipts it references. The worker never sees receipt contents.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"A case-file binder manifest (ainumbers-casefile-binder-v1)"},"receipts":{"type":"array","description":"Optional list of receipt JSON objects the caller has in hand, matched to binder entries by digest"},"dnssec_chain_capture":{"type":"object","description":"Optional pre-captured DNSSEC chain (queried_name, resolver, captured_at, raw_chain_text) to include as corroboration. Never fetched or validated by this tool; verification is deferred to standard tooling such as delv."}},"required":["binder"]}},
   "execution": {"type":"browser-javascript","entry":"tools/576-evidence-handover-bundle.html","function_name":"buildBundle","timeout_ms":5000},
   "ap2_export": false
 }
@@ -148,6 +148,19 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
   <div id="entriesSection"></div>
 
+  <div class="panel">
+    <span class="panel-label">DNSSEC Chain Capture (optional corroboration)</span>
+    <div class="hint-note" style="margin-bottom:.75rem">Corroboration, not proof. Paste a DNSSEC chain you captured externally with <code>dig +dnssec</code> against a validating resolver at build time. This tool stores the raw record text as-is and does not query DNS or validate the chain itself; validation is deferred to standard tooling (<code>delv</code>, or any validating stub resolver).</div>
+    <div class="panel-row"><label for="dnssecName">Domain / record queried</label><input type="text" id="dnssecName" placeholder="e.g. _ainumbers-verify.example.com TXT"></div>
+    <div class="panel-row"><label for="dnssecResolver">Resolver used</label><input type="text" id="dnssecResolver" placeholder="e.g. 1.1.1.1 (Cloudflare)"></div>
+    <div class="panel-row"><label for="dnssecCapturedAt">Capture timestamp (ISO 8601)</label><input type="text" id="dnssecCapturedAt" placeholder="e.g. 2026-08-30T14:05:00Z"></div>
+    <div class="panel-row"><label for="dnssecRaw">Raw dig +dnssec output (leaf RRSIG/DNSKEY through DS records to root, unmodified)</label><textarea id="dnssecRaw" rows="6" placeholder="Paste the unmodified terminal output here"></textarea></div>
+    <div style="display:flex;gap:.75rem;align-items:center">
+      <button class="ghost-btn" onclick="attachDnssecCapture()">Attach DNSSEC Capture</button>
+      <span id="dnssecStatus" class="attach-status off">not attached, bundle will ship without a DNSSEC chain capture</span>
+    </div>
+  </div>
+
   <div class="panel" id="buildPanel" style="display:none">
     <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
       <button class="run-btn" id="buildBtn" onclick="buildBundle()">&#9654; Build &amp; Download Bundle</button>
@@ -194,7 +207,7 @@ function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v===
 async function __ocgSha256Hex(bytesOrStr){var b=typeof bytesOrStr==='string'?new TextEncoder().encode(bytesOrStr):bytesOrStr;var d=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(d)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
 </script>
 <script>
-var MANIFEST = {"tool_id":"evidence-handover-bundle","version":"1.0.0","title":"Evidence Handover Bundle","description":"Packages a case-file binder manifest plus its caller-pasted referenced receipts into one client-side zip: a self-contained offline verify.html (zero network calls at verify time), the raw JSON receipts, and a plain-English README explaining what verified does and does not mean. Built for handing an examiner a bundle they can open on an air-gapped machine.","category":"cat-31","tags":["case file","binder","examiner","offline","handover","zip","evidence bundle","air-gapped","merkle root"],"audience":["engagement partner","examiner","compliance","deal counsel","engineer"],"input_schema":{"type":"object","properties":{"binder":{"type":"object"},"receipts":{"type":"array"}},"required":["binder"]},"output_schema":{"type":"object","properties":{"zip_filename":{"type":"string"},"file_count":{"type":"number"}}},"mcp_tool_definition":{"name":"build_evidence_handover_bundle","description":"Builds an offline zip bundle (self-contained verify.html, binder + receipt JSON files, README) from a case-file binder manifest and the receipts it references. The worker never sees receipt contents.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"A case-file binder manifest (ainumbers-casefile-binder-v1)"},"receipts":{"type":"array","description":"Optional list of receipt JSON objects the caller has in hand, matched to binder entries by digest"}},"required":["binder"]}},"execution":{"type":"browser-javascript","entry":"tools/576-evidence-handover-bundle.html","function_name":"buildBundle","timeout_ms":5000},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser"};
+var MANIFEST = {"tool_id":"evidence-handover-bundle","version":"1.1.0","title":"Evidence Handover Bundle","description":"Packages a case-file binder manifest plus its caller-pasted referenced receipts into one client-side zip: a self-contained offline verify.html (zero network calls at verify time), the raw JSON receipts, and a plain-English README explaining what verified does and does not mean. Optionally attaches a pre-captured DNSSEC chain (dig +dnssec output the caller ran externally) as a corroboration item; this tool never queries DNS itself and never validates the chain. Built for handing an examiner a bundle they can open on an air-gapped machine.","category":"cat-31","tags":["case file","binder","examiner","offline","handover","zip","evidence bundle","air-gapped","merkle root","dnssec"],"audience":["engagement partner","examiner","compliance","deal counsel","engineer"],"input_schema":{"type":"object","properties":{"binder":{"type":"object"},"receipts":{"type":"array"},"dnssec_chain_capture":{"type":"object","description":"Optional. A DNSSEC chain the caller captured externally (dig +dnssec), pasted in raw. Not fetched or validated by this tool."}},"required":["binder"]},"output_schema":{"type":"object","properties":{"zip_filename":{"type":"string"},"file_count":{"type":"number"}}},"mcp_tool_definition":{"name":"build_evidence_handover_bundle","description":"Builds an offline zip bundle (self-contained verify.html, binder + receipt JSON files, README) from a case-file binder manifest and the receipts it references. The worker never sees receipt contents.","inputSchema":{"type":"object","properties":{"binder":{"type":"object","description":"A case-file binder manifest (ainumbers-casefile-binder-v1)"},"receipts":{"type":"array","description":"Optional list of receipt JSON objects the caller has in hand, matched to binder entries by digest"},"dnssec_chain_capture":{"type":"object","description":"Optional pre-captured DNSSEC chain (queried_name, resolver, captured_at, raw_chain_text) to include as corroboration. Never fetched or validated by this tool; verification is deferred to standard tooling such as delv."}},"required":["binder"]}},"execution":{"type":"browser-javascript","entry":"tools/576-evidence-handover-bundle.html","function_name":"buildBundle","timeout_ms":5000},"ap2_export":false,"pii_transmitted":false,"execution_context":"client_side_browser"};
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 
 function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -202,6 +215,34 @@ function escHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':
 /* ── binder intake (mirrors 575's loadBinder: entries absent vs entries:[] stay distinct states) ─── */
 var _binder = null;
 var _attached = {}; // entry index -> parsed receipt object
+var _dnssecCapture = null; // caller-declared, pre-captured chain -- never fetched or validated here
+
+/* ── DNSSEC chain capture intake (optional corroboration, BUNDLE-ENRICH-DNSSEC-1) ─
+   Structural presence checks only -- required fields non-empty. No parsing of the
+   raw record text, no crypto validation: that is deferred to standard tooling
+   (delv or any validating stub resolver) per the spec's honest-scope line. */
+function attachDnssecCapture(){
+  var name = document.getElementById('dnssecName').value.trim();
+  var resolver = document.getElementById('dnssecResolver').value.trim();
+  var capturedAt = document.getElementById('dnssecCapturedAt').value.trim();
+  var raw = document.getElementById('dnssecRaw').value.trim();
+  var statusEl = document.getElementById('dnssecStatus');
+  if(!name || !resolver || !capturedAt || !raw){
+    _dnssecCapture = null;
+    statusEl.className = 'attach-status off';
+    statusEl.textContent = 'not attached, bundle will ship without a DNSSEC chain capture';
+    return;
+  }
+  _dnssecCapture = {
+    schema: 'ainumbers-dnssec-chain-capture-v1',
+    queried_name: name,
+    resolver: resolver,
+    captured_at: capturedAt,
+    raw_chain_text: raw
+  };
+  statusEl.className = 'attach-status on';
+  statusEl.textContent = 'attached, will ship as dnssec-chain-capture.json';
+}
 
 function loadBinder(){
   var raw = document.getElementById('binderInput').value.trim();
@@ -324,7 +365,7 @@ function zipStore(files){
 }
 
 /* ── README.txt ──────────────────────────────────────────────────────── */
-function buildReadme(binder, attachedCount){
+function buildReadme(binder, attachedCount, dnssecCapture){
   var lines = [];
   lines.push('EVIDENCE HANDOVER BUNDLE');
   lines.push('=========================');
@@ -374,11 +415,26 @@ function buildReadme(binder, attachedCount){
   lines.push('it existed, unchanged, by that time. Computational correctness (if claimed at all)');
   lines.push('is a separate, per-artifact matter and is never implied by anchoring alone.');
   lines.push('');
+  if(dnssecCapture){
+    lines.push('DNSSEC CHAIN CAPTURE (OPTIONAL CORROBORATION)');
+    lines.push('----------------------------------------------');
+    lines.push('Queried: '+dnssecCapture.queried_name);
+    lines.push('Resolver: '+dnssecCapture.resolver);
+    lines.push('Captured at: '+dnssecCapture.captured_at);
+    lines.push('This is corroboration, not proof: a raw DNSSEC chain snapshot captured');
+    lines.push('externally at build time (dig +dnssec), included as-is in dnssec-chain-');
+    lines.push('capture.json. This bundle does not validate the chain. Confirm it against');
+    lines.push('a validating resolver: run delv (ships with BIND), or any DNSSEC-validating');
+    lines.push('stub resolver, replaying the captured chain against the well-known,');
+    lines.push('publicly pinned root KSK.');
+    lines.push('');
+  }
   lines.push('CONTENTS OF THIS ZIP');
   lines.push('---------------------');
   lines.push('verify.html   — self-contained offline verifier (open this first)');
   lines.push('binder.json   — the case-file binder manifest itself');
   lines.push('receipts/     — the receipts that were attached when this bundle was built');
+  if(dnssecCapture) lines.push('dnssec-chain-capture.json — the DNSSEC chain snapshot attached to this bundle');
   lines.push('README.txt    — this file');
   lines.push('');
   lines.push('Produced by the Evidence Handover Bundle tool at ainumbers.co. This bundle makes');
@@ -487,9 +543,17 @@ var VERIFY_HTML_LOGIC = ''
 + '    }\n'
 + '    return "<div class=\\"entry\\"><div><span class=\\"kind\\">"+esc(e.kind)+"</span> <strong>"+esc(e.ref_label)+"</strong></div><div class=\\"hashbox\\">"+esc(e.digest)+"</div>"+body+"</div>";\n'
 + '  }).join("");\n'
++ '  var d = __BUNDLE_DATA__.dnssec;\n'
++ '  var dnssecHtml = !d ? "" : "<div class=\\"out-section\\"><div class=\\"out-header\\">DNSSEC Chain Capture (optional corroboration)</div><div class=\\"out-body\\">"\n'
++ '    + "<div class=\\"verdict neutral\\">Not validated by this page. Corroboration only, captured externally at build time.</div>"\n'
++ '    + "<div class=\\"hashbox\\">queried: "+esc(d.queried_name)+"<br>resolver: "+esc(d.resolver)+"<br>captured at: "+esc(d.captured_at)+"</div>"\n'
++ '    + "<div class=\\"note\\">This chain is not re-verified here. Confirm it against a validating resolver: run delv (ships with BIND), or any DNSSEC-validating stub resolver, replaying this chain against the well-known, publicly pinned root KSK.</div>"\n'
++ '    + "<div class=\\"hashbox\\" style=\\"white-space:pre-wrap\\">"+esc(d.raw_chain_text)+"</div>"\n'
++ '    + "</div></div>";\n'
 + '  out.innerHTML = "<div class=\\"out-section\\"><div class=\\"out-header\\">Binder Signature</div><div class=\\"out-body\\">"+sigHtml+"</div></div>"\n'
 + '    + "<div class=\\"out-section\\"><div class=\\"out-header\\">Merkle Root ("+b.entry_count+" entries, v"+(b.version||"?")+")</div><div class=\\"out-body\\">"+rootHtml+"</div></div>"\n'
-+ '    + "<div class=\\"out-section\\"><div class=\\"out-header\\">Per-Entry Checks</div><div class=\\"out-body\\">"+entriesHtml+"</div></div>";\n'
++ '    + "<div class=\\"out-section\\"><div class=\\"out-header\\">Per-Entry Checks</div><div class=\\"out-body\\">"+entriesHtml+"</div></div>"\n'
++ '    + dnssecHtml;\n'
 + '  for(var i=0;i<b.entries.length;i++){\n'
 + '    var e=b.entries[i], r=receipts[i];\n'
 + '    if(e.kind==="disclosure_manifest" && r && r.audit_signature && r.audit_signature.proof){\n'
@@ -505,9 +569,9 @@ var VERIFY_HTML_LOGIC = ''
 
 var VERIFY_HTML_TAIL = '\n<\/script>\n</body>\n</html>\n';
 
-function buildVerifyHtml(binder, receiptsByIndex){
+function buildVerifyHtml(binder, receiptsByIndex, dnssecCapture){
   var receiptsArr = binder.entries.map(function(e,i){ return receiptsByIndex[i] || null; });
-  var payload = JSON.stringify({binder: binder, receipts: receiptsArr});
+  var payload = JSON.stringify({binder: binder, receipts: receiptsArr, dnssec: dnssecCapture || null});
   return VERIFY_HTML_HEAD + 'var __BUNDLE_DATA__ = ' + payload + ';\n' + VERIFY_HTML_LOGIC + VERIFY_HTML_TAIL;
 }
 
@@ -519,7 +583,7 @@ async function buildBundle(){
     var files = [];
     var enc = new TextEncoder();
 
-    var verifyHtml = buildVerifyHtml(_binder, _attached);
+    var verifyHtml = buildVerifyHtml(_binder, _attached, _dnssecCapture);
     files.push({name:'verify.html', data: enc.encode(verifyHtml)});
     files.push({name:'binder.json', data: enc.encode(JSON.stringify(_binder,null,2))});
 
@@ -532,8 +596,12 @@ async function buildBundle(){
       }
     });
 
+    if(_dnssecCapture){
+      files.push({name:'dnssec-chain-capture.json', data: enc.encode(JSON.stringify(_dnssecCapture,null,2))});
+    }
+
     var attachedCount = Object.keys(_attached).length;
-    files.push({name:'README.txt', data: enc.encode(buildReadme(_binder, attachedCount))});
+    files.push({name:'README.txt', data: enc.encode(buildReadme(_binder, attachedCount, _dnssecCapture))});
 
     var zipBytes = zipStore(files);
     var slug = sanitizeSlug(_binder.engagement_label || 'case-file');
@@ -552,7 +620,7 @@ async function buildBundle(){
       + '<div class="stat"><div class="stat-v">'+attachedCount+' / '+_binder.entries.length+'</div><div class="stat-l">Receipts Attached</div></div></div>'
       + '<div class="hashbox">'+escHtml(filename)+'</div>'
       + '<div class="file-list" style="margin-top:.75rem">'
-      + 'verify.html<br>binder.json<br>' + (receiptNames.length ? receiptNames.map(escHtml).join('<br>') + '<br>' : '') + 'README.txt'
+      + 'verify.html<br>binder.json<br>' + (receiptNames.length ? receiptNames.map(escHtml).join('<br>') + '<br>' : '') + (_dnssecCapture ? 'dnssec-chain-capture.json<br>' : '') + 'README.txt'
       + '</div>'
       + '<p style="font-size:.62rem;color:var(--muted);margin-top:.75rem">Downloaded. Unzip and open verify.html from disk to confirm it verifies with no network connection &mdash; that is the whole point of this bundle.</p>'
       + '</div></div>';
