@@ -56,12 +56,20 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   # A newer push/synchronize on the same PR ref supersedes its prior
   # in-progress run (CI-REDNOISE-GATE-1, 2026-08-30) — letting the stale one
-  # finish is redundant CI time, not lost coverage. NEVER cancel a push:main
-  # run (this workflow's backstop coverage on main) or a merge_group run —
-  # a cancelled merge_group run reports nothing back to the queue, which
-  # deadlocks it rather than just leaving a stale red (SO #7).
-  # cancel-in-progress fires only for the pull_request event.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # finish is redundant CI time, not lost coverage. Also cancels a stale
+  # push:main run: derived-artifacts-regen.yml commits a regen fix-up on
+  # the same `github.ref` shortly after most human pushes to main, and this
+  # workflow has no push-only downstream job depending on it (unlike
+  # land-verify.yml's attest-fv-artifacts) — so the newer commit's run
+  # fully supersedes the older one. Measured 2026-08-30 run 33315676452:
+  # scripts-verify.yml's own push run stayed red on stale derived
+  # artifacts (debt-ledger) for 9 minutes while the regen bot's own push,
+  # 36s later, produced a clean green run for the same ref; same race
+  # shape hits every workflow gating a COVERED derived artifact on
+  # push:main. NEVER cancel a merge_group run — a cancelled merge_group
+  # run reports nothing back to the queue, which deadlocks it rather than
+  # just leaving a stale red (SO #7).
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 permissions:
   contents: read
