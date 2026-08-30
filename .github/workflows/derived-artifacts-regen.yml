@@ -44,6 +44,28 @@ on:
         description: 'Run every step except the commit/push; print what would happen'
         type: boolean
         default: true
+      # The escape hatch that keeps the mass-delete refusal from becoming a
+      # blocker a human cannot clear. A refusal prints the exact deletion list
+      # and this number; a human who has read that list re-dispatches with
+      # confirm_deletions set to it, authorising exactly that many deletions
+      # for exactly that one manual run. The unattended `push: main` path can
+      # never reach this input, which is the whole point.
+      confirm_deletions:
+        description: 'Deletions confirmed intended for THIS manual run (raises the mass-delete refusal ceiling). Leave 0 unless you have read a refused path list.'
+        type: string
+        default: '0'
+      # SELF-TEST HARNESS. See the "Self-test" step for why it exists and why
+      # it cannot leak into main.
+      self_test:
+        description: 'SELF-TEST ONLY — mutate the regenerated tree to exercise a staging guard. Hard-blocks the commit/push step.'
+        type: choice
+        default: 'off'
+        options:
+          - 'off'
+          - 'okf_pair_deletion'
+          - 'mass_delete'
+          - 'mass_modify'
+          - 'undeclared_escape'
 
 # Least privilege: the default GITHUB_TOKEN is read-only everywhere in this
 # workflow. The push credential is a short-lived GitHub App installation token
@@ -179,6 +201,67 @@ jobs:
           node scripts/check-copy-hallmarks.mjs
           node scripts/check-shipped-prose.mjs
 
+      # ── SELF-TEST HARNESS (workflow_dispatch only; can never commit) ──────
+      # SO #34: "verify a checker by MUTATION, not by reading it", and SO #34c:
+      # a gate that has only ever been observed green has not been observed at
+      # all. Every guard in the staging step below — the undeclared-path escape
+      # check, and the mass-delete refusal added with it — fires only on a
+      # broken generator, so on a healthy tree they are unobservable. SO #40(a)
+      # requires this workflow to be exercised end-to-end on a branch before a
+      # merge, and there is otherwise no way to exercise the failure paths.
+      #
+      # This step mutates the freshly-regenerated tree so each guard can be
+      # driven from Actions > Run workflow. It runs AFTER the §15 and copy
+      # gates on purpose: those validate what the generators actually produced,
+      # and must not be scored against a deliberately corrupted tree.
+      #
+      # It cannot reach main: it is workflow_dispatch-only, and the commit/push
+      # step below is hard-gated off whenever self_test is not 'off' — so even
+      # a below-threshold self-test deletion with dry_run=false commits nothing.
+      - name: Self-test — mutate the regenerated tree (never commits)
+        if: github.event_name == 'workflow_dispatch' && inputs.self_test != 'off'
+        env:
+          SELF_TEST: ${{ inputs.self_test }}
+        run: |
+          set -euo pipefail
+          # Written to a file rather than piped into `head`: under `pipefail` a
+          # closed pipe would fail the whole step on a large file list.
+          git ls-files -- chaingraph/okf/tools > /tmp/st-okf-tools.txt
+          case "$SELF_TEST" in
+            okf_pair_deletion)
+              # GREEN control — the exact art-99 shape. A node leaving service
+              # makes generate-okf.mjs drop chaingraph/okf/{tools,computations}/
+              # <tool_id>.md, which is what PR #1479 exists to let through.
+              # art-99's own pair cannot be re-deleted (aebca55e already removed
+              # it from main), so replay the identical shape and count against a
+              # live node.
+              ID="$(basename "$(head -1 /tmp/st-okf-tools.txt)" .md)"
+              rm -f "chaingraph/okf/tools/$ID.md" "chaingraph/okf/computations/$ID.md"
+              echo "self-test: deleted the okf pair for $ID — 2 declared deletions, the art-99 count."
+              ;;
+            mass_delete)
+              # RED control — a generator dropping a slice of its own output.
+              head -40 /tmp/st-okf-tools.txt > /tmp/st-del.txt
+              xargs -r rm -f < /tmp/st-del.txt
+              echo "self-test: deleted 40 declared okf pages."
+              ;;
+            mass_modify)
+              # Modifications are NOT the hazard and are deliberately not
+              # thresholded — prove a wide modification still commits.
+              head -40 /tmp/st-okf-tools.txt > /tmp/st-mod.txt
+              while IFS= read -r f; do
+                printf '\n<!-- self-test -->\n' >> "$f"
+              done < /tmp/st-mod.txt
+              echo "self-test: modified 40 declared okf pages, deleted none."
+              ;;
+            undeclared_escape)
+              # #1479's escape check must still fire on a genuinely undeclared
+              # write. This row must not weaken it.
+              printf 'self-test\n' > chaingraph/UNDECLARED-SELFTEST.txt
+              echo "self-test: wrote chaingraph/UNDECLARED-SELFTEST.txt, outside the declared set."
+              ;;
+          esac
+
       - name: Stage by explicit pathspec, and prove nothing escaped the set
         id: stage
         run: |
@@ -252,6 +335,110 @@ jobs:
             git diff --cached --stat
           fi
 
+      # ── MASS-DELETE REFUSAL ───────────────────────────────────────────────
+      # WHY THIS EXISTS — it is the second half of PR #1479's invariant.
+      # #1479 removed `git add --ignore-removal` from the staging step above
+      # because it made a LEGITIMATE deletion unstageable: art-99 went
+      # deprecated, generate-okf.mjs correctly dropped its two OKF pages, those
+      # paths ARE declared, and the escape check still reported them as
+      # "undeclared regen output" — which disabled the single writer that
+      # repairs the count sentinels and reddened four main workflows.
+      #
+      # That fix opened a new door. This bot commits UNATTENDED, on main, with
+      # an App token. Before #1479 a generator bug that dropped its whole
+      # output set could not auto-commit the deletions; now it can. So
+      # deletions above a small threshold get a loud REFUSED rather than an
+      # auto-commit — the same shape as the assembler's refusal at the bottom
+      # of this file: a refusal is never a silent green.
+      #
+      # It runs on the dry-run path too, so a workflow_dispatch dry run
+      # exercises it instead of stopping short of it, and it runs BEFORE the
+      # commit step so a refusal means nothing was committed and nothing was
+      # pushed — this step failing aborts the job.
+      - name: Refuse a mass deletion
+        env:
+          # THE THRESHOLD, CHOSEN FROM DATA — measured on origin/main @ 34cd823a.
+          #
+          # Blast radius: the declared path set expands to 2,621 tracked files
+          #   (chaingraph/okf 1,318 · chaingraph/register 640 ·
+          #    registry/kernel 623 · fv-status 1 · 39 single-file paths).
+          #   That is what a runaway generator can delete in one unattended run.
+          #
+          # Observed history: across 101 bot commits this workflow has committed
+          #   ZERO deletions — `git log --author=ainumbers-spec-sync
+          #   --diff-filter=D` is empty — because --ignore-removal suppressed
+          #   them until 2026-08-22. The entire deletion history INSIDE the
+          #   declared set is a single root cause, art-99 leaving service, landed
+          #   by hand in three PRs: aebca55e (#1479) 2 okf pages, 4daa8b6f
+          #   (#1480) 1 registry/kernel entry, bec907ed (#1486) 1 register entry.
+          #
+          # Per-node arity: one node leaving service therefore drops FOUR
+          #   declared files. Corroborated by the corpus rather than by reading
+          #   the generators: 640 okf/tools = 640 okf/computations = 640
+          #   register entries, and 623 registry/kernel entries for the proven
+          #   subset.
+          #
+          # 12 = three simultaneous node deprecations (3 x 4), against an
+          #   observed maximum of one. Deliberately generous at the bottom so an
+          #   ordinary deprecation never needs a human — a guard that fires on
+          #   routine work is a guard that gets bypassed — and still only 0.46%
+          #   of the 2,621-file blast radius, so every real mass-delete shape (a
+          #   dropped output directory is 623-1,318 files) sits orders of
+          #   magnitude above it.
+          #
+          # Modifications are deliberately NOT thresholded: a healthy regen
+          # rewrites dozens of files every run, so deletion is the asymmetric,
+          # hard-to-notice direction.
+          MAX_STAGED_DELETIONS: '12'
+          # Empty on a `push: main` run — the inputs context does not exist
+          # there — so the unattended path always uses the constant above.
+          CONFIRMED: ${{ inputs.confirm_deletions }}
+        run: |
+          set -euo pipefail
+
+          # INDEPENDENT DERIVATION (SO #34): recount from the INDEX itself,
+          # never from the staging step's own report of what it did.
+          # -M pins rename detection explicitly rather than inheriting
+          # diff.renames from repo config: a re-proved kernel that moves
+          # registry/kernel/<digest>.json is a rename, not a deletion.
+          git diff --cached -M --diff-filter=D --name-only -- . > /tmp/staged-deletions.txt
+          DEL_COUNT="$(wc -l < /tmp/staged-deletions.txt)"
+          DEL_COUNT="${DEL_COUNT// /}"
+
+          CEILING="$MAX_STAGED_DELETIONS"
+          case "$CONFIRMED" in ''|*[!0-9]*) CONFIRMED=0 ;; esac
+          if [ "$CONFIRMED" -gt "$CEILING" ]; then
+            CEILING="$CONFIRMED"
+            echo "::notice title=Deletion ceiling raised by hand::A human dispatched this run with confirm_deletions=$CONFIRMED, authorising up to that many deletions for this run only."
+          fi
+
+          echo "staged deletions: $DEL_COUNT   (refusal threshold: more than $CEILING)"
+
+          if [ "$DEL_COUNT" -le "$CEILING" ]; then
+            if [ "$DEL_COUNT" -gt 0 ]; then
+              echo "OK — $DEL_COUNT staged deletion(s), at or below the threshold; the commit step proceeds normally:"
+              cat /tmp/staged-deletions.txt
+            else
+              echo "OK — no staged deletions."
+            fi
+            exit 0
+          fi
+
+          PATHS="$(head -20 /tmp/staged-deletions.txt | tr '\n' ' ')"
+          {
+            echo "### REFUSED — mass deletion"
+            echo ""
+            echo "$DEL_COUNT staged deletions exceed the ceiling of $CEILING. **Nothing was committed and nothing was pushed.**"
+            echo ""
+            echo '```'
+            cat /tmp/staged-deletions.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::error title=REFUSED: mass deletion ($DEL_COUNT staged deletions, ceiling $CEILING)::The regen staged $DEL_COUNT deletions inside the declared artifact set. This run committed NOTHING and pushed NOTHING. First paths: $PATHS (full list in this step's log and in the job summary). WHAT TO DO: (1) read that list; (2) if a generator is wrongly dropping output it should still be writing, fix the generator under scripts/ and re-run — do NOT raise MAX_STAGED_DELETIONS to make the run pass; (3) if the deletions really are intended, because that many nodes or chains genuinely left service, re-run this workflow by hand from Actions > Derived Artifacts Regen > Run workflow with dry_run=false and confirm_deletions=$DEL_COUNT, which authorises exactly this many deletions for that single run."
+          cat /tmp/staged-deletions.txt
+          exit 1
+
       # Dry-run report: print exactly what the commit step would have staged,
       # then stop — no push, no mutation of main, regardless of the change flag.
       #
@@ -311,8 +498,12 @@ jobs:
       # and the chain grows — the `concurrency` group serialises it and the
       # commit stream is the visible symptom; fix the generator, do not add
       # loop-breaking markers here.
+      #
+      # The third clause is the self-test containment: a deliberately corrupted
+      # tree must never reach main, not even when the corruption is small enough
+      # to pass the mass-delete refusal above.
       - name: Commit and push
-        if: steps.stage.outputs.changed == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
+        if: steps.stage.outputs.changed == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true) && !(github.event_name == 'workflow_dispatch' && inputs.self_test != 'off')
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
