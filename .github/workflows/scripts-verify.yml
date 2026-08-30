@@ -44,7 +44,15 @@ on:
     # now always dispatches; the `relevant` job decides (against the SAME path
     # list, scripts/ci-paths.json) whether the substantive job actually runs,
     # and the reporter job always reports. See that job's comment.
-    types: [opened, synchronize, reopened, ready_for_review]
+    #
+    # converted_to_draft added (2026-08-30): a PR opened
+    # non-draft that goes RED by design, then converted to draft AFTER the
+    # run already failed, kept the stale red forever — nothing re-dispatched
+    # this workflow on that transition. Measured on PR #1584: opened
+    # 13:44:08Z, run failed by 13:44:33Z, converted_to_draft 13:54:49Z, red
+    # check untouched afterward. This re-fires the workflow on that exact
+    # transition so the draft==false skip below supersedes the stale red.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   # merge_group: the reporter job below is a required status check, so it must
   # also fire on merge_group or GitHub never reports status for a queued PR and
   # the queue deadlocks — "omitting it causes status checks to fail reporting,
@@ -66,6 +74,25 @@ on:
         description: 'Dry-run marker. This workflow has no irreversible steps; the full preflight suite runs in every mode.'
         type: boolean
         default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push/synchronize on the same PR ref supersedes its prior
+  # in-progress run (2026-08-30) — letting the stale one
+  # finish is redundant CI time, not lost coverage. Also cancels a stale
+  # push:main run: derived-artifacts-regen.yml commits a regen fix-up on
+  # the same `github.ref` shortly after most human pushes to main, and this
+  # workflow has no push-only downstream job depending on it (unlike
+  # land-verify.yml's attest-fv-artifacts) — so the newer commit's run
+  # fully supersedes the older one. Measured 2026-08-30 run 33315676452: a
+  # push-triggered run genuinely red on stale derived artifacts
+  # (debt-ledger) ran for 9 minutes before reporting red, while the regen
+  # bot's own push, 36s later, produced a clean green run for the same
+  # ref — cancelling the stale one stops that redundant red from ever
+  # completing. NEVER cancel a merge_group run — a cancelled merge_group
+  # run reports nothing back to the queue, which deadlocks it rather than
+  # just leaving a stale red.
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 permissions:
   contents: read
