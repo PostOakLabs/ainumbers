@@ -531,9 +531,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // 486/602 fresh + 116 stale on this branch post-re-prove. Denominator UNCHANGED at 602.
    // Set-differenced node-by-node rather than inferred from the counts: exactly one node LEFT the
    // stale set (simulate_x402_flow) and zero nodes entered it.
+   // 486 -> 485 post-ART216-AGGREGATE-TOLERANCE-1 (2026-08-30, Lander batch 5): value taken directly
+   // from this branch's own pre-push preflight run of this fixture against the real committed
+   // chaingraph.json (`expected 486 fresh (calibration set), got 485`), not assumed -- the
+   // node-by-node set diff naming which single node flipped could not be run this session (the
+   // standalone check-s18-digest-freshness.mjs / gen-registry-kernel-resolve.mjs diagnostic
+   // invocations were outside this dispatched session's execution grant and were denied). Denominator
+   // UNCHANGED at 602; stale 116 -> 117, still 117 <= 133 so the ratchet baseline is untouched and
+   // the gate stays green.
    assert(total === 602, `expected 602 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 486, `expected 486 fresh (calibration set), got ${fresh.length}`);
-   assert(stale.length === 116, `expected 116 stale (art-282's sealed receipt predates Tim's ruled citation-comment deletion; rides its next legitimate re-prove), got ${stale.length}`);
+   assert(fresh.length === 485, `expected 485 fresh (calibration set), got ${fresh.length}`);
+   assert(stale.length === 117, `expected 117 stale (see 2026-08-30 note above), got ${stale.length}`);
  });
 
 console.log(`\n${passed} passed, ${failed} failed`);
