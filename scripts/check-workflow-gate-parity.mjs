@@ -335,6 +335,12 @@ const PREFLIGHT_ONLY = new Map([
     "⚑ Doctrine-execution audit register row 34 (§6.3 JSON-LD block on hub pages): preflight-only, no " +
     "workflow invokes it. Same shape as check_tools.js and same disposition — declared here and in " +
     "CONTRACT.md §15, not wired by this row."],
+  ["check-contract-claim-coverage.mjs",
+    "The CONTRACT.md §15 meta-gate, landed by CONTRACT-CLAIM-COVERAGE-1 in this same diff. Preflight-only " +
+    "for the same reason as its SPEC-side twin chaingraph/standard/spec-gate-coverage.mjs: it reads one " +
+    "tracked markdown file and needs no CI-only input, so scripts-verify.yml's path-scoped preflight is a " +
+    "sufficient route. ⚠ Declared, not hidden — it inherits exactly the fragility this axis exists to name, " +
+    "and if the §15 matrix is ever to be a required check it needs its own workflow step."],
 
   // ── paired self-tests / mutation controls (66) ──────────────────────────────
   ["pre-push.test.mjs", SELF_TEST],

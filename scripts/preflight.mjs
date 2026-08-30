@@ -1476,7 +1476,20 @@ const GATES = [
   // which reads exactly like a clean repo. Every case is a mutation control; the
   // ABSENCE cases (stale declaration, argument drift, uncalled gate, unparseable
   // `on:` block, an unmodelled softener) are the ones this family is made of.
-  ['Workflow gate parity controls (status axis, mutation)', 'node scripts/check-workflow-gate-parity.test.mjs'],
+  ['Workflow gate parity controls (status + reverse-presence axes, mutation)', 'node scripts/check-workflow-gate-parity.test.mjs'],
+  // CONTRACT-CLAIM-COVERAGE-1: the mirror of RULINGS 2026-08-22's "no gate without a
+  // normative source" — no normative source without an enforcement disposition. Asserts
+  // every CONTRACT.md §15 claim row names a gate that EXISTS, or the honest values
+  // DISCIPLINE / UNTESTABLE. It is not a coverage mandate: both honest values pass, and
+  // the defect is a claim with no disposition (or one naming a gate that isn't there,
+  // which reads as enforcement and enforces nothing — the audit's F2 "gate-name theater").
+  ['CONTRACT §15 claim coverage (every claim disposed)', 'node scripts/check-contract-claim-coverage.mjs'],
+  // The paired controls (GATE-SELFTEST-META-1 form (b)). Two parser bugs inherited from
+  // spec-gate-coverage.mjs are proven fixed against the LEGACY parser on every run —
+  // an empty Gate cell (which the legacy `.filter(Boolean)` deletes, shifting the verdict
+  // into the gate column, so the exact defect this gate exists to catch was the one input
+  // that silently passed) and an escaped `\|` inside a cell.
+  ['CONTRACT §15 claim-coverage controls (parser fixes, RED+GREEN)', 'node scripts/check-contract-claim-coverage.mjs --self-test'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
   // controls that flip each fact and require the verdict to move. Hard here because a red
