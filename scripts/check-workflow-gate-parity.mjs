@@ -409,6 +409,10 @@ const PREFLIGHT_ONLY = new Map([
   ["check-workflow-gate-parity.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
+  // Landed on main after this row branched, and caught by axis 3 on the rebase
+  // rather than by anyone remembering to look — which is the behaviour the
+  // explicit enumeration buys.
+  ["check-shared-tables.test.mjs", SELF_TEST],
 
   // ── estate gates and generators, no blocking-workflow step names them (73) ──
   ["check-kernel-exports.mjs", VIA_PREFLIGHT],
@@ -484,6 +488,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-derived-regen-live.mjs", VIA_PREFLIGHT],
   ["check-workflow-gate-parity.mjs", VIA_PREFLIGHT],
   ["gen-output-schema.mjs", VIA_PREFLIGHT],
+  ["check-shared-tables.mjs", VIA_PREFLIGHT],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
