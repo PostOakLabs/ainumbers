@@ -8,7 +8,9 @@
 // Checks: fixture-oracle gate, termination (bounded by fees.length), boundedness (cure_amount
 // and ten_pct_excess never negative), an independent differential re-derivation of cure_amount
 // from the raw fee list, permutation-invariance of the aggregate outputs under fee reordering,
-// and ULP-boundary forcing at the zero-tolerance $0.005 slack and the 10% threshold edge.
+// ULP-boundary forcing at the zero-tolerance $0.005 slack and the 10% threshold edge, and that
+// the 10% verdict follows the bucket AGGREGATES rather than the sum of positive per-fee
+// increases (P6, the ART216-AGGREGATE-TOLERANCE-1 regression).
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-216-trid-tolerance-cure.proptest.mjs
@@ -66,10 +68,13 @@ function randomFees(rng, n) {
   return fees;
 }
 
-// Independent reference re-derivation of cure_amount, built from the raw fee list per the
-// kernel's own documented rule (§1026.19(e)(4): larger-of zero-tolerance full cure + 10% excess).
+// Independent reference re-derivation of cure_amount, built from the raw fee list. The 10%
+// bucket leg is AGGREGATE-TO-AGGREGATE (§1026.19(e)(3)(ii)(A)): sum the bucket's CD amounts and
+// its LE amounts separately and compare the difference against 10% of the LE sum. It is
+// deliberately NOT the sum of the positive per-fee increases -- that quantity ignores fee
+// decreases and over-reports (ART216-AGGREGATE-TOLERANCE-1).
 function referenceCure(fees) {
-  let zeroSum = 0, tenLe = 0, tenIncrease = 0;
+  let zeroSum = 0, tenLe = 0, tenCd = 0;
   for (const f of fees) {
     if (f.changed_circumstance) continue;
     const inc = r2(f.cd_amount - f.le_amount);
@@ -77,11 +82,11 @@ function referenceCure(fees) {
       if (inc > 0.005) zeroSum += inc;
     } else if (f.bucket === 'ten_pct_cumulative') {
       tenLe += f.le_amount;
-      if (inc > 0) tenIncrease += inc;
+      tenCd += f.cd_amount;
     }
   }
   const threshold = r2(tenLe * 0.10);
-  const excess = r2(Math.max(0, tenIncrease - threshold));
+  const excess = r2(Math.max(0, r2(tenCd - tenLe) - threshold));
   return r2(zeroSum + excess);
 }
 
@@ -192,6 +197,33 @@ function checkP5_ulpForcing() {
   return { name: 'P5_ulp_boundary_forcing_slack_and_threshold', trials: checked, violations };
 }
 
+// ---------- P6: the 10% verdict is a function of the AGGREGATES, never of the positive increases ----------
+// Discriminating property for ART216-AGGREGATE-TOLERANCE-1: the pre-fix kernel summed only the
+// positive per-fee increases, so a bucket whose aggregate FELL could still be flagged. Here the
+// bucket totals are recomputed from the raw fee list and the verdict is required to agree with
+// them -- including the direction check that no bucket whose CD total is at or below its LE total
+// may ever be a violation.
+function checkP6_verdictFollowsAggregates() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const n = Math.floor(rand() * 20);
+    const fees = randomFees(rand, n);
+    const { output_payload: o } = compute({ fees });
+    checked++;
+    let le = 0, cd = 0;
+    for (const f of fees) {
+      if (f.changed_circumstance || f.bucket !== 'ten_pct_cumulative') continue;
+      le += f.le_amount; cd += f.cd_amount;
+    }
+    const expectedExcess = r2(Math.max(0, r2(cd - le) - r2(le * 0.10)));
+    if (Math.abs(o.ten_pct_excess - expectedExcess) > 0.01) violations++;
+    if (o.ten_pct_violation !== (expectedExcess > 0.005)) violations++;
+    // direction check: aggregate did not rise => never a violation
+    if (cd <= le && o.ten_pct_violation) violations++;
+  }
+  return { name: 'P6_ten_pct_verdict_follows_bucket_aggregates', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -204,6 +236,7 @@ results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_differentialCure());
 results.properties.push(checkP4_permutationInvariance());
 results.properties.push(checkP5_ulpForcing());
+results.properties.push(checkP6_verdictFollowsAggregates());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
