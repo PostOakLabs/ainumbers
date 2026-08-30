@@ -1,5 +1,5 @@
 // art-91-ownership-50pct-aggregator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C12-1).
-// kernel_digest_at_authoring: sha256:f1505eeba83572c78e56a22d102dca7aae6db7cbefab4c87b98653969f191037
+// kernel_digest_at_authoring: sha256:e9c64c8db5775e8026d5eb5f187c30ac771e734dcf374bc086fcbb03f9a7966d
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -9,16 +9,22 @@
 // BOUNDARY FORCING IS MANDATORY per spec §3.
 // Unbounded input: `ownership_graph.{nodes,edges}` are caller-controlled arrays of arbitrary
 // size, and the graph may contain CYCLES (edges pointing back at an ancestor). Termination is
-// NOT "loop runs until done" by array length alone — it is the BFS `visited` Set that bounds
-// the walk to at most nodes.length dequeues regardless of cycle structure. That termination
-// bound is asserted explicitly below (P1), including a deliberately cyclic graph, not just
-// implied by "it's a for-loop".
-// Checks: fixture-oracle gate, termination (BFS visited-set bound holds even on a cyclic
-// graph — the flagship scrutiny item for this kernel, same shape as the C11 shard's iterative-
-// solver treatment), boundedness (aggregate_pct/ofac_pct/eu_pct/bis_pct always clamped to
-// [0,100] via the kernel's own Math.min(...,1.0) accumulator cap), ULP-boundary forcing on the
-// 50% threshold (edge pct values at ±1 ULP of the 50.0 boundary, 0, negative zero, denormals,
-// and a chain of edges whose product lands within 1 ULP of 0.5 either side).
+// NOT "loop runs until done" by array length alone. Since ART91-OFAC-AGGREGATION-ORDER-1 the
+// walk is no longer single-pass: aggregateOwnership() solves a Jacobi fixpoint that re-reads
+// every node each round, so a `visited` Set no longer bounds anything. Three things bound it
+// instead — contributions rise monotonically, they are clamped to 1 INSIDE the relaxation
+// loop, and the loop carries a hard round ceiling (nodeIds.length + 1024) on top of the 1e-12
+// convergence test. That termination bound is asserted explicitly below (P1), including a
+// deliberately cyclic graph, not just implied by "it's a for-loop". The predecessor of this
+// comment claimed the visited-Set bound; that mechanism was ALSO the aggregation defect the
+// row above fixed (a node dequeued once never re-propagated a later increase), which is why
+// the bound and the bug had to be replaced together.
+// Checks: fixture-oracle gate, termination (the monotone-clamped fixpoint halts even on a
+// cyclic graph — the flagship scrutiny item for this kernel, same shape as the C11 shard's
+// iterative-solver treatment), boundedness (aggregate_pct/ofac_pct/eu_pct/bis_pct always
+// clamped to [0,100] via the kernel's own Math.min(...,1.0) accumulator cap), ULP-boundary
+// forcing on the 50% threshold (edge pct values at ±1 ULP of the 50.0 boundary, 0, negative
+// zero, denormals, and a chain of edges whose product lands within 1 ULP of 0.5 either side).
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-91-ownership-50pct-aggregator.proptest.mjs
@@ -74,7 +80,7 @@ function randomPP(rng, n, allowCycle = false) {
 
 const TRIALS = 2000;
 
-// ---------- P1: termination — BFS visited-set bound holds even on a CYCLIC graph ----------
+// ---------- P1: termination — the relaxation fixpoint halts even on a CYCLIC graph ----------
 function checkP1_termination_cyclic_graph_bounded() {
   let violations = 0, checked = 0;
   for (let i = 0; i < 500; i++) {
@@ -93,7 +99,7 @@ function checkP1_termination_cyclic_graph_bounded() {
   compute({ ownership_graph: { nodes: denseNodes, edges: denseEdges } });
   checked++;
   if (Date.now() - start2 > 2000) violations++;
-  return { name: 'P1_termination_bfs_bound_holds_on_cyclic_graph', trials: checked, violations };
+  return { name: 'P1_termination_relaxation_fixpoint_halts_on_cyclic_graph', trials: checked, violations };
 }
 
 // ---------- P2: boundedness — aggregate/ofac/eu/bis pct always clamped to [0,100] ----------
@@ -172,6 +178,37 @@ function checkP4_self_listed_always_blocked() {
   return { name: 'P4_self_listed_entity_always_constructively_blocked', trials: checked, violations };
 }
 
+// ---------- P5: edge-order invariance — aggregate ownership is a property of the GRAPH ----------
+// The regression lock for ART91-OFAC-AGGREGATION-ORDER-1. The fixtures pin two specific edge
+// orders of one graph; this pins the invariant itself across random graphs, including cyclic
+// ones and ones with convergent parallel paths (which the defect needed in order to show).
+function checkP5_edge_order_invariance() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < 500; i++) {
+    const n = Math.floor(rand() * 12) + 3;
+    const pp = randomPP(rand, n, rand() < 0.5);
+    // Add convergent parallel paths: a second, longer route into a node that already has one.
+    const ids = pp.ownership_graph.nodes.map((x) => x.id);
+    for (let k = 0; k + 2 < ids.length; k++) {
+      if (rand() < 0.5) pp.ownership_graph.edges.push({ from: ids[k], to: ids[k + 2], pct: rand() * 100 });
+    }
+    const base = JSON.stringify(compute(pp).output_payload);
+    // Fisher-Yates over a COPY of edges[]; nodes[] order fixes the verdict order and is left alone.
+    const shuffled = pp.ownership_graph.edges.slice();
+    for (let j = shuffled.length - 1; j > 0; j--) {
+      const swap = Math.floor(rand() * (j + 1));
+      [shuffled[j], shuffled[swap]] = [shuffled[swap], shuffled[j]];
+    }
+    const permuted = JSON.stringify(compute({
+      ...pp,
+      ownership_graph: { nodes: pp.ownership_graph.nodes, edges: shuffled },
+    }).output_payload);
+    checked++;
+    if (base !== permuted) violations++;
+  }
+  return { name: 'P5_output_invariant_under_edges_permutation', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -183,6 +220,7 @@ results.properties.push(checkP1_termination_cyclic_graph_bounded());
 results.properties.push(checkP2_boundedness_pct_clamped());
 results.properties.push(checkP3_ulp_forcing_50pct_threshold());
 results.properties.push(checkP4_self_listed_always_blocked());
+results.properties.push(checkP5_edge_order_invariance());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
