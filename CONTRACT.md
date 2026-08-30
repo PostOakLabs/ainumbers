@@ -446,6 +446,11 @@ node chaingraph/standard/catalog-parity.mjs            # pages <-> chaingraph.js
 ### 6.4 AIN Bridge Snippet — Amendment A1.3
 Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted verbatim before `</body>` with a one-line `window.AIN_BRIDGE_CFG={runFn,intake,intakeTarget,intakeAnchor}`. The bridge provides prefill (§2.4), intake (§3.3), and same-origin parent messaging for Runners (§5.3); its UI strings are English-only (lang toggle deferred — §1.1). Tools with a non-downloading mandate builder SHOULD expose it as `window.AIN_BUILD_MANDATE()` so Runner capture works without an export click. Constraints honored: zero network, zero storage reads or writes. Manifest signals: `prefill`, `bridge_version`; `mcp/catalog.json` carries `metadata.prefill` (regenerated via `scripts/regen_catalog.py` — never hand-edit).
 
+### 6.5 Scheduled/report-only CI surfaces MUST surface their own reds (NIGHTLY-RED doctrine)
+A scheduled or report-only CI surface (nightly mutation run, fullsuite, report-only attestation — anything whose trigger is `schedule:` rather than a PR, and that never blocks a merge) that goes red MUST open or update **one idempotent tracking issue per surface**: body carries the surface name, the run id, and the first failure line; a second red on the same surface updates that same issue rather than opening a new one; the surface going green again closes or resolves it; a green run touches nothing. Copy the existing idempotent pattern already in use elsewhere in this estate (`helm-guide-freshness-schedule.yml`'s shape) rather than inventing a second one. This does **not** make the surface blocking — a scheduled surface stays non-blocking by design; it only makes a red one visible instead of silent.
+
+⚠ **Implementation status (2026-08-30): this is doctrine only.** As of this writing `.github/workflows/mutation-full-scheduled.yml` files no issue on red by design — its own header states *"Actions tab IS the finding — no GitHub issue is filed"* — and is `continue-on-error: true` with a step that prints "Report-only: this workflow never blocks a merge or deploy." No scheduled workflow in this repo opens or updates a tracking issue on red today. This clause states the target behavior; a separate build row is owed to wire the mechanism.
+
 ---
 
 ## 📎 Appendices
