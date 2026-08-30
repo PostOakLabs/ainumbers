@@ -30,39 +30,112 @@ export const meta = {
 // Default thresholds per regime (verify against current guidance)
 const DEFAULT_THRESHOLDS = { ofac_50: 0.50, eu_50: 0.50, bis_50: 0.50 };
 
+// Relaxation stops when no node's contribution rises by more than this in a full round.
+const CONVERGENCE_EPSILON = 1e-12;
+// Hard round ceiling so a cyclic ownership graph can never spin forever. A directed
+// acyclic graph is exact after at most (node count) rounds; the constant is slack for
+// circular cross-holdings, whose contribution series converges geometrically.
+const MAX_RELAXATION_ROUNDS_SLACK = 1024;
+
+/**
+ * Index an adjacency map for fixpoint relaxation: the sorted node id set, plus each
+ * node's incoming edges as {from, frac}.
+ *
+ * Both the node list and every in-edge list are sorted, so neither the traversal nor
+ * the order of the floating-point additions below depends on how the caller happened
+ * to serialize edges[]. Float addition is not associative, so an unsorted in-edge list
+ * would leave a residual order dependence at the last significant bit.
+ *
+ * @param {Object} adjMap - adjacency map: from → [{to, pct}]
+ * @returns {{nodeIds: string[], inEdges: Object}}
+ */
+function buildTraversalIndex(adjMap) {
+  const inEdges = {};
+  const ids = new Set();
+  for (const from of Object.keys(adjMap)) {
+    ids.add(from);
+    for (const { to, pct } of adjMap[from]) {
+      ids.add(to);
+      if (!inEdges[to]) inEdges[to] = [];
+      inEdges[to].push({ from, frac: pct / 100 }); // pct is 0–100
+    }
+  }
+  const nodeIds = [...ids].sort();
+  for (const id of nodeIds) {
+    if (inEdges[id]) {
+      inEdges[id].sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.frac - b.frac));
+    }
+  }
+  return { nodeIds, inEdges };
+}
+
+/**
+ * Solve the aggregate ownership held by `source` in every node of the graph.
+ *
+ * The quantity is the sum, over every ownership path from source to the node, of the
+ * product of that path's edge fractions. That is the fixpoint of
+ *
+ *     c[source] = 1
+ *     c[n]      = min(1, sum over in-edges (u → n) of c[u] * frac(u, n))
+ *
+ * solved by Jacobi relaxation: every round recomputes each node purely from the
+ * PREVIOUS round's values, so the sweep order cannot affect the result. Values start
+ * at 0 and only ever rise, so the iteration is monotone and bounded above by 1 and
+ * therefore converges; the round ceiling is a belt-and-braces stop for circular
+ * holdings. Clamping at 1 inside the loop (not only on the way out) is what makes a
+ * cycle terminate at all: no entity can be more than 100% owned.
+ *
+ * A single-pass traversal cannot compute this. A node's contribution is a running sum
+ * over parallel paths, so it can rise after the node has already been expanded, and a
+ * one-shot walk never carries that rise to the node's own out-edges.
+ *
+ * @param {string} source - starting node id (a listed entity)
+ * @param {{nodeIds: string[], inEdges: Object}} graph - output of buildTraversalIndex
+ * @returns {Map<string, number>} node id → aggregate ownership fraction [0, 1]
+ */
+function solveContributions(source, graph) {
+  const { nodeIds, inEdges } = graph;
+  let contributions = new Map();
+  for (const id of nodeIds) contributions.set(id, 0);
+  contributions.set(source, 1.0); // the origin's stake in itself, pinned
+
+  const maxRounds = nodeIds.length + MAX_RELAXATION_ROUNDS_SLACK;
+  for (let round = 0; round < maxRounds; round++) {
+    const next = new Map(contributions);
+    let maxDelta = 0;
+    for (const id of nodeIds) {
+      if (id === source) continue; // pinned; an edge back into the origin cannot raise it
+      let sum = 0;
+      for (const { from, frac } of (inEdges[id] || [])) sum += (contributions.get(from) || 0) * frac;
+      if (sum > 1) sum = 1;
+      const prev = contributions.get(id) || 0;
+      if (sum > prev) {
+        next.set(id, sum);
+        if (sum - prev > maxDelta) maxDelta = sum - prev;
+      }
+    }
+    contributions = next;
+    if (maxDelta <= CONVERGENCE_EPSILON) break;
+  }
+  return contributions;
+}
+
 /**
  * Compute aggregate ownership from a listed entity (source) to a target entity.
- * Returns the maximum aggregate ownership fraction over all paths from source → target.
- * Uses iterative BFS over the ownership graph, accumulating multiplied edge weights.
+ * Contributions are solved once per source and reused across targets.
  *
  * @param {string} source - starting node id (a listed entity)
  * @param {string} target - end node id (entity under assessment)
- * @param {Object} adjMap - adjacency map: from → [{to, pct}]
+ * @param {{nodeIds: string[], inEdges: Object}} graph - output of buildTraversalIndex
+ * @param {Map<string, Map<string, number>>} cache - per-source solved contributions
  * @returns {number} aggregate ownership fraction [0, 1]
  */
-function aggregateOwnership(source, target, adjMap) {
+function aggregateOwnership(source, target, graph, cache) {
   if (source === target) return 1.0;
-  // BFS accumulating product-of-fractions along each path; sum parallel paths.
-  const contributions = new Map(); // node → best cumulative fraction from source
-  contributions.set(source, 1.0);
-  const queue = [source];
-  const visited = new Set([source]);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    const currentFrac = contributions.get(current) || 0;
-    const neighbors = adjMap[current] || [];
-    for (const { to, pct } of neighbors) {
-      const edgeFrac = pct / 100; // pct is 0–100
-      const pathFrac = currentFrac * edgeFrac;
-      const existing = contributions.get(to) || 0;
-      // Accumulate (parallel path model): total contribution = sum over all paths
-      contributions.set(to, existing + pathFrac);
-      if (!visited.has(to)) {
-        visited.add(to);
-        queue.push(to);
-      }
-    }
+  let contributions = cache.get(source);
+  if (!contributions) {
+    contributions = solveContributions(source, graph);
+    cache.set(source, contributions);
   }
   return Math.min(contributions.get(target) || 0, 1.0);
 }
@@ -138,6 +211,8 @@ export function compute(pp) {
   }
 
   const adjMap    = buildAdjMap(edges);
+  const graph     = buildTraversalIndex(adjMap);
+  const contribCache = new Map(); // source id → solved contributions, one solve per listed entity
   const listed    = listedNodes(nodes);
   const allIds    = nodes.map(n => n.id);
 
@@ -151,7 +226,7 @@ export function compute(pp) {
     let worst_path = [];
 
     for (const src of listed) {
-      const frac = aggregateOwnership(src.id, target, adjMap);
+      const frac = aggregateOwnership(src.id, target, graph, contribCache);
       if (frac <= 0) continue;
       total_ofac = Math.min(total_ofac + (src.list_source === 'ofac' || src.list_source === 'both' ? frac : 0), 1);
       total_eu   = Math.min(total_eu   + (src.list_source === 'eu'   || src.list_source === 'both' ? frac : 0), 1);
