@@ -1443,6 +1443,18 @@ const GATES = [
   // last block also re-derives the gate set from the real workflow, so removing
   // those steps (or breaking the parse) goes red here rather than on main.
   ['Deploy supersede classifier control (mutation + live derivation)', 'node scripts/check-deploy-superseded.test.mjs'],
+  // DUP-TABLE-HASH-GATE-1: a regulatory schedule vendored into more than one
+  // kernel (the 2026-08-21 time-decaying-constants audit's phantom 2025 QM/HOEPA
+  // row shipped identically fabricated into art-218/art-220/art-234) can pass a
+  // per-kernel SIDEBYSIDE check against a pinned source text and still diverge
+  // from its own sibling copy — SIDEBYSIDE never puts the two copies next to
+  // each other. This gate does: scripts/shared-tables.json declares closed sets
+  // of "this schedule lives in these kernels' named consts, compare these cells
+  // across these years", and the checker statically extracts each kernel's
+  // module-private const (no import/eval/Function — SO #34's security rider)
+  // and byte-compares the declared cells. Scope is DECLARED sets only.
+  ['Shared vendored-table convergence (DUP-TABLE-HASH-GATE-1)', 'node scripts/check-shared-tables.mjs --check'],
+  ['Shared vendored-table convergence control (mutation)', 'node scripts/check-shared-tables.test.mjs'],
   // TWO AXES since WORKFLOW-GATE-PARITY-ASSERT-1 (2026-08-23): PRESENCE (does CI
   // run a node gate preflight doesn't?) and STATUS (is the same gate advisory at
   // one call site and blocking at another, in a context both can reach?). Variant
