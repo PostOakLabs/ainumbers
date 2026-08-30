@@ -1,5 +1,5 @@
 // art-216-trid-tolerance-cure.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C7-1).
-// kernel_digest_at_authoring: sha256:9be448c7f2f02ca2d2b223550734fe431b0dacf6d93db36ccae0cb6963e83cb3
+// kernel_digest_at_authoring: sha256:a14561c3b546632ff5be0fb5ede6be4eb9476a72fab5dde8ed67075849b3c16f
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
