@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.7
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.8
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026 · **v1.3 (Amendment A3 — ChainGraph sole orchestration surface):** June 2026 · **v1.4 (Amendment A4 — MCP deploy & tool-registration invariants):** June 2026 · **v1.5 (Amendment A5 — SPEC.md SSOT + conformance-by-construction):** June 2026 · **v1.6 (Amendment A6 — reader-facing copy style):** July 2026 · **v1.7 (Amendment A7 — ledger subdomain storage carve-out):** July 2026 · **v1.8 (Amendment A10 — Policy Mandate v1.1 `caveats` member):** August 2026  
 
 > **SSOT for the OpenChainGraph standard = `repo/chaingraph/standard/SPEC.md`** (+ `openchain-graph-v0.4.schema.json`). This contract references it, does not restate it (Amendment A5). Conformance = the SPEC.md §15 gate suite.
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
@@ -255,6 +255,35 @@ Missing tool/composer files are **errors** (non-zero exit → block deploy); cha
 }
 ```
 
+### 3.1.1 AINumbers Policy Mandate v1.1 — the `caveats` member (Amendment A10)
+
+**v1.1 = v1.0 plus one optional top-level member, `caveats`.** Nothing in §3.1 changes, is renamed, or is removed. The retained legacy identifiers (`AP2Schema`, `ap2ExportBtn`, `ap2_export`) are untouched.
+
+```json
+{
+  "caveats": ["string", "string"]
+}
+```
+
+**Why the member exists.** Caveat text already rides Policy Mandate exports, but it rides them *by accident*: there was no schema member and no intake contract, so nothing downstream could rely on it and nothing upstream was obliged to keep it. `caveats` makes it a term of the contract instead of a habit.
+
+**Normative rules (RFC 2119).**
+
+| # | Rule |
+|---|---|
+| **A10.1** | `caveats` is **OPTIONAL**. A document that omits it is **valid**. Its absence **MUST NOT** be reported as an error, and **MUST NOT** be reported as a warning. |
+| **A10.2** | When present, `caveats` **MUST** be an array of non-empty strings. This is deliberately the same shape as the ChainGraph envelope's `compliance_flags` (`openchain-graph-v0.4.schema.json`: `array`/`items`/`string`), so a kernel's flags carry into a mandate verbatim with no lossy remapping at the boundary. |
+| **A10.3** | A malformed `caveats` member **MUST** cause the **whole document** to be rejected. A validator **MUST NOT** silently accept it, and **MUST NOT** validate the document while dropping the member. |
+| **A10.4** | `caveats: []` is **valid** and asserts **nothing**. A consumer **MUST NOT** read an empty array as "this assessment has no caveats". |
+| **A10.5** | A v1.1 validator **MUST** accept every document a v1.0 validator accepts. v1.1 tightens **no** existing rule. Where shipped `AP2Schema` generations disagree on a rule, a v1.1 validator takes the **weakest** of them as its error set and reports the rest as warnings. |
+| **A10.6** | `caveats` is **not** hashed content and has **no** `execution_hash` preimage impact. It is adjacent metadata, like `summary`. |
+
+**Why A10.3 is strict while A10.1 is lenient — the leniency is spent where it is load bearing.** A v1.0 document has no `caveats` member to malform, so the strict ruling cannot break a single shipped exporter; its blast radius is confined to documents that opted in to v1.1. The rejected alternative — validate the document but drop the bad member — recreates the exact defect this amendment exists to end, one level up: a consumer receives a *valid* document whose caveats have silently vanished, at precisely the moment someone was relying on them.
+
+**Reference validator:** `scripts/validate-policy-mandate.mjs`. Its paired gate, `scripts/validate-policy-mandate.test.mjs`, proves A10.5 **differentially** rather than by fixture: it lifts a shipped `AP2Schema` out of a tracked tool page at run time and asserts *shipped v1.0 accepts ⇒ v1.1 accepts* over a corpus built by that same shipped code. Both run in `scripts/preflight.mjs` and in CI.
+
+**Adoption is a separate decision.** This section makes the contract; it does not oblige any exporter to emit `caveats`, and no `tools/` page changes as a consequence of it.
+
 ### 3.2 UI & Interaction Contract
 - **Placement:** MUST reside in `.results-export-row`. Positioned immediately after sibling export buttons. NEVER in footer/header/floating/modals.
 - **State Management:**
@@ -267,6 +296,16 @@ Missing tool/composer files are **errors** (non-zero exit → block deploy); cha
 
 ### 3.3 Policy Mandate Intake — Amendment A1.2
 Tools MAY accept a `.policy.json` mandate as **input** via drop/choose/paste (FileReader — local only; CFG flag `intake: true`). Mapping: `payload` and `source_tool_inputs` keys → matching element IDs; validator tools additionally receive the full mandate in their input textarea (`intakeTarget`). The Policy Mandate is the suite's interchange format between tools.
+
+**`caveats` passthrough (Amendment A10, v1.1).** `caveats` is **not input data** and **MUST NOT** be mapped onto an element ID — it is provenance that travels with the artifact, not a value to prefill. The intake duty is a **carry** duty:
+
+| # | Rule |
+|---|---|
+| **A10.7** | A tool that ingests a mandate and later exports one **MUST** carry the incoming `caveats` forward **byte-intact** — same strings, same order, unaltered. Re-ordering, de-duplicating, re-wrapping, truncating or summarising them is **forbidden**: the property that makes the member worth having is that a caveat which entered the chain can be found, unchanged, at the far end of it. |
+| **A10.8** | A tool's own caveats are **appended after** the inherited ones. Inherited caveats are **never** replaced or overwritten. |
+| **A10.9** | Absent stays absent. Intake **MUST NOT** synthesise `caveats: []` for a document that carried none — that would manufacture the empty-array non-assertion A10.4 warns about. |
+
+Reference implementation of the carry duty: `carryCaveats()` in `scripts/validate-policy-mandate.mjs`.
 
 ---
 

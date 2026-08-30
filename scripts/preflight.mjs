@@ -1176,6 +1176,7 @@ const GATES = [
   ['verify_repo (PII/sitemap/AP2)', changedRef ? `python scripts/verify_repo.py --changed ${changedRef}` : 'python scripts/verify_repo.py'],
   ['AP2 bulk contract-gap ratchet (AP2-DEBT-BASELINE-1)', 'node scripts/check-ap2-contract.mjs'],
   ['AP2 contract-gap gate controls (SO #40b pairing)', 'node scripts/check-ap2-contract.test.mjs'],
+  ['Policy Mandate v1.1 additivity (§3.1.1 A10.5, MANDATE-V11-CAVEATS-1)', 'node scripts/validate-policy-mandate.test.mjs'],
   ['§16 proof surface (chains)',   'node scripts/verify-proof-surface.mjs --chains-only'],
   ['§16 proof binding (unit)',     'node chaingraph/kernels/proof-binding.test.mjs'],
   ['§PPH-1 policy_parameters_hash', 'node chaingraph/kernels/policy-params-hash.test.mjs'],
