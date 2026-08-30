@@ -1,7 +1,8 @@
 /**
- * scripts/check-workflow-gate-parity.test.mjs — paired self-test for the
- * STATUS axis of check-workflow-gate-parity.mjs (WORKFLOW-GATE-PARITY-ASSERT-1,
- * GATE-SELFTEST-META-1, SO #40b).
+ * scripts/check-workflow-gate-parity.test.mjs — paired self-test for the STATUS
+ * axis (WORKFLOW-GATE-PARITY-ASSERT-1) and the REVERSE-PRESENCE axis
+ * (CONTRACT-CLAIM-COVERAGE-1) of check-workflow-gate-parity.mjs
+ * (GATE-SELFTEST-META-1, SO #40b).
  *
  * ── WHY THIS FILE EXISTS ─────────────────────────────────────────────────────
  * SO #40b: "a checker that cannot be shown red proves nothing." The status-parity
@@ -22,7 +23,7 @@
  * Run: node scripts/check-workflow-gate-parity.test.mjs
  */
 import {
-  statusParity, prReachable, workflowCommands, preflightCommands,
+  statusParity, reversePresence, prReachable, workflowCommands, preflightCommands,
   unwrapRunGate, scriptOf, normalizeCmd, softeners, HARD, SPLIT,
 } from './check-workflow-gate-parity.mjs';
 
@@ -285,6 +286,83 @@ test('PARSE - prReachable derives from the `on:` block, not from the file name',
   assert(prReachable(prWorkflow(GATE).text).value === true, 'pull_request/merge_group must read as PR-reachable');
   assert(prReachable(mainOnlyWorkflow(GATE).text).value === false, 'push+dispatch only must read as main-only');
   assert(prReachable('on:\n  schedule:\n    - cron: "0 0 * * *"\n').value === false, 'schedule-only is main-only');
+});
+
+// ── AXIS 3: REVERSE PRESENCE (CONTRACT-CLAIM-COVERAGE-1, 2026-08-30) ─────────
+// The converse of axis 1. Axis 1 asks "is every CI gate in preflight?"; axis 3
+// asks "is every preflight gate in CI?". The second question had never been
+// asked, and check_tools.js — which CONTRACT.md §6.2 calls "the BLOCKING first
+// gate" — has been the answer's counterexample the whole time.
+//
+// Same mutation discipline as above: build a synthetic pair of gate sets, change
+// exactly one thing, require the verdict to move. The ABSENCE cases matter most
+// — an empty extraction and a clean estate print the same green.
+const REV = 'node scripts/check-thing.mjs';
+const revBase = (workflows, preflight = new Map([[REV, [7]]])) => ({ preflight, workflows });
+const noAllow = { allowlist: new Map() };
+
+test('AXIS3 RED - a preflight gate in NO blocking workflow is an unwired preflight gate', () => {
+  const r = reversePresence(revBase([]), noAllow);
+  assert(has(r, 'unwired-preflight-gate'), `expected unwired-preflight-gate, got ${kinds(r)}`);
+  assert(r.census.undeclared.length === 1 && r.census.wired.length === 0, 'must land in the undeclared bucket');
+});
+
+test('AXIS3 GREEN - the same gate run by a blocking workflow is wired', () => {
+  const r = reversePresence(revBase([prWorkflow(REV)]), noAllow);
+  assert(r.problems.length === 0, `expected clean, got ${kinds(r)}`);
+  assert(r.census.wired.length === 1, 'must land in the wired bucket');
+});
+
+test('AXIS3 GREEN - basename keying: an ARGUMENT variant in CI still counts as wired', () => {
+  // preflight runs `--check`, the workflow runs `--check --strict`. CI does run
+  // the gate; the argument question is axis 2's (DISTINCT_LEGS), not axis 3's.
+  // Command-string keying here would report a WIRED gate as unwired.
+  const r = reversePresence(
+    revBase([prWorkflow('node scripts/check-thing.mjs --check --strict')], new Map([['node scripts/check-thing.mjs --check', [7]]])),
+    noAllow,
+  );
+  assert(r.problems.length === 0, `expected clean, got ${kinds(r)}`);
+});
+
+test('AXIS3 RED (ABSENCE) - named ONLY in a non-blocking workflow is NOT wired', () => {
+  const nb = { ...mainOnlyWorkflow(REV, 'schedule.yml'), blocking: false };
+  const r = reversePresence(revBase([nb]), noAllow);
+  assert(has(r, 'unwired-preflight-gate'), 'a scheduled/post-merge mention is not CI enforcement');
+  assert(/gates no merge/.test(r.problems[0].detail), 'the report must SAY where it was found, not stay silent');
+  assert(r.census.undeclared[0].nonBlocking?.length === 1, 'the non-blocking site must be recorded, not dropped');
+});
+
+test('AXIS3 GREEN - an allowlisted preflight-only gate passes, with its reason retained', () => {
+  const r = reversePresence(revBase([]), { allowlist: new Map([['check-thing.mjs', 'declared: reason']]) });
+  assert(r.problems.length === 0, `expected clean, got ${kinds(r)}`);
+  assert(r.census.allowlisted[0].reason === 'declared: reason', 'the reason must survive into the census');
+});
+
+test('AXIS3 RED (ABSENCE) - an allowlist entry that matches nothing is STALE, not a pass', () => {
+  const r = reversePresence(revBase([prWorkflow(REV)]), { allowlist: new Map([['check-thing.mjs', 'stale']]) });
+  assert(has(r, 'stale-declaration'), 'a now-wired gate must not keep its exemption');
+});
+
+test('AXIS3 RED (ABSENCE) - an EMPTY preflight gate set fails CLOSED, never green', () => {
+  // The one way this axis could quietly measure nothing: the GATES extraction
+  // stops matching. "No preflight gates found" and "every gate is wired" are the
+  // same green, and only one of them is true (SO #34c).
+  const r = reversePresence(revBase([], new Map()), noAllow);
+  assert(has(r, 'reverse-empty'), `an empty reverse set must fail closed, got ${kinds(r)}`);
+});
+
+test('AXIS3 SCOPE - a non-node preflight gate is COUNTED out-of-scope, never silently dropped', () => {
+  const r = reversePresence(revBase([], new Map([['python scripts/check-yaml.py', [9]]])), noAllow);
+  assert(r.census.outOfScope.length === 1, 'the python gate must be named in the census');
+  assert(r.census.outOfScope[0].script === 'check-yaml.py', 'and named by script, not just counted');
+  assert(has(r, 'reverse-empty'), 'with no node gates left, the axis still fails closed rather than reporting parity');
+});
+
+test('AXIS3 - the --no-allowlist lever re-reds every declared gate (permanent RED control)', () => {
+  const allowlist = new Map([['check-thing.mjs', 'declared']]);
+  assert(reversePresence(revBase([]), { allowlist }).problems.length === 0, 'declared ⇒ green');
+  const red = reversePresence(revBase([]), { allowlist, useAllowlist: false });
+  assert(has(red, 'unwired-preflight-gate'), 'useAllowlist:false must re-expose the declared case');
 });
 
 console.log(`\ncheck-workflow-gate-parity.test.mjs: ${pass} passed, ${fail} failed`);
