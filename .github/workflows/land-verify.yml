@@ -67,6 +67,20 @@ on:
   merge_group:
     types: [checks_requested]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push/synchronize on the same PR ref supersedes its prior
+  # in-progress run (CI-REDNOISE-GATE-1, 2026-08-30) — letting the stale one
+  # finish is redundant CI time, not lost coverage. NEVER cancel a push:main
+  # run — that run also drives attest-fv-artifacts below, and a cancelled
+  # attestation just means the superseded commit goes unattested, which the
+  # next push's own attest already makes moot; still cheaper to just let it
+  # finish. NEVER cancel a merge_group run — a cancelled merge_group run
+  # reports nothing back to the queue, which deadlocks it rather than just
+  # leaving a stale red (SO #7). cancel-in-progress fires only for the
+  # pull_request event.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
