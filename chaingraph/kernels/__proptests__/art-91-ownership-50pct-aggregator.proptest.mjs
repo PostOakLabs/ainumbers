@@ -295,6 +295,139 @@ function checkP7_controlling_path_tie_break() {
   return { name: 'P7_controlling_path_tie_break_is_canonical', trials: checked, violations };
 }
 
+// ---------- P8: full-payload exact oracle — eu/bis/'both' regimes, clamping, thresholds ----------
+// P6 pins ofac_pct only. Every case there uses list_source: 'ofac', so a mutant touching the
+// eu/bis accumulator lines, the 'both' list_source's simultaneous contribution to all three
+// regimes, the pct clamp in buildAdjMap, the frac<=0 skip, blocked_under's push order, the
+// compliance_flags boundary conditions, or the per-key threshold override merge is invisible to
+// every property above. Each case here asserts the FULL verdict shape (ofac/eu/bis/aggregate
+// pct, blocked_under array — order matters, it is OFAC/EU/BIS by source-code order — plus
+// listed_entity_count, blocked_count and compliance_flags at the graph level).
+const MONEY_CASES = [
+  {
+    name: 'eu_regime_two_hop',
+    nodes: [{ id: 'A', listed: true, list_source: 'eu' }, { id: 'B' }, { id: 'C' }],
+    edges: [['A', 'B', 60], ['B', 'C', 90]],
+    expectNodes: {
+      A: { ofac_pct: 0, eu_pct: 100, bis_pct: 0, aggregate_pct: 100, blocked_under: ['EU'], constructively_blocked: true },
+      B: { ofac_pct: 0, eu_pct: 60, bis_pct: 0, aggregate_pct: 60, blocked_under: ['EU'], constructively_blocked: true, controlling_path: ['A', 'B'] },
+      C: { ofac_pct: 0, eu_pct: 54, bis_pct: 0, aggregate_pct: 54, blocked_under: ['EU'], constructively_blocked: true, controlling_path: ['A', 'B', 'C'] },
+    },
+    expectGraph: { listed_entity_count: 1, blocked_count: 3, compliance_flags: ['CONSTRUCTIVELY_BLOCKED', 'AGGREGATE_THRESHOLD_MET', 'LAYERED_INDIRECT_OWNERSHIP'] },
+  },
+  {
+    name: 'bis_regime_full_direct',
+    nodes: [{ id: 'A', listed: true, list_source: 'bis' }, { id: 'B' }],
+    edges: [['A', 'B', 100]],
+    expectNodes: {
+      A: { ofac_pct: 0, eu_pct: 0, bis_pct: 100, aggregate_pct: 100, blocked_under: ['BIS'], constructively_blocked: true },
+      B: { ofac_pct: 0, eu_pct: 0, bis_pct: 100, aggregate_pct: 100, blocked_under: ['BIS'], constructively_blocked: true, controlling_path: ['A', 'B'] },
+    },
+    expectGraph: { listed_entity_count: 1, blocked_count: 2, compliance_flags: ['CONSTRUCTIVELY_BLOCKED'] },
+  },
+  {
+    name: 'both_regime_below_threshold',
+    nodes: [{ id: 'A', listed: true, list_source: 'both' }, { id: 'B' }],
+    edges: [['A', 'B', 40]],
+    expectNodes: {
+      A: { ofac_pct: 100, eu_pct: 100, bis_pct: 100, aggregate_pct: 100, blocked_under: ['OFAC', 'EU', 'BIS'], constructively_blocked: true },
+      B: { ofac_pct: 40, eu_pct: 40, bis_pct: 40, aggregate_pct: 40, blocked_under: [], constructively_blocked: false, controlling_path: ['A', 'B'] },
+    },
+    expectGraph: { listed_entity_count: 1, blocked_count: 1, compliance_flags: ['CONSTRUCTIVELY_BLOCKED', 'AGGREGATE_THRESHOLD_MET'] },
+  },
+  {
+    name: 'both_regime_triggers_all_three',
+    nodes: [{ id: 'A', listed: true, list_source: 'both' }, { id: 'B' }],
+    edges: [['A', 'B', 60]],
+    expectNodes: {
+      B: { ofac_pct: 60, eu_pct: 60, bis_pct: 60, aggregate_pct: 60, blocked_under: ['OFAC', 'EU', 'BIS'], constructively_blocked: true, controlling_path: ['A', 'B'] },
+    },
+    expectGraph: { listed_entity_count: 1, blocked_count: 2, compliance_flags: ['CONSTRUCTIVELY_BLOCKED', 'AGGREGATE_THRESHOLD_MET'] },
+  },
+  {
+    name: 'clamp_negative_pct_excluded',
+    nodes: [{ id: 'A', listed: true, list_source: 'ofac' }, { id: 'B' }],
+    edges: [['A', 'B', -30]],
+    expectNodes: {
+      A: { ofac_pct: 100, eu_pct: 0, bis_pct: 0, aggregate_pct: 100, blocked_under: ['OFAC'], constructively_blocked: true },
+      B: { ofac_pct: 0, eu_pct: 0, bis_pct: 0, aggregate_pct: 0, blocked_under: [], constructively_blocked: false, controlling_path: [] },
+    },
+    expectGraph: { listed_entity_count: 1, blocked_count: 1, compliance_flags: ['CONSTRUCTIVELY_BLOCKED'] },
+  },
+  {
+    name: 'clamp_over_100_pct_full_ownership',
+    nodes: [{ id: 'A', listed: true, list_source: 'ofac' }, { id: 'B' }],
+    edges: [['A', 'B', 150]],
+    expectNodes: {
+      B: { ofac_pct: 100, eu_pct: 0, bis_pct: 0, aggregate_pct: 100, blocked_under: ['OFAC'], constructively_blocked: true, controlling_path: ['A', 'B'] },
+    },
+    expectGraph: { listed_entity_count: 1, blocked_count: 2, compliance_flags: ['CONSTRUCTIVELY_BLOCKED'] },
+  },
+];
+
+function runMoneyCase(c) {
+  const ids = [...new Set(c.edges.flatMap(([f, t]) => [f, t]))];
+  const declared = new Map(c.nodes.map((n) => [n.id, n]));
+  const nodes = ids.map((id) => declared.get(id) || { id });
+  const pp = { ownership_graph: { nodes, edges: c.edges.map(([from, to, pct]) => ({ from, to, pct })) } };
+  return compute(pp); // { output_payload, compliance_flags } — compliance_flags is a SIBLING, not nested
+}
+
+function checkP8_full_payload_exact_oracle() {
+  let violations = 0, checked = 0;
+  for (const c of MONEY_CASES) {
+    const { output_payload, compliance_flags } = runMoneyCase(c);
+    for (const [id, expect] of Object.entries(c.expectNodes)) {
+      const v = output_payload.entity_verdicts.find((e) => e.id === id);
+      for (const [field, expected] of Object.entries(expect)) {
+        checked++;
+        const actual = v ? v[field] : undefined;
+        const eq = Array.isArray(expected) ? JSON.stringify(actual) === JSON.stringify(expected) : actual === expected;
+        if (!eq) { violations++; console.error(`P8 MISMATCH ${c.name}.${id}.${field}: expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`); }
+      }
+    }
+    for (const [field, expected] of Object.entries(c.expectGraph)) {
+      checked++;
+      const actual = field === 'compliance_flags' ? compliance_flags : output_payload[field];
+      const eq = Array.isArray(expected) ? JSON.stringify(actual) === JSON.stringify(expected) : actual === expected;
+      if (!eq) { violations++; console.error(`P8 MISMATCH ${c.name}.<graph>.${field}: expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`); }
+    }
+  }
+  return { name: 'P8_full_payload_exact_oracle_eu_bis_both_clamp', trials: checked, violations };
+}
+
+// ---------- P9: per-key threshold override merges over DEFAULT_THRESHOLDS, not wholesale ----------
+// A caller passing {ofac_50: 0.3} must lower ONLY the OFAC bar; eu_50/bis_50 stay at their
+// defaults via the `{...DEFAULT_THRESHOLDS, ...thresholds}` merge. Same graph, same accumulated
+// 40%, opposite OFAC verdict depending on which thresholds object is passed — the sharpest
+// possible discriminator for the merge line and for the `>=` comparison itself.
+function checkP9_threshold_override_is_per_key() {
+  let violations = 0, checked = 0;
+  const pp = {
+    ownership_graph: {
+      nodes: [{ id: 'A', listed: true, list_source: 'ofac' }, { id: 'B' }],
+      edges: [{ from: 'A', to: 'B', pct: 40 }],
+    },
+  };
+  const withDefault = compute(pp).output_payload;
+  const vDefault = withDefault.entity_verdicts.find((e) => e.id === 'B');
+  checked++;
+  if (!vDefault || vDefault.constructively_blocked !== false || JSON.stringify(vDefault.blocked_under) !== '[]') violations++;
+  checked++;
+  if (!withDefault || withDefault.blocked_count !== 1) violations++;
+
+  const withOverride = compute({ ...pp, thresholds: { ofac_50: 0.3 } }).output_payload;
+  const vOverride = withOverride.entity_verdicts.find((e) => e.id === 'B');
+  checked++;
+  if (!vOverride || vOverride.constructively_blocked !== true || JSON.stringify(vOverride.blocked_under) !== '["OFAC"]') violations++;
+  checked++;
+  if (!withOverride || withOverride.blocked_count !== 2) violations++;
+  checked++;
+  if (!vOverride || vOverride.ofac_pct !== 40) violations++; // the accumulated fraction itself never moves — only the comparison does
+
+  return { name: 'P9_threshold_override_is_per_key_merge', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -309,6 +442,8 @@ results.properties.push(checkP4_self_listed_always_blocked());
 results.properties.push(checkP5_edge_order_invariance());
 results.properties.push(checkP6_exact_aggregation_values());
 results.properties.push(checkP7_controlling_path_tie_break());
+results.properties.push(checkP8_full_payload_exact_oracle());
+results.properties.push(checkP9_threshold_override_is_per_key());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
