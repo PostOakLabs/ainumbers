@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// check-workflow-gate-parity.mjs — CI ↔ preflight gate parity, on TWO axes.
+// check-workflow-gate-parity.mjs — CI ↔ preflight gate parity, on THREE axes.
 //
 //   AXIS 1 — PRESENCE (2026-07-24, original).  Fail if a BLOCKING CI workflow
 //   runs a `node <script>` gate that scripts/preflight.mjs does NOT run locally.
@@ -7,6 +7,32 @@
 //   AXIS 2 — STATUS (WORKFLOW-GATE-PARITY-ASSERT-1, 2026-08-23).  Fail if the
 //   SAME gate command is ADVISORY at one call site and BLOCKING at another, in a
 //   context both call sites can reach, WITHOUT that divergence being declared.
+//
+//   AXIS 3 — REVERSE PRESENCE (CONTRACT-CLAIM-COVERAGE-1, 2026-08-30).  Fail if
+//   scripts/preflight.mjs runs a `node <script>` gate that NO blocking workflow
+//   runs, unless that gate is allowlisted in PREFLIGHT_ONLY with a reason.
+//
+// WHY AXIS 3: axis 1 is an IMPLICATION, and it only ever ran in one direction —
+// workflow ⊆ preflight. The converse hole is the one doctrine sits over. The
+// 2026-08-23 doctrine-execution audit (0xAlpha/audits/, finding F3) measured it:
+//
+//     scripts/check_tools.js
+//        · CONTRACT.md §6.2 calls it "the BLOCKING first gate"
+//        · appears in ZERO workflow files; deploy-to-dreamhost.yml's hand-written
+//          gate list omits it; it is reached in CI only via scripts-verify.yml's
+//          PATH-SCOPED `node scripts/preflight.mjs` invocation
+//
+// A gate whose only CI route is another workflow's paths filter is not "blocking"
+// in the sense doctrine claims — change a `paths:` glob and the gate silently
+// stops running, with nothing red anywhere. Axis 1 could never see this: it asks
+// only whether CI's gates are in preflight, never whether preflight's gates are
+// in CI. That one-directional implication prints green over the whole hole, and
+// it manufactures `--no-verify` bypasses (a gate red locally and absent from CI
+// reads to a session as "local-only noise").
+//
+// ⛔ AXIS 3 CHANGES NO GATE'S WIRING, exactly as axis 2 changes no gate's status.
+// It requires each preflight-only gate to be DECLARED — wiring one into a
+// workflow is a separate decision and a separate row.
 //
 // WHY AXIS 1: preflight.mjs is the pre-push hook and claims "green preflight ⇒
 // green CI". That held only by hand — an audit (2026-07-24) found two node gates
@@ -91,6 +117,12 @@
 //       that this model does not know about. Any occurrence must be declared.
 //   (f) ACCOUNTING — every advisory gate lands in exactly one census bucket and
 //       the buckets must sum to the total, or the run fails as `uncategorised`.
+//   (g) EMPTY REVERSE SET (axis 3) — if the preflight gate-script set comes back
+//       empty, axis 3 has compared nothing and must fail closed rather than
+//       report "every preflight gate is wired".
+//   (h) NON-BLOCKING WIRING (axis 3) — a gate present only in a workflow that
+//       gates no merge is NOT wired. Being named in a scheduled or post-merge
+//       workflow is not CI enforcement, and must not read as one.
 //
 // SCOPE: node-invoked script gates only (`node <path>.mjs|.js`) — the drift
 // class that has actually bitten us. Python/shell gates and non-node engine legs
@@ -105,6 +137,10 @@
 //        — ignore DECLARED_DIVERGENCES. The SO #40(b) RED lever: proves the
 //          assertion still SEES the declared cases instead of having been
 //          quietly narrowed until nothing matches.
+//   node scripts/check-workflow-gate-parity.mjs --no-allowlist
+//        — ignore PREFLIGHT_ONLY. The same lever for axis 3: proves the reverse
+//          assertion still sees every preflight-only gate, check_tools.js
+//          included, rather than having been narrowed until nothing matches.
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { gitEnv } from "./_git-env-lib.mjs";
@@ -234,6 +270,229 @@ const CI_ONLY = new Map([
     "their own basenames. preflight.mjs applies the identical PR-advisory/main-blocking split " +
     "inline via derived-artifacts.mjs's isMainContext()/advisoryGates() (no separate CLI " +
     "invocation needed locally), so run-gate.mjs itself has nothing for preflight to run."],
+]);
+
+// ── AXIS 3 ALLOWLIST: node gates preflight runs that NO blocking workflow runs ─
+// Keyed by script BASENAME (axis 3 asks "does CI run this gate at all?", which is
+// a question about the script, not about one argument string). Every entry is a
+// hole in the converse of "green preflight ⇒ green CI": it is a gate a session
+// must pass locally that CI would not independently catch.
+//
+// ⛔ AN ENTRY IS A DECLARATION, NOT A FIX. Wiring a gate into a workflow is a
+// separate decision (CI minutes, path filters, required-check surface) and a
+// separate row — CONTRACT-CLAIM-COVERAGE-1 declares this set, it does not change
+// it. A reason that amounts to "we did not get to it" is a legitimate reason; a
+// reason that is silence is not.
+//
+// ⚠ THE ENUMERATION IS EXPLICIT ON PURPOSE, and that is the expensive-looking
+// part of this list. A rule like "anything matching *.test.mjs is fine" would be
+// three lines instead of 141 — and a NEW unwired estate gate would then be born
+// green, which is the precise failure this axis exists to stop. Every gate is
+// named; a gate that is not named is RED until somebody decides about it. The
+// REASONS may be shared constants (they are genuinely the same reason); the
+// MEMBERSHIP may not be inferred.
+//
+// Measured 2026-08-30 at origin/main 89d66655: 232 distinct node gate scripts in
+// preflight.mjs's GATES, 90 also run by a blocking workflow, 142 preflight-only
+// (141 node + 1 python, the latter out of scope and named in the census).
+
+// The dominant honest reason, stated once rather than repeated 73 times. Note it
+// asserts only what was MEASURED — that no blocking workflow names the gate —
+// and then names the non-gating routes that do exist, without claiming which one
+// carries any particular gate. That distinction matters: "it runs somewhere" is
+// how an unenforced gate reads as enforced, and it is the F3 finding itself.
+const VIA_PREFLIGHT =
+  "No blocking workflow step names this gate. Its CI routes are non-gating ones: scripts-verify.yml's " +
+  "PATH-SCOPED `node scripts/preflight.mjs` invocation, and — for SO #35 derived artifacts — " +
+  "derived-artifacts-regen.yml's post-merge single-writer run, which is NOT_A_GATE by classification. " +
+  "Both are real and neither is a merge gate for this script by name: the first disappears silently if " +
+  "that workflow's `paths:` filter stops matching, and the second only ever runs after the merge it " +
+  "would have needed to block (doctrine-execution audit 2026-08-23, F3).";
+
+// Paired self-tests and mutation controls (`*.test.mjs`, `*.selftest.mjs`,
+// `*.exhaustive.mjs`). These differ from the estate gates in one way that
+// matters: they cannot go red from a content PR at all, only from a change to
+// the gate they are paired with — so the path-scoped preflight route lands on
+// exactly the PRs that can break them. `check-gate-selftest-pairing.mjs` already
+// asserts the pairing exists, which is the property CI would otherwise lose.
+const SELF_TEST =
+  "Paired self-test / mutation control, not an estate gate: it exercises a checker's own logic against " +
+  "in-memory fixtures and can only be reddened by a change to that checker, which is precisely the PR " +
+  "shape scripts-verify.yml's path filter catches. Pairing itself is asserted by " +
+  "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
+
+const PREFLIGHT_ONLY = new Map([
+  // ── the two instances doctrine NAMES, each with its own reason ──────────────
+  ["check_tools.js",
+    "⚑ THE ROW'S KNOWN INSTANCE (doctrine-execution audit 2026-08-23, register row 32). CONTRACT.md " +
+    "§6.2 calls this \"the BLOCKING first gate\" and step 0 of the wave checklist; it appears in ZERO " +
+    "workflow files, and deploy-to-dreamhost.yml's hand-written gate list omits it. Its only CI route " +
+    "is scripts-verify.yml's path-scoped preflight — so the gate CONTRACT describes as first and " +
+    "blocking is, in CI, conditional on a paths glob. DECLARED, NOT FIXED: wiring it is a hard-gate " +
+    "decision outside CONTRACT-CLAIM-COVERAGE-1's fence, and CONTRACT.md §15 carries the same verdict " +
+    "as that row's `Gate:` disposition so the two surfaces cannot drift apart silently."],
+  ["check-jsonld.mjs",
+    "⚑ Doctrine-execution audit register row 34 (§6.3 JSON-LD block on hub pages): preflight-only, no " +
+    "workflow invokes it. Same shape as check_tools.js and same disposition — declared here and in " +
+    "CONTRACT.md §15, not wired by this row."],
+  ["check-contract-claim-coverage.mjs",
+    "The CONTRACT.md §15 meta-gate, landed by CONTRACT-CLAIM-COVERAGE-1 in this same diff. Preflight-only " +
+    "for the same reason as its SPEC-side twin chaingraph/standard/spec-gate-coverage.mjs: it reads one " +
+    "tracked markdown file and needs no CI-only input, so scripts-verify.yml's path-scoped preflight is a " +
+    "sufficient route. ⚠ Declared, not hidden — it inherits exactly the fragility this axis exists to name, " +
+    "and if the §15 matrix is ever to be a required check it needs its own workflow step."],
+
+  // ── paired self-tests / mutation controls (66) ──────────────────────────────
+  ["pre-push.test.mjs", SELF_TEST],
+  ["check-binary-bytes.test.mjs", SELF_TEST],
+  ["jsdoc-checkjs-gate.test.mjs", SELF_TEST],
+  ["gen-kernel-identity.test.mjs", SELF_TEST],
+  ["check-guest-builtin-safety.test.mjs", SELF_TEST],
+  ["quantization-parity.test.mjs", SELF_TEST],
+  ["seed-replay.test.mjs", SELF_TEST],
+  ["check-year-fallback-parity.test.mjs", SELF_TEST],
+  ["pageless-consistency.test.mjs", SELF_TEST],
+  ["check-page-determinism.test.mjs", SELF_TEST],
+  ["gen-registry-kernel-resolve.test.mjs", SELF_TEST],
+  ["ed25519-webcrypto-equivalence.test.mjs", SELF_TEST],
+  ["assemble-chaingraph.selftest.mjs", SELF_TEST],
+  ["check-shard-assembly.test.mjs", SELF_TEST],
+  ["lib-shard-order.test.mjs", SELF_TEST],
+  ["lib-sandbox-deps.test.mjs", SELF_TEST],
+  ["reconcile-guard.test.mjs", SELF_TEST],
+  ["gen-rule-registry.test.mjs", SELF_TEST],
+  ["check-nav-reachability.test.mjs", SELF_TEST],
+  ["check-retired-mcp-toggle.test.mjs", SELF_TEST],
+  ["check-retired-ap2-version.test.mjs", SELF_TEST],
+  ["diff-scope.test.mjs", SELF_TEST],
+  ["check-clause-digest.test.mjs", SELF_TEST],
+  ["lint-kernel-citation-comments.test.mjs", SELF_TEST],
+  ["check-branch-inventory.test.mjs", SELF_TEST],
+  ["check-flag-mirror.test.mjs", SELF_TEST],
+  ["check-chain-citation.test.mjs", SELF_TEST],
+  ["check-chain-step-status.test.mjs", SELF_TEST],
+  ["_node-status.test.mjs", SELF_TEST],
+  ["gen-euc-register.test.mjs", SELF_TEST],
+  ["check-ap2-contract.test.mjs", SELF_TEST],
+  ["validate-policy-mandate.test.mjs", SELF_TEST],
+  ["clause-binding.test.mjs", SELF_TEST],
+  ["validate-ha-records.test.mjs", SELF_TEST],
+  ["hagate-evidence-verification.test.mjs", SELF_TEST],
+  ["checklist-selftest.test.mjs", SELF_TEST],
+  ["mutation-tier-split.test.mjs", SELF_TEST],
+  ["run-mutation-tier.test.mjs", SELF_TEST],
+  ["art-27-agentic-readiness-diagnostic.exhaustive.mjs", SELF_TEST],
+  ["ratchet-baseline.test.mjs", SELF_TEST],
+  ["denominator-sentinel.test.mjs", SELF_TEST],
+  ["check-git-env-scrub.test.mjs", SELF_TEST],
+  ["check-page-kernel-digest.test.mjs", SELF_TEST],
+  ["check-kernel-asof-staleness.test.mjs", SELF_TEST],
+  ["check-hub-chrome.test.mjs", SELF_TEST],
+  ["codec-roundtrip.test.mjs", SELF_TEST],
+  ["gate-replay-tamper.test.mjs", SELF_TEST],
+  ["escalation-closure-tamper.test.mjs", SELF_TEST],
+  ["ocg-verify-hash-tamper.test.mjs", SELF_TEST],
+  ["ocg-receipt-verifier-568-tamper.test.mjs", SELF_TEST],
+  ["witness-checkpoint-424-tamper.test.mjs", SELF_TEST],
+  ["check-gate-selftest-pairing.test.mjs", SELF_TEST],
+  ["standards-vectors.test.mjs", SELF_TEST],
+  ["check-authority-contradiction.test.mjs", SELF_TEST],
+  ["check-amendment-detection.test.mjs", SELF_TEST],
+  ["check-citation-drift.test.mjs", SELF_TEST],
+  ["workbook.test.mjs", SELF_TEST],
+  ["roundtrip-verify.test.mjs", SELF_TEST],
+  ["check-derived-fanout-coverage.test.mjs", SELF_TEST],
+  ["check-derived-declare-parity.test.mjs", SELF_TEST],
+  ["check-derived-regen-live.test.mjs", SELF_TEST],
+  ["check-regen-repairable.test.mjs", SELF_TEST],
+  ["check-deploy-superseded.test.mjs", SELF_TEST],
+  ["check-workflow-gate-parity.test.mjs", SELF_TEST],
+  ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
+  ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
+  // Landed on main after this row branched, and caught by axis 3 on the rebase
+  // rather than by anyone remembering to look — which is the behaviour the
+  // explicit enumeration buys. A `*.test.mjs`/`*.selftest.mjs` pattern rule
+  // would have admitted all of these silently; three separate catches in one
+  // afternoon is the argument for enumerating membership.
+  ["check-shared-tables.test.mjs", SELF_TEST],
+  ["check-fv-toolchain-digest.selftest.mjs", SELF_TEST],
+
+  // ── estate gates and generators, no blocking-workflow step names them (73) ──
+  ["check-kernel-exports.mjs", VIA_PREFLIGHT],
+  ["check-guest-builtin-safety.mjs", VIA_PREFLIGHT],
+  ["check-year-fallback-parity.mjs", VIA_PREFLIGHT],
+  ["kernel-preflight.mjs", VIA_PREFLIGHT],
+  ["check-node-complete.mjs", VIA_PREFLIGHT],
+  ["check-pageless-consistency.mjs", VIA_PREFLIGHT],
+  ["check-page-determinism.mjs", VIA_PREFLIGHT],
+  ["gen-fv-status.mjs", VIA_PREFLIGHT],
+  ["check-inline-ssot-sync.mjs", VIA_PREFLIGHT],
+  ["check-shard-assembly.mjs", VIA_PREFLIGHT],
+  ["gen-rule-registry.mjs", VIA_PREFLIGHT],
+  ["gen-debt-ledger.mjs", VIA_PREFLIGHT],
+  ["check-tool-node-pairings.mjs", VIA_PREFLIGHT],
+  ["check-topic-links.mjs", VIA_PREFLIGHT],
+  ["apply-topic-links.mjs", VIA_PREFLIGHT],
+  ["check-ssot-no-npm.mjs", VIA_PREFLIGHT],
+  ["check-retired-mcp-toggle.mjs", VIA_PREFLIGHT],
+  ["check-retired-ap2-version.mjs", VIA_PREFLIGHT],
+  ["generate-node-manifest.mjs", VIA_PREFLIGHT],
+  ["validate-evidence-profiles.mjs", VIA_PREFLIGHT],
+  ["check-chain-domain.mjs", VIA_PREFLIGHT],
+  ["check-clause-digest.mjs", VIA_PREFLIGHT],
+  ["check-branch-inventory.mjs", VIA_PREFLIGHT],
+  ["check-flag-mirror.mjs", VIA_PREFLIGHT],
+  ["check-chain-composer-urls.mjs", VIA_PREFLIGHT],
+  ["check-chain-handoff-register.mjs", VIA_PREFLIGHT],
+  ["check-chain-citation.mjs", VIA_PREFLIGHT],
+  ["check-chain-step-status.mjs", VIA_PREFLIGHT],
+  ["gen-ocg-conformance-roster.mjs", VIA_PREFLIGHT],
+  ["gen-integrator-profile.mjs", VIA_PREFLIGHT],
+  ["gen-chainbuilder-catalog.mjs", VIA_PREFLIGHT],
+  ["gen-chaingraph-hub.mjs", VIA_PREFLIGHT],
+  ["gen-guides-index.mjs", VIA_PREFLIGHT],
+  ["regen-sitemap.mjs", VIA_PREFLIGHT],
+  ["gen-registry-lineage.mjs", VIA_PREFLIGHT],
+  ["gen-registry-errata.mjs", VIA_PREFLIGHT],
+  ["gen-euc-register.mjs", VIA_PREFLIGHT],
+  ["gen-euc-register-page.mjs", VIA_PREFLIGHT],
+  ["gen-clause-edge-report.mjs", VIA_PREFLIGHT],
+  ["gen-clause-edge-report-page.mjs", VIA_PREFLIGHT],
+  ["gen-agentic-payments-map.mjs", VIA_PREFLIGHT],
+  ["generate-okf.mjs", VIA_PREFLIGHT],
+  ["gen-kernel-vm-html.mjs", VIA_PREFLIGHT],
+  ["gen-kernel-vm-widget.mjs", VIA_PREFLIGHT],
+  ["gen-kernel-vm-explainer.mjs", VIA_PREFLIGHT],
+  ["check-ap2-contract.mjs", VIA_PREFLIGHT],
+  ["verify-proof-surface.mjs", VIA_PREFLIGHT],
+  ["run-mutation-tier.mjs", VIA_PREFLIGHT],
+  ["check-git-env-scrub.mjs", VIA_PREFLIGHT],
+  ["check-page-kernel-digest.mjs", VIA_PREFLIGHT],
+  ["check-kernel-asof-staleness.mjs", VIA_PREFLIGHT],
+  ["gen-chain-runners.mjs", VIA_PREFLIGHT],
+  ["gen-wayfinder.mjs", VIA_PREFLIGHT],
+  ["check-hub-chrome.mjs", VIA_PREFLIGHT],
+  ["inject-fv-pilot-badges.mjs", VIA_PREFLIGHT],
+  ["check-fv-pilot-badge.mjs", VIA_PREFLIGHT],
+  ["check-no-copyright-year.mjs", VIA_PREFLIGHT],
+  ["check-ledger-hermetic.mjs", VIA_PREFLIGHT],
+  ["check-playground-hermetic.mjs", VIA_PREFLIGHT],
+  ["check-generator-coverage.mjs", VIA_PREFLIGHT],
+  ["check-gate-selftest-pairing.mjs", VIA_PREFLIGHT],
+  ["check-authority-contradiction.mjs", VIA_PREFLIGHT],
+  ["check-amendment-detection.mjs", VIA_PREFLIGHT],
+  ["check-csv-injection.mjs", VIA_PREFLIGHT],
+  ["check-determinism-fixture.mjs", VIA_PREFLIGHT],
+  ["check-roundtrip-determinism.mjs", VIA_PREFLIGHT],
+  ["check-ruleset-json.mjs", VIA_PREFLIGHT],
+  ["derived-artifacts.mjs", VIA_PREFLIGHT],
+  ["check-derived-fanout-coverage.mjs", VIA_PREFLIGHT],
+  ["check-derived-declare-parity.mjs", VIA_PREFLIGHT],
+  ["check-derived-regen-live.mjs", VIA_PREFLIGHT],
+  ["check-workflow-gate-parity.mjs", VIA_PREFLIGHT],
+  ["gen-output-schema.mjs", VIA_PREFLIGHT],
+  ["check-shared-tables.mjs", VIA_PREFLIGHT],
+  ["check-fv-toolchain-digest.mjs", VIA_PREFLIGHT],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
@@ -643,6 +902,118 @@ export function statusParity(input, opts = {}) {
   return { problems, census, sites, softenerFindings, bucketed, total: advisory.size };
 }
 
+// ── the axis-3 assertion (REVERSE PRESENCE) ───────────────────────────────────
+
+/**
+ * Every `node <script>` gate preflight.mjs runs that NO blocking workflow runs.
+ *
+ * Deliberately keyed on script BASENAME, not on the full command string: axis 3
+ * asks whether CI runs this gate AT ALL. `foo.mjs --check` in preflight and
+ * `foo.mjs --check --strict` in a workflow means CI does run foo.mjs, and the
+ * argument-drift question between them is axis 2's (DISTINCT_LEGS), not this
+ * one's. Keying on the command string here would report a gate as UNWIRED
+ * because an argument differed — a false positive that would train sessions to
+ * allowlist their way out of a real signal.
+ *
+ * @param {object} input
+ * @param {Map<string,string[]>} input.preflight  command -> line numbers (preflightCommands)
+ * @param {Array<{file:string,text:string,blocking:boolean}>} input.workflows  ALL tracked workflows
+ * @param {object} [opts]
+ * @param {boolean} [opts.useAllowlist=true]
+ * @param {Map<string,string>} [opts.allowlist]
+ */
+export function reversePresence(input, opts = {}) {
+  const useAllowlist = opts.useAllowlist !== false;
+  const allowlist = useAllowlist ? (opts.allowlist ?? PREFLIGHT_ONLY) : new Map();
+
+  const problems = [];
+  const census = { wired: [], allowlisted: [], undeclared: [], outOfScope: [] };
+
+  // preflight's gate scripts, basename -> the command strings that invoke them.
+  //
+  // SCOPE, and it is NARROWER than what preflight runs: node gates only, matching
+  // this file's stated scope for axes 1–2. Non-node preflight gates (today:
+  // `python scripts/check-workflow-yaml.py`) are the SAME hole in principle —
+  // preflight runs them, no workflow does — but widening axis 3's scope past the
+  // file's declared one is a decision, not a side effect. They are COUNTED and
+  // NAMED in the census instead of dropped, so the exclusion is visible rather
+  // than silent (SO #34c: a skipped case must not look like a clean one).
+  const pfScripts = new Map();
+  for (const [cmd] of input.preflight) {
+    const s = scriptOf(cmd);
+    if (!s) continue;
+    if (!/^node\s/.test(cmd)) { census.outOfScope.push({ cmd, script: basename(s) }); continue; }
+    const b = basename(s);
+    if (!pfScripts.has(b)) pfScripts.set(b, []);
+    pfScripts.get(b).push(cmd);
+  }
+
+  // hole (g): an empty reverse set means axis 3 compared NOTHING. Fail closed —
+  // "every preflight gate is wired" and "we found no preflight gates" print the
+  // same green, and only one of them is true.
+  if (pfScripts.size === 0) {
+    problems.push({
+      kind: "reverse-empty",
+      detail: "axis 3 extracted ZERO node gate scripts from scripts/preflight.mjs's GATES array. " +
+              "That is indistinguishable from a clean result and must not read as one (SO #34c). " +
+              "Failing closed rather than asserting reverse parity over an empty set.",
+    });
+    return { problems, census, pfScripts };
+  }
+
+  // where each script is invoked, split by whether the workflow gates a merge
+  const inBlocking = new Map();   // basename -> [{file, line}]
+  const inNonBlocking = new Map();
+  for (const wf of input.workflows) {
+    const target = wf.blocking ? inBlocking : inNonBlocking;
+    for (const { line, command } of workflowCommands(wf.text)) {
+      const { inner } = unwrapRunGate(command);
+      const s = scriptOf(inner);
+      if (!s) continue;
+      const b = basename(s);
+      if (!target.has(b)) target.set(b, []);
+      target.get(b).push({ file: wf.file, line });
+    }
+  }
+
+  const usedAllowlist = new Set();
+  for (const [script, cmds] of pfScripts) {
+    if (inBlocking.has(script)) { census.wired.push({ script, sites: inBlocking.get(script) }); continue; }
+
+    // hole (h): named ONLY in a scheduled/post-merge workflow is NOT wired.
+    const nb = inNonBlocking.get(script) ?? null;
+    const entry = { script, cmds, nonBlocking: nb };
+
+    if (allowlist.has(script)) {
+      usedAllowlist.add(script);
+      census.allowlisted.push({ ...entry, reason: allowlist.get(script) });
+      continue;
+    }
+    census.undeclared.push(entry);
+    problems.push({
+      kind: "unwired-preflight-gate",
+      detail: `\`${script}\` runs in scripts/preflight.mjs (${cmds.map((c) => `\`${c}\``).join(", ")}) but in NO ` +
+              `blocking workflow` +
+              (nb ? `. It appears in ${nb.map((r) => `${r.file}:${r.line}`).join(", ")}, which gates no merge — ` +
+                    `being named in a scheduled or post-merge workflow is not CI enforcement` : "") +
+              `. "Green preflight ⇒ green CI" says nothing about the converse: CI would not independently ` +
+              `catch this. Wire it into a blocking workflow, or declare it in PREFLIGHT_ONLY with the reason ` +
+              `it is preflight-only.`,
+    });
+  }
+
+  for (const script of allowlist.keys()) {
+    if (usedAllowlist.has(script)) continue;
+    problems.push({
+      kind: "stale-declaration",
+      detail: `PREFLIGHT_ONLY entry \`${script}\` matched nothing — it is either now wired into a blocking ` +
+              `workflow, or no longer a preflight gate. Delete it. An exemption may not outlive its reason.`,
+    });
+  }
+
+  return { problems, census, pfScripts };
+}
+
 // ── axis 1 (presence), unchanged ──────────────────────────────────────────────
 
 function nodeGates(text) {
@@ -672,6 +1043,7 @@ async function main() {
   const argv = process.argv.slice(2);
   const showCensus = argv.includes("--census");
   const useDeclarations = !argv.includes("--no-declarations");
+  const useAllowlist = !argv.includes("--no-allowlist");
 
   const problems = [];
 
@@ -716,6 +1088,20 @@ async function main() {
       }
     }
   }
+  // Axis 3 needs the NON-blocking workflows too — not to credit them as wiring
+  // (hole (h) forbids that) but to say so explicitly when a gate is named only
+  // there. Silence about a scheduled-workflow mention is how "it runs somewhere"
+  // becomes "it is enforced".
+  const allWorkflows = [...workflows];
+  for (const wf of NOT_A_GATE.keys()) {
+    let text;
+    try {
+      text = readFileSync(resolve(WF, wf), "utf8");
+    } catch {
+      continue; // a stale NOT_A_GATE entry is already reported by the classification check above
+    }
+    allWorkflows.push({ file: wf, text, blocking: false });
+  }
   const presenceProblems = problems.length;
 
   // ── axis 2: status ──────────────────────────────────────────────────────────
@@ -730,6 +1116,14 @@ async function main() {
     { useDeclarations },
   );
   for (const p of r.problems) problems.push(`  - [${p.kind}] ${p.detail}`);
+  const statusProblems = problems.length - presenceProblems;
+
+  // ── axis 3: reverse presence ────────────────────────────────────────────────
+  const rev = reversePresence(
+    { preflight: pf.commands, workflows: allWorkflows },
+    { useAllowlist },
+  );
+  for (const p of rev.problems) problems.push(`  - [${p.kind}] ${p.detail}`);
 
   // ── census ──────────────────────────────────────────────────────────────────
   const line = (b, label) => `    ${String(b.length).padStart(3)}  ${label}`;
@@ -741,7 +1135,24 @@ async function main() {
     line(r.census.declared, "DIVERGENT, declared"),
     line(r.census.undeclared, "DIVERGENT, UNDECLARED"),
     line(r.census.uncalled, "invoked at NO call site (absent, not consistent)"),
+    "",
+    `  REVERSE-PRESENCE CENSUS (axis 3) — ${rev.pfScripts.size} distinct node gate scripts in preflight.mjs's GATES:`,
+    line(rev.census.wired, "also run by a blocking workflow"),
+    line(rev.census.allowlisted, "preflight-only, DECLARED in PREFLIGHT_ONLY"),
+    line(rev.census.undeclared, "preflight-only, UNDECLARED"),
+    `    ${String(rev.census.outOfScope.length).padStart(3)}  non-node preflight gates, OUT OF SCOPE for axis 3 (named, not dropped): `
+      + (rev.census.outOfScope.map((x) => x.script).join(", ") || "none"),
   ];
+  if (showCensus) {
+    for (const bucket of ["allowlisted", "undeclared"]) {
+      const items = rev.census[bucket];
+      if (!items.length) continue;
+      censusLines.push(`\n  ── axis 3 / ${bucket} (${items.length}) ──`);
+      for (const it of items) {
+        censusLines.push(`    ${it.script}${it.nonBlocking ? `   [named only in non-blocking: ${it.nonBlocking.map((x) => x.file).join(", ")}]` : ""}`);
+      }
+    }
+  }
   if (showCensus) {
     for (const bucket of ["consistent", "mainOnly", "preflightOnly", "declared", "undeclared", "uncalled"]) {
       const items = r.census[bucket];
@@ -758,7 +1169,7 @@ async function main() {
   }
 
   if (problems.length) {
-    console.error(`✗ workflow gate parity: ${problems.length} problem(s) — ${presenceProblems} presence, ${problems.length - presenceProblems} status/classification:`);
+    console.error(`✗ workflow gate parity: ${problems.length} problem(s) — ${presenceProblems} presence, ${statusProblems} status/classification, ${rev.problems.length} reverse-presence:`);
     for (const p of problems) console.error(p);
     console.error("");
     for (const l of censusLines) console.error(l);
@@ -767,12 +1178,15 @@ async function main() {
     console.error("  truly cannot run pre-push, allowlist it in CI_ONLY here with a reason).");
     console.error("  STATUS drift → wrap the CI step in `node scripts/run-gate.mjs <cmd>` to align it, or");
     console.error("  DECLARE the divergence in DECLARED_DIVERGENCES with the reason it is deliberate.");
-    console.error("  ⛔ Do NOT change a gate's status to silence this — that is a hard-gate decision.");
+    console.error("  REVERSE-PRESENCE drift → wire the gate into a blocking workflow, or declare it in");
+    console.error("  PREFLIGHT_ONLY here with the reason it runs pre-push only.");
+    console.error("  ⛔ Do NOT change a gate's status or wiring to silence this — both are separate decisions.");
     process.exit(1);
   }
 
   console.log(`✓ workflow gate parity — presence: every blocking-workflow node gate runs in preflight (${totalCi} CI gate invocations, ${CI_ONLY.size} CI-only allowlisted).`);
   console.log(`✓ workflow gate parity — status: no undeclared advisory/blocking split across call sites (${DECLARED_DIVERGENCES.size} declared, ${DISTINCT_LEGS.size} distinct leg(s), ${NO_CALL_SITE.size} uncalled).`);
+  console.log(`✓ workflow gate parity — reverse presence: every preflight node gate is workflow-wired or declared (${rev.census.wired.length} wired, ${rev.census.allowlisted.length} declared preflight-only, of ${rev.pfScripts.size} distinct).`);
   console.log(`✓ workflow classification: ${tracked.length} tracked workflows, ${BLOCKING_WORKFLOWS.length} blocking + ${NOT_A_GATE.size} not-a-gate, none unclassified.`);
   for (const l of censusLines) console.log(l);
 }

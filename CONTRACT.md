@@ -658,5 +658,62 @@ This amendment does not create a live "% of tools carrying a hedge" gate, and no
 
 ---
 
+## 🧾 §15 Claim-coverage matrix — every normative claim carries an enforcement disposition
+
+**The mirror of `board/RULINGS.md` 2026-08-22 ("no gate without a normative source"): there is no normative source without an enforcement disposition.** Before this section, CONTRACT.md made 44 claims about how this estate is built and said of none of them what enforces it, so a reader auditing enforcement by CTRL-F could not tell a gated rule from an ungated one. The 2026-08-23 doctrine-execution audit measured the consequence: 19 of 44 claims (43%) rested on authorship alone, and two were VIOLATED on `main` with nothing anywhere able to notice.
+
+**`DISCIPLINE` and `UNTESTABLE` are honest values.** A rule no script can check is not a defect in this contract; claiming it is checked would be. **The defect this section forbids is a claim with NO disposition** — and, worse, a claim naming a gate that does not exist, which reads as enforcement and enforces nothing (the audit's F2 finding, "gate-name theater"). **This is explicitly NOT a coverage mandate:** nothing here asks a `DISCIPLINE` row to become a gated one, and a change that converts dispositions wholesale to raise a number has misread the section.
+
+**Gate:** `check-contract-claim-coverage.mjs` (meta) asserts every row below has a non-empty `Gate` cell that resolves to a script on disk, to a known worker-repo gate, or to `DISCIPLINE` / `UNTESTABLE`. Ⓦ marks a gate verified in the worker repo's own CI. Verdicts are the audit's, measured at `main` on 2026-08-23.
+
+| # | Claim | Gate | Verdict |
+|---|---|---|---|
+| 1 | §0 single self-contained HTML per tool, all CSS/JS inline | DISCIPLINE | HOLDS |
+| 2 | §0 Google Fonts only (DM Serif Display, Sora, JetBrains Mono) | DISCIPLINE | HOLDS |
+| 3 | §0 zero fetch/WebWorker/external calls after load | `check-site-egress.mjs` | HOLDS |
+| 4 | §0 zero PII collected, stored or logged | UNTESTABLE | no PII scanner exists in the estate |
+| 5 | §0 all client storage forbidden (sessionStorage, localStorage, cookies, IndexedDB) | DISCIPLINE | HOLDS (write-shaped scan: 0 files) |
+| 6 | §0 relative internal links; absolute URLs reserved | `dead-link-check.mjs` | HOLDS, PARTIAL (covers rot, not absoluteness) |
+| 7 | §0 CSP tag on every page, canonical profiles | `check-csp-consistency.mjs` | HOLDS (ratchet baseline; value-blind) |
+| 8 | §1.1 no lang toggle in new builds | DISCIPLINE | HOLDS (newest 40 tool numbers: 0 carry it) |
+| 9 | §1.1 grandfathered tools keep `TRANSLATIONS` | DISCIPLINE | STALE NOTE: doctrine says ~187, actual 262 tools + 32 guides |
+| 10 | §1.2 mfst toggle present, exactly one per tool | `verify_repo.py` | HOLDS |
+| 11 | §1.2 `.mcp-toggle`/`toggleMCP()` RETIRED, MUST NOT appear in new or existing tools | `check-retired-mcp-toggle.mjs` | was VIOLATED (7 live tools) at audit; tombstone gate landed since |
+| 12 | §1.3 PII banner exact text | `verify_repo.py` | HOLDS, PARTIAL (enforces text-correctness, narrower than "all tools") |
+| 13 | §1.4 hard copy rules (em-dash, double-hyphen, entity decode, build codes `Wave N \| W-A…W-G \| D0`, heading emphasis) | `check-copy-hallmarks.mjs` | HOLDS (1529-file baseline ratchet) |
+| 14 | §1.4 prose rules (negation-boxes, audience statement, date-currency) | UNTESTABLE | judgement rules; nothing scans them |
+| 15 | §1.4 inline SSOT copies byte-identical to kernels | `check-inline-ssot-sync.mjs` | HOLDS |
+| 16 | §1.5 `generated_at` visibility and decision-state rendering | DISCIPLINE | UNENFORCED BY DESIGNATED GATE: `check-node-page-chrome.mjs` contains zero §1.5 assertions (audit F2) |
+| 17 | §2.1/§2.3 root `suite-registry.json` exists and lists all tools | DISCIPLINE | STALE PHANTOM: the file has never existed in git history |
+| 18 | §2.2 manifest schema, `verb_noun_context` unique | `check-manifest-schema.mjs`, Ⓦ`check-tool-names.mjs` | HOLDS |
+| 19 | §2.4 AIN Bridge deep-link behaviour contract | UNTESTABLE | runtime-only; no static artifact |
+| 20 | §2.5 chain steps and `composer_url` resolve | `check-chain-composer-urls.mjs`, Ⓦ`validate-chains.mjs` | HOLDS |
+| 21 | §2.7 new live nodes ship a manifest with `output_schema` in the same PR | DISCIPLINE | VIOLATED (2): art-527, art-541. Rule declares itself gate-free by design |
+| 22 | §3.2 export button in `.results-export-row`, validate-before-download | `verify_repo.py` | PARTIAL: Check 3 gates placement; DOM/state/toast details are not covered |
+| 23 | §3.1 `{tool_id}_{YYYYMMDDHHMMSS}.policy.json` naming | UNTESTABLE | runtime artifact, not statically observable |
+| 24 | §4 Tier 1 export mandatory for the policy/rule/risk class | DISCIPLINE | HOLDS on the named set; the general predicate is judgement |
+| 25 | §4 exports use native Blob; libraries only if approved and bundled inline | DISCIPLINE | HOLDS (0 external lib loads) |
+| 26 | §5.1 canonical ranges, RESERVED numbers never reused | `check-tool-number-unique.mjs` | HOLDS on uniqueness; range table stale (ends T476, estate runs to #665) |
+| 27 | §5.4 `start.html` grid: families only, cap 12 cards | DISCIPLINE | VIOLATED AS WRITTEN: 29 recipe cards, 0 family-hub links; page redesigned, rule never amended |
+| 28 | A3.1 "composer/workflow/scenario guide" nouns banned in shipped copy | `check-shipped-prose.mjs` | PARTIAL: 1003 node+chain descriptions covered; guide/tool page prose and slugs are not |
+| 29 | A3.3 `guides/` retains only hubs plus two utility pages | DISCIPLINE | STALE WHITELIST: 35 non-hub hand-built pages sit outside it |
+| 30 | A3.4 no catalog/node twins | UNTESTABLE | the coverage predicate is undefined |
+| 31 | A3.7 every chain and node in sitemap, `llms.txt` and catalog | `regen-sitemap.mjs`, `gen-llms-full.mjs`, `check-catalog-parity.mjs` | HOLDS |
+| 32 | §6.2 `check_tools.js` is "the BLOCKING first gate" | `check_tools.js` | WIRING FRAGILE: runs in preflight, appears in ZERO workflow files; reached in CI only via `scripts-verify.yml`'s path-scoped preflight. Declared in `check-workflow-gate-parity.mjs`'s `PREFLIGHT_ONLY` |
+| 33 | §6.2 SSOT conformance gates run before touching `standard/` | `schema-validate.mjs`, `spec-version-consistency.mjs`, `spec-gate-coverage.mjs` | HOLDS |
+| 34 | §6.3 JSON-LD block on hub pages | `check-jsonld.mjs` | PARTIAL: preflight-only, no workflow invokes it. Declared in `PREFLIGHT_ONLY` |
+| 35 | A4.0 shards not the monolith, plus assembly freshness | `assemble-chaingraph.mjs` | HOLDS |
+| 36 | A4.2 re-vendor and commit generated worker inputs in the same push | `check-cross-surface.mjs` | HOLDS (634/634 byte-identical at audit) |
+| 37 | A4.3 canonical `execution_hash` via the one shared module | `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, `parity-art-01.test.mjs` | HOLDS |
+| 38 | A4.4 deploys solely via gated GitHub Actions; `NAMED_CHAINS` generated | DISCIPLINE | HOLDS WITH RESIDUE: `wrangler deploy` in exactly one workflow; a retired `NAMED_CHAINS` const survives beside the generated projection |
+| 39 | A4.6 the kernel registry is codegen, never hand-edited | `gen-index.mjs` | HOLDS |
+| 40 | A4.7 worker egress is a named closed allowlist; browser zero-egress | `check-site-egress.mjs` | HOLDS |
+| 41 | A5.1/A5.4 SPEC wins; every SPEC MUST has a §15 gate | `spec-gate-coverage.mjs` | FORMALLY HOLDS: the meta-gate is green inside the matrix's visibility, and ≥603 MUSTs sit outside it (audit F5) |
+| 42 | A7/A8 ledger and playground hermetic carve-outs | `check-ledger-hermetic.mjs`, `check-playground-hermetic.mjs` | HOLDS |
+| 43 | A9 the reliance hedge travels with the artifact | DISCIPLINE | HOLDS BY STAGING: no coverage gate, by A9.3's explicit ruling |
+| 44 | `repo/CLAUDE.md`: author via Write/Edit not heredoc, preflight before every push, hook opt-in | DISCIPLINE | process rules; the hook exists, and its CI backstop is row 32's fragile path |
+
+---
+
 **END OF CONTRACT**  
 *This document is version-controlled. All deviations require a formal spec amendment and consensus from Post Oak Labs Engineering & Compliance leads.*
