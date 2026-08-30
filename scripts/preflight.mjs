@@ -1217,6 +1217,14 @@ const GATES = [
   // (see the file's own header for why it is deliberately not a *.proptest.mjs).
   ['art-27 exhaustive enumeration (ART27-HARNESS-INREPO-1)',
     'node chaingraph/kernels/__proptests__/art-27-agentic-readiness-diagnostic.exhaustive.mjs'],
+  // FVLEG-DIGEST-CONSUMER-1: research/FV-TRIPLEBIND-MUTATE-1-2026-08-11.md named toolchain_digest.fv_leg
+  // (the 8 Dafny/Z3 toolchain sub-digests on a class-C FV artifact) as recorded but never consumed by any
+  // checker anywhere — a mutation to any of the 8 fields went undetected. This closes that: recomputes and
+  // compares the 3 in-repo fields (model/compiled_js/harness digests), NOT_EVALUABLE (never a pass, SO
+  // #34c) for the 5 that need an out-of-repo Dafny/Z3 toolchain or a network fetch. Selftest first —
+  // demonstrates the RED catch on the exact mutation shape the named defect called uncatchable.
+  ['FV toolchain-digest (fv_leg) selftest (FVLEG-DIGEST-CONSUMER-1)', 'node scripts/check-fv-toolchain-digest.selftest.mjs'],
+  ['FV toolchain-digest (fv_leg) consumer (FVLEG-DIGEST-CONSUMER-1)', 'node scripts/check-fv-toolchain-digest.mjs --check'],
   // RATCHET-BASELINE-LOADER-1 (gate-integrity F-11). Runs BEFORE the three ratchet gates it protects:
   // if a baseline file has been deleted, corrupted, key-stripped or given a non-finite ceiling, this
   // names the state directly instead of a gate downstream printing a green line over a ratchet that has
