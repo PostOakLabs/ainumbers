@@ -75,8 +75,15 @@ jobs:
       - name: 🧬 Mutation tier scan — pilot-10 sample (dry run)
         id: scan
         continue-on-error: true
+        # The dry run passes --decomposed so the decomposed (fixture-leg-neutralized,
+        # proptest-oracle-audit EXP-D shape) scoring path shipped 2026-08-29 is exercised
+        # END-TO-END in CI on every dispatch — it is the pipeline proof surface for the new
+        # reporting shape (decomposedGateMode ships 'advisory' + propertyKillsBreakFloor 0,
+        # so this cannot red the job). The SCHEDULED shards below deliberately do NOT pass
+        # it: the full-estate scan already overruns the 6-hour hosted-runner ceiling (4/8
+        # shards cancelled in recent cycles) and --decomposed doubles per-kernel runtime.
         run: |
-          node scripts/run-mutation-tier.mjs --kernel \
+          node scripts/run-mutation-tier.mjs --decomposed --kernel \
             art-06-genius-act-reserve-attestation \
             art-275-genius-reserve-disclosure-checker \
             art-431-fdic-assessment-rate-calculator \
@@ -97,8 +104,11 @@ jobs:
           {
             echo "## Mutation Tier Scan — DRY RUN (10/633 kernels sampled)"
             echo ""
-            echo "This is the proof-it-works dry run — it exercises the identical"
-            echo "pipeline the nightly full-estate scan uses, scoped to the original"
+            echo "This is the proof-it-works dry run — it exercises the pipeline the"
+            echo "nightly full-estate scan uses, PLUS the --decomposed fixture-leg-"
+            echo "neutralized scoring path shipped 2026-08-29, which the nightly"
+            echo "shards do not run (per-kernel runtime doubles; the estate already"
+            echo "overruns the 6-hour hosted-runner ceiling). Scoped to the original"
             echo "10-kernel pilot sample so it finishes in minutes instead of over an hour."
             echo ""
             echo "Result: $RESULT"
