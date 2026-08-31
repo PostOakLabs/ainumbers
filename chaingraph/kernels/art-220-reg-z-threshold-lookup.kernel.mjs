@@ -136,9 +136,9 @@ const REGZ_HOEPA = {
 };
 
 // HPML, §1026.35. Two different kinds of number share this row and they behave
-// differently: the rate thresholds (1.5 / 2.5 / 3.5 pp) are structural and stable,
-// while the dollar figure is the TILA §129H appraisal exemption, adjusted annually and
-// indexed to CPI-W. It is an APPRAISAL exemption, not an escrow amount.
+// differently: the rate thresholds (1.5 / 2.5 / 3.5 pp) are structural and stable as of
+// 2026-08-31, while the dollar figure is the TILA §129H appraisal exemption, adjusted
+// annually and indexed to CPI-W. It is an APPRAISAL exemption, not an escrow amount.
 const REGZ_HPML = {
   2021: { effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, appraisal_exemption_threshold: 27200, appraisal_cite: '85 FR 79385' },
   2022: { effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, appraisal_exemption_threshold: 28500, appraisal_cite: '86 FR 67843' },
@@ -156,8 +156,9 @@ const REGZ_HPML = {
 // resolving them needs comment 52(b)(1)(ii)-2's annual-adjustment series.
 //
 // 2025-2026 are the retrieved rows. No court holding is asserted anywhere in this table:
-// a docket locator for the widely-reported vacatur could not be opened, and an unsourced
-// narrative is not repaired by substituting a second unsourced narrative.
+// a docket locator for the widely-reported vacatur could not be opened as of the
+// 2026-08-23 retrieval, and an unsourced narrative is not repaired by substituting a
+// second unsourced narrative.
 const REGZ_CARD_UNVERIFIED_NOTE = 'Historical row: the 2021-2024 penalty-fee series was not retrieved from primary text this cycle and is unverified. Do not rely on it; resolve against comment 52(b)(1)(ii)-2 annual-adjustment series.';
 const REGZ_CARD_OBSERVED_NOTE = 'As retrieved 2026-08-23 from the eCFR versioner API (content as of 2026-08-20), 12 CFR 1026.52(b)(1)(ii)(A) and (B) read $32 and $43; a separate $8 late-payment safe harbor applies except to smaller card issuers under (b)(1)(ii)(E). The section source note shows its most recent amendment as 89 FR 19202 (2024-03-15).';
 
@@ -237,7 +238,8 @@ for (const y of Object.keys(REGZ_QM_TIERS).map(Number)) {
 
 // ---- CARD ACT PENALTY FEES (§1026.52(b)) ----
 // Served straight from the shared module. No court holding is asserted here: see the
-// module's own note on why an unsourced vacatur narrative was removed rather than replaced.
+// module's own note on why an unsourced vacatur narrative was removed, as of the
+// 2026-08-23 retrieval, rather than replaced.
 const CARD_PENALTY = REGZ_CARD_PENALTY;
 
 const TABLES = {
