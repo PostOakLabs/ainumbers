@@ -413,7 +413,8 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix; the numeric algorithm follows rtoy/fdlibm-js log2.js (see the
+// PROVENANCE header at the top of this file).
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1588,7 +1589,7 @@ function erf(x) {
 
 // ── Normal inverse (rational Horner, from source) ────────────────────────────
 function phiInv(p) {
-  const a = -2.515517, b1 = 0.802853, c1 = 0.010328;
+  const a = 2.515517, b1 = 0.802853, c1 = 0.010328;
   const d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
   const t = Math.sqrt(-2 * det.log(p < 0.5 ? p : 1 - p));
   const top = a + b1 * t + c1 * t * t;
@@ -1605,7 +1606,8 @@ function irbK(pd, lgd, m = 2.5) {
   const b = det.pow(0.11852 - 0.05478 * det.log(pdC), 2);
   const ma = (1 + (m - 2.5) * b) / (1 - 1.5 * b);
   const phi99 = phiInv(0.999);
-  const inner = (phiInv(pdC) + Math.sqrt(r / (1 - r)) * phi99) / Math.sqrt(1 - r);
+  // (1-R)^-0.5 multiplies G(PD) only; the G(0.999) term carries (R/(1-R))^0.5.
+  const inner = phiInv(pdC) / Math.sqrt(1 - r) + Math.sqrt(r / (1 - r)) * phi99;
   const nInner = 0.5 * (1 + erf(inner / Math.sqrt(2)));
   return Math.max(0, (lgd * nInner - lgd * pdC) * ma * 12.5);
 }
@@ -1639,10 +1641,11 @@ const MIXES = {
 
 const OUTPUT_FLOOR = 0.725; // BCBS d424 §CAP30
 
-// ── Percentile helper ─────────────────────────────────────────────────────────
+// ── Percentile helper (nearest-rank: index ceil(p*n)-1, clamped to [0, n-1];
+//    p=1.0 returns the maximum — never a silent-zero fallback) ─────────────────
 function pct(arr, p) {
   const s = [...arr].sort((a, b) => a - b);
-  return s[Math.floor(p * s.length)] ?? 0;
+  return s[Math.min(s.length - 1, Math.max(0, Math.ceil(p * s.length) - 1))];
 }
 
 // ── compute ───────────────────────────────────────────────────────────────────

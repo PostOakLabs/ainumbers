@@ -1,5 +1,5 @@
 // sim-03-basel-rwa-scenario-modeler.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C16-1).
-// kernel_digest_at_authoring: sha256:20305fc80c7e9f21ce85aaa35d67d4208e694fc0a45b1b9598d65046b4e9900a
+// kernel_digest_at_authoring: sha256:521177b2fb1ab7eaf3bb95b5aae0eeef0b1a24b902f3614c3209e1dfa26525ea
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
