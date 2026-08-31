@@ -61,6 +61,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1')), '..');
 const MANIFESTS_DIR = 'manifests';
@@ -720,9 +721,9 @@ export function sweepKernel(repoRoot, kernelFile, manifestIndex, mcpNameByTool =
   return rec;
 }
 
-/** Enumerate kernel files (SO #52: git ls-files, never a filesystem walk). */
+/** Enumerate kernel files (SO #52: git ls-files, never a filesystem walk; SO #57: scrubbed env). */
 export function listKernelFiles(repoRoot) {
-  const out = execSync('git ls-files "chaingraph/kernels/*.kernel.mjs"', { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const out = execSync('git ls-files "chaingraph/kernels/*.kernel.mjs"', { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: gitEnv() });
   return out.split('\n').map((s) => s.trim()).filter(Boolean).sort();
 }
 
