@@ -7,8 +7,16 @@
 //
 // ALWAYS-DISCLOSED (§27.6): subject_hash, verification_result, kernel_version, policy_version,
 // timestamps, submission_receipt (mapped to output_payload — never redactable, per §13.12).
-// SELECTIVELY DISCLOSABLE: reviewers, approvers, annotations, exception_rationale, input_hashes
-// (mapped to policy_parameters.input_parameters — the only redactable container §13.12 recognizes).
+// SELECTIVELY DISCLOSABLE: reviewers, approvers, annotations, exception_rationale, input_hashes,
+// archive_corroboration (mapped to policy_parameters.input_parameters — the only redactable
+// container §13.12 recognizes).
+//
+// archive_corroboration (BUNDLE-ENRICH-ARCHIVE-1, spec §3): an OPTIONAL array of third-party archive
+// captures (Wayback Machine, archive.today, ...) of the same page the subject already hashed and
+// timestamped. CORROBORATION ONLY, never PROOF — see the §0 hierarchy note in
+// `BUNDLE-ENRICH-BUILD-SPEC.md`. A bundle with zero entries is fully valid and unweakened; this module
+// asserts nothing about an entry's content beyond what the caller supplies, and never marks an
+// `observed_content_hash` as verified.
 //
 // `assembleEvidenceBundle` is pure (no I/O/Date/crypto — caller supplies `nowISO` for any stamped
 // field it chooses to add). `exportEvidenceBundleSdJwt` is NOT pure — it delegates to `exportSdJwt`,
@@ -28,10 +36,12 @@ import { exportSdJwt } from '../exporters/sdjwt.mjs';
  * @param {string} [params.policyVersion]
  * @param {string} [params.verificationResult] - the §16/§18/§20 verdict
  * @param {string} [params.submissionReceipt] - populated ONLY after a real transmission (never fabricate)
+ * @param {Array<{archive_url:string,captured_at:string,archive_source:string,observed_content_hash?:string}>} [params.archiveCorroboration] - optional third-party archive captures, §3
  * @returns {object} haEvidenceBundle
  */
 export function assembleEvidenceBundle({
   subjectHash, records = [], inputHashes, kernelVersion, policyVersion, verificationResult, submissionReceipt,
+  archiveCorroboration,
 }) {
   if (!subjectHash) throw new Error('assembleEvidenceBundle requires subjectHash');
   const forSubject = records.filter((r) => r?.subject_hash === subjectHash);
@@ -52,7 +62,27 @@ export function assembleEvidenceBundle({
   if (approvers.length) bundle.approvers = [...new Set(approvers)];
   if (timestamps.length) bundle.timestamps = timestamps;
   if (submissionReceipt) bundle.submission_receipt = submissionReceipt;
+  if (archiveCorroboration?.length) bundle.archive_corroboration = archiveCorroboration;
   return bundle;
+}
+
+const BLUEBOOK_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'June', 'July', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+
+/**
+ * Bluebook-style bracketed archived-permalink citation (Rule 18.2.1(d) pattern), e.g.
+ * `[https://web.archive.org/web/... (archived Aug. 30, 2026)]`. Pure string formatting only — no
+ * claim about the archive's authority or content, per the §0 PROOF-vs-CORROBORATION hierarchy.
+ * `captured_at` must be an ISO-8601 date/date-time string (`YYYY-MM-DD...`); an unparseable value
+ * falls back to the raw string so a malformed date never throws.
+ * @param {{archive_url:string,captured_at:string}} entry
+ * @returns {string}
+ */
+export function formatArchiveCorroborationCitation({ archive_url, captured_at }) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(captured_at || '');
+  const dateText = m
+    ? `${BLUEBOOK_MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}`
+    : (captured_at || 'undated');
+  return `[${archive_url} (archived ${dateText})]`;
 }
 
 // Wrap a §27.6 bundle as a §4-envelope-shaped object so the SHIPPED `exportSdJwt` (§13.12) can be
@@ -71,6 +101,7 @@ function bundleAsPseudoArtifact(bundle) {
         ...(bundle.approvers ? { approvers: bundle.approvers } : {}),
         ...(bundle.annotations ? { annotations: bundle.annotations } : {}),
         ...(bundle.exception_rationale ? { exception_rationale: bundle.exception_rationale } : {}),
+        ...(bundle.archive_corroboration ? { archive_corroboration: bundle.archive_corroboration } : {}),
       },
     },
     output_payload: {

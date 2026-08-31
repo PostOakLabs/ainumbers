@@ -383,8 +383,12 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <p class="hero-sub" id="haGateEvidenceNote" style="margin:8px 0 0;font-size:.68rem;"></p>
       </div>
 
+      <div class="card-label" style="margin-top:20px;">Archive corroboration (optional, §27.6.1)</div>
+      <p class="hero-sub" style="margin-bottom:6px;">Zero or more third-party archive captures (Wayback Machine, archive.today, ...) of the same rule-text-as-of-date page this artifact's hash + timestamp already cover. Corroboration only, never proof: the hash + RFC 3161/OTS anchor above is the proof this bundle relies on, and leaving this blank leaves the bundle fully valid and unweakened.</p>
+      <textarea id="haArchiveCorroborationInput" placeholder='[{"archive_url":"https://web.archive.org/web/20260830.../https://example.com/page","captured_at":"2026-08-30","archive_source":"Wayback Machine"}]' style="min-height:70px;width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;"></textarea>
+
       <div class="card-label" style="margin-top:20px;">3. Evidence-bundle export (§27.6, Tier 1 JSON)</div>
-      <p class="hero-sub" style="margin-bottom:10px;">Assembles a <code>haEvidenceBundle</code> from the artifact above and the records pasted into step 2. This page ships the mandatory Tier 1 JSON export; the <a href="../tools/545-sdjwt-disclosure-workbench.html" style="color:var(--teal)">SD-JWT Disclosure Workbench</a>'s Evidence Bundle tab reuses the same shipped §13.12 exporter to issue this bundle as a selective-disclosure JWT.</p>
+      <p class="hero-sub" style="margin-bottom:10px;">Assembles a <code>haEvidenceBundle</code> from the artifact above, the records pasted into step 2, and any archive corroboration entered above. This page ships the mandatory Tier 1 JSON export; the <a href="../tools/545-sdjwt-disclosure-workbench.html" style="color:var(--teal)">SD-JWT Disclosure Workbench</a>'s Evidence Bundle tab reuses the same shipped §13.12 exporter to issue this bundle as a selective-disclosure JWT.</p>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="haExportBundle()">Export evidence bundle JSON</button>
         <button class="btn btn-ghost" onclick="haOpenInSdJwtWorkbench()">Open in SD-JWT Workbench →</button>
@@ -1180,6 +1184,7 @@ function haLoadBundle() {
     const records = Array.isArray(bundle.records) ? bundle.records : [];
     document.getElementById('artifactInput').value = JSON.stringify(bundle.artifact, null, 2);
     document.getElementById('haRecordsInput').value = records.length ? JSON.stringify(records, null, 2) : '';
+    document.getElementById('haArchiveCorroborationInput').value = (Array.isArray(bundle.archive_corroboration) && bundle.archive_corroboration.length) ? JSON.stringify(bundle.archive_corroboration, null, 2) : '';
 
     // Reuses the existing, unchanged hash-verification flow — loading a
     // bundle never bypasses or duplicates it.
@@ -1252,6 +1257,10 @@ function __haBuildBundle() {
   const artifact = __haCurrentArtifact();
   const recordsRaw = document.getElementById('haRecordsInput').value.trim();
   const records = recordsRaw ? (JSON.parse(recordsRaw) || []).map(__haReHome) : [];
+  // BUNDLE-ENRICH-ARCHIVE-1 (§27.6.1): optional, corroboration only — never proof. A blank
+  // input leaves the bundle unweakened; we assert nothing about the pasted entries' content.
+  const archiveRaw = (document.getElementById('haArchiveCorroborationInput').value || '').trim();
+  const archiveCorroboration = archiveRaw ? JSON.parse(archiveRaw) : null;
   return executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
     const subjectHash = 'sha256:' + hex;
     const forSubject = records.filter((r) => r.subject_hash === subjectHash);
@@ -1268,6 +1277,7 @@ function __haBuildBundle() {
     if (overrideRec && overrideRec.reason_code) bundle.exception_rationale = overrideRec.reason_code;
     if (artifact.tool_version) bundle.kernel_version = artifact.tool_version;
     if (artifact.chaingraph_version) bundle.policy_version = artifact.chaingraph_version;
+    if (Array.isArray(archiveCorroboration) && archiveCorroboration.length) bundle.archive_corroboration = archiveCorroboration;
     // §5 HA-GATE-CONSUMER: always states the declared gate's evidentiary
     // state — satisfied / held / rejected / escalate / override_active, or
     // not_evaluated when no bundle.gate was ever declared/loaded — so a
