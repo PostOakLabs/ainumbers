@@ -29,7 +29,8 @@ export const meta = {
 
 // ─── CBAM factor schedule ───────────────────────────────────────────────────
 // Factor = share of costs not covered by free EU-ETS allowances.
-// UNCHANGED by the 2025 amending regulation; carried forward byte-identically.
+// UNCHANGED by Reg. (EU) 2025/2083 as of 2026-08-31 (Art 1 amends no Art 31/10a text;
+// see cbam_factor_source below); carried forward byte-identically.
 const CBAM_FACTOR = {
   2026: 0.025,
   2027: 0.050,
