@@ -1,5 +1,5 @@
 // ml-01-isolation-forest.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:78207d018dcf3f06b8aa059f913a99be9170d053e9cdccb55f4db93837d377fb
+// kernel_digest_at_authoring: sha256:b1d65baa185d8313649be87c08002d3557cbf0674e4c730be08bb2ce0756df28
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -19,8 +19,9 @@
 // byte-identical output_payload across repeated calls -- this kernel's LCG PRNG has no hidden
 // entropy source), boundedness (flag_rate/mean/p95/max anomaly scores all stay in [0,1], since
 // the isolation-forest score is 2^(-avgPathLen/cN) which is always in (0,1]), and ULP-boundary
-// forcing on the threshold >= comparison and the maxDepth=ceil(log2(subsample)) edge at
-// subsample=1.
+// forcing on the threshold >= comparison and the degenerate-subsample kill condition at
+// subsample=1 and subsample > scored population (ML01-SCORER-GUARDS-1: those refuse as
+// structured did_not_run, they never emit a verdict).
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/ml-01-isolation-forest.proptest.mjs
@@ -71,6 +72,23 @@ function randomPP(rng) {
 
 const TRIALS = 200;
 
+// ML01-SCORER-GUARDS-1: a degenerate subsample (<=1 or > scored population) is a structured
+// refusal, never a verdict. These helpers let each property test the right contract for the
+// draw it got (kill contract itself is asserted directly in P4).
+function isRefusal(result) {
+  return result.output_payload.execution_state === 'did_not_run';
+}
+function assertRefusalShape(result) {
+  const p = result.output_payload;
+  const flags = result.compliance_flags;
+  return p.execution_state === 'did_not_run'
+    && p.reason === 'degenerate_subsample_size'
+    && p.decision === null
+    && !('verdict' in p)
+    && Array.isArray(flags) && flags.length === 1
+    && flags[0] === 'ANOMALY_DETECTION_KILL_CONDITION_DEGENERATE_SUBSAMPLE';
+}
+
 // ---------- P1: termination — n_transactions_scored bounded, recursion terminates ----------
 function checkP1_termination() {
   let violations = 0, checked = 0;
@@ -78,6 +96,7 @@ function checkP1_termination() {
     const pp = randomPP(rand);
     const { output_payload } = compute(pp);
     checked++;
+    if (isRefusal({ output_payload })) continue; // refusal draw: kill contract asserted in P4
     if (output_payload.n_transactions_scored !== Math.min(pp.n_transactions, 5000)) violations++;
   }
   // deliberately large n_transactions -- capped at 5000, never runs unbounded.
@@ -112,6 +131,7 @@ function checkP3_boundedness() {
     const pp = randomPP(rand);
     const { output_payload } = compute(pp);
     checked++;
+    if (isRefusal({ output_payload })) continue; // refusal draw: kill contract asserted in P4
     if (output_payload.flag_rate < 0 || output_payload.flag_rate > 1) violations++;
     if (output_payload.mean_anomaly_score < 0 || output_payload.mean_anomaly_score > 1) violations++;
     if (output_payload.p95_anomaly_score < 0 || output_payload.p95_anomaly_score > 1) violations++;
@@ -137,31 +157,39 @@ function checkP4_ulp_forcing() {
     if (output_payload.flagged_count < 0) violations++;
   }
 
-  // subsample_size=1 edge -> maxDepth = ceil(log2(1)) = 0, and cN(1) = 0 by definition (line
-  // 1583), so the score's -avgLen/cN(subsample) exponent divides by zero and the kernel emits
-  // NaN scores (JSON.stringify(NaN) === null) -- a genuine, reproducible numerical edge in the
-  // kernel's own cN() formula at n<=1, not a floor-harness bug. The property is that this edge
-  // is deterministic and never throws, not that it stays finite.
+  // subsample_size=1 edge -> cN(1) = 0 (the kernel's own cN()), so the score's
+  // -avgLen/cN exponent divides by zero and the pre-ML01-SCORER-GUARDS-1 kernel emitted
+  // NaN scores (JSON.stringify(NaN) === null) with a "NORMAL" verdict. The kernel now
+  // FAILS CLOSED: the degenerate subsample is a structured did_not_run refusal
+  // (art-536 pattern), never a verdict, never NaN in the payload.
   const single1 = compute({ ...base, subsample_size: 1 });
   checked++;
-  if (!Number.isNaN(single1.output_payload.mean_anomaly_score)) violations++; // documents the cN(1)=0 division
+  if (!assertRefusalShape(single1)) violations++;
   const single1b = compute({ ...base, subsample_size: 1 });
   checked++;
-  if (JSON.stringify(single1.output_payload) !== JSON.stringify(single1b.output_payload)) violations++; // still deterministic
+  if (JSON.stringify(single1) !== JSON.stringify(single1b)) violations++; // refusal still deterministic
 
-  // subsample_size=2 -> cN(2)=1 (nonzero), scores stay finite; confirms the edge is isolated to n<=1.
+  // subsample_size=2 -> cN(2)=1 (nonzero), scores stay finite; confirms the kill is isolated to n<=1.
   const single2 = compute({ ...base, subsample_size: 2 });
   checked++;
   if (!Number.isFinite(single2.output_payload.mean_anomaly_score)) violations++;
 
-  // n_transactions small edges. NOTE: `Number(pp.n_transactions) || 1000` (line 1609) means
+  // subsample_size > scored population -> the same refusal (the unclamped-normaliser defect
+  // class: trees drew min(ss,n) points while the normaliser divided by cN(declared ss)).
+  const over = compute({ ...base, subsample_size: 999 });
+  checked++;
+  if (!assertRefusalShape(over)) violations++;
+
+  // n_transactions small edges. NOTE: `Number(pp.n_transactions) || 1000` means
   // n_transactions:0 is falsy and silently falls back to the 1000 default -- documented as
-  // kernel behavior, not treated as a floor violation.
-  for (const n of [0, 1, 2]) {
-    const { output_payload } = compute({ ...base, n_transactions: n, subsample_size: 4 });
+  // kernel behavior, not treated as a floor violation. n=1 and n=2 with subsample_size=4
+  // are degenerate (ss > scored population) and must REFUSE, never emit a verdict.
+  for (const [n, wantRefusal] of [[0, false], [1, true], [2, true]]) {
+    const r = compute({ contamination_rate: 0.05, seed: 7, n_trees: 3, subsample_size: 4, n_transactions: n });
     checked++;
-    const expectedScored = n === 0 ? 1000 : n;
-    if (output_payload.n_transactions_scored !== expectedScored) violations++;
+    if (wantRefusal) {
+      if (!assertRefusalShape(r)) violations++;
+    } else if (isRefusal(r) || r.output_payload.n_transactions_scored !== 1000) violations++;
   }
 
   return { name: 'P4_ulp_boundary_forcing_threshold_and_subsample_edges', trials: checked, violations };
