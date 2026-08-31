@@ -407,7 +407,8 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix (declarations added only); numeric algorithm as embedded — see the
+// PROVENANCE header above for the upstream source and copyright notices.
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1647,14 +1648,18 @@ export function compute(pp) {
     0
   );
 
-  // PLA test
+  // Monte-Carlo convergence diagnostic: ratio of the simulated P&L variance to the
+  // analytic variance of the SAME position set. This is a self-check on simulation
+  // scale only — NOT a P&L-attribution test against an independent profit-and-loss
+  // series (none is an input here, so a desk-level eligibility test cannot be
+  // performed by this kernel). See the node shard's scope_statement.
   const mean = pnls.reduce((a, b) => a + b, 0) / nScenarios;
   const simVar = pnls.reduce((s, p) => s + (p - mean) ** 2, 0) / nScenarios;
   const theorVar = positions.reduce((s, p) => s + p.weight ** 2 * p.vol ** 2 * (p.lhDays / 250), 0);
-  const plaRatio = Math.sqrt(simVar / (theorVar + 1e-15));
-  const plaStatus = plaRatio >= 0.8 && plaRatio <= 1.2
+  const mcConvergenceRatio = Math.sqrt(simVar / (theorVar + 1e-15));
+  const mcConvergenceStatus = mcConvergenceRatio >= 0.8 && mcConvergenceRatio <= 1.2
     ? 'GREEN'
-    : plaRatio >= 0.6 && plaRatio <= 1.5
+    : mcConvergenceRatio >= 0.6 && mcConvergenceRatio <= 1.5
       ? 'AMBER'
       : 'RED';
 
@@ -1664,17 +1669,17 @@ export function compute(pp) {
   const capitalReq = Math.max(capitalIMA, saFloor);
   const floorBinding = capitalIMA < saFloor;
 
-  const verdict = plaStatus === 'RED'
-    ? 'PLA Test Failure — IMA Ineligible'
-    : plaStatus === 'AMBER' || floorBinding
-      ? 'SA Floor Binding / PLA Test Amber'
-      : 'IMA Pre-Validation Passed';
+  const verdict = mcConvergenceStatus === 'RED'
+    ? 'MC Convergence Poor — Review Simulation Scale'
+    : mcConvergenceStatus === 'AMBER' || floorBinding
+      ? 'SA Floor Comparison Binding / MC Convergence Amber'
+      : 'MC Convergence Nominal';
 
   const complianceFlags = [
     'FRTB_IMA_ES_COMPUTED',
     'MAR33_LIQUIDITY_HORIZONS_APPLIED',
     nmrfPositions.length > 0 ? 'NMRF_SURCHARGE_ESTIMATED' : 'NMRF_NOT_APPLICABLE',
-    'PLA_TEST_' + plaStatus,
+    'MC_CONVERGENCE_' + mcConvergenceStatus,
     'UK_IMA_PREVALIDATION_2028',
   ];
 
@@ -1683,8 +1688,8 @@ export function compute(pp) {
     es_97_5_pct: +es.toFixed(2),
     undiversified_es: +undiversified.toFixed(2),
     nmrf_surcharge: +nmrfSurcharge.toFixed(2),
-    pla_test_status: plaStatus,
-    pla_ratio: +plaRatio.toFixed(4),
+    mc_convergence_status: mcConvergenceStatus,
+    mc_convergence_ratio: +mcConvergenceRatio.toFixed(4),
     capital_ima: +capitalIMA.toFixed(2),
     sa_floor: +saFloor.toFixed(2),
     capital_required: +capitalReq.toFixed(2),
