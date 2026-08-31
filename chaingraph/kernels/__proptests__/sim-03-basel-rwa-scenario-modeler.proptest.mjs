@@ -1,5 +1,5 @@
 // sim-03-basel-rwa-scenario-modeler.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C16-1).
-// kernel_digest_at_authoring: sha256:521177b2fb1ab7eaf3bb95b5aae0eeef0b1a24b902f3614c3209e1dfa26525ea
+// kernel_digest_at_authoring: sha256:14b190b3b3c72743aa24ef2ee999acf4ee34f237f10a7eb26f8d2686e295c5fb
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -15,8 +15,8 @@
 // approximately k, since pd/lgd/mix weights are unaffected by ead_bn), and mandatory
 // ULP-boundary forcing on ead_bn, firb_pd_pct/airb_pd_pct, and mc_scenarios boundary values.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled). This
-// kernel's own compute(pp) returns the output_payload object directly (unlike most C-class
-// kernels, which return {output_payload, compliance_flags}) — confirmed by direct source read.
+// kernel's compute(pp) returns the estate-conventional {output_payload, compliance_flags}
+// wrapper (conformed in SIM03-PHIINV-SIGN-1; it previously returned the payload flat).
 //
 // Run: node chaingraph/kernels/__proptests__/sim-03-basel-rwa-scenario-modeler.proptest.mjs
 
@@ -33,7 +33,7 @@ function runFixtureOracle() {
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const output_payload = compute(vec.policy_parameters); // compute() IS the output_payload here
+    const output_payload = compute(vec.policy_parameters).output_payload;
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
     if (a !== b) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
@@ -89,7 +89,7 @@ function checkP1_termination_mc_clamp() {
   if (JSON.stringify(tiny) !== JSON.stringify(floor50)) violations++;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const out = compute(pp);
+    const out = compute(pp).output_payload;
     checked++;
     if (out.sacr_pcts.length !== 6 || out.firb_pcts.length !== 6 || out.airb_pcts.length !== 6) violations++;
   }
@@ -101,7 +101,7 @@ function checkP2_floor_boundedness() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const out = compute(pp);
+    const out = compute(pp).output_payload;
     checked++;
     if (out.firb_floored_bn < out.firb_rwa_bn - 1e-9) violations++;
     if (out.airb_floored_bn < out.airb_rwa_bn - 1e-9) violations++;
@@ -119,8 +119,8 @@ function checkP3_ead_scale_metamorphic() {
     const pp = randomPP(rand);
     if (pp.ead_bn < 1) continue;
     const k = 1.5 + rand() * 3;
-    const base = compute(pp);
-    const scaled = compute({ ...pp, ead_bn: pp.ead_bn * k });
+    const base = compute(pp).output_payload;
+    const scaled = compute({ ...pp, ead_bn: pp.ead_bn * k }).output_payload;
     checked++;
     const fields = ['sacr_rwa_bn', 'firb_rwa_bn', 'airb_rwa_bn', 'floor_rwa_bn', 'firb_floored_bn', 'airb_floored_bn'];
     for (const f of fields) {
@@ -138,21 +138,21 @@ function checkP4_ulp_forcing() {
   const eps = Number.EPSILON;
   const ead_forced = [0, -0, eps, Number.MIN_VALUE, 1e-300, 1 - eps, 1 + eps];
   for (const ead_bn of ead_forced) {
-    const out = compute({ ead_bn, mc_scenarios: 100 });
+    const out = compute({ ead_bn, mc_scenarios: 100 }).output_payload;
     checked++;
     if (typeof out.sacr_rwa_bn !== 'number' || !Number.isFinite(out.sacr_rwa_bn)) violations++;
   }
   // pd right at the irbK floor clamp (Math.max(pd, 0.0003)) — ULP on both sides of 0.0003
   const pd_forced = [0, -0, 0.0003 - eps, 0.0003, 0.0003 + eps, Number.MIN_VALUE];
   for (const firb_pd_pct of pd_forced) {
-    const out = compute({ ead_bn: 50, firb_pd_pct: firb_pd_pct * 100, mc_scenarios: 100 });
+    const out = compute({ ead_bn: 50, firb_pd_pct: firb_pd_pct * 100, mc_scenarios: 100 }).output_payload;
     checked++;
     if (!Number.isFinite(out.firb_rwa_bn)) violations++;
   }
   // lgd at 0 and 1 (0%/100%) plus denormal-adjacent
   const lgd_forced = [0, -0, eps, 100 - eps, 100, Number.MIN_VALUE];
   for (const airb_lgd_pct of lgd_forced) {
-    const out = compute({ ead_bn: 50, airb_lgd_pct, mc_scenarios: 100 });
+    const out = compute({ ead_bn: 50, airb_lgd_pct, mc_scenarios: 100 }).output_payload;
     checked++;
     if (!Number.isFinite(out.airb_rwa_bn)) violations++;
   }

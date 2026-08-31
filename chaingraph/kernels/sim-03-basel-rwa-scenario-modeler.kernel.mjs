@@ -1719,7 +1719,7 @@ export function compute(pp) {
     if (irb_saving > 0.10) compliance_flags.push('SIGNIFICANT_IRB_CAPITAL_SAVING');
   }
 
-  return {
+  const output_payload = {
     verdict:         floor_binding.firb || floor_binding.airb ? 'FLOOR_BINDING' : 'IRB_BENEFIT_AVAILABLE',
     sacr_rwa_bn:     +sacr_rwa_bn.toFixed(3),
     firb_rwa_bn:     +firb_rwa_bn.toFixed(3),
@@ -1732,14 +1732,16 @@ export function compute(pp) {
     firb_pcts,
     airb_pcts,
     percentile_labels: ['P5', 'P25', 'P50', 'P75', 'P95', 'P99'],
-    compliance_flags,
+    // flag-mirror: payload-visible mirror of the conditional compliance flags
+    warnings: compliance_flags,
   };
+  return { output_payload, compliance_flags };
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const result = compute(pp);
   const { compliance_flags = {} } = result;
-  const output_payload = result;
+  const output_payload = result.output_payload;
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
