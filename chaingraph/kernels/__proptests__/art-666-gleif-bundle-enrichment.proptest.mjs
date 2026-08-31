@@ -1,4 +1,5 @@
 // art-666-gleif-bundle-enrichment.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
+// kernel_digest_at_authoring: sha256:0d9df7dc1f14e43beff074c1d30be5a36b4ee0d7df620c73f344b51436cc91ab
 // spec: BUNDLE-ENRICH-BUILD-SPEC.md §4, §7 WU -GLEIF-1.
 // human_sign_off: PENDING
 //
@@ -115,7 +116,7 @@ function checkP5_source_bytes_differential() {
     checked++;
     if (!output_payload.applicable) continue;
     const text = typeof pp.source_text === 'string' ? pp.source_text : '';
-    const expectedBytes = Buffer.byteLength(text, 'utf8');
+    const expectedBytes = new TextEncoder().encode(text).length;
     if (output_payload.gleif_enrichment.source_bytes !== expectedBytes) violations++;
     const expectedCaptured = text.length > 0;
     if (output_payload.gleif_enrichment.snapshot_captured !== expectedCaptured) violations++;

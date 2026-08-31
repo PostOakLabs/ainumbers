@@ -9,9 +9,9 @@ export const meta = {
   mandate_type: 'cryptographic_mandate', gpu: false,
 };
 
-// BUNDLE-ENRICH-BUILD-SPEC.md §4/§7 -GLEIF-1. Attaches the SAME GLEIF Golden Copy hash-pin
+// BUNDLE-ENRICH-BUILD-SPEC.md sections 4 and 7, WU -GLEIF-1. Attaches the SAME GLEIF Golden Copy hash-pin
 // art-599 already computes and receipts, scoped to evidence bundles that assert an
-// LEI-bearing counterparty fact. This is NOT a second GLEIF implementation -- per §4 ("Do not
+// LEI-bearing counterparty fact. This is NOT a second GLEIF implementation -- per spec section 4 ("Do not
 // make this a default bundle field... Judge per-bundle-type, not universal") and the sibling
 // row note (DORA-GLEIF-DOCS-1: "BUNDLE-ENRICH-GLEIF-1 should reuse art-599's kernel rather
 // than re-implementing the hash-pin"), the digest/LEI-checksum/LastUpdateDate logic below is
@@ -24,11 +24,11 @@ export const meta = {
 // bundle_asserts_lei_identity explicitly -- true (this bundle type asserts an LEI-bearing
 // counterparty fact, attach the enrichment), false (it does not, the enrichment is
 // inapplicable), or leaves it undeclared (never guessed toward either -- reported as its own
-// distinct state, never silently defaulted). §0's governing hierarchy is echoed on every
+// distinct state, never silently defaulted). The spec's section 0 governing hierarchy is echoed on every
 // output: this is CORROBORATION, layered onto the bundle's existing PROOF (hash +
 // RFC3161/OTS anchor), never load-bearing on its own and never a replacement for it.
 //
-// No recurring duty (§6): one pin per bundle-build invocation if applicable. No scheduler,
+// No recurring duty (spec section 6): one pin per bundle-build invocation if applicable. No scheduler,
 // no freshness promise, nothing to keep current afterwards.
 
 const SOURCE_URL = 'https://www.gleif.org/en/lei-data/gleif-golden-copy/download-the-golden-copy';
@@ -135,7 +135,7 @@ const str = (v) => (typeof v === 'string' ? v : '');
 
 // Reads pp.bundle_asserts_lei_identity as a strict tri-state: true, false, or undeclared.
 // Never guessed toward either applicable branch -- an absent/malformed value is its own
-// distinct, named state (§4: "judge per-bundle-type, not universal" -- the judgment belongs
+// distinct, named state (spec section 4: "judge per-bundle-type, not universal" -- the judgment belongs
 // to the bundle builder, this kernel never infers it).
 function triState(v) {
   if (v === true) return true;
