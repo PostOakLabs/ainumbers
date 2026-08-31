@@ -153,6 +153,7 @@ export function compute(pp) {
   let gleif_enrichment = null;
   let inapplicable_reason = null;
   const compliance_flags = [];
+  const warnings = [];
 
   if (applicable) {
     // NOTE: source_text is used EXACTLY as given, same as art-599 -- no trim, no case fold,
@@ -196,20 +197,28 @@ export function compute(pp) {
     };
 
     if (has_bytes) compliance_flags.push('GLEIF_ENRICHMENT_ATTACHED');
-    else compliance_flags.push('GLEIF_ENRICHMENT_NO_BYTES');
-    if (leiCheck.valid === false) compliance_flags.push('GLEIF_LEI_CHECKSUM_INVALID');
+    else {
+      compliance_flags.push('GLEIF_ENRICHMENT_NO_BYTES');
+      warnings.push('No source bytes supplied; nothing was hashed or pinned (GLEIF_ENRICHMENT_NO_BYTES).');
+    }
+    if (leiCheck.valid === false) {
+      compliance_flags.push('GLEIF_LEI_CHECKSUM_INVALID');
+      warnings.push('LEI failed the ISO 17442 mod-97 checksum (GLEIF_LEI_CHECKSUM_INVALID).');
+    }
   } else if (declared === false) {
     inapplicable_reason = 'Bundle type declared not LEI-bearing (bundle_asserts_lei_identity: false); GLEIF enrichment does not apply. Per §4, this is a per-bundle-type judgment call, never a universal default field.';
     compliance_flags.push('GLEIF_ENRICHMENT_NOT_APPLICABLE');
   } else {
     inapplicable_reason = 'bundle_asserts_lei_identity was not declared true or false; GLEIF enrichment scope could not be determined, so nothing was attached. Never guessed toward either applicable or inapplicable.';
     compliance_flags.push('GLEIF_ENRICHMENT_SCOPE_UNDECLARED');
+    warnings.push('bundle_asserts_lei_identity was not declared; GLEIF enrichment scope could not be determined (GLEIF_ENRICHMENT_SCOPE_UNDECLARED).');
   }
 
   const output_payload = {
     bundle_type,
     bundle_asserts_lei_identity: declared,
     applicable,
+    warnings,
     gleif_enrichment,
     inapplicable_reason,
     hierarchy_note: HIERARCHY_NOTE,

@@ -1,5 +1,5 @@
 // art-666-gleif-bundle-enrichment.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:0d9df7dc1f14e43beff074c1d30be5a36b4ee0d7df620c73f344b51436cc91ab
+// kernel_digest_at_authoring: sha256:c5add6d4113fa1b0a8122f515da39a8d00b607b1e3bf9b1ca2526049f148f8d0
 // spec: BUNDLE-ENRICH-BUILD-SPEC.md §4, §7 WU -GLEIF-1.
 // human_sign_off: PENDING
 //
