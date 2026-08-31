@@ -85,7 +85,9 @@ console.log('── Control 3 (UNPARSEABLE): art-508-recompute-bordereau ──'
 // ── Control 4: MUTATION — the checker's verdict must move when a fact flips ──
 console.log('── Control 4 (mutation): verdicts move when the evidence moves ──');
 {
-  // 4a: add one undeclared read to the GREEN kernel's source → must flip to DIVERGES
+  // 4a (mutation, measured 2026-08-30): one undeclared read injected into the GREEN kernel's
+  // source — the extracted read set must gain `mutant_undeclared_field` while the original
+  // reads survive; the sweep verdict for the mutated source is DIVERGES (read-not-declared).
   const p = path.join(REPO, 'chaingraph/kernels/art-560-oracle-price-aggregation.kernel.mjs');
   const src = fs.readFileSync(p, 'utf8');
   const mutated = src.replace(/export function compute\(pp\) \{/, 'export function compute(pp) {\n  const __mutant = pp.mutant_undeclared_field ?? 0;');
