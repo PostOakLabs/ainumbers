@@ -56,20 +56,23 @@ const PAYMENT_ENTITY_TYPES = new Set(['payment_institution', 'credit_institution
 /**
  * compute(pp) â€” pure DORA major-incident classification engine.
  * pp: {
- *   incident_type?:         'ict_outage' | 'cyber_attack' | 'data_breach' | 'third_party_failure' | 'other',
- *   entity_type?:           'credit_institution' | 'payment_institution' | 'investment_firm' | 'insurance' | 'crypto_asset' | 'other',
- *   detection_dt?:          string,   // ISO 8601 datetime â€” classification clock reference
- *   classification_dt?:     string,   // ISO 8601 datetime â€” 4h initial notification starts here
- *   resolution_dt?:         string,   // ISO 8601 datetime â€” final report 30d from here
- *   clients_affected?:      number,   // clients / counterparties / transactions at risk
- *   total_clients?:         number,   // total client base (required for % calc)
- *   tx_value_eur?:          number,   // transaction value in EUR millions; 0 = not applicable
- *   outage_duration_mins?:  number,   // service disruption minutes; 0 = no outage
- *   member_states?:         number,   // EU member states affected (1â€“27)
- *   data_loss?:             boolean,  // confidentiality/integrity/availability breach
- *   critical_fn?:           boolean,  // critical or important function affected
- *   cross_border?:          boolean,  // cross-border operations across â‰¥2 member states
- *   tp_ict?:                boolean,  // third-party ICT provider involved
+ *   Field names below are the PUBLISHED input schema names (page #manifest block /
+ *   manifest.json input_schema) per ART09-DORA-FIELDNAME-MISMATCH-1: the kernel must
+ *   read exactly what schema-conforming callers send.
+ *   incident_type?:                 'ict_outage' | 'cyber_attack' | 'data_breach' | 'third_party_failure' | 'other',
+ *   entity_type?:                   'credit_institution' | 'payment_institution' | 'investment_firm' | 'insurance' | 'crypto_asset' | 'other',
+ *   detection_datetime?:            string,   // ISO 8601 datetime - classification clock reference
+ *   classification_datetime?:       string,   // ISO 8601 datetime - 4h initial notification starts here
+ *   estimated_resolution_datetime?: string,   // ISO 8601 datetime - final report 30d from here
+ *   clients_affected?:              number,   // clients / counterparties / transactions at risk
+ *   total_clients?:                 number,   // total client base (required for % calc)
+ *   transaction_value_eur_millions?: number,  // transaction value in EUR millions; 0 = not applicable
+ *   outage_duration_minutes?:       number,   // service disruption minutes; 0 = no outage
+ *   eu_member_states_affected?:     number,   // EU member states affected, 1-27
+ *   data_loss_occurred?:            boolean,  // confidentiality/integrity/availability breach
+ *   critical_function_affected?:    boolean,  // critical or important function affected
+ *   cross_border_payment?:          boolean,  // cross-border payment component involved
+ *   tp_ict?:                        boolean,  // third-party ICT provider involved (accepted but NOT yet declared in the published schema - defaulted false)
  * }
  */
 export function compute(pp) {
@@ -77,12 +80,14 @@ export function compute(pp) {
   const incidentType     = pp.incident_type ?? 'other';
   const clientsAffected  = Number(pp.clients_affected ?? 0);
   const totalClients     = Number(pp.total_clients ?? 1);
-  const txValueEur       = Number(pp.tx_value_eur ?? 0);
-  const outageMins       = Number(pp.outage_duration_mins ?? 0);
-  const memberStates     = Number(pp.member_states ?? 1);
-  const dataLoss         = pp.data_loss === true;
-  const criticalFn       = pp.critical_fn === true;
-  const crossBorder      = pp.cross_border === true;
+  // ART09-DORA-FIELDNAME-MISMATCH-1: every pp read below binds the PUBLISHED schema
+  // field name (entity_type / tp_ict are accepted-but-undeclared reads, see JSDoc).
+  const txValueEur       = Number(pp.transaction_value_eur_millions ?? 0);
+  const outageMins       = Number(pp.outage_duration_minutes ?? 0);
+  const memberStates     = Number(pp.eu_member_states_affected ?? 1);
+  const dataLoss         = pp.data_loss_occurred === true;
+  const criticalFn       = pp.critical_function_affected === true;
+  const crossBorder      = pp.cross_border_payment === true;
   const tpIct            = pp.tp_ict === true;
 
   const isPayment = PAYMENT_ENTITY_TYPES.has(entityType);
@@ -147,10 +152,10 @@ export function compute(pp) {
   const qualifyingCriteria = criteria.filter(c => !c.not_assessed && c.met).map(c => c.id);
 
   // Reporting clock (UTC timestamps or null when dates not provided)
-  const detectionMs = pp.detection_dt ? new Date(pp.detection_dt).getTime() : null;
-  const classificationMs = pp.classification_dt ? new Date(pp.classification_dt).getTime()
+  const detectionMs = pp.detection_datetime ? new Date(pp.detection_datetime).getTime() : null;
+  const classificationMs = pp.classification_datetime ? new Date(pp.classification_datetime).getTime()
     : detectionMs;
-  const resolutionMs = pp.resolution_dt ? new Date(pp.resolution_dt).getTime() : null;
+  const resolutionMs = pp.estimated_resolution_datetime ? new Date(pp.estimated_resolution_datetime).getTime() : null;
 
   let reporting_clock = null;
   if (classificationMs) {

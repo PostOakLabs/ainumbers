@@ -1,9 +1,10 @@
-// kernel_digest_at_authoring: sha256:4ca4b897808a6d8852181840dd20aa62859b23b1ad3384d78cfcb7d8ddc9e4fa
+// kernel_digest_at_authoring: sha256:62ce51c376375e331199c0320830454cf4ba8fad3ec3c3a89d5bea2f15140de0
 //
 // FV-PROPFLOOR-SHARD-B1-1 — property-test floor for art-09-dora-incident-classifier.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (client %, tx-value/outage/member-state threshold
 // comparisons) — ULP-boundary forcing is MANDATORY per FV-PBT-FLOOR-BUILD-SPEC.md §3. Zero external
 // dependencies. Read-only w.r.t. the kernel it imports.
+// ART09-DORA-FIELDNAME-MISMATCH-1: randPP/base fixtures renamed to the published schema field names.
 //
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec §4)
 //
@@ -54,12 +55,12 @@ function randPP(rng) {
     entity_type: pick(rng, ENTITY_TYPES),
     clients_affected: randRange(rng, 0, total),
     total_clients: total,
-    tx_value_eur: rng() < 0.7 ? randRange(rng, 0, 100) : 0,
-    outage_duration_mins: rng() < 0.7 ? randRange(rng, 0, 500) : 0,
-    member_states: Math.floor(randRange(rng, 1, 27)),
-    data_loss: rng() < 0.5,
-    critical_fn: rng() < 0.5,
-    cross_border: rng() < 0.5,
+    transaction_value_eur_millions: rng() < 0.7 ? randRange(rng, 0, 100) : 0,
+    outage_duration_minutes: rng() < 0.7 ? randRange(rng, 0, 500) : 0,
+    eu_member_states_affected: Math.floor(randRange(rng, 1, 27)),
+    data_loss_occurred: rng() < 0.5,
+    critical_function_affected: rng() < 0.5,
+    cross_border_payment: rng() < 0.5,
     tp_ict: rng() < 0.5,
   };
 }
@@ -86,7 +87,7 @@ function checkP2_monotoneClientsCriterion() {
     const totalClients = randRange(rand, 1000, 1_000_000);
     const c1 = randRange(rand, 0, totalClients / 2);
     const c2 = c1 + randRange(rand, 0, totalClients / 2); // c2 >= c1
-    const base = { incident_type: 'other', entity_type: 'other', total_clients: totalClients, tx_value_eur: 0, outage_duration_mins: 0, member_states: 1, data_loss: false, critical_fn: false, cross_border: false, tp_ict: false };
+    const base = { incident_type: 'other', entity_type: 'other', total_clients: totalClients, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
     const r1 = compute({ ...base, clients_affected: c1 }).output_payload;
     const r2 = compute({ ...base, clients_affected: c2 }).output_payload;
     checked++;
@@ -114,17 +115,17 @@ function checkP3_clientsThresholdAgreement() {
 }
 
 // ---------- P4 (mandatory): ULP-boundary forcing ----------
-const base = { incident_type: 'other', entity_type: 'other', total_clients: 1000, tx_value_eur: 0, outage_duration_mins: 0, member_states: 1, data_loss: false, critical_fn: false, cross_border: false, tp_ict: false };
+const base = { incident_type: 'other', entity_type: 'other', total_clients: 1000, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
 const ULP_BOUNDARY_CASES = [
   ['clients pct exactly 10% — must be met (>= not >)', { ...base, clients_affected: 100, total_clients: 1000 }],
   ['clients pct 1 ULP under 10% — must NOT be met', { ...base, clients_affected: 100 - Number.EPSILON * 512, total_clients: 1000 }],
-  ['tx_value exactly at 50M (other entity) — must be met', { ...base, entity_type: 'other', tx_value_eur: 50 }],
-  ['tx_value 1 ULP under 50M — must NOT be met', { ...base, entity_type: 'other', tx_value_eur: 50 - Number.EPSILON * 32 }],
-  ['tx_value exactly at 10M (payment institution) — must be met', { ...base, entity_type: 'payment_institution', tx_value_eur: 10 }],
-  ['duration exactly at 120min (critical fn) — must be met', { ...base, critical_fn: true, outage_duration_mins: 120 }],
-  ['duration 1 ULP under 120min (critical fn) — must NOT be met', { ...base, critical_fn: true, outage_duration_mins: 120 - Number.EPSILON * 128 }],
-  ['member_states exactly 2 — geographic must be met', { ...base, member_states: 2 }],
-  ['member_states=1 — geographic must NOT be met', { ...base, member_states: 1 }],
+  ['tx_value exactly at 50M (other entity) — must be met', { ...base, entity_type: 'other', transaction_value_eur_millions: 50 }],
+  ['tx_value 1 ULP under 50M — must NOT be met', { ...base, entity_type: 'other', transaction_value_eur_millions: 50 - Number.EPSILON * 32 }],
+  ['tx_value exactly at 10M (payment institution) — must be met', { ...base, entity_type: 'payment_institution', transaction_value_eur_millions: 10 }],
+  ['duration exactly at 120min (critical fn) — must be met', { ...base, critical_function_affected: true, outage_duration_minutes: 120 }],
+  ['duration 1 ULP under 120min (critical fn) — must NOT be met', { ...base, critical_function_affected: true, outage_duration_minutes: 120 - Number.EPSILON * 128 }],
+  ['member_states exactly 2 — geographic must be met', { ...base, eu_member_states_affected: 2 }],
+  ['member_states=1 — geographic must NOT be met', { ...base, eu_member_states_affected: 1 }],
   ['clients_affected=-0 negative zero', { ...base, clients_affected: -0 }],
   ['clients_affected subnormal, total_clients huge', { ...base, clients_affected: Number.MIN_VALUE, total_clients: 1e6 }],
 ];
