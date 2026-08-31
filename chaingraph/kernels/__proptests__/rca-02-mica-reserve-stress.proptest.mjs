@@ -1,5 +1,5 @@
 // rca-02-mica-reserve-stress.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:6fce2ba734c51cd45d54192ce1f75dba7e32561d4e7ee9792a7bfae0cdfea260
+// kernel_digest_at_authoring: sha256:c66896024cd7ffc75c46cdd7c67e42c929234c4c7ce4b342a372b3627a68377b
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -28,7 +28,7 @@ function runFixtureOracle() {
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const output_payload = compute(vec.policy_parameters);
+    const { output_payload } = compute(vec.policy_parameters);
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
     if (a !== b) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
@@ -70,14 +70,14 @@ function checkP1_termination_npaths_clamp() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const output_payload = compute(pp);
+    const { output_payload } = compute(pp);
     checked++;
     if (output_payload.n_paths < 50 || output_payload.n_paths > 2000) violations++;
     if (output_payload.horizon_days !== pp.horizon_days) violations++;
   }
   // direct upper-bound probe (kept out of the random loop for compute-cost reasons)
   {
-    const output_payload = compute({ n_paths: 5000, horizon_days: 5, seed: 1 });
+    const { output_payload } = compute({ n_paths: 5000, horizon_days: 5, seed: 1 });
     checked++;
     if (output_payload.n_paths > 2000) violations++;
   }
@@ -89,7 +89,7 @@ function checkP2_boundedness_pct_fields() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const output_payload = compute(pp);
+    const { output_payload } = compute(pp);
     checked++;
     if (output_payload.breach_probability_pct < 0 || output_payload.breach_probability_pct > 100) violations++;
     if (output_payload.peak_breach_pct < 0 || output_payload.peak_breach_pct > 100) violations++;
@@ -103,10 +103,10 @@ function checkP3_seed_determinism() {
   let violations = 0, checked = 0;
   for (let i = 0; i < 40; i++) {
     const pp = randomPP(rand);
-    const r1 = compute(pp);
-    const r2 = compute(pp);
+    const r1 = JSON.stringify(compute(pp));
+    const r2 = JSON.stringify(compute(pp));
     checked++;
-    if (JSON.stringify(r1) !== JSON.stringify(r2)) violations++;
+    if (r1 !== r2) violations++;
   }
   return { name: 'P3_seed_determinism_metamorphic', trials: checked, violations };
 }
@@ -117,14 +117,14 @@ function checkP4_ulp_forcing() {
   const eps = Number.EPSILON;
   const reserveForced = [1, 1 - eps, 1 + eps, 1.05 - eps, 1.05 + eps, Number.MIN_VALUE, 0, -0];
   for (const rr of reserveForced) {
-    const output_payload = compute({ reserve_ratio_init: rr, n_paths: 100, seed: 7 });
+    const { output_payload } = compute({ reserve_ratio_init: rr, n_paths: 100, seed: 7 });
     checked++;
     if (!Number.isFinite(output_payload.breach_probability_pct)) violations++;
     if (output_payload.n_paths !== 100) violations++;
   }
   const bufferForced = [0, -0, eps, 0.02 - eps, 0.02 + eps, Number.MIN_VALUE, 1e-300];
   for (const buf of bufferForced) {
-    const output_payload = compute({ art36_buffer: buf, n_paths: 100, seed: 7 });
+    const { output_payload } = compute({ art36_buffer: buf, n_paths: 100, seed: 7 });
     checked++;
     if (!Number.isFinite(output_payload.breach_probability_pct)) violations++;
   }
