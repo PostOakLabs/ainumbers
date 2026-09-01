@@ -552,9 +552,24 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // moved was outside this dispatched session's execution grant and was denied). Denominator +4,
    // fresh +4 (all four nodes are freshly proven, so none can be stale), stale UNCHANGED at 117 --
    // still 117 <= 133, ratchet baseline untouched.
+   // 489 -> 488 / 117 -> 118 post-LANDER-BATCH-10 wave assemble (2026-09-01, PR #1602):
+   // detect_transaction_anomalies (ml-01) enters the stale set. The [R51] wave's MERGED-PROVE-0831
+   // receipt (journal.kernel_digest sha256:b1d65baa…) was sealed over THIS branch's fixed kernel
+   // bytes at f3ab6738 and was fresh against the pre-mirror kernel (recomputed b1d65baa at
+   // b1961505, measured). The flag-mirror commit (1ec15d6e) then added errors[]/warnings[] mirror
+   // members to ml-01's output_payload AFTER the proof, moving the kernel source to sha256:157a2103
+   // without a re-prove — the receipt attests bytes that no longer exist. TREATMENT per the
+   // art-282 precedent above (SO #36's second limb): the correction RIDES ml-01's NEXT LEGITIMATE
+   // RE-PROVE; the stale receipt stays visible here as the named caveat. Denominator UNCHANGED at
+   // 606 (the wave assemble of chaingraph.json itself was freshness-neutral: the pre-assembly
+   // trailing receipt 78207d018 was equally stale against the fixed kernel — measured both sides,
+   // not assumed: 488/606 fresh + 118 stale at b1961505 pre-mirror AND at f843d96b post-assemble).
+   // NO CEILING WAS RAISED: the ratchet baseline (scripts/s18-digest-freshness-baseline.json) is
+   // 133 and was not touched; 118 <= 133, so the gate itself stays green. Only this exact-match
+   // calibration moved.
    assert(total === 606, `expected 606 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 489, `expected 489 fresh (calibration set), got ${fresh.length}`);
-   assert(stale.length === 117, `expected 117 stale (see 2026-08-30 notes above), got ${stale.length}`);
+   assert(fresh.length === 488, `expected 488 fresh (calibration set), got ${fresh.length}`);
+   assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
 console.log(`\n${passed} passed, ${failed} failed`);
