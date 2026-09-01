@@ -16,12 +16,18 @@
 // convergence diagnostic it is (mc_convergence_* keys, MC_CONVERGENCE_* flag, MC Convergence verdict)
 // and the retired PLA/eligibility attestation labels never reappear; and P6 detmath helper
 // round-trip: EVERY det.* helper in the kernel's inlined fdlibm block is exercised through a
-// closed inverse composition derived from the ACTUAL kernel bytes (BEGIN..END detmath slice).
+// closed inverse composition, sourced from _rca-01-detmath-snapshot.mjs — a PINNED,
+// non-instrumented copy of the kernel's BEGIN..END detmath block (see that file's header for
+// why: eval'ing the block sliced live out of Stryker-instrumented kernel bytes threw
+// ReferenceError on stryMutAct_* identifiers defined outside the sliced range, and Stryker
+// never produced report.json — SO #34c). compute()'s use of det.* is still exercised, and
+// still killable by mutation, via the fixture-oracle and P1-P5 checks against the real kernel.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/rca-01-frtb-ima-pre-validator.proptest.mjs
 
 import { compute } from '../rca-01-frtb-ima-pre-validator.kernel.mjs';
+import { det } from './_rca-01-detmath-snapshot.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -156,27 +162,15 @@ function checkP5_convergence_diagnostic_labeling() {
 }
 
 // ---------- P6: detmath helper round-trip (RCA01-PLA-SCOPE-1 checklist item 3) ----------
-// The kernel's det module (pure-JS fdlibm) is module-private, so this property derives it from
-// the kernel's own bytes: slice the BEGIN..END detmath block, evaluate it, and round-trip EVERY
-// exported helper through a closed inverse composition. Trig has no asin/acos/atan in the block,
-// so its inverse compositions run through the other helpers: sin/cos recover from tan via the
-// exact identities sin = t/sqrt(1+t^2), cos = 1/sqrt(1+t^2) (sqrt is IEEE-bit-portable), and tan
-// closes as sin/cos.
-function loadDetFromKernelBytes() {
-  const src = readFileSync(path.join(__dirname, '..', 'rca-01-frtb-ima-pre-validator.kernel.mjs'), 'utf8');
-  const begin = src.indexOf('/* ===== BEGIN deterministic transcendental math');
-  const endMarker = '/* ===== END deterministic transcendental math ===== */';
-  const end = src.indexOf(endMarker);
-  if (begin < 0 || end < 0 || end <= begin) throw new Error('detmath block markers not found in kernel bytes');
-  const slice = src.slice(begin, end + endMarker.length);
-  // The slice is `const det = (function () { ... return {...}; })();` — evaluate and hand back det.
-  return new Function('"use strict";' + slice + ';return det;')();
-}
-
+// The kernel's det module (pure-JS fdlibm) is module-private, so this property round-trips it
+// via a pinned, non-instrumented copy of the same block (_rca-01-detmath-snapshot.mjs, imported
+// above) rather than eval'ing it out of the live kernel bytes — see that file's header for why.
+// Trig has no asin/acos/atan in the block, so its inverse compositions run through the other
+// helpers: sin/cos recover from tan via the exact identities sin = t/sqrt(1+t^2),
+// cos = 1/sqrt(1+t^2) (sqrt is IEEE-bit-portable), and tan closes as sin/cos.
 function relErr(a, b) { return Math.abs(a - b) / Math.abs(b); }
 
 function checkP6_detmath_helper_roundtrip() {
-  const det = loadDetFromKernelBytes();
   const checks = [];
   let violations = 0;
   const TOL = 5e-13; // fdlibm is <1ulp per op; a closed round-trip must be far below 2^-40
