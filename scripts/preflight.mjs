@@ -1118,6 +1118,18 @@ const GATES = [
   ['Chain step-status controls (RED+GREEN)', 'node scripts/check-chain-step-status.test.mjs'],
   ['Node status lens controls (GENERATOR-STATUS-FILTER-1)', 'node scripts/_node-status.test.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
+  // WEBMCP-GEN-FROM-MANIFEST-1: the WebMCP registration is a derived artifact.
+  // --check rebuilds every marker-delimited block from its manifest and reds any
+  // hand-edit (byte drift) or coverage regression (emittable page with no block).
+  // The emitted shape re-verifies the schema-read sweep gate LIVE per candidate,
+  // so a schema that drifts after landing turns the freshness gate red too.
+  ['WebMCP registration freshness (WEBMCP-GEN-FROM-MANIFEST-1)', 'node scripts/gen-webmcp-registrations.mjs --check'],
+  ['WebMCP registration generator controls (RED+GREEN)', 'node scripts/gen-webmcp-registrations.mjs --self-test'],
+  // Same gate family as the worker's check-tool-names (CONTRACT §A4.1): 600+
+  // registration names in one browser namespace must never collide with each
+  // other or with the worker's live mcp_names.
+  ['WebMCP name uniqueness (check-tool-names family)', 'node scripts/check-webmcp-name-uniqueness.mjs'],
+  ['WebMCP name uniqueness controls (RED+GREEN)', 'node scripts/check-webmcp-name-uniqueness.mjs --self-test'],
   ['OCG conformance roster self-claim (OCG-CONFROSTER-BUILD-1)', 'node scripts/gen-ocg-conformance-roster.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],

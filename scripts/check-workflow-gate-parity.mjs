@@ -322,6 +322,18 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── WEBMCP-GEN-FROM-MANIFEST-1 (2026-09-01) ─────────────────────────────────
+  ["gen-webmcp-registrations.mjs",
+    "WebMCP registration freshness (--check): rebuilds every marker-delimited registration " +
+    "block from its manifest and reds hand-edits or coverage regressions. Hard in preflight; " +
+    "its CI route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. Reads only tracked repo files — no CI-only input."],
+  ["check-webmcp-name-uniqueness.mjs",
+    "WebMCP registration-name uniqueness (the check-tool-names gate family extended " +
+    "browser-side). Hard in preflight; same CI route as above via scripts-verify.yml's full " +
+    "preflight. Reads tracked pages + chaingraph.json only — no CI-only input."],
+
   // ── the two instances doctrine NAMES, each with its own reason ──────────────
   ["check_tools.js",
     "⚑ THE ROW'S KNOWN INSTANCE (doctrine-execution audit 2026-08-23, register row 32). CONTRACT.md " +

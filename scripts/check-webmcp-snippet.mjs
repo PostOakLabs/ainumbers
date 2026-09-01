@@ -20,7 +20,9 @@
  *   6. exactly one registerTool call per page.
  *   7. schema-minimality (W3C §6.3.3 anti-profiling control) — every
  *      inputSchema property must be read inside execute().
- *   8. annotations carry readOnlyHint:true AND untrustedContentHint:true.
+ *   8. annotations carry readOnlyHint:true, and untrustedContentHint is either
+ *      true (UGC answer class) or omitted WITH an n/a rationale comment
+ *      (truthful-hint posture, WEBMCP-AUDIT-DRYRUN-1 #1616).
  *
  * Usage:
  *   node scripts/check-webmcp-snippet.mjs <file.html> [<file.html> ...]
@@ -59,7 +61,7 @@ function extractStringField(body, field) {
 }
 
 function extractExecuteBody(body) {
-  const m = body.match(/execute\s*:\s*function\s*\([^)]*\)\s*\{/);
+  const m = body.match(/execute\s*:\s*(async\s+)?function\s*\([^)]*\)\s*\{/);
   if (!m) return null;
   const openBrace = body.indexOf('{', m.index + m[0].length - 1);
   const closeBrace = findMatchingBrace(body, openBrace);
@@ -148,7 +150,13 @@ function checkSnippet(src, label) {
   }
 
   if (!/readOnlyHint\s*:\s*true/.test(call.body)) issues.push('annotations missing readOnlyHint:true');
-  if (!/untrustedContentHint\s*:\s*true/.test(call.body)) issues.push('annotations missing untrustedContentHint:true');
+  // Truthful-hint posture (WEBMCP-AUDIT-DRYRUN-1 #1616): a zero-UGC deterministic
+  // local tool must NOT claim untrustedContentHint:true. Either it carries the
+  // field truthfully for its answer class, or it omits the field AND states the
+  // n/a rationale in the block comment. Silent absence of both is red.
+  if (!/untrustedContentHint\s*:\s*true/.test(call.body) && !/untrustedContentHint\s+is\s+not\s+applicable/.test(src)) {
+    issues.push('untrustedContentHint: neither a true field nor an n/a rationale comment (truthful-hint posture)');
+  }
 
   return issues;
 }
@@ -196,7 +204,46 @@ function selfTest() {
   greenIssues.forEach((i) => console.log('  ✗ ' + i));
   console.log(greenIssues.length === 0 ? 'GREEN: PASS (as expected)' : 'GREEN: FAIL (UNEXPECTED — lint is rejecting known-good input)');
 
-  const ok = redIssues.length > 0 && greenIssues.length === 0;
+  // Generated-shape GREEN (WEBMCP-GEN-FROM-MANIFEST-1): async execute, readOnlyHint
+  // only, untrustedContentHint n/a stated in the comment.
+  const genGreen = checkSnippet(`
+<script>
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'validate_generated_fixture',
+    description: 'Generated fixture whose annotations carry readOnlyHint only with an n/a rationale comment.',
+    // untrustedContentHint is not applicable: deterministic local compute, no untrusted content.
+    inputSchema: { type: 'object', properties: {} },
+    annotations: { readOnlyHint: true },
+    execute: async function(params) {
+      return { ok: true };
+    }
+  });
+}
+</script>
+`, 'generated-shape fixture');
+  console.log('--- Generated-shape fixture (expected: PASS) ---');
+  genGreen.forEach((i) => console.log('  ✗ ' + i));
+  console.log(genGreen.length === 0 ? 'GENERATED-SHAPE: PASS (as expected)' : 'GENERATED-SHAPE: FAIL (UNEXPECTED)');
+
+  // RED: readOnlyHint only, no n/a rationale — the truthful-hint posture gap.
+  const hintRed = checkSnippet(`
+<script>
+mc.registerTool({
+  name: 'silent_hint_fixture',
+  description: 'Fixture that omits the hint and never states why, which is exactly the gap.',
+  inputSchema: { type: 'object', properties: {} },
+  annotations: { readOnlyHint: true },
+  execute: function(params) { return { ok: true }; }
+});
+</script>
+`, 'hint-red fixture');
+  console.log('--- Hint-gap fixture (expected: FAIL) ---');
+  hintRed.forEach((i) => console.log('  ✗ ' + i));
+  console.log(hintRed.length > 0 ? 'HINT-GAP: FAIL (as expected)' : 'HINT-GAP: PASS (UNEXPECTED — lint is not catching the truthful-hint gap)');
+
+  const ok = redIssues.length > 0 && greenIssues.length === 0 && genGreen.length === 0 && hintRed.length > 0;
   process.exit(ok ? 0 : 1);
 }
 
