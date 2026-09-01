@@ -886,6 +886,15 @@ const GATES = [
   ["Floor label strength lint fixture proof (SO #40b pairing)", "node scripts/check-floor-label-strength.test.mjs"],
   ["Narrative vocab lint (NARRATIVE-VOCAB-LINT-1)", "node scripts/check-narrative-vocab.mjs"],
   ["Narrative vocab lint fixture proof (SO #40b pairing)", "node scripts/check-narrative-vocab.test.mjs"],
+  // FLAGS-COMPUTED-LINT-1 (Tim popup GO 2026-08-30): compliance_flags values emitted
+  // UNCONDITIONALLY -- literal constant arrays, always-on object entries, bare pushes with no
+  // enclosing conditional -- the unearned-green attestation class (qfa-04 L1652 FRTB_CVA_DESK_COMPUTED
+  // on zero-input runs; qfa-03 L1706; rca-01 L1673 'PLA_TEST_' + plaStatus). sim-03/rca-02 are
+  // the live-byte GREEN controls in the paired proof. Ratcheted baseline
+  // (scripts/flags-computed-baseline.json, counts only go DOWN); the three named engines are
+  // baselined hits -- the batch-3 rows fix them and the baseline shrinks.
+  ["Flags-computed lint (FLAGS-COMPUTED-LINT-1)", "node scripts/check-flags-computed.mjs"],
+  ["Flags-computed lint fixture proof (SO #40b pairing)", "node scripts/check-flags-computed.test.mjs"],
   ["Vow-vs-code lint (VOW-VS-CODE-LINT-1)", "node scripts/check-vow-vs-code.mjs"],
   ["Vow-vs-code lint fixture proof (SO #40b pairing)", "node scripts/check-vow-vs-code.test.mjs"],
   ["Frozen clock lint (NO-CLOCK-LINT-1)", "node scripts/lint-frozen-clock.mjs"],
