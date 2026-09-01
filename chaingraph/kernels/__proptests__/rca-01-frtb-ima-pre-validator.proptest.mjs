@@ -1,5 +1,5 @@
 // rca-01-frtb-ima-pre-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:da8805bcbfcd243d64f4bc2ac97f773b290fe8baa5a30fa7277e2d8c965506bb
+// kernel_digest_at_authoring: sha256:270c13fb871367dfb26354afef861b44f31e9ab426a797814c7cd667b1f4a584
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -11,12 +11,23 @@
 // shape; the property asserts n_scenarios/n_positions echo the requested value and the loop performs
 // no extra work), boundedness/differential (capital_required === max(capital_ima, sa_floor) and
 // floor_binding === capital_ima < sa_floor, recomputed directly), seed-determinism metamorphic (same
-// pp -> byte-identical output, twice), and ULP-boundary forcing on confidenceLevel/nmrfRate.
+// pp -> byte-identical output, twice), ULP-boundary forcing on confidenceLevel/nmrfRate, and P5
+// diagnostic-labeling (RCA01-PLA-SCOPE-1): the convergence output is labeled as the Monte-Carlo
+// convergence diagnostic it is (mc_convergence_* keys, MC_CONVERGENCE_* flag, MC Convergence verdict)
+// and the retired PLA/eligibility attestation labels never reappear; and P6 detmath helper
+// round-trip: EVERY det.* helper in the kernel's inlined fdlibm block is exercised through a
+// closed inverse composition, sourced from _rca-01-detmath-snapshot.mjs — a PINNED,
+// non-instrumented copy of the kernel's BEGIN..END detmath block (see that file's header for
+// why: eval'ing the block sliced live out of Stryker-instrumented kernel bytes threw
+// ReferenceError on stryMutAct_* identifiers defined outside the sliced range, and Stryker
+// never produced report.json — SO #34c). compute()'s use of det.* is still exercised, and
+// still killable by mutation, via the fixture-oracle and P1-P5 checks against the real kernel.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/rca-01-frtb-ima-pre-validator.proptest.mjs
 
 import { compute } from '../rca-01-frtb-ima-pre-validator.kernel.mjs';
+import { det } from './_rca-01-detmath-snapshot.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -89,7 +100,7 @@ function checkP2_capital_differential() {
     const expectedCapital = +Math.max(output_payload.capital_ima, output_payload.sa_floor).toFixed(2);
     if (Math.abs(expectedCapital - output_payload.capital_required) > 0.02) violations++;
     if (output_payload.floor_binding !== (output_payload.capital_ima < output_payload.sa_floor)) violations++;
-    if (!Number.isFinite(output_payload.pla_ratio)) violations++;
+    if (!Number.isFinite(output_payload.mc_convergence_ratio)) violations++;
   }
   return { name: 'P2_capital_required_and_floor_binding_differential', trials: checked, violations };
 }
@@ -115,7 +126,7 @@ function checkP4_ulp_forcing() {
   for (const cl of clForced) {
     const { output_payload } = compute({ confidenceLevel: cl, nScenarios: 50, seed: 7 });
     checked++;
-    if (!Number.isFinite(output_payload.pla_ratio)) violations++;
+    if (!Number.isFinite(output_payload.mc_convergence_ratio)) violations++;
   }
   const nmrfForced = [0, -0, eps, 1 - eps, 1, Number.MIN_VALUE];
   for (const nr of nmrfForced) {
@@ -125,6 +136,113 @@ function checkP4_ulp_forcing() {
   }
   return { name: 'P4_ulp_boundary_forcing_confidenceLevel_and_nmrfRate', trials: checked, violations };
 }
+
+// ---------- P5: diagnostic-labeling (RCA01-PLA-SCOPE-1) ----------
+// The convergence metric must present as a Monte-Carlo convergence diagnostic, never as a
+// regulatory P&L-attribution result or an IMA-eligibility attestation.
+function checkP5_convergence_diagnostic_labeling() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = randomPP(rand);
+    const { output_payload, compliance_flags } = compute(pp);
+    checked++;
+    for (const key of Object.keys(output_payload)) {
+      if (key.startsWith('pla_')) violations++;                       // retired key family
+    }
+    if (typeof output_payload.verdict === 'string' && (output_payload.verdict.includes('PLA') || output_payload.verdict.includes('IMA Pre-Validation'))) violations++;
+    if (typeof output_payload.mc_convergence_status !== 'string' || !['GREEN', 'AMBER', 'RED'].includes(output_payload.mc_convergence_status)) violations++;
+    if (typeof output_payload.mc_convergence_ratio !== 'number' || !Number.isFinite(output_payload.mc_convergence_ratio)) violations++;
+    const mcFlags = compliance_flags.filter((f) => typeof f === 'string' && f.startsWith('MC_CONVERGENCE_'));
+    const plaFlags = compliance_flags.filter((f) => typeof f === 'string' && f.startsWith('PLA_TEST_'));
+    if (mcFlags.length !== 1) violations++;                            // exactly one, COMPUTED from status
+    if (plaFlags.length !== 0) violations++;                           // retired flag family
+    if (mcFlags.length === 1 && mcFlags[0] !== 'MC_CONVERGENCE_' + output_payload.mc_convergence_status) violations++;
+  }
+  return { name: 'P5_convergence_diagnostic_labeling', trials: checked, violations };
+}
+
+// ---------- P6: detmath helper round-trip (RCA01-PLA-SCOPE-1 checklist item 3) ----------
+// The kernel's det module (pure-JS fdlibm) is module-private, so this property round-trips it
+// via a pinned, non-instrumented copy of the same block (_rca-01-detmath-snapshot.mjs, imported
+// above) rather than eval'ing it out of the live kernel bytes — see that file's header for why.
+// Trig has no asin/acos/atan in the block, so its inverse compositions run through the other
+// helpers: sin/cos recover from tan via the exact identities sin = t/sqrt(1+t^2),
+// cos = 1/sqrt(1+t^2) (sqrt is IEEE-bit-portable), and tan closes as sin/cos.
+function relErr(a, b) { return Math.abs(a - b) / Math.abs(b); }
+
+function checkP6_detmath_helper_roundtrip() {
+  const checks = [];
+  let violations = 0;
+  const TOL = 5e-13; // fdlibm is <1ulp per op; a closed round-trip must be far below 2^-40
+
+  // helper: exp — inverse log
+  {
+    let max = 0;
+    for (let i = 0; i < 4000; i++) {
+      const p = -700 + (i / 3999) * 1400 + 1e-9 * ((i % 7) - 3);
+      const r = relErr(det.log(det.exp(p)), p); if (Number.isFinite(r)) max = Math.max(max, r);
+    }
+    checks.push({ helper: 'exp', roundtrip: 'log(exp(p))==p', n: 4000, max_rel_err: max, pass: max <= TOL });
+  }
+  // helper: log — inverse exp
+  {
+    let max = 0;
+    for (let i = 0; i < 4000; i++) {
+      const p = Math.pow(10, -280 + (i / 3999) * 580); // 1e-280 .. 1e300
+      const r = relErr(det.exp(det.log(p)), p); if (Number.isFinite(r)) max = Math.max(max, r);
+    }
+    checks.push({ helper: 'log', roundtrip: 'exp(log(p))==p', n: 4000, max_rel_err: max, pass: max <= TOL });
+  }
+  // helper: log2 — inverse pow(2, .)
+  {
+    let max = 0;
+    for (let i = 0; i < 4000; i++) {
+      const p = Math.pow(10, -280 + (i / 3999) * 580);
+      const r = relErr(det.pow(2, det.log2(p)), p); if (Number.isFinite(r)) max = Math.max(max, r);
+    }
+    checks.push({ helper: 'log2', roundtrip: 'pow(2,log2(p))==p', n: 4000, max_rel_err: max, pass: max <= TOL });
+  }
+  // helper: pow — inverse via 1/y exponent (odd y=3 on positive base), plus log2(pow(2,p))==p
+  {
+    let max = 0;
+    for (let i = 0; i < 4000; i++) {
+      const p = Math.pow(10, -90 + (i / 3999) * 180);
+      const r = relErr(det.pow(det.pow(p, 1 / 3), 3), p); if (Number.isFinite(r)) max = Math.max(max, r);
+      const r2 = relErr(det.log2(det.pow(2, (i / 3999) * 2000 - 1000)), (i / 3999) * 2000 - 1000);
+      if (Number.isFinite(r2)) max = Math.max(max, r2);
+    }
+    checks.push({ helper: 'pow', roundtrip: 'pow(pow(p,1/3),3)==p; log2(pow(2,p))==p', n: 8000, max_rel_err: max, pass: max <= TOL });
+  }
+  // helpers: sin, cos, tan — closed compositions through the sibling helpers (no asin/acos/atan
+  // exists in the block). tan closes full-range as sin/cos (exercises Payne-Hanek reduction).
+  // The half-round identities sin(p)=t/sqrt(1+t^2), cos(p)=1/sqrt(1+t^2) hold only where
+  // cos(p)>0, so they run on |p| < 1.5 (< pi/2) as absolute-error checks on O(1) values.
+  // Full-range closure for sin/cos is the zero-free Pythagorean identity sin^2+cos^2==1
+  // (shift identities are excluded: the +/-pi/2 shift is inexact in doubles at large |p|,
+  // which makes the INSTRUMENT fail near zeros of sin/cos, not the helpers).
+  {
+    let maxS = 0, maxC = 0, maxT = 0, maxPyth = 0;
+    for (let i = 0; i < 4000; i++) {
+      const p = -40 + (i / 3999) * 80 + 1e-7 * ((i % 13) - 6);
+      const t = det.tan(p), s = det.sin(p), c = det.cos(p);
+      const rT = Math.abs(t - s / c); if (Number.isFinite(rT)) maxT = Math.max(maxT, rT / (Math.abs(t) || 1));
+      const rP = Math.abs(s * s + c * c - 1); if (Number.isFinite(rP)) maxPyth = Math.max(maxPyth, rP);
+      if (Math.abs(p) < 1.5) {
+        const tq = det.tan(p);
+        const rSq = Math.abs(det.sin(p) - tq / Math.sqrt(1 + tq * tq)); if (Number.isFinite(rSq)) maxS = Math.max(maxS, rSq);
+        const rCq = Math.abs(det.cos(p) - 1 / Math.sqrt(1 + tq * tq)); if (Number.isFinite(rCq)) maxC = Math.max(maxC, rCq);
+      }
+    }
+    maxS = Math.max(maxS, maxPyth); maxC = Math.max(maxC, maxPyth);
+    checks.push({ helper: 'sin', roundtrip: 'sin==tan/sqrt(1+tan^2) on |p|<pi/2; sin^2+cos^2==1 full-range', n: 8000, max_rel_err: maxS, pass: maxS <= 1e-14 });
+    checks.push({ helper: 'cos', roundtrip: 'cos==1/sqrt(1+tan^2) on |p|<pi/2; sin^2+cos^2==1 full-range', n: 8000, max_rel_err: maxC, pass: maxC <= 1e-14 });
+    checks.push({ helper: 'tan', roundtrip: 'tan(p)==sin(p)/cos(p)', n: 4000, max_rel_err: maxT, pass: maxT <= TOL });
+  }
+
+  for (const c of checks) if (!c.pass) violations++;
+  return { name: 'P6_detmath_helper_roundtrip', tolerance_rel: TOL, helpers: checks, violations };
+}
+
 
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
@@ -137,6 +255,8 @@ results.properties.push(checkP1_termination_input_bound());
 results.properties.push(checkP2_capital_differential());
 results.properties.push(checkP3_seed_determinism());
 results.properties.push(checkP4_ulp_forcing());
+results.properties.push(checkP5_convergence_diagnostic_labeling());
+results.properties.push(checkP6_detmath_helper_roundtrip());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
