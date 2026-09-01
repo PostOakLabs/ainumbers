@@ -1629,6 +1629,7 @@ export function compute(pp) {
         execution_state: 'did_not_run',
         decision: null,
         reason: 'degenerate_subsample_size',
+        errors: ['degenerate_subsample_size'],
         subsample_size_declared: subsample,
         scored_population: nTxns,
       },
@@ -1713,6 +1714,10 @@ export function compute(pp) {
     flagRate > 0.10 ? 'SAR_REVIEW_RECOMMENDED' : 'BATCH_WITHIN_BASELINE',
   ];
 
+  // Flag-mirror doctrine: the conditional compliance_flags mirror into the payload so
+  // gates can route on the caveat without reading compliance_flags — the kill-condition
+  // flag mirrors as errors[] (see the degenerate-subsample refusal above), and the
+  // rate-conditional SAR flag mirrors as warnings[] here.
   const output_payload = {
     verdict,
     flagged_count: flagged.length,
@@ -1722,6 +1727,7 @@ export function compute(pp) {
     max_anomaly_score: +maxScore.toFixed(4),
     threshold,
     n_transactions_scored: nTxns,
+    warnings: flagRate > 0.10 ? ['SAR_REVIEW_RECOMMENDED'] : [],
   };
 
   return { output_payload, compliance_flags: complianceFlags };

@@ -1,5 +1,5 @@
 // ml-01-isolation-forest.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:b1d65baa185d8313649be87c08002d3557cbf0674e4c730be08bb2ce0756df28
+// kernel_digest_at_authoring: sha256:157a2103a758127d8f6afe40c5c7733d63896ccf6cfaf8a4f9f1ef80b103126f
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
