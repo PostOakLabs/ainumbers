@@ -413,7 +413,8 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix, re-verified as of 2026-08-30 against rtoy/fdlibm-js gh-pages log2.js:
+// declarations only, numeric statements byte-identical to that source.
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1682,14 +1683,26 @@ function runCascadePath(nodes, nodeMap, seedIds, cascadeThreshold, mttrScale, rn
   }
 
   const failedNodes = nodes.filter(n => failed.has(n.id));
-  const clientsAff  = Math.min(1, failedNodes.reduce((s, n) => s + n.clients, 0));
-  const txnAff      = Math.min(1, failedNodes.reduce((s, n) => s + n.txn, 0));
+  // Affected-fraction aggregation. Each node's clients/txn value is the FRACTION of the
+  // population depending on that node, so the affected share of a multi-node failure is
+  // the UNION of those populations. Summing double-counts everyone served by two failed
+  // nodes and then hid the error behind a Math.min(1, .) saturation clamp. With no
+  // joint-distribution data the union is estimated by the standard independence
+  // complement, 1 - prod(1 - f_i): each overlap counted exactly once, bounded in
+  // [max f_i, 1], monotone in every f_i, and no saturation clamp needed. A single failed
+  // node has no overlap, so its union is exactly f_i (the complement form would lose the
+  // report-trigger boundary to float error: 1-(1-0.10) < 0.10). The report trigger below
+  // reads this number.
+  const unionFraction = (fs) => (fs.length === 1 ? fs[0] : 1 - fs.reduce((u, f) => u * (1 - f), 1));
+  const clientsAff = unionFraction(failedNodes.map(n => n.clients));
+  const txnAff     = unionFraction(failedNodes.map(n => n.txn));
   const critBreach  = failedNodes.some(n => n.critical);
   const critTimes   = failedNodes.filter(n => n.critical && !seedIds.includes(n.id))
                                  .map(n => failTime[n.id] ?? 0);
   const timeToCrit  = critTimes.length ? Math.min(...critTimes) : (critBreach ? 0 : Infinity);
   const doraReport  = clientsAff >= 0.10 || txnAff >= 0.10 || critBreach;
 
+  // clientsAff/txnAff ride the path result so compute() can report their Monte Carlo mean.
   return {
     failedNodeIds: [...failed],
     failedCount:   failed.size,
@@ -1718,8 +1731,11 @@ export function compute(pp) {
   const topology = TOPOLOGIES[topology_id];
   if (!topology) {
     return {
-      verdict: 'ERROR',
-      error:   `Unknown topology: ${topology_id}`,
+      output_payload: {
+        verdict: 'ERROR',
+        error:   `Unknown topology: ${topology_id}`,
+        errors:  [`Unknown topology: ${topology_id}`],
+      },
       compliance_flags: ['INVALID_TOPOLOGY'],
     };
   }
@@ -1727,10 +1743,24 @@ export function compute(pp) {
   const nodes   = topology.nodes;
   const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
 
-  // Seed nodes: always at least one (default to first node if not specified)
-  const seedIds = [failure_node, pp.failure_node_2]
-    .filter(Boolean)
-    .filter(id => nodeMap[id]);
+  // Seed nodes: at least one, defaulting to the first node of the topology when none are
+  // given. A seed id that is PRESENT but not in the topology is a caller error and fails
+  // closed with a structured error: dropping it silently produced a plausible-looking
+  // run seeded from an unrelated default node.
+  const requestedSeeds = [failure_node, pp.failure_node_2].filter(Boolean);
+  const unknownSeeds   = requestedSeeds.filter(id => !nodeMap[id]);
+  if (unknownSeeds.length > 0) {
+    const message = `Unknown failure node id: ${unknownSeeds.join(', ')} (topology: ${topology_id})`;
+    return {
+      output_payload: {
+        verdict: 'ERROR',
+        error:   message,
+        errors:  [message],
+      },
+      compliance_flags: ['UNKNOWN_FAILURE_NODE'],
+    };
+  }
+  const seedIds = requestedSeeds;
   if (seedIds.length === 0) {
     // Default to first node in topology
     seedIds.push(nodes[0].id);
@@ -1746,14 +1776,24 @@ export function compute(pp) {
     pathResults.push(runCascadePath(nodes, nodeMap, seedIds, cascade_threshold, mttrScale, rng));
   }
 
-  const ttcArr = pathResults.map(p => p.timeToCrit).sort((a, b) => a - b);
-  const p5_breach_h  = +pctAt(ttcArr, 0.05).toFixed(2);
-  const p25_breach_h = +pctAt(ttcArr, 0.25).toFixed(2);
-  const p50_breach_h = +pctAt(ttcArr, 0.50).toFixed(2);
-  const p75_breach_h = +pctAt(ttcArr, 0.75).toFixed(2);
-  const p95_breach_h = +pctAt(ttcArr, 0.95).toFixed(2);
+  // The percentile base EXCLUDES the 999 no-recovery sentinel: a sentinel inside a
+  // percentile (or a mean) silently poisons the statistic. Paths whose cascade never
+  // reaches a critical node are counted separately in unrecovered_count; with zero
+  // recovered paths the percentiles are null rather than a fabricated number.
+  const ttcArr = pathResults.map(p => p.timeToCrit).filter(t => t !== 999).sort((a, b) => a - b);
+  const unrecovered_count = pathResults.length - ttcArr.length;
+  const p5_breach_h  = ttcArr.length ? +pctAt(ttcArr, 0.05).toFixed(2) : null;
+  const p25_breach_h = ttcArr.length ? +pctAt(ttcArr, 0.25).toFixed(2) : null;
+  const p50_breach_h = ttcArr.length ? +pctAt(ttcArr, 0.50).toFixed(2) : null;
+  const p75_breach_h = ttcArr.length ? +pctAt(ttcArr, 0.75).toFixed(2) : null;
+  const p95_breach_h = ttcArr.length ? +pctAt(ttcArr, 0.95).toFixed(2) : null;
 
   const dora_reporting_probability = +(pathResults.filter(p => p.doraReport).length / n_paths).toFixed(3);
+
+  // Monte Carlo mean of the per-path union-affected fractions (the same numbers the
+  // per-path report trigger reads).
+  const clientsAffected = pathResults.reduce((s, p) => s + p.clientsAff, 0) / n_paths;
+  const txnAffected     = pathResults.reduce((s, p) => s + p.txnAff, 0) / n_paths;
 
   const nodeFailCount = {};
   for (const n of nodes) nodeFailCount[n.id] = 0;
@@ -1788,30 +1828,34 @@ export function compute(pp) {
   if (dora_reporting_probability >= 0.50) compliance_flags.push('DORA_MAJOR_INCIDENT_RISK_HIGH');
   if (dora_reporting_probability >= 0.25) compliance_flags.push('DORA_REPORTING_THRESHOLD_EXPOSURE');
   if (critPathNodes.some(n => n.critical)) compliance_flags.push('CRITICAL_FUNCTION_CASCADE_RISK');
-  if (p5_breach_h < 1) compliance_flags.push('RAPID_PROPAGATION_RISK');
+  if (p5_breach_h !== null && p5_breach_h < 1) compliance_flags.push('RAPID_PROPAGATION_RISK');
   if (compliance_flags.length === 0) compliance_flags.push('DORA_CASCADE_RISK_CONTAINED');
 
   return {
-    verdict,
-    p5_breach_h,
-    p25_breach_h,
-    p50_breach_h,
-    p75_breach_h,
-    p95_breach_h,
-    dora_reporting_probability,
-    critical_path_node,
-    median_nodes_affected,
-    node_cascade_probabilities,
-    topology_id,
-    n_paths,
+    output_payload: {
+      verdict,
+      errors: [],
+      p5_breach_h,
+      p25_breach_h,
+      p50_breach_h,
+      p75_breach_h,
+      p95_breach_h,
+      dora_reporting_probability,
+      clients_affected: +clientsAffected.toFixed(4),
+      txn_affected: +txnAffected.toFixed(4),
+      unrecovered_count,
+      critical_path_node,
+      median_nodes_affected,
+      node_cascade_probabilities,
+      topology_id,
+      n_paths,
+    },
     compliance_flags,
   };
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const result = compute(pp);
-  const { compliance_flags = {} } = result;
-  const output_payload = result;
+  const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
