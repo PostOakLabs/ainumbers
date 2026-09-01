@@ -1,5 +1,5 @@
 // qfa-03-stress-test-engine.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:16acc10c94489a5127aab924048c6903c4df2ac6bb1acb5f2d1b2ed1982769d4
+// kernel_digest_at_authoring: sha256:eac621d13075cc8aee43a78b7245aae8bc9ab8201be56721993b906f1546feb0
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
