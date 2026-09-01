@@ -413,7 +413,7 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix; numeric algorithm re-verified as of 2026-08-30 vs rtoy/fdlibm-js gh-pages log2.js — unchanged.
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1596,9 +1596,9 @@ const SCENARIOS = [
 
 // ── Presets ───────────────────────────────────────────────────────────────────
 const PRESETS = {
-  small_desk:  { nAssets:20,  portVol:0.15, equityBeta:0.6, creditSens:0.25, rateDur:3,  mcPaths:1000, confLevel:0.99, seed:42  },
-  medium_book: { nAssets:60,  portVol:0.18, equityBeta:0.4, creditSens:0.5,  rateDur:5,  mcPaths:1000, confLevel:0.99, seed:137 },
-  large_inst:  { nAssets:150, portVol:0.22, equityBeta:0.3, creditSens:0.25, rateDur:8,  mcPaths:2000, confLevel:0.99, seed:999 },
+  small_desk:  { portVol:0.15, equityBeta:0.6, creditSens:0.25, rateDur:3,  mcPaths:1000, confLevel:0.99, seed:42  },
+  medium_book: { portVol:0.18, equityBeta:0.4, creditSens:0.5,  rateDur:5,  mcPaths:1000, confLevel:0.99, seed:137 },
+  large_inst:  { portVol:0.22, equityBeta:0.3, creditSens:0.25, rateDur:8,  mcPaths:2000, confLevel:0.99, seed:999 },
 };
 
 // ── compute ───────────────────────────────────────────────────────────────────
@@ -1606,7 +1606,6 @@ export function compute(pp) {
   const presetName   = pp.preset;
   const pDef         = presetName ? PRESETS[presetName] : null;
 
-  const nAssets      = pp.n_assets      ?? pDef?.nAssets      ?? 20;
   const portVol      = pp.portfolio_vol ?? pDef?.portVol      ?? 0.15;
   const equityBeta   = pp.equity_beta   ?? pDef?.equityBeta   ?? 0.6;
   const creditSens   = pp.credit_sensitivity ?? pDef?.creditSens ?? 0.25;
@@ -1632,8 +1631,14 @@ export function compute(pp) {
     const sc = SCENARIOS[si];
     const equityLoss = equityBeta  * Math.abs(sc.equityShock) * portVol / 0.15;
     const creditLoss = creditSens  * sc.creditShock * 10;
-    const rateLoss   = rateDur     * Math.abs(sc.rateShock);
-    const totalLoss  = Math.min(equityLoss + creditLoss + rateLoss, 0.90);
+    // duration × ADVERSE (rising) rate move only; a falling rate is a gain for a
+    // positive-duration book and contributes no loss (no gain netting in this model).
+    const rateLoss   = rateDur     * Math.max(0, sc.rateShock);
+    // 0.90 loss cap — clamp-and-flag: the raw pre-cap figure travels in uncapped_loss
+    // and LOSS_CAP_APPLIED is emitted whenever the cap binds.
+    const rawLoss    = equityLoss + creditLoss + rateLoss;
+    const capApplied = rawLoss > 0.90;
+    const totalLoss  = Math.min(rawLoss, 0.90);
 
     const rngS = makeLCG(seed + si * 100 + 1);
     const sPnls = [];
@@ -1653,6 +1658,8 @@ export function compute(pp) {
       equityLoss:  +equityLoss.toFixed(6),
       creditLoss:  +creditLoss.toFixed(6),
       rateLoss:    +rateLoss.toFixed(6),
+      loss_cap_applied: capApplied,
+      uncapped_loss:    +rawLoss.toFixed(6),
       totalLoss:   +totalLoss.toFixed(6),
       stressedVar: +sVar.toFixed(6),
       stressedES:  +esAvg.toFixed(6),
@@ -1685,14 +1692,21 @@ export function compute(pp) {
     scenarioResults.map(s => [s.id, +s.totalLoss.toFixed(6)])
   );
 
+  // Flag-mirror: the caveat-class conditional flag LOSS_CAP_APPLIED mirrors into
+  // `warnings`, present exactly when the cap bound, naming each capped scenario.
+  const warnings = [];
+  for (const s of scenarioResults) if (s.loss_cap_applied) warnings.push(`LOSS_CAP_APPLIED:${s.id}`);
+
   const compliance_flags = [];
   if (stressMultiplier >= 3.0) compliance_flags.push('PILLAR2_CAPITAL_BUFFER_REQUIRED');
   else if (stressMultiplier >= 1.8) compliance_flags.push('PILLAR2_CAPITAL_ADD_ON_ADVISABLE');
   else compliance_flags.push('STRESS_TEST_CONTAINED');
-  compliance_flags.push('EBA_GL_2018_04_STRESS_TEST_APPLIED');
-  compliance_flags.push('BASEL3_PILLAR2_ICAAP_STRESS_ASSESSED');
+  if (scenarioResults.some(s => s.loss_cap_applied)) compliance_flags.push('LOSS_CAP_APPLIED');
+  // Method flags — honest-by-construction statements of what this kernel computes.
+  compliance_flags.push('HISTORICAL_SCENARIO_MC_STRESS_COMPUTED');
+  compliance_flags.push('PILLAR2_STRESS_MULTIPLIER_COMPUTED');
 
-  return {
+  const out = {
     verdict,
     worst_case_scenario:  worstSc.id,
     worst_case_loss:      +worstSc.totalLoss.toFixed(6),
@@ -1704,8 +1718,10 @@ export function compute(pp) {
     recovery_days_estimate: worstSc.recoveryDays,
     scenario_losses,
     scenario_details:     scenarioResults,
+    warnings,
     compliance_flags,
   };
+  return out;
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
