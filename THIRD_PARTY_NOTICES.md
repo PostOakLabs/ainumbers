@@ -44,3 +44,13 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Note:** BSD-2-Clause has no NOTICE-file concept — copyright retention duty is met inline (original SunPro + rtoy headers preserved verbatim in the bundle). Not on the original borrow-audit candidate list — surfaced by check-credits-coverage.mjs's own scan while building this registry, confirmed present via file header read.
 - **Path(s) in this repo:**
   - `chaingraph/kernels/_detmath.bundle.mjs`
+
+## Redoc (redoc.standalone.js)
+
+- **Version:** 2.5.3
+- **License:** MIT
+- **Upstream:** https://github.com/Redocly/redoc
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** OpenAPI reference renderer for the docs/ API portal (CONTRACT §A10 carve-out). Pinned bundle + stripped-license sidecar (redoc.standalone.js.LICENSE.txt); loaded on explicit user action only, script-src 'self', no CDN host. sha256 1320f442151c57c447d3b70c7ffc6c4f86d08464020fe34c8cc5d3164e9944f0.
+- **Path(s) in this repo:**
+  - `docs/vendor/`
