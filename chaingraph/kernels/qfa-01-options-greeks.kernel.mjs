@@ -407,7 +407,8 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix, re-verified as of 2026-08-30 against rtoy/fdlibm-js (gh-pages) log2.js
+// and against this file's own diff history: declarations only, numeric algorithm unchanged.
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1577,7 +1578,11 @@ function normPdf(x) {
 }
 
 export function compute(pp) {
-  const complianceFlags = ['FRTB_SA_GREEKS_COMPUTED', 'BASEL_III_MARKET_RISK', 'IFRS13_FAIR_VALUE_ASSESSED'];
+  // Compliance flags are COMPUTED per outcome, never one literal array echoed on every path:
+  // a branch that computes no greeks must not claim FRTB_SA_GREEKS_COMPUTED, and the
+  // negative-vol refusal carries FRTB_SA_GREEKS_REJECTED (flag-mirror doctrine: the refusal
+  // also rides output_payload.errors, a closed mirror member).
+  const baseFlags = ['BASEL_III_MARKET_RISK', 'IFRS13_FAIR_VALUE_ASSESSED'];
 
   const S = Number(pp.spot);
   const K = Number(pp.strike);
@@ -1589,16 +1594,57 @@ export function compute(pp) {
 
   // Guard: missing/invalid inputs (empty input → NaN) must never produce non-finite output
   // (NaN is not valid I-JSON and breaks execution_hash). Return a finite zero-greeks result.
-  if (![S, K, T, sigma, r, q].every(Number.isFinite) || S <= 0 || K <= 0 || sigma <= 0) {
+  // No greeks were computed here, so FRTB_SA_GREEKS_COMPUTED is not claimed.
+  if (![S, K, T, sigma, r, q].every(Number.isFinite) || S <= 0 || K <= 0) {
     const output_payload = { price: 0, delta: 0, gamma: 0, theta_per_day: 0, vega_per_pct: 0, rho_per_pct: 0, d1: 0, d2: 0, delta_risk_band: 'LOW', type: pp.type || 'call' };
-    return { output_payload, compliance_flags: complianceFlags };
+    return { output_payload, compliance_flags: baseFlags };
+  }
+
+  // σ < 0 is INVALID input, never a price: refuse with a structured error instead of
+  // silently zeroing the position (a negative vol is a feed fault, not a valuation).
+  if (sigma < 0) {
+    const output_payload = { errors: ['negative_volatility_invalid'], vol: pp.vol, type: pp.type || 'call' };
+    return { output_payload, compliance_flags: [...baseFlags, 'FRTB_SA_GREEKS_REJECTED'] };
   }
 
   if (T <= 0) {
     const intrinsic = isCall ? Math.max(S - K, 0) : Math.max(K - S, 0);
     const delta = isCall ? (S > K ? 1 : 0) : (S < K ? -1 : 0);
     const output_payload = { price: intrinsic, delta, gamma: 0, theta_per_day: 0, vega_per_pct: 0, rho_per_pct: 0, d1: 0, d2: 0, delta_risk_band: 'LOW', type: pp.type || 'call' };
-    return { output_payload, compliance_flags: complianceFlags };
+    return { output_payload, compliance_flags: [...baseFlags, 'FRTB_SA_GREEKS_COMPUTED'] };
+  }
+
+  // σ = 0 is VALID-DEGENERATE, not an error: with zero volatility the option IS a forward.
+  // Return the exact σ→0⁺ limits, derived independently (audit table not copied): the
+  // forward-moneyness test S·e^{-qT} vs K·e^{-rT} decides; price is the discounted intrinsic
+  // on the forward; delta → ±e^{-qT} (= 0 or ±1 when q = 0); gamma and vega → 0; the vol
+  // term of theta vanishes while the rate/dividend terms keep their N(±∞) limits; rho keeps
+  // K·T·e^{-rT}/100 · N(±∞). d1/d2 diverge to ±∞ in the limit; 0 is the finite stand-in
+  // (the same convention the T<=0 branch uses). All transcendentals via det.* so every
+  // surface emits identical bytes. Continuity with σ→0⁺ is pinned by the fixture pair.
+  if (sigma === 0) {
+    const eqT = det.exp(-q * T);
+    const erT = det.exp(-r * T);
+    const fwdItm = isCall ? S * eqT > K * erT : S * eqT < K * erT;
+    const price = fwdItm ? Math.abs(S * eqT - K * erT) : 0;
+    const delta = fwdItm ? (isCall ? eqT : -eqT) : 0;
+    const theta = fwdItm ? (isCall ? -r * K * erT + q * S * eqT : r * K * erT - q * S * eqT) / 365 : 0;
+    const rho = fwdItm ? (isCall ? K * T * erT : -K * T * erT) / 100 : 0;
+    const absDelta = Math.abs(delta);
+    const deltaRiskBand = absDelta >= 0.7 ? 'HIGH' : absDelta >= 0.3 ? 'MODERATE' : 'LOW';
+    const output_payload = {
+      price: +price.toFixed(6),
+      delta: +delta.toFixed(6),
+      gamma: 0,
+      theta_per_day: +theta.toFixed(6),
+      vega_per_pct: 0,
+      rho_per_pct: +rho.toFixed(6),
+      d1: 0,
+      d2: 0,
+      delta_risk_band: deltaRiskBand,
+      type: pp.type || 'call',
+    };
+    return { output_payload, compliance_flags: [...baseFlags, 'FRTB_SA_GREEKS_COMPUTED'] };
   }
 
   const sqT = Math.sqrt(T);
@@ -1635,7 +1681,7 @@ export function compute(pp) {
     type: pp.type || 'call',
   };
 
-  return { output_payload, compliance_flags: complianceFlags };
+  return { output_payload, compliance_flags: [...baseFlags, 'FRTB_SA_GREEKS_COMPUTED'] };
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {

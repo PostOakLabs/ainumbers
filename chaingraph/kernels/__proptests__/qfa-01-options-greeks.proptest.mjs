@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:4c530398ab42ff734dd6db698e15fbea8f6eaaede6646e324af8e79d514dfa44
+// kernel_digest_at_authoring: sha256:85150b0c10d583588c0584d76ea17a3378c4a1af666c1c700db412574c42587b
 //
 // FV-PROPFLOOR-SHARD-B21-1 — property-test floor for qfa-01-options-greeks.
 // Class B (bounded-numeric), FLOAT:YES — Black-Scholes price + Greeks over the kernel's
