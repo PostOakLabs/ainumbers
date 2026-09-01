@@ -407,7 +407,9 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix, source-checked 2026-08-30 against rtoy/fdlibm-js gh-pages
+// fdlibm/log2.js: the numeric algorithm lines are identical and upstream declares
+// none of these four names.
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1610,9 +1612,30 @@ export function compute(pp) {
   const contamination = Number(pp.contamination_rate) || 0.05;
   const nAnomaly = Math.round(nTxns * contamination);
   const seed = Number(pp.seed) || 42;
-  const nTrees = Number(pp.n_trees) || 10;
+  // Clamp at 1: a non-positive tree count would build an empty forest and divide
+  // by zero on the mean path length (0/0 -> NaN scores -> false NORMAL).
+  const nTrees = Math.max(1, Number(pp.n_trees) || 10);
   const subsample = Number(pp.subsample_size) || 128;
   const threshold = Number(pp.threshold) || 0.60;
+
+  // KILL CONDITION (fail-closed; art-536 did_not_run pattern): a degenerate subsample
+  // (<= 1, or larger than the scored population) zeroes the c(N) normaliser or leaves
+  // the estimator meaningless (c(1)=0 -> 0/0 -> NaN scores -> NaN>=threshold false ->
+  // zero flagged -> a "NORMAL" verdict from no usable output). Refuse with a structured
+  // error; NEVER emit a verdict or a clean-bill flag from a run that did not run.
+  if (!(subsample >= 2) || subsample > nTxns) {
+    return {
+      output_payload: {
+        execution_state: 'did_not_run',
+        decision: null,
+        reason: 'degenerate_subsample_size',
+        errors: ['degenerate_subsample_size'],
+        subsample_size_declared: subsample,
+        scored_population: nTxns,
+      },
+      compliance_flags: ['ANOMALY_DETECTION_KILL_CONDITION_DEGENERATE_SUBSAMPLE'],
+    };
+  }
 
   const genRng = makeLCG(seed);
   const txns = [];
@@ -1645,7 +1668,10 @@ export function compute(pp) {
     [txns[i], txns[j]] = [txns[j], txns[i]];
   }
 
-  const maxDepth = Math.ceil(det.log2(subsample));
+  // Normaliser is clamped to the EFFECTIVE subsample actually drawn per tree — never
+  // the raw declared parameter (defense-in-depth alongside the kill condition above).
+  const effSubsample = Math.min(subsample, txns.length);
+  const maxDepth = Math.ceil(det.log2(effSubsample));
   const trees = [];
   for (let t = 0; t < nTrees; t++) {
     const tRng = makeLCG(seed + 1 + t * 31337);
@@ -1664,7 +1690,7 @@ export function compute(pp) {
 
   const scores = txns.map(t => {
     const avgLen = trees.reduce((s, tree) => s + pathLen(tree, t, 0), 0) / trees.length;
-    return det.pow(2, -avgLen / cN(subsample));
+    return det.pow(2, -avgLen / cN(effSubsample));
   });
 
   const flagged = scores.filter(s => s >= threshold);
@@ -1688,6 +1714,10 @@ export function compute(pp) {
     flagRate > 0.10 ? 'SAR_REVIEW_RECOMMENDED' : 'BATCH_WITHIN_BASELINE',
   ];
 
+  // Flag-mirror doctrine: the conditional compliance_flags mirror into the payload so
+  // gates can route on the caveat without reading compliance_flags — the kill-condition
+  // flag mirrors as errors[] (see the degenerate-subsample refusal above), and the
+  // rate-conditional SAR flag mirrors as warnings[] here.
   const output_payload = {
     verdict,
     flagged_count: flagged.length,
@@ -1697,6 +1727,7 @@ export function compute(pp) {
     max_anomaly_score: +maxScore.toFixed(4),
     threshold,
     n_transactions_scored: nTxns,
+    warnings: flagRate > 0.10 ? ['SAR_REVIEW_RECOMMENDED'] : [],
   };
 
   return { output_payload, compliance_flags: complianceFlags };

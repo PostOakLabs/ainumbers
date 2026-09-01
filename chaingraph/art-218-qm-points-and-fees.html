@@ -528,7 +528,7 @@ const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.m
 if (mc) {
   mc.registerTool({
     name: 'art-218-qm-points-and-fees-compute',
-    description: 'QM points-and-fees test per Reg Z §1026.43(e)(3). 5-tier table, version-pinned 2021-2026 CFPB adjustments.',
+    description: 'QM points-and-fees test per Reg Z §1026.43(e)(3). 5-tier table, version-pinned 2021-2026 CFPB adjustments. Returns pass/fail, applicable tier, dollar limit, limit type, and headroom.',
     inputSchema: {
       type: 'object',
       required: ['loanAmount', 'totalFees'],
@@ -538,8 +538,11 @@ if (mc) {
         tableYear: { type: 'number', enum: [2021, 2022, 2023, 2024, 2025, 2026], description: 'CFPB adjusts thresholds annually. Use consummation year.' }
       }
     },
-    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    annotations: { readOnlyHint: true },
     execute: function(params) {
+      if (typeof params.loanAmount !== 'number' || !isFinite(params.loanAmount)) throw new Error('loanAmount must be a number: total principal in dollars, e.g. 450000.');
+      if (typeof params.totalFees !== 'number' || !isFinite(params.totalFees) || params.totalFees < 0) throw new Error('totalFees must be a non-negative number: sum of QM-qualified points and fees in dollars, e.g. 12000.');
+      if (params.tableYear !== undefined && [2021, 2022, 2023, 2024, 2025, 2026].indexOf(params.tableYear) === -1) throw new Error('tableYear must be one of 2021, 2022, 2023, 2024, 2025, 2026 (consummation year); received ' + JSON.stringify(params.tableYear) + '.');
       document.getElementById('loanAmount').value = String(params.loanAmount);
       document.getElementById('totalFees').value = String(params.totalFees);
       if (params.tableYear !== undefined) document.getElementById('tableYear').value = String(params.tableYear);
