@@ -1,5 +1,5 @@
 // ml-02-credit-default-risk-scorer.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:a2933b0418c10f52d341cae29d664e594f88937aa4ad42187f95eaf86af9bb2f
+// kernel_digest_at_authoring: sha256:b37f852a434727b80f227bc659064f44c25562bfa7a16b545f31ddf909217d13
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -11,9 +11,9 @@
 // path count. State the loan-count cap, the seed-determinism property (same seed -> same
 // result, since the LCG PRNG has no hidden entropy source), and a boundedness property on the
 // scored output (AUC/Gini/portfolio-PD/high-PD-count all stay within their mathematical ranges).
-// Checks: fixture-oracle gate (compute() returns the full flat payload directly, including a
-// nested compliance_flags array — no separate {output_payload, compliance_flags} split, unlike
-// most kernels in this tree), termination (n_loans_scored always equals
+// Checks: fixture-oracle gate (compute() returns the standard {output_payload,
+// compliance_flags} envelope — aligned to the estate convention by ML02-NORMINV-SIGN-1;
+// the oracle compares compute().output_payload with the pinned vector output_payload, termination (n_loans_scored always equals
 // clamp(n_loans,10,5000) regardless of a caller-supplied out-of-range value; the INSUFFICIENT_
 // DEFAULTS short-circuit path returns immediately when nDefault===0, never proceeding to the
 // AUC/RWA computation), the mandatory determinism property, boundedness (auc_roc in [0,1],
@@ -37,7 +37,7 @@ function runFixtureOracle() {
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const output_payload = compute(vec.policy_parameters);
+    const { output_payload } = compute(vec.policy_parameters);
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
     if (a !== b) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
@@ -76,16 +76,17 @@ function checkP1_termination() {
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
     const result = compute(pp);
+    const out = result.output_payload;
     checked++;
-    if (result.verdict === 'INSUFFICIENT_DEFAULTS') continue;
-    if (result.n_loans_scored !== Math.min(Math.max(pp.n_loans, 10), 5000)) violations++;
+    if (out.verdict === 'INSUFFICIENT_DEFAULTS') continue;
+    if (out.n_loans_scored !== Math.min(Math.max(pp.n_loans, 10), 5000)) violations++;
   }
   const belowMin = compute({ n_loans: 1, seed: 1 });
   checked++;
-  if (belowMin.verdict !== 'INSUFFICIENT_DEFAULTS' && belowMin.n_loans_scored !== 10) violations++;
+  if (belowMin.output_payload.verdict !== 'INSUFFICIENT_DEFAULTS' && belowMin.output_payload.n_loans_scored !== 10) violations++;
   const aboveMax = compute({ n_loans: 999999, seed: 1 });
   checked++;
-  if (aboveMax.verdict !== 'INSUFFICIENT_DEFAULTS' && aboveMax.n_loans_scored !== 5000) violations++;
+  if (aboveMax.output_payload.verdict !== 'INSUFFICIENT_DEFAULTS' && aboveMax.output_payload.n_loans_scored !== 5000) violations++;
   return { name: 'P1_termination_loan_count_clamped', trials: checked, violations };
 }
 
@@ -112,15 +113,16 @@ function checkP3_boundedness() {
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
     const result = compute(pp);
+    const out = result.output_payload;
     checked++;
-    if (result.verdict === 'INSUFFICIENT_DEFAULTS') continue;
-    if (result.auc_roc < 0 || result.auc_roc > 1) violations++;
-    if (result.gini_coefficient < -1 || result.gini_coefficient > 1) violations++;
-    if (result.portfolio_pd < 0 || result.portfolio_pd > 1) violations++;
-    if (result.ks_statistic < 0 || result.ks_statistic > 1) violations++;
-    if (result.n_defaults_observed > result.n_loans_scored || result.n_defaults_observed < 0) violations++;
-    if (result.high_pd_loans < 0 || result.high_pd_loans > result.n_loans_scored) violations++;
-    if (!Number.isFinite(result.auc_roc) || !Number.isFinite(result.gini_coefficient)) violations++;
+    if (out.verdict === 'INSUFFICIENT_DEFAULTS') continue;
+    if (out.auc_roc < 0 || out.auc_roc > 1) violations++;
+    if (out.gini_coefficient < -1 || out.gini_coefficient > 1) violations++;
+    if (out.portfolio_pd < 0 || out.portfolio_pd > 1) violations++;
+    if (out.ks_statistic < 0 || out.ks_statistic > 1) violations++;
+    if (out.n_defaults_observed > out.n_loans_scored || out.n_defaults_observed < 0) violations++;
+    if (out.high_pd_loans < 0 || out.high_pd_loans > out.n_loans_scored) violations++;
+    if (!Number.isFinite(out.auc_roc) || !Number.isFinite(out.gini_coefficient)) violations++;
   }
   return { name: 'P3_boundedness_auc_gini_pd_counts_in_range', trials: checked, violations };
 }
@@ -133,28 +135,30 @@ function checkP4_ulp_forcing() {
   // pd_threshold >= comparison boundary
   for (const t of [0, 1, 0.5, 0.5 - eps, 0.5 + eps, 1e-9, 1 - 1e-9]) {
     const result = compute({ n_loans: 50, pd_threshold: t, seed: 3 });
+    const out = result.output_payload;
     checked++;
-    if (result.verdict === 'INSUFFICIENT_DEFAULTS') continue;
-    if (result.high_pd_loans < 0 || result.high_pd_loans > result.n_loans_scored) violations++;
+    if (out.verdict === 'INSUFFICIENT_DEFAULTS') continue;
+    if (out.high_pd_loans < 0 || out.high_pd_loans > out.n_loans_scored) violations++;
   }
 
   // verdict classification boundary forcing: gini 0.40/0.60, portPD 0.10, auc 0.70
   const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
   for (const seed of seeds) {
     const result = compute({ n_loans: 80, seed });
+    const out = result.output_payload;
     checked++;
-    if (result.verdict === 'INSUFFICIENT_DEFAULTS') continue;
-    const expected = (result.gini_coefficient < 0.40 || result.portfolio_pd > 0.10) ? 'WEAK_MODEL_ELEVATED_RISK'
-      : (result.gini_coefficient < 0.60 ? 'ACCEPTABLE_MODEL' : 'STRONG_MODEL');
-    if (result.verdict !== expected) violations++;
-    const expectedFlag = result.auc_roc < 0.7 ? 'MODEL_PERFORMANCE_BELOW_0_70_AUC' : 'MODEL_PERFORMANCE_ACCEPTABLE';
+    if (out.verdict === 'INSUFFICIENT_DEFAULTS') continue;
+    const expected = (out.gini_coefficient < 0.40 || out.portfolio_pd > 0.10) ? 'WEAK_MODEL_ELEVATED_RISK'
+      : (out.gini_coefficient < 0.60 ? 'ACCEPTABLE_MODEL' : 'STRONG_MODEL');
+    if (out.verdict !== expected) violations++;
+    const expectedFlag = out.auc_roc < 0.7 ? 'MODEL_PERFORMANCE_BELOW_0_70_AUC' : 'MODEL_PERFORMANCE_ACCEPTABLE';
     if (!result.compliance_flags.includes(expectedFlag)) violations++;
   }
 
   // INSUFFICIENT_DEFAULTS edge: target_default_rate forced to 0 drives nDefault toward 0
   const zeroDefault = compute({ n_loans: 20, target_default_rate: 0, seed: 42 });
   checked++;
-  if (zeroDefault.verdict === 'INSUFFICIENT_DEFAULTS' && Object.keys(zeroDefault).length > 2) violations++;
+  if (zeroDefault.output_payload.verdict === 'INSUFFICIENT_DEFAULTS' && Object.keys(zeroDefault).length > 2) violations++;
 
   return { name: 'P4_ulp_boundary_forcing_threshold_and_verdict_classification', trials: checked, violations };
 }
