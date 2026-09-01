@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:62ce51c376375e331199c0320830454cf4ba8fad3ec3c3a89d5bea2f15140de0
+// kernel_digest_at_authoring: sha256:34a97e2f8bf698256758e5a961ca48865bc61479195b7fe14a950d2761f10bfc
 //
 // FV-PROPFLOOR-SHARD-B1-1 — property-test floor for art-09-dora-incident-classifier.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (client %, tx-value/outage/member-state threshold

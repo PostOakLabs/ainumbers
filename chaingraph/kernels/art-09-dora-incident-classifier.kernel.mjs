@@ -174,10 +174,16 @@ export function compute(pp) {
     };
   }
 
+  // Flag-mirror doctrine: the conditional compliance_flags
+  // (isMajor ? MAJOR/REPORTING_OBLIGATION_TRIGGERED : NON_MAJOR) mirror into the payload
+  // so gates can route on the caveat without reading compliance_flags.
+  const warnings = isMajor ? ['REPORTING_OBLIGATION_TRIGGERED'] : [];
+
   const output_payload = {
     major_incident:      isMajor,
     determination_code:  isMajor ? 'MAJOR' : 'NON_MAJOR',
     qualifying_criteria: qualifyingCriteria,
+    warnings,
     criteria_detail:     criteria.map(c => ({ id: c.id, met: c.met, not_assessed: c.not_assessed, value: c.value, article: c.article })),
     reporting_clock,
     entity_type:         entityType,
