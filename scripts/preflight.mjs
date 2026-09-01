@@ -2118,6 +2118,29 @@ gateStart(VERSION_PROSE_LABEL);
   }
 }
 
+// ── Advisory (non-blocking): kernel schema-read divergence report ───────────
+// SCHEMA-READ-DIVERGENCE-SWEEP-1 (2026-08-30). Mechanical both-directions sweep: every live
+// kernel's input-field READS vs its DECLARED input schema (manifests/*.manifest.json primary,
+// page-embedded manifest cross-check), verdict per kernel CLEARED / DIVERGES / UNPARSEABLE.
+// Per-kernel lines: chaingraph/reports/schema-read-divergence-2026-08-30.tsv (regenerate with
+// `node scripts/check-schema-read-divergence.mjs --tsv <path>`).
+// ADVISORY BY DESIGN, exit 0 always: the day-one estate measurement carries a large known
+// divergence baseline (art-09-class name mismatches — 6 kernels — plus 537 kernels with NO
+// declared schema anywhere), and promoting this to a hard gate is a SEPARATE follow-on row to
+// be taken once the confirmed hits are fixed or baselined — never a side effect of this line.
+const SCHEMA_DIV_LABEL = 'kernel schema-read divergence (advisory report)';
+gateStart(SCHEMA_DIV_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-schema-read-divergence.mjs --summary');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(SCHEMA_DIV_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no summary line printed — see node scripts/check-schema-read-divergence.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
+  }
+}
+
 // ── ADVISORY-CRASH-DISTINCT-1: checkers that produced NO result ─────────────
 printUnavailableBlock();
 

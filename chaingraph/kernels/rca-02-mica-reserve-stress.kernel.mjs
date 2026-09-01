@@ -413,7 +413,8 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix, declared as of 2026-08-30; the numeric algorithm is the fdlibm port
+// embedded per the PROVENANCE section at the top of this file.
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1604,8 +1605,9 @@ const SHOCK_PARAMS = {
 };
 
 // ── Redemption curve: fraction redeemed per day over T days ──────────────────
-function buildRedemptionCurve(scenario, T, randn) {
-  const sp = SHOCK_PARAMS[scenario];
+// Takes the resolved SHOCK profile (single derivation in compute()); no scenario
+// string is re-resolved here, so an unknown profile can never crash the path loop.
+function buildRedemptionCurve(sp, T, randn) {
   const curve = [];
   // Peak outflow at day 5, exponential decay
   for (let d = 0; d < T; d++) {
@@ -1618,8 +1620,7 @@ function buildRedemptionCurve(scenario, T, randn) {
 }
 
 // ── Shock scalar: asset value haircut path ────────────────────────────────────
-function buildShockScalar(scenario, T, randn) {
-  const sp = SHOCK_PARAMS[scenario];
+function buildShockScalar(sp, T, randn) {
   const scalars = [1.0];
   for (let d = 1; d < T; d++) {
     // Reversion to 1.0 after peak
@@ -1643,10 +1644,14 @@ export function compute(pp) {
   const n_paths            = Math.min(Math.max(pp.n_paths ?? 500, 50), 2000);
   const T                  = pp.horizon_days        ?? 30;
   const reserve_ratio_init = pp.reserve_ratio_init  ?? 1.05;  // initial reserve / supply
-  const art36_buffer       = pp.art36_buffer        ?? 0.02;  // MiCA Art.36 mandatory buffer (2%)
+  const art36_buffer       = pp.art36_buffer        ?? 0.02;  // over-collateralization buffer above 100% parity — declared modelling convention (see node metadata), not a statute-sourced figure
   const seed               = pp.seed                ?? 42;
 
+  // Single profile resolution: a scenario name outside SHOCK_PARAMS (e.g. the registered
+  // manifest's bank_run/gradual_drain/flash_crash vocabulary) falls back deterministically
+  // to the moderate profile, and the output echoes the profile actually simulated.
   const sp  = SHOCK_PARAMS[scenario] ?? SHOCK_PARAMS.moderate;
+  const effectiveScenario  = SHOCK_PARAMS[scenario] ? scenario : 'moderate';
   const rng    = makeLCG(seed);
   const randn  = makeRandn(rng);
 
@@ -1656,8 +1661,8 @@ export function compute(pp) {
   const peakBreaches  = new Float64Array(n_paths); // worst coverage ratio per path
 
   for (let p = 0; p < n_paths; p++) {
-    const redemptionCurve = buildRedemptionCurve(scenario, T, randn);
-    const shockScalars    = buildShockScalar(scenario, T, randn);
+    const redemptionCurve = buildRedemptionCurve(sp, T, randn);
+    const shockScalars    = buildShockScalar(sp, T, randn);
 
     let supply        = 1.0;            // normalised
     let reserveValue  = reserve_ratio_init;  // £ of reserves per £ supply
@@ -1690,9 +1695,11 @@ export function compute(pp) {
   const breach_probability_pct = +(coverageAtEnd.filter(v => v < 1.0).length / n_paths * 100).toFixed(2);
   const peak_breach_pct       = +(peakBreaches.filter(v => v < 1.0).length / n_paths * 100).toFixed(2);
 
-  // MiCA Art.36: reserves must cover 100% + art36_buffer at P95
-  const art36_coverage_p95    = +pctile(sortedCoverage, 0.95).toFixed(4);
-  const art36_buffer_adequate_pct = +((art36_coverage_p95 >= 1.0 + art36_buffer ? 100 : 0)).toFixed(2);
+  // Adequacy test reads the ADVERSE tail. Coverage = reserve/supply, so HIGHER is better:
+  // the adverse tail is the LOW percentile (P5), the same accounting breach_probability_pct
+  // uses. The buffer is a declared modelling convention (see node metadata). The tail figure
+  // this verdict depends on is coverage_p5_end_day, surfaced in output_payload below.
+  const art36_buffer_adequate_pct = +((coverage_p5_end_day >= 1.0 + art36_buffer ? 100 : 0)).toFixed(2);
 
   const compliance_flags = [];
   if (breach_probability_pct < 5)  compliance_flags.push('MICA_ART36_RESERVE_ADEQUATE');
@@ -1701,16 +1708,34 @@ export function compute(pp) {
   if (art36_buffer_adequate_pct >= 100) compliance_flags.push('MICA_ART36_BUFFER_SUFFICIENT');
   else compliance_flags.push('MICA_ART36_BUFFER_INSUFFICIENT');
 
+  // Flag-mirror doctrine (AUTHORING-STANDARD, "Flag-mirror doctrine" section):
+  // compliance_flags rides OUTSIDE output_payload, so a chain gate resolving its pointer
+  // against this step's output_payload can never route on it. Mirror the cautionary
+  // subset into output_payload.warnings — empty exactly when no cautionary flag fired.
+  const cautionary = new Set([
+    'MICA_ART36_RESERVE_AT_RISK',
+    'MICA_ART36_RESERVE_BREACH_LIKELY',
+    'MICA_ART36_BUFFER_INSUFFICIENT',
+  ]);
+  const warnings = compliance_flags.filter((f) => cautionary.has(f));
+
+  // Estate compute() convention (mirrors art-01/art-123): return the payload under
+  // output_payload with compliance_flags as its sibling, so downstream gates can read
+  // BOTH channels. The artifact's output_payload keeps its exact prior shape.
   return {
-    verdict:               breach_probability_pct < 5 ? 'ADEQUATE' : breach_probability_pct < 20 ? 'AT_RISK' : 'BREACH_LIKELY',
-    coverage_p50_end_day,
-    coverage_p5_end_day,
-    breach_probability_pct,
-    peak_breach_pct,
-    art36_buffer_adequate_pct,
-    scenario,
-    n_paths,
-    horizon_days:          T,
+    output_payload: {
+      verdict:               breach_probability_pct < 5 ? 'ADEQUATE' : breach_probability_pct < 20 ? 'AT_RISK' : 'BREACH_LIKELY',
+      coverage_p50_end_day,
+      coverage_p5_end_day,
+      breach_probability_pct,
+      peak_breach_pct,
+      art36_buffer_adequate_pct,
+      scenario:              effectiveScenario,
+      n_paths,
+      horizon_days:          T,
+      compliance_flags,
+      warnings,
+    },
     compliance_flags,
   };
 }
@@ -1718,7 +1743,7 @@ export function compute(pp) {
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const result = compute(pp);
   const { compliance_flags = {} } = result;
-  const output_payload = result;
+  const output_payload = result.output_payload;
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

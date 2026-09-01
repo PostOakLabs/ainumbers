@@ -273,13 +273,6 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </select>
     </div>
     <div class="ctrl-group">
-      <label class="ctrl-label">IRB Approach</label>
-      <select id="irbApproach" class="ctrl-input">
-        <option value="firb" selected>F-IRB (Foundation)</option>
-        <option value="airb">A-IRB (Advanced)</option>
-      </select>
-    </div>
-    <div class="ctrl-group">
       <label class="ctrl-label">Seed</label>
       <input type="number" id="seed" class="ctrl-input" value="42">
     </div>
@@ -510,9 +503,9 @@ const SA_WEIGHTS={retail_mortgage:0.35, sme:0.75, consumer:0.75, large_corp:1.0}
 
 // ── Presets ────────────────────────────────────────────────────
 const PRESETS={
-  retail_mortgage:{nLoans:500,assetClass:'retail_mortgage',defaultRate:0.025,lgd:0.25,maturity:2.5,pdThreshold:0.10,irbApproach:'firb',seed:42},
-  sme_lending:    {nLoans:300,assetClass:'sme',           defaultRate:0.06, lgd:0.45,maturity:2.5,pdThreshold:0.10,irbApproach:'firb',seed:137},
-  corp_book:      {nLoans:200,assetClass:'large_corp',    defaultRate:0.015,lgd:0.45,maturity:3.0,pdThreshold:0.10,irbApproach:'airb',seed:999}
+  retail_mortgage:{nLoans:500,assetClass:'retail_mortgage',defaultRate:0.025,lgd:0.25,maturity:2.5,pdThreshold:0.10,seed:42},
+  sme_lending:    {nLoans:300,assetClass:'sme',           defaultRate:0.06, lgd:0.45,maturity:2.5,pdThreshold:0.10,seed:137},
+  corp_book:      {nLoans:200,assetClass:'large_corp',    defaultRate:0.015,lgd:0.45,maturity:3.0,pdThreshold:0.10,seed:999}
 };
 function selectPreset(name){
   document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
@@ -524,7 +517,6 @@ function selectPreset(name){
   document.getElementById('lgd').value=p.lgd;
   document.getElementById('maturity').value=p.maturity;
   document.getElementById('pdThreshold').value=p.pdThreshold;
-  document.getElementById('irbApproach').value=p.irbApproach;
   document.getElementById('seed').value=p.seed;
 }
 
@@ -541,11 +533,10 @@ async function startScoring(){
   const lgd        =parseFloat(document.getElementById('lgd').value)||0.45;
   const maturity   =parseFloat(document.getElementById('maturity').value)||2.5;
   const pdThreshold=parseFloat(document.getElementById('pdThreshold').value)||0.10;
-  const irbApproach=document.getElementById('irbApproach').value;
   const seed       =parseInt(document.getElementById('seed').value)||42;
   const chainRaw   =document.getElementById('chainIntake').value.trim();
 
-  creditParams={nLoans, assetClass, defaultRate, lgd, maturity, pdThreshold, irbApproach, seed};
+  creditParams={nLoans, assetClass, defaultRate, lgd, maturity, pdThreshold, seed};
 
   const rng=makeLCG(seed);
   // ── Logistic regression weights (illustrative) ──────────────
@@ -829,6 +820,7 @@ async function buildExport(parentHash, parentToolId){
   const chainDepth=parentHash?1:0;
   const payload={
     auc_roc:+r.auc.toFixed(6),
+    warnings:r.auc<0.7?['MODEL_PERFORMANCE_BELOW_0_70_AUC']:[],
     ks_statistic:+r.maxKS.toFixed(6),
     gini_coefficient:+(2*r.auc-1).toFixed(6),
     portfolio_pd:+r.portPD.toFixed(6),
@@ -848,7 +840,7 @@ async function buildExport(parentHash, parentToolId){
     input_parameters:{
       n_loans:p.nLoans,asset_class:p.assetClass,target_default_rate:p.defaultRate,
       lgd:p.lgd,maturity_yrs:p.maturity,pd_threshold:p.pdThreshold,
-      irb_approach:p.irbApproach,seed:p.seed,
+      seed:p.seed,
       model:'logistic_regression_5_features_illustrative_weights'
     }
   };

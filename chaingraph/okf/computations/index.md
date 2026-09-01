@@ -591,6 +591,7 @@ status: stable
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md)
 - [Forecast Accuracy Scorer](./art-657-forecast-accuracy-scorer.md)
 - [Publish Index Head](./art-658-publish-index-head.md)
+- [Publish Fund NAV Head](./art-659-publish-fund-nav-head.md)
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md)
 - [Compile NAV-Error Evidence Pack](./art-660-compile-nav-error-evidence-pack.md)
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md)
