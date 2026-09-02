@@ -926,8 +926,8 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
         <p><strong>Routing logic (transparent JS conditionals):</strong> The optimizer uses rule-based logic: not a black-box model. Rules in priority order:</p>
         <p style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.9;color:var(--text);">
           1. if corridor = cross-border → flag compliance warning (US A2A rails are domestic only)<br>
-          2. if urgency = immediate AND avg_ticket ≤ $500,000 → FedNow<br>
-          3. if urgency = immediate AND avg_ticket > $500,000 → RTP (higher limit)<br>
+          2. if urgency = immediate AND avg_ticket ≤ $10,000,000 → FedNow<br>
+          3. if urgency = immediate AND avg_ticket > $10,000,000 → flag: exceeds both instant rails' caps → split or wire<br>
           4. if use_case = payroll OR subscription → Next-Day ACH<br>
           5. if avg_ticket &lt; $100 → Same-Day ACH (cost-efficient for micro-transactions)<br>
           6. if urgency = same-day → Same-Day ACH or FedNow (by cost)<br>
@@ -1252,14 +1252,14 @@ function routeOptimizer(volume, avgTxn, urgency, useCase, corridor, fednowFee, r
 
   // ── RULE 4: Immediate urgency ──
   else if (urgency === 'immediate') {
-    if (avgTxn <= 500000) {
+    if (avgTxn <= 10000000) {
       railId = 'fednow';
       settlementTime = 'Settlement in &lt;60 seconds, 24/7/365';
       narrative = `<strong>FedNow</strong> is selected because you need immediate settlement (&lt;60s) and your average ticket of ${fmt$(avgTxn)} is within FedNow's current limit. FedNow is the Federal Reserve's own instant payment rail — available 24/7, irrevocable, and cheaper than cards at your volume. At ${fmt$(volume)}/month, you save ${fmt$((Math.round(volume / (avgTxn||1)) * (val('card_rate')/100 * avgTxn + val('card_fixed')/100)) - Math.round(volume / (avgTxn||1)) * fednowFee/100 )}/month vs your current card costs.`;
     } else {
       railId = 'rtp';
       settlementTime = 'Settlement in &lt;60 seconds, 24/7/365';
-      narrative = `<strong>RTP (The Clearing House)</strong> is selected for immediate settlement on high-value tickets above $500K. RTP carries no published single-transaction cap (practical limit ~$1M via most banks), making it the preferred instant rail for large-value B2B and treasury transfers where FedNow's $500K limit may be a constraint.`;
+      narrative = `<strong>RTP (The Clearing House)</strong> is selected for immediate settlement on tickets above $10M. Both US instant rails now cap at $10,000,000 per transaction (RTP effective February 9, 2025; FedNow effective November 12, 2025), so a single transaction of this size exceeds their network caps — split it into multiple instant transfers or route via Fedwire, which sets no network cap.`;
     }
   }
 
