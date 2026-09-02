@@ -24,7 +24,17 @@ import { compute as perturbedArt220 } from './red-control/art-220-stale-2025-qm-
 
 const FAMILIES = [familyA, familyB, familyC];
 
-const argv = process.argv.slice(2);
+// This repo installs no `@types/node` (SO #10 — never run npm), so a bare `process`
+// reference is a blocking TS2580 under the JSDoc CheckJS gate, and that gate's
+// no-@types/node allowlist is deliberately scoped to the __proptests__ floor only.
+// Reaching the Node globals through an `any`-typed alias keeps this pilot inside its
+// own fence rather than widening a gate to accommodate it.
+/** @type {any} */
+const globals = globalThis;
+/** @type {{ argv: string[], exit: (code: number) => never }} */
+const proc = globals.process;
+
+const argv = proc.argv.slice(2);
 const redMode = argv.includes('--red');
 const jsonMode = argv.includes('--json');
 
@@ -82,4 +92,4 @@ function runRedControl() {
   return ok ? 0 : 1;
 }
 
-process.exit(main());
+proc.exit(main());
