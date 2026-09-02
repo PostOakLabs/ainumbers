@@ -354,6 +354,18 @@ const PREFLIGHT_ONLY = new Map([
     "sufficient route. ⚠ Declared, not hidden — it inherits exactly the fragility this axis exists to name, " +
     "and if the §15 matrix is ever to be a required check it needs its own workflow step."],
 
+  // ── SPECGATE-HYGIENE-1 (2026-09-01, audit HASH-3) ───────────────────────────
+  ["lint-cgcanon-twin.mjs",
+    "cgCanon inline-twin parity (executes every kernel's inline `_cgCanon` next to `_hash.mjs` " +
+    "cgCanon over canon-stressing fixtures, byte-for-byte). Hard in preflight, wired next to " +
+    "lint-forbidden-hash. DECLARED, NOT WIRED: this row's fence is preflight wiring, and axis-3 " +
+    "doctrine reserves workflow wiring as a separate decision/row (same disposition as " +
+    "check_tools.js). On diffs touching scripts/** scripts-verify.yml's full preflight runs it; " +
+    "a kernel-only diff has NO named CI route for it — the exact fragility this axis exists to " +
+    "name, surfaced here and in the PR body rather than hidden. Reads only tracked kernel " +
+    "files; twin code runs only in a throwaway child process — no CI-only input."],
+  ["lint-cgcanon-twin.test.mjs", SELF_TEST],
+
   // ── paired self-tests / mutation controls (66) ──────────────────────────────
   ["pre-push.test.mjs", SELF_TEST],
   ["check-binary-bytes.test.mjs", SELF_TEST],

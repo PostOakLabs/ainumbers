@@ -861,6 +861,8 @@ const GATES = [
   ['JSDoc CheckJS fixture proof (classifyDiagnostics, TOUCHTAX-DIFFSCOPE-1)', 'node scripts/jsdoc-checkjs-gate.test.mjs'],
   ['Kernel exports (meta+compute)','node scripts/check-kernel-exports.mjs'],
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
+  ['cgCanon twin-parity (SPECGATE-HYGIENE-1)', 'node chaingraph/kernels/lint-cgcanon-twin.mjs'],
+  ['cgCanon twin-parity controls (red-then-green)', 'node chaingraph/kernels/lint-cgcanon-twin.test.mjs'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
   ['Kernel-identity monolith upsert controls (GENKERNELID-UPSERT-FIX-1)', 'node chaingraph/kernels/gen-kernel-identity.test.mjs'],
   ['Determinism replay (N=3 + JCS)', 'node chaingraph/kernels/determinism-replay.test.mjs'],
