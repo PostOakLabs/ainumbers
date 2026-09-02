@@ -30,8 +30,10 @@ export const meta = {
 //     First violation:       $32
 //     Subsequent violation:  $43 (within 6 billing cycles)
 //   Per 12 CFR §1026.52(b)(1)(ii)(A)-(B).
-//   CFPB $8 late-fee rule (March 2024) was vacated by 5th Circuit (May 2024
-//   stay, vacated Jan 2025). Safe-harbor reverts to 2024 index values.
+//   CFPB $8 late-fee rule (March 2024) was VACATED 2025-04-15 by consent
+//   judgment, U.S. District Court N.D. Tex., Chamber of Commerce v. CFPB,
+//   No. 4:24-cv-00213-P. Pre-rule safe harbors resumed; the larger-issuer
+//   $8 interval (2024-05-14 to 2025-04-15) is out of scope (see rule_note).
 // table_version: "CARD-ACT-REG-Z-1026-51-52-2024"
 
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
@@ -80,11 +82,11 @@ export function compute(pp) {
           first_violation: PENALTY_FEE_FIRST_VIOLATION,
           subsequent_within_6_cycles: PENALTY_FEE_SUBSEQUENT,
           table_version: SAFE_HARBOR_TABLE_VERSION,
-          rule_note: 'CFPB $8 late-fee rule vacated Jan 2025; safe harbor reverts to 2024 CFPB index values per 12 CFR §1026.52(b)(1)(ii)',
+          rule_note: 'As observed 2026-09-01: the CFPB $8 late-fee rule was vacated by consent judgment on 2025-04-15 (U.S. District Court, N.D. Tex., Chamber of Commerce v. CFPB, No. 4:24-cv-00213-P); the amounts shown are the 2024 CPI-indexed safe harbors per 12 CFR §1026.52(b)(1)(ii); the larger-issuer $8 interval (2024-05-14 to 2025-04-15) is not modeled by this table',
         },
         regulatory_basis: '15 USC §1665e (CARD Act §109); 12 CFR §1026.51 (ability to pay); 12 CFR §1026.52(b) (penalty fee safe harbor)',
         table_version: 'CARD-ACT-REG-Z-1026-51-52-2024',
-        table_source: 'CARD Act of 2009 Pub. L. 111-24; 12 CFR §1026.51 (Reg Z ability to pay, effective Aug 22 2010); 12 CFR §1026.52(b)(1)(ii) safe harbor 2024 CFPB CPI adjustment; CFPB $8 rule vacated 5th Cir 2025',
+        table_source: 'CARD Act of 2009 Pub. L. 111-24; 12 CFR §1026.51 (Reg Z ability to pay, effective Aug 22 2010); 12 CFR §1026.52(b)(1)(ii) safe harbor 2024 CFPB CPI adjustment; CFPB $8 rule vacated by consent judgment, N.D. Tex., 2025-04-15',
         pii_note: 'All inputs are processed locally in your browser. No data is transmitted.',
       },
       compliance_flags: [],
@@ -157,7 +159,7 @@ export function compute(pp) {
       first_violation: PENALTY_FEE_FIRST_VIOLATION,
       subsequent_within_6_cycles: PENALTY_FEE_SUBSEQUENT,
       table_version: SAFE_HARBOR_TABLE_VERSION,
-      rule_note: 'CFPB $8 late-fee rule vacated Jan 2025; safe harbor reverts to 2024 CFPB CPI index values per 12 CFR §1026.52(b)(1)(ii)',
+      rule_note: 'As observed 2026-09-01: the CFPB $8 late-fee rule was vacated by consent judgment on 2025-04-15 (U.S. District Court, N.D. Tex., Chamber of Commerce v. CFPB, No. 4:24-cv-00213-P); the amounts shown are the 2024 CPI-indexed safe harbors per 12 CFR §1026.52(b)(1)(ii); the larger-issuer $8 interval (2024-05-14 to 2025-04-15) is not modeled by this table',
     },
     regulatory_basis: '15 USC §1665e (CARD Act §109); 12 CFR §1026.51 (ability to pay); 12 CFR §1026.51(a)(2) (under-21); 12 CFR §1026.52(b) (penalty fee safe harbor)',
     table_version: 'CARD-ACT-REG-Z-1026-51-52-2024',
