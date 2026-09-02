@@ -1,5 +1,5 @@
 // art-215-reg-z-appendix-j-apr.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C7-1).
-// kernel_digest_at_authoring: sha256:23d06ce0530f333676cee2d8435ec0f6622170fc8040d471151cd64a01025225
+// kernel_digest_at_authoring: sha256:11378014fd087d551a663ee640914801101ae04fd8a943a8d669314da98f2c88
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -172,6 +172,40 @@ function checkP4_ulpForcing() {
   return { name: 'P4_ulp_boundary_forcing_bracket_edges', trials: checked, violations };
 }
 
+// ---------- P5: caller-supplied schedule length is clamped at NUM_PAYMENTS_CAP=12000 ----------
+// The cap flag must be COMPUTED from the requested count, never static: absent at/below the
+// boundary, present above it, never raised by the >=1 floor, never raised on the explicit
+// arrays path (the clamp guards the shorthand scalar only).
+function checkP5_numPaymentsCap() {
+  let violations = 0, checked = 0;
+  // at the boundary the clamp is a no-op and NO cap flag is raised
+  const atCap = compute({ loan_amount: 1000, payment_amount: 0, num_payments: 12000, periods_per_year: 12 });
+  checked++;
+  if (atCap.output_payload.num_payments !== 12000) violations++;
+  if (atCap.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  // one past the boundary: schedule clamped to 12000 and the cap flag IS raised
+  const overCap = compute({ loan_amount: 1000, payment_amount: 0, num_payments: 12001, periods_per_year: 12 });
+  checked++;
+  if (overCap.output_payload.num_payments !== 12000) violations++;
+  if (!overCap.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  // small inputs unaffected: length preserved, no flag
+  const small = compute({ loan_amount: 6000, payment_amount: 282.43, num_payments: 24, periods_per_year: 12 });
+  checked++;
+  if (small.output_payload.num_payments !== 24) violations++;
+  if (small.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  // explicit arrays path never raises the flag
+  const explicit = compute({ advances: [{ amount: 1000, full_periods: 0, fraction: 0 }], payments: [{ amount: 100, full_periods: 12, fraction: 0 }], periods_per_year: 12 });
+  checked++;
+  if (explicit.output_payload.num_payments !== 1) violations++;
+  if (explicit.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  // requested values that only trip the >=1 floor are not "capped"
+  const floored = compute({ loan_amount: 1000, payment_amount: 100, num_payments: 0, periods_per_year: 12 });
+  checked++;
+  if (floored.output_payload.num_payments !== 1) violations++;
+  if (floored.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  return { name: 'P5_num_payments_clamped_cap_flag_computed', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -183,6 +217,7 @@ results.properties.push(checkP1_convergenceOrReport());
 results.properties.push(checkP2_termination());
 results.properties.push(checkP3_differentialRate());
 results.properties.push(checkP4_ulpForcing());
+results.properties.push(checkP5_numPaymentsCap());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

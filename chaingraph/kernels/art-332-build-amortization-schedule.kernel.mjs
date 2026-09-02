@@ -24,6 +24,16 @@ function fromCents(cents) { return Number.isFinite(cents) ? Math.round(cents) / 
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
 function r6(v) { return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
 
+// Caller-supplied schedule length is clamped: every schedule_type builds one
+// row per payment (and the buydown path re-derives the level payment each
+// period), so an unclamped caller-controlled count is a hang/exhaustion
+// lever. The balloon path's nominal_amortization_periods drives the payment-
+// size factor loop and is clamped by the same ceiling. 12,000 periods is 1000
+// years of monthly payments -- generous against any plausible real schedule.
+// When a clamp binds, compute() raises NUM_PAYMENTS_CAPPED (respectively
+// NOMINAL_AMORTIZATION_PERIODS_CAPPED) so truncation is never silent.
+const NUM_PAYMENTS_CAP = 12000;
+
 // (1+rate)^n via integer-period loop multiplication. n MUST be a non-negative
 // integer count of periods -- never a fractional exponent (that would need
 // Math.pow/exp/ln, which amortization schedules never require).
@@ -183,7 +193,8 @@ export function compute(pp) {
   const loan_amount = Math.max(0, safeNum(pp.loan_amount, 0));
   const principalCents = toCents(loan_amount);
   const periods_per_year = Math.max(1, Math.round(safeNum(pp.periods_per_year, 12)));
-  const num_payments = Math.max(1, Math.round(safeNum(pp.num_payments, 1)));
+  const requested_num_payments = Math.round(safeNum(pp.num_payments, 1));
+  const num_payments = Math.min(NUM_PAYMENTS_CAP, Math.max(1, requested_num_payments));
   const odd_days = Math.max(0, safeNum(pp.odd_days, 0));
   const unit_period_days = Math.max(1, safeNum(pp.unit_period_days, 30));
   const odd_frac = odd_days / unit_period_days; // App J unit-period odd-days fraction (u)
@@ -191,6 +202,7 @@ export function compute(pp) {
   const note_periodic_rate = note_rate_pct / 100 / periods_per_year;
 
   const compliance_flags = [];
+  if (requested_num_payments > NUM_PAYMENTS_CAP) compliance_flags.push('NUM_PAYMENTS_CAPPED');
   let rows = [];
   let ending_balance_cents = principalCents;
   const extra = {};
@@ -211,7 +223,9 @@ export function compute(pp) {
     rows = res.rows; ending_balance_cents = res.ending_balance_cents;
     extra.io_periods = io_periods; extra.amortizing_periods = amortizing_periods; extra.amortizing_payment_amount = fromCents(paymentCents);
   } else if (schedule_type === 'balloon') {
-    const nominal_amortization_periods = Math.max(num_payments, Math.round(safeNum(pp.nominal_amortization_periods, num_payments)));
+    const requested_nominal_periods = Math.max(num_payments, Math.round(safeNum(pp.nominal_amortization_periods, num_payments)));
+    const nominal_amortization_periods = Math.min(NUM_PAYMENTS_CAP, requested_nominal_periods);
+    if (requested_nominal_periods > NUM_PAYMENTS_CAP) compliance_flags.push('NOMINAL_AMORTIZATION_PERIODS_CAPPED');
     const paymentCents = levelPaymentCents(principalCents, note_periodic_rate, nominal_amortization_periods);
     const res = amortizeCents(principalCents, note_periodic_rate, paymentCents, num_payments, 0, false);
     rows = res.rows;

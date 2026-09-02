@@ -1,5 +1,5 @@
 // art-332-build-amortization-schedule.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:8885c70d3b73687cac1d701f769dca9e13c67e4101c9ff6cd9707922f141439b
+// kernel_digest_at_authoring: sha256:c43a019193d999e9f93930a4bf793f51192c11245151211f1c26f038629caef9
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -148,6 +148,41 @@ function checkP4_ulp_forcing() {
   return { name: 'P4_ulp_boundary_forcing_near_zero_rate_threshold', trials: checked, violations };
 }
 
+// ---------- P5: caller-supplied schedule length is clamped at NUM_PAYMENTS_CAP=12000 ----------
+// The cap flags must be COMPUTED from the requested counts, never static: absent at/below the
+// boundary, present above it. The balloon path's nominal_amortization_periods is its own
+// clamped loop bound (it drives the payment-size factor loop).
+function checkP5_numPaymentsCap() {
+  let violations = 0, checked = 0;
+  // at the boundary the clamp is a no-op and NO cap flag is raised
+  const atCap = compute({ schedule_type: 'level_payment', loan_amount: 1000, note_rate_pct: 0, num_payments: 12000, periods_per_year: 12 });
+  checked++;
+  if (atCap.output_payload.num_payments !== 12000 || atCap.output_payload.schedule.length !== 12000) violations++;
+  if (atCap.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  // one past the boundary: schedule clamped to 12000 and the cap flag IS raised
+  const overCap = compute({ schedule_type: 'level_payment', loan_amount: 1000, note_rate_pct: 0, num_payments: 12001, periods_per_year: 12 });
+  checked++;
+  if (overCap.output_payload.num_payments !== 12000 || overCap.output_payload.schedule.length !== 12000) violations++;
+  if (!overCap.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  // small inputs unaffected: length preserved, no flag
+  const small = compute({ schedule_type: 'level_payment', loan_amount: 300000, note_rate_pct: 6.5, num_payments: 60, periods_per_year: 12 });
+  checked++;
+  if (small.output_payload.num_payments !== 60 || small.output_payload.schedule.length !== 60) violations++;
+  if (small.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  // balloon: nominal_amortization_periods above the ceiling is clamped and flagged
+  const balloonOver = compute({ schedule_type: 'balloon', loan_amount: 300000, note_rate_pct: 6.5, num_payments: 60, periods_per_year: 12, nominal_amortization_periods: 50000 });
+  checked++;
+  if (balloonOver.output_payload.nominal_amortization_periods !== 12000) violations++;
+  if (!balloonOver.compliance_flags.includes('NOMINAL_AMORTIZATION_PERIODS_CAPPED')) violations++;
+  if (balloonOver.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++; // num_payments=60 is under the ceiling; only the nominal clamp binds
+  // balloon: default nominal (= num_payments) raises neither flag
+  const balloonNominal = compute({ schedule_type: 'balloon', loan_amount: 300000, note_rate_pct: 6.5, num_payments: 60, periods_per_year: 12 });
+  checked++;
+  if (balloonNominal.compliance_flags.includes('NOMINAL_AMORTIZATION_PERIODS_CAPPED')) violations++;
+  if (balloonNominal.compliance_flags.includes('NUM_PAYMENTS_CAPPED')) violations++;
+  return { name: 'P5_num_payments_and_nominal_clamped_flags_computed', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -159,6 +194,7 @@ results.properties.push(checkP1_termination_length_bounded());
 results.properties.push(checkP2_convergence_or_report());
 results.properties.push(checkP3_boundedness());
 results.properties.push(checkP4_ulp_forcing());
+results.properties.push(checkP5_numPaymentsCap());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
