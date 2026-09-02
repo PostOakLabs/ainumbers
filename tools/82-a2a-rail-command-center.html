@@ -599,7 +599,7 @@ function saveState() {
 const RAILS = {
   'FedNow': {
     cost:8, speed:10, dataRichness:7, compliance:9,
-    iso20022Native:true, maxTxnUSD:500000,
+    iso20022Native:true, maxTxnUSD:10000000,
     corridors:['USD-USD'],
     desc:'Real-time gross settlement · 24/7/365 · RNSF & STP · ISO 20022 native',
     fee:'$0.04–$0.045/txn (Fed) + network overlay',
@@ -607,7 +607,7 @@ const RAILS = {
   },
   'RTP': {
     cost:8, speed:10, dataRichness:6, compliance:8,
-    iso20022Native:false, maxTxnUSD:1000000,
+    iso20022Native:false, maxTxnUSD:10000000,
     corridors:['USD-USD'],
     desc:'The Clearing House RTP · 24/7 · immediate finality · 1M participants',
     fee:'$0.01–$0.045/txn',
@@ -1087,8 +1087,8 @@ const COMPLIANCE_RULES = {
     {id:'OFAC-SDN',label:'OFAC SDN Screening',req:'Screen all parties against current OFAC SDN list before processing',applies:()=>true},
     {id:'FEDNOW-RISK',label:'FedNow Risk Trilemma',req:'Irrevocable settlement — AML/OFAC must clear before settlement window',applies:(s)=>s.rail==='FedNow'},
     {id:'BSA-SAR',label:'BSA SAR Obligation',req:'File SAR within 30 days if suspicious activity ≥ $5,000',applies:()=>true},
-    {id:'RTP-LIMIT',label:'RTP $1M Per-Transaction Cap',req:'Per-transaction limit: $1,000,000. Ensure payment routing logic enforces this cap.',applies:(s)=>s.rail==='RTP'},
-    {id:'FEDNOW-LIMIT',label:'FedNow $500K Per-Transaction Cap',req:'FedNow current limit: $500,000 per transaction. Tiered access available for higher limits.',applies:(s)=>s.rail==='FedNow'},
+    {id:'RTP-LIMIT',label:'RTP $10M Per-Transaction Cap',req:'Per-transaction limit: $10,000,000 (effective February 9, 2025). Ensure payment routing logic enforces this cap.',applies:(s)=>s.rail==='RTP'},
+    {id:'FEDNOW-LIMIT',label:'FedNow $10M Per-Transaction Cap',req:'FedNow current limit: $10,000,000 per transaction (effective November 12, 2025). Institutions may set lower limits.',applies:(s)=>s.rail==='FedNow'},
     {id:'NACHA-TPS',label:'NACHA Third-Party Sender Rules',req:'TPS registration, audit rights, and originator due diligence required per NACHA Operating Rules',applies:(s)=>s.originatorType==='tps'},
   ],
   'EU (PSD3)': [
@@ -1119,10 +1119,10 @@ const COMPLIANCE_RULES = {
 };
 
 const RAIL_LIMITS = {
-  'FedNow':       { limit:'$500,000 / txn', availability:'24/7/365', finality:'Immediate / irrevocable', iso:'ISO 20022 native' },
-  'RTP':          { limit:'$1,000,000 / txn', availability:'24/7/365', finality:'Immediate / irrevocable', iso:'ISO 20022 wrapper' },
+  'FedNow':       { limit:'$10,000,000 / txn (eff. Nov 12, 2025)', availability:'24/7/365', finality:'Immediate / irrevocable', iso:'ISO 20022 native' },
+  'RTP':          { limit:'$10,000,000 / txn (eff. Feb 9, 2025)', availability:'24/7/365', finality:'Immediate / irrevocable', iso:'ISO 20022 wrapper' },
   'Same-Day ACH': { limit:'$1,000,000 / txn', availability:'3 windows / business day', finality:'Same-day / reversible (2-day window)', iso:'NACHA file format' },
-  'SEPA Instant': { limit:'€100,000 / txn (~$110K)', availability:'24/7/365', finality:'10 seconds / irrevocable', iso:'ISO 20022 native (pacs.008)' },
+  'SEPA Instant': { limit:'No scheme cap — PSP-set (since Oct 5, 2025)', availability:'24/7/365', finality:'10 seconds / irrevocable', iso:'ISO 20022 native (pacs.008)' },
   'SEPA Credit':  { limit:'No cap', availability:'Business days only', finality:'T+1 / irrevocable after settlement', iso:'ISO 20022 native (pacs.008)' },
   'SWIFT gpi':    { limit:'No cap', availability:'Business days (cutoffs apply)', finality:'Variable (hours to T+1)', iso:'ISO 20022 CBPR+ (pacs.008)' },
 };
@@ -1202,8 +1202,8 @@ function updateS4Output() {
       <table style="width:100%;font-size:.72rem;border-collapse:collapse">
         ${Object.entries(limit).map(([k,v]) => `<tr><td style="padding:.35rem .6rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;width:45%;border-bottom:1px solid var(--border)">${k.charAt(0).toUpperCase()+k.slice(1)}</td><td style="padding:.35rem .6rem;color:var(--bright);font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--border)">${v}</td></tr>`).join('')}
       </table>
-      ${avgSize > 0 && rail === 'FedNow' && avgSize > 500000 ? `<p style="font-size:.68rem;color:var(--red);margin-top:.75rem">⚠ Your average transaction size ($${avgSize.toLocaleString()}) exceeds the FedNow $500,000 per-transaction limit. Transactions must be split or routed to an alternate rail.</p>` : ''}
-      ${avgSize > 0 && rail === 'RTP' && avgSize > 1000000 ? `<p style="font-size:.68rem;color:var(--red);margin-top:.75rem">⚠ Your average transaction size ($${avgSize.toLocaleString()}) exceeds the RTP $1,000,000 limit.</p>` : ''}
+      ${avgSize > 0 && rail === 'FedNow' && avgSize > 10000000 ? `<p style="font-size:.68rem;color:var(--red);margin-top:.75rem">⚠ Your average transaction size ($${avgSize.toLocaleString()}) exceeds the FedNow $10,000,000 per-transaction limit. Transactions must be split or routed to an alternate rail.</p>` : ''}
+      ${avgSize > 0 && rail === 'RTP' && avgSize > 10000000 ? `<p style="font-size:.68rem;color:var(--red);margin-top:.75rem">⚠ Your average transaction size ($${avgSize.toLocaleString()}) exceeds the RTP $10,000,000 limit.</p>` : ''}
     </div>`;
   }
 
