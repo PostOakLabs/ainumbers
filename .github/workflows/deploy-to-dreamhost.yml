@@ -471,12 +471,54 @@ jobs:
             echo "✅ All tools contain the mfstSec manifest panel"
           fi
 
+      - name: 🧾 Deploy manifest preview (what a real deploy would publish + attest)
+        # Dry-run duty for the provenance steps: the deploy job (which writes
+        # the real manifest and calls the attest action) is skipped entirely
+        # under workflow_dispatch dry_run=true, so the safe half of that work
+        # runs HERE, where a dry run does reach, and prints exactly what a
+        # real deploy would publish and attest. Nothing
+        # is written into the shipped tree from this job and the attestation is
+        # NOT created here — publishing to the attestations API is the
+        # irreversible step the dry run exists to skip. Keep the derivation
+        # pipeline BYTE-IDENTICAL to the deploy job's "Build deploy manifest"
+        # step below: this preview is only honest while both agree.
+        run: |
+          set -euo pipefail
+          PREVIEW="$RUNNER_TEMP/deploy-checksums-preview.txt"
+          find . -type f \
+            ! -path './.git/*' ! -name '.git' ! -path './.github/*' ! -path './node_modules/*' \
+            ! -path './scripts/*' ! -path './specs/*' ! -path './docs/*' ! -path './reconciled/*' \
+            ! -name '.gitattributes' ! -name '.gitignore' ! -name '.DS_Store' \
+            ! -name 'Thumbs.db' ! -name 'CANONICAL_TOOL_EXAMPLE.html' \
+            ! -name '.env' ! -name '.env.*' \
+            ! -name 'deploy-stamp.json' ! -name 'deploy-manifest.json' ! -name 'deploy-checksums.txt' \
+            -print0 \
+            | sed -z 's|^\./||' \
+            | awk 'BEGIN{RS="\0"} /\.md$/ && $0 !~ /^chaingraph\/okf\// && $0 != "chaingraph/standard/SPEC.md" {next} {printf "%s%c", $0, 0}' \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed -e 's/ \*/  /' -e 's|  \./|  |' \
+            > "$PREVIEW"
+          DIGEST=$(sha256sum "$PREVIEW" | cut -d' ' -f1)
+          COUNT=$(wc -l < "$PREVIEW")
+          echo "SO40a dry-run receipt: a real deploy would publish /.well-known/deploy-manifest.json"
+          echo "  site_content_digest: sha256:$DIGEST over $COUNT published files"
+          echo "  and attest it (plus its checksum list) via actions/attest-build-provenance"
+
   # ── Deploy (only runs if preflight passes and dry_run is not set) ─────────
   deploy:
     name: Deploy to DreamHost
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Deploy-provenance attestation: the attest step
+      # below signs with a short-lived Sigstore keyless certificate (needs the
+      # OIDC identity token) and uploads the attestation to this repo's
+      # attestations API. Both scopes are job-level and read-only otherwise —
+      # the same least-privilege shape land-verify.yml's attest job already
+      # ships. See the docs quote in the PR body.
+      id-token: write
+      attestations: write
     needs: [supersede, preflight]
     # The `needs` alone already skips this job when preflight is skipped; the
     # explicit superseded clause is belt-and-braces and states the intent at the
@@ -553,6 +595,80 @@ jobs:
             > .well-known/deploy-stamp.json
           cat .well-known/deploy-stamp.json
 
+      - name: 🧾 Build deploy manifest (site content digest)
+        # The estate attests kernel computations and the
+        # FV artifacts (land-verify.yml attest job), but the DEPLOY itself
+        # shipped with no provenance: a verifier could check every receipt yet
+        # not that the bytes on ainumbers.co came from a green main build.
+        # This step closes that link, the same way the deploy stamp above is
+        # written HERE at rsync time: it hashes exactly the set of files this
+        # rsync is about to publish — the mirror of the rsync --include/
+        # --exclude set below — into a sorted "<sha256>  <path>" list, then a
+        # JSON manifest carrying the sha256 OVER that list as the SITE CONTENT
+        # digest. Both files ship in the rsync below, so verification is
+        # self-serve at /.well-known/deploy-manifest.json: fetch it, check out
+        # the commit it names, re-run this same derivation, compare bytes.
+        #
+        # Two deliberate exclusions beyond the rsync mirror:
+        #   .well-known/deploy-stamp.json — carries deployed_at, a run
+        #     timestamp, so no third party could ever reproduce its bytes;
+        #   .well-known/deploy-manifest.json / deploy-checksums.txt — a file
+        #     cannot contain its own hash.
+        #
+        # Plain find/sort/sha256sum/node (the land-verify.yml manifest
+        # precedent): shell tooling keeps this step outside
+        # check-workflow-gate-parity.mjs's node-gate scope, so no parity
+        # declaration is owed for it, and the derivation is locally runnable
+        # on any checkout. Node is runner-preinstalled; no setup-node needed
+        # for two fs reads and a write. Keep this pipeline BYTE-IDENTICAL to
+        # the preflight job's "Deploy manifest preview" step above.
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .well-known
+          find . -type f \
+            ! -path './.git/*' ! -name '.git' ! -path './.github/*' ! -path './node_modules/*' \
+            ! -path './scripts/*' ! -path './specs/*' ! -path './docs/*' ! -path './reconciled/*' \
+            ! -name '.gitattributes' ! -name '.gitignore' ! -name '.DS_Store' \
+            ! -name 'Thumbs.db' ! -name 'CANONICAL_TOOL_EXAMPLE.html' \
+            ! -name '.env' ! -name '.env.*' \
+            ! -name 'deploy-stamp.json' ! -name 'deploy-manifest.json' ! -name 'deploy-checksums.txt' \
+            -print0 \
+            | sed -z 's|^\./||' \
+            | awk 'BEGIN{RS="\0"} /\.md$/ && $0 !~ /^chaingraph\/okf\// && $0 != "chaingraph/standard/SPEC.md" {next} {printf "%s%c", $0, 0}' \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed -e 's/ \*/  /' -e 's|  \./|  |' \
+            > .well-known/deploy-checksums.txt
+          export DEPLOY_GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          DEPLOY_MANIFEST_DIGEST=$(sha256sum .well-known/deploy-checksums.txt | cut -d' ' -f1)
+          export DEPLOY_MANIFEST_DIGEST
+          # Values cross via env, never `${{ }}` inside the script text (same
+          # rule as the SSH step above); the JSON is assembled by node from
+          # those env vars only.
+          node -e '
+            const fs = require("fs");
+            const sums = fs.readFileSync(".well-known/deploy-checksums.txt", "utf8");
+            const files = sums.split("\n").filter((l) => l.length > 0).map((l) => {
+              const i = l.indexOf("  ");
+              return { sha256: l.slice(0, i), path: l.slice(i + 2) };
+            });
+            const manifest = {
+              schema: "ainumbers/deploy-manifest@v1",
+              deployed_commit: process.env.DEPLOY_SHA,
+              generated_at: process.env.DEPLOY_GENERATED_AT,
+              file_count: files.length,
+              site_content_digest: "sha256:" + process.env.DEPLOY_MANIFEST_DIGEST,
+              digest_input: "sha256 over the exact bytes of .well-known/deploy-checksums.txt: one \"<sha256>  <repo-relative-path>\" line per published file, sorted by path (sha256sum format). Excluded from the list: .well-known/deploy-stamp.json (carries a run timestamp, irreproducible by design) and this manifest plus its checksum list (a file cannot contain its own hash).",
+              files: files
+            };
+            fs.writeFileSync(".well-known/deploy-manifest.json", JSON.stringify(manifest, null, 2) + "\n");
+          '
+          echo "site_content_digest: sha256:$DEPLOY_MANIFEST_DIGEST over $(wc -l < .well-known/deploy-checksums.txt) published files"
+          echo "publishing: /.well-known/deploy-manifest.json + /.well-known/deploy-checksums.txt"
+          echo "| Deploy manifest | \`.well-known/deploy-manifest.json\` — site_content_digest \`sha256:$DEPLOY_MANIFEST_DIGEST\` |" >> "$GITHUB_STEP_SUMMARY"
+
       - name: 🔍 Dry-run rsync (shows what will change — no writes)
         # Two narrow carve-outs before the blanket .md exclude below: chaingraph/okf/
         # is the CI-freshness-gated (generate-okf.mjs --check) machine-knowledge bundle,
@@ -615,6 +731,40 @@ jobs:
             ./ "$DH_SSH_USER@$DH_SSH_HOST:$DH_WEB_ROOT/"
 
           echo "✅ rsync completed successfully."
+
+      - name: 🪪 Attest deploy provenance
+        # actions/attest-build-provenance is new to this repo's workflow set;
+        # its authorization is recorded in the pull request that adds it.
+        # Full-commit-SHA pinned (zizmor keeps this green).
+        #
+        # What it signs (docs quoted in the PR body, retrieved 2026-09-01,
+        # actions/attest-build-provenance v4.2.2 README): an in-toto statement
+        # binding the subjects (a named artifact plus its digest) to an SLSA
+        # v1.0 build-provenance predicate, signed with a short-lived Sigstore
+        # certificate (public-good Sigstore for public repos) and "uploaded to
+        # the GH attestations API and associated with the repository from
+        # which the workflow was initiated". Subjects here are BOTH published
+        # provenance files — the manifest and the checksum list it digests —
+        # so one `gh attestation verify` against either fetches it.
+        #
+        # Scope honesty (same rule as land-verify.yml's attest job): this is a
+        # PROCESS claim — this workflow, at this commit, produced these bytes —
+        # never a content-correctness or review claim; no copy anywhere may
+        # present it as one.
+        #
+        # ADVISORY-FIRST: provenance automation here adds zero human steps
+        # and soft-fails to unsigned; the deploy is load-bearing and a
+        # Sigstore/API outage must never block shipping. PROMOTION CRITERION:
+        # continue-on-error comes off only after 10 CONSECUTIVE post-merge
+        # deploy runs in which this step concluded success (checkable from run
+        # history); promotion is itself a follow-up row's one-line diff.
+        id: attest
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            .well-known/deploy-manifest.json
+            .well-known/deploy-checksums.txt
 
       - name: ☁️ Purge Cloudflare cache
         # ainumbers.co is fronted by Cloudflare. Static assets (.jsonld profiles + contexts,
