@@ -134,7 +134,7 @@ function collectBodies(stripped) {
     for (const h2 of hr.helpers) if (!resolved.has(h2)) pending.push(h2);
   }
   // per-body alias sets, for access-pattern building
-  return bodies.map((b, i) => ({ ...b, aliases: [...(i < firstPass.length ? firstPass[i].aliases.keys() : [])] }));
+  return bodies.map((b, i) => ({ ...b, aliases: new Set(i < firstPass.length ? firstPass[i].aliases.keys() : []) }));
 }
 
 function matchBracket(text, openIdx, openCh, closeCh) {
@@ -490,7 +490,9 @@ function canonicalize(v) {
 export function checkDerivedSchemas(repoRoot) {
   const kernels = listKernelFiles(repoRoot);
   const kernelByTool = new Map(kernels.map((k) => [path.basename(k, '.kernel.mjs'), k]));
-  const indexes = { manifestIndex: loadManifestIndex(repoRoot), mcpNameByTool: loadMcpNameIndex(repoRoot) };
+  const mcpNameByTool = loadMcpNameIndex(repoRoot);
+  const toolByMcpName = new Map([...mcpNameByTool.entries()].map(([tid, name]) => [name, tid]));
+  const manifestIndex = loadManifestIndex(repoRoot);
   const problems = [];
   let owned = 0;
   for (const f of fs.readdirSync(path.join(repoRoot, 'manifests')).filter((x) => x.endsWith('.manifest.json'))) {
@@ -503,14 +505,18 @@ export function checkDerivedSchemas(repoRoot) {
     const prov = m?.input_schema?.x_schema_provenance;
     if (!prov || !PROVENANCE_RE.test(prov)) continue; // not ours — hand-curated surface
     owned++;
-    const toolId = m.tool_id;
+    // resolve the pairing kernel the same way the sweep checker pairs
+    // (manifest by tool_id, else by the node's mcp_name — legacy-numbered
+    // manifest filenames can carry a tool_id that belongs to no kernel)
+    const byName = m.mcp_tool_definition?.name ? toolByMcpName.get(m.mcp_tool_definition.name) : null;
+    const toolId = (kernelByTool.has(m.tool_id) ? m.tool_id : null) ?? byName ?? m.tool_id;
     const kernelFile = kernelByTool.get(toolId);
     if (!kernelFile) {
       problems.push(`${rel}: provenance-marked schema pairs with no kernel (kernel removed?)`);
       continue;
     }
     let fresh;
-    try { fresh = deriveInputSchema(repoRoot, kernelFile, indexes).inputSchema; } catch (e) {
+    try { fresh = deriveInputSchema(repoRoot, kernelFile, { manifestIndex, mcpNameByTool }).inputSchema; } catch (e) {
       problems.push(`${rel}: re-derivation failed: ${e.message}`);
       continue;
     }

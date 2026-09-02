@@ -1083,6 +1083,12 @@ const GATES = [
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
+  // MANIFEST-SCHEMA-BACKFILL-1: derived input schemas carry
+  // x_schema_provenance derived-from-kernel-reads <date>; any hand-edit to a
+  // provenance-marked block drifts from a fresh derivation of the kernel's
+  // measured reads and reds here (regenerate with gen-input-schemas.mjs --write).
+  ['Input-schema backfill freshness (MANIFEST-SCHEMA-BACKFILL-1)', 'node scripts/gen-input-schemas.mjs --check'],
+  ['Input-schema backfill controls (enum/unknown/defaults + mutation red, MANIFEST-SCHEMA-BACKFILL-1)', 'node scripts/gen-input-schemas.selftest.mjs'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
   // TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the shared line-level diff-scoping helper — one module,
