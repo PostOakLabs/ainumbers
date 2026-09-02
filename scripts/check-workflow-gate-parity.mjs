@@ -322,6 +322,10 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── COMPARATOR-EPSILON-LINT-1 (2026-09-02) ──────────────────────────────────
+  ["lint-comparator-epsilon.mjs", VIA_PREFLIGHT],
+  ["lint-comparator-epsilon.test.mjs", SELF_TEST],
+
   // ── WEBMCP-GEN-FROM-MANIFEST-1 (2026-09-01) ─────────────────────────────────
   ["gen-webmcp-registrations.mjs",
     "WebMCP registration freshness (--check): rebuilds every marker-delimited registration " +

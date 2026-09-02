@@ -899,6 +899,18 @@ const GATES = [
   ["Vow-vs-code lint fixture proof (SO #40b pairing)", "node scripts/check-vow-vs-code.test.mjs"],
   ["Frozen clock lint (NO-CLOCK-LINT-1)", "node scripts/lint-frozen-clock.mjs"],
   ["Frozen clock lint fixture proof (SO #40b pairing)", "node scripts/lint-frozen-clock.test.mjs"],
+  // COMPARATOR-EPSILON-LINT-1 (boundary-semantics program 2026-09-01): the art-234 L106
+  // inversion (`> X - 1e-5` fires AT x where the regulation is strict) is a MECHANICALLY
+  // DETECTABLE shape -- an epsilon whose sign widens a strict comparator across the
+  // boundary. Scans chaingraph/kernels/*.kernel.mjs for comparator+epsilon shapes;
+  // widening-strict (`> X - eps` / `< X + eps`) is the flagged ratchet class behind
+  // scripts/comparator-epsilon-baseline.json (counts only go DOWN; art-234 L93+L106
+  // pinned at ship time -- their fix row owns the fix); tightening is informational;
+  // widening-inclusive is census-only; plain comparators stay audit-lane. ⛔ Never grow
+  // the baseline to make the gate pass. Paired red-proof (SO #40b / GATE-SELFTEST-META-1):
+  // the fixture proof entry below.
+  ["Comparator epsilon lint (COMPARATOR-EPSILON-LINT-1)", "node scripts/lint-comparator-epsilon.mjs"],
+  ["Comparator epsilon lint fixture proof (SO #40b pairing)", "node scripts/lint-comparator-epsilon.test.mjs"],
   // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
   // above) — the FULL per-kernel composite (syntax/exports/hash-lint/guest-builtin/VM-
   // parity/tsc/proptest-floor/registration/hub-categories/node-page/clause-digest), not
