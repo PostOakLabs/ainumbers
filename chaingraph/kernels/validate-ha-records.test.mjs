@@ -31,6 +31,11 @@
 //   node chaingraph/kernels/validate-ha-records.test.mjs
 
 import { readFileSync, existsSync } from 'node:fs';
+// @ts-ignore — no @types/node in this repo (SO #10: never npm), so tsc cannot resolve node:
+// builtins even though Node resolves them at runtime; scripts/jsdoc-checkjs-gate.mjs allowlists
+// this exact gap for __proptests__ floor files, and this authored kernels test needs the same
+// environmental exemption inline (fence forbids widening the gate's allowlist from here).
+import { readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { executionHash, cgCanon } from './_hash.mjs';
@@ -257,6 +262,41 @@ function isConformantEvidence(record) {
   }
   if (errs.length) bad(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1/HA-RETRO-3A sweep: ${errs.join('; ')}`);
   else ok(`HA-RETRO-2/HARETRO-Y9C-1/HARETRO-GATE-AUTHOR-1/HA-RETRO-3A sweep: gate_policy present and enum-valid on all ${wired.length} wired chain steps (adverse-action, HOEPA/HPML, fair-lending, KYB beneficial-ownership review_required; Y-9C HC-R dual_control; GENIUS reserve pre-check ×4, call-report capital, model-passport review_required; mortgage government-loan-fit review_required; insurer RBC action-level escalate)`);
+}
+
+// ── (7b) DUAL-CONTROL THRESHOLD VALUE — HAGATE-DUALCONTROL-MIN-1 ───────────────────────────────
+// §27.3: dual_control is the N-DISTINCT-identity policy; dual_control(2) is its N=2 case. A
+// dual_control gate carrying threshold: 1 is discharged by a single identity signing once — one
+// person approving their own release — which is review_required's meaning, never dual_control's.
+// The schema's shared $defs/haApprovalThreshold floor stays minimum: 1 because that $def is also
+// reached from non-dual_control contexts, so the value floor is CONDITIONAL on gate_policy and
+// cannot live in the shape schema without a non-additive $def tightening (SO #22). It is gated
+// here instead, over the same live chain shards section (7) sweeps: every step whose gate_policy
+// is "dual_control" MUST carry a gate_threshold whose threshold is an integer >= 2. This is also
+// the gate_threshold-presence enforcement the schema's decisionGate.gate_policy note attributes
+// to this file — a dual_control gate with NO gate_threshold fails here too, as its own error.
+{
+  const CHAINS_DIR = resolve(HERE, '..', 'graph', 'chains');
+  const errs = [];
+  let gatedSteps = 0, dualGates = 0, shards = 0;
+  const files = existsSync(CHAINS_DIR) ? readdirSync(CHAINS_DIR).filter((f) => f.endsWith('.json')).sort() : [];
+  if (!files.length) errs.push('graph/chains: no chain shards found');
+  for (const f of files) {
+    shards++;
+    const chain = JSON.parse(readFileSync(resolve(CHAINS_DIR, f), 'utf8'));
+    for (const step of chain.steps || []) {
+      const g = step.gate;
+      if (!g || g.gate_policy === undefined) continue;
+      gatedSteps++;
+      if (g.gate_policy !== 'dual_control') continue;
+      dualGates++;
+      const t = g.gate_threshold;
+      if (!t || typeof t !== 'object' || Array.isArray(t)) { errs.push(`${f}/${step.tool_id}: gate_policy "dual_control" with NO gate_threshold — REQUIRED (schema $defs/decisionGate gate_policy note)`); continue; }
+      if (!Number.isInteger(t.threshold) || t.threshold < 2) errs.push(`${f}/${step.tool_id}: dual_control gate_threshold.threshold is ${JSON.stringify(t.threshold)}, want integer >= 2 — dual_control(1) is discharged by a single identity, which is review_required's meaning (§27.3)`);
+    }
+  }
+  if (errs.length) bad(`dual-control threshold value: ${errs.join('; ')}`);
+  else ok(`dual-control threshold value: all ${dualGates} dual_control gate(s) across ${shards} chain shards carry gate_threshold.threshold >= 2 (of ${gatedSteps} gated steps) — no dual_control gate is dischargeable by a single identity`);
 }
 
 // ── (8) §27.4 ATTESTED-ARTIFACT SUBJECT — HA-ATTESTED-1, art-502 ─────────────────────────────────
