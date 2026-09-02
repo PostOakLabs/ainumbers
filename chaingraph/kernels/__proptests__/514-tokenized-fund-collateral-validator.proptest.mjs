@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:0ffd03e4aa9960ce7c1c4b4ed9d985e33b3a166f5f96942ff5eb419487a0e62b
+// kernel_digest_at_authoring: sha256:50741b9d96f28fae793b5612ef94aa0a7d4d82c7caee633d71ef57ed9a5430fe
 //
 // FV-PROPFLOOR-SHARD-B1-1 — property-test floor for 514-tokenized-fund-collateral-validator.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (DLA/WLA %, NAV collar arithmetic, haircut) — ULP-
