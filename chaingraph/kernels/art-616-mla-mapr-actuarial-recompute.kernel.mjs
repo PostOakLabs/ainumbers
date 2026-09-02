@@ -215,13 +215,22 @@ function residual(advances, payments, i) {
   return pvSum(payments, i) - pvSum(advances, i);
 }
 
+// Caller-supplied schedule length is clamped: the builder below allocates one
+// flow object per payment, so an unclamped caller-controlled count is a
+// hang/exhaustion lever. 12,000 periods is 1000 years of monthly payments --
+// generous against any plausible real schedule. When the clamp binds,
+// compute() raises NUM_PAYMENTS_CAPPED so truncation is never silent.
+const NUM_PAYMENTS_CAP = 12000;
+
 // Shorthand schedule: one advance at consummation, `num_payments` level
 // payments, payment k falling at k full unit-periods plus the odd-days
 // fraction f = odd_days / unit_period_days.
 function buildStandardSchedule(pp) {
   const loan_amount = safeNum(pp.loan_amount, 0);
   const payment_amount = safeNum(pp.payment_amount, 0);
-  const num_payments = Math.max(1, Math.round(safeNum(pp.num_payments, 1)));
+  const requested_payments = Math.round(safeNum(pp.num_payments, 1));
+  const num_payments = Math.min(NUM_PAYMENTS_CAP, Math.max(1, requested_payments));
+  const num_payments_capped = requested_payments > NUM_PAYMENTS_CAP;
   const periods_per_year = Math.max(1, safeNum(pp.periods_per_year, 12));
   const odd_days = Math.max(0, safeNum(pp.odd_days, 0));
   const unit_period_days = Math.max(1, safeNum(pp.unit_period_days, 30));
@@ -234,7 +243,7 @@ function buildStandardSchedule(pp) {
   for (let k = 1; k <= num_payments; k++) {
     payments.push({ amount: payment_amount, full_periods: k, fraction: odd_frac });
   }
-  return { advances, payments, periods_per_year };
+  return { advances, payments, periods_per_year, num_payments_capped };
 }
 
 // --- solver ------------------------------------------------------------------
@@ -406,13 +415,13 @@ function classifyCharge(raw) {
 export function compute(pp) {
   pp = pp || {};
 
-  let rawAdvances, rawPayments, periods_per_year;
+  let rawAdvances, rawPayments, periods_per_year, num_payments_capped = false;
   if (Array.isArray(pp.advances) && Array.isArray(pp.payments)) {
     rawAdvances = pp.advances;
     rawPayments = pp.payments;
     periods_per_year = Math.max(1, safeNum(pp.periods_per_year, 12));
   } else {
-    ({ advances: rawAdvances, payments: rawPayments, periods_per_year } = buildStandardSchedule(pp));
+    ({ advances: rawAdvances, payments: rawPayments, periods_per_year, num_payments_capped } = buildStandardSchedule(pp));
   }
 
   const advances = rawAdvances.map(normFlow);
@@ -459,6 +468,7 @@ export function compute(pp) {
   const exceeds_cap = mapr_pct === null ? null : mapr_pct > MAPR_CAP_PCT;
 
   const compliance_flags = [];
+  if (num_payments_capped) compliance_flags.push('NUM_PAYMENTS_CAPPED');
   if (charges_exceed_advance) compliance_flags.push('MAPR_CHARGES_EXCEED_ADVANCE');
   if (!solved.bracketed) compliance_flags.push('MAPR_NOT_BRACKETED');
   if (!solved.converged) compliance_flags.push('MAPR_DID_NOT_CONVERGE');
