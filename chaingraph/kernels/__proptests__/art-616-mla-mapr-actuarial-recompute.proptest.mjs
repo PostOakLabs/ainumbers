@@ -51,17 +51,18 @@
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { mulberry32, deepEqual, findShapeViolations, pickNasty, summarize } from './_pbt-common.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KDIR = join(HERE, '..');
 const KERNEL_ID = 'art-616-mla-mapr-actuarial-recompute';
 
-const { compute } = await import(pathToFileURL(join(KDIR, `${KERNEL_ID}.kernel.mjs`)).href);
-const { compute: computeApr215 } = await import(
-  pathToFileURL(join(KDIR, 'art-215-reg-z-appendix-j-apr.kernel.mjs')).href
-);
+// Static string-literal specifiers (MUTATION-TIERED-ROLLOUT-1: the sandbox list is derived
+// statically, so a computed dynamic import() in a floor file is a hard failure). Same modules,
+// same bindings, as the previous pathToFileURL/join-built specifiers.
+import { compute } from '../art-616-mla-mapr-actuarial-recompute.kernel.mjs';
+import { compute as computeApr215 } from '../art-215-reg-z-appendix-j-apr.kernel.mjs';
 
 const RECOGNISED_TYPES = [
   'credit_insurance_premium',
