@@ -802,6 +802,68 @@ deferred until the proving queue clears it. Derive it from the gate rather than 
 
 > Informative: a narrated walkthrough of how the AINumbers reference deployment reached full §18.6 coverage (universal guest, the deferred set, and the cross-engine determinism gate) is at [chaingraph/zkvm-compute-integrity.html](../chaingraph/zkvm-compute-integrity.html).
 
+**§18.7 Journal byte contract (NORMATIVE — clarifies §18.0/§18.1; no envelope change, no schema change).**
+§18.0 stores `journal` as a **decoded JSON object**, but the zkVM claim the `seal` commits to binds `sha256`
+over the **byte string the guest actually committed**. Those are not the same artifact, and §18.1's
+"reconstructs the named system's ReceiptClaim digest from `(imageId, journal)`" is only performable if the
+serialization from object back to bytes is specified. Absent that, a third party holding a published receipt
+cannot recompute the claim digest — which defeats the purpose of publishing receipts. This clause closes that
+gap. It states the contract the reference deployment has always implemented: no existing artifact, receipt,
+seal, or schema changes.
+
+- **The journal byte string MUST be the RFC 8785 (JCS) canonical serialization of the `journal` object,
+  encoded UTF-8** — compact, keys sorted at every nesting depth, no insignificant whitespace.
+- **The journal digest MUST be `sha256` over exactly those bytes**, and it is that digest which enters the
+  named system's ReceiptClaim (for risc0: `ReceiptClaim::ok(imageId, journalBytes)`).
+- **This is §4's canonicalizer, not a second one.** The same `cgCanon` (RFC 8785) that produces the
+  `execution_hash` preimage produces the journal bytes; a verifier MUST NOT introduce a parallel
+  canonicalization path. The shipped reference verifier does exactly this in one line —
+  `kernels/_computeproof.mjs`: `const journalBytes = enc(JSON.stringify(cgCanon(cp.journal)));` — and the §15
+  gate `compute-proof.test.mjs` fails if it ever stops being true, because wrongly-serialized journal bytes
+  yield a different claim digest and the BN254 pairing check then rejects a genuine receipt.
+- **Stored insertion order is NOT the contract.** A journal whose stored key order happens to be sorted
+  serializes identically under both readings; that coincidence is not evidence, and it is precisely why the
+  contract went undocumented for so long (see the evidence note).
+
+*Worked recompute — a verifier holding only the published receipt:*
+
+```
+journalBytes  = utf8( JCS( receipt.journal ) )
+journalDigest = sha256( journalBytes )
+claim         = ReceiptClaim::ok( receipt.imageId, journalBytes )
+verify( receipt.seal, claim, receipt.imageId )   ->   true for a genuine receipt
+```
+
+*Evidence (INFORMATIVE), including the correction that produced it.* The contract was settled empirically
+against real sealed receipts by an external verifier built independently of the reference implementation
+(`PostOakLabs/zkprof-web`, `docs/JOURNAL-BYTES-HYPOTHESIS.md`, headline **CONFIRMED-JCS**). The arc is recorded
+because the first answer over-claimed: an initial run reported the contract confirmed on three fixture receipts
+whose journals were **already key-sorted**, so JCS and compact-insertion-order produced byte-identical strings
+and the experiment discriminated only whitespace, never key ordering. Review caught it, the headline was
+downgraded to exactly what the experiment had shown, and the deciding receipt was then identified and run:
+`art-04-agent-identity-attestation-checker` (imageId `sha256:93c746e79afcf4b2…`, a different guest image) is the
+one receipt in the published corpus whose journal carries **unsorted nested keys**, so its two candidate
+serializations diverge. Under full risc0 3.0.5 Groth16 verification:
+
+| Candidate journal bytes | `sha256` of those bytes | Verification |
+|---|---|---|
+| RFC 8785 / JCS canonical | `3a089ca010da4cc939c482b41b52b659a6ff177a2b82df91c64a774164bcd4be` | **VERIFIES** |
+| compact, stored insertion order | `a92cceb5da47a360d4097c7585584aefac5036df9dd0d3be28b9cf0475243136` | **REJECTED** |
+
+Both directions on the one artifact that can separate them — a discriminating negative control, not a
+confirmation-only result. An independent `snarkjs` twin reproduces the same derivation byte-exactly.
+
+*Scope caveat (INFORMATIVE).* The corpus that settled this carries only finite, small JSON numbers. RFC 8785's
+number-serialization edge cases — negative zero, the exponent thresholds at which ECMAScript switches
+representation, and integers beyond the IEEE-754 safe range — are **not exercised** by any published receipt.
+§3's I-JSON guard already rejects such values on the `execution_hash` path; an implementer whose journal could
+carry them treats the RFC as authoritative over any implementation's shortcut.
+
+*Not specified here (INFORMATIVE).* Emitting the raw journal bytes, or an explicit `journalDigest` field, in
+**future** receipts would spare verifiers the re-derivation, and would be additive and hash-neutral for existing
+seals. That is a receipt-format change and is deliberately **not** specified by this clause, which documents the
+existing contract only.
+
 ## §20 Anchor Binding (NORMATIVE, OPTIONAL — new in v0.7)
 An artifact MAY carry portable, offline-verifiable evidence that its `execution_hash` was included in a
 transparency log or timestamp service by a point in time. Anchor evidence attaches at the OPTIONAL
@@ -3849,7 +3911,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §13 export gate honored (incl. §13.11 `vc`: view-only, no new hash/proof, deterministic, base-profile) | `exporters/export.test.mjs` (unit) + `smoke-compute.mjs` (export round-trip) | validate + post-deploy |
 | §16 proof: eddsa-jcs-2022 whole-artifact at `audit_signature.proof`, no new hash, no `chaingraph_version` bump, deterministic, offline-verifiable, default-off | `proof-binding.test.mjs` (unit: sign→verify round-trip + tamper-detect + determinism + backward-compat) | validate |
 | §17 kernel identity binding: digest at `audit_signature.build_identity` ↔ Graph Index `compute_images` ↔ recomputed source, hash-excluded, no `chaingraph_version` bump | `kernel-identity.test.mjs` (unit: digest determinism + three-way cross-check + tamper-detect + backward-compat) | validate |
-| §18 compute-integrity proof: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off; PLUS the shipped self-contained BN254 Groth16 verifier accepts a real receipt fixture and rejects a tampered seal / wrong journal (stark stays vendor-delegated per §18.1) | `compute-proof.test.mjs` (unit: binding + real-receipt verify + tamper-detect + backward-compat) | validate |
+| §18 compute-integrity proof: object structure, `imageId` ↔ Graph Index `compute_images`, journal ↔ `output_payload`, no new hash, version stays 0.4.0, default-off; PLUS the shipped self-contained BN254 Groth16 verifier accepts a real receipt fixture and rejects a tampered seal / wrong journal (stark stays vendor-delegated per §18.1); PLUS §18.7's journal byte contract — the verifier derives journal bytes as `utf8(JCS(journal))` via §4's `cgCanon` and no second canonicalization path, which the real-receipt pairing check enforces by construction (wrong bytes ⇒ wrong claim digest ⇒ a genuine receipt is rejected) | `compute-proof.test.mjs` (unit: binding + real-receipt verify + tamper-detect + backward-compat) | validate |
 | §20 anchor binding: per-type proof verification (`rfc3161-tst` real TST vs pinned TSA root incl. messageImprint/CMS/chain/EKU/genTime, `opentimestamps` completed proof vs pinned Bitcoin block header, `c2sp-tlog-proof-v1` vs pinned test log key + cosigners + Merkle inclusion, `scitt-receipt-rfc9942` COSE receipt), `anchored_hash` == recomputed `execution_hash`, tampered proof / mismatched hash MUST fail, outside hash scope | `anchor-binding.test.mjs` | validate |
 | §13.12 SD-JWT export: redact→verify round-trip with disclosures, digest mismatch fails, always-disclosed set complete (no input leaks into always-disclosed, no output becomes redactable), fresh CSPRNG salts the only nondeterminism, JWS EdDSA under the §16 key | `sd-export-roundtrip.test.mjs` | validate |
 | §13.13 xBRL-JSON export profile `ocg-xbrl-json@1`: fixture round-trip determinism (re-canonicalize twice ⇒ byte-identical), `canonicalValues` conformance (every fact value canonical-lexical string, no raw number/boolean), Annex 1 FFIEC Call Report sample structurally valid (real MDRM concept names, no placeholder/null concept), never labeled submittable | `xbrl-json-fixtures.test.mjs` | validate |
