@@ -22,22 +22,22 @@ export const meta = {
 
 // VERSION-PINNED QM POINTS-AND-FEES TIER TABLE
 // Source: CFPB annual threshold updates under §1026.43(e)(3)(ii), published in
-// the Federal Register each January. Thresholds indexed to CPI-W.
+// the Federal Register each January. Thresholds indexed to CPI-U.
 // History includes 2021-2026; update in a new yearly session.
 const QM_TIERS_BY_YEAR = {
   2021: {
-    fr_citation: 'FR 2020-27416 (Dec 18, 2020), 85 FR 83720',
+    fr_citation: 'FR 2020-15900 (Aug 19, 2020), 85 FR 50944',
     effective: '2021-01-01',
     tiers: [
       { threshold_min: 110260, limit_type: 'pct', limit_pct: 3.0, label: '>= $110,260: 3%' },
       { threshold_min: 66156, threshold_max: 110259.99, limit_type: 'fixed', limit_fixed: 3308, label: '$66,156 - $110,259.99: $3,308' },
       { threshold_min: 22052, threshold_max: 66155.99, limit_type: 'pct', limit_pct: 5.0, label: '$22,052 - $66,155.99: 5%' },
-      { threshold_min: 13782, threshold_max: 22051.99, limit_type: 'fixed', limit_fixed: 1103, label: '$13,782 - $22,051.99: $1,103' },
-      { threshold_max: 13781.99, limit_type: 'pct', limit_pct: 8.0, label: '< $13,782: 8%' },
+      { threshold_min: 13783, threshold_max: 22051.99, limit_type: 'fixed', limit_fixed: 1103, label: '$13,783 - $22,051.99: $1,103' },
+      { threshold_max: 13782.99, limit_type: 'pct', limit_pct: 8.0, label: '< $13,783: 8%' },
     ],
   },
   2022: {
-    fr_citation: 'FR 2021-27322 (Dec 16, 2021), 86 FR 71487',
+    fr_citation: 'FR 2021-23478 (Nov 2, 2021), 86 FR 60357',
     effective: '2022-01-01',
     tiers: [
       { threshold_min: 114847, limit_type: 'pct', limit_pct: 3.0, label: '>= $114,847: 3%' },
@@ -48,7 +48,7 @@ const QM_TIERS_BY_YEAR = {
     ],
   },
   2023: {
-    fr_citation: 'FR 2022-27762 (Dec 20, 2022), 87 FR 77143',
+    fr_citation: 'FR 2022-28023 (Dec 23, 2022), 87 FR 78831',
     effective: '2023-01-01',
     tiers: [
       { threshold_min: 124331, limit_type: 'pct', limit_pct: 3.0, label: '>= $124,331: 3%' },
@@ -59,25 +59,25 @@ const QM_TIERS_BY_YEAR = {
     ],
   },
   2024: {
-    fr_citation: 'FR 2023-27060 (Dec 11, 2023), 88 FR 86062',
+    fr_citation: 'FR 2023-20476 (Sep 21, 2023), 88 FR 65113',
     effective: '2024-01-01',
     tiers: [
-      { threshold_min: 130867, limit_type: 'pct', limit_pct: 3.0, label: '>= $130,867: 3%' },
-      { threshold_min: 78520, threshold_max: 130866.99, limit_type: 'fixed', limit_fixed: 3926, label: '$78,520 - $130,866.99: $3,926' },
-      { threshold_min: 26173, threshold_max: 78519.99, limit_type: 'pct', limit_pct: 5.0, label: '$26,173 - $78,519.99: 5%' },
-      { threshold_min: 16358, threshold_max: 26172.99, limit_type: 'fixed', limit_fixed: 1309, label: '$16,358 - $26,172.99: $1,309' },
-      { threshold_max: 16357.99, limit_type: 'pct', limit_pct: 8.0, label: '< $16,358: 8%' },
+      { threshold_min: 130461, limit_type: 'pct', limit_pct: 3.0, label: '>= $130,461: 3%' },
+      { threshold_min: 78277, threshold_max: 130460.99, limit_type: 'fixed', limit_fixed: 3914, label: '$78,277 - $130,460.99: $3,914' },
+      { threshold_min: 26092, threshold_max: 78276.99, limit_type: 'pct', limit_pct: 5.0, label: '$26,092 - $78,276.99: 5%' },
+      { threshold_min: 16308, threshold_max: 26091.99, limit_type: 'fixed', limit_fixed: 1305, label: '$16,308 - $26,091.99: $1,305' },
+      { threshold_max: 16307.99, limit_type: 'pct', limit_pct: 8.0, label: '< $16,308: 8%' },
     ],
   },
   2025: {
-    fr_citation: 'FR 2024-28929 (Dec 10, 2024), 89 FR 99882',
+    fr_citation: 'FR 2024-27553 (Dec 2, 2024), 89 FR 95080',
     effective: '2025-01-01',
     tiers: [
-      { threshold_min: 134500, limit_type: 'pct', limit_pct: 3.0, label: '>= $134,500: 3%' },
-      { threshold_min: 80700, threshold_max: 134499.99, limit_type: 'fixed', limit_fixed: 4035, label: '$80,700 - $134,499.99: $4,035' },
-      { threshold_min: 26900, threshold_max: 80699.99, limit_type: 'pct', limit_pct: 5.0, label: '$26,900 - $80,699.99: 5%' },
-      { threshold_min: 16812, threshold_max: 26899.99, limit_type: 'fixed', limit_fixed: 1345, label: '$16,812 - $26,899.99: $1,345' },
-      { threshold_max: 16811.99, limit_type: 'pct', limit_pct: 8.0, label: '< $16,812: 8%' },
+      { threshold_min: 134841, limit_type: 'pct', limit_pct: 3.0, label: '>= $134,841: 3%' },
+      { threshold_min: 80905, threshold_max: 134840.99, limit_type: 'fixed', limit_fixed: 4045, label: '$80,905 - $134,840.99: $4,045' },
+      { threshold_min: 26968, threshold_max: 80904.99, limit_type: 'pct', limit_pct: 5.0, label: '$26,968 - $80,904.99: 5%' },
+      { threshold_min: 16855, threshold_max: 26967.99, limit_type: 'fixed', limit_fixed: 1348, label: '$16,855 - $26,967.99: $1,348' },
+      { threshold_max: 16854.99, limit_type: 'pct', limit_pct: 8.0, label: '< $16,855: 8%' },
     ],
   },
   2026: {
