@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:224b7fe562fe4671cc165a1228afc28e82d8abbdfc5ec4c9e93ee480e50587a5
+// kernel_digest_at_authoring: sha256:2bd3d6eed462e16f193553ab50e4d067db74e0c2d6146b0ca9c2508a015101a0
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-220-reg-z-threshold-lookup.
 // Class B (bounded categorical). ⚠ RECLASSIFIED float:no by this row's FIX-2-CARRY duty
