@@ -243,6 +243,21 @@ td.mcc-industry { color:var(--body); }
 }
 .export-btn:hover { border-color:var(--gold); color:var(--gold); }
 
+/* Policy Mandate export — canonical .results-export-row pattern (CONTRACT §3.1/§3.2) */
+.results-export-row { display:flex; gap:8px; flex-wrap:wrap; padding:16px 20px; background:var(--bg-3); border:1px solid var(--border); border-radius:var(--radius); margin-top:.75rem; }
+.results-export-row .btn { flex-direction:column; align-items:flex-start; padding:10px 16px; }
+.results-export-row .btn[disabled] { opacity:.28; cursor:not-allowed; }
+.results-export-row .btn[disabled]:hover { background:transparent; border-color:var(--border-2); color:var(--text); }
+.btn { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500; padding:7px 16px; border-radius:var(--radius); cursor:pointer; border:1px solid var(--border-2); background:transparent; color:var(--text); transition:all .15s; white-space:nowrap; }
+.btn:hover { background:var(--bg-2); border-color:var(--teal); color:var(--bright); }
+.btn-sm { font-size:11px; padding:5px 12px; }
+.btn-subtitle { display:block; font-size:10px; opacity:.65; margin-top:1px; }
+#ap2ExportBtn.ready, #mdExportBtn.ready { opacity:1; cursor:pointer; border-color:var(--teal); color:var(--bright); }
+#ap2ExportBtn.ready:hover, #mdExportBtn.ready:hover { background:var(--bg-4); }
+.toast { position:fixed; bottom:24px; right:24px; background:var(--bg-3); border:1px solid var(--border-2); border-radius:var(--radius); padding:12px 18px; font-size:13px; color:var(--bright); box-shadow:0 8px 32px rgba(0,0,0,.4); z-index:9999; transform:translateY(80px); opacity:0; transition:all .3s; pointer-events:none; }
+.toast.error { border-color:var(--red); }
+.toast.show { transform:translateY(0); opacity:1; }
+
 /* ── EMPTY STATE ── */
 .empty-state {
   text-align:center; padding:3rem 1rem;
@@ -622,6 +637,16 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
       <button class="export-btn" onclick="exportCSV()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export CSV
+      </button>
+    </div>
+    <div class="results-export-row">
+      <button class="btn btn-sm" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the analysis above to generate a Policy Mandate">
+        {} Export Policy Mandate
+        <span class="btn-subtitle">mcc_risk_profile</span>
+      </button>
+      <button class="btn btn-sm" id="mdExportBtn" disabled onclick="exportMarkdown()" title="Run the analysis above to generate a Policy Mandate">
+        ↓ Policy Markdown
+        <span class="btn-subtitle">Change-control doc</span>
       </button>
     </div>
     <div class="table-wrap">
@@ -1072,6 +1097,120 @@ function exportCSV() {
   URL.revokeObjectURL(a.href);
 }
 
+/* ── POLICY MANDATE EXPORT (CONTRACT §3.1/§3.2, Tier 1: JSON + Markdown) ── */
+/* AP2Schema — full validator (PM17; canonical shipped validator, CONTRACT §3.1) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000);}
+function generateUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
+function triggerDownload(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+
+function buildAP2() {
+  const tiers = {}; const codes = [];
+  filtered.forEach(m => {
+    tiers[m.risk_tier] = (tiers[m.risk_tier] || 0) + 1;
+    codes.push({ mcc:m.mcc, name:m.name, industry_group:m.industry_group, risk_tier:m.risk_tier,
+      visa_flags:m.visa_flags, mc_flags:m.mc_flags, durbin_eligible:m.durbin_eligible,
+      visa_interchange_category:m.visa_interchange_category||null, chargeback_threshold:m.chargeback_threshold||null });
+  });
+  const durbinCount = filtered.filter(m => m.durbin_eligible).length;
+  const tierText = Object.keys(tiers).sort().map(k => `${k} ${tiers[k]}`).join(', ');
+  return {
+    reliance_notice:{statement:"This tool runs in your browser and is provided for information. It is not legal, tax, accounting, or investment advice, and it is not a regulatory determination. Network rules and interchange programs change; verify against current scheme documentation before relying on an output.",as_of:"2026-07-27",issued_by:"ainumbers.co"},
+    mandate_id: generateUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "mcc-code-explorer",
+    tool_version: "1.1.0",
+    mandate_type: "risk_parameter",
+    generated_at: new Date().toISOString(),
+    jurisdiction: ['ZZ'],
+    regulatory_frameworks: ["ISO 18245 Merchant Category Codes","Visa/Mastercard MCC risk taxonomy","Durbin Amendment (Regulation II)"],
+    payload: {
+      matched_codes: filtered.length,
+      total_codes: MCC.length,
+      filters: { search: document.getElementById('searchInput').value.trim(), risk: activeFilters.risk, network: activeFilters.network, industry: activeFilters.industry, registration_only: activeFilters.regOnly },
+      risk_tier_distribution: tiers,
+      durbin_eligible_count: durbinCount,
+      codes
+    },
+    summary: `Merchant category code risk profile for ${filtered.length} of ${MCC.length} ISO 18245 codes${activeFilters.risk!=='all' ? ` filtered to ${activeFilters.risk} risk` : ''}. Risk tier distribution: ${tierText}. ${durbinCount} code(s) Durbin-eligible.`,
+    agent_instructions: ["Use payload.codes to drive MCC-based risk scoring and merchant onboarding triage. Treat risk_tier 'prohibited' entries as blocked unless a documented exception exists. Check durbin_eligible before applying debit interchange caps. Filters applied are recorded in payload.filters; regenerate the mandate after changing them."],
+    regulatory_citations: ["ISO 18245 Merchant Category Code classification","Durbin Amendment (Regulation II) debit interchange eligibility"],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+}
+
+function exportAP2() {
+  if(!filtered.length){showToast('No codes match the current filters','error');return;}
+  const m = buildAP2();
+  try {
+    AP2Schema.validate(m);
+  } catch(e) {
+    showToast('Policy Mandate validation failed: '+e.message,'error');return;
+  }
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(JSON.stringify(m,null,2),`mcc-code-explorer_${ts}.policy.json`,'application/json');
+  showToast('Policy Mandate JSON exported','success');
+}
+
+function buildMarkdown() {
+  const ts = new Date().toISOString();
+  const tiers = {};
+  filtered.forEach(m => { tiers[m.risk_tier] = (tiers[m.risk_tier] || 0) + 1; });
+  let md = '# MCC Risk Profile (Change-Control Document)\n\n';
+  md += `**Generated:** ${ts} · **Tool:** MCC Code Explorer & Risk Profiler · AINumbers.co\n\n`;
+  md += '## Scope\n\n';
+  md += `- Codes in scope: ${filtered.length} of ${MCC.length} (ISO 18245)\n`;
+  md += `- Filters: risk=${activeFilters.risk}, network=${activeFilters.network}, industry=${activeFilters.industry}, registration-only=${activeFilters.regOnly?'yes':'no'}\n`;
+  const q = document.getElementById('searchInput').value.trim();
+  if(q) md += `- Search: ${q}\n`;
+  md += '\n## Risk Tier Distribution\n\n';
+  md += '| Risk tier | Codes |\n|---|---|\n';
+  Object.keys(tiers).sort().forEach(t => { md += `| ${t} | ${tiers[t]} |\n`; });
+  md += '\n## Codes\n\n';
+  md += '| MCC | Name | Industry | Risk | Durbin | Visa | MC |\n|---|---|---|---|---|---|---|\n';
+  filtered.forEach(m => { md += `| ${m.mcc} | ${m.name} | ${m.industry_group} | ${m.risk_tier} | ${m.durbin_eligible?'Yes':'No'} | ${(m.visa_flags||[]).join('; ')} | ${(m.mc_flags||[]).join('; ')} |\n`; });
+  md += '\n## Regulatory References\n\n';
+  md += '- ISO 18245 Merchant Category Code classification\n';
+  md += '- Durbin Amendment (Regulation II) debit interchange eligibility\n\n';
+  md += '---\n*Client-side. Zero PII. Generated by MCC Code Explorer · AINumbers.co*\n';
+  return md;
+}
+
+function exportMarkdown() {
+  if(!filtered.length){showToast('No codes match the current filters','error');return;}
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(buildMarkdown(),`mcc-code-explorer_${ts}.md`,'text/markdown');
+  showToast('Policy Markdown exported','success');
+}
+
 function esc(s) {
   if(!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1080,10 +1219,14 @@ function esc(s) {
 // ── INIT ──
 sortData();
 renderTable();
+// Policy Mandate exports ready: results render on load (CONTRACT §3.2 post-run state)
+const ap2Btn = document.getElementById('ap2ExportBtn'), mdBtn = document.getElementById('mdExportBtn');
+if(ap2Btn){ap2Btn.disabled=false;ap2Btn.classList.add('ready');ap2Btn.title='For API integration · audit trail';}
+if(mdBtn){mdBtn.disabled=false;mdBtn.classList.add('ready');mdBtn.title='For audit trail · change control';}
 
 /* ── i18n lang bar ── */
 
-var MANIFEST=JSON.parse('{"tool_id": "mcc-code-explorer", "version": "1.1.0", "title": "MCC Code Explorer & Risk Profiler", "description": "Search and filter 340+ Merchant Category Codes. Risk tiers, Visa/MC network flags, SIC/NAICS cross-references, Durbin eligibility. Free, client-side, zero PII.", "category": "fintech", "tags": ["MCC", "Code", "Explorer", "Risk", "Profiler"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "mcc_code_explorer", "description": "Run MCC Code Explorer & Risk Profiler. Search and filter 340+ Merchant Category Codes. Risk tiers, Visa/MC network flags, SIC/NAICS cross-references, Durbin eligibility. Free, client-side, zero PII.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/mcc-code-explorer.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false, "prefill": true, "bridge_version": "1.0"}');
+var MANIFEST=JSON.parse('{"tool_id": "mcc-code-explorer", "version": "1.1.0", "title": "MCC Code Explorer & Risk Profiler", "description": "Search and filter 340+ Merchant Category Codes. Risk tiers, Visa/MC network flags, SIC/NAICS cross-references, Durbin eligibility. Free, client-side, zero PII.", "category": "fintech", "tags": ["MCC", "Code", "Explorer", "Risk", "Profiler"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "mcc_code_explorer", "description": "Run MCC Code Explorer & Risk Profiler. Search and filter 340+ Merchant Category Codes. Risk tiers, Visa/MC network flags, SIC/NAICS cross-references, Durbin eligibility. Free, client-side, zero PII.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/mcc-code-explorer.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true, "prefill": true, "bridge_version": "1.0"}');
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
 </script>
 
@@ -1238,5 +1381,6 @@ function boot(){buildIntakeUI();initPrefill();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
+<div class="toast" id="toast"></div>
 </body>
 </html>
