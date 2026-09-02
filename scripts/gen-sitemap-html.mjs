@@ -347,7 +347,10 @@ src = spliceSentinel(
   const before = src;
   src = src.replace(/id="hero-cat-n">\d+/, `id="hero-cat-n">${categoryCount}`);
   src = src.replace(/across \d+ categories/, `across ${categoryCount} categories`);
-  src = src.replace(/<span id="searchCount" aria-live="polite">\d+ tools<\/span>/, `<span id="searchCount" aria-live="polite">${totalToolRows} tools</span>`);
+  // COPYROT-SWEEP-1 (ROOT-3): global flag — a non-global replace patched only the
+  // FIRST searchCount span, fossilizing any duplicate at a stale count. The template
+  // now carries ONE span; the /g keeps this fix honest if a duplicate ever reappears.
+  src = src.replace(/<span id="searchCount" aria-live="polite">\d+ tools<\/span>/g, `<span id="searchCount" aria-live="polite">${totalToolRows} tools</span>`);
   src = src.replace(/\/\* GEN:SITEMAP-TOTAL:START \(generator-owned\) \*\/ const TOTAL = \d+; \/\* GEN:SITEMAP-TOTAL:END \*\//, `/* GEN:SITEMAP-TOTAL:START (generator-owned) */ const TOTAL = ${totalToolRows}; /* GEN:SITEMAP-TOTAL:END */`);
   if (src !== before) changed = true;
 }
