@@ -1,4 +1,10 @@
-#!/usr/bin/env node
+// @ts-nocheck — plain CLI utility script, never meant to be type-checked; only
+// swept into tsc --checkJs's program because it lives under chaingraph/kernels/
+// and this edit makes it "touched" (JSDOC-CHECKJS-PREFLIGHT-1's own path filter,
+// landed 2026-08-16, watches the whole directory, not just *.kernel.mjs). Without
+// this it fails on bare node:fs/process usage — a directory-wide @types/node gap
+// (SO #47's exemption only reaches chaingraph/kernels/__proptests__/), same as
+// vm-parity-gate.mjs's header note.
 // lint-cgcanon-twin.mjs — cgCanon TWIN-PARITY GATE (SPECGATE-HYGIENE-1, 2026-09-01; audit
 // HASH-3 from research/AUDIT-PUBLIC-FULLSWEEP-2026-09-01.md).
 //

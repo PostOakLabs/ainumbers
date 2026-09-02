@@ -1,3 +1,5 @@
+// @ts-nocheck — plain mutation-control test script under chaingraph/kernels/ (no @types/node in
+// this directory's tsc program; same rationale as vm-parity-gate.mjs / lint-cgcanon-twin.mjs).
 // lint-cgcanon-twin.test.mjs — red-then-green mutation controls for lint-cgcanon-twin.mjs
 // (SPECGATE-HYGIENE-1, 2026-09-01; SO #34c: "a new gate proves red before green", SO #34:
 // "verify a checker by mutation, not by reading it").
