@@ -450,6 +450,8 @@ const PREFLIGHT_ONLY = new Map([
   ["check-retired-mcp-toggle.mjs", VIA_PREFLIGHT],
   ["check-retired-ap2-version.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.mjs", VIA_PREFLIGHT],
+  ["gen-input-schemas.mjs", VIA_PREFLIGHT],
+  ["gen-input-schemas.selftest.mjs", VIA_PREFLIGHT],
   ["validate-evidence-profiles.mjs", VIA_PREFLIGHT],
   ["check-chain-domain.mjs", VIA_PREFLIGHT],
   ["check-clause-digest.mjs", VIA_PREFLIGHT],

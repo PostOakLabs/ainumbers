@@ -560,6 +560,16 @@ export const EXCLUDED = [
        + 'committed, and it has no whole-estate write mode to run here.',
   },
   {
+    what: 'manifests/*.manifest.json input_schema blocks (via scripts/gen-input-schemas.mjs)',
+    script: 'scripts/gen-input-schemas.mjs',
+    share: 'n/a — node-local, same artifact family as the MFSTGEN-1 entry above',
+    why: 'NODE-LOCAL (MANIFEST-SCHEMA-BACKFILL-1): derives one input_schema per tool from THAT kernel\'s '
+       + 'measured reads. Its preflight gate (--check) is a read-only freshness verification, and writes '
+       + 'happen only on an explicit row-driven --write over per-node disjoint files (one kernel each) — '
+       + 'no whole-estate write mode to run on main. The kernel-fix row that changes a kernel\'s reads '
+       + 'owes the regen of its own manifest in the same PR; gen-input-schemas.mjs --check enforces that.',
+  },
+  {
     what: 'chaingraph/kernel-vm.html (via chaingraph/vm/scripts/gen-kernel-vm-html.mjs)',
     script: 'chaingraph/vm/scripts/gen-kernel-vm-html.mjs',
     share: '0% — no drift on a real node registration (measured on tree 278e0318, art-665)',
