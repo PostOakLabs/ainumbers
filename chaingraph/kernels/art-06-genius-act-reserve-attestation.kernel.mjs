@@ -2,14 +2,14 @@
 // Faithful port of runAttestation() in
 //   repo/chaingraph/art-06-genius-act-reserve-attestation.html
 // Pure: no DOM, no window, no network.
-// GENIUS Act S.394 · AICPA 2025 Attestation Criteria.
+// GENIUS Act, Pub. L. 119-27 (S.1582) · AICPA 2025 Attestation Criteria.
 
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-06-genius-act-reserve-attestation';
 const TOOL_VERSION = '1.0.0';
 
-// Asset type definitions — GENIUS Act S.394 §4(a)
+// Asset type definitions — GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)
 // eligibility: 'permitted' | 'conditional' | 'prohibited'
 // maturityRequired: true = maturityDays field must be ≤ maxMaturityDays
 const ASSET_TYPES = [
@@ -72,7 +72,7 @@ export function compute(pp) {
     const def = ASSET_MAP[a.type] ?? ASSET_MAP['other'];
     const issues = [];
     if (def.eligibility === 'prohibited') {
-      issues.push(`${def.label} is not a permitted reserve asset under GENIUS Act S.394 §4(a)`);
+      issues.push(`${def.label} is not a permitted reserve asset under GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)`);
     } else if (def.eligibility === 'conditional') {
       if (a.type === 'agency_mbs' && issuerType !== 'bank') {
         issues.push('Agency/GSE securities are only permitted for insured depository institution issuers');
@@ -111,12 +111,12 @@ export function compute(pp) {
     failingDimensions.push({
       dim: 'Coverage ratio < 100%',
       detail: `Reserves (${totalReserve.toFixed(2)}) cover only ${(coverageRatio * 100).toFixed(2)}% of outstanding tokens. Shortfall: ${(totalLiab - totalReserve).toFixed(2)}.`,
-      ref: 'GENIUS Act S.394 §4(a)',
+      ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)',
     });
   }
   for (const a of assetResults.filter(r => r.has_fail)) {
     for (const issue of a.issues) {
-      failingDimensions.push({ dim: `Asset issue — ${a.def.label}`, detail: issue, ref: 'GENIUS Act S.394 §4(a)' });
+      failingDimensions.push({ dim: `Asset issue — ${a.def.label}`, detail: issue, ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)' });
     }
   }
   for (const item of aicpaMissing.filter(i => i.weight > 1)) {
@@ -142,7 +142,7 @@ export function compute(pp) {
     asset_results:          assetResults.map(a => ({ type: a.type, usd: a.usd, pct: a.pct, eligibility: a.def.eligibility, has_fail: a.has_fail, issues: a.issues })),
     failing_dimensions:     failingDimensions,
     applicable_deadline:    '2027-01-18',
-    regulatory_framework:   'GENIUS Act S.394 · AICPA 2025 Attestation Criteria',
+    regulatory_framework:   'GENIUS Act, Pub. L. 119-27 (S.1582) · AICPA 2025 Attestation Criteria',
   };
 
   const compliance_flags = determination === 'FAIL'

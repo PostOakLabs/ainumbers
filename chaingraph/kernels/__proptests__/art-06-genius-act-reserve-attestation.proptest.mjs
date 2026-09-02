@@ -1,5 +1,5 @@
 // art-06-genius-act-reserve-attestation.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C1-1).
-// kernel_digest_at_authoring: sha256:8e520c99a42e6c53799b4c14a5d31d7face65414f1d0fd590a089488f621dc24
+// kernel_digest_at_authoring: sha256:41d25436c1bfc08baf487188fd2d65c792a00ce13ea7f1bf5898f66839c432e6
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

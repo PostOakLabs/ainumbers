@@ -2,7 +2,7 @@
 // Faithful port of compute() in
 //   repo/chaingraph/art-275-genius-reserve-disclosure-checker.html
 // Pure: no DOM, no window, no network.
-// GENIUS Act S.394 §4 — post-issuance MONTHLY reserve disclosure (successor to the
+// GENIUS Act, Pub. L. 119-27 (S.1582) §4 — post-issuance MONTHLY reserve disclosure (successor to the
 // pre-issuance art-06 attestation pre-check; do not conflate the two tools).
 // Linter of EXTRACTED disclosure fields only — NEVER claims cryptographic
 // verification of the source PDF filing.
@@ -20,7 +20,7 @@ export const meta = {
   gpu: false,
 };
 
-// Asset composition categories — GENIUS Act S.394 §4(a) permitted-reserve-asset classes.
+// Asset composition categories — GENIUS Act, Pub. L. 119-27 (S.1582) §4(a) permitted-reserve-asset classes.
 // Mirrors art-06's table (clean-room reimplementation; kernels may only import _hash.mjs).
 const ASSET_TYPES = [
   { value:'us_coins_currency',   label:'US coins and currency',                    eligibility:'permitted',   maturityRequired:false, maxMaturityDays:null },
@@ -44,7 +44,7 @@ function analyzeAssets(assets, issuerType) {
     const def = ASSET_MAP[a.type] ?? ASSET_MAP['other'];
     const issues = [];
     if (def.eligibility === 'prohibited') {
-      issues.push(`${def.label} is not a permitted reserve asset under GENIUS Act S.394 §4(a)`);
+      issues.push(`${def.label} is not a permitted reserve asset under GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)`);
     } else if (def.eligibility === 'conditional') {
       if (a.type === 'agency_mbs' && issuerType !== 'bank') {
         issues.push('Agency/GSE securities are only permitted for insured depository institution issuers');
@@ -176,12 +176,12 @@ export function compute(pp) {
     failingDimensions.push({
       dim: 'Coverage ratio < 100%',
       detail: `Reserves (${totalReserve.toFixed(2)}) cover only ${(coverageRatio * 100).toFixed(2)}% of outstanding tokens. Shortfall: ${(totalLiab - totalReserve).toFixed(2)}.`,
-      ref: 'GENIUS Act S.394 §4(a)',
+      ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)',
     });
   }
   for (const a of assetResults.filter(r => r.has_fail)) {
     for (const issue of a.issues) {
-      failingDimensions.push({ dim: `Asset issue — ${a.def.label}`, detail: issue, ref: 'GENIUS Act S.394 §4(a)' });
+      failingDimensions.push({ dim: `Asset issue — ${a.def.label}`, detail: issue, ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)' });
     }
   }
   if (!dualControlSatisfied) {
@@ -192,20 +192,20 @@ export function compute(pp) {
     failingDimensions.push({
       dim: 'CEO/CFO certification',
       detail: `Monthly report requires a dual_control(2) CEO/CFO certification. ${parts.join(' ')}`.trim(),
-      ref: 'GENIUS Act S.394 §4; FDIC NPR 2026-04-10; OCG SPEC.md §27.3 dual_control(2)',
+      ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4; FDIC NPR 2026-04-10; OCG SPEC.md §27.3 dual_control(2)',
     });
   }
   if (!examinerNamed) {
-    failingDimensions.push({ dim: 'Registered accounting-firm examiner', detail: 'No registered public accounting firm named as examiner for this report.', ref: 'GENIUS Act S.394 §4' });
+    failingDimensions.push({ dim: 'Registered accounting-firm examiner', detail: 'No registered public accounting firm named as examiner for this report.', ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4' });
   }
   if (!custodyDisclosed && assets.length > 0) {
-    failingDimensions.push({ dim: 'Custody location disclosure', detail: 'One or more reserve assets are missing a disclosed custodian/location.', ref: 'GENIUS Act S.394 §4' });
+    failingDimensions.push({ dim: 'Custody location disclosure', detail: 'One or more reserve assets are missing a disclosed custodian/location.', ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4' });
   }
   if (onchain_supply_check.provided && onchain_supply_check.match === false) {
     failingDimensions.push({
       dim: 'On-chain supply cross-check',
       detail: `Pasted on-chain supply (${onchainSupply}) does not match reported outstanding tokens (${tokens}).`,
-      ref: 'GENIUS Act S.394 §4 — issuer self-attested figures',
+      ref: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4 — issuer self-attested figures',
     });
   }
 
@@ -250,8 +250,8 @@ export function compute(pp) {
     mom_diff,
     onchain_supply_check,
     applicable_deadline: '2027-01-18',
-    regulatory_framework: 'GENIUS Act S.394 §4 — Monthly Reserve Composition Report',
-    pdf_extraction_note: 'This linter operates on extracted disclosure fields (JSON), not the source PDF filing. It does NOT cryptographically verify the underlying published PDF — PDF-only publishing is the industry gap (see XBRL US comment letters). Successor to the pre-issuance art-06 attestation pre-check; not a substitute for it. Re-verify against GENIUS Act final-rule text on/after 2026-07-18.',
+    regulatory_framework: 'GENIUS Act, Pub. L. 119-27 (S.1582) §4 — Monthly Reserve Composition Report',
+    pdf_extraction_note: 'This linter operates on extracted disclosure fields (JSON), not the source PDF filing. It does NOT cryptographically verify the underlying published PDF — PDF-only publishing is the industry gap (see XBRL US comment letters). Successor to the pre-issuance art-06 attestation pre-check; not a substitute for it. Re-verify against GENIUS Act final-rule text on/after 2026-07-18. Deadline leg-basis (dated observation): applicable_deadline 2027-01-18 is the 18-month leg of the GENIUS Act, Pub. L. 119-27 (S.1582) §20 effective date — the earlier of 18 months after the 2025-07-18 enactment or 120 days after the primary Federal payment stablecoin regulators issue final implementing regulations; no final regulations existed as of 2026-09-01.',
   };
 
   return { output_payload, compliance_flags };
