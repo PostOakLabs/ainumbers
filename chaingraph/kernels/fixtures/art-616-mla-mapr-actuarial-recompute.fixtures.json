@@ -1,6 +1,6 @@
 {
   "tool_id": "art-616-mla-mapr-actuarial-recompute",
-  "note": "Every expected rate in oracle_expected was produced by algebraic inversion of the Appendix J discounting form, with no root-finder anywhere in the oracle, and is therefore independent of the kernel numerics it gates (FORMALVERIF-BUILD-SPEC.md section 3d). Oracle source: research/MLA-MAPR-ACTUARIAL-fixture-oracle.mjs. The output_payload blocks were produced by executing compute() and are checked against oracle_expected by the property floor, never hand-typed. golden_hash is filled by `node golden-parity.test.mjs --update`.",
+  "note": "Every expected rate in oracle_expected was produced by algebraic inversion of the Appendix J discounting form, with no root-finder anywhere in the oracle, and is therefore independent of the kernel numerics it gates (FORMALVERIF-BUILD-SPEC.md section 3d). Oracle source: research/MLA-MAPR-ACTUARIAL-fixture-oracle.mjs. The output_payload blocks were produced by executing compute() and are checked against oracle_expected by the property floor, never hand-typed. golden_hash is filled by `node golden-parity.test.mjs --update`. Vectors 11-12 (added 2026-09-02, ART616-NUMPAY-CAP-1) discriminate the shorthand num_payments clamp: built at the 12,000 boundary (clamp a no-op, no cap flag) and one past it (clamped to 12,000; NUM_PAYMENTS_CAPPED raised), both zero-charge closed-form inversions at 2 percent per month so the algebraic oracle leg still holds.",
   "fixture_oracle_source": "Algebraic inversion of the Appendix J to 12 CFR part 1026 discounting form (b)(6) plus the (b)(1) annualization rule, plus closed-form single-payment inversion. Hand-derived, solver-free, independent of the kernel. See research/MLA-MAPR-ACTUARIAL-fixture-oracle.mjs.",
   "vectors": [
     {
@@ -1446,6 +1446,84 @@
         "note": "Closed-end MAPR recomputed by the Regulation Z actuarial method. Includable prepaid charges under 232.4(c)(1) reduce the amount advanced; a finance charge already carried by the payment schedule is echoed and not deducted twice. A rate is reported only when a sign-change bracket was established and narrowed, otherwise mapr_pct is null and MAPR_NOT_BRACKETED or MAPR_DID_NOT_CONVERGE is raised. The $100 participation-fee figure is the 232.4(c)(2)(ii)(B) open-end no-balance limit, reported as a cited constant and not netted out of this closed-end calculation. Whether a fee is bona fide and reasonable under 232.4(d)(3), and whether the 232.4(c)(1)(iii)(B) application-fee exception applies, both turn on facts this node does not hold and are surfaced as manual review rather than decided."
       },
       "golden_hash": "7f48ca68ee5b924b7e5a7bf2fea2fc71df7e6882febc92b4e37669d7080f870b"
+    },
+    {
+      "name": "shorthand-12000-payments-at-cap-no-flag",
+      "oracle_method": "inverted-construction",
+      "oracle_note": "Twelve thousand level payments of 20 at exactly 2 percent per month discount to the closed-form annuity 20 * (1 - 1.02^-12000) / 0.02 = 1000, computed with no root-finder anywhere, so the advance is set to that present value and the kernel must recover the constructed root: 0.02 periodic, 24.00 annual. The schedule is built by the shorthand inputs and sits exactly on the num_payments clamp boundary, where the clamp is a no-op and no NUM_PAYMENTS_CAPPED flag is raised.",
+      "oracle_expected": {
+        "mapr_pct": 24,
+        "periodic_rate": 0.02,
+        "amount_financed_mapr": 1000
+      },
+      "policy_parameters": {
+        "loan_amount": 1000,
+        "payment_amount": 20,
+        "num_payments": 12000,
+        "periods_per_year": 12
+      },
+      "output_payload": {
+        "mapr_pct": 24,
+        "mapr_cap_pct": 36,
+        "exceeds_cap": false,
+        "periodic_rate": 0.02,
+        "periods_per_year": 12,
+        "num_advances": 1,
+        "num_payments": 12000,
+        "advance_total": 1000,
+        "payment_total": 240000,
+        "amount_financed_mapr": 1000,
+        "prepaid_included_total": 0,
+        "finance_charge_in_schedule_total": 0,
+        "charge_breakdown": [],
+        "manual_review_required": false,
+        "participation_fee_open_end_no_balance_limit_usd": 100,
+        "iterations": 25,
+        "converged": true,
+        "bracketed": true,
+        "regulatory_basis": "32 CFR 232.4(b) MAPR cap and 232.4(c)(1) charge set, computed by the Regulation Z actuarial method that 232.4(c)(2)(i) cross-references (Appendix J to 12 CFR part 1026).",
+        "note": "Closed-end MAPR recomputed by the Regulation Z actuarial method. Includable prepaid charges under 232.4(c)(1) reduce the amount advanced; a finance charge already carried by the payment schedule is echoed and not deducted twice. A rate is reported only when a sign-change bracket was established and narrowed, otherwise mapr_pct is null and MAPR_NOT_BRACKETED or MAPR_DID_NOT_CONVERGE is raised. The $100 participation-fee figure is the 232.4(c)(2)(ii)(B) open-end no-balance limit, reported as a cited constant and not netted out of this closed-end calculation. Whether a fee is bona fide and reasonable under 232.4(d)(3), and whether the 232.4(c)(1)(iii)(B) application-fee exception applies, both turn on facts this node does not hold and are surfaced as manual review rather than decided."
+      },
+      "golden_hash": "7190950fda35369698176e36f5dcceaa46bf80c6973d7460639e14a234b65577"
+    },
+    {
+      "name": "shorthand-12001-payments-capped-flag",
+      "oracle_method": "inverted-construction",
+      "oracle_note": "Same closed-form construction as the 12,000 vector, with one payment requested past the shorthand num_payments clamp: the schedule is clamped to 12,000, the output payload is identical, and the computed NUM_PAYMENTS_CAPPED flag is raised so truncation is never silent. This was an unbounded caller-controlled allocation loop before ART616-NUMPAY-CAP-1.",
+      "oracle_expected": {
+        "mapr_pct": 24,
+        "periodic_rate": 0.02,
+        "amount_financed_mapr": 1000
+      },
+      "policy_parameters": {
+        "loan_amount": 1000,
+        "payment_amount": 20,
+        "num_payments": 12001,
+        "periods_per_year": 12
+      },
+      "output_payload": {
+        "mapr_pct": 24,
+        "mapr_cap_pct": 36,
+        "exceeds_cap": false,
+        "periodic_rate": 0.02,
+        "periods_per_year": 12,
+        "num_advances": 1,
+        "num_payments": 12000,
+        "advance_total": 1000,
+        "payment_total": 240000,
+        "amount_financed_mapr": 1000,
+        "prepaid_included_total": 0,
+        "finance_charge_in_schedule_total": 0,
+        "charge_breakdown": [],
+        "manual_review_required": false,
+        "participation_fee_open_end_no_balance_limit_usd": 100,
+        "iterations": 25,
+        "converged": true,
+        "bracketed": true,
+        "regulatory_basis": "32 CFR 232.4(b) MAPR cap and 232.4(c)(1) charge set, computed by the Regulation Z actuarial method that 232.4(c)(2)(i) cross-references (Appendix J to 12 CFR part 1026).",
+        "note": "Closed-end MAPR recomputed by the Regulation Z actuarial method. Includable prepaid charges under 232.4(c)(1) reduce the amount advanced; a finance charge already carried by the payment schedule is echoed and not deducted twice. A rate is reported only when a sign-change bracket was established and narrowed, otherwise mapr_pct is null and MAPR_NOT_BRACKETED or MAPR_DID_NOT_CONVERGE is raised. The $100 participation-fee figure is the 232.4(c)(2)(ii)(B) open-end no-balance limit, reported as a cited constant and not netted out of this closed-end calculation. Whether a fee is bona fide and reasonable under 232.4(d)(3), and whether the 232.4(c)(1)(iii)(B) application-fee exception applies, both turn on facts this node does not hold and are surfaced as manual review rather than decided."
+      },
+      "golden_hash": "ac45381db94078e80c1a6489c704f0dc861c4bc8725a844d4b25724633266168"
     }
   ]
 }
