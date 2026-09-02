@@ -252,7 +252,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <span class="k">"rwa"</span>: <span class="n">750000</span>,
     <span class="k">"capital_charge"</span>: <span class="n">60000</span>
   },
-  <span class="k">"execution_hash"</span>: <span class="v">"sha256:a4c2f8e1b7d93..."</span>,  <span class="c">// computed per buildType below</span>
+  <span class="k">"execution_hash"</span>: <span class="v">"a4c2f8e1b7d93..."</span>,  <span class="c">// bare lowercase hex, computed per buildType below</span>
   <span class="k">"buildType"</span>: <span class="v">"https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256"</span>,  <span class="c">// ← THIS</span>
   <span class="k">"chain"</span>: {
     <span class="k">"parent_hashes"</span>: [],
@@ -524,7 +524,7 @@ cosign verify-attestation \
  *
  * buildType: https://ainumbers.co/chaingraph/context/v0.2#WebCryptoSHA256
  *   Preimage: JSON.stringify({ policy_parameters, output_payload })
- *             with keys sorted recursively, no whitespace
+ *             with keys sorted recursively (through arrays), no whitespace
  */</span>
 <span class="k">async function</span> verifyOcgArtifact(artifact) {
   <span class="k">const</span> { buildType, policy_parameters, output_payload, execution_hash } = artifact;
@@ -534,9 +534,15 @@ cosign verify-attestation \
     <span class="k">throw new</span> Error(<span class="v">`Unknown buildType: ${buildType}. Cannot verify.`</span>);
   }
 
-  <span class="c">// 1. Build preimage: recursively sort all object keys</span>
+  <span class="c">// 1. Build preimage: sort object keys by Unicode code point recursively —</span>
+  <span class="c">//    THROUGH arrays (array order is preserved; element object keys are sorted).</span>
+  <span class="c">//    Inline twin of cgCanon in chaingraph/kernels/_hash.mjs (the SSOT): keep</span>
+  <span class="c">//    byte-identical with JSON.stringify(cgCanon(...)) or hashes will diverge.</span>
   <span class="k">function</span> sortedStringify(obj) {
-    <span class="k">if</span> (obj === <span class="k">null</span> || <span class="k">typeof</span> obj !== <span class="v">'object'</span> || Array.isArray(obj)) {
+    <span class="k">if</span> (Array.isArray(obj)) {
+      <span class="k">return</span> JSON.stringify(obj.map(v => JSON.parse(sortedStringify(v))));
+    }
+    <span class="k">if</span> (obj === <span class="k">null</span> || <span class="k">typeof</span> obj !== <span class="v">'object'</span>) {
       <span class="k">return</span> JSON.stringify(obj);
     }
     <span class="k">const</span> sorted = Object.fromEntries(
@@ -553,8 +559,9 @@ cosign verify-attestation \
   <span class="k">const</span> hashHex = Array.from(<span class="k">new</span> Uint8Array(hashBuf))
     .map(b => b.toString(<span class="n">16</span>).padStart(<span class="n">2</span>, <span class="v">'0'</span>)).join(<span class="v">''</span>);
 
-  <span class="c">// 3. Compare to stored hash</span>
-  <span class="k">const</span> expected = <span class="v">"sha256:"</span> + hashHex;
+  <span class="c">// 3. Compare to stored hash — artifacts store BARE lowercase hex, no prefix</span>
+  <span class="c">//    (executionHash() in chaingraph/kernels/_hash.mjs emits bare hex)</span>
+  <span class="k">const</span> expected = hashHex;
   <span class="k">const</span> valid = expected === execution_hash;
 
   <span class="k">return</span> {
@@ -584,10 +591,13 @@ cosign verify-attestation \
       <pre><span class="k">import</span> hashlib, json
 
 <span class="k">def</span> sorted_stringify(obj):
-    <span class="k">if not</span> isinstance(obj, dict):
-        <span class="k">return</span> json.dumps(obj, separators=(<span class="v">','</span>, <span class="v">':'</span>))
-    sorted_obj = {k: json.loads(sorted_stringify(obj[k])) <span class="k">for</span> k <span class="k">in</span> sorted(obj)}
-    <span class="k">return</span> json.dumps(sorted_obj, separators=(<span class="v">','</span>, <span class="v">':'</span>))
+    <span class="c"># Sort dict keys recursively — THROUGH lists (order preserved, element keys sorted)</span>
+    <span class="k">if</span> isinstance(obj, dict):
+        sorted_obj = {k: json.loads(sorted_stringify(obj[k])) <span class="k">for</span> k <span class="k">in</span> sorted(obj)}
+        <span class="k">return</span> json.dumps(sorted_obj, separators=(<span class="v">','</span>, <span class="v">':'</span>))
+    <span class="k">if</span> isinstance(obj, list):
+        <span class="k">return</span> json.dumps([json.loads(sorted_stringify(x)) <span class="k">for</span> x <span class="k">in</span> obj], separators=(<span class="v">','</span>, <span class="v">':'</span>))
+    <span class="k">return</span> json.dumps(obj, separators=(<span class="v">','</span>, <span class="v">':'</span>))
 
 <span class="k">def</span> verify_ocg_artifact(artifact):
     preimage = sorted_stringify({
@@ -595,7 +605,7 @@ cosign verify-attestation \
         <span class="v">"policy_parameters"</span>: artifact[<span class="v">"policy_parameters"</span>]
     })
     digest = hashlib.sha256(preimage.encode()).hexdigest()
-    expected = <span class="v">f"sha256:{digest}"</span>
+    expected = digest  <span class="c"># bare lowercase hex — artifacts carry no "sha256:" prefix</span>
     stored   = artifact[<span class="v">"execution_hash"</span>]
     <span class="k">return</span> {
         <span class="v">"valid"</span>:    expected == stored,
@@ -609,7 +619,7 @@ result = verify_ocg_artifact(artifact)
 
     <div class="callout callout-teal">
       <div class="lab">Key ordering matters</div>
-      <p>The preimage sorts <code>policy_parameters</code> and <code>output_payload</code> top-level keys recursively before serializing. This is what makes the hash deterministic across environments: JavaScript engines do not guarantee object key order, so a sort step is required. The <code>buildType</code> URI's specification document codifies this requirement explicitly.</p>
+      <p>The preimage sorts <code>policy_parameters</code> and <code>output_payload</code> keys recursively before serializing: array order is preserved, but object keys inside array elements are sorted too, at every nesting depth. This is what makes the hash deterministic across environments: JavaScript engines do not guarantee object key order, so a sort step is required. The <code>buildType</code> URI's specification document codifies this requirement explicitly.</p>
     </div>
   </div>
 </div>
