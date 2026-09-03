@@ -396,7 +396,11 @@ export function compute(pp) {
     if (verdict === 'INDETERMINATE' && diffRequested) findings.push({ code: 'PREPARER_SCHEDULE_DATES_UNMATCHED', severity: 'warning', message: unmatched + ' preparer date(s) do not appear in the computed payment schedule.' });
   }
 
-  const compliance_flags = ['LEASE_SCHEDULE_RECOMPUTED', 'LEASE_CLASSIFICATION_' + classification, 'LEASE_EVIDENCE_HANDOVER_STAGED'];
+  // LEASE_EVIDENCE_HANDOVER_STAGED deliberately NOT emitted here: a flag that fires on every
+  // ran path attests work nothing conditioned (FLAGS-COMPUTED-LINT-1). The stage itself is
+  // carried unconditionally in output_payload.evidence_handover, which is the data a chain
+  // gate can route on.
+  const compliance_flags = ['LEASE_SCHEDULE_RECOMPUTED', 'LEASE_CLASSIFICATION_' + classification];
   if (timing === 'advance') compliance_flags.push('LEASE_TIMING_ADVANCE');
   if (elections.length) compliance_flags.push('LEASE_BRIGHT_LINE_ELECTED');
   if (diffRequested) compliance_flags.push('LEASE_PREPARER_DIFF_' + verdict);
