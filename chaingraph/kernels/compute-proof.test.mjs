@@ -61,6 +61,24 @@ ok(!verifyBinding(noJournalOut, { publishedImageIds: published }), '(journal) jo
 // (img) §18.1 — imageId must be published in compute_images.
 ok(!verifyBinding(proven, { publishedImageIds: ['sha256:' + '9'.repeat(64)] }), '(img) imageId not published fails');
 
+// (digest) §17/§18 — the optional kernel_digest leg (VERIFYBINDING-DIGEST-LEG-1). When the caller supplies
+// the node's PUBLISHED kernel digests (known from published source, SO #34 — never copied from the receipt),
+// journal.kernel_digest must match the node's published kernel identity. 310 of 312 live receipts share one
+// universal guest imageId, so imageId alone binds any tool's receipt to any tool's page; this leg is what
+// binds a receipt to ONE tool's kernel. Absent param = today's behavior (backward compatible).
+const KERNEL_DIGEST = 'sha256:' + 'd'.repeat(64); // published identity of THIS node's kernel (test stand-in)
+const OTHER_KERNEL_DIGEST = 'sha256:' + 'e'.repeat(64); // published identity of a DIFFERENT node's kernel
+const digestProven = attachComputeProof(base, { ...receipt, journal: { ...receipt.journal, kernel_digest: KERNEL_DIGEST } });
+ok(verifyBinding(digestProven, { publishedKernelDigests: [KERNEL_DIGEST] }), '(digest) journal.kernel_digest matching the published kernel digest passes');
+ok(verifyBinding(digestProven), '(digest) absent publishedKernelDigests keeps today\'s behavior (leg not engaged)');
+// TRANSPLANT (the Attack B shape): tool A's receipt presented against tool B's published kernel identity —
+// same output binding, same (shared-guest) imageId — must be REJECTED by the new leg.
+ok(!verifyBinding(digestProven, { publishedKernelDigests: [OTHER_KERNEL_DIGEST] }), '(digest) TRANSPLANT rejected: tool A receipt vs tool B published kernel digest');
+// absence is not a pass (SO #34c): leg engaged + receipt commits no kernel_digest = FAIL, not skip.
+const noDigest = attachComputeProof(base, receipt); // journal without kernel_digest
+ok(!verifyBinding(noDigest, { publishedKernelDigests: [KERNEL_DIGEST] }), '(digest) engaged leg + missing journal.kernel_digest fails (absence is not a pass)');
+ok(!verifyBinding(digestProven, { publishedKernelDigests: ['sha256:' + 'f'.repeat(64)] }), '(digest) unpublished kernel_digest fails');
+
 // (struct) malformed receipts fail the binding.
 const mk = (mut) => { const a = structuredClone(proven); mut(a.audit_signature.compute_proof); return a; };
 ok(!verifyBinding(mk((c) => { delete c.seal; }), { publishedImageIds: published }), '(struct) missing seal fails');
@@ -168,6 +186,7 @@ const SAMPLE = [
   { id: 'art-529-ccp-default-waterfall-recompute', note: 'historical error-journal instance, now proven', privateInput: true },
 ];
 
+let prevNodeDigest = null; // previous sample node's independently recomputed digest (transplant donor)
 for (const { id, note, privateInput } of SAMPLE) {
   const node = nodeById(id);
   const cp = node.compute_proof;
@@ -176,6 +195,17 @@ for (const { id, note, privateInput } of SAMPLE) {
   // §17 — kernel_digest recomputed from the KERNEL SOURCE FILE on disk, never read from the receipt itself.
   const recomputedDigest = await sourceDigest(kernelSource(id));
   ok(recomputedDigest === cp.journal.kernel_digest, `(widened:${id}) journal.kernel_digest == sha256 recomputed from kernel bytes`);
+
+  // §17/§18 digest leg (VERIFYBINDING-DIGEST-LEG-1) — verifyBinding with the INDEPENDENTLY recomputed
+  // published digest passes; a transplant (this receipt checked against the PREVIOUS node's recomputed
+  // digest — tool A receipt on tool B identity, same shared-guest imageId) must be REJECTED.
+  const digestBound = verifyBinding({ audit_signature: { compute_proof: cp }, output_payload: cp.journal.output }, { publishedKernelDigests: [recomputedDigest] });
+  ok(digestBound, `(widened:${id}) digest leg passes against the independently recomputed kernel digest`);
+  if (prevNodeDigest) {
+    const transplant = verifyBinding({ audit_signature: { compute_proof: cp }, output_payload: cp.journal.output }, { publishedKernelDigests: [prevNodeDigest] });
+    ok(!transplant, `(widened:${id}) TRANSPLANT rejected: this receipt vs the previous node's kernel identity`);
+  }
+  prevNodeDigest = recomputedDigest;
 
   // §18.1 — imageId must be published in this node's own compute_images (Graph Index binding leg).
   const publishedImageIds = (node.compute_images ?? []).map((i) => i.image_id);
