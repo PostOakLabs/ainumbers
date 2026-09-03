@@ -50,8 +50,14 @@
 //
 // USAGE
 //   node scripts/check-served-egress.mjs [--base https://ainumbers.co]
-//        [--docs-base https://docs.ainumbers.co] [--sample N]
+//        [--docs-base https://docs.ainumbers.co] [--sample N] [--seed <epoch>]
 //   Env override: SITE_URL / DH_SITE_URL (same meaning as --base; CLI wins).
+//   --seed switches axis-2 sampling from the DETERMINISTIC even spread to a
+//   seeded random draw (LIVE-INTEGRITY-SCHEDULE-1): same seed ⇒ same sample,
+//   different seeds ⇒ coverage over time. WITHOUT --seed the behavior is
+//   UNCHANGED — the post-deploy leg in deploy-to-dreamhost.yml stays
+//   byte-reproducible. The scheduled leg (deploy-drift-check.yml) passes
+//   --sample 25 --seed $(date +%s).
 // Zero-dep. Node ≥ 20 (global fetch).
 
 import { createHash } from "node:crypto";
@@ -247,6 +253,38 @@ export function selectSample(entries, count) {
   return out;
 }
 
+// ── seeded sampling (LIVE-INTEGRITY-SCHEDULE-1, 2026-09-03) ───────────────────
+
+// mulberry32 — tiny deterministic PRNG: same seed, same sequence, no deps.
+export function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Seeded random sample of `count` distinct entries: full Fisher–Yates shuffle
+ * of a COPY under mulberry32(seed), take the first n. Same (entries, seed) ⇒
+ * same sample; varying seeds ⇒ the scheduled leg covers different files over
+ * time, which the fixed even spread cannot. Deterministic per invocation.
+ */
+export function selectSampleSeeded(entries, count, seed) {
+  if (entries.length === 0) return [];
+  const n = Math.min(count, entries.length);
+  const rnd = mulberry32(seed);
+  const arr = entries.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.slice(0, n);
+}
+
 /**
  * One sampled file: sha256 the served bytes, compare to the manifest value.
  * `refetched`/`refetchCacheStatus` follow the same HIT-class rule as pages.
@@ -318,6 +356,16 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   const base = (arg("--base") || env.SITE_URL || env.DH_SITE_URL || "https://ainumbers.co").replace(/\/+$/, "");
   const docsBase = (arg("--docs-base") || "https://docs.ainumbers.co").replace(/\/+$/, "");
   const sampleCount = Math.max(10, parseInt(arg("--sample") || String(DEFAULT_SAMPLE), 10) || DEFAULT_SAMPLE);
+  // --seed (optional): seeded random draw instead of the deterministic even
+  // spread. Absent ⇒ DEFAULT BEHAVIOR UNCHANGED (post-deploy leg reproducibility).
+  const seedArg = arg("--seed");
+  let seedNum = null;
+  if (seedArg != null) {
+    seedNum = Number(seedArg);
+    if (!Number.isInteger(seedNum)) {
+      return fail([`--seed must be an integer (epoch seconds); got "${seedArg}"`]);
+    }
+  }
 
   let allowlist;
   let allowlistNotes = [];
@@ -404,7 +452,9 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
         if (entries.length < 10) {
           reds.push(`${manifestUrl}: only ${entries.length} entries listed (<10) — the byte-integrity sample cannot be drawn; not a pass (SO #34c)`);
         } else {
-          const sample = selectSample(entries, sampleCount);
+          const sample = seedNum != null
+            ? selectSampleSeeded(entries, sampleCount, seedNum)
+            : selectSample(entries, sampleCount);
           let matches = 0;
           for (const entry of sample) {
             const url = base + "/" + entry.path;
@@ -450,7 +500,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   for (const n of notes) console.log("ℹ " + n);
 
   if (reds.length > 0) return fail(reds);
-  console.log(`✅ served-egress check GREEN — ${FIXED_PAGES.length} fixed sample pages carry no injector-class markup and no served-but-not-source external refs; ≥${sampleCount}-URL byte sample matches the deployed manifest; allowlist holds ${allowlist.length} entries (0 is the goal).`);
+  console.log(`✅ served-egress check GREEN — ${FIXED_PAGES.length} fixed sample pages carry no injector-class markup and no served-but-not-source external refs; ≥${sampleCount}-URL byte sample matches the deployed manifest${seedNum != null ? ` (seeded draw, seed ${seedNum})` : ""}; allowlist holds ${allowlist.length} entries (0 is the goal).`);
 }
 
 // direct execution (not imported by the selftest)
