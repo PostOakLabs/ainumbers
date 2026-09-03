@@ -830,12 +830,13 @@ if (isMain) {
     //       FAIL HERE: no commit, name the entry, fix the COVERED order.
     //   (b) CONTENT RED regen cannot heal — a gate still red after the second
     //       pass (measured instance: ead1b2a8, T667 manifest landed without its
-    //       hand-authored tools.html card — check_index_sync red until human
-    //       commit c91b372a/#1664). The bot's commit neither causes nor heals
-    //       it, and REFUSING to commit would only let every other covered
-    //       artifact go stale on top of an already-red main (a disabled SO #35
-    //       writer is strictly worse). WARN with the gate named, exit 0 —
-    //       today's behavior, made loud instead of silent.
+    //       hand-authored tools.html card; check_index_sync was red on that
+    //       tree, and human commit c91b372a/#1664 landed the missing card). The
+    //       bot's commit neither causes nor heals it, and REFUSING to commit
+    //       would only let every other covered artifact go stale on top of an
+    //       already-red main (a disabled SO #35 writer is strictly worse). WARN
+    //       with the gate named, exit 0 — the same commit-anyway behavior this
+    //       workflow always had for that class, made loud instead of silent.
     //
     // Tier decision is made on the RED SET DELTA between the two passes — an
     // independently recomputed property of the tree (SO #34), never a claim the
