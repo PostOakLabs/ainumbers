@@ -52,7 +52,7 @@ const HPML = {
   2026: { fr_citation: 'Reg Z §1026.35(a)(1); FR 2025-22773 (escrow threshold)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 34500 },
 };
 
-// ---- CARD ACT PENALTY FEES (§1026.52(b)(1)(ii)) ----
+// ---- CARD ACT PENALTY FEES (Reg Z card penalty-fee safe harbors) ----
 // Safe-harbor amounts pinned from the eCFR versioner API as retrieved 2026-09-03
 // (primary-text snapshot: research/clause-snapshots/ART220-CARD-PENALTY-1026.52b1ii-HISTORICAL-ecfr-2026-09-03.md).
 // Year rows carry the state in force at year end. From 2024-05-14 (89 FR 19202) the structure is:
