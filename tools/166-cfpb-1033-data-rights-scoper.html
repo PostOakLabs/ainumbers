@@ -18,9 +18,9 @@
   "category": "cat-05",
   "tags": ["CFPB","1033","open banking","data rights","FDX","covered data","data categories","RegTech"],
   "audience": ["compliance","product","engineer","legal"],
-  "input_schema": {"type":"object","properties":{"tier":{"type":"string","enum":["tier1","tier2","tier3","tier4","tppp"]},"products":{"type":"array","items":{"type":"string"}},"has_third_party_sharing":{"type":"boolean"}},"required":["tier","products"]},
+  "input_schema": {"type":"object","properties":{"tier":{"type":"string","enum":["tier1","tier2","tier3","tier4","tier5","tppp","exempt"]},"products":{"type":"array","items":{"type":"string"}},"has_third_party_sharing":{"type":"boolean"}},"required":["tier","products"]},
   "output_schema": {"type":"object","properties":{"categories_in_scope":{"type":"array"},"categories_exempt":{"type":"array"},"scope_matrix":{"type":"array"},"mandate":{"type":"object"}}},
-  "mcp_tool_definition": {"name":"scope_cfpb_1033_data_rights","description":"Scopes which of the 7 CFPB §1033 covered data categories apply to an institution based on tier, product types, and data sharing status.","inputSchema":{"type":"object","properties":{"tier":{"type":"string","enum":["tier1","tier2","tier3","tier4","tppp"]},"products":{"type":"array","items":{"type":"string"}},"has_third_party_sharing":{"type":"boolean"}},"required":["tier","products"]}},
+  "mcp_tool_definition": {"name":"scope_cfpb_1033_data_rights","description":"Scopes which of the 7 CFPB §1033 covered data categories apply to an institution based on tier, product types, and data sharing status.","inputSchema":{"type":"object","properties":{"tier":{"type":"string","enum":["tier1","tier2","tier3","tier4","tier5","tppp","exempt"]},"products":{"type":"array","items":{"type":"string"}},"has_third_party_sharing":{"type":"boolean"}},"required":["tier","products"]}},
   "execution": {"type":"browser-javascript","entry":"tools/166-cfpb-1033-data-rights-scoper.html","function_name":"runScoper","timeout_ms":2000},
   "ap2_export": true
 }
@@ -198,19 +198,21 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
 <div class="tool-body"><div class="container">
 
   <div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Embedded rates, thresholds, and regulatory citations are static reference values that may age &mdash; verify against current primary sources and your own data before relying on any output for commercial, legal, or compliance decisions. Deterministic logic · no inference · zero PII · runs offline · CC BY 4.0.</div>
-  <div class="disclaimer">⚠ Based on the CFPB §1033 final rule (89 FR 88638, Oct. 22, 2024). Data category definitions may be refined by CFPB guidance. Verify with qualified legal counsel.</div>
+  <div class="disclaimer">⚠ Based on the CFPB §1033 final rule as published November 18, 2024 (89 FR 90838). Legal status, verified 2026-09-02: that rule is not in force. The U.S. District Court for the Eastern District of Kentucky (Forcht Bank, N.A. v. CFPB, No. 5:24-cv-00304-DCR) preliminarily enjoined its enforcement on October 29, 2025, the April 1, 2026 compliance date passed with the rule enjoined, and the Bureau's reconsideration docket (90 FR 40986, Aug. 22, 2025) remains open, with a revised proposal under OIRA review as of August 2026. Tier and category assignments below follow the enjoined 2024 rule. Verify with qualified legal counsel.</div>
 
   <div class="panel">
     <div class="panel-label" data-i18n="panel.inputs">Institution &amp; Data Sharing Profile</div>
     <div class="panel-row">
       <div class="form-group">
-        <label for="tierSel" data-i18n="label.tier">Institution Tier (from T91 Classifier)</label>
+        <label for="tierSel" data-i18n="label.tier">Institution Tier (from T165 Classifier)</label>
         <select id="tierSel">
           <option value="">,  Select tier , </option>
-          <option value="tier1">Tier 1 (>$500B assets) · Deadline Apr 2026</option>
-          <option value="tier2">Tier 2 ($10B–$500B assets) · Deadline Apr 2027</option>
-          <option value="tier3">Tier 3 ($1.5B–$10B assets) · Deadline Apr 2028</option>
-          <option value="tier4">Tier 4 (<$1.5B assets) · Deadline Apr 2030</option>
+          <option value="tier1">Tier 1 (≥$250B assets, or ≥$10B receipts) · Deadline Apr 2026</option>
+          <option value="tier2">Tier 2 ($10B–$250B assets, or nondepository <$10B receipts) · Deadline Apr 2027</option>
+          <option value="tier3">Tier 3 ($3B–$10B assets) · Deadline Apr 2028</option>
+          <option value="tier4">Tier 4 ($1.5B–$3B assets) · Deadline Apr 2029</option>
+          <option value="tier5">Tier 5 ($850M–$1.5B assets) · Deadline Apr 2030</option>
+          <option value="exempt">Exempt (depository ≤$850M assets) · No compliance deadline</option>
           <option value="tppp">TPPP / Data Aggregator</option>
         </select>
       </div>
@@ -427,6 +429,7 @@ function runScoper() {
   if (!selectedProducts.length) { alert('Please select at least one product type.'); return; }
 
   const isTppp = tier === 'tppp';
+  const isExempt = tier === 'exempt';
 
   // Determine scope for each category
   const scopedCategories = DATA_CATEGORIES.map(cat => {
@@ -435,6 +438,9 @@ function runScoper() {
     if (isTppp) {
       // TPPPs are data recipients — they must comply with access rules for categories they consume
       status = 'tppp_recipient';
+    } else if (isExempt) {
+      // Depositories at or below the SBA size standard ($850M) are exempt from subparts B and C (§1033.111(d))
+      status = 'exempt';
     } else if (productMatch) {
       status = 'in_scope';
     } else {
@@ -475,7 +481,7 @@ function runScoper() {
   }).join('');
 
   // Memo
-  const tierLabel = { tier1:'Tier 1 (>$500B)', tier2:'Tier 2 ($10B–$500B)', tier3:'Tier 3 ($1.5B–$10B)', tier4:'Tier 4 (<$1.5B)', tppp:'TPPP/Data Aggregator' }[tier];
+  const tierLabel = { tier1:'Tier 1 (≥$250B)', tier2:'Tier 2 ($10B–$250B)', tier3:'Tier 3 ($3B–$10B)', tier4:'Tier 4 ($1.5B–$3B)', tier5:'Tier 5 ($850M–$1.5B)', tppp:'TPPP/Data Aggregator', exempt:'Exempt (≤$850M depository)' }[tier];
   const memo = `CFPB §1033 DATA RIGHTS SCOPE ANALYSIS
 Generated: ${new Date().toLocaleDateString()}  |  Tool: T166 · AINumbers.co
 
@@ -484,7 +490,7 @@ Third-Party Sharing: ${hasThirdParty ? 'Yes' : 'No'}
 Products In Scope: ${selectedProducts.join(', ')}
 
 SCOPE SUMMARY
-${isTppp ? `All 7 data categories apply as TPPP recipient obligations.` : `In Scope: ${inScope} of 7 categories | Exempt: ${exempt} of 7 categories`}
+${isTppp ? `All 7 data categories apply as TPPP recipient obligations.` : isExempt ? `Depository at or below $850M total assets: exempt from subparts B and C of 12 CFR Part 1033 (§1033.111(d)); none of the categories below apply.` : `In Scope: ${inScope} of 7 categories | Exempt: ${exempt} of 7 categories`}
 
 DATA CATEGORY STATUS
 ${scopedCategories.map(c => `[${c.status === 'in_scope' ? '✓' : c.status === 'tppp_recipient' ? '⇄' : '—'}] Cat ${c.num}: ${c.name} (${c.cfr})`).join('\n')}
@@ -496,7 +502,8 @@ TECHNICAL STANDARDS REQUIRED
 ${[...new Set(scopedCategories.filter(c => c.status !== 'exempt').map(c => c.format))].join('\n')}
 
 ---
-Source: CFPB §1033 Final Rule, 89 FR 88638 (Oct. 22, 2024) · 12 CFR Part 1033
+Source: CFPB §1033 Final Rule, 89 FR 90838 (Nov. 18, 2024) · 12 CFR Part 1033
+Rule status: enforcement enjoined (Forcht Bank v. CFPB, E.D. Ky., Oct. 29, 2025); CFPB reconsideration open (90 FR 40986)
 AINumbers.co T166 · CC BY 4.0 · Post Oak Labs`;
 
   document.getElementById('memoEl').textContent = memo;
@@ -535,7 +542,7 @@ function exportAP2() {
     tool_id: 'cfpb-1033-data-rights-scoper', tool_version: '1.0.0',
     mandate_type: 'compliance_control',
     jurisdiction: ['US'],
-    regulatory_frameworks: ['CFPB §1033', '12 CFR Part 1033', '89 FR 88638'],
+    regulatory_frameworks: ['CFPB §1033', '12 CFR Part 1033', '89 FR 90838'],
     payload: {
       tier: r.tier,
       products: r.selectedProducts,
@@ -552,9 +559,9 @@ function exportAP2() {
     ],
     valid_from: r.runAt,
     valid_until: '2030-04-01',
-    last_reviewed: '2026-05-15',
+    last_reviewed: '2026-09-02',
     source_tool_inputs: { tier: r.tier, products: r.selectedProducts, has_third_party_sharing: r.hasThirdParty },
-    regulatory_citations: ['89 FR 88638 — CFPB §1033 Final Rule', '12 CFR §1033.211(a) — Covered Data Categories'],
+    regulatory_citations: ['89 FR 90838 — CFPB §1033 Final Rule (Nov. 18, 2024)', '12 CFR §1033.211(a) — Covered Data Categories'],
     audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
   const errors = AP2Schema.validate(payload);
@@ -589,7 +596,7 @@ buildProductGrid();
 </script>
 <!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
 <script>
-  var MANIFEST = JSON.parse('{"tool_id": "cfpb-1033-data-rights-scoper", "file": "166-cfpb-1033-data-rights-scoper.html", "version": "1.1.0", "title": "CFPB \\u00a71033 Data Rights Scoper", "description": "Scope your CFPB \\u00a71033 covered data obligations across the 7 data categories. Determine which categories apply to your institution and products, with access rules, format requirements, and data minimization constraints.", "category": "open-banking", "tags": ["CFPB", "1033", "data-rights", "open-banking", "scoping", "compliance", "export"], "audience": ["compliance", "product", "engineer", "bank", "fintech"], "input_schema": {"type": "object", "required": ["institution_tier", "products"], "properties": {"institution_tier": {"type": "string", "enum": ["tier-1", "tier-2", "tier-3", "tier-4", "tppp"]}, "products": {"type": "array", "items": {"type": "string"}, "description": "Products offered (e.g. checking, savings, credit_card, mortgage, student_loan)"}, "has_fdx_api": {"type": "boolean"}}}, "output_schema": {"type": "object", "properties": {"covered_categories": {"type": "array", "items": {"type": "string"}}, "data_fields_per_category": {"type": "object"}, "format_requirements": {"type": "array"}, "export_md": {"type": "string"}}}, "mcp_tool_definition": {"name": "scope_cfpb_1033_data_rights", "description": "Scope CFPB \\u00a71033 covered data obligations for a financial institution. Returns which of the 7 data categories apply, required fields per category, format requirements, and data minimization rules. Use after institution classification to determine specific data sharing obligations.", "inputSchema": {"type": "object", "required": ["institution_tier", "products"], "properties": {"institution_tier": {"type": "string"}, "products": {"type": "array", "items": {"type": "string"}}, "has_fdx_api": {"type": "boolean"}}}}, "execution": {"type": "browser-reference", "entry": "tools/166-cfpb-1033-data-rights-scoper.html", "timeout_ms": 3000, "function_name": "runScoper"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "regulatory_citations": ["CFPB \\u00a71033(b)(1)\\u2013(7) Data Categories", "CFPB \\u00a71033 Final Rule (October 2024)"], "cross_links": ["165-cfpb-1033-institution-classifier", "167-cfpb-1033-tppp-mapper"], "prefill": true, "bridge_version": "1.0"}');
+  var MANIFEST = JSON.parse('{"tool_id": "cfpb-1033-data-rights-scoper", "file": "166-cfpb-1033-data-rights-scoper.html", "version": "1.1.0", "title": "CFPB \\u00a71033 Data Rights Scoper", "description": "Scope your CFPB \\u00a71033 covered data obligations across the 7 data categories. Determine which categories apply to your institution and products, with access rules, format requirements, and data minimization constraints.", "category": "open-banking", "tags": ["CFPB", "1033", "data-rights", "open-banking", "scoping", "compliance", "export"], "audience": ["compliance", "product", "engineer", "bank", "fintech"], "input_schema": {"type": "object", "required": ["institution_tier", "products"], "properties": {"institution_tier": {"type": "string", "enum": ["tier-1", "tier-2", "tier-3", "tier-4", "tier-5", "tppp", "exempt"]}, "products": {"type": "array", "items": {"type": "string"}, "description": "Products offered (e.g. checking, savings, credit_card, mortgage, student_loan)"}, "has_fdx_api": {"type": "boolean"}}}, "output_schema": {"type": "object", "properties": {"covered_categories": {"type": "array", "items": {"type": "string"}}, "data_fields_per_category": {"type": "object"}, "format_requirements": {"type": "array"}, "export_md": {"type": "string"}}}, "mcp_tool_definition": {"name": "scope_cfpb_1033_data_rights", "description": "Scope CFPB \\u00a71033 covered data obligations for a financial institution. Returns which of the 7 data categories apply, required fields per category, format requirements, and data minimization rules. Use after institution classification to determine specific data sharing obligations.", "inputSchema": {"type": "object", "required": ["institution_tier", "products"], "properties": {"institution_tier": {"type": "string"}, "products": {"type": "array", "items": {"type": "string"}}, "has_fdx_api": {"type": "boolean"}}}}, "execution": {"type": "browser-reference", "entry": "tools/166-cfpb-1033-data-rights-scoper.html", "timeout_ms": 3000, "function_name": "runScoper"}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "regulatory_citations": ["CFPB \\u00a71033(b)(1)\\u2013(7) Data Categories", "CFPB \\u00a71033 Final Rule (October 2024)"], "cross_links": ["165-cfpb-1033-institution-classifier", "167-cfpb-1033-tppp-mapper"], "prefill": true, "bridge_version": "1.0"}');
     function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
   function copyMfst(){
     var s = JSON.stringify(MANIFEST, null, 2);
