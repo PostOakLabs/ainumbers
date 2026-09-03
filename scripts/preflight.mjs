@@ -1101,6 +1101,18 @@ const GATES = [
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
+  // VENDOR-DIGEST-GATE-1 (ESTATE-ATTACK-SURFACE SC-3, top-5 #5): the vendored crypto bytes that
+  // decide whether forged proofs/cosignatures/seals VERIFY (the noble bn254/ed25519/secp256k1
+  // bundles + the inlined noble ML-DSA/SLH-DSA blocks in _proof.mjs) had provenance comments but
+  // NO digest gate — a skimmed green PR swapping curve code would slide through and generate.mjs
+  // would propagate the swap to the live worker. The worker's check-vendor-fresh.mjs asserts
+  // worker==SITE equality, so it ASSUMES this side; this gate is the site-side anchor: site bytes
+  // ≡ sha256 pins in chaingraph/kernels/VENDORED.md (the anchor-suite VENDORED.md pattern,
+  // replicated). Scope enumerates _noble-*.bundle.mjs LIVE, so a new noble bundle with no pin row
+  // is itself red. Upgrade protocol in the table's header: same-PR pin edit, visible, never
+  // impossible.
+  ['Vendored crypto digest pins (VENDOR-DIGEST-GATE-1)', 'node scripts/check-vendored-digests.mjs'],
+  ['Vendored crypto digest fixture proof (1-byte perturbation RED, SO #34c)', 'node scripts/check-vendored-digests.test.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
