@@ -1055,6 +1055,12 @@ const GATES = [
   ['Rule-registry table freshness (ACCT-RULEREG-K-1)', 'node scripts/gen-rule-registry.mjs --check'],
   ['Rule-registry generator mutation control (SO #34)', 'node scripts/gen-rule-registry.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
+  // CATALOG-DEADURL-GATE-1 (audit XSRF-4): dead-link-check.mjs skips every
+  // absolute URL, so it never saw the public MCP catalog's own dead links.
+  // This gate independently recomputes each catalog url's existence on disk
+  // (SO #34 — never re-reads the generator's own missing_html bookkeeping).
+  ['Catalog url liveness (CATALOG-DEADURL-GATE-1)', 'node scripts/check-catalog-urls.mjs'],
+  ['Catalog url liveness fixture proof (SO #34c pairing)', 'node scripts/check-catalog-urls.test.mjs'],
   // Two nav gates, deliberately: the plain one is a CONTENT gate (a new page no
   // nav reaches) and is hard in every context; --baseline-check is the
   // derived-artifact freshness gate (advisory on PR, repaired on main). Folding

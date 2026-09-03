@@ -339,6 +339,10 @@ const PREFLIGHT_ONLY = new Map([
   ["lint-comparator-epsilon.mjs", VIA_PREFLIGHT],
   ["lint-comparator-epsilon.test.mjs", SELF_TEST],
 
+  // ── CATALOG-DEADURL-GATE-1 (2026-09-02) ─────────────────────────────────────
+  ["check-catalog-urls.mjs", VIA_PREFLIGHT],
+  ["check-catalog-urls.test.mjs", SELF_TEST],
+
   // ── WEBMCP-GEN-FROM-MANIFEST-1 (2026-09-01) ─────────────────────────────────
   ["gen-webmcp-registrations.mjs",
     "WebMCP registration freshness (--check): rebuilds every marker-delimited registration " +
