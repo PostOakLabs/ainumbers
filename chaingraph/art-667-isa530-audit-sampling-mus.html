@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ISA 530 Audit Sampling + MUS Calculator · ART-667 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Deterministic audit-sampling arithmetic: monetary unit sampling size and interval, tainting-method misstatement projection, and a Benford first-digit screen. Source standard ISA 530. Client-side, zero PII, no randomness.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-667-isa530-audit-sampling-mus.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:760px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;min-height:240px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem;font-weight:500}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+.verdict.fail{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:420px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+#ap2ExportBtn:disabled{opacity:.4;cursor:not-allowed}
+#ap2ExportBtn.ready{border-color:var(--teal);color:var(--bright)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-667-isa530-audit-sampling-mus.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<!--KERNEL-DIGEST-->sha256:ebc623778f99ccb5c4c05bc375890ae5f9a28bd2deaeffaf37b9a3d2adfcf187<!--/KERNEL-DIGEST-->
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>›</span>
+      <span style="color:var(--gold)">ART-667 · ISA 530 Audit Sampling + MUS</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-667</div>
+  <h1>ISA 530 Audit Sampling + MUS Calculator</h1>
+  <p class="sub">Deterministic audit-sampling arithmetic in three functions you choose with the method field. Monetary unit sampling sizes the engagement: n = ceil(book_value &times; confidence_factor / (performance_materiality &minus; expected_misstatement)) and sampling interval = round(book_value / n), failing closed when expected misstatement is not below performance materiality. Misstatement projection applies the tainting method to your sampled items and adds basic precision. The Benford screen compares your amounts' first-digit distribution against the expected proportions with a chi-square flag. The method's source standard is <a href="https://www.iaasb.org/standards-pronouncements/international-standards-auditing-isa" target="_blank" rel="noopener">ISA 530, Audit Sampling (iaasb.org)</a>: this tool computes the arithmetic of the method; it never certifies compliance with the standard and never opines whether a sample is sufficient. It performs no selection logic and contains no randomness of any kind: where a selection start point is used, it is an input you declare, never a value generated here.</p>
+  <div style="margin-bottom:6px"><span class="flag">compliance_control</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span><span class="flag">No RNG</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>This page computes the arithmetic of the audit-sampling method whose source standard is ISA 530. It is not audit, legal, or compliance advice, and a computed figure is a deterministic function of the inputs you supply. Confidence factors, materiality thresholds, and sampled items are your inputs and your assertions; verify the method and its parameters against the current official text at iaasb.org before relying on any result. No formal correctness proof exists for this node yet (compute_proof_ready: deferred); see the proof-status note below the results.</div>
+  <div class="card">
+    <div class="section-head">Policy Parameters (JSON)</div>
+    <div class="field"><label>policy_parameters (passed verbatim to compute(); set method to monetary_unit_sampling, misstatement_projection, or benford_screen)</label><textarea id="ppInput" spellcheck="false"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button onclick="run()">Run</button>
+      <button class="btn-2" onclick="loadSample('sizing')">Load Sizing Sample</button>
+      <button class="btn-2" onclick="loadSample('projection')">Load Projection Sample</button>
+      <button class="btn-2" onclick="loadSample('benford')">Load Benford Sample</button>
+    </div>
+  </div>
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <div class="info-box" id="traceBox"><div class="ib-title">Recomputation trace</div><span id="traceText"></span></div>
+      <pre id="outputPre"></pre>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. No formal correctness proof has been produced for this kernel; the result above is a deterministic recompute, verified by a property-test floor, not a proven one.</div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785). The sizing sample reproduces the worked example pinned in this node's build spec: 36492685d0d347c6&hellip;a62a1f.</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+        <button class="btn-2" onclick="exportArtifact()">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col"><div class="footer-col-label">Platform</div><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="openchain-graph-spec.html">Spec v0.8.13</a><a href="openchain-graph-explainer.html">OCG Explainer</a><a href="ocg-sandbox.html">Sandbox</a></div>
+      <div class="footer-col"><div class="footer-col-label">Method Source</div><a href="https://www.iaasb.org/standards-pronouncements/international-standards-auditing-isa" target="_blank" rel="noopener">ISA 530 at iaasb.org</a><a href="../guides/audit-trail-crosswalk-hub.html">Audit Trail Crosswalk Hub</a></div>
+      <div class="footer-col"><div class="footer-col-label">Data &amp; Artifacts</div><a href="chaingraph.json" target="_blank">chaingraph.json</a><a href="../openapi.json" target="_blank">openapi.json</a><a href="../sitemap.html">Sitemap</a></div>
+      <div class="footer-col"><div class="footer-col-label">Network</div><a href="../tools.html">All Tools</a><a href="../mcp.html">MCP Docs</a><a href="../about.html">About</a><a href="../contact.html">Contact</a></div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={tool_id:"art-667-isa530-audit-sampling-mus",version:"1.0.0",title:"ISA 530 Audit Sampling + MUS Calculator",mcp_tool_definition:{name:"compute_isa530_audit_sampling_mus",description:"Deterministic audit-sampling arithmetic: MUS sizing and interval, tainting-method misstatement projection with basic precision, and a Benford first-digit chi-square screen"},ap2_export:true,chaingraph:true};
+// art-667 -- ISA 530 Audit Sampling + MUS: pure deterministic sampling arithmetic.
+// Inline port of chaingraph/kernels/art-667-isa530-audit-sampling-mus.kernel.mjs (byte-pinned
+// by the KERNEL-DIGEST sentinel above; scripts/check-page-kernel-digest.mjs verifies).
+// No randomness, no clock, no network, no storage. Flag-mirror doctrine: caveat-carrying
+// payloads carry warnings[]; clean success payloads (the pinned worked-example shape) do not.
+
+const TOOL_ID = 'art-667-isa530-audit-sampling-mus';
+const TOOL_VERSION = '1.0.0';
+
+const meta = {
+  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+  mcp_name: 'compute_isa530_audit_sampling_mus',
+  mandate_type: 'compliance_control', gpu: false,
+};
+
+const METHODS = ['monetary_unit_sampling', 'misstatement_projection', 'benford_screen'];
+
+const BENFORD_P = {
+  1: 0.30102999566398120,
+  2: 0.17609125905568124,
+  3: 0.12493873660829992,
+  4: 0.096910013008056420,
+  5: 0.079181246047624818,
+  6: 0.066946789630613221,
+  7: 0.057991946977686733,
+  8: 0.051152522447381291,
+  9: 0.045757490560675143,
+};
+const CHI2_CRIT_8DF_5PCT = 15.507;
+const BENFORD_MIN_EXPECTED_CELL = 110;
+
+function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
+function isPos(v) { return isNum(v) && v > 0; }
+function isNonNeg(v) { return isNum(v) && v >= 0; }
+function r2(x) { return Math.round(x * 100) / 100; }
+function r6(x) { return Math.round(x * 1000000) / 1000000; }
+
+function ceilDiv(num, den) {
+  if (Number.isSafeInteger(num) && Number.isSafeInteger(den)) {
+    let q = Math.floor(num / den);
+    while (q * den > num) q -= 1;
+    let r = num - q * den;
+    while (r < 0) { q -= 1; r = num - q * den; }
+    return r > 0 ? q + 1 : q;
+  }
+  const qf = num / den;
+  return Math.ceil(qf - Math.abs(qf) * 1e-12);
+}
+
+function roundDiv(num, den) {
+  if (Number.isSafeInteger(num) && Number.isSafeInteger(den)) {
+    let q = Math.floor(num / den);
+    while (q * den > num) q -= 1;
+    const r = num - q * den;
+    return 2 * r >= den ? q + 1 : q;
+  }
+  const qf = num / den;
+  const adj = qf - Math.abs(qf) * 1e-12;
+  return Math.round(adj);
+}
+
+function firstSignificantDigit(v) {
+  const s = String(Math.abs(v));
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 49 && c <= 57) return c - 48;
+  }
+  return null;
+}
+
+function computeSizing(pp, rejected) {
+  const bv = pp.book_value;
+  const pm = pp.performance_materiality;
+  const em = pp.expected_misstatement;
+  const cf = pp.confidence_factor;
+
+  if (!isPos(bv)) rejected.push({ field: 'book_value', reason: 'absent or not a positive finite number', supplied: isNum(bv) ? bv : null });
+  if (!isPos(pm)) rejected.push({ field: 'performance_materiality', reason: 'absent or not a positive finite number', supplied: isNum(pm) ? pm : null });
+  if (!isNonNeg(em)) rejected.push({ field: 'expected_misstatement', reason: 'absent or not a non-negative finite number', supplied: isNum(em) ? em : null });
+  if (!isPos(cf)) rejected.push({ field: 'confidence_factor', reason: 'absent or not a positive finite number', supplied: isNum(cf) ? cf : null });
+
+  const failClosed = isNum(em) && isNum(pm) && em >= pm;
+
+  if (rejected.length > 0 || failClosed) {
+    if (failClosed) rejected.push({ field: 'expected_misstatement', reason: 'expected_misstatement >= performance_materiality leaves no positive sizing denominator (fail closed)', supplied: isNum(em) ? em : null });
+    // FLAGS-COMPUTED-LINT-1 shape: empty array + branch-earned pushes, never an unconditional literal.
+    const compliance_flags = [];
+    compliance_flags.push('MUS_INPUT_REJECTED');
+    if (failClosed) compliance_flags.push('MUS_EXPECTED_NOT_BELOW_MATERIALITY');
+    return {
+      output_payload: {
+        sample_size: null,
+        sampling_interval: null,
+        tolerable_misstatement: isNum(pm) && pm > 0 ? pm : null,
+        trace: failClosed && rejected.length === 1
+          ? 'sizing refused: expected_misstatement ' + em + ' is not below performance_materiality ' + pm + ', so the denominator performance_materiality - expected_misstatement is not positive'
+          : 'sizing refused: ' + rejected.map((r) => r.field + ' ' + r.reason).join('; '),
+        overall: 'INPUT_REJECTED',
+        warnings: rejected.map((r) => r.field + ': ' + r.reason),
+      },
+      compliance_flags,
+    };
+  }
+
+  const denominator = pm - em;
+  const numerator = bv * cf;
+  const n = ceilDiv(numerator, denominator);
+  const interval = roundDiv(bv, n);
+
+  // FLAGS-COMPUTED-LINT-1 shape: the computed flag is earned by the branch that produced n.
+  const compliance_flags = [];
+  if (n >= 1) compliance_flags.push('MUS_SAMPLE_COMPUTED');
+
+  return {
+    output_payload: {
+      sample_size: n,
+      sampling_interval: interval,
+      tolerable_misstatement: pm,
+      trace: bv + ' * ' + cf + ' / ' + denominator + ' = ' + n + '; interval = round(' + bv + ' / ' + n + ') = ' + interval,
+      overall: 'SAMPLE_COMPUTED',
+    },
+    compliance_flags,
+  };
+}
+
+function computeProjection(pp, rejected) {
+  const interval = pp.sampling_interval;
+  const cf = pp.confidence_factor;
+  const items = pp.sampled_items;
+
+  if (!isPos(interval) || !Number.isSafeInteger(interval)) rejected.push({ field: 'sampling_interval', reason: 'absent or not a positive integer', supplied: isNum(interval) ? interval : null });
+  if (!isPos(cf)) rejected.push({ field: 'confidence_factor', reason: 'absent or not a positive finite number', supplied: isNum(cf) ? cf : null });
+  if (!Array.isArray(items) || items.length === 0) rejected.push({ field: 'sampled_items', reason: 'absent, not an array, or empty', supplied: null });
+
+  if (rejected.length > 0) {
+    return {
+      output_payload: {
+        sampling_interval: null,
+        confidence_factor: null,
+        item_count: Array.isArray(items) ? items.length : 0,
+        usable_item_count: 0,
+        per_item: [],
+        projected_misstatement: null,
+        basic_precision: null,
+        basic_precision_note: 'basic precision = confidence_factor * sampling_interval, the zero-misstatement reliability allowance; not computable on rejected input',
+        trace: 'projection refused: ' + rejected.map((r) => r.field + ' ' + r.reason).join('; '),
+        overall: 'INPUT_REJECTED',
+        warnings: rejected.map((r) => r.field + ': ' + r.reason),
+      },
+      compliance_flags: ['MISSTATEMENT_INPUT_REJECTED'],
+    };
+  }
+
+  const per_item = [];
+  const itemRejects = [];
+  let projectedRaw = 0;
+  items.forEach((raw, i) => {
+    const it = raw && typeof raw === 'object' ? raw : {};
+    const book = it.book_amount;
+    const audited = it.audited_amount;
+    if (!isPos(book) || !isNonNeg(audited)) {
+      itemRejects.push({ index: i, reason: 'book_amount must be a positive number and audited_amount a non-negative number' });
+      return;
+    }
+    const num = book - audited;
+    const itemProjectionRaw = num * interval / book;
+    projectedRaw += itemProjectionRaw;
+    per_item.push({
+      seq: i + 1,
+      book_amount: book,
+      audited_amount: audited,
+      taint_percent: r2(100 * num / book),
+      projected_amount: r2(itemProjectionRaw),
+    });
+  });
+
+  if (per_item.length === 0) {
+    return {
+      output_payload: {
+        sampling_interval: interval,
+        confidence_factor: cf,
+        item_count: items.length,
+        usable_item_count: 0,
+        per_item: [],
+        projected_misstatement: null,
+        basic_precision: r2(cf * interval),
+        basic_precision_note: 'basic precision = confidence_factor * sampling_interval, the zero-misstatement reliability allowance',
+        trace: 'projection refused: every sampled item was rejected (book_amount must be positive, audited_amount non-negative); nothing to project',
+        overall: 'INPUT_REJECTED',
+        warnings: itemRejects.map((r) => 'sampled_items[' + r.index + ']: ' + r.reason),
+      },
+      compliance_flags: ['MISSTATEMENT_INPUT_REJECTED', 'MISSTATEMENT_ITEMS_REJECTED'],
+    };
+  }
+
+  const basicPrecision = r2(cf * interval);
+  const projected = r2(projectedRaw);
+  const warnings = itemRejects.map((r) => 'sampled_items[' + r.index + ']: ' + r.reason);
+  // FLAGS-COMPUTED-LINT-1 shape: each flag is earned by the branch that produced it.
+  const compliance_flags = [];
+  if (per_item.length > 0) compliance_flags.push('MISSTATEMENT_PROJECTED');
+  if (itemRejects.length > 0) compliance_flags.push('MISSTATEMENT_ITEMS_REJECTED');
+
+  const payload = {
+    sampling_interval: interval,
+    confidence_factor: cf,
+    item_count: items.length,
+    usable_item_count: per_item.length,
+    per_item,
+    projected_misstatement: projected,
+    basic_precision: basicPrecision,
+    basic_precision_note: 'basic precision = confidence_factor * sampling_interval, the zero-misstatement reliability allowance added to the projected misstatement before comparison to tolerable misstatement',
+    trace: per_item.length + ' of ' + items.length + ' sampled item(s) usable; projected misstatement = sum(taint * interval) = ' + projected + '; basic precision = ' + cf + ' * ' + interval + ' = ' + basicPrecision,
+    overall: 'PROJECTED',
+  };
+  if (warnings.length > 0) payload.warnings = warnings;
+  return { output_payload: payload, compliance_flags };
+}
+
+function computeBenford(pp, rejected) {
+  const amounts = pp.amounts;
+  if (!Array.isArray(amounts) || amounts.length === 0) rejected.push({ field: 'amounts', reason: 'absent, not an array, or empty', supplied: null });
+
+  if (rejected.length > 0) {
+    return {
+      output_payload: {
+        item_count: Array.isArray(amounts) ? amounts.length : 0,
+        usable_count: 0,
+        first_digit_counts: null,
+        chi_square_statistic: null,
+        critical_value: CHI2_CRIT_8DF_5PCT,
+        deviation_flag: null,
+        trace: 'screen refused: ' + rejected.map((r) => r.field + ' ' + r.reason).join('; '),
+        overall: 'INPUT_REJECTED',
+        warnings: rejected.map((r) => r.field + ': ' + r.reason),
+      },
+      compliance_flags: ['BENFORD_INPUT_REJECTED'],
+    };
+  }
+
+  const counts = {};
+  for (let d = 1; d <= 9; d++) counts[d] = 0;
+  let usable = 0;
+  let rejectedAmounts = 0;
+  for (const v of amounts) {
+    if (!isPos(v)) { rejectedAmounts += 1; continue; }
+    const d = firstSignificantDigit(v);
+    if (d === null) { rejectedAmounts += 1; continue; }
+    counts[d] += 1;
+    usable += 1;
+  }
+
+  if (usable === 0) {
+    return {
+      output_payload: {
+        item_count: amounts.length,
+        usable_count: 0,
+        first_digit_counts: counts,
+        chi_square_statistic: null,
+        critical_value: CHI2_CRIT_8DF_5PCT,
+        deviation_flag: null,
+        trace: 'screen refused: no supplied amount yielded a usable first significant digit (all zero, negative, or non-numeric)',
+        overall: 'INPUT_REJECTED',
+        warnings: ['amounts: no usable positive amount with a first significant digit'],
+      },
+      compliance_flags: ['BENFORD_INPUT_REJECTED'],
+    };
+  }
+
+  let chi2 = 0;
+  for (let d = 1; d <= 9; d++) {
+    const expected = usable * BENFORD_P[d];
+    const diff = counts[d] - expected;
+    chi2 += diff * diff / expected;
+  }
+  const statistic = r6(chi2);
+  const deviation = statistic > CHI2_CRIT_8DF_5PCT;
+
+  const compliance_flags = [deviation ? 'BENFORD_SCREENED_DEVIATES' : 'BENFORD_SCREENED_CONSISTENT'];
+  const payload = {
+    item_count: amounts.length,
+    usable_count: usable,
+    first_digit_counts: counts,
+    chi_square_statistic: statistic,
+    critical_value: CHI2_CRIT_8DF_5PCT,
+    deviation_flag: deviation,
+    trace: usable + ' of ' + amounts.length + ' amount(s) usable; chi-square = ' + statistic + ' vs ' + CHI2_CRIT_8DF_5PCT + ' (8 degrees of freedom, 5% level); observed first digits ' + (deviation ? 'DEVIATE from' : 'are CONSISTENT with') + ' the Benford distribution'
+      + (usable < BENFORD_MIN_EXPECTED_CELL ? '; small sample: fewer than ' + BENFORD_MIN_EXPECTED_CELL + ' usable amounts leave every expected cell below 5, weakening the screen' : ''),
+    overall: deviation ? 'SCREENED_DEVIATES' : 'SCREENED_CONSISTENT',
+  };
+  if (usable < BENFORD_MIN_EXPECTED_CELL) compliance_flags.push('BENFORD_SMALL_SAMPLE');
+  const warnings = [];
+  if (rejectedAmounts > 0) warnings.push('amounts: ' + rejectedAmounts + ' supplied value(s) were zero, negative, or non-numeric and were excluded from the digit counts');
+  if (warnings.length > 0) payload.warnings = warnings;
+  if (rejectedAmounts > 0) compliance_flags.push('BENFORD_AMOUNTS_EXCLUDED');
+  return { output_payload: payload, compliance_flags };
+}
+
+function compute(pp) {
+  pp = pp || {};
+  const methodRaw = typeof pp.method === 'string' ? pp.method.trim() : null;
+  const method = methodRaw && METHODS.indexOf(methodRaw) !== -1 ? methodRaw : null;
+
+  if (!method) {
+    return {
+      output_payload: {
+        sample_size: null,
+        sampling_interval: null,
+        tolerable_misstatement: null,
+        trace: 'method absent or not one of ' + METHODS.join(', ') + '; nothing to compute',
+        overall: 'INPUT_REJECTED',
+        warnings: ['method: absent or not one of ' + METHODS.join(', ')],
+      },
+      compliance_flags: ['METHOD_NOT_RECOGNIZED'],
+    };
+  }
+
+  const rejected = [];
+  if (method === 'monetary_unit_sampling') return computeSizing(pp, rejected);
+  if (method === 'misstatement_projection') return computeProjection(pp, rejected);
+  return computeBenford(pp, rejected);
+}
+
+// ---------- hashing (browser-side mirror of chaingraph/kernels/_hash.mjs) ----------
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function sha256Hex(bytes){const dig=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);return sha256Hex(buf);}
+
+// ---------- samples ----------
+const SAMPLES={
+sizing:'{\n  "method": "monetary_unit_sampling",\n  "book_value": 5000000,\n  "performance_materiality": 250000,\n  "expected_misstatement": 50000,\n  "confidence_factor": 3\n}',
+projection:'{\n  "method": "misstatement_projection",\n  "sampling_interval": 66667,\n  "confidence_factor": 3,\n  "sampled_items": [\n    { "book_amount": 80000, "audited_amount": 75000 },\n    { "book_amount": 120000, "audited_amount": 120000 },\n    { "book_amount": 50000, "audited_amount": 44000 }\n  ]\n}',
+benford:'{\n  "method": "benford_screen",\n  "amounts": [120.50, 234.10, 89.99, 1560.00, 3.75, 7820.25, 45.10, 9.99, 612.30, 2875.00, 51.40, 390.00, 8.25, 7430.00, 62.75, 2050.00, 14.60, 980.00, 5.20, 3120.45, 76.80, 540.00, 29.15, 8610.00, 4.45, 190.00, 6300.50, 88.20, 715.00, 36.60, 5230.00, 170.40, 98.85, 2.30, 4480.00, 690.10, 25.00, 8140.35, 47.55, 305.00, 82.90, 6715.00, 13.80, 940.20, 580.00, 34.45, 7260.00, 105.30, 89.10]\n}'
+};
+function loadSample(kind){document.getElementById('ppInput').value=SAMPLES[kind]||SAMPLES.sizing;}
+loadSample('sizing');
+
+// ---------- run + render ----------
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
+async function run(){
+  let pp;
+  try{pp=JSON.parse(document.getElementById('ppInput').value);}catch(e){alert('policy_parameters must be valid JSON: '+e.message);return;}
+  const{output_payload,compliance_flags}=compute(pp);
+  const rawHash=await executionHashLocal(pp,output_payload);
+  const execHash='sha256:'+rawHash;
+  const generatedAt=new Date().toISOString();
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:meta.mandate_type,tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,generated_at:generatedAt,execution_hash:execHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload,compliance_flags,audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
+  renderResults(output_payload,compliance_flags,execHash);
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.title='For API integration · audit trail';}
+}
+function verdictClass(overall){
+  if(overall==='INPUT_REJECTED')return 'fail';
+  if(overall==='SCREENED_DEVIATES')return 'warn';
+  return 'pass';
+}
+function renderResults(op,flags,execHash){
+  document.getElementById('generatedAt').textContent='generated_at '+_lastArtifact.generated_at;
+  const numericKeys=Object.keys(op).filter(k=>typeof op[k]==='number');
+  const heroRow=document.getElementById('heroRow');
+  heroRow.textContent='';
+  for(const k of numericKeys.slice(0,4)){
+    const stat=document.createElement('div');stat.className='hero-stat';
+    const val=document.createElement('div');val.className='hero-val';val.textContent=op[k];
+    const lbl=document.createElement('div');lbl.className='hero-lbl';lbl.textContent=k.replace(/_/g,' ');
+    stat.appendChild(val);stat.appendChild(lbl);heroRow.appendChild(stat);
+  }
+  const overall=op.overall||'UNKNOWN';
+  const vc=verdictClass(overall);
+  const verdictDiv=document.getElementById('verdictDiv');
+  verdictDiv.textContent='';
+  const v=document.createElement('div');v.className='verdict '+vc;v.textContent='overall: '+overall;
+  verdictDiv.appendChild(v);
+  const badges=document.createElement('div');
+  for(const f of flags){
+    const b=document.createElement('span');
+    b.className='badge '+(vc==='fail'?'fail':vc==='warn'?'warn':'ok');
+    b.textContent=f;
+    badges.appendChild(b);
+  }
+  verdictDiv.appendChild(badges);
+  document.getElementById('traceText').textContent=op.trace||'';
+  document.getElementById('outputPre').textContent=JSON.stringify(op,null,2);
+  document.getElementById('execHash').textContent=execHash;
+  document.getElementById('artifactPre').textContent=JSON.stringify(_lastArtifact,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+
+// ---------- exports ----------
+function uuidV4(){
+  if(crypto.randomUUID)return crypto.randomUUID();
+  const b=crypto.getRandomValues(new Uint8Array(16));
+  b[6]=(b[6]&0x0f)|0x40;b[8]=(b[8]&0x3f)|0x80;
+  const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+const AP2Schema={validate:function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!m||typeof m!=='object')throw new Error('AP2Schema: mandate must be an object');
+  if(typeof m.tool_id!=='string'||!m.tool_id)throw new Error('AP2Schema: missing tool_id');
+  if(!RE_UUID4.test(m.mandate_id))throw new Error('AP2Schema: mandate_id must be UUIDv4');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)throw new Error('AP2Schema: missing mandate_type');
+  if(!Array.isArray(m.jurisdiction))throw new Error('AP2Schema: jurisdiction must be an array');
+  if(!m.payload||typeof m.payload!=='object')throw new Error('AP2Schema: missing payload');
+  if(typeof m.summary!=='string'||!m.summary)throw new Error('AP2Schema: missing summary');
+  if(!Array.isArray(m.agent_instructions))throw new Error('AP2Schema: agent_instructions must be an array');
+  return true;
+}};
+function exportAP2(){
+  if(!_lastArtifact){alert('Run the analysis above to generate a Policy Mandate.');return;}
+  var ts=_lastArtifact.generated_at;
+  var tid=MANIFEST.tool_id;
+  var mandate={
+    mandate_id:uuidV4(),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:MANIFEST.version,
+    mandate_type:meta.mandate_type,
+    jurisdiction:['ZZ'],
+    regulatory_frameworks:['ISA 530 Audit Sampling'],
+    payload:{policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags},
+    summary:'Audit-sampling arithmetic ('+(_lastOP.overall||'run')+'): sample sizing, misstatement projection, or Benford first-digit screen as declared by the inputs. Computes the arithmetic of the method; certifies nothing.',
+    agent_instructions:[
+      'Recompute the execution_hash over the {policy_parameters, output_payload} preimage before relying on this mandate.',
+      'Treat confidence factor, materiality, and any selection start point as caller-declared inputs, not verified facts.',
+      'Route any SCREENED_DEVIATES Benford flag or nonzero projected misstatement through your own review process.'
+    ],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:_lastPP,
+    regulatory_citations:['ISA 530 Audit Sampling (iaasb.org)'],
+    caveats:['Computes the arithmetic of the audit-sampling method; never certifies compliance with ISA 530 or any standard.','No selection logic and no randomness: any selection start point is a caller-declared input.'],
+    audit_metadata:{execution_hash:_lastHash,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  try{AP2Schema.validate(mandate);}catch(e){alert(e.message);return;}
+  dl(JSON.stringify(mandate,null,2),tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json','application/json');
+}
+function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),MANIFEST.tool_id+'-artifact.json','application/json');}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+</script>
+</body>
+</html>
