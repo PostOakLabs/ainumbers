@@ -1,0 +1,155 @@
+{
+  "tool_id": "art-666-regulatory-obligations-register",
+  "version": "1.0.0",
+  "title": "Regulatory Obligations Register",
+  "description": "A regime-agnostic rule-to-obligation-to-evidence register verdict: obligations in (rule_id, owner, control_ids, evidence_refs), coverage math out (owner and evidence percentages, control-linkage count, unassigned list, one FAIL finding per failing check, overall COVERED or GAPS_FOUND). Five stages in one pure compute() per OBLIGATIONS-REGISTER-BUILD-SPEC.md: intake with fail-closed shape validation, owner coverage, control linkage, evidence linkage, verdict. Owner and evidence coverage are the gated checks; control linkage is measured but never gates. The spec's worked example is carried as the oracle-backed golden fixture (pinned execution_hash bdf74ddc2f836c5e34b374d65f915e96684b061792283d775b08f2e9cd34ba67).",
+  "category": "consent-order-remediation-aml-lookback-and-recordkeeping-validators",
+  "tags": [
+    "obligations-register",
+    "regtech",
+    "control-mapping",
+    "evidence-linkage",
+    "exam-readiness",
+    "coverage-verdict"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "input_parameters"
+    ],
+    "properties": {
+      "input_parameters": {
+        "type": "unknown"
+      }
+    },
+    "x_schema_provenance": "derived-from-kernel-reads 2026-09-01"
+  },
+  "output_schema": {
+    "type": "object",
+    "required": [
+      "total",
+      "owner_assigned",
+      "owner_coverage_pct",
+      "control_linked",
+      "evidence_linked",
+      "evidence_coverage_pct",
+      "unassigned",
+      "findings",
+      "overall_determination"
+    ],
+    "properties": {
+      "total": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Obligations in the register. 0 on the fail-closed intake path."
+      },
+      "owner_assigned": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Obligations with a non-null non-empty owner."
+      },
+      "owner_coverage_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "owner_assigned / total as a percentage rounded to one decimal (66.7 for 2 of 3)."
+      },
+      "control_linked": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Obligations with at least one control_id. Measured, never gated."
+      },
+      "evidence_linked": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Obligations with at least one evidence_ref."
+      },
+      "evidence_coverage_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "evidence_linked / total as a percentage rounded to one decimal (33.3 for 1 of 3)."
+      },
+      "unassigned": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "rule_id list of obligations with no owner, in input order. Empty on the fail-closed intake path."
+      },
+      "findings": {
+        "type": "array",
+        "description": "One FAIL finding per failing check; empty when every gated check passes. Passing checks emit nothing.",
+        "items": {
+          "type": "object",
+          "required": [
+            "check",
+            "status",
+            "detail"
+          ],
+          "properties": {
+            "check": {
+              "type": "string",
+              "enum": [
+                "intake_validation",
+                "owner_coverage",
+                "evidence_coverage"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "FAIL"
+              ]
+            },
+            "detail": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "overall_determination": {
+        "type": "string",
+        "enum": [
+          "COVERED",
+          "GAPS_FOUND"
+        ],
+        "description": "COVERED iff findings is empty."
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Present only on the fail-closed intake path (malformed register), carrying the same string as the intake_validation finding's detail; non-empty exactly when the conditional compliance flag OBLREG_INTAKE_VALIDATION_FAILED is present (flag-mirror doctrine)."
+      }
+    },
+    "x_schema_provenance": "derived-from-golden-fixtures 2026-09-03 (22 vectors, incl. the spec-oracle worked example; errors observed on the 10 fail-closed vectors only)"
+  },
+  "mcp_tool_definition": {
+    "name": "compute_regulatory_obligations_register",
+    "description": "Regime-agnostic rule-to-obligation-to-evidence register verdict: owner and evidence coverage percentages, control-linkage count, unassigned list, one FAIL finding per failing check, overall COVERED or GAPS_FOUND, per OBLIGATIONS-REGISTER-BUILD-SPEC.md",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "input_parameters"
+      ],
+      "properties": {
+        "input_parameters": {
+          "type": "unknown"
+        }
+      },
+      "x_schema_provenance": "derived-from-kernel-reads 2026-09-01"
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-666-regulatory-obligations-register.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "authored in-row per CONTRACT.md section 2.7 (new live nodes ship a manifest with output_schema in the same PR); scripts/generate-node-manifest.mjs cannot run pre-assembly (it reads assembled chaingraph.json), so fields were taken from the node shard, the page's inline MANIFEST, and the kernel; output_schema derived from the golden fixtures (22 vectors), never hand-waved"
+}
