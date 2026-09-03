@@ -819,6 +819,40 @@ jobs:
             exit 1
           fi
 
+      - name: 🛡 Served-egress + byte-integrity check (edge-injection class)
+        # The smoke test above proves the site answers; this proves the bytes
+        # the edge SERVES are the bytes this repo declared. Cloudflare edge
+        # features (Web Analytics beacon, Rocket Loader, Zaraz, email-decode,
+        # challenge platform) rewrite HTML AT THE EDGE — the injected markup
+        # exists in NO repo file, so every source-scanning egress/CSP gate is
+        # structurally blind to it. Live finding (Tim DevTools, art-129):
+        # static.cloudflareinsights.com/beacon.min.js auto-injected into
+        # served pages. The gate scans the fixed live sample (index, one tool,
+        # one chaingraph node, mcp.html, one docs.ainumbers.co page) with the
+        # injector pattern set, diffs every external <script src>/<link href>
+        # against repo source, AND closes the byte-integrity gap: it fetches
+        # /.well-known/deploy-checksums.txt (written two steps up at rsync
+        # time), samples ≥10 listed URLs and sha256s the served bytes — one
+        # lane covers BOTH edge injection and origin tampering. Every finding
+        # reports cf-cache-status; a finding seen only on a HIT-class copy is
+        # re-fetched under a unique query key so a pre-toggle cached copy
+        # cannot false-RED alone. Reviewing exceptions live in
+        # scripts/served-egress-allowlist.json (EMPTY by design, every entry
+        # needs a reason naming the transform).
+        #
+        # POST-DEPLOY by necessity: there is no live deployment of a branch to
+        # compare against pre-push, which is why check-workflow-gate-parity.mjs
+        # declares it CI_ONLY; its no-network RED/GREEN fixture proof
+        # (scripts/check-served-egress.test.mjs) is the preflight-side control.
+        # Plain `node` — runner-preinstalled, same precedent as the deploy
+        # manifest step above; no new Action, no setup-node.
+        env:
+          # Same secret the smoke test uses, as an override only — the script's
+          # built-in default is the public site URL, so the gate still runs
+          # (rather than silently skipping) when the secret is unset.
+          DH_SITE_URL: ${{ secrets.DH_SITE_URL }}
+        run: node scripts/check-served-egress.mjs
+
       - name: 📊 Deploy summary
         env:
           DEPLOY_SHA: ${{ github.sha }}
