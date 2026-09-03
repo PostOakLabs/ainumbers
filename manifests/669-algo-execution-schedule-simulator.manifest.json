@@ -1,0 +1,64 @@
+{
+  "tool_id": "669-algo-execution-schedule-simulator",
+  "version": "1.0.0",
+  "title": "Algo Execution Schedule Simulator",
+  "description": "Deterministic execution-schedule arithmetic over caller-declared synthetic inputs. Slices a declared order three ways: VWAP across a declared volume_profile_pct that must sum to exactly 100 (fail closed otherwise), TWAP across a declared bucket count with a declared remainder rule for indivisible remainders, and POV as a declared participation rate of declared per-bucket volumes capped at the remaining order. Decomposes implementation shortfall from declared arrival and average-fill prices: shortfall_bps = (avg_fill - arrival) / arrival * 10000 and shortfall_cost = (avg_fill - arrival) * order_shares, sign-corrected by side so positive always reads cost. No market data, no feeds, no network, no clock.",
+  "category": "capital-markets",
+  "tags": ["VWAP", "TWAP", "POV", "implementation shortfall", "execution schedule", "buy-side desk", "zero network", "zero-PII"],
+  "audience": ["desk analyst", "trading operations", "compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "side": { "type": "string", "enum": ["buy", "sell"], "description": "Order side; sign-corrects the shortfall decomposition." },
+      "order_shares": { "type": "number", "description": "Positive whole number of shares." },
+      "method": { "type": "string", "enum": ["vwap", "twap", "pov"], "description": "Declared slicing method; never chosen by the tool." },
+      "volume_profile_pct": { "type": "array", "description": "Bucket percentages summing to exactly 100 (vwap)." },
+      "bucket_count": { "type": "number", "description": "Whole number of buckets, 1 to 512 (twap)." },
+      "remainder_rule": { "type": "string", "enum": ["front", "back"], "description": "Which bucket absorbs an indivisible remainder; required when the order does not divide evenly (twap)." },
+      "participation_rate_pct": { "type": "number", "description": "Participation rate, greater than 0 and at most 100 (pov)." },
+      "market_volumes": { "type": "array", "description": "Declared per-bucket market volumes in shares (pov)." },
+      "arrival_price": { "type": "number", "description": "Declared arrival price for the shortfall decomposition." },
+      "avg_fill_price": { "type": "number", "description": "Declared average fill price for the shortfall decomposition." }
+    },
+    "required": ["side", "order_shares", "method", "arrival_price", "avg_fill_price"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "slices": { "type": ["array", "null"], "description": "Whole-share slices per bucket; null on the fail-closed path." },
+      "shortfall_bps": { "type": ["number", "null"], "description": "Implementation shortfall in bps, rounded half-up to 2 decimals; positive reads cost." },
+      "shortfall_cost": { "type": ["number", "null"], "description": "Implementation shortfall in currency, rounded half-up to 2 decimals; positive reads cost." },
+      "trace": { "type": "string", "description": "Full arithmetic trace, or the fail-closed reasons naming each rejected input." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_algo_execution_schedule_simulator",
+    "description": "Slices a declared order across a declared volume profile (VWAP), evenly across declared buckets (TWAP), or as declared participation of declared bucket volumes (POV), and decomposes implementation shortfall in bps and currency from declared arrival and average-fill prices. Simulator over caller-declared synthetic inputs only: no market data, no feeds, no recommendation, no order routing.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "side": { "type": "string", "description": "buy or sell" },
+        "order_shares": { "type": "number", "description": "positive whole number of shares" },
+        "method": { "type": "string", "description": "vwap, twap, or pov" },
+        "volume_profile_pct": { "type": "array", "description": "percentages summing to exactly 100 (vwap)" },
+        "bucket_count": { "type": "number", "description": "whole number of buckets, 1 to 512 (twap)" },
+        "remainder_rule": { "type": "string", "description": "front or back, required when the order does not divide evenly (twap)" },
+        "participation_rate_pct": { "type": "number", "description": "participation rate, greater than 0 and at most 100 (pov)" },
+        "market_volumes": { "type": "array", "description": "declared per-bucket market volumes (pov)" },
+        "arrival_price": { "type": "number" },
+        "avg_fill_price": { "type": "number" }
+      },
+      "required": ["side", "order_shares", "method", "arrival_price", "avg_fill_price"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/669-algo-execution-schedule-simulator.html",
+    "function_name": "runSimulation",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by ALGOSIM-BUILD-1 per ALGO-EXEC-SIM-BUILD-SPEC.md. Advice-perimeter positioning: a simulator of schedule arithmetic over caller-declared synthetic inputs, not personalized investment advice, not a recommendation, and not an order router; absent or invalid inputs are refused fail-closed and named, never silently repaired."
+}
