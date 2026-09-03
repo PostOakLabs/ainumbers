@@ -83,6 +83,31 @@ def derive_name(tool_id):
     n = re.sub(r'[^a-z0-9]+', '_', tool_id.lower()).strip('_')
     return n or 'tool'
 
+
+# ── CATALOG-DEADURL-GATE-1 ────────────────────────────────────────────────────
+# The old code emitted an unconditional f"{BASE_URL}/tools/{slug}.html" per
+# manifest, so any manifest whose real page lives elsewhere (a chaingraph node)
+# or under a different filename than its own manifest slug (the 520-543
+# legacy-numbered manifests, XSRF-6) shipped a 404. `execution.entry` already
+# carries the real, authored page path for every current-generation manifest
+# (verified against disk: 1143/1165 manifests today) — trust it first, since
+# it survives the slug/tool_id mismatch that breaks a filename-guessing rule.
+# tools/{slug}.html and chaingraph/{slug}.html are the fallback for the ~21
+# legacy manifests with no execution block at all. A manifest that resolves
+# under none of the three is honestly page-less (a kernel-shard interim state,
+# or an orphaned manifest) — omit the url field rather than ship a dead one.
+def derive_page_path(slug, man):
+    ex = (man.get('execution') or {}).get('entry')
+    if ex and os.path.exists(ex):
+        return ex
+    tools_path = os.path.join('tools', slug + '.html')
+    if os.path.exists(tools_path):
+        return tools_path
+    cg_path = os.path.join('chaingraph', slug + '.html')
+    if os.path.exists(cg_path):
+        return cg_path
+    return None
+
 def main():
     man_files = sorted(
         [f for f in glob.glob('manifests/*.manifest.json') if 'DELETE' not in f],
@@ -119,25 +144,31 @@ def main():
         description = mtd.get('description') or man.get('description', '')
         input_schema = mtd.get('inputSchema') or man.get('input_schema') or {"type": "object"}
 
-        if not os.path.exists(os.path.join('tools', slug + '.html')):
+        page_path = derive_page_path(slug, man)
+        if page_path is None:
             missing_html.append(slug)
+
+        metadata = {
+            "tool_id": man.get('tool_id', slug),
+            "category": man.get('category', ''),
+            "tags": man.get('tags', []),
+        }
+        if page_path is not None:
+            metadata["url"] = f"{BASE_URL}/{page_path.replace(os.sep, '/')}"
+        metadata.update({
+            "ap2_export": bool(man.get('ap2_export', False)),
+            "execution_type": "browser-reference",
+            "version": man.get('version', '1.0.0'),
+            # AIN Bridge v1.0 (2026-06-06): prefill deep-link capability signal.
+            # Prefill tools accept {url}#in=<base64url(JSON of {element_id: value})>[&run=1]
+            "prefill": bool(man.get('prefill', False)),
+        })
 
         entries.append({
             "name": name,
             "description": description,
             "inputSchema": input_schema,
-            "metadata": {
-                "tool_id": man.get('tool_id', slug),
-                "category": man.get('category', ''),
-                "tags": man.get('tags', []),
-                "url": f"{BASE_URL}/tools/{slug}.html",
-                "ap2_export": bool(man.get('ap2_export', False)),
-                "execution_type": "browser-reference",
-                "version": man.get('version', '1.0.0'),
-                # AIN Bridge v1.0 (2026-06-06): prefill deep-link capability signal.
-                # Prefill tools accept {url}#in=<base64url(JSON of {element_id: value})>[&run=1]
-                "prefill": bool(man.get('prefill', False)),
-            }
+            "metadata": metadata,
         })
 
     n = len(entries)
@@ -258,7 +289,7 @@ def main():
         print(f"\n!! SHORT-FORM MANIFESTS — derived a fallback name (add a proper mcp_tool_definition) ({len(derived)}):")
         for s in derived: print(f"   {s}")
     if missing_html:
-        print(f"\n!! MANIFESTS WITHOUT A TOOL HTML ({len(missing_html)}):")
+        print(f"\n!! MANIFESTS WITH NO RESOLVABLE PAGE — url OMITTED, honest absence ({len(missing_html)}):")
         for s in missing_html: print(f"   {s}")
     if n_tools != n:
         print(f"\n!! NOTE: {n_tools} tool HTMLs exist but only {n} have manifests "
