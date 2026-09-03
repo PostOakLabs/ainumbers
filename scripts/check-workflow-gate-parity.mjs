@@ -347,6 +347,18 @@ const PREFLIGHT_ONLY = new Map([
     "browser-side). Hard in preflight; same CI route as above via scripts-verify.yml's full " +
     "preflight. Reads tracked pages + chaingraph.json only — no CI-only input."],
 
+  // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
+  ["check-vendored-digests.mjs",
+    "Vendored-crypto sha256 pin gate: recomputes the digest of the noble bn254/ed25519/secp256k1 " +
+    "bundles + the whole-file _proof.mjs (inlined ML-DSA/SLH-DSA noble blocks) against the " +
+    "chaingraph/kernels/VENDORED.md pin table, so a swapped-curve-code green PR cannot slide " +
+    "through and generate.mjs cannot propagate it to the live worker. Hard in preflight; its CI " +
+    "route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs` on every scripts/ change — this gate's own diff shape), so a " +
+    "named workflow step would only duplicate the same suite. Reads only tracked repo files — " +
+    "no CI-only input."],
+  ["check-vendored-digests.test.mjs", SELF_TEST],
+
   // ── the two instances doctrine NAMES, each with its own reason ──────────────
   ["check_tools.js",
     "⚑ THE ROW'S KNOWN INSTANCE (doctrine-execution audit 2026-08-23, register row 32). CONTRACT.md " +
