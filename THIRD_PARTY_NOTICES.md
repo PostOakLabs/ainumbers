@@ -45,6 +45,16 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Path(s) in this repo:**
   - `chaingraph/kernels/_detmath.bundle.mjs`
 
+## chainlink-protos-cre (sdk.proto only)
+
+- **Version:** n/a
+- **License:** MIT
+- **Upstream:** https://github.com/smartcontractkit/chainlink-protos
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** proto schema only; BUSL-1.1 @chainlink/cre-sdk explicitly NOT vendored (see PROVENANCE.md). repo/ slice vendored at pinned commit c1accce563a86e68ed46f9bed352bf7529c9444b (PROVENANCE.md §Source) — backfilled LICENCE-VENDOR-GATE-1, 2026-09-03, after the vendor/ path-segment regex fix made the gate see it.
+- **Path(s) in this repo:**
+  - `chaingraph/kernels/vendor/chainlink-protos-cre/`
+
 ## Redoc (redoc.standalone.js)
 
 - **Version:** 2.5.3
