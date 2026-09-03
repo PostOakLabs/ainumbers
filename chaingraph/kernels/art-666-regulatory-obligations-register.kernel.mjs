@@ -20,12 +20,20 @@ import { executionHash } from './_hash.mjs';
 // a control but with an owner and evidence is COVERED here; control-depth attestation is the
 // downstream packs' job, not this spine's.
 //
-// FLAG-MIRROR DOCTRINE (AUTHORING-STANDARD.md flag-mirror section): compliance_flags is
-// CONSTANT by design — ['OBLREG_REGISTER_ASSESSED'] on every input, the always-emitted
-// "the register was assessed" marker. Every conditional outcome (intake failure, owner gaps,
-// evidence gaps, the verdict itself) already lives in output_payload (intake_error on the
-// error path only, unassigned, findings, overall_determination), so no gate needs to route on
-// a flag and no mirror member is owed. Do not add a conditional flag without adding a mirror.
+// FLAG DISCIPLINE (two gates, one shape):
+//   FLAGS-COMPUTED-LINT-1 bans the unearned-green attestation class — a flag like
+//   "..._ASSESSED" emitted on every run, zero-input runs included, is self-certification.
+//   The flag channel here therefore starts empty and carries exactly ONE conditional
+//   emission: OBLREG_INTAKE_VALIDATION_FAILED, pushed only inside the fail-closed branch.
+//   The verdict never rides a flag — overall_determination/findings are the answer, and
+//   SPEC.md Sec. 21.4 chain gates resolve pointers against output_payload only, so a verdict
+//   flag would be unroutable decoration.
+//   FLAG-MIRROR DOCTRINE (AUTHORING-STANDARD.md flag-mirror section): the flag set is
+//   conditional (present on intake failure, absent otherwise), so output_payload carries the
+//   closed-list mirror member `errors`, non-empty exactly when the flag is present. Every
+//   other conditional outcome (owner gaps, evidence gaps, the verdict) already lives in the
+//   pinned payload members (unassigned, findings, overall_determination) — the answer
+//   channel, not the caveat channel — and owes no mirror.
 //
 // DETERMINISM: compute() is a pure function of pp — no clock, no randomness, no network, no
 // filesystem, no TextEncoder/atob/btoa/URL (the QuickJS guest lacks all four). Percentage
@@ -102,17 +110,20 @@ function pct(numerator, denominator) {
  * On a well-formed register the payload carries exactly the nine pinned members
  * (total, owner_assigned, owner_coverage_pct, control_linked, evidence_linked,
  * evidence_coverage_pct, unassigned, findings, overall_determination) — the worked example's
- * execution_hash pins that shape, so no member may be added on this path. intake_error joins
- * only the fail-closed path, where no pin applies.
+ * execution_hash pins that shape, so no member may be added on this path. errors joins only
+ * the fail-closed path, where no pin applies.
  */
 export function compute(pp) {
   pp = pp || {};
 
   // Stage 1 — intake. Fail closed: a malformed register yields zeroed counts, an empty
   // unassigned list (unvalidated rule_ids must never surface as coverage data), a single
-  // intake_validation FAIL finding, and GAPS_FOUND.
+  // intake_validation FAIL finding, GAPS_FOUND, and the one conditional compliance flag,
+  // mirrored by errors below.
   const intake_error = validateIntake(pp);
   if (intake_error !== null) {
+    const compliance_flags = [];
+    compliance_flags.push('OBLREG_INTAKE_VALIDATION_FAILED');
     return {
       output_payload: {
         total: 0,
@@ -124,9 +135,9 @@ export function compute(pp) {
         unassigned: [],
         findings: [{ check: 'intake_validation', status: 'FAIL', detail: intake_error }],
         overall_determination: 'GAPS_FOUND',
-        intake_error,
+        errors: [intake_error],
       },
-      compliance_flags: ['OBLREG_REGISTER_ASSESSED'],
+      compliance_flags,
     };
   }
 
@@ -168,7 +179,7 @@ export function compute(pp) {
       findings,
       overall_determination: findings.length > 0 ? 'GAPS_FOUND' : 'COVERED',
     },
-    compliance_flags: ['OBLREG_REGISTER_ASSESSED'],
+    compliance_flags: [],
   };
 }
 
