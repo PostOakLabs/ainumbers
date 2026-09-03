@@ -28,14 +28,14 @@ export const meta = {
   gpu: false,
 };
 
-// Statutory monthly cadence — GENIUS Act S.394 §4(b) requires a monthly reserve-composition
+// Statutory monthly cadence — GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)(3) requires a monthly reserve-composition
 // report with independent examination. No final implementing rule specifies an exact
 // days-after-period-end filing deadline as of 2026-08-07; this kernel uses a 30-day monthly-cadence
 // window as the statute-derived interpretation (dated observation, re-verify against final rule text
 // when one publishes — research/GENIUS-FINALRULE-CHECK-2026-08-07.md).
 const STATUTORY_ATTESTATION_WINDOW_DAYS = 30;
-const COVERAGE_REF = 'GENIUS Act S.394 §4(a) — 1:1 reserve coverage requirement';
-const ATTESTATION_REF = 'GENIUS Act S.394 §4(b) — monthly reserve report, independent examination by a registered public accounting firm';
+const COVERAGE_REF = 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a) — 1:1 reserve coverage requirement';
+const ATTESTATION_REF = 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)(3) — monthly reserve report, independent examination by a registered public accounting firm';
 
 function daysBetween(isoA, isoB) {
   const a = Date.parse(isoA);
@@ -45,7 +45,7 @@ function daysBetween(isoA, isoB) {
 }
 
 /**
- * compute(pp) — pure GENIUS Act S.394 §4 narrowed conformance monitor.
+ * compute(pp) — pure GENIUS Act, Pub. L. 119-27 (S.1582) §4 narrowed conformance monitor.
  * pp: {
  *   report_period?:               string,        // e.g. '2027-02'
  *   period_end_date?:             string,        // ISO date, e.g. '2027-02-28'

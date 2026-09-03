@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:938dff18fe631418b8fc865198f0e4cb4ca4d6a9ee87967ccf818d5f2189edf9
+// kernel_digest_at_authoring: sha256:c6fbba62489f06817943d209bae235e325f6bb14118049aa69c24453ec555088
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-582-genius-reserve-disclosure-conformance-monitor.
 // Class B (bounded-numeric). FIX-2 CARRY read of the kernel: `coverage_ratio` is a float division
