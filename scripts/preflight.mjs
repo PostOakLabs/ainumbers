@@ -1497,6 +1497,19 @@ const GATES = [
   // last block also re-derives the gate set from the real workflow, so removing
   // those steps (or breaking the parse) goes red here rather than on main.
   ['Deploy supersede classifier control (mutation + live derivation)', 'node scripts/check-deploy-superseded.test.mjs'],
+  // SERVED-EGRESS-CHECK-1: the control for scripts/check-served-egress.mjs, the
+  // post-deploy smoke step deploy-to-dreamhost.yml runs against the LIVE site.
+  // That script is main-only by construction (a branch push has no deployment
+  // of itself to compare served bytes against), so it is CI_ONLY in
+  // check-workflow-gate-parity.mjs and THIS fixture proof is where it gets its
+  // pre-push coverage — same shape as the deploy-supersede control above. RED
+  // controls: the exact art-129 incident shape (Cloudflare Web Analytics
+  // beacon in served bytes), a served-but-not-source external ref, a sha256
+  // mismatch vs deploy-checksums.txt, all 10 row patterns, and the stale-cache
+  // downgrade (beacon on a HIT-class copy + clean unique-key refetch is a WARN,
+  // not a red). No network: every control runs the real exported detectors
+  // against synthetic bodies.
+  ['Served-egress detector control (RED/GREEN fixtures, SERVED-EGRESS-CHECK-1)', 'node scripts/check-served-egress.test.mjs'],
   // DUP-TABLE-HASH-GATE-1: a regulatory schedule vendored into more than one
   // kernel (the 2026-08-21 time-decaying-constants audit's phantom 2025 QM/HOEPA
   // row shipped identically fabricated into art-218/art-220/art-234) can pass a
