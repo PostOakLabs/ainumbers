@@ -32,24 +32,68 @@
  *
  * ── VERDICTS (one per in-scope commit) ──────────────────────────────────────
  *   ATTESTED        note found (`PREFLIGHT-VERIFIED …`) on the commit itself or on
- *                   the head commit of the PR that produced it. GREEN.
+ *                   the head commit of the PR that produced it. GREEN. Since
+ *                   PREPUSH-ATTEST-MECHANICS-1 (2026-09-03) there is a second,
+ *                   mechanical source: a commit that resolves to a MERGED pull
+ *                   request whose REQUIRED checks (the ruleset's own list, not a
+ *                   copy in this file) were green on the PR head. See the SQUASH
+ *                   PATH note below.
  *   BYPASS-DECLARED note found (`PREFLIGHT-BYPASS … reason=…`). GREEN + the reason
  *                   is printed, so the declaration lands in the run log.
- *   AUTOMATION      committed by a `[bot]` identity — the main-side single-writer
- *                   regen (SO #35, `ainumbers-spec-sync[bot]`) commits directly to
- *                   main from a runner where no client-side hook exists and no
- *                   preflight is meaningful. Its writes touch protected paths
- *                   (measured: 06e0357c rewrote chaingraph/kernels/data/rule-registry.json).
- *                   LOGGED, not red. Named carve-out, not a silent skip.
+ *                   `PREFLIGHT-ADJUDICATED … reason=…` notes read the same way:
+ *                   a retroactive adjudication of a red that was investigated and
+ *                   ruled legitimate (class 1 or 2), with the adjudication's
+ *                   class/run/PR carried inside the reason text.
+ *   AUTOMATION      committed by the PINNED single-writer app — exactly
+ *                   `ainumbers-spec-sync[bot] <ainumbers-spec-sync[bot]@users.noreply.github.com>`
+ *                   (app slug ainumbers-spec-sync resolving to app id 4152587)
+ *                   AND every file of the commit inside the derived-surface set
+ *                   `scripts/derived-artifacts.mjs` declares — the same SSOT the
+ *                   regen workflow stages from (single-writer alignment). LOGGED,
+ *                   not red. Anything else bot-shaped (another app, a [bot] name
+ *                   that is not the pinned one, the pinned one writing outside its
+ *                   fence) falls through to UNATTESTED — the carve-out is no
+ *                   longer "any [bot] string".
  *   PRE-ROLLOUT     committer date precedes EFFECTIVE_FROM below — a branch pushed
  *                   before this gate existed physically could not have written a
  *                   note. LOGGED, not red. Self-retiring: nothing new is ever dated
  *                   before a fixed past instant.
- *   UNATTESTED      no note anywhere. RED (exit 1).
- *   INDETERMINATE   the originating PR could not be resolved (no `gh`, API failure),
- *                   so ABSENCE could not be established. RED (exit 1) with its own
- *                   diagnosis — SO #34c: a missing gate result is a distinct state,
- *                   never a green one.
+ *   UNATTESTED      no note anywhere, no merged-PR required-checks proof, no pinned
+ *                   single writer. RED (exit 1).
+ *   INDETERMINATE   a resolution step was ATTEMPTED and FAILED (no `gh`, API
+ *                   error), so ABSENCE could not be established. RED (exit 1) with
+ *                   its own diagnosis — SO #34c: a missing gate result is a
+ *                   distinct state, never a green one.
+ *
+ * ── THE SQUASH PATH (PREPUSH-ATTEST-MECHANICS-1, 2026-09-03) ────────────────
+ * Five false reds in three days (runs 33526718525 / 33530845476 / 33532601172 /
+ * 33646838391 / 33701117493) all had the same shape: a PR whose branch push was
+ * `--no-verify`'d over a by-construction red, with the SO #27 declaration written
+ * in the PR BODY as prose — discipline followed in substance, invisible to this
+ * gate, because a squash merge drops both the branch head (rewritten sha) and any
+ * body text that is not pasted into the squash message.
+ *
+ * Of the two routes the row weighed:
+ *   (a) read the declaration out of the PR body — rejected: it depends on the
+ *       human writing a machine-readable marker, the exact copy discipline that
+ *       produced the five false reds (#1661's prose declaration would not match
+ *       any strict marker, so the red would persist though discipline was kept);
+ *   (b) carry the note into the squash commit message — rejected: sessions do not
+ *       run `gh pr merge` (SO #37 label-automerge only), so no session-side hook
+ *       can inject text into the squash message, and the repo-settings route
+ *       (squash message = PR body) is admin-only and STILL depends on the body
+ *       carrying a marker.
+ * The route implemented is the one with ZERO human steps: the merged PR's own
+ * REQUIRED checks, re-derived from the primary sources at read time — the active
+ * rulesets' required_status_checks list, and the check runs on the PR head sha.
+ * Branch protection cannot admit a PR whose required checks are red, and the
+ * merge queue (ruleset 20721322, merge_method SQUASH) re-runs them against the
+ * merged result before merging, so this evidence is created by CI itself for
+ * every merged PR — nobody has to remember anything. This is independent
+ * derivation (SO #34): the gate recomputes verification state from GitHub's
+ * check-run records, never from the artifact's claim about itself. A merged PR
+ * whose required checks were bypassed or absent stays RED — which is a red that
+ * MEANS something, per item 3 of the row.
  *
  * ── RUN-LEVEL STATES ────────────────────────────────────────────────────────
  *   NOTES-REF-ABSENT  `refs/notes/preflight-attestation` does not exist locally
@@ -83,7 +127,15 @@
  *       Run ONE fixture and propagate the checker's real exit code, so a CI run can
  *       be seen going red on a missing note rather than merely asserting it does.
  *       Scenarios: note-present · note-absent · declared-bypass · notes-ref-absent ·
- *       unprotected-only
+ *       unprotected-only · squash-note-on-pr-head · squash-pr-green · squash-pr-red ·
+ *       bot-in-scope · bot-out-of-scope · bot-wrong-app · adjudicated-note
+ *   node scripts/check-prepush-attestation.mjs --attest-adjudicated "<reason>" [--sha <sha>]
+ *       Write a RETROACTIVE-ADJUDICATION note (PREFLIGHT-ADJUDICATED) on <sha>
+ *       (default HEAD) and push the notes ref. This is the backfill instrument for
+ *       a red that was investigated and ruled legitimate — the reason must carry
+ *       the class (1 = squash-dropped declaration, 2 = bot carve-out), the run id
+ *       and the adjudicating authority, so the red history reads as adjudicated,
+ *       not ignored.
  *   node scripts/check-prepush-attestation.mjs --attest-bypass "<reason>"
  *       Write a DECLARED-bypass note on HEAD and push the notes ref. Run this
  *       BEFORE a `git push --no-verify` that touches a protected path (SO #27's
@@ -93,6 +145,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { coveredPaths } from './derived-artifacts.mjs';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
@@ -136,14 +189,57 @@ export function isProtectedPath(file) {
 }
 
 /**
- * Note bodies are written by `.githooks/pre-push` (verified) and by
- * `--attest-bypass` (declared bypass). Anything else on the ref is UNKNOWN — a
+ * The PINNED single writer (PREPUSH-ATTEST-MECHANICS-1, item 2). Before this
+ * constant, ANY `[bot]` string in the committer identity took the AUTOMATION
+ * carve-out — a decorative allowlist: it passed dependabot, github-actions, or a
+ * rogue app exactly as readily as the real writer. Now the identity must be the
+ * spec-sync bot's exact name+email pair AND the app slug must resolve (via the
+ * GitHub API, at check time) to app id 4152587 — the org-owned
+ * `ainumbers-spec-sync` App that mints the derived-artifacts-regen push token.
+ * (Verified live 2026-09-03: GET /apps/ainumbers-spec-sync → id 4152587; its bot
+ * USER id is a different number, 297170542 — the pin is the APP id.)
+ */
+export const SPEC_SYNC_APP = Object.freeze({
+  appSlug: 'ainumbers-spec-sync',
+  appId: 4152587,
+  botName: 'ainumbers-spec-sync[bot]',
+  botEmail: 'ainumbers-spec-sync[bot]@users.noreply.github.com',
+});
+
+/**
+ * Is a file inside the derived-surface set the regen workflow itself stages
+ * from? The set is NOT copied here — it is imported from
+ * scripts/derived-artifacts.mjs (`coveredPaths()`), the same SSOT
+ * `derived-artifacts-regen.yml` reads via `--paths`. If the declared set grows,
+ * the bot's legal surface grows with it, with no second list to drift. This is
+ * the single-writer alignment the row demands: the carve-out's path scope IS
+ * the regen's own pathspec.
+ */
+export function isDeclaredDerivedPath(file) {
+  if (!file) return false;
+  const p = file.replace(/\\/g, '/');
+  return coveredPaths().some((root) => p === root || p.startsWith(`${root}/`));
+}
+
+export function isSpecSyncCommitter(name, email) {
+  return String(name || '') === SPEC_SYNC_APP.botName && String(email || '') === SPEC_SYNC_APP.botEmail;
+}
+
+/**
+ * Note bodies are written by `.githooks/pre-push` (verified), by
+ * `--attest-bypass` (declared bypass) and by `--attest-adjudicated`
+ * (retroactive adjudication of an investigated red — the backfill instrument,
+ * PREPUSH-ATTEST-MECHANICS-1 item 4). Anything else on the ref is UNKNOWN — a
  * shape this gate refuses to read as an attestation.
  */
 export function classifyNote(body) {
   if (typeof body !== 'string' || !body.trim()) return { kind: 'unknown', reason: null };
   const text = body.trim();
   if (/^PREFLIGHT-VERIFIED\b/.test(text)) return { kind: 'verified', reason: null };
+  if (/^PREFLIGHT-ADJUDICATED\b/.test(text)) {
+    const m = text.match(/reason=([\s\S]*)$/);
+    return { kind: 'adjudicated', reason: m ? m[1].trim() : '(no adjudication reason recorded)' };
+  }
   if (/^PREFLIGHT-BYPASS\b/.test(text)) {
     const m = text.match(/reason=([\s\S]*)$/);
     return { kind: 'bypass', reason: m ? m[1].trim() : '(no reason recorded)' };
@@ -228,48 +324,98 @@ function filesInCommit(cwd, sha, parents) {
 }
 
 /**
- * Resolve the PR head commit(s) a main commit came from. Squash merge rewrites the
- * commit, so the sha on main is NEVER the sha the hook attested — the note lives on
- * the branch head. Uses `gh` (preinstalled on GitHub runners; not a third-party
- * Action, so SO #8's Action rule is untouched). No `gh`, or an API failure, yields
- * null → INDETERMINATE, never a silent pass (SO #34c).
+ * The GitHub API layer. Every method returns `{ ok: true, … }` on success and
+ * `{ ok: false }` when the call was ATTEMPTED and FAILED (no `gh`, API error) —
+ * the distinction INDETERMINATE is built on (SO #34c): a failed call can never
+ * be read as a green, and an empty-but-successful result is a conclusive
+ * negative, never an error.
+ *
+ * The layer is injectable: `runCheck({ api })` accepts any object with these
+ * methods, which is how the self-test exercises the PR-required-checks and
+ * app-pin routes against fixture repos with no network and no real PRs
+ * (SO #34b — the decision layer is verified against API-shaped payloads, and
+ * the live `gh` path is the same code the workflow runs).
  */
-function resolvePrHeads(slug, sha) {
-  try {
-    const out = execFileSync(
-      'gh',
-      ['api', `repos/${slug}/commits/${sha}/pulls`, '--jq', '.[] | .head.sha, .number'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024 },
-    ).trim();
-    if (!out) return { heads: [], numbers: [], ok: true };
-    const lines = out.split('\n').map((l) => l.trim()).filter(Boolean);
-    const heads = [];
-    const numbers = [];
-    for (let i = 0; i < lines.length; i += 2) {
-      heads.push(lines[i]);
-      if (lines[i + 1]) numbers.push(lines[i + 1]);
+function makeGhApi() {
+  const call = (args) => {
+    try {
+      return {
+        ok: true,
+        out: execFileSync('gh', args, {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          maxBuffer: 32 * 1024 * 1024,
+        }).trim(),
+      };
+    } catch {
+      return { ok: false, out: null };
     }
-    return { heads, numbers, ok: true };
-  } catch {
-    return { heads: [], numbers: [], ok: false };
-  }
-}
+  };
+  const tsv = (out) => (out ? out.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.split('\t')) : []);
 
-function prCommitShas(slug, number) {
-  try {
-    const out = execFileSync(
-      'gh',
-      ['api', '--paginate', `repos/${slug}/pulls/${number}/commits`, '--jq', '.[].sha'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024 },
-    ).trim();
-    return out ? out.split('\n').map((l) => l.trim()).filter(Boolean) : [];
-  } catch {
-    return [];
-  }
+  const cache = new Map();
+  const memo = (key, fn) => {
+    if (!cache.has(key)) cache.set(key, fn());
+    return cache.get(key);
+  };
+
+  return {
+    /** PRs containing a commit: [{number, head, mergedAt}] (mergedAt '' when open). */
+    pullsForCommit(slug, sha) {
+      return memo(`pulls:${sha}`, () => {
+        const r = call(['api', `repos/${slug}/commits/${sha}/pulls`,
+          '--jq', '.[] | [.number, .head.sha, (.merged_at // "")] | @tsv']);
+        if (!r.ok) return { ok: false, prs: [] };
+        return { ok: true, prs: tsv(r.out).map(([number, head, mergedAt]) => ({ number, head, mergedAt })) };
+      });
+    },
+    /** Every commit sha of a PR (for note lookup on the pre-squash commits). */
+    prCommits(slug, number) {
+      const r = call(['api', '--paginate', `repos/${slug}/pulls/${number}/commits`, '--jq', '.[].sha']);
+      if (!r.ok) return { ok: false, shas: [] };
+      return { ok: true, shas: r.out ? r.out.split('\n').map((s) => s.trim()).filter(Boolean) : [] };
+    },
+    /** Required status-check contexts, re-derived from the ACTIVE rulesets (SSOT). */
+    requiredContexts(slug) {
+      return memo('required', () => {
+        const list = call(['api', `repos/${slug}/rulesets?per_page=100`,
+          '--jq', '.[] | select(.enforcement == "active") | .id']);
+        if (!list.ok) return { ok: false, contexts: [] };
+        const contexts = new Set();
+        for (const id of list.out ? list.out.split('\n').map((s) => s.trim()).filter(Boolean) : []) {
+          const one = call(['api', `repos/${slug}/rulesets/${id}`,
+            '--jq', '[.rules[]? | select(.type == "required_status_checks") | .parameters.required_status_checks[]?.context] | join("\\n")']);
+          if (!one.ok) return { ok: false, contexts: [] };
+          for (const c of one.out ? one.out.split('\n').filter(Boolean) : []) contexts.add(c);
+        }
+        return { ok: true, contexts: [...contexts].sort() };
+      });
+    },
+    /** Check runs on a sha: [{name, conclusion, id}] (conclusion may be null → ''). */
+    checkRuns(slug, sha) {
+      return memo(`checks:${sha}`, () => {
+        const r = call(['api', '--paginate', `repos/${slug}/commits/${sha}/check-runs?per_page=100`,
+          '--jq', '.check_runs[] | [.name, (.conclusion // ""), .id] | @tsv']);
+        if (!r.ok) return { ok: false, runs: [] };
+        return { ok: true, runs: tsv(r.out).map(([name, conclusion, id]) => ({ name, conclusion, id: Number(id) })) };
+      });
+    },
+    /** App id behind an app slug (public endpoint; used for the single-writer pin). */
+    app(appSlug) {
+      return memo(`app:${appSlug}`, () => {
+        const r = call(['api', `apps/${appSlug}`, '--jq', '.id']);
+        if (!r.ok) return { ok: false, id: null };
+        const id = Number(r.out);
+        return Number.isFinite(id) ? { ok: true, id } : { ok: false, id: null };
+      });
+    },
+  };
 }
 
 // ── the check ───────────────────────────────────────────────────────────────
-export function runCheck({ repo, base, head, remote = true, slug = 'PostOakLabs/ainumbers', reportOnly = false }) {
+export function runCheck({
+  repo, base, head, remote = true, slug = 'PostOakLabs/ainumbers', reportOnly = false, api = makeGhApi(),
+}) {
   const lines = [];
   const say = (s) => { lines.push(s); console.log(s); };
   const annotate = (s) => {
@@ -297,7 +443,7 @@ export function runCheck({ repo, base, head, remote = true, slug = 'PostOakLabs/
     if (!meta) continue;
     const files = filesInCommit(repo, sha, meta.parents);
     const hits = files.filter(isProtectedPath);
-    if (hits.length) inScope.push({ ...meta, hits });
+    if (hits.length) inScope.push({ ...meta, files, hits });
   }
 
   say(`preflight-attestation coverage — range ${range}`);
@@ -324,28 +470,34 @@ export function runCheck({ repo, base, head, remote = true, slug = 'PostOakLabs/
   for (const c of inScope) {
     const short = c.sha.slice(0, 8);
     const label = `${short} ${c.subject.slice(0, 62)}`;
+    let apiFailed = false;
+    let prChecksRed = false;
 
     // 1. direct note on the landed commit (a direct-to-main push, or a merge
     //    strategy that preserved the attested sha).
     let body = noteBody(repo, index, c.sha);
     let via = 'commit';
 
-    // 2. the PR head the hook actually attested (squash merge rewrote the sha).
+    // 2. notes on the PR the commit came from — the squash merge rewrote the
+    //    sha, so the note lives on the branch head (or a pre-squash commit).
     let prNumbers = [];
-    let resolveOk = true;
+    let prs = [];
     if (!body && remote) {
-      const { heads, numbers, ok } = resolvePrHeads(slug, c.sha);
-      resolveOk = ok;
-      prNumbers = numbers;
-      for (const h of heads) {
-        body = noteBody(repo, index, h);
-        if (body) { via = `PR head ${h.slice(0, 8)}`; break; }
+      const r = api.pullsForCommit(slug, c.sha);
+      if (!r.ok) apiFailed = true;
+      prs = r.ok ? r.prs : [];
+      prNumbers = prs.map((p) => p.number);
+      for (const p of prs) {
+        body = noteBody(repo, index, p.head);
+        if (body) { via = `PR head ${p.head.slice(0, 8)}`; break; }
       }
       if (!body) {
-        for (const n of numbers) {
-          for (const s of prCommitShas(slug, n)) {
+        for (const p of prs) {
+          const rc = api.prCommits(slug, p.number);
+          if (!rc.ok) { apiFailed = true; continue; }
+          for (const s of rc.shas) {
             body = noteBody(repo, index, s);
-            if (body) { via = `PR #${n} commit ${s.slice(0, 8)}`; break; }
+            if (body) { via = `PR #${p.number} commit ${s.slice(0, 8)}`; break; }
           }
           if (body) break;
         }
@@ -365,13 +517,41 @@ export function runCheck({ repo, base, head, remote = true, slug = 'PostOakLabs/
         say(`      declared reason (SO #27): ${note.reason}`);
         continue;
       }
+      if (note.kind === 'adjudicated') {
+        verdicts.push({ sha: c.sha, verdict: 'BYPASS-DECLARED', via: `${via} — retroactive adjudication`, reason: note.reason });
+        say(`  ✓ BYPASS-DECLARED ${label}   [note on ${via} — retroactive adjudication]`);
+        say(`      adjudicated: ${note.reason}`);
+        continue;
+      }
       say(`  ! note on ${via} has an unrecognised shape — not read as an attestation.`);
     }
 
+    // 3. the PINNED single-writer bot, path-scoped (PREPUSH-ATTEST-MECHANICS-1
+    //    item 2). The old carve-out took ANY `[bot]` string; now only the exact
+    //    spec-sync identity, only inside the regen's own declared pathspec, and
+    //    only once the app slug has resolved to the pinned app id.
     if (isBotIdentity(c.committerName, c.committerEmail)) {
-      verdicts.push({ sha: c.sha, verdict: 'AUTOMATION' });
-      say(`  · AUTOMATION      ${label}   [committer ${c.committerEmail} — main-side single writer, SO #35]`);
-      continue;
+      if (isSpecSyncCommitter(c.committerName, c.committerEmail)) {
+        const outOfFence = c.files.filter((f) => !isDeclaredDerivedPath(f));
+        if (outOfFence.length === 0) {
+          const app = api.app(SPEC_SYNC_APP.appSlug);
+          if (!app.ok) {
+            apiFailed = true;
+            say(`  ! committer is ${SPEC_SYNC_APP.botName}, but app ${SPEC_SYNC_APP.appSlug} could not be resolved to prove id ${SPEC_SYNC_APP.appId}.`);
+          } else if (app.id === SPEC_SYNC_APP.appId) {
+            verdicts.push({ sha: c.sha, verdict: 'AUTOMATION' });
+            say(`  · AUTOMATION      ${label}   [${SPEC_SYNC_APP.appSlug} app id ${app.id} — main-side single writer, SO #35; ${c.files.length} file(s), all inside the declared derived set]`);
+            continue;
+          } else {
+            say(`  ! committer claims ${SPEC_SYNC_APP.botName} but app ${SPEC_SYNC_APP.appSlug} resolves to id ${app.id}, not ${SPEC_SYNC_APP.appId} — not the pinned single writer.`);
+          }
+        } else {
+          say(`  ! ${SPEC_SYNC_APP.botName} identity, but the commit writes OUTSIDE the declared derived set (single-writer fence, SO #35):`);
+          say(`      ${outOfFence.slice(0, 4).join(', ')}${outOfFence.length > 4 ? ` (+${outOfFence.length - 4} more)` : ''}`);
+        }
+      } else {
+        say(`  ! bot committer ${c.committerEmail || c.committerName} is not the pinned single writer (${SPEC_SYNC_APP.botName}, app id ${SPEC_SYNC_APP.appId}) — no carve-out.`);
+      }
     }
 
     if (Number.isFinite(EFFECTIVE_FROM_MS) && Date.parse(c.committedAt) < EFFECTIVE_FROM_MS) {
@@ -380,14 +560,54 @@ export function runCheck({ repo, base, head, remote = true, slug = 'PostOakLabs/
       continue;
     }
 
+    // 4. the SQUASH PATH: the merged PR's own required checks (see the header —
+    //    the route with zero human steps). Only PRs that actually MERGED count;
+    //    the required-context list is re-derived from the active rulesets, and
+    //    the check runs are read on the PR head sha. A required check that is
+    //    red, or that never ran on the head, keeps this commit RED — that red
+    //    means the merge reached main past a failed/absent required check.
+    if (remote && prs.length) {
+      let prAttested = false;
+      for (const p of prs) {
+        if (!p.mergedAt) continue;
+        const req = api.requiredContexts(slug);
+        if (!req.ok) { apiFailed = true; continue; }
+        const cr = api.checkRuns(slug, p.head);
+        if (!cr.ok) { apiFailed = true; continue; }
+        const latest = new Map();
+        for (const run of cr.runs) {
+          if (!latest.has(run.name) || run.id > latest.get(run.name).id) latest.set(run.name, run);
+        }
+        const red = [];
+        const skipped = [];
+        let green = true;
+        for (const ctx of req.contexts) {
+          const run = latest.get(ctx);
+          if (!run) { green = false; red.push(`${ctx} (never ran on the PR head)`); }
+          else if (run.conclusion === 'success') { /* the proof */ }
+          else if (run.conclusion === 'skipped') { skipped.push(ctx); }
+          else { green = false; red.push(`${ctx} (${run.conclusion || 'no conclusion'})`); }
+        }
+        if (green) {
+          verdicts.push({ sha: c.sha, verdict: 'ATTESTED', via: `PR #${p.number} required checks` });
+          say(`  ✓ ATTESTED        ${label}   [PR #${p.number} required checks green on head ${p.head.slice(0, 8)}${skipped.length ? `; skipped by path filter: ${skipped.join(', ')}` : ''}]`);
+          prAttested = true;
+          break;
+        }
+        say(`  ✗ PR #${p.number} required checks NOT all green: ${red.join(' · ')}`);
+        prChecksRed = true;
+      }
+      if (prAttested) continue;
+    }
+
     // INDETERMINATE is reserved for a resolution that was ATTEMPTED and FAILED —
     // `gh` missing, API error. `--no-remote` is not that: it is the caller
     // declaring there is no squash-rewrite mapping to follow (a local repo, a
     // fixture), so absence on the commit itself IS conclusive there.
-    if (remote && !resolveOk) {
-      verdicts.push({ sha: c.sha, verdict: 'INDETERMINATE' });
+    if (remote && apiFailed) {
+      verdicts.push({ sha: c.sha, verdict: 'INDETERMINATE', prNumbers });
       say(`  ✗ INDETERMINATE   ${label}`);
-      say('      no note on the commit, and the originating PR could not be resolved (gh unavailable or API error).');
+      say('      a resolution step failed (gh unavailable or API error) — the attestation could not be established either way.');
       say('      Absence was NOT established, so this is not a pass (SO #34c).');
       annotate(`INDETERMINATE: ${short} touches a protected path and its attestation could not be resolved.`);
       continue;
@@ -396,8 +616,12 @@ export function runCheck({ repo, base, head, remote = true, slug = 'PostOakLabs/
     verdicts.push({ sha: c.sha, verdict: 'UNATTESTED', prNumbers });
     say(`  ✗ UNATTESTED      ${label}`);
     say(`      touched: ${c.hits.slice(0, 4).join(', ')}${c.hits.length > 4 ? ` (+${c.hits.length - 4} more)` : ''}`);
-    say(`      No PREFLIGHT-VERIFIED and no PREFLIGHT-BYPASS note${prNumbers.length ? ` (PR ${prNumbers.map((n) => `#${n}`).join(', ')})` : ''}.`);
-    say('      Either preflight never ran for this push, or it was bypassed without declaring it.');
+    say(`      No PREFLIGHT-VERIFIED note, no PREFLIGHT-BYPASS/ADJUDICATED note, no green required-checks record${prNumbers.length ? ` (PR ${prNumbers.map((n) => `#${n}`).join(', ')})` : ''}.`);
+    if (prChecksRed) {
+      say('      The PR\'s required checks were red or absent — this merge reached main past them.');
+    } else {
+      say('      Either preflight never ran for this push, or it was bypassed without declaring it.');
+    }
     say(`      Declare a legitimate bypass BEFORE pushing:  node scripts/check-prepush-attestation.mjs --attest-bypass "<SO #27 reason>"`);
     annotate(`UNATTESTED: ${short} touches a protected path with no preflight-attestation note.`);
   }
@@ -414,7 +638,18 @@ export function runCheck({ repo, base, head, remote = true, slug = 'PostOakLabs/
 }
 
 // ── fixtures (self-test + CI demo) ──────────────────────────────────────────
-export const SCENARIOS = ['note-present', 'note-absent', 'declared-bypass', 'notes-ref-absent', 'unprotected-only'];
+export const SCENARIOS = [
+  'note-present', 'note-absent', 'declared-bypass', 'notes-ref-absent', 'unprotected-only',
+  // PREPUSH-ATTEST-MECHANICS-1 — the four control shapes named in the row, plus
+  // the two tighter REDs the new mechanics make provable:
+  'squash-note-on-pr-head', // GREEN: squash merge, note lives on the PR head sha
+  'squash-pr-green',        // GREEN: no note anywhere, but the merged PR's required checks were green
+  'squash-pr-red',          // RED:   merged PR with a FAILED required check — a red that MEANS something
+  'bot-in-scope',           // GREEN: pinned app, every file inside the declared derived set
+  'bot-out-of-scope',       // RED:   pinned app writing outside its single-writer fence
+  'bot-wrong-app',          // RED:   a different [bot] identity — the old "any [bot] passes" hole, closed
+  'adjudicated-note',       // GREEN: retroactive adjudication note, reason printed into the log
+];
 
 const EXPECTED = {
   'note-present': { exitCode: 0, verdict: 'ATTESTED', state: 'PASS' },
@@ -422,12 +657,22 @@ const EXPECTED = {
   'declared-bypass': { exitCode: 0, verdict: 'BYPASS-DECLARED', state: 'PASS' },
   'notes-ref-absent': { exitCode: 2, verdict: null, state: 'NOTES-REF-ABSENT' },
   'unprotected-only': { exitCode: 0, verdict: null, state: 'PASS' },
+  'squash-note-on-pr-head': { exitCode: 0, verdict: 'ATTESTED', state: 'PASS' },
+  'squash-pr-green': { exitCode: 0, verdict: 'ATTESTED', state: 'PASS' },
+  'squash-pr-red': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
+  'bot-in-scope': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
+  'bot-out-of-scope': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
+  'bot-wrong-app': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
+  'adjudicated-note': { exitCode: 0, verdict: 'BYPASS-DECLARED', state: 'PASS' },
 };
 
 /**
  * Build a REAL throwaway git repo — real commits, a real notes ref, the real
  * `git ls-tree`/`cat-file` read path. SO #34b: a gate is verified in the
- * environment of the thing it validates, not against a mock of it.
+ * environment of the thing it validates, not against a mock of it. The GitHub
+ * API half (PR resolution, required checks, app pin) is exercised through the
+ * same injectable interface the live `gh` path implements, against payloads
+ * shaped like the API's (see fixtureApi).
  */
 function buildFixture(scenario, dir) {
   const g = (...args) => git(args, dir);
@@ -441,15 +686,54 @@ function buildFixture(scenario, dir) {
   g('commit', '-q', '-m', 'chore: fixture base');
   const base = g('rev-parse', 'HEAD');
 
+  const commitProtected = (subject, message) => {
+    mkdirSync(join(dir, 'scripts'), { recursive: true });
+    writeFileSync(join(dir, 'scripts', 'fixture-gate.mjs'), `// ${message}\n`);
+    g('add', 'scripts/fixture-gate.mjs');
+    g('commit', '-q', '-m', subject);
+  };
+  const botCommit = (paths, subject) => {
+    for (const [file, content] of paths) {
+      mkdirSync(dirname(join(dir, file)), { recursive: true });
+      writeFileSync(join(dir, file), `// ${content}\n`);
+      g('add', '--', file);
+    }
+    g('-c', `user.name=${SPEC_SYNC_APP.botName}`, `-c`, `user.email=${SPEC_SYNC_APP.botEmail}`,
+      'commit', '-q', '-m', subject);
+  };
+
+  let prHead = null;
   if (scenario === 'unprotected-only') {
     writeFileSync(join(dir, 'README.md'), 'fixture base\nnot a protected path\n');
     g('add', 'README.md');
     g('commit', '-q', '-m', 'docs: touch nothing protected');
+  } else if (scenario === 'squash-note-on-pr-head') {
+    // The branch head the hook attested…
+    commitProtected('feat(scripts): fixture protected-path change (pr head)', 'pr head change');
+    prHead = g('rev-parse', 'HEAD');
+    // …and the squash commit that landed on main — same change, rewritten sha.
+    commitProtected('feat(scripts): fixture protected-path change (#4242)', 'squashed change');
+  } else if (scenario === 'squash-pr-green' || scenario === 'squash-pr-red') {
+    commitProtected('feat(scripts): fixture protected-path change (#4242)', 'squashed change');
+  } else if (scenario === 'bot-in-scope' || scenario === 'bot-wrong-app') {
+    // chaingraph/kernels/index.mjs is BOTH protected (chaingraph/kernels/**) and
+    // declared (derived-artifacts.mjs id 'kernel-index') — the real overlap the
+    // carve-out exists for.
+    mkdirSync(join(dir, 'chaingraph', 'kernels'), { recursive: true });
+    writeFileSync(join(dir, 'chaingraph', 'kernels', 'index.mjs'), '// fixture declared derived surface\n');
+    g('add', '--', 'chaingraph/kernels/index.mjs');
+    if (scenario === 'bot-in-scope') {
+      g('-c', `user.name=${SPEC_SYNC_APP.botName}`, `-c`, `user.email=${SPEC_SYNC_APP.botEmail}`,
+        'commit', '-q', '-m', 'chore(derived): regenerate shared derived artifacts on main');
+    } else {
+      g('-c', 'user.name=dependabot[bot]', '-c', 'user.email=dependabot[bot]@users.noreply.github.com',
+        'commit', '-q', '-m', 'chore(deps): not the pinned single writer');
+    }
+  } else if (scenario === 'bot-out-of-scope') {
+    botCommit([['scripts/fixture-gate.mjs', 'protected path OUTSIDE the declared derived set']],
+      'chore(derived): regenerate shared derived artifacts on main');
   } else {
-    mkdirSync(join(dir, 'scripts'), { recursive: true });
-    writeFileSync(join(dir, 'scripts', 'fixture-gate.mjs'), '// fixture protected-path change\n');
-    g('add', 'scripts/fixture-gate.mjs');
-    g('commit', '-q', '-m', 'feat(scripts): fixture protected-path change');
+    commitProtected('feat(scripts): fixture protected-path change', 'fixture protected-path change');
   }
   const head = g('rev-parse', 'HEAD');
   const ts = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
@@ -459,30 +743,74 @@ function buildFixture(scenario, dir) {
   } else if (scenario === 'declared-bypass') {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m',
       `PREFLIGHT-BYPASS sha=${head} ts=${ts} reason=SO #27 by-construction red: predecessor shard still unmerged`, head);
-  } else if (scenario === 'note-absent' || scenario === 'unprotected-only') {
+  } else if (scenario === 'adjudicated-note') {
+    g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m',
+      `PREFLIGHT-ADJUDICATED sha=${head} ts=${ts} reason=class 1 (squash) — run 33701117493, PR #4242: squash merge dropped the PR-body SO #27 declaration; adjudicated 7F SP-2 addendum 2026-09-03; annotated by PREPUSH-ATTEST-MECHANICS-1`, head);
+  } else if (scenario === 'note-absent' || scenario === 'unprotected-only'
+    || scenario === 'squash-pr-green' || scenario === 'squash-pr-red') {
     // The ref must EXIST so a missing note is a per-commit red, not the
     // ref-level NOTES-REF-ABSENT state. Attest the base commit only.
+    g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${base} ts=${ts}`, base);
+  } else if (scenario === 'squash-note-on-pr-head') {
+    // The hook's note went on the PR HEAD, not on the squash sha — that is the
+    // entire point of this scenario.
+    g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${prHead} ts=${ts}`, prHead);
+  } else if (scenario === 'bot-in-scope' || scenario === 'bot-out-of-scope' || scenario === 'bot-wrong-app') {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${base} ts=${ts}`, base);
   }
   // 'notes-ref-absent' deliberately creates no note at all.
 
-  return { base, head };
+  return { base, head, prHead };
+}
+
+/**
+ * Stub of the gh API layer for fixture scenarios (same method shapes as
+ * makeGhApi). The required-contexts list mirrors the live ruleset's five; the
+ * point under test is the DECISION LOGIC over API-shaped payloads, not the
+ * live list itself.
+ */
+function fixtureApi(scenario, { head, prHead }) {
+  const REQUIRED = ['anchor', 'html-verify / required', 'jsdoc-checkjs / required', 'land-verify / required', 'scripts-verify / required'];
+  const runs = (over = {}) => REQUIRED.map((name, i) => ({ name, conclusion: over[name] ?? 'success', id: i + 1 }));
+  const prsBySha = {};
+  const runsBySha = {};
+  if (scenario === 'squash-note-on-pr-head') {
+    prsBySha[head] = [{ number: 4242, head: prHead, mergedAt: '2026-09-03T00:00:00Z' }];
+    runsBySha[prHead] = runs();
+  } else if (scenario === 'squash-pr-green') {
+    prsBySha[head] = [{ number: 4242, head, mergedAt: '2026-09-03T00:00:00Z' }];
+    runsBySha[head] = runs();
+  } else if (scenario === 'squash-pr-red') {
+    prsBySha[head] = [{ number: 4242, head, mergedAt: '2026-09-03T00:00:00Z' }];
+    runsBySha[head] = runs({ anchor: 'failure' });
+  }
+  return {
+    pullsForCommit: (slug, sha) => ({ ok: true, prs: prsBySha[sha] || [] }),
+    prCommits: () => ({ ok: true, shas: [] }),
+    requiredContexts: () => ({ ok: true, contexts: REQUIRED }),
+    checkRuns: (slug, sha) => ({ ok: true, runs: runsBySha[sha] || [] }),
+    app: () => ({ ok: true, id: SPEC_SYNC_APP.appId }),
+  };
 }
 
 function withFixture(scenario, fn) {
   const dir = mkdtempSync(join(tmpdir(), 'ain-attest-'));
   try {
-    const { base, head } = buildFixture(scenario, dir);
-    return fn({ dir, base, head });
+    const { base, head, prHead } = buildFixture(scenario, dir);
+    const api = fixtureApi(scenario, { head, prHead });
+    // The squash-* scenarios exercise the PR-resolution routes (stubbed); every
+    // other scenario is fully local, as before.
+    const remote = scenario.startsWith('squash-') || scenario.startsWith('bot-');
+    return fn({ dir, base, head, api, remote });
   } finally {
     try { rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch { /* windows lock — temp dir, harmless */ }
   }
 }
 
 function runDemo(scenario, { reportOnly }) {
-  return withFixture(scenario, ({ dir, base, head }) => {
+  return withFixture(scenario, ({ dir, base, head, api, remote }) => {
     console.log(`── fixture: ${scenario} ──────────────────────────────────────────`);
-    const res = runCheck({ repo: dir, base, head, remote: false, reportOnly });
+    const res = runCheck({ repo: dir, base, head, remote, api, reportOnly });
     const exp = EXPECTED[scenario];
     console.log(`   expected: exit ${exp.exitCode} / state ${exp.state}${exp.verdict ? ` / verdict ${exp.verdict}` : ''}`);
     console.log(`   observed: exit ${reportOnly ? `${res.exitCode} (report-only; ${exp.exitCode} when enforcing)` : res.exitCode} / state ${res.state}`);
@@ -494,9 +822,9 @@ function selfTest() {
   let failures = 0;
   for (const scenario of SCENARIOS) {
     const exp = EXPECTED[scenario];
-    const res = withFixture(scenario, ({ dir, base, head }) =>
-      runCheck({ repo: dir, base, head, remote: false, reportOnly: false }));
-    const gotVerdict = res.verdicts.length ? res.verdicts[0].verdict : null;
+    const res = withFixture(scenario, ({ dir, base, head, api, remote }) =>
+      runCheck({ repo: dir, base, head, remote, api, reportOnly: false }));
+    const gotVerdict = res.verdicts.length ? res.verdicts[res.verdicts.length - 1].verdict : null;
     const ok = res.exitCode === exp.exitCode
       && res.state === exp.state
       && (exp.verdict === null || gotVerdict === exp.verdict);
@@ -515,7 +843,22 @@ function selfTest() {
   return 0;
 }
 
-// ── bypass declaration helper ───────────────────────────────────────────────
+// ── bypass declaration + adjudication helpers ───────────────────────────────
+function pushNotesRef(repo) {
+  execFileSync('git', ['push', 'origin', `refs/notes/${NOTES_REF}`], {
+    cwd: repo,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    // Same re-entry sentinel the hook uses: this push would otherwise re-invoke
+    // the pre-push hook and re-run preflight on a notes-only ref update. AINUM_PREPUSH_ATTESTING
+    // is passed as gitEnv()'s `extra`, so it survives the scrub — it is not a GIT_* key, and the
+    // scrub only ever removes INHERITED git state, never something set deliberately here.
+    // Credentials are config-resident (Windows credential manager locally, checkout's
+    // http.extraheader in CI), so dropping GIT_ASKPASS/GIT_SSH_COMMAND costs this push nothing.
+    env: gitEnv({ AINUM_PREPUSH_ATTESTING: '1' }),
+  });
+}
+
 function attestBypass(repo, reason) {
   if (!reason || !reason.trim()) {
     console.error('✗ --attest-bypass needs a reason: the SO #27 justification, in words.');
@@ -528,22 +871,45 @@ function attestBypass(repo, reason) {
   console.log(`✓ declared-bypass note written on ${sha}`);
   console.log(`    reason: ${flat}`);
   try {
-    execFileSync('git', ['push', 'origin', `refs/notes/${NOTES_REF}`], {
-      cwd: repo,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      // Same re-entry sentinel the hook uses: this push would otherwise re-invoke
-      // the pre-push hook and re-run preflight on a notes-only ref update. AINUM_PREPUSH_ATTESTING
-      // is passed as gitEnv()'s `extra`, so it survives the scrub — it is not a GIT_* key, and the
-      // scrub only ever removes INHERITED git state, never something set deliberately here.
-      // Credentials are config-resident (Windows credential manager locally, checkout's
-      // http.extraheader in CI), so dropping GIT_ASKPASS/GIT_SSH_COMMAND costs this push nothing.
-      env: gitEnv({ AINUM_PREPUSH_ATTESTING: '1' }),
-    });
+    pushNotesRef(repo);
     console.log(`✓ pushed refs/notes/${NOTES_REF} to origin — the declaration is now readable by CI.`);
   } catch {
     console.error(`! could not push refs/notes/${NOTES_REF} — the note is recorded locally only.`);
-    console.error(`  Push it before the bypassed push lands:  git push origin refs/notes/${NOTES_REF}`);
+    console.error('  Push it before the bypassed push lands:  git push origin refs/notes/preflight-attestation');
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * The BACKFILL INSTRUMENT (row item 4). A red that was investigated and ruled
+ * legitimate gets a dated annotation on the flagged commit, in the same trail
+ * the gate already reads — so the history says "adjudicated", not "ignored".
+ * The reason must name the class (1 = squash-dropped declaration, 2 = bot
+ * carve-out), the run id and the adjudicating authority.
+ */
+function attestAdjudicated(repo, reason, shaArg) {
+  if (!reason || !reason.trim()) {
+    console.error('✗ --attest-adjudicated needs a reason: class (1|2), run id, PR/commit and adjudicating authority, in words.');
+    return 1;
+  }
+  const sha = shaArg || git(['rev-parse', 'HEAD'], repo);
+  const resolved = git(['rev-parse', `${sha}^{commit}`], repo, { allowFail: true });
+  if (!resolved) {
+    console.error(`✗ ${sha} does not resolve to a commit in this repository.`);
+    return 1;
+  }
+  const ts = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const flat = reason.replace(/\s+/g, ' ').trim();
+  git(['notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-ADJUDICATED sha=${resolved} ts=${ts} reason=${flat}`, resolved], repo);
+  console.log(`✓ adjudication note written on ${resolved}`);
+  console.log(`    reason: ${flat}`);
+  try {
+    pushNotesRef(repo);
+    console.log(`✓ pushed refs/notes/${NOTES_REF} to origin — the adjudication is now part of the readable trail.`);
+  } catch {
+    console.error(`! could not push refs/notes/${NOTES_REF} — the note is recorded locally only.`);
+    console.error('  Push it with:  git push origin refs/notes/preflight-attestation');
     return 1;
   }
   return 0;
@@ -568,6 +934,10 @@ function main(argv) {
 
   if (argv.includes('--attest-bypass')) {
     return attestBypass(repo, argValue(argv, '--attest-bypass'));
+  }
+
+  if (argv.includes('--attest-adjudicated')) {
+    return attestAdjudicated(repo, argValue(argv, '--attest-adjudicated'), argValue(argv, '--sha'));
   }
 
   if (argv.includes('--self-test')) return selfTest();
