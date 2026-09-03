@@ -146,7 +146,9 @@ function computeSizing(pp, rejected) {
 
   if (rejected.length > 0 || failClosed) {
     if (failClosed) rejected.push({ field: 'expected_misstatement', reason: 'expected_misstatement >= performance_materiality leaves no positive sizing denominator (fail closed)', supplied: isNum(em) ? em : null });
-    const compliance_flags = ['MUS_INPUT_REJECTED'];
+    // FLAGS-COMPUTED-LINT-1 shape: empty array + branch-earned pushes, never an unconditional literal.
+    const compliance_flags = [];
+    compliance_flags.push('MUS_INPUT_REJECTED');
     if (failClosed) compliance_flags.push('MUS_EXPECTED_NOT_BELOW_MATERIALITY');
     return {
       output_payload: {
@@ -168,6 +170,10 @@ function computeSizing(pp, rejected) {
   const n = ceilDiv(numerator, denominator);
   const interval = roundDiv(bv, n);
 
+  // FLAGS-COMPUTED-LINT-1 shape: the computed flag is earned by the branch that produced n.
+  const compliance_flags = [];
+  if (n >= 1) compliance_flags.push('MUS_SAMPLE_COMPUTED');
+
   return {
     output_payload: {
       sample_size: n,
@@ -176,7 +182,7 @@ function computeSizing(pp, rejected) {
       trace: bv + ' * ' + cf + ' / ' + denominator + ' = ' + n + '; interval = round(' + bv + ' / ' + n + ') = ' + interval,
       overall: 'SAMPLE_COMPUTED',
     },
-    compliance_flags: ['MUS_SAMPLE_COMPUTED'],
+    compliance_flags,
   };
 }
 
@@ -255,7 +261,9 @@ function computeProjection(pp, rejected) {
   const basicPrecision = r2(cf * interval);
   const projected = r2(projectedRaw);
   const warnings = itemRejects.map((r) => 'sampled_items[' + r.index + ']: ' + r.reason);
-  const compliance_flags = ['MISSTATEMENT_PROJECTED'];
+  // FLAGS-COMPUTED-LINT-1 shape: each flag is earned by the branch that produced it.
+  const compliance_flags = [];
+  if (per_item.length > 0) compliance_flags.push('MISSTATEMENT_PROJECTED');
   if (itemRejects.length > 0) compliance_flags.push('MISSTATEMENT_ITEMS_REJECTED');
 
   const payload = {
