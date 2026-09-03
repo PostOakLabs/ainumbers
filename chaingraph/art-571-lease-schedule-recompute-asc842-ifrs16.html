@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Lease Schedule Recompute – ASC 842 / IFRS 16 &middot; ART-571 &middot; OpenChainGraph &middot; AINumbers.co</title>
-<meta name="description" content="Recomputes lease PV, liability, and ROU amortization schedules under ASC 842 and IFRS 16 side by side from a declared discount rate and payment schedule. Runs the ASC 842 five-criterion classification test and optionally diffs a preparer schedule. Verdict MATCHES, DIVERGES, or INDETERMINATE.">
+<meta name="description" content="Recomputes lease PV, liability, and ROU amortization schedules under ASC 842 and IFRS 16 side by side from a declared discount rate, a declared payment timing (arrears or advance), and a payment schedule. Runs the ASC 842 five-criterion classification test, optionally diffs a preparer schedule, and stages the evidence-handover figures for an offline bundle. Verdict MATCHES, DIVERGES, or INDETERMINATE.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-571-lease-schedule-recompute-asc842-ifrs16.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -128,10 +128,12 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <div class="wrap">
   <div class="eyebrow">OpenChainGraph Suite &middot; ART-571 &middot; Lease Accounting &amp; Recompute</div>
   <h1>Lease Schedule Recompute – ASC 842 / IFRS 16</h1>
-  <p class="sub">Recomputes the present value of a declared lease payment schedule and the full effective-interest amortization – liability and right-of-use asset – under ASC 842 and IFRS 16 side by side, from a declared discount rate. Runs the ASC 842 five-criterion finance-vs-operating classification test, with the two judgment-shaped criteria computed only when the caller elects the common 75%/90% bright lines and otherwise declared directly. Optionally diffs either regime's closing liability against a counterparty-supplied preparer schedule within a declared tolerance.</p>
+  <p class="sub">Recomputes the present value of a declared lease payment schedule and the full effective-interest amortization – liability and right-of-use asset – under ASC 842 and IFRS 16 side by side, from a declared discount rate, a declared payment timing (arrears = period-end payments, the ordinary annuity; advance = period-start payments, the annuity due), and the payment dates themselves. Runs the ASC 842 five-criterion finance-vs-operating classification test, with the two judgment-shaped criteria computed only when the caller elects the common 75%/90% bright lines and otherwise declared directly. Optionally diffs either regime's closing liability against a counterparty-supplied preparer schedule within a declared tolerance, and stages an evidence-handover section: the disclosure figures each regime produced, plus the pointer to the offline evidence-handover bundle that packages this receipt.</p>
   <div style="margin-bottom:6px">
     <span class="flag info">Recompute &middot; discount rate always declared, never derived</span>
+    <span class="flag info">Timing declared: arrears or advance &middot; never defaulted</span>
     <span class="flag info">Bright-line elections labeled, never silent</span>
+    <span class="flag info">Evidence-handover stage &middot; offline bundle pointer</span>
     <span class="flag">Verdict: MATCHES &middot; DIVERGES &middot; INDETERMINATE</span>
   </div>
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data – use synthetic or anonymised inputs only.</div>
@@ -155,6 +157,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   { "date": "2028-01-01", "amount_minor": 1000000 },
   { "date": "2029-01-01", "amount_minor": 1000000 }
 ]</textarea>
+
+    <div class="grid2" style="margin-top:12px">
+      <div><label class="fld">Payment timing (declared, never defaulted)</label><select id="timing"><option value="arrears" selected>arrears &ndash; payments at period end (ordinary annuity)</option><option value="advance">advance &ndash; payments at period start (annuity due)</option></select></div>
+      <div><span class="sub" style="font-size:.66rem">Arrears: every payment date must fall after the commencement date. Advance: the first payment may sit at commencement (it discounts to face amount and carries zero interest), and every payment date must fall before the end date.</span></div>
+    </div>
 
     <div class="section-head">ASC 842 classification inputs</div>
     <div class="grid3">
@@ -187,6 +194,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
       <button onclick="runCheck()">&#9654; Run Recompute</button>
       <button class="ghost" onclick="loadOperatingDivergesDemo()">Load operating-lease + diverges demo</button>
+      <button class="ghost" onclick="loadAdvanceTimingDemo()">Load advance-timing (annuity due) demo</button>
       <button class="ghost" onclick="loadIncompleteDemo()">Load missing-discount-rate demo</button>
     </div>
   </div>
@@ -208,6 +216,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
       <div class="section-head" style="margin-top:14px">Preparer diff</div>
       <div id="diffDiv"></div>
+
+      <div class="section-head" style="margin-top:14px">Evidence handover (offline bundle stage)</div>
+      <div id="handoverDiv"></div>
 
       <div class="section-head" style="margin-top:14px">Findings</div>
       <div id="findingsDiv"></div>
@@ -329,17 +340,17 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 var MANIFEST = {
   tool_id: 'art-571-lease-schedule-recompute-asc842-ifrs16',
-  version: '1.0.0',
+  version: '1.1.0',
   mcp_name: 'recompute_lease_schedule_asc842_ifrs16',
   title: 'Lease Schedule Recompute – ASC 842 / IFRS 16',
-  description: 'Recomputes PV, liability, and ROU amortization under ASC 842 and IFRS 16 side by side from a declared discount rate and payment schedule, with the ASC 842 five-criterion classification test and an optional preparer diff. Verdict MATCHES | DIVERGES | INDETERMINATE.',
+  description: 'Recomputes PV, liability, and ROU amortization under ASC 842 and IFRS 16 side by side from a declared discount rate, a declared payment timing (arrears or advance), and a payment schedule, with the ASC 842 five-criterion classification test, an optional preparer diff, and an evidence-handover stage for an offline bundle. Verdict MATCHES | DIVERGES | INDETERMINATE.',
   spec_version: '0.8.8',
   chaingraph_version: '0.4.0',
   mcp_tool_definition: {
     name: 'recompute_lease_schedule_asc842_ifrs16',
-    description: 'Recomputes ASC 842 / IFRS 16 lease PV, liability, and ROU schedules with classification and optional preparer diff.',
+    description: 'Recomputes ASC 842 / IFRS 16 lease PV, liability, and ROU schedules with declared payment timing (arrears/advance), classification, optional preparer diff, and the evidence-handover figures.',
     inputSchema: { type: 'object', properties: {
-      discount_rate_annual: {type:'number'}, lease_term: {type:'object'}, payment_schedule: {type:'array'},
+      discount_rate_annual: {type:'number'}, timing: {type:'string', enum:['arrears','advance']}, lease_term: {type:'object'}, payment_schedule: {type:'array'},
       initial_direct_costs_minor: {type:'integer'}, lease_incentives_minor: {type:'integer'},
       classification_inputs: {type:'object'}, preparer_schedule: {type:'array'},
       compare_regime: {type:'string'}, diff_tolerance_minor: {type:'integer'},
@@ -385,7 +396,7 @@ var CLAUSE_NOTE = 'ASC 842 (Leases), FASB ASC Topic 842 -- classification criter
 function emptyResult(reason, rejected_inputs){
   return { output_payload: {
     decision: { gate_policy: 'review_required', execution_state: 'did_not_run', reason: reason },
-    verdict: 'INDETERMINATE', asc842: null, ifrs16: null, elections: [], diff: null, findings: [],
+    verdict: 'INDETERMINATE', timing: null, asc842: null, ifrs16: null, evidence_handover: null, elections: [], diff: null, findings: [],
     rejected_inputs: rejected_inputs, scope_note: SCOPE_NOTE, clause_note: CLAUSE_NOTE,
   }, compliance_flags: ['LEASE_REQUIRED_INPUTS_INCOMPLETE'] };
 }
@@ -453,6 +464,12 @@ function compute(pp){
   var termValid = !!(commencement_date && end_date && commencement_date < end_date);
   var term_days = termValid ? dayDiff(commencement_date, end_date) : null;
 
+  var timingIn = pp.timing;
+  var timing = (timingIn === 'arrears' || timingIn === 'advance') ? timingIn : null;
+  if (timing === null){
+    rejected_inputs.push({ where: 'timing', reason: 'must be "arrears" (payments at period end) or "advance" (payments at period start) -- declared, never defaulted', supplied: (timingIn === undefined || timingIn === null) ? null : s(timingIn) });
+  }
+
   var paymentsIn = Array.isArray(pp.payment_schedule) ? pp.payment_schedule.slice(0, MAX_PAYMENTS) : [];
   var payments = [];
   for (var i = 0; i < paymentsIn.length; i++){
@@ -463,8 +480,16 @@ function compute(pp){
       rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'date must be YYYY-MM-DD and amount_minor a positive integer number of minor units', supplied: row.date === undefined ? null : s(row.date) });
       continue;
     }
-    if (commencement_date && date <= commencement_date){
-      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'payment date must be after lease_term.commencement_date', supplied: date });
+    if (commencement_date && date < commencement_date){
+      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'payment date must not be before lease_term.commencement_date', supplied: date });
+      continue;
+    }
+    if (timing === 'arrears' && commencement_date && date <= commencement_date){
+      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'arrears payment date must be after lease_term.commencement_date (payments occur at period end)', supplied: date });
+      continue;
+    }
+    if (timing === 'advance' && end_date && date >= end_date){
+      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'advance payment date must be before lease_term.end_date (payments occur at period start)', supplied: date });
       continue;
     }
     payments.push({ date: date, amount_minor: amount_minor });
@@ -534,7 +559,7 @@ function compute(pp){
   }
 
   var requiredMissing = discount_rate_annual === null || !Number.isFinite(discount_rate_annual) || discount_rate_annual < 0
-    || !termValid || payments.length === 0
+    || !termValid || timing === null || payments.length === 0
     || initial_direct_costs_minor === null || lease_incentives_minor === null
     || ownership_transfers === null || purchase_option_reasonably_certain === null || specialized_asset === null
     || majorPartElected === null || major_part_met === null
@@ -579,6 +604,38 @@ function compute(pp){
   if (majorPartElected === true) elections.push('major_part_75pct_bright_line');
   if (substAllElected === true) elections.push('substantially_all_90pct_bright_line');
 
+  function regimeFigures(schedule){
+    var ti = 0, tp = 0;
+    for (var fi = 0; fi < schedule.length; fi++){ ti += schedule[fi].interest_minor; tp += schedule[fi].payment_minor; }
+    return {
+      initial_lease_liability_minor: initial_liability_minor,
+      initial_rou_asset_minor: initial_rou_minor,
+      total_payments_minor: tp,
+      total_interest_minor: ti,
+      final_closing_liability_minor: schedule.length ? schedule[schedule.length - 1].closing_liability_minor : null
+    };
+  }
+  var evidence_handover = {
+    stage: 'evidence_handover',
+    handover_tool: {
+      tool_id: 'evidence-handover-bundle',
+      interface: 'browser-javascript',
+      entry: 'tools/576-evidence-handover-bundle.html',
+      binder_format: 'ainumbers-casefile-binder-v1'
+    },
+    disclosure_figures: {
+      timing: timing,
+      discount_rate_annual: discount_rate_annual,
+      commencement_date: commencement_date,
+      end_date: end_date,
+      asc842: (function(){ var f = regimeFigures(asc842Schedule); f.classification = classification; return f; })(),
+      ifrs16: regimeFigures(ifrs16Schedule)
+    },
+    offline_verify: true,
+    network_access: 'none',
+    verification_caveat: 'A receipt verified over this artifact establishes that these outputs existed at a point in time and recompute deterministically from the declared inputs; it is not an opinion that the lease classification or measurement is correct.'
+  };
+
   var findings = [];
   if (asc842Schedule.length && Math.abs(asc842Schedule[asc842Schedule.length-1].closing_liability_minor) > payments.length){
     findings.push({ code: 'ASC842_LIABILITY_RESIDUAL_LARGE', severity: 'warning', message: 'ASC 842 liability does not fully amortize to zero within a residual proportional to the number of payments -- check the payment schedule against the discount rate.' });
@@ -607,7 +664,8 @@ function compute(pp){
     if (verdict === 'INDETERMINATE' && diffRequested) findings.push({ code: 'PREPARER_SCHEDULE_DATES_UNMATCHED', severity: 'warning', message: unmatched + ' preparer date(s) do not appear in the computed payment schedule.' });
   }
 
-  var compliance_flags = ['LEASE_SCHEDULE_RECOMPUTED', 'LEASE_CLASSIFICATION_' + classification];
+  var compliance_flags = ['LEASE_SCHEDULE_RECOMPUTED', 'LEASE_CLASSIFICATION_' + classification, 'LEASE_EVIDENCE_HANDOVER_STAGED'];
+  if (timing === 'advance') compliance_flags.push('LEASE_TIMING_ADVANCE');
   if (elections.length) compliance_flags.push('LEASE_BRIGHT_LINE_ELECTED');
   if (diffRequested) compliance_flags.push('LEASE_PREPARER_DIFF_' + verdict);
   if (rejected_inputs.length > 0) compliance_flags.push('LEASE_INPUTS_REJECTED');
@@ -615,8 +673,10 @@ function compute(pp){
   return { output_payload: {
     decision: { gate_policy: verdict === 'DIVERGES' ? 'review_required' : 'auto_pass', execution_state: 'ran', reason: null },
     verdict: verdict,
+    timing: timing,
     asc842: { pv_of_payments_minor: pv_of_payments_minor, initial_lease_liability_minor: initial_liability_minor, initial_rou_asset_minor: initial_rou_minor, classification: classification, classification_criteria: classification_criteria, schedule: asc842Schedule },
     ifrs16: { pv_of_payments_minor: pv_of_payments_minor, initial_lease_liability_minor: initial_liability_minor, initial_rou_asset_minor: initial_rou_minor, ifrs16_note: 'IFRS 16 applies a single on-balance-sheet lessee model; no operating/finance classification is made.', schedule: ifrs16Schedule },
+    evidence_handover: evidence_handover,
     elections: elections, diff: diff, findings: findings, rejected_inputs: rejected_inputs,
     scope_note: SCOPE_NOTE, clause_note: CLAUSE_NOTE,
   }, compliance_flags: compliance_flags };
@@ -641,6 +701,35 @@ function loadOperatingDivergesDemo(){
 }
 function loadIncompleteDemo(){
   document.getElementById('discRate').value = '';
+  runCheck();
+}
+function loadAdvanceTimingDemo(){
+  // Same three payments as the default demo, dated one period earlier (advance = annuity due):
+  // the first payment sits at commencement, discounts to face amount, and carries zero interest.
+  document.getElementById('discRate').value = '0.06';
+  document.getElementById('commDate').value = '2026-01-01';
+  document.getElementById('endDate').value = '2029-01-01';
+  document.getElementById('idc').value = 0;
+  document.getElementById('incentives').value = 0;
+  document.getElementById('timing').value = 'advance';
+  document.getElementById('paymentsJson').value = JSON.stringify([
+    { date: '2026-01-01', amount_minor: 1000000 },
+    { date: '2027-01-01', amount_minor: 1000000 },
+    { date: '2028-01-01', amount_minor: 1000000 }
+  ], null, 2);
+  document.getElementById('ownership').value = 'true';
+  document.getElementById('purchOpt').value = 'false';
+  document.getElementById('special').value = 'false';
+  document.getElementById('majorElect').value = 'false';
+  document.getElementById('majorInput').value = 'false';
+  document.getElementById('substElect').value = 'false';
+  document.getElementById('substInput').value = 'false';
+  document.getElementById('diffTol').value = 0;
+  document.getElementById('preparerJson').value = JSON.stringify([
+    { date: '2026-01-01', liability_balance_minor: 1833393 },
+    { date: '2027-01-01', liability_balance_minor: 943397 },
+    { date: '2028-01-01', liability_balance_minor: 1 }
+  ], null, 2);
   runCheck();
 }
 
@@ -669,6 +758,7 @@ function runCheck(){
   var rateVal = document.getElementById('discRate').value;
   var pp = {
     discount_rate_annual: rateVal === '' ? undefined : Number(rateVal),
+    timing: document.getElementById('timing').value,
     lease_term: { commencement_date: document.getElementById('commDate').value || undefined, end_date: document.getElementById('endDate').value || undefined },
     payment_schedule: payments,
     initial_direct_costs_minor: Number(document.getElementById('idc').value),
@@ -694,7 +784,8 @@ function runCheck(){
   document.getElementById('statRow').innerHTML =
     '<div class="stat"><span class="stat-val">' + (op.asc842 ? op.asc842.classification : '&mdash;') + '</span><span class="stat-key">ASC 842 class</span></div>' +
     '<div class="stat"><span class="stat-val">' + (op.asc842 ? op.asc842.pv_of_payments_minor : '&mdash;') + '</span><span class="stat-key">PV of payments</span></div>' +
-    '<div class="stat"><span class="stat-val">' + (op.findings ? op.findings.length : 0) + '</span><span class="stat-key">Findings</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.timing || '&mdash;') + '</span><span class="stat-key">Payment timing</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.findings.length + '</span><span class="stat-key">Findings</span></div>' +
     '<div class="stat"><span class="stat-val">' + op.rejected_inputs.length + '</span><span class="stat-key">Rejected inputs</span></div>';
 
   document.getElementById('classDiv').innerHTML = op.asc842
@@ -720,6 +811,16 @@ function runCheck(){
       '<div class="kv"><span class="kv-k">Compared rows</span><span class="kv-v">' + op.diff.compared_count + '</span></div>' +
       (op.diff.mismatches.length ? op.diff.mismatches.map(function(m){ return '<div class="kv"><span class="kv-k">' + m.date + '</span><span class="kv-v"><span class="badge bad">' + m.reason + '</span> ' + (m.delta_minor !== undefined ? ('delta ' + m.delta_minor) : '') + '</span></div>'; }).join('') : '<div class="kv"><span class="kv-k">Mismatches</span><span class="kv-v">none</span></div>')
     : '<div class="kv"><span class="kv-k">No preparer schedule supplied</span><span class="kv-v">&mdash;</span></div>';
+
+  document.getElementById('handoverDiv').innerHTML = op.evidence_handover
+    ? '<div class="kv"><span class="kv-k">Stage</span><span class="kv-v">' + op.evidence_handover.stage + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Offline handover tool</span><span class="kv-v">' + op.evidence_handover.handover_tool.tool_id + ' &middot; ' + op.evidence_handover.handover_tool.entry + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Binder format</span><span class="kv-v">' + op.evidence_handover.handover_tool.binder_format + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Network access</span><span class="kv-v">' + op.evidence_handover.network_access + ' &middot; offline verify: ' + op.evidence_handover.offline_verify + '</span></div>' +
+      '<div class="kv"><span class="kv-k">ASC 842 figures</span><span class="kv-v">liability ' + op.evidence_handover.disclosure_figures.asc842.initial_lease_liability_minor + ' &middot; ROU ' + op.evidence_handover.disclosure_figures.asc842.initial_rou_asset_minor + ' &middot; payments ' + op.evidence_handover.disclosure_figures.asc842.total_payments_minor + ' &middot; interest ' + op.evidence_handover.disclosure_figures.asc842.total_interest_minor + ' &middot; final closing ' + op.evidence_handover.disclosure_figures.asc842.final_closing_liability_minor + '</span></div>' +
+      '<div class="kv"><span class="kv-k">IFRS 16 figures</span><span class="kv-v">liability ' + op.evidence_handover.disclosure_figures.ifrs16.initial_lease_liability_minor + ' &middot; ROU ' + op.evidence_handover.disclosure_figures.ifrs16.initial_rou_asset_minor + ' &middot; payments ' + op.evidence_handover.disclosure_figures.ifrs16.total_payments_minor + ' &middot; interest ' + op.evidence_handover.disclosure_figures.ifrs16.total_interest_minor + ' &middot; final closing ' + op.evidence_handover.disclosure_figures.ifrs16.final_closing_liability_minor + '</span></div>' +
+      '<div class="kv"><span class="kv-k">What verified means</span><span class="kv-v">' + op.evidence_handover.verification_caveat + '</span></div>'
+    : '<div class="kv"><span class="kv-k">Not staged</span><span class="kv-v">&mdash;</span></div>';
 
   document.getElementById('findingsDiv').innerHTML = (op.findings && op.findings.length)
     ? op.findings.map(function(f){ return '<div class="kv"><span class="kv-k">' + f.code + ' <span class="badge ' + (f.severity === 'high' ? 'bad' : 'warn') + '">' + f.severity + '</span></span><span class="kv-v">' + f.message + '</span></div>'; }).join('')
@@ -748,7 +849,7 @@ function exportArtifact(){
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
-  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-571-lease-schedule-recompute-asc842-ifrs16',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-571-lease-schedule-recompute-asc842-ifrs16',tool_version:'1.1.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';
