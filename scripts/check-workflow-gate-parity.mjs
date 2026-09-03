@@ -263,6 +263,15 @@ const CI_ONLY = new Map([
     "to \"do not stand down\" = today's behaviour). Its pre-push coverage is its paired control, " +
     "scripts/check-deploy-superseded.test.mjs, which IS in preflight.mjs's GATES and whose last block " +
     "re-derives the gate set from the real workflow text, so this entry is not a measurement hole."],
+  ["check-served-egress.mjs",
+    "SERVED-EGRESS-CHECK-1's post-deploy smoke step in deploy-to-dreamhost.yml. MAIN-ONLY BY " +
+    "CONSTRUCTION, same named-physical-reason shape as check-deploy-superseded.mjs above: it fetches " +
+    "the LIVE site (fixed sample pages + the /.well-known/deploy-checksums.txt byte-integrity sample) " +
+    "and diffs the SERVED bytes against repo source — on a branch push there is no deployment of that " +
+    "branch anywhere to fetch, so pre-push there is nothing to compare against. Its pre-push coverage " +
+    "is its paired fixture control scripts/check-served-egress.test.mjs, which IS in preflight.mjs's " +
+    "GATES and proves the detector fires on the exact art-129 beacon shape, a served-but-not-source " +
+    "external ref, and a sha256 mismatch vs the deployed manifest — so this entry is not a measurement hole."],
   ["run-gate.mjs",
     "LAND-VERIFY-ADVISORY-SPLIT-1 dispatcher, not a gate itself — it wraps the SAME command " +
     "strings this regex already extracts from the workflow text (e.g. verify-counts.mjs, " +
@@ -423,6 +432,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-derived-regen-live.test.mjs", SELF_TEST],
   ["check-regen-repairable.test.mjs", SELF_TEST],
   ["check-deploy-superseded.test.mjs", SELF_TEST],
+  ["check-served-egress.test.mjs", SELF_TEST],
   ["check-workflow-gate-parity.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
