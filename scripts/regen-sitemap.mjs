@@ -99,9 +99,9 @@ function loadExistingLastmods(path) {
   if (!existsSync(path)) return {};
   const text = readFileSync(path, 'utf8');
   const map = {};
-  const re = /<loc>https:\/\/ainumbers\.co\/([^<]*)<\/loc><lastmod>([^<]+)<\/lastmod>/g;
+  const re = /<loc>https:\/\/([^/]+)\/([^<]*)<\/loc><lastmod>([^<]+)<\/lastmod>/g;
   let m;
-  while ((m = re.exec(text))) map[m[1]] = m[2];
+  while ((m = re.exec(text))) map[`${m[1]}/${m[2]}`] = m[3];
   return map;
 }
 
@@ -109,11 +109,14 @@ function urlEntry(relPath, lastmod, changefreq = 'monthly', priority = '0.8') {
   return `  <url><loc>${BASE}/${relPath}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 }
 
+function urlEntryExternal(host, relPath, lastmod, changefreq, priority) {
+  return `  <url><loc>${host}/${relPath}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+}
+
 function main() {
   const toolFiles = listHtml(resolve(REPO, 'tools'), 'tools').sort(cmpTool);
   const guideFiles = listHtml(resolve(REPO, 'guides'), 'guides').sort();
   const disclosureFiles = listHtml(resolve(REPO, 'disclosures'), 'disclosures').sort();
-  const docsFiles = listHtml(resolve(REPO, 'docs'), 'docs').sort();
   const ledgerFiles = listHtml(resolve(REPO, 'ledger'), 'ledger').sort();
   const trustFiles = listHtml(resolve(REPO, 'trust'), 'trust').sort();
 
@@ -126,9 +129,20 @@ function main() {
     else if (dir === 'attestations') attestationsFiles = files;
   }
 
+  // Surfaces published to a DIFFERENT host than BASE (docs/ -> docs.ainumbers.co
+  // via deploy-docs.yml/Cloudflare Pages — deploy-to-dreamhost.yml excludes
+  // docs/ from the apex entirely, SITEMAP-DOCS-SCOPE-1). Scanned from the same
+  // local directory but emitted under their own host, never under BASE.
+  const externalSurfaces = (MANIFEST.externalSurfaces || []).map((s) => ({
+    ...s,
+    files: listHtml(resolve(REPO, s.dir), s.dir).sort(),
+  }));
+
   const lastmods = loadExistingLastmods(SITEMAP_PATH);
   const today = new Date().toISOString().slice(0, 10);
-  const lm = (relPath) => lastmods[relPath] || today;
+  const HOST = BASE.replace(/^https?:\/\//, '');
+  const lm = (relPath) => lastmods[`${HOST}/${relPath}`] || today;
+  const lmExt = (host, relPath) => lastmods[`${host.replace(/^https?:\/\//, '')}/${relPath}`] || today;
 
   const lines = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
@@ -137,7 +151,7 @@ function main() {
   lines.push('');
   lines.push('  <!-- Core Pages -->');
   for (const p of MANIFEST.rootPages) {
-    lines.push(urlEntry(p.loc, lastmods[p.loc] || p.lastmod, p.changefreq, p.priority));
+    lines.push(urlEntry(p.loc, lastmods[`${HOST}/${p.loc}`] || p.lastmod, p.changefreq, p.priority));
   }
   lines.push('');
 
@@ -157,10 +171,6 @@ function main() {
   for (const f of disclosureFiles) lines.push(urlEntry(`disclosures/${f}`, lm(`disclosures/${f}`), 'monthly', '0.5'));
   lines.push('');
 
-  lines.push('  <!-- Docs -->');
-  for (const f of docsFiles) lines.push(urlEntry(`docs/${f}`, lm(`docs/${f}`), 'monthly', '0.5'));
-  lines.push('');
-
   lines.push('  <!-- Ledger -->');
   for (const f of ledgerFiles) lines.push(urlEntry(`ledger/${f}`, lm(`ledger/${f}`), 'monthly', '0.5'));
   lines.push('');
@@ -173,11 +183,18 @@ function main() {
   for (const f of trustFiles) lines.push(urlEntry(`trust/${f}`, lm(`trust/${f}`), 'monthly', '0.5'));
   lines.push('');
 
+  for (const s of externalSurfaces) {
+    lines.push(`  <!-- ${s.dir} (external: ${s.host}) -->`);
+    for (const f of s.files) lines.push(urlEntryExternal(s.host, f, lmExt(s.host, f), s.changefreq, s.priority));
+    lines.push('');
+  }
+
   lines.push('</urlset>');
   const output = lines.join('\n') + '\n';
 
+  const externalTotal = externalSurfaces.reduce((n, s) => n + s.files.length, 0);
   const total = MANIFEST.rootPages.length + guideFiles.length + toolFiles.length +
-    chaingraphFiles.length + disclosureFiles.length + docsFiles.length + ledgerFiles.length + attestationsFiles.length + trustFiles.length;
+    chaingraphFiles.length + disclosureFiles.length + ledgerFiles.length + attestationsFiles.length + trustFiles.length + externalTotal;
 
   if (CHECK) {
     const current = existsSync(SITEMAP_PATH) ? readFileSync(SITEMAP_PATH, 'utf8') : '';
@@ -190,7 +207,7 @@ function main() {
   }
 
   writeFileSync(SITEMAP_PATH, output, 'utf8');
-  console.log(`regen-sitemap: written (${toolFiles.length} tools, ${guideFiles.length} guides, ${chaingraphFiles.length} chaingraph, ${disclosureFiles.length} disclosures, ${docsFiles.length} docs, ${ledgerFiles.length} ledger, ${attestationsFiles.length} attestations, ${trustFiles.length} trust, ${total} total).`);
+  console.log(`regen-sitemap: written (${toolFiles.length} tools, ${guideFiles.length} guides, ${chaingraphFiles.length} chaingraph, ${disclosureFiles.length} disclosures, ${ledgerFiles.length} ledger, ${attestationsFiles.length} attestations, ${trustFiles.length} trust, ${externalTotal} external, ${total} total).`);
   // Named, never silent: a URL that vanished from the sitemap while its file is
   // still on disk must be explainable from this run's own output.
   const withheld = [...LENS.nonLivePaths].filter((p) => existsSync(resolve(REPO, p))).sort();
