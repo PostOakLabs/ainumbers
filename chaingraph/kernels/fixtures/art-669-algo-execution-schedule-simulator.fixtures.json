@@ -1,0 +1,188 @@
+{
+  "tool_id": "art-669-algo-execution-schedule-simulator",
+  "note": "worked example (parity pin 1653547f309434ecb5e0da06d5556c1f11d86b1540e854b80ee193832363695d from ALGO-EXEC-SIM-BUILD-SPEC.md), sell-side negative shortfall, twap remainder-to-back, pov participation with unfilled remainder, and three fail-closed refusal paths (profile sum not 100, twap remainder rule not declared, empty inputs). human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "worked_example_vwap_buy_parity",
+      "policy_parameters": {
+        "side": "buy",
+        "order_shares": 100000,
+        "method": "vwap",
+        "volume_profile_pct": [
+          10,
+          25,
+          30,
+          20,
+          15
+        ],
+        "arrival_price": 50,
+        "avg_fill_price": 50.06
+      },
+      "output_payload": {
+        "slices": [
+          10000,
+          25000,
+          30000,
+          20000,
+          15000
+        ],
+        "shortfall_bps": 12,
+        "shortfall_cost": 6000,
+        "trace": "slices = 100000 * pct/100 per bucket = [10000,25000,30000,20000,15000]; shortfall_bps = (50.06 - 50) / 50 * 10000 = 12 (buy side, positive = cost); shortfall_cost = (50.06 - 50) * 100000 = 6000"
+      },
+      "golden_hash": "1653547f309434ecb5e0da06d5556c1f11d86b1540e854b80ee193832363695d"
+    },
+    {
+      "name": "vwap_sell_negative_shortfall",
+      "policy_parameters": {
+        "side": "sell",
+        "order_shares": 100000,
+        "method": "vwap",
+        "volume_profile_pct": [
+          10,
+          25,
+          30,
+          20,
+          15
+        ],
+        "arrival_price": 50,
+        "avg_fill_price": 50.06
+      },
+      "output_payload": {
+        "slices": [
+          10000,
+          25000,
+          30000,
+          20000,
+          15000
+        ],
+        "shortfall_bps": -12,
+        "shortfall_cost": -6000,
+        "trace": "slices = 100000 * pct/100 per bucket = [10000,25000,30000,20000,15000]; shortfall_bps = (50.06 - 50) / 50 * 10000 = -12 (sell side, sign flipped, positive = cost); shortfall_cost = (50.06 - 50) * 100000 = -6000"
+      },
+      "golden_hash": "d484ec51d8d512b3d45f65449368bb12770886e6605db405b81ef53234a35412"
+    },
+    {
+      "name": "twap_remainder_back",
+      "policy_parameters": {
+        "side": "buy",
+        "order_shares": 100000,
+        "method": "twap",
+        "bucket_count": 7,
+        "remainder_rule": "back",
+        "arrival_price": 25,
+        "avg_fill_price": 25.005
+      },
+      "output_payload": {
+        "slices": [
+          14285,
+          14285,
+          14285,
+          14285,
+          14285,
+          14285,
+          14290
+        ],
+        "shortfall_bps": 2,
+        "shortfall_cost": 500,
+        "trace": "slices = 100000 / 7 buckets, remainder 5 to back = [14285,14285,14285,14285,14285,14285,14290]; shortfall_bps = (25.005 - 25) / 25 * 10000 = 2 (buy side, positive = cost); shortfall_cost = (25.005 - 25) * 100000 = 500"
+      },
+      "golden_hash": "9f344169cbf8bf7073075674fde6d6f0dfadae36e76f52bd70b6c131cab0bc1d"
+    },
+    {
+      "name": "pov_participation_unfilled_remainder",
+      "policy_parameters": {
+        "side": "buy",
+        "order_shares": 30000,
+        "method": "pov",
+        "participation_rate_pct": 15,
+        "market_volumes": [
+          40000,
+          50000,
+          30000,
+          20000
+        ],
+        "arrival_price": 40,
+        "avg_fill_price": 40.012
+      },
+      "output_payload": {
+        "slices": [
+          6000,
+          7500,
+          4500,
+          3000
+        ],
+        "shortfall_bps": 3,
+        "shortfall_cost": 360,
+        "trace": "slices = 15% participation of declared bucket volumes, capped at remaining order = [6000,7500,4500,3000]; unfilled remainder 9000; shortfall_bps = (40.012 - 40) / 40 * 10000 = 3 (buy side, positive = cost); shortfall_cost = (40.012 - 40) * 30000 = 360"
+      },
+      "golden_hash": "05e1184a8aeec8c0611909b4188a76297ce1477d10fdc38aa791b136e2ff7d4c"
+    },
+    {
+      "name": "fail_closed_profile_sum_not_100",
+      "policy_parameters": {
+        "side": "buy",
+        "order_shares": 100000,
+        "method": "vwap",
+        "volume_profile_pct": [
+          10,
+          25,
+          30,
+          20,
+          10
+        ],
+        "arrival_price": 50,
+        "avg_fill_price": 50.06
+      },
+      "output_payload": {
+        "slices": null,
+        "shortfall_bps": null,
+        "shortfall_cost": null,
+        "trace": "fail-closed: volume_profile_pct must sum to exactly 100 (vwap requires a complete profile); no schedule or shortfall computed -- correct the named inputs and resubmit. Simulator over caller-declared synthetic inputs only: not advice, not a recommendation, and not an order router.",
+        "domain_errors": [
+          "PROFILE_SUM_NOT_100"
+        ]
+      },
+      "golden_hash": "91af51dc5415a43feb9c90137272ad0d615e65b1e2fe79993a076271ccb64c21"
+    },
+    {
+      "name": "fail_closed_twap_remainder_rule_not_declared",
+      "policy_parameters": {
+        "side": "buy",
+        "order_shares": 100003,
+        "method": "twap",
+        "bucket_count": 4,
+        "arrival_price": 50,
+        "avg_fill_price": 50.04
+      },
+      "output_payload": {
+        "slices": null,
+        "shortfall_bps": null,
+        "shortfall_cost": null,
+        "trace": "fail-closed: remainder_rule must be \"front\" or \"back\" when the order does not divide evenly across buckets (twap); no schedule or shortfall computed -- correct the named inputs and resubmit. Simulator over caller-declared synthetic inputs only: not advice, not a recommendation, and not an order router.",
+        "domain_errors": [
+          "INVALID_REMAINDER_RULE"
+        ]
+      },
+      "golden_hash": "3adf564971051a3b1eccb66f50fc19bc5286cb1f4007ab2468f9e501ffffcfe6"
+    },
+    {
+      "name": "fail_closed_empty_inputs",
+      "policy_parameters": {},
+      "output_payload": {
+        "slices": null,
+        "shortfall_bps": null,
+        "shortfall_cost": null,
+        "trace": "fail-closed: side must be \"buy\" or \"sell\"; order_shares must be a positive whole number of shares; method must be one of vwap, twap, pov; arrival_price must be a positive number; avg_fill_price must be a positive number; no schedule or shortfall computed -- correct the named inputs and resubmit. Simulator over caller-declared synthetic inputs only: not advice, not a recommendation, and not an order router.",
+        "domain_errors": [
+          "INVALID_SIDE",
+          "INVALID_ORDER_SHARES",
+          "INVALID_METHOD",
+          "INVALID_ARRIVAL_PRICE",
+          "INVALID_AVG_FILL_PRICE"
+        ]
+      },
+      "golden_hash": "df6d66bbe2f75ad053a9912803c92f4cbc19a00ae834246660a3660ff27c8241"
+    }
+  ]
+}
