@@ -43,7 +43,7 @@
 //   node scripts/gen-fv-status.mjs --write [--ttl-seconds=86400]
 //   node scripts/gen-fv-status.mjs --check
 
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs';
@@ -270,6 +270,25 @@ const outPath = resolve(OUT_DIR, `${hex}.json`);
 // meant and what OFFLINE_FIRST_NOTE already tells a consumer. That is an honest
 // dated observation (SO #0b), not a liveness promise — nothing on main refreshed
 // this file on a schedule before this change either.
+// ORPHAN CLEANUP (RIGOR-SSOT-AMEND-1, 2026-09-03). --check treats every json in
+// OUT_DIR that is not the current <spec_digest>.json as a failure ("a leftover
+// file is not evidence of anything"), but --write never removed them — so a
+// spec_digest move left an orphan the main-side regen could not erase, and the
+// drift survived the merge and reddened main (check-regen-repairable classified
+// it NOT REPAIRABLE, blocking every PR that moved the digest). The write path
+// now repairs exactly what its own --check reports: any other *.json in OUT_DIR
+// is deleted, before the skip-if-unchanged early-exit so a no-op pass still
+// cleans up. Runs BEFORE the write so a fresh digest lands atomically with the
+// removal of its predecessor.
+if (existsSync(OUT_DIR)) {
+  for (const fname of readdirSync(OUT_DIR)) {
+    if (fname.endsWith('.json') && fname !== `${hex}.json`) {
+      unlinkSync(resolve(OUT_DIR, fname));
+      console.log(`✓ FV-AGENTSURFACE-BUILD-1 removed orphaned fv-status/${fname} (no longer the current spec_digest).`);
+    }
+  }
+}
+
 if (existsSync(outPath)) {
   try {
     const onDiskArtifact = JSON.parse(readFileSync(outPath, 'utf8'));
