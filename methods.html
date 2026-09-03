@@ -286,6 +286,37 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   </div>
 </div>
 
+<!-- Deploy provenance -->
+<div class="section" id="deploy-provenance">
+  <div class="container">
+    <div class="sec-label">Deploy provenance</div>
+    <h2 class="sec-heading">The published bytes are signed to their build</h2>
+    <div class="prose">
+      <p>The mechanisms above check computations; this one covers the road they travel to you. Each site deploy is published by a public GitHub Actions workflow from one named commit of <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener">the public repository</a>. At publish time the deploy job hashes every file it ships into a manifest, served at <code>.well-known/deploy-manifest.json</code> together with the raw hash list it digests, and signs an attestation binding those bytes to that workflow run: an in-toto statement carrying an SLSA build-provenance predicate, signed under a short-lived Sigstore certificate and stored in the repository's attestation API. The attestation establishes that the tree served by this site came out of one named commit of that repository, built by the named workflow. It is a claim about process; the mechanisms above remain the claims about content. Two commands re-derive the process half from where you sit:</p>
+    </div>
+    <div class="prose">
+<pre><code># fetch what the site is serving right now
+curl -sO https://ainumbers.co/.well-known/deploy-manifest.json
+
+# who signed these bytes, as JSON for policy engines; passes when the signing
+# certificate's identity is the deploy workflow running on main
+gh attestation verify deploy-manifest.json -R PostOakLabs/ainumbers --format json \
+  | jq -e '.[] | select(.verificationResult.signature.certificate.subjectAlternativeName
+           | contains("deploy-to-dreamhost.yml@refs/heads/main"))'
+
+# recompute the digest: check out the commit named in the manifest, rebuild the
+# hash list by the documented rules, then compare the served copy byte for byte
+# and check its sha256 equals site_content_digest in the manifest. Rules: all
+# repo files except .git, .github, scripts/, specs/, docs/, reconciled/,
+# node_modules, editor and OS metadata, and *.md other than chaingraph/okf/**
+# and chaingraph/standard/SPEC.md; sorted by path; sha256sum format.
+sha256sum deploy-checksums.txt
+
+# verifiers without the gh CLI can check the same attestation with slsa-verifier</code></pre>
+    </div>
+  </div>
+</div>
+
 <!-- Honest boundary -->
 <div class="section">
   <div class="container">

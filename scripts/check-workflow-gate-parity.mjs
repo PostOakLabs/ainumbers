@@ -322,6 +322,10 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── COMPARATOR-EPSILON-LINT-1 (2026-09-02) ──────────────────────────────────
+  ["lint-comparator-epsilon.mjs", VIA_PREFLIGHT],
+  ["lint-comparator-epsilon.test.mjs", SELF_TEST],
+
   // ── WEBMCP-GEN-FROM-MANIFEST-1 (2026-09-01) ─────────────────────────────────
   ["gen-webmcp-registrations.mjs",
     "WebMCP registration freshness (--check): rebuilds every marker-delimited registration " +
@@ -596,7 +600,20 @@ const NO_CALL_SITE = new Map([
 // workflow carries continue-on-error / `|| true` / `set +e` on a gate step
 // today. A new one must be declared here or this gate goes red — otherwise a
 // third status mechanism could appear that the model above cannot see (hole (e)).
-const DECLARED_SOFTENERS = new Map([]);
+const DECLARED_SOFTENERS = new Map([
+  // deploy-to-dreamhost.yml's "Attest deploy provenance" step is advisory BY
+  // DESIGN: the deploy is load-bearing, and a fresh Sigstore/attestations-API
+  // integration must never block shipping while it accrues a green history.
+  // continue-on-error is the only soft-fail mechanism a `uses:` action step
+  // has; it is not a node gate, so run-gate.mjs cannot express it. Promotion
+  // criterion (stated on the step itself): after 10 consecutive post-merge
+  // deploy runs with the step succeeding, remove this entry together with the
+  // step's continue-on-error. The key carries a LINE NUMBER: any edit above
+  // that line must refresh the key (a stale key fails this checker by design
+  // and points here).
+  ["deploy-to-dreamhost.yml:continue-on-error:762",
+   "attest step is advisory-first by design; promotion criterion on the step"],
+]);
 
 // ── extraction helpers (pure; the .test.mjs drives these directly) ────────────
 
