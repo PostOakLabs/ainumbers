@@ -2102,7 +2102,7 @@ The producer-local journal is append-only. Each entry carries: `journal_seq` (mo
 
 Run lifecycle states (`execution_state.state`): `draft` `validated` `queued` `running` `awaiting_data` `awaiting_review` `approved` `rejected` `overridden` `executing_action` `submitted` `acknowledged` `completed` `failed` `cancelled`.
 
-**Checkpoints** are signed (§26.2) summaries emitted periodically and at run completion: `{checkpoint_seq, per-stream {stream_id, journal_seq, rh}, journal_root_digest, anchors[]}`. Each `anchors[]` member is `{type, ...}` with `type` ∈ `rfc3161` | `opentimestamps` | `scitt-receipt` (reserved; SCITT is not yet an RFC — producers MUST NOT emit it under `@1`). Checkpoints SHOULD be anchored per §20 to at least one external authority. Unknown `anchors[].type` values MUST be reported as unrecognized, not as failures.
+**Checkpoints** are signed (§26.2) summaries emitted periodically and at run completion: `{checkpoint_seq, per-stream {stream_id, journal_seq, rh}, journal_root_digest, anchors[]}`. Each `anchors[]` member is `{type, ...}` with `type` ∈ `rfc3161` | `opentimestamps` | `scitt-receipt` (SCITT is now an RFC — architecture = RFC 9943, COSE Receipts = RFC 9942, both Proposed Standard, June 2026; see §XMAP-1). Checkpoints SHOULD be anchored per §20 to at least one external authority. Unknown `anchors[].type` values MUST be reported as unrecognized, not as failures.
 
 ### §26.6 Trust labels (NORMATIVE vocabulary)
 
