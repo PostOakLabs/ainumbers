@@ -235,8 +235,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="card">
     <div class="card-label">Load a review bundle (optional, SPEC §27.4 gate-consumer)</div>
-    <p class="hero-sub" style="margin-bottom:10px;">Paste <code>{"artifact":{...}, "gate":{"gate_policy":"dual_control","gate_threshold":{"role":"approver","threshold":2}}, "records":[...]}</code>: a chain step's declared gate alongside the artifact it guards and any §27.2 records already collected. Only <code>artifact</code> is required. Loading a bundle runs the same hash verification as above, then evaluates the declared gate automatically. This is an evidence recorder, never a blocker; nothing below disables verification or export.</p>
-    <textarea id="haBundleInput" placeholder='{"artifact": {...}, "gate": {"gate_policy": "dual_control", "gate_threshold": {"role": "approver", "threshold": 2}}, "records": []}'></textarea>
+    <p class="hero-sub" style="margin-bottom:10px;">Paste <code>{"artifact":{...}, "gate":{"gate_policy":"dual_control","gate_threshold":{"role":"approver","threshold":2},"chain_declaration":{"chain":"&lt;chain name&gt;","step_id":"&lt;step id&gt;","gate_sha256":"sha256:&lt;hex&gt;"}}, "records":[...]}</code>: a chain step's declared gate alongside the artifact it guards and any §27.2 records already collected. Only <code>artifact</code> is required. Loading a bundle runs the same hash verification as above, then evaluates the declared gate automatically. This is an evidence recorder, never a blocker; nothing below disables verification or export.</p>
+    <textarea id="haBundleInput" placeholder='{"artifact": {...}, "gate": {"gate_policy": "dual_control", "gate_threshold": {"role": "approver", "threshold": 2}, "chain_declaration": {"chain": "...", "step_id": "...", "gate_sha256": "sha256:..."}}, "records": []}'></textarea>
+    <p class="hero-sub" style="margin:10px 0 6px;font-size:.68rem;">Optional SO #34 declaration cross-check: paste your locally-held <code>chaingraph.json</code> (or a single chain shard object). This page never fetches it, zero network. When the bundle's <code>gate</code> carries a <code>chain_declaration</code> <code>{chain, step_id, gate_sha256}</code>, the declaring gate is resolved from YOUR copy, never from the bundle, and a bundle whose declared policy differs from its shard renders <code>DECLARATION_MISMATCH</code> (red, evaluated against the shard's value). Without a resolvable declaration the gate renders <code>NOT EVALUABLE</code>, never counted as satisfied, and stamped into the exported bundle as such. <code>gate_sha256</code> is <code>sha256:</code> over the RFC 8785/JCS canonicalization of the declaring step's <code>gate</code> object, exactly what this page recomputes locally.</p>
+    <textarea id="haChainGraphInput" placeholder='Paste your locally-held chaingraph.json here (optional): full graph {"chains":[...]} or one chain shard object {"name": "...", "steps": [...]}' style="min-height:90px;"></textarea>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="haLoadBundle()">Load &amp; review bundle</button>
     </div>
@@ -1167,6 +1169,115 @@ function __haSafeParseBundle(text) {
 // always states satisfied / held / never-evaluated — never silently omits it.
 let __haDeclaredVerdict = null;
 
+/* ─────────────────────────────────────────────────────────────────
+   SO #34 DECLARATION CROSS-CHECK — layered OUTSIDE the __haEvaluate twin
+   above (same evidence-layer pattern as §27.11), never inside it. The twin
+   is declared byte-identical to bundle-diff.html and verification-desk.html.
+
+   The defect it closes: haLoadBundle used to read gate_policy/gate_threshold
+   out of the bundle UNDER TEST and evaluate against those values — SO #34's
+   named shape, "self-attested provenance validated by a self-consistent
+   checker". A bundle declaring auto_pass over a step whose live chain shard
+   declares dual_control rendered SATISFIED with zero approval records.
+
+   This page is zero-network, so the declaring shard cannot be fetched: the
+   declaration travels INSIDE the bundle in an independently-checkable form —
+   chain name + step id + sha256 over the JCS canonicalization of the
+   declaring step's gate object — and is resolved against a LOCALLY-HELD
+   chaingraph.json the reviewer pastes in. Three outcomes, never two:
+     match         — resolved and equal to the bundle's declaration ⇒ evaluate as today;
+     mismatch      — resolved and differs ⇒ DECLARATION_MISMATCH, red, evaluated
+                     against the SHARD's value, never the bundle's;
+     not_evaluable — not resolvable offline ⇒ NOT_EVALUABLE, neutral, NEVER
+                     counted as satisfied (SO #34c: absence is a distinct state,
+                     never a pass), and stamped into the exported §27.6 bundle.
+
+   VERDICT-TOKEN NOTE (row item 4 / SO #58): NOT_EVALUABLE is a registered
+   token in board/row-state-enum.json. DECLARATION_MISMATCH is NOT yet
+   registered — it is emitted here as a domain render token per the row's
+   explicit instruction (human-UI flag-and-serve class); its enum registration
+   is flagged for Tim approval in the row's PR and check-off.
+   ───────────────────────────────────────────────────────────────── */
+/* __HA_DECL_CROSSCHECK-BEGIN (pure — no document access; extracted verbatim by verify-decl-crosscheck.test.mjs) */
+function __haDeclJcs(v) {
+  if (Array.isArray(v)) return v.map(__haDeclJcs);
+  if (v && typeof v === 'object') {
+    const o = {};
+    for (const k of Object.keys(v).sort()) o[k] = __haDeclJcs(v[k]);
+    return o;
+  }
+  return v;
+}
+async function __haDeclGateHashHex(gate) {
+  const bytes = new TextEncoder().encode(JSON.stringify(__haDeclJcs(gate)));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+function __haDeclThresholdsEqual(a, b) {
+  const ar = a && typeof a.role === 'string' ? a.role : undefined;
+  const br = b && typeof b.role === 'string' ? b.role : undefined;
+  const at = a && Number.isFinite(a.threshold) ? a.threshold : undefined;
+  const bt = b && Number.isFinite(b.threshold) ? b.threshold : undefined;
+  return ar === br && at === bt;
+}
+function __haDeclDescribeGate(policy, threshold) {
+  return '"' + policy + '"' + (threshold && Number.isFinite(threshold.threshold) ? '(' + threshold.threshold + ' × "' + (typeof threshold.role === 'string' ? threshold.role : 'approver') + '")' : '');
+}
+/**
+ * Resolve the DECLARING gate for bundle.gate from the reviewer's locally-held
+ * chaingraph.json (or a single chain shard). Pure — returns one of exactly
+ * three states: 'match' | 'mismatch' | 'not_evaluable'. Never throws.
+ */
+function __haResolveDeclaredGate({ bundleGate, toolId, localGraph }) {
+  const decl = bundleGate && bundleGate.chain_declaration && typeof bundleGate.chain_declaration === 'object'
+    ? bundleGate.chain_declaration : null;
+  const bundlePolicy = bundleGate && typeof bundleGate.gate_policy === 'string' ? bundleGate.gate_policy : undefined;
+  if (!decl || typeof decl.chain !== 'string' || !decl.chain) {
+    return { state: 'not_evaluable', reason: 'Bundle carries no resolvable chain_declaration {chain, step_id}; the declaring chain shard cannot be resolved offline, so the declared policy is NOT trusted and the gate is NOT EVALUABLE (SO #34c: absence is a distinct state, never a pass).' };
+  }
+  if (!localGraph || typeof localGraph !== 'object') {
+    return { state: 'not_evaluable', chain: decl.chain, stepId: decl.step_id || toolId, reason: 'No locally-held chaingraph.json was pasted, so chain "' + decl.chain + '" cannot be resolved offline. Paste the graph above and reload. The declared policy is NOT trusted; the gate is NOT EVALUABLE.' };
+  }
+  const chains = Array.isArray(localGraph.chains) ? localGraph.chains
+    : (typeof localGraph.name === 'string' && Array.isArray(localGraph.steps) ? [localGraph] : null);
+  if (!chains) {
+    return { state: 'not_evaluable', chain: decl.chain, stepId: decl.step_id || toolId, reason: 'The pasted local graph is neither a chaingraph.json ({chains:[...]}) nor a single chain shard ({name, steps}); chain "' + decl.chain + '" cannot be resolved. The gate is NOT EVALUABLE.' };
+  }
+  const chain = chains.find((c) => c && c.name === decl.chain);
+  if (!chain || !Array.isArray(chain.steps)) {
+    return { state: 'not_evaluable', chain: decl.chain, stepId: decl.step_id || toolId, reason: 'Chain "' + decl.chain + '" was not found in the locally-held graph; the declaration does not resolve offline. The declared policy is NOT trusted; the gate is NOT EVALUABLE.' };
+  }
+  const stepId = (typeof decl.step_id === 'string' && decl.step_id) || (typeof toolId === 'string' && toolId) || undefined;
+  const step = chain.steps.find((s) => s && (s.id === stepId || s.tool_id === stepId));
+  if (!step) {
+    return { state: 'not_evaluable', chain: decl.chain, stepId, reason: 'Step "' + stepId + '" was not found in locally-held chain "' + decl.chain + '"; the declaration does not resolve offline. The gate is NOT EVALUABLE.' };
+  }
+  const shardGate = step.gate;
+  if (!shardGate || typeof shardGate.gate_policy !== 'string') {
+    return { state: 'not_evaluable', chain: decl.chain, stepId, reason: 'Locally-held chain "' + decl.chain + '" step "' + stepId + '" carries no gate; there is no declaring gate to cross-check against. The gate is NOT EVALUABLE.' };
+  }
+  const shardPolicy = shardGate.gate_policy;
+  const policyEqual = bundlePolicy === shardPolicy;
+  const thresholdsEqual = __haDeclThresholdsEqual(bundleGate.gate_threshold, shardGate.gate_threshold);
+  if (policyEqual && thresholdsEqual) {
+    return { state: 'match', chain: decl.chain, stepId, shardGate, reason: 'Declared gate matches locally-held chain "' + decl.chain + '" step "' + stepId + '" (policy "' + shardPolicy + '"' + (decl.gate_sha256 ? ', declaring-gate sha256 ' + decl.gate_sha256 : '') + ').' };
+  }
+  const diffBits = [];
+  if (!policyEqual) diffBits.push('the policy declarations differ');
+  if (!thresholdsEqual) diffBits.push('the threshold declarations differ');
+  const hashNote = typeof decl.gate_sha256 === 'string' && decl.gate_sha256
+    ? ' The bundle carries declaring-gate sha256 ' + decl.gate_sha256 + '; this page recomputes the locally-held shard\'s declaring-gate hash below.'
+    : '';
+  return {
+    state: 'mismatch', chain: decl.chain, stepId, shardGate, hashNote,
+    reason: 'DECLARATION_MISMATCH: the bundle declares ' + __haDeclDescribeGate(bundlePolicy, bundleGate.gate_threshold)
+      + ' but locally-held chain "' + decl.chain + '" step "' + stepId + '" declares ' + __haDeclDescribeGate(shardPolicy, shardGate.gate_threshold)
+      + ' (' + diffBits.join(' and ') + '). Evaluated against the SHARD\'s value, never the bundle\'s (SO #34: a gate may never read the value it validates from the artifact under test).' + hashNote,
+  };
+}
+
+/* __HA_DECL_CROSSCHECK-END */
+
 function haLoadBundle() {
   try {
     const raw = document.getElementById('haBundleInput').value.trim();
@@ -1202,22 +1313,74 @@ function haLoadBundle() {
     }
 
     const artifact = bundle.artifact;
-    const gatePolicy = bundle.gate.gate_policy;
-    const gateThreshold = bundle.gate.gate_threshold;
+
+    // SO #34 declaration cross-check — resolve the DECLARING gate from the
+    // locally-held chaingraph.json, NEVER from the bundle under test. This
+    // layer sits OUTSIDE the __haEvaluate twin (which stays byte-identical to
+    // bundle-diff.html / verification-desk.html) — same pattern as §27.11.
+    let localGraph = null;
+    const localGraphRaw = document.getElementById('haChainGraphInput').value.trim();
+    if (localGraphRaw) {
+      let parsedGraph;
+      try { parsedGraph = JSON.parse(localGraphRaw); } catch (e) {
+        showError('The locally-held chaingraph.json is not valid JSON: ' + e.message);
+        return;
+      }
+      localGraph = __haReHome(parsedGraph);
+    }
+    const resolution = __haResolveDeclaredGate({ bundleGate: bundle.gate, toolId: artifact && artifact.tool_id, localGraph });
+
+    if (resolution.state === 'not_evaluable') {
+      // SO #34c: absence of a resolvable declaration is a DISTINCT state —
+      // neutral render, never counted as satisfied, stamped into the export.
+      __haDeclaredVerdict = {
+        status: 'not_evaluable', policy_applied: bundle.gate.gate_policy, satisfied: false,
+        evidence_verification: 'not_applicable', declaration: resolution, reason: resolution.reason,
+      };
+      declaredCard.style.display = 'block';
+      policyEl.textContent = bundle.gate.gate_policy + (bundle.gate.gate_threshold && Number.isFinite(bundle.gate.gate_threshold.threshold) ? '(' + bundle.gate.gate_threshold.threshold + ')' : '')
+        + (resolution.chain ? ' · declared chain: ' + resolution.chain + (resolution.stepId ? '/' + resolution.stepId : '') : '');
+      statusEl.textContent = 'NOT EVALUABLE';
+      statusEl.className = 'hash-val';
+      reasonEl.textContent = resolution.reason;
+      hideError();
+      return;
+    }
+
+    // match or mismatch: evaluate against the SHARD-resolved values (on a
+    // mismatch they are the shard's by construction — the bundle's own
+    // declaration is never the value the evaluation trusts).
+    const gatePolicy = resolution.shardGate.gate_policy;
+    const gateThreshold = resolution.shardGate.gate_threshold;
     const threshold = gateThreshold && Number.isFinite(gateThreshold.threshold) ? gateThreshold.threshold : undefined;
     const role = (gateThreshold && typeof gateThreshold.role === 'string' && gateThreshold.role) || 'approver';
 
-    executionHash(artifact.policy_parameters, artifact.output_payload).then((hex) => {
+    Promise.all([
+      executionHash(artifact.policy_parameters, artifact.output_payload),
+      __haDeclGateHashHex(resolution.shardGate),
+    ]).then(([hex, shardGateHashHex]) => {
       const subjectHash = 'sha256:' + hex;
-      return __haEvaluateWithEvidence({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() });
+      const declReason = resolution.state === 'mismatch' && resolution.hashNote
+        ? resolution.reason.replace(/recomputes the locally-held shard's declaring-gate hash below\./,
+            'the locally-held shard\'s declaring-gate hash recomputes to sha256:' + shardGateHashHex
+            + ' (bundle carried ' + ((bundle.gate.chain_declaration || {}).gate_sha256 || 'no gate_sha256') + ').')
+        : resolution.reason;
+      return __haEvaluateWithEvidence({ gatePolicy, threshold, role, subjectHash, records, nowISO: new Date().toISOString() }).then((result) => {
+        result.declaration = Object.assign({}, resolution, { shardGateHash: 'sha256:' + shardGateHashHex, reason: declReason });
+        return result;
+      });
     }).then((result) => {
       __haDeclaredVerdict = result;
       declaredCard.style.display = 'block';
-      policyEl.textContent = gatePolicy + (threshold ? '(' + threshold + ')' : '');
-      statusEl.textContent = result.status.toUpperCase();
-      statusEl.className = 'hash-val' + (result.satisfied ? '' : (result.status === 'rejected' ? ' mismatch' : ''));
+      const mismatch = result.declaration.state === 'mismatch';
+      policyEl.textContent = mismatch
+        ? 'bundle: ' + (bundle.gate.gate_policy || 'none') + (bundle.gate.gate_threshold && Number.isFinite(bundle.gate.gate_threshold.threshold) ? '(' + bundle.gate.gate_threshold.threshold + ')' : '')
+          + ' · shard: ' + gatePolicy + (threshold ? '(' + threshold + ')' : '') + ' [' + result.declaration.chain + '/' + result.declaration.stepId + ']'
+        : gatePolicy + (threshold ? '(' + threshold + ')' : '');
+      statusEl.textContent = mismatch ? 'DECLARATION_MISMATCH' : result.status.toUpperCase();
+      statusEl.className = 'hash-val' + ((mismatch || (!result.satisfied && result.status === 'rejected')) ? ' mismatch' : '');
       __haRenderEvidence(result, 'haDeclaredGateEvidence', null);
-      reasonEl.textContent = result.reason;
+      reasonEl.textContent = mismatch ? result.declaration.reason + ' Threshold outcome against the shard: ' + result.reason : (result.declaration.reason + ' ' + result.reason);
       hideError();
     }).catch((e) => { showError('Declared-gate evaluation failed: ' + e.message); });
   } catch (e) {
@@ -1281,6 +1444,17 @@ function __haBuildBundle() {
       ? `ha_gate_verdict:${gv.status}:${gv.policy_applied}:${gv.evidence_verification || 'structural_only'}`
       : 'ha_gate_verdict:not_evaluated';
     bundle.annotations = (bundle.annotations || []).concat([verdictLine]);
+    // SO #34 / SO #34c: the declaration cross-check's own state travels with
+    // the export — match / mismatch / not_evaluable (never silently omitted
+    // and never folded into a pass). not_evaluable here IS the stamped
+    // "absence is a distinct state, never a pass" record.
+    if (gv && gv.declaration) {
+      const dcl = gv.declaration;
+      bundle.annotations = bundle.annotations.concat([
+        `ha_gate_declaration:${dcl.state}` + (dcl.chain ? `:${dcl.chain}:${dcl.stepId || ''}` : '')
+        + (dcl.shardGateHash ? `:${dcl.shardGateHash}` : ''),
+      ]);
+    }
     return bundle;
   });
 }
