@@ -201,6 +201,7 @@ const BLOCKING_WORKFLOWS = [
   "c2patool-oracle.yml",
   "ci-anchor.yml",
   "zizmor.yml",
+  "unwired-gates.yml",
 ];
 
 // Every OTHER workflow, with the reason it gates no merge. BLOCKING_WORKFLOWS ∪
@@ -246,6 +247,13 @@ const NOT_A_GATE = new Map([
 // node gates that legitimately run ONLY in CI, each with the reason it cannot run
 // pre-push. Keep tight — every entry is a hole in "green preflight ⇒ green CI".
 const CI_ONLY = new Map([
+  ["check-node-surface-parity.mjs",
+    "runs in unwired-gates.yml in REPORT MODE ONLY (continue-on-error + summary artifact): " +
+    "it is red on main today (171/624 compared page<->kernel pairs divergent), so adding it " +
+    "to preflight.mjs's blocking GATES would red every pre-push. It surfaces page<->kernel " +
+    "output_payload drift per CI run; promotion to blocking is a separate later decision " +
+    "after the drift sweep lands. Not a softener of any existing gate — it is a new, " +
+    "always-report surface."],
   ["c2patool-oracle-compare.mjs",
     "needs a downloaded + sha256-verified c2patool RUST BINARY (c2patool-oracle.yml) — " +
     "not npx-fetchable like TypeScript, and this repo installs no CI-only binaries pre-push."],
@@ -639,6 +647,10 @@ const DECLARED_SOFTENERS = new Map([
   // and points here).
   ["deploy-to-dreamhost.yml:continue-on-error:762",
    "attest step is advisory-first by design; promotion criterion on the step"],
+  ["unwired-gates.yml:continue-on-error:99",
+   "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
+   "continue-on-error is deliberate so the job surfaces drift without blocking. " +
+   "Promotion to blocking removes this entry together with the continue-on-error."],
 ]);
 
 // ── extraction helpers (pure; the .test.mjs drives these directly) ────────────
