@@ -1078,6 +1078,8 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
+  ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment
   // that states a temporary condition and names its own exit ("only 5 of ~79 kernels ship fixtures
   // today ... Flip to --strict once every kernel has a fixture") is read as permanent fact forever,

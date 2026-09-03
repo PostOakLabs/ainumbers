@@ -331,6 +331,10 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── PIIBANNER-GATE-SWEEP-1 (2026-09-02) ──────────────────────────────────
+  ["check-pii-banner.mjs", VIA_PREFLIGHT],
+  ["check-pii-banner.test.mjs", SELF_TEST],
+
   // ── COMPARATOR-EPSILON-LINT-1 (2026-09-02) ──────────────────────────────────
   ["lint-comparator-epsilon.mjs", VIA_PREFLIGHT],
   ["lint-comparator-epsilon.test.mjs", SELF_TEST],
