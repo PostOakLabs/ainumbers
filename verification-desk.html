@@ -281,7 +281,7 @@ const bn254 = Zn, sha256 = Mn;
 const canon=(o)=>JSON.stringify(__ocgCanon(o??null));
 const RECEIPT_FORMATS=new Set(['groth16-bn254','stark']);
 function normId(d){return typeof d==='string'&&d.startsWith('sha256:')?d:'sha256:'+d;}
-function verifyBinding(artifact,opts){opts=opts||{};var publishedImageIds=opts.publishedImageIds||[];
+function verifyBinding(artifact,opts){opts=opts||{};var publishedImageIds=opts.publishedImageIds||[];var publishedKernelDigests=opts.publishedKernelDigests||[];
   var cp=artifact&&artifact.audit_signature&&artifact.audit_signature.compute_proof;
   if(!cp||typeof cp!=='object')return false;
   if(cp.type!=='ZkVmReceipt')return false;
@@ -293,6 +293,10 @@ function verifyBinding(artifact,opts){opts=opts||{};var publishedImageIds=opts.p
   if(!('output'in cp.journal))return false;
   if(canon(cp.journal.output)!==canon(artifact.output_payload))return false;
   if(publishedImageIds.length&&!publishedImageIds.map(normId).includes(normId(cp.imageId)))return false;
+  if(publishedKernelDigests.length){
+    if(typeof cp.journal.kernel_digest!=='string'||!cp.journal.kernel_digest)return false;
+    if(!publishedKernelDigests.map(normId).includes(normId(cp.journal.kernel_digest)))return false;
+  }
   return true;
 }
 const {G1,G2,fields,pairingBatch}=bn254;
@@ -655,12 +659,13 @@ async function check18(a){
   if(!cp)return card('§18 Compute-Integrity Proof','absent','<div class="detail-line">No audit_signature.compute_proof on this artifact. Fully v0.6-conformant — §18 is optional and holder-chosen.</div>');
   if(!window.__ocgComputeProofReady)return card('§18 Compute-Integrity Proof','partial','<div class="detail-line">compute_proof is present but the verifier module has not finished loading yet — reload and try again.</div>');
   var bound=__ocgVerifyComputeBinding(a,{});
+  var notCheckedNote='<div class="limit-note">kernel_digest vs the node\'s published kernel identity: not checked here — this page verifies the artifact in isolation with an empty Graph Index, so the kernel-digest leg of the binding is skipped, not green.</div>';
   var body='<div class="detail-line">system: <strong>'+escHtml(cp.system||'—')+'</strong> &middot; receiptFormat: <strong>'+escHtml(cp.receiptFormat||'—')+'</strong></div><div class="hashbox">imageId: '+escHtml(cp.imageId||'—')+'</div>';
   if(!bound)return card('§18 Compute-Integrity Proof','fail',body+'<div class="limit-note">Binding check failed — the receipt is malformed, or its journal.output does not match this artifact\'s output_payload.</div>');
-  if(cp.receiptFormat==='stark')return card('§18 Compute-Integrity Proof','partial',body+'<div class="limit-note">Binding verified. Seal verification for receiptFormat:"stark" is DELEGATED to the vendor verifier (risc0/sp1) — not checked here, per §18.1.</div>');
+  if(cp.receiptFormat==='stark')return card('§18 Compute-Integrity Proof','partial',body+'<div class="limit-note">Binding verified. Seal verification for receiptFormat:"stark" is DELEGATED to the vendor verifier (risc0/sp1) — not checked here, per §18.1.</div>'+notCheckedNote);
   var sealOk;
   try{ sealOk=__ocgVerifyComputeSeal(cp); }catch(e){ return card('§18 Compute-Integrity Proof','fail',body+'<div class="limit-note">Seal verify threw: '+escHtml(e.message)+'</div>'); }
-  return card('§18 Compute-Integrity Proof', sealOk?'pass':'fail', body+'<div class="detail-line">Binding: '+(bound?'✓':'✗')+' &middot; Groth16-BN254 seal: '+(sealOk?'✓ verified against the published risc0 verifying key':'✗ pairing check failed')+'</div>');
+  return card('§18 Compute-Integrity Proof', sealOk?'pass':'fail', body+'<div class="detail-line">Binding: '+(bound?'✓':'✗')+' &middot; Groth16-BN254 seal: '+(sealOk?'✓ verified against the published risc0 verifying key':'✗ pairing check failed')+'</div>'+notCheckedNote);
 }
 
 // ── §20 anchor bindings ───────────────────────────────────────────────
