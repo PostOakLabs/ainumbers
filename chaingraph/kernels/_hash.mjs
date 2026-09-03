@@ -1,6 +1,6 @@
 // OpenChainGraph shared canonicalizer + execution hash.
 // SINGLE SOURCE OF TRUTH for the execution_hash preimage (OCG Standard §2/§6).
-// Byte-identical to mcp-apps-poc/worker.mjs cgCanon + cgExecutionHash.
+// The worker (mcp-apps-poc/worker.mjs) imports this file directly (WORKER-HASH-SSOT-1); there is no separate worker-local copy.
 // Runs unchanged in: browsers, Cloudflare Workers, Node 18+ (all expose
 // globalThis.crypto.subtle). Import this from BOTH the browser tool (inlined
 // at build by generate.mjs) and the Worker so the two runtimes can never drift.
