@@ -19,7 +19,18 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = join(ROOT, 'scripts', 'csp-consistency-baseline.json');
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update' : 'check';
 
-const SCAN_DIRS = ['tools', 'chaingraph', 'guides'];
+// GATESCOPE-PUBDIRS-1: scan scope is the shared manifest scripts/published-dirs.json
+// (same DISCOVER-1 pattern regen-sitemap.mjs / verify_repo.py already use), so
+// this gate and check-site-egress.mjs can't scope-drift from each other or from
+// the sitemap. ledger/ stays a mechanical carve-out — CONTRACT §A7 permits it a
+// deliberate non-canonical connect-src (anchor.ainumbers.co), a dedicated CSP
+// profile for one page is not worth adding; check-ledger-hermetic.mjs already
+// polices its egress.
+const MANIFEST = JSON.parse(readFileSync(join(ROOT, 'scripts', 'published-dirs.json'), 'utf8'));
+const RECURSIVE_EXCLUDE = new Set(MANIFEST.recursiveExcludeSubdirs || []);
+const ALLOWLIST_PATHS = ['ledger'];
+const SCAN_DIRS = [...MANIFEST.flatDirs, ...MANIFEST.recursiveDirs]
+  .filter((d) => !ALLOWLIST_PATHS.includes(d));
 
 // Named canonical profiles (2026-07-14 survey: these two cover ~88% of the
 // 834-file estate already; everything else is legacy drift, baselined below).
@@ -31,13 +42,21 @@ const PROFILES = {
   // frame-src 'self' for the same-origin composer bridge iframe. No worker
   // usage in this bridge, so worker-src stays 'none' (same as CSP_STANDARD).
   CSP_COMPOSER: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
+  // CONTRACT §A10.2 — docs/ API-portal carve-out. connect-src 'self' covers
+  // the same-origin ./catalog.json + ./openapi.json GETs (§A10.1); worker-src
+  // 'self' blob: mirrors CSP_WASM_VM (Redoc is vendored, no CDN host named).
+  CSP_DOCS_PORTAL: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
 };
 const CANONICAL_VALUES = new Set(Object.values(PROFILES));
 
-function walk(dir, out = []) {
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (e.isDirectory()) { if (!isSkipDir(e.name)) walk(join(dir, e.name), out); }
-    else if (e.isFile() && e.name.endsWith('.html')) out.push(join(dir, e.name));
+function walk(dirAbs, dirRel, out = []) {
+  for (const e of readdirSync(dirAbs, { withFileTypes: true })) {
+    const rel = dirRel ? `${dirRel}/${e.name}` : e.name;
+    if (e.isDirectory()) {
+      if (!isSkipDir(e.name) && !RECURSIVE_EXCLUDE.has(rel)) walk(join(dirAbs, e.name), rel, out);
+    } else if (e.isFile() && e.name.endsWith('.html')) {
+      out.push(join(dirAbs, e.name));
+    }
   }
   return out;
 }
@@ -60,7 +79,7 @@ function rootHtmlFiles() {
 
 const files = [
   ...rootHtmlFiles(),
-  ...SCAN_DIRS.flatMap(d => existsSync(join(ROOT, d)) ? walk(join(ROOT, d)) : []),
+  ...SCAN_DIRS.flatMap(d => existsSync(join(ROOT, d)) ? walk(join(ROOT, d), d) : []),
 ];
 const drifted = {}; // rel path -> csp content
 const missing = [];
