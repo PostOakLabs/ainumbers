@@ -98,7 +98,7 @@ ok(m4.state === 'match', 'step_id omitted ⇒ defaults to tool_id and resolves')
   // the branch base) — i.e. this change's diff does not intersect it.
   // GIT-ENV-LEAK-SWEEP-1 / SO #57: every git child goes through the shared
   // scrubbed-env wrapper, never a bare execFileSync('git', …).
-  const { gitSync } = await import('../../scripts/_git-env-lib.mjs');
+  const { gitSync } = await import('../scripts/_git-env-lib.mjs');
   const base = gitSync(['merge-base', 'HEAD', 'origin/main'], { cwd: HERE }).trim();
   const baseHtml = gitSync(['show', `${base}:chaingraph/verify.html`], { cwd: HERE, maxBuffer: 32 * 1024 * 1024 });
   const sig = 'function __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO }) {';
