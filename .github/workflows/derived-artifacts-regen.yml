@@ -179,6 +179,33 @@ jobs:
           node scripts/check-copy-hallmarks.mjs
           node scripts/check-shipped-prose.mjs
 
+      # (2026-09-03 regen-cascade fix): the regen above used to commit a
+      # tree that was INTERNALLY stale. COVERED array order ran 'openapi' at
+      # position 2 — before its input writers 'catalog' (mcp/catalog.json) and
+      # 'chaingraph-assemble' (chaingraph.json) — so gen-openapi copied the
+      # pre-regen catalog into docs/catalog.json, the commit landed, and the
+      # re-triggered run healed it in a SECOND chore(derived) commit seconds later
+      # (2cc118d1 → b27ed226, 34 s apart; d98ba95b → 3bdf2938, 44 s apart). Every
+      # INTERMEDIATE commit reddened "OpenAPI freshness" in Scripts Verify (runs
+      # 33577615572 / 33579299274: `stale: docs/catalog.json`). The array order is
+      # fixed in scripts/derived-artifacts.mjs and pinned by openapi's `after:`
+      # edge; THIS step is the mechanical backstop. It runs every covered entry's
+      # gate command against the regenerated tree — the same commands Scripts
+      # Verify runs on the pushed commit — and classifies any red:
+      #   FIXPOINT VIOLATION (red after pass 1, healed by a second in-step pass)
+      #     → the run FAILS here, before the commit: a regen pass that is not a
+      #     fixpoint is the two-commit-cascade class, and committing its pass-1
+      #     tree is what reddened main. Fix the COVERED order, don't commit+heal.
+      #   CONTENT RED (still red after the second pass — e.g. ead1b2a8, T667
+      #     manifest without its hand-authored tools.html card, red until human
+      #     commit c91b372a/#1664) → ::warning naming the gate, run proceeds: the
+      #     bot's commit neither causes nor heals that red, and refusing would
+      #     only let every OTHER covered artifact go stale on top of an
+      #     already-red main. Same behavior as before this step existed, made
+      #     loud instead of silent.
+      - name: Prove the regen pass was a fixpoint (every covered freshness gate)
+        run: node scripts/derived-artifacts.mjs --verify
+
       - name: Stage by explicit pathspec, and prove nothing escaped the set
         id: stage
         run: |

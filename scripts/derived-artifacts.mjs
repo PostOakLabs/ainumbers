@@ -79,6 +79,10 @@
  *   node scripts/derived-artifacts.mjs --paths    # NUL-free, newline-separated commit pathspec (exit 1 if any is absent on disk)
  *   node scripts/derived-artifacts.mjs --check-paths  # preflight gate: every declared artifact exists on disk
  *   node scripts/derived-artifacts.mjs --regen    # run every generator in write mode
+ *   node scripts/derived-artifacts.mjs --verify   # prove the regen pass was a FIXPOINT: run every
+ *                                                 # COVERED gate; a red a second pass heals = exit 1
+ *                                                 # (cascade class); a red that persists = warn+0
+ *                                                 # (content red the bot cannot heal). NOT preflight.
  *   node scripts/derived-artifacts.mjs --context  # print "main" or "pr"
  */
 import { execSync } from 'node:child_process';
@@ -105,17 +109,6 @@ export const COVERED = [
     gate: 'node chaingraph/kernels/gen-index.mjs --check',
     artifacts: ['chaingraph/kernels/index.mjs'],
     share: '81%',
-  },
-  {
-    id: 'openapi',
-    regen: 'node scripts/gen-openapi.mjs',
-    gate: 'node scripts/gen-openapi.mjs --check',
-    // docs/catalog.json is a copy of mcp/catalog.json written by this same script
-    // (see scripts/gen-openapi.mjs's own header comment), not by regen_catalog.py —
-    // undeclared here until ASSEMBLE-ART628-1-FIX2 (2026-08-16), which is why it read
-    // as an "escaped" write the first time art-628's tool-count bump made it drift.
-    artifacts: ['openapi.json', 'docs/openapi.json', 'docs/catalog.json', 'docs/index.html'],
-    share: '27%',
   },
   {
     id: 'llms-full',
@@ -290,6 +283,38 @@ export const COVERED = [
     // anti-escape guard and failed the whole regen run (RED-MAIN incident).
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
+  },
+  {
+    // REGEN-CASCADE-CONSOLIDATE-1 (2026-09-03): this entry used to sit at array
+    // position 2, BEFORE both of its within-pass input writers — 'catalog' writes
+    // mcp/catalog.json (regen_catalog.py) and 'chaingraph-assemble' writes
+    // chaingraph.json. gen-openapi.mjs copies mcp/catalog.json → docs/catalog.json
+    // (gen-openapi.mjs:271-273, :334) and builds its paths from chaingraph.json
+    // (:64), so ONE --regen pass copied the PRE-regen catalog bytes and committed
+    // them; the App-authored push re-triggered the workflow, whose second pass
+    // finally saw the fresh catalog and committed a SECOND chore(derived) commit
+    // — measured on main: 2cc118d1 (23 files incl. mcp/catalog.json, NOT
+    // docs/catalog.json) then b27ed226 34 s later (docs/catalog.json ONLY), and
+    // d98ba95b → 3bdf2938 the same shape 44 s apart. Every such INTERMEDIATE
+    // commit reddened "OpenAPI freshness" in Scripts Verify (runs 33577615572 /
+    // 33579299274: `stale: …/docs/catalog.json`) — false reds that pattern-match
+    // the weekend runbook's HALT signature. One pass now runs every input writer
+    // first; `after:` pins the LAST of them (check-derived-fanout-coverage.mjs
+    // enforces the edge), so a future re-sort cannot silently re-create the
+    // two-commit cascade.
+    id: 'openapi',
+    regen: 'node scripts/gen-openapi.mjs',
+    gate: 'node scripts/gen-openapi.mjs --check',
+    // docs/catalog.json is a copy of mcp/catalog.json written by this same script
+    // (see scripts/gen-openapi.mjs's own header comment), not by regen_catalog.py —
+    // undeclared here until ASSEMBLE-ART628-1-FIX2 (2026-08-16), which is why it read
+    // as an "escaped" write the first time art-628's tool-count bump made it drift.
+    // ⚠ 'catalog' (mcp/catalog.json) must ALSO precede this entry — it sits before
+    // 'chaingraph-assemble' in the array, so the enforced edge below pins it
+    // transitively. Do not move 'catalog' after 'chaingraph-assemble'.
+    after: 'chaingraph-assemble',
+    artifacts: ['openapi.json', 'docs/openapi.json', 'docs/catalog.json', 'docs/index.html'],
+    share: '27%',
   },
   // ── NODE-REGISTRATION FAN-OUT (NODE-FANOUT-REGEN-CLOSE-1, 2026-08-21) ──────
   // Six surfaces that go stale the moment a node appears in chaingraph.json and
@@ -740,6 +765,27 @@ export function isMainContext() {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
+/** One full write-mode pass over every COVERED generator, in array order.
+ *  Stops on the first generator failure — a half-regenerated tree must never
+ *  reach a commit. (Shared by --regen and --verify's classification pass.) */
+function runRegenPass() {
+  for (const c of COVERED) {
+    process.stdout.write(`▶ ${c.id} … `);
+    try {
+      execSync(c.regen, {
+        cwd: REPO,
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      console.log('ok');
+    } catch (e) {
+      console.log('FAILED');
+      console.error(`\n${c.regen}\n` + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim());
+      process.exit(1);
+    }
+  }
+}
+
 const isMain = process.argv[1] &&
   resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 
@@ -767,22 +813,86 @@ if (isMain) {
     // Run every generator in write mode, in dependency order (counts last: they
     // read numbers the earlier generators establish). Stops on first failure —
     // a half-regenerated tree must never reach a commit.
-    for (const c of COVERED) {
-      process.stdout.write(`▶ ${c.id} … `);
-      try {
-        execSync(c.regen, {
-          cwd: REPO,
-          env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
-        console.log('ok');
-      } catch (e) {
-        console.log('FAILED');
-        console.error(`\n${c.regen}\n` + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim());
-        process.exit(1);
-      }
-    }
+    runRegenPass();
     console.log('\nregen complete');
+  } else if (arg === '--verify') {
+    // REGEN-CASCADE-CONSOLIDATE-1 (2026-09-03): prove the regen pass left every
+    // covered surface fresh, BEFORE the bot commits. Two-tier verdict, because
+    // two different red classes reach this step and only one of them is the
+    // bot's to refuse on:
+    //
+    //   (a) FIXPOINT VIOLATION — a gate red after pass 1 that a SECOND full
+    //       regen pass heals. That is the REGEN-CASCADE-CONSOLIDATE-1 shape
+    //       itself (pass 1 committed fresh mcp/catalog.json + stale
+    //       docs/catalog.json; the re-triggered run healed it in a SECOND bot
+    //       commit, reddening "OpenAPI freshness" on the intermediate — runs
+    //       33577615572 / 33579299274). A one-pass regen must be a fixpoint.
+    //       FAIL HERE: no commit, name the entry, fix the COVERED order.
+    //   (b) CONTENT RED regen cannot heal — a gate still red after the second
+    //       pass (measured instance: ead1b2a8, T667 manifest landed without its
+    //       hand-authored tools.html card; check_index_sync was red on that
+    //       tree, and human commit c91b372a/#1664 landed the missing card). The
+    //       bot's commit neither causes nor heals it, and REFUSING to commit
+    //       would only let every other covered artifact go stale on top of an
+    //       already-red main (a disabled SO #35 writer is strictly worse). WARN
+    //       with the gate named, exit 0 — the same commit-anyway behavior this
+    //       workflow always had for that class, made loud instead of silent.
+    //
+    // Tier decision is made on the RED SET DELTA between the two passes — an
+    // independently recomputed property of the tree (SO #34), never a claim the
+    // regen step makes about itself.
+    //
+    // ⛔ Deliberately NOT wired into preflight.mjs: on a PR these same gates are
+    // ADVISORY BY DESIGN (SO #35 — a shard is forbidden from satisfying them), so
+    // this mode would red every honest PR. It exists for the main-side writer to
+    // prove its own tree before committing it.
+    const runGates = (passLabel) => {
+      const failed = [];
+      for (const c of COVERED) {
+        if (!c.gate) continue;
+        process.stdout.write(`▶ [${passLabel}] ${c.id} … `);
+        try {
+          execSync(c.gate, {
+            cwd: REPO,
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          console.log('ok');
+        } catch (e) {
+          console.log('STALE');
+          console.error(`\n${c.gate}\n` + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim());
+          failed.push(c.id);
+        }
+      }
+      return failed;
+    };
+    const gateCount = COVERED.filter((c) => c.gate).length;
+
+    const red1 = runGates('pass-1');
+    if (red1.length === 0) {
+      console.log(`\n✓ derived-artifacts --verify: all ${gateCount} covered freshness gates green — one pass is a fixpoint on this tree.`);
+      process.exit(0);
+    }
+    console.error(`\n⚠ pass-1 red set (${red1.length}): ${red1.join(', ')} — running ONE second regen pass to classify (fixpoint violation vs un-healable content red) …\n`);
+    runRegenPass();
+    const red2 = runGates('pass-2');
+    const healed = red1.filter((id) => !red2.includes(id));
+    const newlyRed = red2.filter((id) => !red1.includes(id));
+    if (healed.length || newlyRed.length) {
+      if (healed.length) {
+        console.error(`\n✗ derived-artifacts --verify: the regen pass is NOT a fixpoint — ${healed.join(', ')} was stale after pass 1 and fresh after pass 2.`);
+        console.error('  This is the REGEN-CASCADE-CONSOLIDATE-1 class: committing pass 1\'s tree reddens every');
+        console.error('  push-triggered gate suite on the intermediate commit, and a second bot commit then');
+        console.error('  heals it. Fix the ORDER in COVERED (see openapi\'s after: edge) or the generator —');
+        console.error('  do not commit and heal.');
+      }
+      if (newlyRed.length) {
+        console.error(`\n✗ derived-artifacts --verify: second pass BROKE ${newlyRed.join(', ')} (red after pass 2, green after pass 1) — a non-idempotent generator.`);
+      }
+      process.exit(1);
+    }
+    console.warn(`::warning title=Un-healable covered-gate red (content-level)::${red2.join(', ')} stayed red across a second full regen pass. This red is on the PUSHED TREE's hand-authored content, not on the regen (measured instance: ead1b2a8, T667 card missing until #1664). The bot will still commit its fresh regen outputs — main is already red on the content gate either way, and refusing would only let every other covered artifact go stale too.`);
+    process.exit(0);
   } else {
     console.log(`Shared derived artifacts — ${COVERED.length} generators, ${coveredPaths().length} paths`);
     console.log(`context: ${isMainContext() ? 'main (gates BLOCK)' : 'pr (gates WARN)'}\n`);
