@@ -96,9 +96,11 @@ ok(m4.state === 'match', 'step_id omitted ⇒ defaults to tool_id and resolves')
   // __haEvaluate twin, which this row must NOT modify. Assert that the
   // shipped block is UNCHANGED from the pre-row worktree state (git HEAD of
   // the branch base) — i.e. this change's diff does not intersect it.
-  const { execFileSync } = await import('node:child_process');
-  const base = execFileSync('git', ['merge-base', 'HEAD', 'origin/main'], { encoding: 'utf8' }).trim();
-  const baseHtml = execFileSync('git', ['show', `${base}:chaingraph/verify.html`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  // GIT-ENV-LEAK-SWEEP-1 / SO #57: every git child goes through the shared
+  // scrubbed-env wrapper, never a bare execFileSync('git', …).
+  const { gitSync } = await import('../../scripts/_git-env-lib.mjs');
+  const base = gitSync(['merge-base', 'HEAD', 'origin/main'], { cwd: HERE }).trim();
+  const baseHtml = gitSync(['show', `${base}:chaingraph/verify.html`], { cwd: HERE, maxBuffer: 32 * 1024 * 1024 });
   const sig = 'function __haEvaluate({ gatePolicy, threshold, role, subjectHash, records, nowISO }) {';
   function twinBlock(src) { const i = src.indexOf(sig); const j = src.indexOf('\n}', i); return src.slice(i, j); }
   ok(twinBlock(baseHtml) === twinBlock(html), '__haEvaluate twin block byte-identical to the pre-change branch base (cross-check layered outside it)');
