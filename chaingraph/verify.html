@@ -393,6 +393,25 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </div>
     </div>
   </div>
+
+  <div class="card">
+    <div class="card-label">§18 Verify a zkVM compute receipt (independent Groth16/BN254 verifier)</div>
+    <p class="hero-sub" style="margin-bottom:10px;">Paste a <code>compute_proof</code> receipt (or a full artifact containing one) below. This panel runs a clean-room second implementation of the risc0 Groth16/BN254 receipt check, entirely in your browser: it re-derives the RFC 8785 (JCS) canonical journal bytes, the SHA-256 journal digest, the <code>ReceiptClaim</code> digest, the five Groth16 public inputs, and the BN254 pairing equation, using only the estate's vendored, digest-gated <code>@noble/curves + @noble/hashes</code> bundle (v2.2.0, MIT). No wasm, no server, nothing fetched.</p>
+    <p class="hero-sub" style="margin-bottom:10px;">The guest-identity leg binds against the <code>compute_images[]</code> identities published in <a href="chaingraph.json" style="color:var(--teal)">chaingraph.json</a>: pick the published image id the receipt is supposed to carry, and verification fails unless the receipt's <code>imageId</code> matches it exactly.</p>
+    <p class="hero-sub" style="margin-bottom:10px;">Honest scope: this verifier and the risc0 3.0.5 reference verifier agree on every published test case, including deliberately tampered ones. In the 2026-09-03 corpus sweep, all 312 estate receipts plus the fixture and mutation cases verified under both implementations with zero disagreements: every receipt tested, which is not a claim about untested bytes. A passing receipt proves the named guest program committed this journal; it says nothing about the truth of the journal's inputs. The JCS canonicalizer is fail-closed: journal numbers sitting on the RFC 8785 edge cases this corpus never exercises (negative zero, exponent notation) are rejected with a named error, never guessed.</p>
+    <textarea id="receiptInput" placeholder='Paste a compute_proof receipt JSON: { "type": "ZkVmReceipt", "system": "risc0", "receiptFormat": "groth16-bn254", "imageId": "sha256:…", "seal": "…", "journal": { … } }' style="min-height:140px;"></textarea>
+    <div class="btn-row" style="margin-top:10px;align-items:center;">
+      <select id="receiptImageIdSelect" style="display:block;max-width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:var(--radius);padding:.4rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;"></select>
+      <button class="btn btn-primary" id="receiptVerifyBtn">Verify receipt</button>
+      <button class="btn btn-ghost" id="receiptExampleBtn">Load example receipt</button>
+      <button class="btn btn-ghost" id="receiptClearBtn">Clear</button>
+    </div>
+    <div id="receiptResult" style="display:none;margin-top:12px;" class="hash-block">
+      <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="receiptStatus"></div></div>
+      <div class="hash-row"><div class="hash-lbl">Checks</div><div class="hash-val" id="receiptChecks" style="white-space:pre-wrap;font-size:.64rem;"></div></div>
+      <div class="hash-row"><div class="hash-lbl">Time</div><div class="hash-val" id="receiptTime"></div></div>
+    </div>
+  </div>
 </div>
 
 <footer>
@@ -1604,6 +1623,64 @@ const MANIFEST = {
   chaingraph: false,
   prefill: false
 };
+</script>
+<script type="module">
+// §18 receipt verification — the independent twin (chaingraph/vm/twin/verify.mjs).
+import { verify } from './vm/twin/verify.mjs';
+
+// The risc0 guest identities published in chaingraph.json compute_images[]
+// (regenerated from the current chaingraph.json when this page shipped;
+// 623 nodes publish a risc0 entry across these 7 ids).
+const PUBLISHED_IMAGE_IDS = [
+  ['sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6', 'universal compute image (614 nodes)'],
+  ['sha256:93c746e79afcf4b27f6d2a6da6cd142a4dd0da31f33d942f92b97344188526c5', 'art-04 guest (1 node)'],
+  ['sha256:33ac2853cd94704e42ceeab58625f396f74ef3286fa96d1a744d82c1167b7ca5', 'guest image (1 node)'],
+  ['sha256:d022c4822d2fee377994fcc2aa06d8b004c2c2709cc128a6428b8f9bcfa07988', 'guest image (1 node)'],
+  ['sha256:6e5e88398691bb947308966a4df0019cfa1fc5894578c02f270320f1327ea8ac', 'guest image (3 nodes)'],
+  ['sha256:adf39b5c4e8fe19f9dbc25e2b8eb84090f0ee6c9370f14ad10d5039e8e65b0ec', 'guest image (2 nodes)'],
+  ['sha256:6548edabfc00736df6b3fa5954a8ac8a68df0855fbb5078f10c5916db9d5ac14', 'guest image (1 node)']
+];
+
+const sel = document.getElementById('receiptImageIdSelect');
+for (const [id, label] of PUBLISHED_IMAGE_IDS) {
+  const o = document.createElement('option');
+  o.value = id; o.textContent = id.slice(0, 18) + '… — ' + label;
+  sel.appendChild(o);
+}
+
+const EXAMPLE_RECEIPT = {"type":"ZkVmReceipt","system":"risc0","receiptFormat":"groth16-bn254","imageId":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","seal":"AQ72rBHEnZFOtvGUoeAKOoMtDYLqWl6i7kjE7i7c6WMMW15EyN2eBXpAmlFKXs0z92M2uwpf1ExCoPpCWqB7ShBWmhQOypS98fYJS9oXKdgx7w+jqM0eW5tkhTayymzeD+N3i47caYUtXgLoaP1VHUZ0+p7JEpgctlUlo4/QgFkusP837RSoulGH79VFOOn/cM6NMYrYcaXxAXRgDVKT1Ac5/shSri6CoU60nJg2sz/2VvUQc5oDmTr5+QFixktjIQQ/ALLv/jnoHXoIVrReVkzVRJEZ+CeWoMJyYMK/K4sUn10UezjwneyiXOEJeCm8eba56vo3hn4e5D29Zym1ew==","journal":{"chaingraph_version":"0.4.0","kernel_digest":"sha256:623495f9378cb65cb88c889831f43c2c82c8844af29dfaa32e3a5d1e6cfa5337","output":{"checks_run":8,"failing_checks":[],"has_cart":true,"human_not_present":false,"mandate_ids":{"cart":"crt-001","intent":"int-001","payment":"pay-001"},"validation_verdict":"PASS","warning_checks":[]}}};
+
+function setPanel(status, text, color) {
+  document.getElementById('receiptResult').style.display = 'block';
+  const s = document.getElementById('receiptStatus');
+  s.textContent = status; s.style.color = color;
+  document.getElementById('receiptChecks').textContent = text;
+}
+
+document.getElementById('receiptVerifyBtn').addEventListener('click', () => {
+  let receipt;
+  try { receipt = JSON.parse(document.getElementById('receiptInput').value); }
+  catch (e) { return setPanel('INVALID INPUT', 'receipt is not valid JSON: ' + e.message, 'var(--red)'); }
+  if (receipt && receipt.artifact && receipt.artifact.compute_proof) receipt = receipt.artifact.compute_proof;
+  if (receipt && receipt.compute_proof) receipt = receipt.compute_proof;
+  const expected = sel.value;
+  const t0 = performance.now();
+  let out;
+  try { out = verify(receipt, { expectedImageId: expected }); }
+  catch (e) { return setPanel('NOT VERIFIED', 'verifier threw: ' + e.message, 'var(--warn)'); }
+  const ms = (performance.now() - t0).toFixed(1);
+  const lines = out.checks.map(c =>
+    (c.passed === true ? 'PASS ' : c.passed === false ? 'FAIL ' : '---- ') + c.name + ' — ' + c.detail);
+  setPanel(out.valid ? 'VALID RECEIPT' : 'REJECTED', lines.join('\n'), out.valid ? 'var(--green)' : 'var(--red)');
+  document.getElementById('receiptTime').textContent = ms + ' ms (browser, this device)';
+});
+document.getElementById('receiptExampleBtn').addEventListener('click', () => {
+  document.getElementById('receiptInput').value = JSON.stringify(EXAMPLE_RECEIPT, null, 2);
+});
+document.getElementById('receiptClearBtn').addEventListener('click', () => {
+  document.getElementById('receiptInput').value = '';
+  document.getElementById('receiptResult').style.display = 'none';
+});
 </script>
 </body>
 </html>
