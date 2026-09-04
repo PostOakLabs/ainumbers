@@ -88,6 +88,193 @@ function beginLine(manifestPath) {
   return `<!-- WEBMCP:GEN-BEGIN manifest=${manifestPath} generator=scripts/gen-webmcp-registrations.mjs -->`;
 }
 
+// ── Per-tool manifest-property → element-id map (WEBMCP-GEN-IDMAP-1) ──────────
+/**
+ * Authored per-entry by WEBMCP-GEN-IDMAP-1 under Tim's 2026-09-04 ruling.
+ * ⛔ NOT a snake↔camel heuristic — a transform can silently bind a wrong
+ * control. Every entry below was authored against the page's real control by
+ * reading the page's own param-assembly code; the comment cites that read path
+ * (file:line) as the justification. Consulted ONLY when the literal id guard
+ * (G2, `id="<prop>"`) fails; unmapped properties still require the literal id.
+ * `via` is how the emitted execute() writes the value:
+ *   'string'     .value = String(params.p)          (default for string/number/unknown)
+ *   'json'       .value = JSON.stringify(params.p)  (JSON-text textarea/select controls)
+ *   'checked'    .checked = params.p === true       (real checkbox)
+ *   'boolstring' .value = String(params.p === true) (select whose values are "true"/"false")
+ * A property with no faithful control on its page gets NO entry and the tool
+ * stays excluded — honest exclusion, never a guess.
+ */
+export const propertyIdMap = {
+  // art-12 runCheck reads exactly these two controls:
+  //   chaingraph/art-12-acp-checkout-conformance-validator.html:645-646
+  'art-12-acp-checkout-conformance-validator': {
+    payload: { element_id: 'payloadInput', via: 'json' },
+    message_type_override: { element_id: 'msgType', via: 'string' },
+  },
+  // art-32 validateChain reads cardInput/chainInput/spendInput textareas:
+  //   chaingraph/art-32-a2a-agent-card-trust-chain-validator.html:644,651,663
+  'art-32-a2a-agent-card-trust-chain-validator': {
+    agent_card: { element_id: 'cardInput', via: 'json' },
+    delegation_chain: { element_id: 'chainInput', via: 'json' },
+    spend_policy: { element_id: 'spendInput', via: 'json' },
+  },
+  // art-133 pp assembly reads dir/sig_ok as 'true'/'false' selects:
+  //   chaingraph/art-133-agent-payment-rail-trust-crosswalk.html:309
+  'art-133-agent-payment-rail-trust-crosswalk': {
+    directory_published: { element_id: 'dir', via: 'boolstring' },
+    signature_verified: { element_id: 'sig_ok', via: 'boolstring' },
+  },
+  // art-134 reads all five via b(id)=…value==='true' (loadPreset names the ids):
+  //   chaingraph/art-134-agent-directory-publish-readiness.html:298,331
+  'art-134-agent-directory-publish-readiness': {
+    well_known_path_ok: { element_id: 'wkpath', via: 'boolstring' },
+    jwks_reachable: { element_id: 'reachable', via: 'boolstring' },
+    card_complete: { element_id: 'card', via: 'boolstring' },
+    rotation_posture_ok: { element_id: 'rotation', via: 'boolstring' },
+    alg_ed25519: { element_id: 'alg_ed', via: 'boolstring' },
+  },
+  // art-560 pp assembly: pair/subs/thr/stale/prev (mode and epoch match literally):
+  //   chaingraph/art-560-oracle-price-aggregation.html:622-632
+  'art-560-oracle-price-aggregation': {
+    currency_pair: { element_id: 'pair', via: 'string' },
+    submissions: { element_id: 'subs', via: 'json' },
+    outlier_threshold_pct: { element_id: 'thr', via: 'string' },
+    stale_after_seconds: { element_id: 'stale', via: 'string' },
+    prev_print_hash: { element_id: 'prev', via: 'string' },
+  },
+  // art-590 pp assembly reads every EIP-712 domain/auth field:
+  //   chaingraph/art-590-x402-eip712-digest-recomputer.html:1497-1506
+  'art-590-x402-eip712-digest-recomputer': {
+    name: { element_id: 'domName', via: 'string' },
+    version: { element_id: 'domVersion', via: 'string' },
+    chainId: { element_id: 'domChainId', via: 'string' },
+    verifyingContract: { element_id: 'domVerifyingContract', via: 'string' },
+    from: { element_id: 'authFrom', via: 'string' },
+    to: { element_id: 'authTo', via: 'string' },
+    value: { element_id: 'authValue', via: 'string' },
+    validAfter: { element_id: 'authValidAfter', via: 'string' },
+    validBefore: { element_id: 'authValidBefore', via: 'string' },
+    nonce: { element_id: 'authNonce', via: 'string' },
+  },
+  // art-591 pp assembly (recovery inputs):
+  //   chaingraph/art-591-x402-signer-recovery-verifier.html:5901-5908
+  'art-591-x402-signer-recovery-verifier': {
+    digest: { element_id: 'inDigest', via: 'string' },
+    signature: { element_id: 'inSignature', via: 'string' },
+    r: { element_id: 'inR', via: 'string' },
+    s: { element_id: 'inS', via: 'string' },
+    v: { element_id: 'inV', via: 'string' },
+    yParity: { element_id: 'inYParity', via: 'string' },
+    chainId: { element_id: 'inChainId', via: 'string' },
+    claimedFrom: { element_id: 'inClaimedFrom', via: 'string' },
+  },
+  // art-592 pp assembly; nonce_already_used is a ''/'true'/'false' select read
+  // as usedSel==='true': chaingraph/art-592-x402-domain-nonce-window-checker.html:453-462
+  'art-592-x402-domain-nonce-window-checker': {
+    expected_chain_id: { element_id: 'expChainId', via: 'string' },
+    expected_verifying_contract: { element_id: 'expVerifyingContract', via: 'string' },
+    chainId: { element_id: 'sigChainId', via: 'string' },
+    verifyingContract: { element_id: 'sigVerifyingContract', via: 'string' },
+    now_unix: { element_id: 'nowUnix', via: 'string' },
+    nonce_already_used: { element_id: 'nonceAlreadyUsed', via: 'boolstring' },
+  },
+  // art-595 pp assembly (cart hash-chain inputs):
+  //   chaingraph/art-595-ap2-cartmandate-hashchain-builder.html:756-767
+  'art-595-ap2-cartmandate-hashchain-builder': {
+    agent_id: { element_id: 'agentId', via: 'string' },
+    cart_items: { element_id: 'cartItems', via: 'json' },
+    claimed_links: { element_id: 'claimedLinks', via: 'json' },
+  },
+  // art-596 pp assembly (cartRoot/cartItems/x402Evidence; merchant matches literally):
+  //   chaingraph/art-596-ap2-x402-cart-correlation.html:814-819
+  'art-596-ap2-x402-cart-correlation': {
+    cart_root: { element_id: 'cartRoot', via: 'string' },
+    cart_items: { element_id: 'cartItems', via: 'json' },
+    x402_spend_evidence: { element_id: 'x402Evidence', via: 'json' },
+  },
+  // art-605 pp assembly (encoding select, pair_sort checkbox, claimed path JSON):
+  //   chaingraph/art-605-merkle-airdrop-proof-verifier.html:864-876
+  'art-605-merkle-airdrop-proof-verifier': {
+    encoding_variant: { element_id: 'encodingVariant', via: 'string' },
+    pair_sort: { element_id: 'pairSort', via: 'checked' },
+    claimed_root: { element_id: 'claimedRoot', via: 'string' },
+    claimed_path: { element_id: 'claimedPath', via: 'json' },
+  },
+  // art-610 pp assembly (vault-share math inputs, incl. snapshot_b JSON):
+  //   chaingraph/art-610-erc4626-vault-share-math.html:680-699
+  'art-610-erc4626-vault-share-math': {
+    total_assets: { element_id: 'totalAssets', via: 'string' },
+    total_supply: { element_id: 'totalSupply', via: 'string' },
+    virtual_amounts: { element_id: 'virtualAmounts', via: 'checked' },
+    decimals_offset: { element_id: 'decimalsOffset', via: 'string' },
+    round_trip_assets: { element_id: 'roundTripAssets', via: 'string' },
+    snapshot_b: { element_id: 'snapshotB', via: 'json' },
+    fee_bps: { element_id: 'feeBps', via: 'string' },
+    fee_basis: { element_id: 'feeBasis', via: 'string' },
+    chain_id: { element_id: 'chainId', via: 'string' },
+    network_label: { element_id: 'networkLabel', via: 'string' },
+  },
+  // art-613 pp assembly (_val/_optVal name every control explicitly):
+  //   chaingraph/art-613-erc4337-userop-math.html:1753-1771
+  'art-613-erc4337-userop-math': {
+    entryPointVersion: { element_id: 'epVersion', via: 'string' },
+    entryPoint: { element_id: 'epAddress', via: 'string' },
+    chainId: { element_id: 'opChainId', via: 'string' },
+    sender: { element_id: 'opSender', via: 'string' },
+    nonce: { element_id: 'opNonce', via: 'string' },
+    initCode: { element_id: 'opInitCode', via: 'string' },
+    callData: { element_id: 'opCallData', via: 'string' },
+    paymasterAndData: { element_id: 'opPaymasterAndData', via: 'string' },
+    callGasLimit: { element_id: 'opCallGasLimit', via: 'string' },
+    verificationGasLimit: { element_id: 'opVerificationGasLimit', via: 'string' },
+    preVerificationGas: { element_id: 'opPreVerificationGas', via: 'string' },
+    maxFeePerGas: { element_id: 'opMaxFeePerGas', via: 'string' },
+    maxPriorityFeePerGas: { element_id: 'opMaxPriorityFeePerGas', via: 'string' },
+    declaredBaseFeePerGas: { element_id: 'opDeclaredBaseFee', via: 'string' },
+    declaredActualGasUsed: { element_id: 'recGasUsed', via: 'string' },
+    declaredActualGasCostWei: { element_id: 'recGasCost', via: 'string' },
+    declaredL1DataFeeWei: { element_id: 'recL1Fee', via: 'string' },
+    reconciliationToleranceWei: { element_id: 'recTolerance', via: 'string' },
+  },
+  // art-614 pp assembly (authorization tuple inputs):
+  //   chaingraph/art-614-eip7702-authorization-tuple-decoder.html:5942-5949
+  'art-614-eip7702-authorization-tuple-decoder': {
+    chainId: { element_id: 'inChainId', via: 'string' },
+    address: { element_id: 'inAddress', via: 'string' },
+    nonce: { element_id: 'inNonce', via: 'string' },
+    signature: { element_id: 'inSignature', via: 'string' },
+    r: { element_id: 'inR', via: 'string' },
+    s: { element_id: 'inS', via: 'string' },
+    v: { element_id: 'inV', via: 'string' },
+    yParity: { element_id: 'inYParity', via: 'string' },
+  },
+  // art-615 pp assembly (charge type select + two checkboxes):
+  //   chaingraph/art-615-mla-charge-inclusion-classifier.html:304-306
+  'art-615-mla-charge-inclusion-classifier': {
+    charge_type: { element_id: 'chargeType', via: 'string' },
+    is_credit_card_account: { element_id: 'isCreditCard', via: 'checked' },
+    short_term_exception_claimed: { element_id: 'shortTerm', via: 'checked' },
+  },
+  // art-634 pp assembly (four checkboxes + spec item select/input):
+  //   chaingraph/art-634-codm-expense-significance-classifier.html:248-252
+  'art-634-codm-expense-significance-classifier': {
+    included_in_segment_profit_measure: { element_id: 'included', via: 'checked' },
+    regularly_provided_to_codm: { element_id: 'regularly', via: 'checked' },
+    easily_computable_from_codm_information: { element_id: 'easily', via: 'checked' },
+    assessed_significant: { element_id: 'significant', via: 'checked' },
+    specified_item_50_22: { element_id: 'specItem', via: 'string' },
+  },
+  // art-635 pp assembly (two selects, two numbers, one checkbox):
+  //   chaingraph/art-635-rate-rec-5pct-threshold-classifier.html:266-270
+  'art-635-rate-rec-5pct-threshold-classifier': {
+    reconciling_item_category: { element_id: 'category', via: 'string' },
+    reconciling_item_amount: { element_id: 'amount', via: 'string' },
+    pretax_income: { element_id: 'pretax', via: 'string' },
+    statutory_rate_pct: { element_id: 'rate', via: 'string' },
+    entity_is_public_business_entity: { element_id: 'isPbe', via: 'checked' },
+  },
+};
+
 // ── Guard helpers ─────────────────────────────────────────────────────────────
 
 function fail(msg) {
@@ -152,13 +339,20 @@ export function checkManifestSchemaParity(m) {
   return null;
 }
 
-/** G2/G3/G4: element-id mapping, compute function, result global, ownership. */
-export function verifyPageMapping(manifest, pageSrc, pageLabel) {
+/** G2/G3/G4: element-id mapping, compute function, result global, ownership.
+ *  `idMap` (optional) is the tool's propertyIdMap entry: mapped properties are
+ *  checked against their authored element_id (the mapping cannot go stale
+ *  silently — a mapped id absent from the page is a hard refusal). */
+export function verifyPageMapping(manifest, pageSrc, pageLabel, idMap) {
   const def = manifest.mcp_tool_definition;
   const props = Object.keys(def.inputSchema.properties);
-  const missing = props.filter((p) => !new RegExp(`id=["']${p}["']`).test(pageSrc));
+  const map = idMap || {};
+  const missing = props.filter((p) => {
+    const target = map[p] ? map[p].element_id : p;
+    return !new RegExp(`id=["']${target}["']`).test(pageSrc);
+  });
   if (missing.length > 0) {
-    return { error: `${pageLabel}: form-element mapping incomplete, inputSchema properties with no matching element id: ${missing.join(', ')}` };
+    return { error: `${pageLabel}: form-element mapping incomplete, inputSchema properties with no matching element id: ${missing.map((p) => (map[p] ? `${p} -> #${map[p].element_id} (mapped)` : p)).join(', ')}` };
   }
   const fn = manifest.execution.function_name;
   if (!new RegExp(`function\\s+${fn}\\s*\\(`).test(pageSrc)) {
@@ -202,11 +396,14 @@ function validationLine(prop, type) {
   }
 }
 
-function mappingLine(prop, type, optional) {
+function mappingLine(prop, type, optional, entry) {
+  const via = entry ? entry.via : null;
+  const id = entry ? entry.element_id : prop;
   let expr;
-  if (type === 'boolean') expr = `document.getElementById('${jsStr(prop)}').checked = params.${prop} === true;`;
-  else if (type === 'array' || type === 'object') expr = `document.getElementById('${jsStr(prop)}').value = JSON.stringify(params.${prop});`;
-  else expr = `document.getElementById('${jsStr(prop)}').value = String(params.${prop});`;
+  if (via === 'checked' || (!via && type === 'boolean')) expr = `document.getElementById('${jsStr(id)}').checked = params.${prop} === true;`;
+  else if (via === 'boolstring') expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop} === true);`;
+  else if (via === 'json' || type === 'array' || type === 'object') expr = `document.getElementById('${jsStr(id)}').value = JSON.stringify(params.${prop});`;
+  else expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop});`;
   return optional ? `if (params.${prop} !== undefined) ${expr}` : expr;
 }
 
@@ -214,11 +411,12 @@ function mappingLine(prop, type, optional) {
  * Builds the marker-delimited block for one tool page. Pure: same inputs, same
  * bytes (RESULT_GLOBAL is substituted by buildBlockForPage).
  */
-export function buildBlock(manifest, manifestPath) {
+export function buildBlock(manifest, manifestPath, idMap) {
   const def = manifest.mcp_tool_definition;
   const props = Object.entries(def.inputSchema.properties);
   const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
   const fn = manifest.execution.function_name;
+  const map = idMap || {};
   const lines = [];
   lines.push(beginLine(manifestPath));
   lines.push('<script>');
@@ -248,7 +446,7 @@ export function buildBlock(manifest, manifestPath) {
     if (required.includes(name)) lines.push(`      ${validationLine(name, spec.type)}`);
   }
   for (const [name, spec] of props) {
-    lines.push(`      ${mappingLine(name, spec.type, !required.includes(name))}`);
+    lines.push(`      ${mappingLine(name, spec.type, !required.includes(name), map[name])}`);
   }
   lines.push(`      await ${fn}();`);
   lines.push('      return RESULT_GLOBAL;');
@@ -264,8 +462,8 @@ export function buildBlock(manifest, manifestPath) {
 }
 
 /** buildBlock with the page's verified result global substituted in. */
-export function buildBlockForPage(manifest, manifestPath, resGlobal) {
-  return buildBlock(manifest, manifestPath).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
+export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap) {
+  return buildBlock(manifest, manifestPath, idMap).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
 }
 
 function regionOf(pageSrc) {
@@ -329,7 +527,7 @@ export function adjudicateTool(toolId, repoRoot, manifestIndex, mcpNameByTool) {
   }
 
   const pageSrc = readFileSync(pageAbs, 'utf8');
-  const mapped = verifyPageMapping(loaded.m, pageSrc, pageRel);
+  const mapped = verifyPageMapping(loaded.m, pageSrc, pageRel, propertyIdMap[toolId]);
   if (mapped.error) return { toolId, ok: false, reason: mapped.error };
 
   return {
@@ -357,9 +555,9 @@ function expectedBlock(toolId, manifestIndex, mcpNameByTool, repoRoot) {
   const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot);
   if (loaded.error) throw new Error(loaded.error);
   const pageSrc = readRepoFile(`chaingraph/${toolId}.html`, repoRoot);
-  const mapped = verifyPageMapping(loaded.m, pageSrc, toolId);
+  const mapped = verifyPageMapping(loaded.m, pageSrc, toolId, propertyIdMap[toolId]);
   if (mapped.error) throw new Error(mapped.error);
-  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal);
+  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId]);
 }
 
 function runCheck() {
@@ -542,6 +740,28 @@ function selftest() {
     const badPage = pageBody.replace('<input id="rows">', '');
     const refused = verifyPageMapping(manifest, badPage, 'fixture page');
     check('G2 refusal names the missing id (rows)', !!(refused.error && refused.error.includes('rows')));
+
+    // 6b. propertyIdMap staleness guard (WEBMCP-GEN-IDMAP-1): a mapping whose
+    // target element_id does NOT exist on the page FAILS — the table cannot go
+    // stale silently. (Red-before-green proof for the mapped-id guard.)
+    const staleMap = { principal: { element_id: 'no_such_control', via: 'string' } };
+    const refusedStale = verifyPageMapping(manifest, pageBody, 'fixture page', staleMap);
+    check('mapped id absent from page FAILS (staleness guard)',
+      !!(refusedStale.error && refusedStale.error.includes('no_such_control') && refusedStale.error.includes('(mapped)')));
+
+    // 6c. A valid mapping binds emission to the authored element_id.
+    const mappedPage = pageBody.replace('<input id="principal">', '<input id="amtInput">');
+    const okMapped = verifyPageMapping(manifest, mappedPage, 'fixture page', { principal: { element_id: 'amtInput', via: 'string' } });
+    check('valid mapping passes G2 against the authored element_id', !okMapped.error);
+    const mappedBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { principal: { element_id: 'amtInput', via: 'string' } });
+    check('emission writes the mapped element_id, not the property name', mappedBlock.includes("document.getElementById('amtInput').value = String(params.principal);") && !mappedBlock.includes("getElementById('principal')"));
+    // Unmapped properties keep the literal guard even when a map is present.
+    const partialMap = { principal: { element_id: 'amtInput', via: 'string' } };
+    const refusedPartial = verifyPageMapping(manifest, pageBody, 'fixture page', partialMap);
+    check('unmapped property still requires its literal id under a mapping', !!(refusedPartial && refusedPartial.error && refusedPartial.error.includes('principal') && !refusedPartial.error.includes('label')));
+    // boolstring via emits a 'true'/'false' select write, not .checked.
+    const boolBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { flag: { element_id: 'flag', via: 'boolstring' } });
+    check("boolstring via emits .value = String(params.x === true)", boolBlock.includes("document.getElementById('flag').value = String(params.flag === true);") && !boolBlock.includes("getElementById('flag').checked"));
 
     // 7. G3 refusal: no result global -> refused.
     const noRes = pageBody
