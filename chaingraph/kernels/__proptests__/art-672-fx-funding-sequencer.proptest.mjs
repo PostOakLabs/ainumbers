@@ -1,6 +1,6 @@
 // art-672-fx-funding-sequencer.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
 // spec: FX-SEQUENCER-BUILD-SPEC.md (workspace root).
-// kernel_digest_at_authoring: sha256:879132cb82c2837bd7d6357b38c315886046c98e965fd4b9b548157ca4bc7658
+// kernel_digest_at_authoring: sha256:7a8bdff517f46e0feecd70c62f7074135cbea33f386252dd61b94007206771ca
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only, NOT a proof. float_sensitive: NO -- all math is integer minutes

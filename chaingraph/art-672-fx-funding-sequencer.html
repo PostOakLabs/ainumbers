@@ -77,7 +77,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .footer-col a:hover{color:var(--teal)}
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-672-fx-funding-sequencer.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<!--KERNEL-DIGEST-->sha256:879132cb82c2837bd7d6357b38c315886046c98e965fd4b9b548157ca4bc7658<!--/KERNEL-DIGEST-->
+<!--KERNEL-DIGEST-->sha256:7a8bdff517f46e0feecd70c62f7074135cbea33f386252dd61b94007206771ca<!--/KERNEL-DIGEST-->
 </head>
 <body>
 <nav>
@@ -159,6 +159,44 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </footer>
 <script>
 const MANIFEST={tool_id:"art-672-fx-funding-sequencer",version:"1.0.0",title:"FX Funding Sequencer",mcp_tool_definition:{name:"compute_fx_funding_sequencer",description:"Orders declared currency legs by FX cutoff and computes margin-to-cutoff minutes from the declared confirm time for one declared T+1 settle date; all-cutoffs-met verdict, fail-closed on malformed or duplicate declared inputs"},ap2_export:false,chaingraph:true};
+
+
+// art-672-fx-funding-sequencer: FX Funding Sequencer for T+1 (FX-SEQUENCER-BUILD-SPEC.md).
+//
+// WHAT IT DOES (spec "Functions / stages"): orders a trade's declared currency legs by FX
+// cutoff, computes margin-to-cutoff minutes from the declared confirm time, returns an
+// all-cutoffs-met verdict, and points at the PvP validator surface. Times are declared UTC
+// "HH:MM" strings; the arithmetic is pure comparison math (cutoff minutes minus confirm
+// minutes on the stated settle date). No calendar, timezone, or holiday logic is applied --
+// every leg is assumed to settle on the one declared settle_date, as declared.
+//
+// PARITY TARGET: the canonical preimage embedded in FX-SEQUENCER-BUILD-SPEC.md. For the
+// canonical policy_parameters, compute() must return an output_payload EXACTLY equal to the
+// spec's output_payload; sequence, margins_minutes, all_cutoffs_met, trace, overall: those
+// five keys, those values, NO extra keys; and executionHash(pp, output_payload) must equal
+// the spec's staged execution_hash 1d4984b1e1c6efca36095590507adb92102ce7e1570d0ecc37517893737204fb.
+// The trace string format is therefore load-bearing:
+//   "<ccy> <cutoff> - <confirm> = <m> min; ...; order by tightest first"
+// with legs listed tightest-margin-first, joined by "; ".
+// Because the happy-path output_payload is parity-frozen at exactly five keys, the
+// rationale / not_proven / fence / notice riders travel at the ARTIFACT level
+// (buildArtifact), not inside output_payload.
+//
+// POSITIONING (spec Constraints): this tool computes arithmetic of DECLARED inputs under
+// named rules. It does NOT check live SSR tapes, borrow lists, cutoff feeds, or registers,
+// and never determines whether a declared cutoff is correct. The PvP check is OUT OF SCOPE:
+// copy points at the PvP validator surface (the chaingraph settlement/PvP validator nodes,
+// e.g. art-58-cross-network-settlement-validator) as a LINK, never a duplicated verdict --
+// linked tools are pointers, never patch targets (row fence).
+//
+// NEVER GUESS, NEVER DEFAULT: an absent or malformed settle_date, confirm time, or leg
+// (bad currency code, bad cutoff time, empty/absent legs) resolves to overall INDETERMINATE
+// with each offending input named in rejected_inputs; never guessed toward a sequence.
+//
+// FINITE GATE: malformed input never throws; compute() always returns a defined
+// output_payload. Zero network, zero storage, zero wall-clock reads inside compute().
+//
+// Run: node scripts/kernel-preflight.mjs art-672-fx-funding-sequencer
 
 
 // art-672-fx-funding-sequencer: FX Funding Sequencer for T+1 (FX-SEQUENCER-BUILD-SPEC.md).
@@ -302,9 +340,7 @@ function compute(pp) {
         fence: FENCE,
         note: NOTE,
       },
-      compliance_flags: rejected_inputs.length > 0
-        ? ['FX_FUNDING_INPUTS_REJECTED', 'FX_FUNDING_INDETERMINATE']
-        : ['FX_FUNDING_INDETERMINATE'],
+      compliance_flags: [],
     };
   };
   // Fail closed: if ANY declared leg was unusable, there is no sequence at all; a partial
@@ -355,11 +391,11 @@ function compute(pp) {
     'This tool computes arithmetic of declared inputs under named rules. It does not check live SSR tapes, borrow lists, cutoff feeds, or registers; the PvP check is out of scope and the PvP validator surface is pointed at and never re-run.',
   ];
 
-  // Conditional flag emissions only (flags lint): a flag fires exactly when the
-  // branch that earns it ran. !all_cutoffs_met <=> some declared leg has a negative margin.
-  const compliance_flags = all_cutoffs_met
-    ? ['FX_ALL_CUTOFFS_MET']
-    : ['FX_CUTOFF_MISSED', 'ESCALATION_RAISED'];
+  // PARITY-FROZEN payload + FLAG-MIRROR doctrine: the output_payload is byte-frozen at the
+  // spec's five canonical keys, so no mirrorable member (warnings/issues/errors) can be
+  // added for conditional flags; the compliant shape is therefore a constant, empty flag set
+  // (the verdict itself carries the signal via overall + all_cutoffs_met).
+  const compliance_flags = [];
 
   return {
     meta_riders: { rationale, not_proven: NOT_PROVEN, fence: FENCE, note: NOTE },

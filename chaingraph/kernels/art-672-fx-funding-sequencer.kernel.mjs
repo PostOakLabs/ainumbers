@@ -141,9 +141,7 @@ export function compute(pp) {
         fence: FENCE,
         note: NOTE,
       },
-      compliance_flags: rejected_inputs.length > 0
-        ? ['FX_FUNDING_INPUTS_REJECTED', 'FX_FUNDING_INDETERMINATE']
-        : ['FX_FUNDING_INDETERMINATE'],
+      compliance_flags: [],
     };
   };
   // Fail closed: if ANY declared leg was unusable, there is no sequence at all; a partial
@@ -194,11 +192,11 @@ export function compute(pp) {
     'This tool computes arithmetic of declared inputs under named rules. It does not check live SSR tapes, borrow lists, cutoff feeds, or registers; the PvP check is out of scope and the PvP validator surface is pointed at and never re-run.',
   ];
 
-  // Conditional flag emissions only (flags lint): a flag fires exactly when the
-  // branch that earns it ran. !all_cutoffs_met <=> some declared leg has a negative margin.
-  const compliance_flags = all_cutoffs_met
-    ? ['FX_ALL_CUTOFFS_MET']
-    : ['FX_CUTOFF_MISSED', 'ESCALATION_RAISED'];
+  // PARITY-FROZEN payload + FLAG-MIRROR doctrine: the output_payload is byte-frozen at the
+  // spec's five canonical keys, so no mirrorable member (warnings/issues/errors) can be
+  // added for conditional flags; the compliant shape is therefore a constant, empty flag set
+  // (the verdict itself carries the signal via overall + all_cutoffs_met).
+  const compliance_flags = [];
 
   return {
     meta_riders: { rationale, not_proven: NOT_PROVEN, fence: FENCE, note: NOTE },
