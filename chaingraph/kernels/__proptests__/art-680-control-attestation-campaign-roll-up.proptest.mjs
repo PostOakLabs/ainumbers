@@ -1,6 +1,6 @@
 // art-680-control-attestation-campaign-roll-up — class-K property-test FLOOR.
 // Authored by ATTEST-CAMPAIGN-BUILD-1 per ATTEST-CAMPAIGN-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:e7f55934d187601e87bc4b13e438fec0ca624b07f1c5f17d3dde3059f856175f
+// kernel_digest_at_authoring: sha256:ee9ed419ccbe7db7955e9e733873a1d85d7107239c6d930490eb2e393be9b4a5
 // spec: ATTEST-CAMPAIGN-BUILD-SPEC.md (workspace root)
 // human_sign_off: PENDING
 //
