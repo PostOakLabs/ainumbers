@@ -1,0 +1,69 @@
+{
+  "tool_id": "679-orsa-readiness-pack",
+  "version": "1.0.0",
+  "title": "ORSA Readiness Pack",
+  "description": "Deterministic ORSA readiness arithmetic over caller-declared synthetic inputs, checked against the duties inserted into Solvency II by Directive (EU) 2025/2: the two long-term climate scenarios of Article 45a(2) and the liquidity risk management plan of Article 144a(2). Computes scenarios_missing as the declared required set minus the declared run set, liquidity_plan as DOCUMENTED or MISSING, and an overall READY or NOT_READY verdict. No undertaking, no scenario engine, no supervisor, no network, no clock.",
+  "category": "insurance",
+  "tags": ["ORSA", "Solvency II", "climate scenario", "orderly transition", "disorderly transition", "liquidity plan", "Directive 2025/2", "EIOPA", "zero network", "zero-PII"],
+  "audience": ["insurers", "reinsurers", "risk functions", "actuarial", "compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "scenarios_required": {
+        "type": "array",
+        "description": "Declared required scenario set; the directive pair is orderly_transition and disorderly_transition (Art 45a(2)).",
+        "items": { "type": "string" }
+      },
+      "scenarios_run": {
+        "type": "array",
+        "description": "Declared scenario set actually run; may be empty.",
+        "items": { "type": "string" }
+      },
+      "liquidity_plan_documented": {
+        "type": "boolean",
+        "description": "True when a liquidity risk management plan is documented and up to date (Art 144a(2))."
+      },
+      "capital_contingency_note": {
+        "type": "string",
+        "description": "Optional declared capital-contingency note, echoed into the trace verbatim."
+      },
+      "board_sign_off_reference": {
+        "type": "string",
+        "description": "Optional declared board sign-off record pointer, echoed into the trace verbatim."
+      }
+    },
+    "required": ["scenarios_required", "scenarios_run", "liquidity_plan_documented"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "scenarios_missing": { "type": ["array", "null"], "description": "Required set minus run set, declared order preserved; null on the fail-closed path." },
+      "liquidity_plan": { "type": ["string", "null"], "enum": ["DOCUMENTED", "MISSING", null], "description": "Read of the declared liquidity-plan flag." },
+      "trace": { "type": "string", "description": "Full set-difference and flag trace, or the fail-closed reasons naming each rejected input." },
+      "overall": { "type": ["string", "null"], "enum": ["READY", "NOT_READY", null], "description": "READY only when nothing is missing and the plan is documented." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_orsa_readiness_pack",
+    "description": "Computes an ORSA readiness pack from declared inputs: scenarios_missing as the declared required climate scenario set minus the declared run set (Directive (EU) 2025/2 Art 45a(2) pair as the documentary default), liquidity_plan from the declared documentation flag (Art 144a(2)), and an overall READY or NOT_READY verdict. Readiness arithmetic over caller-declared synthetic inputs only: no materiality assessment, no legal advice, and nothing is filed anywhere.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scenarios_required": { "type": "array", "description": "declared required scenario names" },
+        "scenarios_run": { "type": "array", "description": "declared run scenario names" },
+        "liquidity_plan_documented": { "type": "boolean", "description": "true when the liquidity plan is documented" }
+      },
+      "required": ["scenarios_required", "scenarios_run", "liquidity_plan_documented"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/679-orsa-readiness-pack.html",
+    "function_name": "runOrsaReadinessPack",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by ORSA-READINESS-BUILD-1 per ORSA-READINESS-BUILD-SPEC.md. Primary text (SO #38): Directive (EU) 2025/2 Art 45a(2) and Art 144a(2) quoted in the kernel source and in board/queued/ORSA-READINESS-BUILD-1.md before any constant landed. Scope positioning: a readiness checker over caller-declared synthetic inputs, not legal advice, not a materiality assessment, and not a supervisory submission; absent or invalid inputs are refused fail-closed and named, never silently repaired."
+}
