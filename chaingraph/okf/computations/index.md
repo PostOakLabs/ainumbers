@@ -601,6 +601,7 @@ status: stable
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md)
 - [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md)
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md)
+- [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md)
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md)
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)

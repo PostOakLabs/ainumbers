@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (644 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (645 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6942,6 +6942,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-33-mcp-server-self-attestation-pack",
       "art-62-ap2-payment-receipt-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-674-eba-im-model-validation-tracker",
+    "display_name": "EBA IM-Model Validation Tracker",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/tools/674-eba-im-model-validation-tracker.html",
+    "description": "Deterministic roll-up arithmetic over a caller-declared internal-model inventory. Counts the declared inventory by status (submitted, approv",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
