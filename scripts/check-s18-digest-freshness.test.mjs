@@ -567,8 +567,14 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // NO CEILING WAS RAISED: the ratchet baseline (scripts/s18-digest-freshness-baseline.json) is
    // 133 and was not touched; 118 <= 133, so the gate itself stays green. Only this exact-match
    // calibration moved.
-   assert(total === 606, `expected 606 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 488, `expected 488 fresh (calibration set), got ${fresh.length}`);
+   // 606 -> 607 post-art-612 receipt landing (2026-09-04, ZZ-PROVE-DOWNTIME-ART612-REIMAGE-1
+   // receipt finally landed via draft #1599 rework; ORCH-authorized per WEEKEND-DISPATCH §A1.3):
+   // compute_erc2612_permit_binding_verifier moves deferred -> ready with a fresh groth16 receipt
+   // binding current kernel bytes (kernel_digest sha256:a1bb4dd8... verified equal to origin/main
+   // bytes at 6b9a1c87 before landing). Denominator +1, fresh +1 (newly proven => fresh),
+   // stale UNCHANGED. Measured, not assumed: the failing assert printed got 607 before this edit.
+   assert(total === 607, `expected 607 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 489, `expected 489 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
