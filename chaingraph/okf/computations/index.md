@@ -603,6 +603,7 @@ status: stable
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md)
 - [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md)
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md)
+- [Proxy Voting Record](./art-676-proxy-voting-record.md)
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md)

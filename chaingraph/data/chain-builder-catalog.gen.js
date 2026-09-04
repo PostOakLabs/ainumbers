@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (645 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (646 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6960,6 +6960,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/tools/675-recordkeeping-completeness-mapper.html",
     "description": "Channel inventory roll-up for books-and-records completeness. The caller declares each books-and-records channel (email, chat, voice, messag",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-676-proxy-voting-record",
+    "display_name": "Proxy Voting Record",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/676-proxy-voting-record.html",
+    "description": "Deterministic proxy-voting record arithmetic over caller-declared synthetic inputs. From a declared meeting record date and vote deadline, d",
     "consumes": [],
     "feeds": [],
     "status": "live"
