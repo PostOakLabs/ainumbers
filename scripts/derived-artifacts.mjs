@@ -110,13 +110,7 @@ export const COVERED = [
     artifacts: ['chaingraph/kernels/index.mjs'],
     share: '81%',
   },
-  {
-    id: 'llms-full',
-    regen: 'node scripts/gen-llms-full.mjs',
-    gate: 'node scripts/gen-llms-full.mjs --check',
-    artifacts: ['llms-full.txt'],
-    share: '39%',
-  },
+
   {
     id: 'estate-map',
     regen: 'node scripts/gen-estate-map.mjs',
@@ -124,20 +118,8 @@ export const COVERED = [
     artifacts: ['llms.txt'],
     share: '1%',
   },
-  {
-    id: 'sitemap-html',
-    regen: 'node scripts/gen-sitemap-html.mjs',
-    gate: 'node scripts/gen-sitemap-html.mjs --check',
-    artifacts: ['sitemap.html'],
-    share: '91%',
-  },
-  {
-    id: 'start-index',
-    regen: 'node scripts/gen-start-index.mjs',
-    gate: 'node scripts/gen-start-index.mjs --check',
-    artifacts: ['start.html'],
-    share: '23%',
-  },
+
+
   {
     id: 'guides-index',
     regen: 'node scripts/gen-guides-index.mjs',
@@ -145,41 +127,11 @@ export const COVERED = [
     artifacts: ['guides/index.html'],
     share: '13%',
   },
-  {
-    id: 'chain-index',
-    regen: 'node scripts/gen-chain-index.mjs',
-    gate: 'node scripts/gen-chain-index.mjs --check',
-    artifacts: ['chaingraph/chaingraph-hub.html'],
-    share: '8%',
-  },
-  {
-    id: 'chaingraph-hub',
-    regen: 'node scripts/gen-chaingraph-hub.mjs',
-    gate: 'node scripts/gen-chaingraph-hub.mjs --check',
-    artifacts: ['chaingraph/chaingraph-hub.html'],
-    share: '8%',
-  },
-  {
-    id: 'chainbuilder-catalog',
-    regen: 'node scripts/gen-chainbuilder-catalog.mjs',
-    gate: 'node scripts/gen-chainbuilder-catalog.mjs --check',
-    artifacts: ['chaingraph/data/chain-builder-catalog.gen.js'],
-    share: '2%',
-  },
-  {
-    id: 'workbench',
-    regen: 'node scripts/gen-workbench.mjs',
-    gate: 'node scripts/gen-workbench.mjs --check',
-    artifacts: ['chaingraph/workbench/workbench.html'],
-    share: '2%',
-  },
-  {
-    id: 'canvas',
-    regen: 'node scripts/gen-canvas.mjs',
-    gate: 'node scripts/gen-canvas.mjs --check',
-    artifacts: ['chaingraph/workbench/canvas.html'],
-    share: '8%',
-  },
+
+
+
+
+
   {
     id: 'kernel-vm-explainer',
     regen: 'node chaingraph/vm/scripts/gen-kernel-vm-explainer.mjs',
@@ -282,6 +234,71 @@ export const COVERED = [
     // ids to order.nodes in this file. Undeclared, this write escaped the
     // anti-escape guard and failed the whole regen run (RED-MAIN incident).
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
+    share: '8%',
+  },
+  {
+    id: 'llms-full',
+    regen: 'node scripts/gen-llms-full.mjs',
+    gate: 'node scripts/gen-llms-full.mjs --check',
+    artifacts: ['llms-full.txt'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '39%',
+  },  {
+    id: 'sitemap-html',
+    regen: 'node scripts/gen-sitemap-html.mjs',
+    gate: 'node scripts/gen-sitemap-html.mjs --check',
+    artifacts: ['sitemap.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '91%',
+  },  {
+    id: 'start-index',
+    regen: 'node scripts/gen-start-index.mjs',
+    gate: 'node scripts/gen-start-index.mjs --check',
+    artifacts: ['start.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '23%',
+  },  {
+    id: 'chain-index',
+    regen: 'node scripts/gen-chain-index.mjs',
+    gate: 'node scripts/gen-chain-index.mjs --check',
+    artifacts: ['chaingraph/chaingraph-hub.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '8%',
+  },  {
+    id: 'chaingraph-hub',
+    regen: 'node scripts/gen-chaingraph-hub.mjs',
+    gate: 'node scripts/gen-chaingraph-hub.mjs --check',
+    artifacts: ['chaingraph/chaingraph-hub.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '8%',
+  },  {
+    id: 'chainbuilder-catalog',
+    regen: 'node scripts/gen-chainbuilder-catalog.mjs',
+    gate: 'node scripts/gen-chainbuilder-catalog.mjs --check',
+    artifacts: ['chaingraph/data/chain-builder-catalog.gen.js'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '2%',
+  },  {
+    id: 'workbench',
+    regen: 'node scripts/gen-workbench.mjs',
+    gate: 'node scripts/gen-workbench.mjs --check',
+    artifacts: ['chaingraph/workbench/workbench.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
+    share: '2%',
+  },  {
+    id: 'canvas',
+    regen: 'node scripts/gen-canvas.mjs',
+    gate: 'node scripts/gen-canvas.mjs --check',
+    artifacts: ['chaingraph/workbench/canvas.html'],
+    // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
+    after: 'chaingraph-assemble',
     share: '8%',
   },
   {
