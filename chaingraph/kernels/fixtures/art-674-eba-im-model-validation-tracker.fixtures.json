@@ -1,0 +1,231 @@
+{
+  "tool_id": "art-674-eba-im-model-validation-tracker",
+  "note": "worked example (parity pin d8f8d45f070f7c99249eb2877e2ac17606f0104ec7e67f99c056b80c59690436 from EBA-IM-TRACKER-BUILD-SPEC.md), the opposite-verdict vector (aged pending flags TRACKING_AGED under the declared 180-day aging rule), a mixed inventory with a rejected model, an all-rejected TRACKING_EMPTY inventory, and four fail-closed refusal paths (invalid status, duplicate id, submitted after as_of, invalid as_of). human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "worked_example_parity",
+      "policy_parameters": {
+        "as_of": "2026-09-03",
+        "models": [
+          {
+            "id": "IM-1",
+            "status": "submitted",
+            "submitted": "2026-06-01"
+          },
+          {
+            "id": "IM-2",
+            "status": "approved",
+            "submitted": "2026-02-10"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": 1,
+        "pending": 1,
+        "pending_ids": [
+          "IM-1"
+        ],
+        "pending_age_days": {
+          "IM-1": 94
+        },
+        "trace": "IM-1 submitted 2026-06-01, 94 days to as_of",
+        "overall": "TRACKING_CURRENT"
+      },
+      "golden_hash": "d8f8d45f070f7c99249eb2877e2ac17606f0104ec7e67f99c056b80c59690436"
+    },
+    {
+      "name": "aged_pending_opposite_verdict",
+      "policy_parameters": {
+        "as_of": "2027-01-05",
+        "models": [
+          {
+            "id": "IM-1",
+            "status": "submitted",
+            "submitted": "2026-06-01"
+          },
+          {
+            "id": "IM-2",
+            "status": "approved",
+            "submitted": "2026-02-10"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": 1,
+        "pending": 1,
+        "pending_ids": [
+          "IM-1"
+        ],
+        "pending_age_days": {
+          "IM-1": 218
+        },
+        "trace": "IM-1 submitted 2026-06-01, 218 days to as_of",
+        "overall": "TRACKING_AGED"
+      },
+      "golden_hash": "25bb6d7d40119b6f2dc62c3c0a9ccc2a6ea85ed0d245619a73b56c4ad0f59290"
+    },
+    {
+      "name": "mixed_inventory_with_rejected",
+      "policy_parameters": {
+        "as_of": "2026-09-03",
+        "models": [
+          {
+            "id": "M-A",
+            "status": "approved",
+            "submitted": "2025-11-20"
+          },
+          {
+            "id": "M-B",
+            "status": "submitted",
+            "submitted": "2026-05-15"
+          },
+          {
+            "id": "M-C",
+            "status": "rejected",
+            "submitted": "2026-01-10"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": 1,
+        "pending": 1,
+        "pending_ids": [
+          "M-B"
+        ],
+        "pending_age_days": {
+          "M-B": 111
+        },
+        "trace": "M-B submitted 2026-05-15, 111 days to as_of",
+        "overall": "TRACKING_CURRENT"
+      },
+      "golden_hash": "22e2446bdc076736582f17ab4ca0f24b3618540bad7af1effb9c9011ba7bdbff"
+    },
+    {
+      "name": "all_rejected_tracking_empty",
+      "policy_parameters": {
+        "as_of": "2026-09-03",
+        "models": [
+          {
+            "id": "R-1",
+            "status": "rejected",
+            "submitted": "2026-03-01"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": 0,
+        "pending": 0,
+        "pending_ids": [],
+        "pending_age_days": {},
+        "trace": "",
+        "overall": "TRACKING_EMPTY"
+      },
+      "golden_hash": "2a9f20200f15ed4fe9ebb4136d70dba5602b16ab61ee01b4fd21689b9c3f8d4a"
+    },
+    {
+      "name": "fail_closed_invalid_status",
+      "policy_parameters": {
+        "as_of": "2026-09-03",
+        "models": [
+          {
+            "id": "IM-1",
+            "status": "withdrawn",
+            "submitted": "2026-06-01"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": null,
+        "pending": null,
+        "pending_ids": null,
+        "pending_age_days": null,
+        "trace": "fail-closed: each model status must be one of submitted, approved, rejected; no roll-up computed -- correct the named inputs and resubmit. Tracker over caller-declared synthetic inputs only: it does not check any live register, SSR tape, or cutoff feed, and no such check is claimed (not_proven).",
+        "overall": "FAIL_CLOSED",
+        "domain_errors": [
+          "INVALID_MODEL_STATUS"
+        ]
+      },
+      "golden_hash": "6f2b62380002538784ce1c6529e6587b566beb11156d3cb537973989486d1b64"
+    },
+    {
+      "name": "fail_closed_duplicate_id",
+      "policy_parameters": {
+        "as_of": "2026-09-03",
+        "models": [
+          {
+            "id": "IM-1",
+            "status": "submitted",
+            "submitted": "2026-06-01"
+          },
+          {
+            "id": "IM-1",
+            "status": "approved",
+            "submitted": "2026-02-10"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": null,
+        "pending": null,
+        "pending_ids": null,
+        "pending_age_days": null,
+        "trace": "fail-closed: model ids must be unique within the declared inventory; no roll-up computed -- correct the named inputs and resubmit. Tracker over caller-declared synthetic inputs only: it does not check any live register, SSR tape, or cutoff feed, and no such check is claimed (not_proven).",
+        "overall": "FAIL_CLOSED",
+        "domain_errors": [
+          "DUPLICATE_MODEL_ID"
+        ]
+      },
+      "golden_hash": "1d9fc79549b3041ed84d8e297220ccf4481c13467d126ea51f345da38b4330fe"
+    },
+    {
+      "name": "fail_closed_submitted_after_as_of",
+      "policy_parameters": {
+        "as_of": "2026-09-03",
+        "models": [
+          {
+            "id": "IM-9",
+            "status": "submitted",
+            "submitted": "2026-09-10"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": null,
+        "pending": null,
+        "pending_ids": null,
+        "pending_age_days": null,
+        "trace": "fail-closed: a submitted date must not fall after the declared as_of date; no roll-up computed -- correct the named inputs and resubmit. Tracker over caller-declared synthetic inputs only: it does not check any live register, SSR tape, or cutoff feed, and no such check is claimed (not_proven).",
+        "overall": "FAIL_CLOSED",
+        "domain_errors": [
+          "SUBMITTED_AFTER_AS_OF"
+        ]
+      },
+      "golden_hash": "645f25d2c3ce01bb063a0217e6854d16846fed560ac156be5c937d6aeb83dfb7"
+    },
+    {
+      "name": "fail_closed_invalid_as_of",
+      "policy_parameters": {
+        "as_of": "2026-13-40",
+        "models": [
+          {
+            "id": "IM-1",
+            "status": "submitted",
+            "submitted": "2026-06-01"
+          }
+        ]
+      },
+      "output_payload": {
+        "approved": null,
+        "pending": null,
+        "pending_ids": null,
+        "pending_age_days": null,
+        "trace": "fail-closed: as_of must be a calendar date in YYYY-MM-DD form; no roll-up computed -- correct the named inputs and resubmit. Tracker over caller-declared synthetic inputs only: it does not check any live register, SSR tape, or cutoff feed, and no such check is claimed (not_proven).",
+        "overall": "FAIL_CLOSED",
+        "domain_errors": [
+          "INVALID_AS_OF"
+        ]
+      },
+      "golden_hash": "59ed9d400d2a38a7f45cdd67a8cc72c552ad6e3b971ed626193bac072025ed26"
+    }
+  ]
+}
