@@ -84,7 +84,7 @@ function parseDate(s) {
   return { y, m, d };
 }
 
-/** Days since 1970-01-01 for a proleptic-Gregorian civil date (Hinnant days_from_civil). */
+/** Day number on the 1970-01-01 epoch for a proleptic-Gregorian civil date (Hinnant days_from_civil). */
 function daysFromCivil(y, m, d) {
   const y2 = m <= 2 ? y - 1 : y;
   const era = Math.floor(y2 / 400);

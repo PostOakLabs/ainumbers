@@ -1,5 +1,5 @@
 // art-673-lending-recall-prioritizer — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:11b09e64968f012b6e82ed4c1320665028ff0dc6b3f23da180b3ee718ddc875a
+// kernel_digest_at_authoring: sha256:31d9a8356f9e3c350463c2c5b981a0d7bb78e11ba3d90412bb123ee4963b0719
 // spec: RECALL-PRIORITIZER-BUILD-SPEC.md (RECALL-PRIORITIZER-BUILD-1) — worked example is the parity pin.
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec).
 //
