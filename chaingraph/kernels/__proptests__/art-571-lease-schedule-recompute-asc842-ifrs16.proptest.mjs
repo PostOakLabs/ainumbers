@@ -1,6 +1,6 @@
 // art-571-lease-schedule-recompute-asc842-ifrs16.proptest.mjs -- FV property-test FLOOR
 // (FV-PROPFLOOR-SHARD-C29-1).
-// kernel_digest_at_authoring: sha256:1a566e2d4a8d4a189f06af50533cfa35d5b37c69090587830c7dbffe07c1d9ed
+// kernel_digest_at_authoring: sha256:41a5b1590955af3b2f923482346677130524a112c6673a9f5f2d45f96d0326c1
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md Sec3, class C). NOT a proof, NOT Dafny.
@@ -16,9 +16,12 @@
 // differential re-derivation of the ACT/365 discount-factor and amortization schedule via an
 // independently-written pv()/buildSchedule reimplementation, ULP-boundary forcing on the discount-rate
 // exponentiation (0 rate, tiny rate, denormal-adjacent rate, x/y*y!==x-shaped day counts) and the
-// 75%/90% bright-line boundaries, and a cross-regime metamorphic identity (when classification is
+// 75%/90% bright-line boundaries, a cross-regime metamorphic identity (when classification is
 // FINANCE, the ASC 842 and IFRS 16 schedules must be byte-identical, since buildSchedule is called
-// with mode='finance' for both in that branch).
+// with mode='finance' for both in that branch), and an advance-vs-arrears timing metamorphic pair
+// (the same payment amounts dated one period earlier under timing 'advance' must produce a
+// PV >= the 'arrears' PV, strictly greater for any positive rate, equal at rate 0; the advance
+// row dated at commencement must carry zero interest; and an undeclared timing must refuse to run).
 //
 // Run: node chaingraph/kernels/__proptests__/art-571-lease-schedule-recompute-asc842-ifrs16.proptest.mjs
 
@@ -68,6 +71,7 @@ function randomPayments(rng) {
 function randomPP(rng) {
   return {
     discount_rate_annual: [0.02, 0.05, 0.08, 0][Math.floor(rng() * 4)],
+    timing: rng() < 0.5 ? 'arrears' : 'advance',
     lease_term: { commencement_date: '2026-01-01', end_date: '2028-01-01' },
     payment_schedule: randomPayments(rng),
     initial_direct_costs_minor: Math.floor(rng() * 5000),
@@ -137,7 +141,7 @@ function checkP3_ulp_boundary_forcing() {
   const rates = [0, 1e-15, 5e-10, 0.0000001, 0.5, 1];
   for (const rate of rates) {
     checked++;
-    const pp = { discount_rate_annual: rate, lease_term: { commencement_date: '2026-01-01', end_date: '2027-01-01' }, payment_schedule: [{ date: '2026-06-01', amount_minor: 100000 }], initial_direct_costs_minor: 0, lease_incentives_minor: 0, classification_inputs: { ownership_transfers: false, purchase_option_reasonably_certain: false, specialized_asset: false, major_part_bright_line_elected: false, major_part_declared: false, substantially_all_bright_line_elected: false, substantially_all_declared: false } };
+    const pp = { discount_rate_annual: rate, timing: 'arrears', lease_term: { commencement_date: '2026-01-01', end_date: '2027-01-01' }, payment_schedule: [{ date: '2026-06-01', amount_minor: 100000 }], initial_direct_costs_minor: 0, lease_incentives_minor: 0, classification_inputs: { ownership_transfers: false, purchase_option_reasonably_certain: false, specialized_asset: false, major_part_bright_line_elected: false, major_part_declared: false, substantially_all_bright_line_elected: false, substantially_all_declared: false } };
     const { output_payload } = compute(pp);
     const days = Math.round((Date.parse('2026-06-01T00:00:00Z') - Date.parse('2026-01-01T00:00:00Z')) / 86400000);
     const pr = Math.pow(1 + rate, days / 365) - 1;
@@ -148,7 +152,7 @@ function checkP3_ulp_boundary_forcing() {
   // 75% bright line exact boundary: term_years/economic_life_years === 0.75 -> major_part_met true.
   checked++;
   {
-    const pp = { discount_rate_annual: 0.05, lease_term: { commencement_date: '2026-01-01', end_date: '2033-07-02' /* ~7.5 years */ }, payment_schedule: [{ date: '2026-06-01', amount_minor: 100000 }], initial_direct_costs_minor: 0, lease_incentives_minor: 0, classification_inputs: { ownership_transfers: false, purchase_option_reasonably_certain: false, specialized_asset: false, major_part_bright_line_elected: true, economic_life_years: 10, substantially_all_bright_line_elected: false, substantially_all_declared: false } };
+    const pp = { discount_rate_annual: 0.05, timing: 'arrears', lease_term: { commencement_date: '2026-01-01', end_date: '2033-07-02' /* ~7.5 years */ }, payment_schedule: [{ date: '2026-06-01', amount_minor: 100000 }], initial_direct_costs_minor: 0, lease_incentives_minor: 0, classification_inputs: { ownership_transfers: false, purchase_option_reasonably_certain: false, specialized_asset: false, major_part_bright_line_elected: true, economic_life_years: 10, substantially_all_bright_line_elected: false, substantially_all_declared: false } };
     const { output_payload } = compute(pp);
     const termYears = output_payload.asc842.classification_criteria.major_part_of_economic_life.term_years;
     const expectedMet = (termYears / 10) >= 0.75;
@@ -171,6 +175,61 @@ function checkP4_finance_regime_identity() {
   return { name: 'P4_finance_classification_asc842_ifrs16_schedule_identity', trials: checked, violations };
 }
 
+// ---------- P5: metamorphic -- advance timing (annuity due) vs arrears (ordinary annuity) ----------
+function checkP5_advance_vs_arrears() {
+  let violations = 0, checked = 0;
+  const rates = [0, 0.03, 0.06, 0.11];
+  for (const rate of rates) {
+    for (let i = 0; i < 300; i++) {
+      const n = 2 + Math.floor(rand() * 5);
+      const amounts = Array.from({ length: n }, () => 100000 + Math.floor(rand() * 50000));
+      // Same amounts; advance dates them at commencement + each anniversary, arrears one period later.
+      const advanceDates = [], arrearsDates = [];
+      for (let k = 0; k < n; k++) {
+        const y = 2026 + k;
+        advanceDates.push(`${y}-01-01`);
+        arrearsDates.push(`${y + 1}-01-01`);
+      }
+      const base = {
+        discount_rate_annual: rate,
+        lease_term: { commencement_date: '2026-01-01', end_date: `${2026 + n}-01-01` },
+        initial_direct_costs_minor: 0,
+        lease_incentives_minor: 0,
+        classification_inputs: { ownership_transfers: true, purchase_option_reasonably_certain: false, specialized_asset: false, major_part_bright_line_elected: false, major_part_declared: false, substantially_all_bright_line_elected: false, substantially_all_declared: false },
+      };
+      const ppAdvance = { ...base, timing: 'advance', payment_schedule: advanceDates.map((d, k) => ({ date: d, amount_minor: amounts[k] })) };
+      const ppArrears = { ...base, timing: 'arrears', payment_schedule: arrearsDates.map((d, k) => ({ date: d, amount_minor: amounts[k] })) };
+      const adv = compute(ppAdvance).output_payload;
+      const arr = compute(ppArrears).output_payload;
+      checked++;
+      // Annuity-due PV must be >= ordinary-annuity PV for the same amounts, strictly > at a positive rate.
+      if (adv.asc842.pv_of_payments_minor < arr.asc842.pv_of_payments_minor) violations++;
+      if (rate > 0 && !(adv.asc842.pv_of_payments_minor > arr.asc842.pv_of_payments_minor)) violations++;
+      if (rate === 0 && adv.asc842.pv_of_payments_minor !== arr.asc842.pv_of_payments_minor) violations++;
+      // A payment dated at commencement carries zero interest -- no time has elapsed.
+      if (adv.asc842.schedule[0].period_days !== 0 || adv.asc842.schedule[0].interest_minor !== 0) violations++;
+      // Timing is mirrored into the payload; the liability still amortizes to a residual within
+      // the declared rounding rule -- one minor unit of per-row interest rounding slack per
+      // scheduled row (measured worst case: 3 minor units over 6 rows at an 11% rate).
+      if (adv.timing !== 'advance' || arr.timing !== 'arrears') violations++;
+      const advFinal = adv.asc842.schedule[adv.asc842.schedule.length - 1].closing_liability_minor;
+      const arrFinal = arr.asc842.schedule[arr.asc842.schedule.length - 1].closing_liability_minor;
+      if (Math.abs(advFinal) > n || Math.abs(arrFinal) > n) violations++;
+      // evidence_handover stage present on both ran paths and figures reconcile to the schedules.
+      if (!adv.evidence_handover || !arr.evidence_handover) violations++;
+      if (adv.evidence_handover.disclosure_figures.asc842.total_payments_minor !== amounts.reduce((a, b) => a + b, 0)) violations++;
+    }
+  }
+  // Undeclared timing must refuse to run -- timing is declared, never defaulted.
+  checked++;
+  {
+    const ppNoTiming = { discount_rate_annual: 0.06, lease_term: { commencement_date: '2026-01-01', end_date: '2027-01-01' }, payment_schedule: [{ date: '2026-06-01', amount_minor: 100000 }], initial_direct_costs_minor: 0, lease_incentives_minor: 0, classification_inputs: { ownership_transfers: false, purchase_option_reasonably_certain: false, specialized_asset: false, major_part_bright_line_elected: false, major_part_declared: false, substantially_all_bright_line_elected: false, substantially_all_declared: false } };
+    const r = compute(ppNoTiming).output_payload;
+    if (r.decision.execution_state !== 'did_not_run' || r.timing !== null || !r.rejected_inputs.some((x) => x.where === 'timing')) violations++;
+  }
+  return { name: 'P5_advance_vs_arrears_annuity_due_metamorphic', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -182,6 +241,7 @@ results.properties.push(checkP1_termination_bounded());
 results.properties.push(checkP2_discounting_differential());
 results.properties.push(checkP3_ulp_boundary_forcing());
 results.properties.push(checkP4_finance_regime_identity());
+results.properties.push(checkP5_advance_vs_arrears());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
