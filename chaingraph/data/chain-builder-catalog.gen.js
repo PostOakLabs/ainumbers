@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (646 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (647 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6970,6 +6970,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/676-proxy-voting-record.html",
     "description": "Deterministic proxy-voting record arithmetic over caller-declared synthetic inputs. From a declared meeting record date and vote deadline, d",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-679-orsa-readiness-pack",
+    "display_name": "ORSA Readiness Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/679-orsa-readiness-pack.html",
+    "description": "Deterministic ORSA readiness arithmetic over caller-declared synthetic inputs, checked against the duties inserted into Solvency II by Direc",
     "consumes": [],
     "feeds": [],
     "status": "live"
