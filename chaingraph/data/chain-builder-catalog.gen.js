@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (642 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (643 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6914,6 +6914,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/665-gl-tieout-recompute.html",
     "description": "Independently recomputes subledger-to-GL tie-out totals from a caller-supplied posted ledger and the caller's own declared product_code -> g",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-669-algo-execution-schedule-simulator",
+    "display_name": "Algo Execution Schedule Simulator",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/tools/669-algo-execution-schedule-simulator.html",
+    "description": "Deterministic execution-schedule arithmetic over caller-declared synthetic inputs. Slices a declared order three ways -- VWAP (across a decl",
     "consumes": [],
     "feeds": [],
     "status": "live"

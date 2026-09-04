@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- CSP_STANDARD (CONTRACT §0): static documentation page. connect-src 'none': this page makes zero network requests; every curl command on it is for the reader to run from their own machine. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AINumbers.co: On-Chain Receipt Verification Recipe</title>
+<meta name="description" content="Verify an AINumbers compute-integrity receipt (risc0 Groth16) with one read-only eth_call against RISC Zero's deployed VerifierRouter on Ethereum mainnet or Base. No wallet, no gas, no code we wrote.">
+<meta property="og:title" content="AINumbers.co: On-Chain Receipt Verification Recipe">
+<meta property="og:description" content="Gasless third-party verification of AINumbers zkVM receipts via RISC Zero's deployed VerifierRouter. Read-only eth_call, worked example, honest scope statement.">
+<meta property="og:url" content="https://docs.ainumbers.co/receipt-verification.html">
+<link rel="canonical" href="https://docs.ainumbers.co/receipt-verification.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "AINumbers.co On-Chain Receipt Verification Recipe",
+  "url": "https://docs.ainumbers.co/receipt-verification.html",
+  "description": "Verify an AINumbers risc0 Groth16 receipt with a read-only eth_call against RISC Zero's deployed VerifierRouter.",
+  "publisher": { "@type": "Organization", "name": "Post Oak Labs", "url": "https://postoaklabs.com" }
+}
+</script>
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+  --font-sans:'Sora',sans-serif;
+  --font-serif:'DM Serif Display',serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:15px;line-height:1.7;min-height:100vh}
+.site-header{background:var(--bg-2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;padding:0 24px}
+.header-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:24px;height:56px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--teal),#0E7490);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-mono);font-size:.7rem;font-weight:700}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav{display:flex;gap:2px;margin-left:auto}
+.nav a{color:var(--body);text-decoration:none;font-size:.85rem;font-weight:500;padding:6px 12px;border-radius:var(--radius);transition:color .15s,background .15s}
+.nav a:hover{color:var(--text);background:var(--bg-3)}
+.nav a.active{color:var(--teal)}
+main{max-width:860px;margin:0 auto;padding:0 24px 80px}
+.hero{padding:56px 0 40px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--teal-dim);border:1px solid var(--teal);color:var(--teal);font-size:.78rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:4px 14px;border-radius:99px;margin-bottom:24px}
+.hero h1{font-family:var(--font-serif);font-size:clamp(1.8rem,4vw,2.6rem);color:var(--white);line-height:1.2;margin-bottom:16px}
+.hero h1 .hl{color:var(--teal)}
+.hero-sub{font-size:1.02rem;color:var(--body);max-width:700px}
+.hero-facts{display:flex;gap:28px;flex-wrap:wrap;margin-top:28px}
+.hero-fact{text-align:left}
+.hero-fact .val{font-family:var(--font-mono);font-size:1.1rem;color:var(--bright);display:block;font-weight:500}
+.hero-fact .lbl{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+h2{font-family:var(--font-serif);font-size:1.5rem;color:var(--white);margin:56px 0 16px;line-height:1.3}
+h2 .sec-n{color:var(--teal);font-family:var(--font-mono);font-size:1rem;margin-right:10px;vertical-align:middle}
+h3{font-size:1.02rem;color:var(--bright);margin:32px 0 10px;font-weight:600}
+p{margin-bottom:14px;max-width:760px}
+p small, li small{color:var(--muted)}
+ul,ol{margin:0 0 16px 22px;max-width:740px}
+li{margin-bottom:8px}
+code{font-family:var(--font-mono);font-size:.84em;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--bright);word-break:break-all}
+pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;overflow-x:auto;margin:18px 0;font-size:.8rem;line-height:1.65}
+pre code{background:none;border:none;padding:0;color:var(--text);word-break:normal;white-space:pre}
+table{width:100%;border-collapse:collapse;margin:18px 0;font-size:.86rem}
+th{text-align:left;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;padding:8px 12px;border-bottom:1px solid var(--border-2)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+td code{word-break:break-all}
+.callout{border:1px solid var(--border-2);border-left:3px solid var(--teal);background:var(--bg-2);border-radius:var(--radius);padding:14px 18px;margin:20px 0;max-width:780px}
+.callout.warn{border-left-color:var(--warn);background:var(--warn-dim)}
+.callout.red{border-left-color:var(--red);background:var(--red-dim)}
+.callout.green{border-left-color:var(--green);background:var(--green-dim)}
+.callout .co-title{font-weight:600;color:var(--bright);font-size:.88rem;margin-bottom:6px}
+.callout p{margin-bottom:8px;font-size:.92rem}
+.callout p:last-child{margin-bottom:0}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:.72rem;padding:2px 8px;border-radius:4px;border:1px solid var(--border-2);color:var(--body);margin-right:6px}
+.tag.ok{color:var(--green);border-color:var(--green);background:var(--green-dim)}
+.tag.bad{color:var(--red);border-color:var(--red);background:var(--red-dim)}
+.tag.date{color:var(--gold);border-color:var(--gold);background:var(--gold-dim)}
+.kv{font-family:var(--font-mono);font-size:.82rem}
+.kv .k{color:var(--muted)}
+.kv .v{color:var(--bright);word-break:break-all}
+.lbl{color:var(--bright);font-weight:600}
+hr{border:none;border-top:1px solid var(--border);margin:48px 0}
+a{color:var(--teal);text-decoration:none}
+a:hover{color:var(--teal-lt);text-decoration:underline}
+.footer{border-top:1px solid var(--border);margin-top:64px;padding:32px 24px 48px}
+.footer-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.footer a{color:var(--body)}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="logo" href="./index.html">
+      <div class="logo-mark">AN</div>
+      <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+    </a>
+    <nav class="nav">
+      <a href="./index.html">Docs</a>
+      <a href="./receipt-verification.html" class="active">Receipt Verification</a>
+      <a href="../verification-desk.html">Verification Desk</a>
+      <a href="../index.html">Suite</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <span class="hero-badge">Read-Only Recipe · No Wallet · No Gas</span>
+    <h1>Verify a compute-integrity receipt <span class="hl">on-chain</span>, with one <code style="font-size:.7em">eth_call</code></h1>
+    <p class="hero-sub">Every AINumbers tool that carries a compute proof publishes a risc0 zkVM receipt: a Groth16 seal over the claimed journal output. RISC Zero deploys an immutable Groth16 verifier behind a VerifierRouter on Ethereum mainnet and several L2s. This page is the complete recipe for checking one of our receipts against that deployed contract from your own machine, spending nothing, signing nothing, and trusting no code we wrote: the cryptography runs in the deployed contract, and the answer is a yes or a revert.</p>
+    <div class="hero-facts">
+      <div class="hero-fact"><span class="val">eth_call</span><span class="lbl">read-only, no transaction</span></div>
+      <div class="hero-fact"><span class="val">0 gas · 0 keys</span><span class="lbl">nothing to sign or spend</span></div>
+      <div class="hero-fact"><span class="val">3 inputs</span><span class="lbl">seal + imageId + journal digest</span></div>
+      <div class="hero-fact"><span class="val">~1 s</span><span class="lbl">one round trip to a public RPC</span></div>
+    </div>
+  </section>
+
+  <h2><span class="sec-n">§1</span>What you are holding</h2>
+  <p>A published receipt is a JSON object shaped by the <a href="../chaingraph/standard/SPEC.md">OpenChainGraph standard</a>, §18 (compute-integrity proof). The fields that matter on-chain:</p>
+  <pre><code>{
+  "type": "ZkVmReceipt",
+  "system": "risc0",
+  "receiptFormat": "groth16-bn254",
+  "imageId": "sha256:93c746e79afcf4b27f6d2a6da6cd142a4dd0da31f33d942f92b97344188526c5",
+  "seal": "JprnquQV+W8PZGrVb3psyDFR3XLhdjfIXqv6BPQl4toS…",   // base64, 256 bytes
+  "journal": { …the committed output object… }
+}</code></pre>
+  <ul>
+    <li><code>imageId</code> is the SHA-256 identity of the exact guest program (a Rust port of the tool's <code>compute()</code>) that ran in the zkVM.</li>
+    <li><code>seal</code> is the 256-byte Groth16 proof: three elliptic curve points (A in G1, B in G2, C in G1) over the BN254 curve, each coordinate a 32-byte big-endian integer.</li>
+    <li><code>journal</code> is the output the guest committed. The seal proves knowledge of an execution of <code>imageId</code> whose <code>ReceiptClaim</code> binds exactly this journal.</li>
+  </ul>
+  <div class="callout">
+    <p class="co-title">The journal byte contract (standard §18.7)</p>
+    <p>The on-chain verifier does not take the journal object; it takes its SHA-256 digest. The digest is defined over the RFC 8785 (JCS) canonical serialization of the journal object, encoded UTF-8: compact, keys sorted at every nesting depth, no insignificant whitespace. That byte string is what the guest committed, so it is the only serialization a genuine seal verifies against. Hash anything else and an honest receipt fails, which is a feature: it is how you know you hashed the right bytes.</p>
+  </div>
+
+  <h2><span class="sec-n">§2</span>Derive the three on-chain inputs</h2>
+  <h3>2.1 journalDigest</h3>
+  <p>Canonicalize the journal per RFC 8785, encode UTF-8, SHA-256 it. Two dependency-free ways:</p>
+  <ul>
+    <li>Use our published canonicalizer (it is the same one the standard's §4 hash path uses, gated by the §15 test suite): clone <code>PostOakLabs/ainumbers</code>, save the receipt's journal object as <code>journal.json</code> next to the repo root, and run <code>node -e "const c=require('crypto'),fs=require('fs');import('./chaingraph/kernels/_hash.mjs').then(m=>{const j=JSON.parse(fs.readFileSync('journal.json','utf8'));console.log(c.createHash('sha256').update(Buffer.from(JSON.stringify(m.cgCanon(j)),'utf8')).digest('hex'))})"</code></li>
+    <li>Or use any RFC 8785 implementation you trust (several exist for every mainstream language), then SHA-256 the bytes. Caveat from the standard: our published corpus exercises only finite, small JSON numbers; if your journal could carry number-serialization edge cases (negative zero, exponent thresholds, integers beyond the IEEE-754 safe range), treat RFC 8785 itself as authoritative over any implementation's shortcut.</li>
+  </ul>
+  <h3>2.2 imageId</h3>
+  <p>Strip the <code>sha256:</code> prefix; the remaining 32-byte hex is the on-chain value.</p>
+  <h3>2.3 seal, with the selector prefix</h3>
+  <p>Base64-decode the seal to 256 raw bytes. The on-chain call needs the 4-byte verifier selector in front: <code>73c457ba</code> for the risc0 v3.0.x Groth16 parameters our receipts are proven under. So the bytes argument is 260 bytes: <code>73 45 c7 ba</code> followed by the decoded seal, hex-encoded for the RPC.</p>
+  <div class="callout">
+    <p class="co-title">Where the selector comes from</p>
+    <p>The selector is derived from the verifier parameters (the risc0 control root, the BN254 control ID, and the Groth16 verifying-key digest), not from a crate version string. It is computed as <code>bytes4(sha256(tag ‖ control_root ‖ bn254_control_id ‖ verifying_key_digest ‖ 0x0300))</code> under risc0's tagged-struct hashing. Our receipts are proven with cargo-risczero 3.0.5 against the default <code>Groth16ReceiptVerifierParameters</code> (control root <code>a54dc85a…c1f56</code>), the same parameter set risc0-ethereum shipped as its 3.0.0 verifier generation, whose selector is <code>0x73c457ba</code>. Patch releases within the 3.0.x series did not change the circuits or the verifying key, so the selector, which commits to exactly those, is unchanged. Section 4 shows you how to confirm the routing live before you verify, with a one-word <code>getVerifier</code> call.</p>
+  </div>
+
+  <h2><span class="sec-n">§3</span>The calldata</h2>
+  <p>The router exposes <code>verify(bytes seal, bytes32 imageId, bytes32 journalDigest)</code>, whose ABI function selector is <code>0xab750e75</code> (keccak-256 of the signature, first 4 bytes). ABI-encode: offset word <code>0x60</code>, then imageId, then journalDigest, then the seal length (<code>0x104</code> = 260) and the zero-padded seal. Layout of the 420-byte payload:</p>
+  <table>
+    <tr><th>Offset</th><th>Bytes</th><th>Value</th></tr>
+    <tr><td><code>0x00</code></td><td>4</td><td><code>ab750e75</code> (verify function selector)</td></tr>
+    <tr><td><code>0x04</code></td><td>32</td><td><code>0x…60</code> (offset of the dynamic bytes argument)</td></tr>
+    <tr><td><code>0x24</code></td><td>32</td><td>imageId</td></tr>
+    <tr><td><code>0x44</code></td><td>32</td><td>journalDigest</td></tr>
+    <tr><td><code>0x64</code></td><td>32</td><td><code>0x104</code> (260, the seal length)</td></tr>
+    <tr><td><code>0x84</code></td><td>260+28 pad</td><td><code>73c457ba</code> ‖ 256-byte Groth16 seal</td></tr>
+  </table>
+  <p>Useful constants for reading responses:</p>
+  <ul>
+    <li><code>getVerifier(bytes4)</code> selector: <code>0x3cadf449</code></li>
+    <li>Custom error <code>VerificationFailed()</code>: reverts with data <code>0x439cc0cd</code></li>
+    <li>Custom error <code>SelectorUnknown(bytes4)</code>: reverts with data <code>0xe4ea6542…</code></li>
+    <li>Custom error <code>SelectorMismatch(bytes4,bytes4)</code>: reverts with data <code>0xb8b38d4c…</code></li>
+  </ul>
+
+  <h2><span class="sec-n">§4</span>Confirm routing, then verify</h2>
+  <p>Optional but recommended first step: ask the router what verifier a selector maps to. Calldata is <code>3cadf449</code> plus the bytes4 <code>73c457ba</code> left-aligned in one 32-byte word:</p>
+  <pre><code>curl -s -X POST https://ethereum-rpc.publicnode.com \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319","data":"0x3cadf44973c457ba00000000000000000000000000000000000000000000000000000000"},"latest"]}'
+→ {"jsonrpc":"2.0","id":1,"result":"0x0000000000000000000000009f9994eb4cb5200198fefb470f8b50301662e696"}</code></pre>
+  <p>A returned address means the selector is routed. A revert with <code>SelectorUnknown</code> means the router has no verifier for it (and <code>SelectorRemoved</code> means it was removed and can never be re-registered). Then the verification itself:</p>
+  <pre><code>curl -s -X POST https://ethereum-rpc.publicnode.com \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319","data":"&lt;CALLDATA&gt;"},"latest"]}'</code></pre>
+  <table>
+    <tr><th>Chain</th><th>Router</th><th>Free public RPC examples</th></tr>
+    <tr><td>Ethereum mainnet</td><td><code>0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319</code></td><td><code>https://ethereum-rpc.publicnode.com</code>, <code>https://eth.drpc.org</code></td></tr>
+    <tr><td>Base</td><td><code>0x0b144e07a0826182b6b59788c34b32bfa86fb711</code></td><td><code>https://base-rpc.publicnode.com</code>, <code>https://mainnet.base.org</code></td></tr>
+  </table>
+  <p>Reading the answer:</p>
+  <ul>
+    <li><span class="tag ok">PASS</span>&nbsp;<code>"result":"0x"</code> (empty). <code>verify</code> returns nothing on success; it reverts on failure. The pairing check passed for your exact (imageId, journalDigest) under the routed verifier.</li>
+    <li><span class="tag bad">FAIL</span>&nbsp;<code>"error":{"code":3,"message":"execution reverted","data":"0x439cc0cd"}</code>. <code>VerificationFailed()</code>: the seal is not a valid proof over the claim you supplied (wrong journal bytes, wrong imageId, tampered seal, or a receipt from a different parameter set).</li>
+    <li><span class="tag bad">ROUTING</span>&nbsp;revert data starting <code>0xe4ea6542</code> or <code>0xb8b38d4c</code>: the selector is unknown or removed at the router, or the routed verifier's own selector check mismatched. This is a routing problem, not a statement about your seal.</li>
+  </ul>
+
+  <h2><span class="sec-n">§5</span>Worked example: a published estate receipt</h2>
+  <p><span class="tag date">observed 2026-09-03</span> Receipt: <code>chaingraph/kernels/fixtures/compute-proof/art-04-agent-identity-attestation-checker.receipt.json</code> from the public repository. This is the one receipt in the published corpus whose journal carries unsorted nested keys, so it discriminates the JCS byte contract: canonical bytes and stored-order bytes genuinely differ for it.</p>
+  <div class="kv">
+    <div><span class="k">imageId&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= </span><span class="v">0x93c746e79afcf4b27f6d2a6da6cd142a4dd0da31f33d942f92b97344188526c5</span></div>
+    <div><span class="k">journalDigest (JCS) = </span><span class="v">0x3a089ca010da4cc939c482b41b52b659a6ff177a2b82df91c64a774164bcd4be</span></div>
+    <div><span class="k">selector&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= </span><span class="v">0x73c457ba</span></div>
+    <div><span class="k">on-chain seal&nbsp;&nbsp;&nbsp;= </span><span class="v">0x73c457ba269ae7aae415f96f…505bc5b895e2e18</span> (260 bytes)</div>
+  </div>
+  <p>The full call, verbatim as run:</p>
+  <pre><code>curl -s -X POST https://ethereum-rpc.publicnode.com \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319","data":"0xab750e75000000000000000000000000000000000000000000000000000000000000006093c746e79afcf4b27f6d2a6da6cd142a4dd0da31f33d942f92b97344188526c53a089ca010da4cc939c482b41b52b659a6ff177a2b82df91c64a774164bcd4be000000000000000000000000000000000000000000000000000000000000010473c457ba269ae7aae415f96f0f646ad56f7a6cc83151dd72e17637c85eabfa04f425e2da121193c6cc3010316f6f92d8c63e28f36022742d55ae0f840369eef960154de72898be54f9c57e5c91eb0eed5c27409437732fda9e6472b95f9f46a24036ff3e2b52d1d4208bf8b5c3b3839fa99da5caeacd483223f619a63a92d29a5489192c0cb98bcdc1bb9a0fddb62caf0c7f4fca70d2fc98a40aa604c9d982d0d2a865402f062a5c00f9e1d3319f7d61349398bfec179a0af8871ac32258382ed4688e2920c30556da14ee2eb1ba2e43038b5410d8d9f19506dfe2066bdd49ab6aa312c927fd595ad6ebb24b399f26fe0b4442401c414c5cbc1a5cbda505bc5b895e2e1800000000000000000000000000000000000000000000000000000000"},"latest"]}'
+→ {"jsonrpc":"2.0","id":1,"result":"0x"}</code></pre>
+  <div class="callout green">
+    <p class="co-title">Observed results, 2026-09-03 (four endpoints, two chains)</p>
+    <p>Ethereum mainnet via <code>ethereum-rpc.publicnode.com</code> and via <code>eth.drpc.org</code>: both returned <code>"result":"0x"</code> (verified). Base via <code>base-rpc.publicnode.com</code> and via <code>mainnet.base.org</code>: both returned <code>"result":"0x"</code> (verified). Chain IDs pinned on each endpoint before the calls: <code>0x1</code> for both mainnet RPCs, <code>0x2105</code> for both Base RPCs.</p>
+  </div>
+  <h3>5.1 Tamper control: flip one byte of the seal</h3>
+  <p>Same call with the final byte of the seal flipped from <code>0x18</code> to <code>0x19</code> (one bit):</p>
+  <pre><code>→ {"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted","data":"0x439cc0cd"}}</code></pre>
+  <h3>5.2 Serialization control: the wrong journal bytes</h3>
+  <p>Same seal, same imageId, but the journal digest computed over compact stored-insertion-order bytes instead of JCS canonical bytes (<code>0xa92cceb5da47a360d4097c7585584aefac5036df9dd0d3be28b9cf0475243136</code>):</p>
+  <pre><code>→ {"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted","data":"0x439cc0cd"}}</code></pre>
+  <p>Both directions on the one artifact that can separate them. The genuine receipt passes only under the canonical serialization, and the deployed contract agrees with the standard's §18.7 byte contract.</p>
+
+  <h2><span class="sec-n">§6</span>What this proves, and what it does not</h2>
+  <div class="callout green">
+    <p class="co-title">A pass attests</p>
+    <p>That the 256-byte seal is a valid Groth16 proof, under the verifying key committed to by selector <code>0x73c457ba</code>, of the risc0 <code>ReceiptClaim</code> built from your <code>imageId</code> and your <code>journalDigest</code>: an execution of that exact program image that halted cleanly with no assumptions, committing a journal whose SHA-256 is exactly the digest you supplied. The contract is the deployed, immutable risc0-ethereum verifier; the check is the same one an on-chain settlement would rely on.</p>
+  </div>
+  <div class="callout warn">
+    <p class="co-title">A pass does NOT attest (read this part)</p>
+    <ul>
+      <li><span class="lbl">Policy freshness.</span> The proof says the guest computed this output at proving time. It does not say the output reflects the current published policy text, current tool version, or current source digest. Freshness is a separate question you answer by comparing the journal's committed output against the tool's current published output for the same inputs, and the journal's <code>kernel_digest</code> against the current kernel source digest.</li>
+      <li><span class="lbl">Endorsement of the image.</span> You supply the imageId, and the proof binds to whatever you supplied. Binding "this image is the estate's art-04 guest" is done by the estate's published receipt corpus and Graph Index: take the imageId from the published receipt or manifest, not from the party whose receipt you are auditing.</li>
+      <li><span class="lbl">What the tool page showed you.</span> The receipt proves the guest's committed journal. Whether a human-facing page faithfully displays that journal is a display-layer question; compare the page's output against the journal's <code>output</code> member yourself.</li>
+      <li><span class="lbl">That the RPC told the truth.</span> See §7.</li>
+    </ul>
+  </div>
+
+  <h2><span class="sec-n">§7</span>The RPC trust caveat</h2>
+  <div class="callout red">
+    <p class="co-title">An eth_call is answered by whoever runs the RPC</p>
+    <p>Everything here is read-only: no keys, no funds, no transactions, nothing signed. But the verdict arrives as an RPC response, and a broken or hostile endpoint can fabricate <code>"result":"0x"</code> just as easily as it can serve a stale block. Treat any single RPC's answer as one witness. Minimum diligence: run the identical calldata against two independent RPC providers (different companies, different infrastructure) and require both to agree, pinning <code>eth_chainId</code> on each endpoint first so you know where you asked. For stronger assurance, run your own node, or move the same calldata into a real transaction you can observe in a block. The tamper controls in §5.1 and §5.2 are also worth re-running on your chosen endpoints: an endpoint that fails to reject the tampered seal is telling you something.</p>
+  </div>
+
+  <h2><span class="sec-n">§8</span>Addresses and further reading</h2>
+  <p><span class="tag date">dated observation 2026-09-03</span> Contract states are observations, and routers are admin-managed mappings; derive the live state rather than relying on this table's age.</p>
+  <table>
+    <tr><th>What</th><th>Chain</th><th>Address</th><th>Role</th></tr>
+    <tr><td>VerifierRouter</td><td>Ethereum mainnet</td><td><code>0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319</code></td><td>selector routing, TimelockController-governed additions</td></tr>
+    <tr><td>VerifierRouter</td><td>Base</td><td><code>0x0b144e07a0826182b6b59788c34b32bfa86fb711</code></td><td>same design</td></tr>
+    <tr><td>Routed verifier (selector <code>0x73c457ba</code>)</td><td>mainnet + Base</td><td><code>0x9F9994Eb4Cb5200198FEfb470f8b50301662e696</code></td><td>emergency-stop proxy fronting the immutable Groth16 verifier</td></tr>
+    <tr><td>Base Groth16 verifier behind the proxy</td><td>mainnet + Base + other chains</td><td><code>0x2a098988600d87650Fb061FfAff08B97149Fa84D</code></td><td>stateless, immutable; carries the v3.0.x control root and verifying key</td></tr>
+  </table>
+  <p>Design notes worth knowing: verifier implementations are immutable and stateless; each sits behind an emergency-stop proxy whose guardian can permanently disable it if a critical vulnerability is proven; a selector removed from a router can never be re-registered, so each selector maps to at most one implementation across time. The authoritative live list of routers and registered selectors is risc0-ethereum's <code>contracts/deployment.toml</code> on GitHub; our PR evidence for this page cross-checked that table against live <code>getVerifier</code> calls on both chains above.</p>
+  <ul>
+    <li><a href="../chaingraph/standard/SPEC.md">OpenChainGraph standard, §18 and §18.7</a> (receipt envelope and journal byte contract)</li>
+    <li><a href="../chaingraph/zkvm-compute-integrity.html">How the estate reached full compute-proof coverage</a> (narrated walkthrough)</li>
+    <li><a href="../verification-desk.html">Verification Desk</a> (all published verification surfaces)</li>
+    <li>risc0-ethereum repository: <code>contracts/version-management-design.md</code> and <code>contracts/deployment.toml</code> (deployment and upgrade design)</li>
+  </ul>
+
+  <hr>
+  <p><small>This page is static documentation: it makes zero network requests, sets no cookies, and stores nothing. The curl commands above are for you to run from your own machine against your own choice of RPC. Recipe and copy by Post Oak Labs, CC BY 4.0. The underlying verifier contracts are RISC Zero's (risc0-ethereum, Apache-2.0 / GPL-3.0 as noted per contract); this page documents them and contains no risc0-ethereum source.</small></p>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>AINumbers.co by Post Oak Labs · CC BY 4.0</div>
+    <div><a href="../security.html">Security</a> · <a href="../contact.html">Contact</a> · <a href="./index.html">Developer Docs</a></div>
+  </div>
+</footer>
+</body>
+</html>

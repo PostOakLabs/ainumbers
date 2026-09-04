@@ -597,6 +597,7 @@ status: stable
 - [APY-Earned Recompute](./art-663-apy-earned-recompute.md) — `compute_apy_earned_recompute`
 - [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md) — `compute_loan_servicing_waterfall_recompute`
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md) — `compute_gl_tieout_recompute`
+- [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md) — `compute_algo_execution_schedule_simulator`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
