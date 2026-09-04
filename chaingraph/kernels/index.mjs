@@ -596,6 +596,7 @@ import * as art663    from './art-663-apy-earned-recompute.kernel.mjs';
 import * as art664    from './art-664-loan-servicing-waterfall-recompute.kernel.mjs';
 import * as art665    from './art-665-gl-tieout-recompute.kernel.mjs';
 import * as art669    from './art-669-algo-execution-schedule-simulator.kernel.mjs';
+import * as art674    from './art-674-eba-im-model-validation-tracker.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art675    from './art-675-recordkeeping-completeness-mapper.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
@@ -1242,6 +1243,7 @@ export const KERNELS = {
   'art-664-loan-servicing-waterfall-recompute':                 art664,
   'art-665-gl-tieout-recompute':                                art665,
   'art-669-algo-execution-schedule-simulator':                  art669,
+  'art-674-eba-im-model-validation-tracker':                    art674,
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-675-recordkeeping-completeness-mapper':                  art675,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
