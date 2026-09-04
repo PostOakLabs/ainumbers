@@ -1340,6 +1340,8 @@ const GATES = [
   // shields ABSENCE only (a wrong sentinel on a baselined page still fails), and only ever shrinks.
   ['Page-kernel digest sentinel ratchet (PAGE-KERNEL-DIGEST-SENTINEL-1)', 'node scripts/check-page-kernel-digest.mjs'],
   ['Page-kernel digest fixture proof (SO #40b pairing)', 'node scripts/check-page-kernel-digest.test.mjs'],
+  ['art-220 page/kernel TABLES single-writer parity (ART220-TABLE-SINGLE-WRITER-1)', 'node scripts/check-art220-table-parity.mjs'],
+  ['art-220 TABLES parity mutation controls (SO #40b pairing)', 'node scripts/check-art220-table-parity.test.mjs'],
   // §18 RECOMPUTE-EQUALITY (SO #34, ASYNC-VACUOUS-GATE-1). Re-executes every proven node's kernel in the
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],

@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-220-reg-z-threshold-lookup';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -16,25 +16,27 @@ export const meta = {
 // Input: { year, table } → returns the full threshold row for that year.
 
 // ---- QM POINTS-AND-FEES (§1026.43(e)(3)) ----
+// Values and citations pinned from the CFPB annual threshold-adjustment notices
+// (primary-text snapshots: research/clause-snapshots/ART220-QM-HOEPA-THRESHOLDS-FR-2021-2026-*.md).
 const QM_POINTS_FEES = {
-  2021: { fr_citation: 'FR 2020-27416, 85 FR 83720', effective: '2021-01-01', tier_1_min: 110260, tier_1_pct: 3, tier_2_fixed: 3308, tier_3_min: 22052, tier_3_pct: 5, tier_4_fixed: 1103, tier_5_pct: 8 },
-  2022: { fr_citation: 'FR 2021-27322, 86 FR 71487', effective: '2022-01-01', tier_1_min: 114847, tier_1_pct: 3, tier_2_fixed: 3445, tier_3_min: 22969, tier_3_pct: 5, tier_4_fixed: 1148, tier_5_pct: 8 },
-  2023: { fr_citation: 'FR 2022-27762, 87 FR 77143', effective: '2023-01-01', tier_1_min: 124331, tier_1_pct: 3, tier_2_fixed: 3730, tier_3_min: 24866, tier_3_pct: 5, tier_4_fixed: 1243, tier_5_pct: 8 },
-  2024: { fr_citation: 'FR 2023-27060, 88 FR 86062', effective: '2024-01-01', tier_1_min: 130867, tier_1_pct: 3, tier_2_fixed: 3926, tier_3_min: 26173, tier_3_pct: 5, tier_4_fixed: 1309, tier_5_pct: 8 },
-  2025: { fr_citation: 'FR 2024-28929, 89 FR 99882', effective: '2025-01-01', tier_1_min: 134500, tier_1_pct: 3, tier_2_fixed: 4035, tier_3_min: 26900, tier_3_pct: 5, tier_4_fixed: 1345, tier_5_pct: 8 },
-  2026: { fr_citation: 'FR 2025-22773, effective 2026-01-01', effective: '2026-01-01', tier_1_min: 137958, tier_1_pct: 3, tier_2_fixed: 4139, tier_3_min: 27592, tier_3_pct: 5, tier_4_fixed: 1380, tier_5_pct: 8 },
+  2021: { fr_citation: 'FR 2020-15900, 85 FR 50944', effective: '2021-01-01', tier_1_min: 110260, tier_1_pct: 3, tier_2_fixed: 3308, tier_3_min: 22052, tier_3_pct: 5, tier_4_fixed: 1103, tier_5_pct: 8 },
+  2022: { fr_citation: 'FR 2021-23478, 86 FR 60357', effective: '2022-01-01', tier_1_min: 114847, tier_1_pct: 3, tier_2_fixed: 3445, tier_3_min: 22969, tier_3_pct: 5, tier_4_fixed: 1148, tier_5_pct: 8 },
+  2023: { fr_citation: 'FR 2022-28023, 87 FR 78831', effective: '2023-01-01', tier_1_min: 124331, tier_1_pct: 3, tier_2_fixed: 3730, tier_3_min: 24866, tier_3_pct: 5, tier_4_fixed: 1243, tier_5_pct: 8 },
+  2024: { fr_citation: 'FR 2023-20476, 88 FR 65113', effective: '2024-01-01', tier_1_min: 130461, tier_1_pct: 3, tier_2_fixed: 3914, tier_3_min: 26092, tier_3_pct: 5, tier_4_fixed: 1305, tier_5_pct: 8 },
+  2025: { fr_citation: 'FR 2024-27553, 89 FR 95080', effective: '2025-01-01', tier_1_min: 134841, tier_1_pct: 3, tier_2_fixed: 4045, tier_3_min: 26968, tier_3_pct: 5, tier_4_fixed: 1348, tier_5_pct: 8 },
+  2026: { fr_citation: 'FR 2025-22773, 90 FR 57890', effective: '2026-01-01', tier_1_min: 137958, tier_1_pct: 3, tier_2_fixed: 4139, tier_3_min: 27592, tier_3_pct: 5, tier_4_fixed: 1380, tier_5_pct: 8 },
 };
 
 // ---- HOEPA HIGH-COST MORTGAGE (§1026.32(a)(1)) ----
 // HOEPA rate spread trigger: APR > APOR + threshold pp
 // HOEPA points-and-fees trigger (as % of loan or fixed floor)
 const HOEPA = {
-  2021: { fr_citation: 'FR 2020-27416, 85 FR 83720', effective: '2021-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1103 },
-  2022: { fr_citation: 'FR 2021-27322, 86 FR 71487', effective: '2022-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1148 },
-  2023: { fr_citation: 'FR 2022-27762, 87 FR 77143', effective: '2023-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1243 },
-  2024: { fr_citation: 'FR 2023-27060, 88 FR 86062', effective: '2024-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1309 },
-  2025: { fr_citation: 'FR 2024-28929, 89 FR 99882', effective: '2025-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1345 },
-  2026: { fr_citation: 'FR 2025-22773, effective 2026-01-01', effective: '2026-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1380 },
+  2021: { fr_citation: 'FR 2020-15900, 85 FR 50944', effective: '2021-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1103 },
+  2022: { fr_citation: 'FR 2021-23478, 86 FR 60357', effective: '2022-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1148 },
+  2023: { fr_citation: 'FR 2022-28023, 87 FR 78831', effective: '2023-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1243 },
+  2024: { fr_citation: 'FR 2023-20476, 88 FR 65113', effective: '2024-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1305 },
+  2025: { fr_citation: 'FR 2024-27553, 89 FR 95080', effective: '2025-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1348 },
+  2026: { fr_citation: 'FR 2025-22773, 90 FR 57890', effective: '2026-01-01', rate_spread_first_lien_pp: 6.5, rate_spread_sub_lien_pp: 8.5, points_fees_pct: 5, points_fees_floor: 1380 },
 };
 
 // ---- HPML HIGHER-PRICED MORTGAGE (§1026.35) ----
@@ -50,18 +52,21 @@ const HPML = {
   2026: { fr_citation: 'Reg Z §1026.35(a)(1); FR 2025-22773 (escrow threshold)', effective: '2014-01-10', first_lien_pp: 1.5, first_lien_jumbo_pp: 2.5, sub_lien_pp: 3.5, escrow_exemption_threshold: 34500 },
 };
 
-// ---- CARD ACT PENALTY FEES (§1026.52(b)) ----
-// The CFPB $8 late-fee safe-harbor rule was VACATED May 2025; the previous safe-harbor applies.
-// Late fee safe harbor: $30 first occurrence, $41 subsequent (unchanged since 2013).
-// Over-limit and returned-payment: $30 safe harbor.
-// These are statutory safe harbors set by rulemaking; exact amounts version-pinned here.
+// ---- CARD ACT PENALTY FEES (Reg Z card penalty-fee safe harbors) ----
+// Safe-harbor amounts pinned from the eCFR versioner API as retrieved 2026-09-03
+// (primary-text snapshot: research/clause-snapshots/ART220-CARD-PENALTY-1026.52b1ii-HISTORICAL-ecfr-2026-09-03.md).
+// Year rows carry the state in force at year end. From 2024-05-14 (89 FR 19202) the structure is:
+// $8 late-payment cap for non-smaller issuers; $32/$43 for other violations (returned payment,
+// over-limit); smaller issuers' late fees capped at the (A)/(B) amounts instead of $8.
+const CARD_PENALTY_NOTE_PRE2024 = 'As retrieved 2026-09-03 from the eCFR versioner API, 12 CFR 1026.52(b)(1)(ii) read $29 first / $40 subsequent for 2021 (last adjusted 84 FR 37567) and $30 / $41 from 2022-01-01 (86 FR 60360).';
+const CARD_PENALTY_NOTE_2024ON = 'From 2024-05-14 (89 FR 19202, per the eCFR text as retrieved 2026-09-03): late-payment fee cap $8 (non-smaller issuers; smaller issuers per 1026.52(b)(1)(ii)(E)); other violations $32 first / $43 subsequent.';
 const CARD_PENALTY = {
-  2021: { fr_citation: 'Reg Z §1026.52(b); FR 2013-19978, 78 FR 25818', effective: '2013-08-22', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: '$8 cap rule vacated May 2025; safe-harbor amounts unchanged since 2013.' },
-  2022: { fr_citation: 'Reg Z §1026.52(b); FR 2013-19978', effective: '2013-08-22', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: 'Safe-harbor amounts unchanged since 2013.' },
-  2023: { fr_citation: 'Reg Z §1026.52(b); FR 2013-19978', effective: '2013-08-22', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: 'Safe-harbor amounts unchanged since 2013.' },
-  2024: { fr_citation: 'Reg Z §1026.52(b); FR 2013-19978; CFPB 2024 $8 rule proposed (not effective)', effective: '2013-08-22', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: 'CFPB proposed $8 late-fee cap NOT in effect in 2024; safe-harbor amounts unchanged.' },
-  2025: { fr_citation: 'Reg Z §1026.52(b); FR 2013-19978; CFPB $8 rule VACATED May 2025', effective: '2013-08-22', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: '$8 CFPB late-fee cap rule vacated May 2025 by Fifth Circuit; prior safe-harbor applies.' },
-  2026: { fr_citation: 'Reg Z §1026.52(b); FR 2013-19978; $8 rule vacated 2025', effective: '2013-08-22', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: 'Safe-harbor amounts unchanged since 2013. $8 rule vacated 2025.' },
+  2021: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 84 FR 37567', effective: '2019-08-01', late_fee_first: 29, late_fee_subsequent: 40, returned_payment: 29, over_limit: 29, note: CARD_PENALTY_NOTE_PRE2024 },
+  2022: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 86 FR 60360', effective: '2022-01-01', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: CARD_PENALTY_NOTE_PRE2024 },
+  2023: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 86 FR 60360', effective: '2022-01-01', late_fee_first: 30, late_fee_subsequent: 41, returned_payment: 30, over_limit: 30, note: CARD_PENALTY_NOTE_PRE2024 },
+  2024: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 89 FR 19202', effective: '2024-05-14', late_fee_first: 8, late_fee_subsequent: 8, returned_payment: 32, over_limit: 32, note: 'Through 2024-05-13 the 2023 amounts ($30/$41) applied; the row carries the year-end state. ' + CARD_PENALTY_NOTE_2024ON },
+  2025: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 89 FR 19202', effective: '2024-05-14', late_fee_first: 8, late_fee_subsequent: 8, returned_payment: 32, over_limit: 32, note: CARD_PENALTY_NOTE_2024ON },
+  2026: { fr_citation: 'Reg Z §1026.52(b)(1)(ii); 89 FR 19202', effective: '2024-05-14', late_fee_first: 8, late_fee_subsequent: 8, returned_payment: 32, over_limit: 32, note: CARD_PENALTY_NOTE_2024ON },
 };
 
 const TABLES = {
@@ -72,6 +77,11 @@ const TABLES = {
 };
 
 const VALID_TABLES = Object.keys(TABLES);
+
+// Single-writer export (ART220-TABLE-SINGLE-WRITER-1): the node page's TABLES block is
+// generated from this object by scripts/check-art220-table-parity.mjs; the page never
+// hand-maintains a second copy of these constants.
+export const THRESHOLD_TABLES = TABLES;
 
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 
