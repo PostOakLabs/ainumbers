@@ -1,0 +1,173 @@
+{
+  "tool_id": "art-671-short-sale-locate-ssr-checker",
+  "note": "worked example (parity pin 09d0abb4437d9e560cc25080dd0c83281678d610ddb3f13eef4403417af72d37 from SHORTSALE-LOCATE-BUILD-SPEC.md), opposite-verdict vector (declared ssr_active flips overall to SSR_RESTRICTED), locate-missing with T372 pointer, and four fail-closed refusal paths (undeclared source, malformed date, side not sell_short, empty inputs). human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "worked_example_locate_documented",
+      "policy_parameters": {
+        "order": {
+          "side": "sell_short",
+          "qty": 5000,
+          "symbol": "SYN-B"
+        },
+        "locate": {
+          "source": "easy_to_borrow_list",
+          "list_date": "2026-09-03",
+          "on_list": true
+        },
+        "ssr_active": false
+      },
+      "output_payload": {
+        "locate_satisfied": true,
+        "ssr_restriction": false,
+        "note": "locate recorded pre-order per declared source dated 2026-09-03",
+        "overall": "LOCATE_DOCUMENTED"
+      },
+      "golden_hash": "09d0abb4437d9e560cc25080dd0c83281678d610ddb3f13eef4403417af72d37"
+    },
+    {
+      "name": "opposite_verdict_ssr_active",
+      "policy_parameters": {
+        "order": {
+          "side": "sell_short",
+          "qty": 5000,
+          "symbol": "SYN-B"
+        },
+        "locate": {
+          "source": "easy_to_borrow_list",
+          "list_date": "2026-09-03",
+          "on_list": true
+        },
+        "ssr_active": true
+      },
+      "output_payload": {
+        "locate_satisfied": true,
+        "ssr_restriction": true,
+        "note": "locate recorded pre-order per declared source dated 2026-09-03; declared SSR price-test flag is active, carried as declared -- the price test itself belongs to the caller's feeds",
+        "overall": "SSR_RESTRICTED"
+      },
+      "golden_hash": "df8a0a858e4ce7291c3e67812a55aa898958593c066ba6ea86830ccf2e2d6223"
+    },
+    {
+      "name": "locate_missing_on_list_false",
+      "policy_parameters": {
+        "order": {
+          "side": "sell_short",
+          "qty": 1200,
+          "symbol": "SYN-C"
+        },
+        "locate": {
+          "source": "agreed_borrow",
+          "list_date": "2026-09-01",
+          "on_list": false
+        },
+        "ssr_active": false
+      },
+      "output_payload": {
+        "locate_satisfied": false,
+        "ssr_restriction": false,
+        "note": "no locate documented for the declared 1200 share short sale in SYN-C: declared source agreed_borrow dated 2026-09-01 did not list the symbol; buy-in and close-out treatment is the caller's judgement (suite pointer T372, buy-in scope classifier)",
+        "overall": "LOCATE_MISSING"
+      },
+      "golden_hash": "ad499af3b182cceb9fbce33acdf6beda96101de5d55b88a5a4b2cc0a84cd13f1"
+    },
+    {
+      "name": "fail_closed_bad_source",
+      "policy_parameters": {
+        "order": {
+          "side": "sell_short",
+          "qty": 5000,
+          "symbol": "SYN-B"
+        },
+        "locate": {
+          "source": "friends_and_family_list",
+          "list_date": "2026-09-03",
+          "on_list": true
+        },
+        "ssr_active": false
+      },
+      "output_payload": {
+        "locate_satisfied": null,
+        "ssr_restriction": null,
+        "note": "fail-closed: locate.source must be one of easy_to_borrow_list, hard_to_borrow_list, agreed_borrow, proprietary_inventory; no locate or SSR classification computed -- correct the named inputs and resubmit. Checker of caller-declared synthetic inputs only: not compliance advice, not a recommendation, and not connected to any live borrow list, SSR tape, cutoff feed, or register.",
+        "overall": null,
+        "domain_errors": [
+          "INVALID_LOCATE_SOURCE"
+        ]
+      },
+      "golden_hash": "e9bd407916a8b95ec77f749547ab707c979b94cff930ed90a5143d986103f0c3"
+    },
+    {
+      "name": "fail_closed_bad_date",
+      "policy_parameters": {
+        "order": {
+          "side": "sell_short",
+          "qty": 5000,
+          "symbol": "SYN-B"
+        },
+        "locate": {
+          "source": "easy_to_borrow_list",
+          "list_date": "09/03/2026",
+          "on_list": true
+        },
+        "ssr_active": false
+      },
+      "output_payload": {
+        "locate_satisfied": null,
+        "ssr_restriction": null,
+        "note": "fail-closed: locate.list_date must be a declared date in YYYY-MM-DD form; no locate or SSR classification computed -- correct the named inputs and resubmit. Checker of caller-declared synthetic inputs only: not compliance advice, not a recommendation, and not connected to any live borrow list, SSR tape, cutoff feed, or register.",
+        "overall": null,
+        "domain_errors": [
+          "INVALID_LOCATE_DATE"
+        ]
+      },
+      "golden_hash": "b58ecb5404aa000cd23289f0883e4c3feaa7e446bda5a3fe31e907c63407ce8b"
+    },
+    {
+      "name": "fail_closed_side_not_short",
+      "policy_parameters": {
+        "order": {
+          "side": "buy",
+          "qty": 5000,
+          "symbol": "SYN-B"
+        },
+        "locate": {
+          "source": "easy_to_borrow_list",
+          "list_date": "2026-09-03",
+          "on_list": true
+        },
+        "ssr_active": false
+      },
+      "output_payload": {
+        "locate_satisfied": null,
+        "ssr_restriction": null,
+        "note": "fail-closed: order.side must be \"sell_short\" (this checker classifies short-sale locates only); no locate or SSR classification computed -- correct the named inputs and resubmit. Checker of caller-declared synthetic inputs only: not compliance advice, not a recommendation, and not connected to any live borrow list, SSR tape, cutoff feed, or register.",
+        "overall": null,
+        "domain_errors": [
+          "INVALID_ORDER_SIDE"
+        ]
+      },
+      "golden_hash": "500eb36bcc091b427a144db28d773b3215810a2074191c648c32430067769618"
+    },
+    {
+      "name": "fail_closed_empty_inputs",
+      "policy_parameters": {},
+      "output_payload": {
+        "locate_satisfied": null,
+        "ssr_restriction": null,
+        "note": "fail-closed: order.side must be \"sell_short\" (this checker classifies short-sale locates only); order.qty must be a positive whole number of shares; order.symbol must be a non-empty declared symbol string; locate.source must be one of easy_to_borrow_list, hard_to_borrow_list, agreed_borrow, proprietary_inventory; locate.list_date must be a declared date in YYYY-MM-DD form; locate.on_list must be a boolean; ssr_active must be a boolean (declared pass-through of the caller price-test flag); no locate or SSR classification computed -- correct the named inputs and resubmit. Checker of caller-declared synthetic inputs only: not compliance advice, not a recommendation, and not connected to any live borrow list, SSR tape, cutoff feed, or register.",
+        "overall": null,
+        "domain_errors": [
+          "INVALID_ORDER_SIDE",
+          "INVALID_ORDER_QTY",
+          "INVALID_ORDER_SYMBOL",
+          "INVALID_LOCATE_SOURCE",
+          "INVALID_LOCATE_DATE",
+          "INVALID_ON_LIST",
+          "INVALID_SSR_ACTIVE"
+        ]
+      },
+      "golden_hash": "99f7effb111e92d9f632a955657ff545e82f89033ad549fa0041443fc3d9ab21"
+    }
+  ]
+}
