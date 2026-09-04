@@ -1,0 +1,145 @@
+{
+  "tool_id": "675-recordkeeping-completeness-mapper",
+  "version": "1.0.0",
+  "title": "Recordkeeping Completeness Mapper",
+  "description": "Channel inventory roll-up for books-and-records completeness over caller-declared synthetic inputs. Declares each channel (email, chat, voice, messaging, ...) with a captured flag and a retrieval-test result (pass/fail/not_run), and computes: total, captured count, completeness percentage (whole number, half-up), the uncaptured listing, retrieval-pass count, and an overall verdict (COMPLETE only when every channel is captured AND every retrieval test passes; otherwise GAPS_FOUND). Not-proven discipline: it does not check live SSR tapes, borrow lists, cutoff feeds, registers, or any records system -- a COMPLETE verdict is the caller's declaration, never an attestation. Absent or invalid inputs fail closed and are named. No network, no storage, no clock.",
+  "category": "regtech",
+  "tags": [
+    "recordkeeping",
+    "books and records",
+    "off-channel comms",
+    "completeness",
+    "channel inventory",
+    "retrieval test",
+    "zero network",
+    "zero-PII"
+  ],
+  "audience": [
+    "compliance",
+    "broker-dealer operations",
+    "exchanges",
+    "audit"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "channels": {
+        "type": "array",
+        "description": "Declared books-and-records channels, 1 to 4096 entries.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Unique non-empty channel name."
+            },
+            "captured": {
+              "type": "boolean",
+              "description": "Caller-declared capture status; the tool never verifies against a records system."
+            },
+            "retrieval_test": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "not_run"
+              ],
+              "description": "Caller-declared retrieval-test result; not_run is treated as a gap."
+            }
+          },
+          "required": [
+            "name",
+            "captured",
+            "retrieval_test"
+          ]
+        }
+      }
+    },
+    "required": [
+      "channels"
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "total": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Declared channel count; null on the fail-closed path."
+      },
+      "captured": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Count of channels declared captured."
+      },
+      "completeness_pct": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Whole-number percentage, half-up rounded, of captured/total."
+      },
+      "uncaptured": {
+        "type": "array",
+        "description": "Names of channels declared not captured."
+      },
+      "retrieval_passes": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Count of channels whose declared retrieval_test is pass."
+      },
+      "overall": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "COMPLETE",
+          "GAPS_FOUND",
+          null
+        ],
+        "description": "COMPLETE iff every channel captured and every retrieval test pass; otherwise GAPS_FOUND."
+      },
+      "trace": {
+        "type": "string",
+        "description": "Fail-closed reasons naming each rejected input (fail-closed path only)."
+      },
+      "domain_errors": {
+        "type": "array",
+        "description": "Fail-closed error codes (fail-closed path only)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_recordkeeping_completeness_mapper",
+    "description": "Rolls up a caller-declared books-and-records channel inventory: total, captured count, completeness percentage, uncaptured names, retrieval-pass count, and an overall COMPLETE/GAPS_FOUND verdict. Arithmetic of declared inputs only -- does not check live records systems; not_run retrieval tests are gaps, never assumed passes. Invalid inputs fail closed and are named.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "channels": {
+          "type": "array",
+          "description": "Declared channels: {name, captured (boolean), retrieval_test (pass|fail|not_run)}."
+        }
+      },
+      "required": [
+        "channels"
+      ]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/675-recordkeeping-completeness-mapper.html",
+    "function_name": "runSimulation",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by RECORDKEEPING-MAPPER-BUILD-1 per RECORDKEEPING-MAPPER-BUILD-SPEC.md. Not-proven discipline: computes arithmetic of caller-declared channel declarations under named rules; it does not check live SSR tapes, borrow lists, cutoff feeds, or registers; absent or invalid inputs fail closed and are named, never silently repaired."
+}
