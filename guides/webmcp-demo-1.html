@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>WebMCP Demo 1: A Real Session, Bugs Included · AINumbers.co</title>
+<meta name="description" content="A complete, unedited walkthrough of calling an AINumbers calculator through WebMCP: every command, every error, every fix, and the receipt at the end.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/webmcp-demo-1">
+<meta property="og:type" content="website">
+<meta property="og:title" content="WebMCP Demo 1: A Real Session, Bugs Included · AINumbers.co">
+<meta property="og:description" content="A complete, unedited walkthrough of calling an AINumbers calculator through WebMCP: every command, every error, every fix, and the receipt at the end.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article","headline":"WebMCP Demo 1: A Real Session, Bugs Included","url":"https://ainumbers.co/guides/webmcp-demo-1","description":"A complete, unedited walkthrough of calling an AINumbers calculator through WebMCP: every command, every error, every fix, and the receipt at the end.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"publisher":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"license":"https://creativecommons.org/licenses/by/4.0/"}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── DESIGN TOKENS (SSOT guides template) ── */
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+  --accent:var(--teal);--accent-dim:var(--teal-dim);--accent-rgb:20,184,166;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── NAV ── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-links{display:flex;align-items:center;gap:1rem}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);transition:color .2s}
+.nav-link:hover{color:var(--teal)}
+.nav-end{flex:1;display:flex;justify-content:flex-end}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
+
+/* ── HERO ── */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.9rem);color:var(--white);max-width:760px;margin-bottom:.75rem}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* ── SECTIONS ── */
+.section{padding:3rem 0;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.sec-heading{font-size:clamp(1.2rem,2.2vw,1.7rem);color:var(--white);margin-bottom:.75rem}
+.sec-sub{font-size:.82rem;color:var(--body);line-height:1.75;max-width:680px;margin-bottom:2rem}
+.section p{font-size:.86rem;margin:.7rem 0;max-width:760px}
+.section a{color:var(--teal);transition:color .2s}
+.section a:hover{color:var(--white)}
+
+/* ── ARTICLE PIECES ── */
+.term{background:#060B14;border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.1rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;overflow-x:auto;white-space:pre;line-height:1.6;max-width:760px}
+.term .in{color:var(--bright)}
+.term .out{color:var(--body)}
+.term .ok{color:var(--green)}
+.term .err{color:var(--red)}
+.term .warn{color:var(--gold)}
+.snippet{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:.9rem 1.1rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;overflow-x:auto;white-space:pre;line-height:1.6;color:var(--bright);max-width:760px}
+.lesson{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.2rem;margin:1.2rem 0;font-size:.82rem;max-width:760px}
+.lesson .lbl{color:var(--teal);font-weight:500}
+.mono{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--teal-lt)}
+.lbl{font-weight:600;color:var(--bright)}
+.toc{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.4rem;margin:1.4rem 0;max-width:560px;font-size:.84rem}
+.toc .lbl{color:var(--bright);font-weight:500}
+.toc ol{margin:.4rem 0 0 1.2rem}
+.toc li{margin:.25rem 0}
+/* ── STEP CARDS (quick-start pattern from the hub template) ── */
+.qs-list{list-style:none;display:flex;flex-direction:column;gap:1rem}
+.qs-item{display:flex;gap:1rem;align-items:flex-start;padding:1.1rem 1.2rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.qs-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:500;color:var(--teal);width:28px;height:28px;border-radius:50%;border:1px solid rgba(20,184,166,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:.2rem}
+.qs-body{flex:1;min-width:0}
+.qs-body h4{font-family:'Sora',sans-serif;font-size:.9rem;font-weight:500;color:var(--bright);margin-bottom:.35rem}
+.qs-body p{font-size:.8rem;color:var(--body);line-height:1.7;margin:.3rem 0;max-width:720px}
+kbd{background:var(--bg-4);border:1px solid var(--border-2);border-bottom-width:3px;border-radius:5px;padding:.06rem .42rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright)}
+.copyrow{display:flex;gap:.5rem;align-items:stretch;margin:.55rem 0}
+.copyrow code{background:#060B14;border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--teal-lt);flex:1;overflow-x:auto;white-space:pre}
+button.cp{background:var(--bg-3);color:var(--teal);border:1px solid var(--border-2);border-radius:var(--radius);padding:.35rem .85rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;transition:all .18s;flex-shrink:0}
+button.cp:hover{border-color:var(--teal);background:var(--teal-dim)}
+.see{border-left:3px solid var(--green);background:var(--green-dim);border-radius:0 var(--radius) var(--radius) 0;padding:.55rem .85rem;margin:.55rem 0;font-size:.78rem;color:var(--text);max-width:720px}
+.see .lbl{color:var(--green);font-weight:600}
+.see code{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright)}
+.ifnot{border-left:3px solid var(--warn);background:var(--warn-dim);border-radius:0 var(--radius) var(--radius) 0;padding:.55rem .85rem;margin:.55rem 0;font-size:.76rem;color:var(--body);max-width:720px}
+.ifnot .lbl{color:var(--warn);font-weight:600}
+.ifnot code{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text)}
+.inline{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--teal-lt);background:var(--bg-3);border:1px solid var(--border);border-radius:4px;padding:.04rem .32rem}
+table.tiers{border-collapse:collapse;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem;max-width:560px;width:100%}
+table.tiers td{border:1px solid var(--border);padding:.4rem .8rem}
+table.tiers td:first-child{color:var(--body)}
+table.tiers td:last-child{text-align:right;color:var(--bright)}
+.hash{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.76rem;word-break:break-all}
+.note{color:var(--body);font-size:.8rem}
+ul.takeaways{list-style:none;margin:1rem 0;max-width:760px}
+ul.takeaways li{margin:.55rem 0;padding-left:1.4rem;position:relative;font-size:.84rem}
+ul.takeaways li::before{content:'';position:absolute;left:0;top:.55em;width:.55rem;height:.55rem;border-radius:2px;background:var(--teal-dim);border:1px solid rgba(20,184,166,.4)}
+.last-reviewed{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:1.5rem}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem;position:relative;z-index:1}
+.footer-inner-ai{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-cat-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);line-height:1.4;margin-top:.15rem}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.nav-links{gap:.5rem}.hero{padding:2.5rem 0 2rem}.qs-item{flex-direction:column;gap:.6rem}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo" style="flex:1">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></span>
+        <span class="logo-tag">WebMCP Demos</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html" class="nav-link">All Tools</a>
+      <a href="agentic-commerce-mcp-hub.html" class="nav-link">MCP Hub</a>
+    </div>
+    <div class="nav-end">
+      <a href="../mcp.html" class="nav-cta">MCP &#8594;</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">Guides · WebMCP · Demo 1</div>
+    <h1>A real session, bugs included</h1>
+    <p class="hero-desc">This is what actually happens when you call the Reg&nbsp;Z threshold calculator through WebMCP, the draft W3C API that lets a web page offer tools to AI agents. It does not work on the first try, and that is the point: this page is a complete session, every command, every error the browser throws, what each one means, and the cryptographic receipt at the end. Nothing cleaned up, because the debugging is the useful part.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">WebMCP</span>
+      <span class="hero-badge badge-gold">art-220 · Reg Z Threshold Lookup</span>
+      <span class="hero-badge badge-green">Deterministic · Hash-Receipted</span>
+      <span class="hero-badge badge-muted">Draft W3C API</span>
+    </div>
+  </div>
+</header>
+
+<section class="section">
+  <div class="container">
+    <div class="toc">
+      <span class="lbl">What happened, in order</span>
+      <ol>
+        <li>Fast path: run the working WebMCP demo first</li>
+        <li>Launching Chrome with WebMCP enabled</li>
+        <li>Opening DevTools and unlocking the console</li>
+        <li>Error one: the API is not there at all</li>
+        <li>Error two: the API moved</li>
+        <li>Proving the fix with a probe tool</li>
+        <li>The full call, and the receipt</li>
+        <li>What changed on this site because of it</li>
+      </ol>
+    </div>
+    <p class="sec-sub" style="margin-top:1rem">No prior experience with browser DevTools is assumed. Start with the working path below. The later sections preserve the original debugging record, including its two failures, so that a reader can identify and recover from the same problems. Every command is safe to paste repeatedly because it runs inside its own temporary scope.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Start here</div>
+    <h2 class="sec-heading">Fast path: a successful WebMCP call</h2>
+    <p class="sec-sub">Use this section if you want to see WebMCP working before reading the debugging history. It takes about three minutes and uses only public, synthetic regulatory data.</p>
+    <ul class="qs-list">
+      <li class="qs-item"><span class="qs-num">A</span><div class="qs-body">
+        <h4>Start Chrome with WebMCP enabled</h4>
+        <p>Close Chrome completely. Press <kbd>Win</kbd>+<kbd>R</kbd>, paste the command below into the Run box, and press <kbd>Enter</kbd>.</p>
+        <div class="copyrow"><code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --enable-features=WebMCP</code><button class="cp" onclick="cp(this,'&quot;C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe&quot; --enable-features=WebMCP')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> a new Chrome window opens. If Chrome opens but the checks in step C say WebMCP is unavailable, see the recovery instructions in historical step 3 below.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">B</span><div class="qs-body">
+        <h4>Open the public Reg Z calculator and run it once as a person</h4>
+        <div class="copyrow"><code>https://ainumbers.co/chaingraph/art-220-reg-z-threshold-lookup.html</code><button class="cp" onclick="cp(this,'https://ainumbers.co/chaingraph/art-220-reg-z-threshold-lookup.html')">Copy</button></div>
+        <p>In the page form, select <span class="lbl">QM Points and Fees</span>, select <span class="lbl">2026</span>, and click <span class="lbl">Lookup Thresholds</span>.</p>
+        <div class="see"><span class="lbl">Expected result:</span> the page shows 2026 thresholds, including a 3% tier for loans at or above $137,958 and a $4,139 fixed cap for the next tier. Near the bottom of the result is an <span class="lbl">Execution Hash (SHA-256)</span>.</div>
+        <div class="ifnot"><span class="lbl">No result?</span> Confirm both dropdowns have a value, then click <span class="lbl">Lookup Thresholds</span> again. This demonstration uses the page's public example values only; do not enter personal or customer information.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">C</span><div class="qs-body">
+        <h4>Open the Console and check that the page registered its tool</h4>
+        <p>Press <kbd>F12</kbd>, choose the <span class="lbl">Console</span> tab, click the prompt, and paste the complete block below. If Chrome first displays a warning about pasting, type <span class="inline">allow pasting</span>, press <kbd>Enter</kbd>, and paste the block again.</p>
+        <div class="copyrow"><code>(async () =&gt; {
+  const webMcp = document.modelContext ?? navigator.modelContext;
+  if (!webMcp) throw new Error("WebMCP is unavailable. Restart Chrome with --enable-features=WebMCP.");
+  const tools = await webMcp.getTools();
+  console.log("WebMCP surface:", document.modelContext ? "document.modelContext" : "navigator.modelContext");
+  console.table(tools.map(({ name, description }) =&gt; ({ name, description })));
+})();</code><button class="cp" onclick="cp(this,'(async () =&gt; {\n  const webMcp = document.modelContext ?? navigator.modelContext;\n  if (!webMcp) throw new Error(\"WebMCP is unavailable. Restart Chrome with --enable-features=WebMCP.\");\n  const tools = await webMcp.getTools();\n  console.log(\"WebMCP surface:\", document.modelContext ? \"document.modelContext\" : \"navigator.modelContext\");\n  console.table(tools.map(({ name, description }) =&gt; ({ name, description })));\n})();')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> the Console says <code>WebMCP surface: document.modelContext</code> (or the older fallback) and shows a table with <code>art-220-reg-z-threshold-lookup-compute</code>.</div>
+        <div class="ifnot"><span class="lbl">WebMCP is unavailable?</span> Chrome did not start with the feature enabled. Follow the force-close and relaunch recovery in historical steps 9 and 10. <span class="lbl">Empty table?</span> Reload this calculator page once, then run the same block again.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">D</span><div class="qs-body">
+        <h4>Call the calculator as an agent would</h4>
+        <p>Paste this block into the same Console and press <kbd>Enter</kbd>. It sends two explicit inputs: the applicable regulatory table and the relevant year. It then formats the agent's structured answer as a readable table.</p>
+        <div class="copyrow"><code>(async () =&gt; {
+  const webMcp = document.modelContext ?? navigator.modelContext;
+  if (!webMcp) throw new Error("WebMCP is unavailable.");
+  const tools = await webMcp.getTools();
+  const regZTool = tools.find(tool =&gt; tool.name === "art-220-reg-z-threshold-lookup-compute");
+  if (!regZTool) throw new Error("The Reg Z tool was not registered. Reload the page and try again.");
+  const response = JSON.parse(await webMcp.executeTool(
+    regZTool,
+    JSON.stringify({ tableType: "qm_points_fees", tableYear: 2026 })
+  ));
+  const d = response.output_payload.data;
+  console.clear();
+  console.log("✓ WebMCP agent call succeeded");
+  console.table([{
+    tool: regZTool.name, table: "QM Points and Fees", year: 2026,
+    "Tier 1 minimum": `$${d.tier_1_min.toLocaleString()}`,
+    "Tier 1 percentage": `${d.tier_1_pct}%`,
+    "Tier 2 fixed": `$${d.tier_2_fixed.toLocaleString()}`,
+    "Tier 3 minimum": `$${d.tier_3_min.toLocaleString()}`,
+    "Tier 5 percentage": `${d.tier_5_pct}%`, source: d.fr_citation
+  }]);
+})();</code><button class="cp" onclick="cp(this,'(async () =&gt; {\n  const webMcp = document.modelContext ?? navigator.modelContext;\n  if (!webMcp) throw new Error(\"WebMCP is unavailable.\");\n  const tools = await webMcp.getTools();\n  const regZTool = tools.find(tool =&gt; tool.name === \"art-220-reg-z-threshold-lookup-compute\");\n  if (!regZTool) throw new Error(\"The Reg Z tool was not registered. Reload the page and try again.\");\n  const response = JSON.parse(await webMcp.executeTool(\n    regZTool,\n    JSON.stringify({ tableType: \"qm_points_fees\", tableYear: 2026 })\n  ));\n  const d = response.output_payload.data;\n  console.clear();\n  console.log(\"✓ WebMCP agent call succeeded\");\n  console.table([{\n    tool: regZTool.name, table: \"QM Points and Fees\", year: 2026,\n    \"Tier 1 minimum\": `$${d.tier_1_min.toLocaleString()}`,\n    \"Tier 1 percentage\": `${d.tier_1_pct}%`,\n    \"Tier 2 fixed\": `$${d.tier_2_fixed.toLocaleString()}`,\n    \"Tier 3 minimum\": `$${d.tier_3_min.toLocaleString()}`,\n    \"Tier 5 percentage\": `${d.tier_5_pct}%`, source: d.fr_citation\n  }]);\n})();')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> <code>✓ WebMCP agent call succeeded</code>, followed by one row containing the tool name, 2026, the threshold values, and <code>FR 2025-22773, effective 2026-01-01</code>.</div>
+        <div class="ifnot"><span class="lbl">"Failed to parse input arguments"?</span> The second argument to <span class="inline">executeTool</span> must be a JSON <span class="lbl">string</span>. Copy the entire block exactly; it already uses <span class="inline">JSON.stringify(...)</span>. <span class="lbl">"Identifier has already been declared"?</span> This scoped block is safe to run repeatedly.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">E</span><div class="qs-body">
+        <h4>Verify the receipt shown on the page</h4>
+        <p>Return to the calculator results. The agent call updates the same page view. Find <span class="lbl">Execution Hash (SHA-256)</span>, then click <span class="lbl">Verify Hash</span>.</p>
+        <div class="see"><span class="lbl">Expected result:</span> the page confirms that the displayed result matches its hash. The structured Console table is the agent view; the result, source, and hash on the page are the reviewer view.</div>
+      </div></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Step 1</div>
+    <h2 class="sec-heading">Launching Chrome with WebMCP enabled</h2>
+    <p class="sec-sub">WebMCP is new, so Chrome keeps it behind a feature switch. This has to be done once, from a fully closed Chrome.</p>
+    <ul class="qs-list">
+
+      <li class="qs-item"><span class="qs-num">1</span><div class="qs-body">
+        <h4>Close every Chrome window</h4>
+        <p>Close all open Chrome windows first. A window merely closing is not the same as Chrome fully quitting; the next step forces the issue.</p>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">2</span><div class="qs-body">
+        <h4>Launch Chrome with the flag</h4>
+        <p>Press <kbd>Win</kbd>+<kbd>R</kbd> to open the Run box, then paste this and press <kbd>Enter</kbd>:</p>
+        <div class="copyrow"><code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --enable-features=WebMCP</code><button class="cp" onclick="cp(this,'&quot;C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe&quot; --enable-features=WebMCP')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> a new Chrome window opens. There is no visible sign the flag took effect yet; step 3 below confirms it.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">3</span><div class="qs-body">
+        <h4>Open the calculator this example runs against</h4>
+        <div class="copyrow"><code>https://ainumbers.co/chaingraph/art-220-reg-z-threshold-lookup.html</code><button class="cp" onclick="cp(this,'https://ainumbers.co/chaingraph/art-220-reg-z-threshold-lookup.html')">Copy</button></div>
+        <p>Paste the address into a new tab and press <kbd>Enter</kbd>. It is an ordinary page with two dropdowns; nothing about it looks different yet.</p>
+      </div></li>
+
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Step 2</div>
+    <h2 class="sec-heading">Opening DevTools and unlocking the console</h2>
+    <p class="sec-sub">Everything from here on happens in the browser's built-in developer console.</p>
+    <ul class="qs-list">
+
+      <li class="qs-item"><span class="qs-num">4</span><div class="qs-body">
+        <h4>Open DevTools</h4>
+        <p>With the calculator page in front, press <kbd>F12</kbd>.</p>
+        <div class="see"><span class="lbl">Expected result:</span> a panel opens, docked to the side or bottom of the window, with tabs across the top including <span class="lbl">Elements</span> and <span class="lbl">Console</span>.</div>
+        <div class="ifnot"><span class="lbl">Nothing happened?</span> Some keyboards route F12 to a media or function key. Right-click anywhere on the page, choose <span class="lbl">Inspect</span>, and the same panel opens.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">5</span><div class="qs-body">
+        <h4>Select the Console tab, then click inside it</h4>
+        <p>Click the <span class="lbl">Console</span> tab at the top of the DevTools panel, then click once inside the empty area below the tab. A blinking text cursor appears; this is where every command below gets pasted.</p>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">6</span><div class="qs-body">
+        <h4>Unlock pasting</h4>
+        <p>The very first paste into a fresh console does nothing except produce this yellow warning instead:</p>
+        <div class="term"><span class="warn">Warning: Don't paste code into the DevTools Console that you don't
+understand or haven't reviewed yourself. This could allow attackers to
+steal your identity or take control of your computer. Please type
+"allow pasting" below and press Enter to allow pasting.</span></div>
+        <p>This is a one-time, real protection: it is aimed at a common scam where someone is talked into pasting code they cannot read. Type the words below at the console prompt and press <kbd>Enter</kbd>. Chrome remembers this permanently for this profile.</p>
+        <div class="copyrow"><code>allow pasting</code><button class="cp" onclick="cp(this,'allow pasting')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> the warning is replaced by a normal empty prompt. Every snippet on this page is shown in full, so reading before pasting stays possible, which is exactly the habit the warning is asking for.</div>
+      </div></li>
+
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Step 3</div>
+    <h2 class="sec-heading">Error one: the API is not there at all</h2>
+    <ul class="qs-list">
+
+      <li class="qs-item"><span class="qs-num">7</span><div class="qs-body">
+        <h4>Ask the page what tools it offers</h4>
+        <p>Paste this into the console and press <kbd>Enter</kbd>:</p>
+        <div class="copyrow"><code>(async () =&gt; {
+  const tools = await navigator.modelContext.getTools();
+  console.log(tools.length, tools[0].name);
+})();</code><button class="cp" onclick="cp(this,'(async () =&gt; {\n  const tools = await navigator.modelContext.getTools();\n  console.log(tools.length, tools[0].name);\n})();')">Copy</button></div>
+        <div class="ifnot"><span class="lbl">What it looked like here:</span>
+<div class="term"><span class="err">Uncaught TypeError: Cannot read properties of undefined (reading 'getTools')</span></div>
+        </div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">8</span><div class="qs-body">
+        <h4>Diagnose it</h4>
+        <p><span class="mono">navigator.modelContext</span> did not exist, meaning the feature switch never took effect. The cause is sneaky: Chrome keeps background processes running even after every window is closed, so a flagged launch can silently open inside the old, unflagged instance instead of starting fresh.</p>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">9</span><div class="qs-body">
+        <h4>Force-kill every Chrome process, then relaunch</h4>
+        <p>Open a Command Prompt or PowerShell window and run:</p>
+        <div class="copyrow"><code>taskkill /IM chrome.exe /F</code><button class="cp" onclick="cp(this,'taskkill /IM chrome.exe /F')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> every Chrome window disappears at once. Repeat step 1's launch command (<code>--enable-features=WebMCP</code>) and reopen the calculator page.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">10</span><div class="qs-body">
+        <h4>Confirm the fresh start took</h4>
+        <p>Back in the console (repeat step 2's "allow pasting" if this is a new profile), paste:</p>
+        <div class="copyrow"><code>"modelContext" in navigator</code><button class="cp" onclick="cp(this,'&quot;modelContext&quot; in navigator')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> <code>true</code>.</div>
+      </div></li>
+
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Step 4</div>
+    <h2 class="sec-heading">Error two: the API moved</h2>
+    <ul class="qs-list">
+
+      <li class="qs-item"><span class="qs-num">11</span><div class="qs-body">
+        <h4>Run the same tool-listing snippet again</h4>
+        <div class="copyrow"><code>(async () =&gt; {
+  const tools = await navigator.modelContext.getTools();
+  console.log(tools.length, tools[0].name);
+})();</code><button class="cp" onclick="cp(this,'(async () =&gt; {\n  const tools = await navigator.modelContext.getTools();\n  console.log(tools.length, tools[0].name);\n})();')">Copy</button></div>
+        <div class="ifnot"><span class="lbl">A different failure this time, with an informative warning above it:</span>
+<div class="term"><span class="warn">navigator.modelContext is deprecated. Please use document.modelContext instead.</span>
+<span class="err">Uncaught TypeError: Cannot read properties of undefined (reading 'name')</span></div>
+        </div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">12</span><div class="qs-body">
+        <h4>Check both possible surfaces</h4>
+        <div class="copyrow"><code>(async () =&gt; {
+  const mc = document.modelContext ?? navigator.modelContext;
+  const t = await mc.getTools();
+  console.log(t);
+})();</code><button class="cp" onclick="cp(this,'(async () =&gt; {\n  const mc = document.modelContext ?? navigator.modelContext;\n  const t = await mc.getTools();\n  console.log(t);\n})();')">Copy</button></div>
+        <div class="see"><span class="lbl">Result seen here:</span> <code>[]</code>, an empty list, on both surfaces.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">13</span><div class="qs-body">
+        <h4>Diagnose it</h4>
+        <p>This page registered its tool on <span class="mono">navigator.modelContext</span>, which was correct when the integration shipped and passed its test harness. Newer Chrome moved the API to <span class="mono">document.modelContext</span> and turned the old path into a deprecated alias whose registrations quietly go nowhere. The page worked on the browser it was tested on and broke on the browser most visitors are now running. Draft APIs do this: a test that passed last month is not a test that passes today.</p>
+      </div></li>
+
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Step 5</div>
+    <h2 class="sec-heading">Proving the fix with a probe tool</h2>
+    <ul class="qs-list">
+
+      <li class="qs-item"><span class="qs-num">14</span><div class="qs-body">
+        <h4>Register a throwaway tool the new way</h4>
+        <p>Before changing anything on the site, confirm the mechanism directly in the console:</p>
+        <div class="copyrow"><code>document.modelContext.registerTool({
+  name: "probe-tool",
+  description: "probe",
+  inputSchema: { type: "object", properties: {} },
+  async execute() { return "ok"; }
+});
+console.log((await document.modelContext.getTools()).map(t => t.name));</code><button class="cp" onclick="cp(this,'document.modelContext.registerTool({\n  name: \&quot;probe-tool\&quot;,\n  description: \&quot;probe\&quot;,\n  inputSchema: { type: \&quot;object\&quot;, properties: {} },\n  async execute() { return \&quot;ok\&quot;; }\n});\nconsole.log((await document.modelContext.getTools()).map(t =&gt; t.name));')">Copy</button></div>
+        <div class="see"><span class="lbl">Expected result:</span> <code>['probe-tool']</code>.</div>
+        <p>One line of output, and the diagnosis is confirmed: registration through <span class="mono">document.modelContext</span> lands; registration through the deprecated alias does not.</p>
+      </div></li>
+
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Step 6</div>
+    <h2 class="sec-heading">The full call, and the receipt</h2>
+    <ul class="qs-list">
+
+      <li class="qs-item"><span class="qs-num">15</span><div class="qs-body">
+        <h4>Call the real calculator tool</h4>
+        <p>With the mechanism proven, the real calculator tool gets registered the new way (the page itself now does this at load) and called exactly as an agent would:</p>
+        <div class="copyrow"><code>(async () =&gt; {
+  const webMcp = document.modelContext ?? navigator.modelContext;
+  const tools = await webMcp.getTools();
+  const tool = tools.find(t =&gt; t.name === "art-220-reg-z-threshold-lookup-compute");
+  if (!tool) throw new Error("Reg Z tool not registered; reload the page and try again.");
+  const result = JSON.parse(await webMcp.executeTool(
+    tool,
+    JSON.stringify({ tableType: "qm_points_fees", tableYear: 2026 })
+  ));
+  console.log(result);
+})();</code><button class="cp" onclick="cp(this,'(async () =&gt; {\n  const webMcp = document.modelContext ?? navigator.modelContext;\n  const tools = await webMcp.getTools();\n  const tool = tools.find(t =&gt; t.name === \"art-220-reg-z-threshold-lookup-compute\");\n  if (!tool) throw new Error(\"Reg Z tool not registered; reload the page and try again.\");\n  const result = JSON.parse(await webMcp.executeTool(\n    tool,\n    JSON.stringify({ tableType: \"qm_points_fees\", tableYear: 2026 })\n  ));\n  console.log(result);\n})();')">Copy</button></div>
+        <div class="ifnot"><span class="lbl">One trap worth knowing:</span> the second argument to <span class="mono">executeTool</span> is a JSON <span class="lbl">string</span>, not an object. Passing an object fails with <code>"Failed to parse input arguments."</code>. The block above uses <code>JSON.stringify(...)</code> and can be pasted repeatedly without a duplicate-variable error.</div>
+      </div></li>
+
+      <li class="qs-item"><span class="qs-num">16</span><div class="qs-body">
+        <h4>Read the result</h4>
+        <p>Two things happen at once. The Console receives a structured answer with <span class="inline">pp</span> (the input parameters) and <span class="inline">output_payload</span> (the returned regulatory data). The page itself renders the human view of the same result, because the tool drives the same function as the submit button. The hash is displayed on the page, not as a field in this particular Console response. The returned regulatory data is:</p>
+        <table class="tiers">
+          <tr><td>fr_citation</td><td>FR 2025-22773, effective 2026-01-01</td></tr>
+          <tr><td>tier_1_min</td><td>$137,958</td></tr>
+          <tr><td>tier_1_pct</td><td>3%</td></tr>
+          <tr><td>tier_2_fixed</td><td>$4,139</td></tr>
+          <tr><td>tier_3_min</td><td>$27,592</td></tr>
+          <tr><td>tier_3_pct</td><td>5%</td></tr>
+          <tr><td>tier_4_fixed</td><td>$1,380</td></tr>
+          <tr><td>tier_5_pct</td><td>8%</td></tr>
+        </table>
+        <p>And beneath it, the execution hash:</p>
+        <p class="hash">sha256:43d43e1b5ac519566dd345496b655fe80a2f815428ab17703c092c15f490c8b6</p>
+        <div class="see"><span class="lbl">Why that hash matters:</span> it is SHA-256 over the canonical form (RFC 8785) of the inputs and outputs together. The continuous-integration harness, on a different Chrome build, on a different day, produced the same hash for the same inputs. Same question, same answer, same fingerprint, on any machine. That is the property that lets an agent verify a result instead of trusting the page that produced it. The kernel behind the page is additionally sealed with a zero-knowledge proof.</div>
+      </div></li>
+
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Step 7</div>
+    <h2 class="sec-heading">What changed on this site because of it</h2>
+    <p>The session found a live defect: the page registered its tool only on the deprecated surface, so current Chrome visitors got no tool at all. The fix is the pattern this site now ships:</p>
+    <div class="snippet">const mc = document.modelContext ??
+  (("modelContext" in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({ /* same tool object */ });
+}</div>
+    <ul class="takeaways">
+      <li>Prefer the current surface, fall back to the old one, and if neither exists do nothing: browsers without WebMCP get a byte-identical page.</li>
+      <li>Verification now runs against the current stable desktop Chrome, not only the build that passed last time. An API in draft moves; the tests have to move with it.</li>
+      <li>This page you are reading is the third artifact of the session. The debugging was too useful to throw away, so it became the worked example.</li>
+    </ul>
+    <h3 style="font-size:1.05rem;color:var(--white);margin-top:2rem">Try it yourself</h3>
+    <p>Everything above is reproducible in about two minutes: launch Chrome with the flag (step 1), open the <a href="../chaingraph/art-220-reg-z-threshold-lookup.html">calculator</a>, and paste the snippet from step 6. The registration is already done for you by the page. Compare the tier values with the form's output and check the hash.</p>
+    <p class="note" style="margin-top:1.5rem">The pattern here, one page serving humans through a form and agents through a tool with a shared receipt, is how every agent-callable calculator on this site works. WebMCP is a draft W3C specification; API names on this page reflect current Chrome behavior and may change again. Values shown are the pinned 2026 Reg&nbsp;Z table (FR 2025-22773); always verify at consumerfinance.gov before production compliance use.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <div>
+        <div class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers.co</div>
+        <div class="footer-cat-tag">Guides · WebMCP Demo 1</div>
+      </div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="agentic-commerce-mcp-hub.html">MCP Hub</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener noreferrer">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Zero PII · Client-Side</span>
+      <span style="color:var(--teal)">WebMCP · Draft W3C</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+function cp(btn, text){ navigator.clipboard.writeText(text).then(()=>{ const o=btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=o, 1200); }); }
+</script>
+</body>
+</html>
