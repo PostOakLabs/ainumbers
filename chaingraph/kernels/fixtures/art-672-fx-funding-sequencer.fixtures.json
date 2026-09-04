@@ -1,0 +1,164 @@
+{
+  "tool_id": "art-672-fx-funding-sequencer",
+  "note": "Golden vectors authored for FX-SEQUENCER-BUILD-1 (FX-SEQUENCER-BUILD-SPEC.md). All inputs caller-declared synthetic; zero PII. Vector 1 is the spec's canonical preimage: its output_payload is the parity target (byte-exact) and its golden_hash is the execution_hash staged in the spec. Vector 2 is the required opposite-verdict vector (a declared cutoff missed). golden_hash values recomputed with chaingraph/kernels/_hash.mjs executionHash. human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "canonical-preimage-parity",
+      "policy_parameters": {
+        "settle_date": "2026-10-13",
+        "trade_confirm_utc": "14:20",
+        "legs": [
+          {
+            "ccy": "EUR",
+            "cutoff_utc": "15:00"
+          },
+          {
+            "ccy": "USD",
+            "cutoff_utc": "21:00"
+          }
+        ]
+      },
+      "output_payload": {
+        "sequence": [
+          "EUR",
+          "USD"
+        ],
+        "margins_minutes": {
+          "EUR": 40,
+          "USD": 400
+        },
+        "all_cutoffs_met": true,
+        "trace": "EUR 15:00 - 14:20 = 40 min; USD 21:00 - 14:20 = 400 min; order by tightest first",
+        "overall": "FUNDING_SEQUENCED"
+      },
+      "golden_hash": "1d4984b1e1c6efca36095590507adb92102ce7e1570d0ecc37517893737204fb"
+    },
+    {
+      "name": "cutoff-missed-opposite-verdict",
+      "policy_parameters": {
+        "settle_date": "2026-10-13",
+        "trade_confirm_utc": "15:30",
+        "legs": [
+          {
+            "ccy": "EUR",
+            "cutoff_utc": "15:00"
+          },
+          {
+            "ccy": "USD",
+            "cutoff_utc": "21:00"
+          }
+        ]
+      },
+      "output_payload": {
+        "sequence": [
+          "EUR",
+          "USD"
+        ],
+        "margins_minutes": {
+          "EUR": -30,
+          "USD": 330
+        },
+        "all_cutoffs_met": false,
+        "trace": "EUR 15:00 - 15:30 = -30 min; USD 21:00 - 15:30 = 330 min; order by tightest first",
+        "overall": "CUTOFF_MISSED"
+      },
+      "golden_hash": "ca14e3dc6a407f5f0275dd150f8c116e20107c9c779e87a42437d64b16249027"
+    },
+    {
+      "name": "single-leg-tightest-only",
+      "policy_parameters": {
+        "settle_date": "2026-10-13",
+        "trade_confirm_utc": "09:00",
+        "legs": [
+          {
+            "ccy": "JPY",
+            "cutoff_utc": "23:00"
+          }
+        ]
+      },
+      "output_payload": {
+        "sequence": [
+          "JPY"
+        ],
+        "margins_minutes": {
+          "JPY": 840
+        },
+        "all_cutoffs_met": true,
+        "trace": "JPY 23:00 - 09:00 = 840 min; order by tightest first",
+        "overall": "FUNDING_SEQUENCED"
+      },
+      "golden_hash": "bca2d462cea4c7c21960a86e06c3c430ff7b751732d32e8a0b88900660890f01"
+    },
+    {
+      "name": "malformed-inputs-indeterminate",
+      "policy_parameters": {
+        "settle_date": "2026-10-13",
+        "trade_confirm_utc": "25:99",
+        "legs": [
+          {
+            "ccy": "eur",
+            "cutoff_utc": "15:00"
+          },
+          {
+            "ccy": "USD",
+            "cutoff_utc": "tomorrow"
+          }
+        ]
+      },
+      "output_payload": {
+        "sequence": null,
+        "margins_minutes": null,
+        "all_cutoffs_met": null,
+        "trace": null,
+        "overall": "INDETERMINATE",
+        "indeterminate_reason": "settle_date, trade_confirm_utc, or legs were absent or malformed; no funding sequence could be computed from declared inputs alone.",
+        "settle_date": "2026-10-13",
+        "trade_confirm_utc": "25:99",
+        "rejected_inputs": [
+          {
+            "where": "trade_confirm_utc",
+            "reason": "absent or not a declared UTC HH:MM confirm time",
+            "supplied": "25:99"
+          },
+          {
+            "where": "legs[0].ccy",
+            "reason": "absent or not a 3-letter uppercase currency code",
+            "supplied": "eur"
+          },
+          {
+            "where": "legs[1].cutoff_utc",
+            "reason": "absent or not a declared UTC HH:MM time",
+            "supplied": "tomorrow"
+          }
+        ],
+        "citations": {},
+        "rationale": [
+          "Verdict is INDETERMINATE: one or more required declared inputs (settle_date, trade_confirm_utc, legs) were absent, malformed, or ambiguous, so no funding sequence could be computed.",
+          "3 supplied values were not usable. Each one is named in rejected_inputs rather than silently dropped or guessed toward a sequence.",
+          "This tool computes arithmetic of declared inputs under named rules. It does not check live SSR tapes, borrow lists, cutoff feeds, or registers, and the PvP check is out of scope -- the output points at the PvP validator surface as a link, never a duplicated verdict."
+        ],
+        "not_proven": [
+          {
+            "item": "Not a live cutoff feed",
+            "detail": "Cutoff times are caller-declared UTC strings. This kernel does not read any FX cutoff feed, SSR tape, borrow list, register, or venue calendar, and makes no claim that a declared cutoff matches any live market cutoff."
+          },
+          {
+            "item": "Not a PvP determination",
+            "detail": "Payment-versus-payment outcome is out of scope. The output points at the PvP validator surface as a link; this kernel never renders a PvP verdict and never settles, nets, or moves anything."
+          },
+          {
+            "item": "Declared inputs only",
+            "detail": "The settle date, confirm time, and currency legs are caller-declared and synthetic by contract. No correctness check on the declared values against any external source is performed."
+          },
+          {
+            "item": "Single-settle-date comparison math",
+            "detail": "Margins are computed as cutoff-minus-confirm minutes on the one declared settle date. No timezone conversion, date rollover, holiday calendar, or daylight-saving adjustment is applied -- a cutoff declared past midnight relative to the confirm time would be a negative margin, reported as declared."
+          }
+        ],
+        "fence": "This is arithmetic over caller-declared inputs under named rules, not a check of any live cutoff feed, SSR tape, borrow list, or register, and not a PvP determination or settlement action. A declared negative margin is an arithmetic finding about the declared times, never a determination that a cutoff was missed in fact or that any party is at fault.",
+        "note": "Deterministic FX funding sequencing for one declared T+1 settle date: orders declared currency legs by cutoff, computes margin-to-cutoff minutes from the declared confirm time, and returns an all-cutoffs-met verdict. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing."
+      },
+      "golden_hash": "bf7667c9044cf45ed0cdf88a5154c7859d9f1bea289c163e82d4428380c3ca59"
+    }
+  ]
+}
