@@ -21,7 +21,7 @@ const STATUSES = ['submitted', 'approved', 'rejected'];
 function dayDiff(from, to) {
   const a = new Date(from + 'T00:00:00Z');
   const b = new Date(to + 'T00:00:00Z');
-  return Math.round((b - a) / 86400000);
+  return Math.round((Number(b) - Number(a)) / 86400000);
 }
 
 /** Random VALID policy_parameters: unique ids, valid statuses, submitted not after as_of. */
@@ -34,7 +34,7 @@ function mkValidPP(rng, overrides = {}) {
     const status = pick(rng, STATUSES);
     // submitted somewhere in the 720 days before as_of
     const back = 1 + Math.floor(rng() * 720);
-    const d = new Date(new Date(asOf + 'T00:00:00Z') - back * 86400000);
+    const d = new Date(Number(new Date(asOf + 'T00:00:00Z')) - back * 86400000);
     const pad = (x) => String(x).padStart(2, '0');
     return { id, status, submitted: d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) };
   });
