@@ -38,7 +38,7 @@
  *     exposure — decided posture, 2026-09-01); the comment notes the
  *     never-trust-client rule and why it is moot for zero-server tools;
  *   - execute() is async, maps params onto the page's own form element ids,
- *     awaits the manifest-declared execution.function_name and returns the
+ *     awaits the page's own no-arg wrapper (WEBMCP-GEN-RUNWRAPPER-1) and returns the
  *     page's result global (byte-for-byte delegate, shared experience: the
  *     human sees what the agent did); errors return structured text, never
  *     raw exceptions. Async is the canonical form so pages whose compute is
@@ -53,6 +53,11 @@
  *      delegated and is refused;
  *   G3 the page declares `function <execution.function_name>` and sets a
  *      result global (_lastResult, else _lastArtifact);
+ *   G3b the emitted call targets the page's OWN no-arg wrapper that assembles
+ *      the params object and invokes the manifest fn — the wrapper name is READ
+ *      from the page (fn itself when fn is zero-arg), never invented (the
+ *      argumentless call to a `fn(pp)` compute is the measured art-635
+ *      compute_failed defect);
  *   G4 OWNERSHIP: a page carrying a registerTool call outside this generator's
  *      markers is never touched (pilot pages and index.html are other rows');
  *   G5 the manifest's execution.entry must be the page being written;
@@ -339,7 +344,35 @@ export function checkManifestSchemaParity(m) {
   return null;
 }
 
-/** G2/G3/G4: element-id mapping, compute function, result global, ownership.
+/**
+ * G3b (WEBMCP-GEN-RUNWRAPPER-1): resolve the page's own no-arg wrapper for the
+ * manifest-declared execution fn — the callable that assembles the params
+ * object from the form and invokes `fn(pp)`. The name is READ from the page,
+ * never invented: fn itself when fn is declared zero-arg; otherwise the unique
+ * zero-arg function declaration whose body calls `fn(`. Returns null when no
+ * unique wrapper exists (the generator then refuses — it never guesses).
+ */
+export function findWrapperName(pageSrc, fn) {
+  if (new RegExp(`(?:async\\s+)?function\\s+${fn}\\s*\\(\\s*\\)\\s*\\{`).test(pageSrc)) return fn;
+  const callRe = new RegExp(`(?:^|[^\\w$.])${fn}\\s*\\(`);
+  const declRe = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
+  const names = new Set();
+  let m;
+  while ((m = declRe.exec(pageSrc)) !== null) {
+    let depth = 1;
+    let j = m.index + m[0].length; // m[0] ends with the opening '{'
+    while (j < pageSrc.length && depth > 0) {
+      const c = pageSrc[j];
+      if (c === '{') depth++; else if (c === '}') depth--;
+      j++;
+    }
+    if (depth !== 0) continue;
+    if (callRe.test(pageSrc.slice(m.index, j))) names.add(m[1]);
+  }
+  return names.size === 1 ? [...names][0] : null;
+}
+
+/** G2/G3/G3b/G4: element-id mapping, compute function, wrapper, result global, ownership.
  *  `idMap` (optional) is the tool's propertyIdMap entry: mapped properties are
  *  checked against their authored element_id (the mapping cannot go stale
  *  silently — a mapped id absent from the page is a hard refusal). */
@@ -358,13 +391,20 @@ export function verifyPageMapping(manifest, pageSrc, pageLabel, idMap) {
   if (!new RegExp(`function\\s+${fn}\\s*\\(`).test(pageSrc)) {
     return { error: `${pageLabel}: no 'function ${fn}(' found — execution.function_name does not exist on the page` };
   }
+  // G3b: the emitted call must target the page's own form-assembling wrapper.
+  // A bare argumentless call to a `fn(pp)` compute is the measured compute_failed
+  // defect (halt-3, art-635) — a page with no detectable wrapper is refused.
+  const wrapper = findWrapperName(pageSrc, fn);
+  if (!wrapper) {
+    return { error: `${pageLabel}: no zero-arg wrapper invoking ${fn} found — the emitted call must target the page's own form-assembling wrapper, and none is detectable` };
+  }
   // G4: registerTool outside this generator's own marked region is another row's.
   const withoutOwn = stripMarkedRegions(pageSrc);
   if (/\.registerTool\s*\(/.test(withoutOwn)) {
     return { error: `${pageLabel}: already contains a registerTool call outside this generator's markers — owned by another row, never rewritten` };
   }
-  if (/_lastResult\s*=/.test(pageSrc)) return { resGlobal: '_lastResult' };
-  if (/_lastArtifact\s*=/.test(pageSrc)) return { resGlobal: '_lastArtifact' };
+  if (/_lastResult\s*=/.test(pageSrc)) return { resGlobal: '_lastResult', wrapper };
+  if (/_lastArtifact\s*=/.test(pageSrc)) return { resGlobal: '_lastArtifact', wrapper };
   return { error: `${pageLabel}: page sets no _lastResult/_lastArtifact global — the delegate return cannot be verified` };
 }
 
@@ -411,11 +451,11 @@ function mappingLine(prop, type, optional, entry) {
  * Builds the marker-delimited block for one tool page. Pure: same inputs, same
  * bytes (RESULT_GLOBAL is substituted by buildBlockForPage).
  */
-export function buildBlock(manifest, manifestPath, idMap) {
+export function buildBlock(manifest, manifestPath, idMap, wrapper) {
   const def = manifest.mcp_tool_definition;
   const props = Object.entries(def.inputSchema.properties);
   const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
-  const fn = manifest.execution.function_name;
+  const target = wrapper || manifest.execution.function_name;
   const map = idMap || {};
   const lines = [];
   lines.push(beginLine(manifestPath));
@@ -448,7 +488,7 @@ export function buildBlock(manifest, manifestPath, idMap) {
   for (const [name, spec] of props) {
     lines.push(`      ${mappingLine(name, spec.type, !required.includes(name), map[name])}`);
   }
-  lines.push(`      await ${fn}();`);
+  lines.push(`      await ${target}();`);
   lines.push('      return RESULT_GLOBAL;');
   lines.push('      } catch (err) {');
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
@@ -461,9 +501,10 @@ export function buildBlock(manifest, manifestPath, idMap) {
   return lines.join('\n');
 }
 
-/** buildBlock with the page's verified result global substituted in. */
-export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap) {
-  return buildBlock(manifest, manifestPath, idMap).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
+/** buildBlock with the page's verified result global substituted in. `wrapper`
+ *  is the page-verified no-arg wrapper (G3b) the emitted call must target. */
+export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap, wrapper) {
+  return buildBlock(manifest, manifestPath, idMap, wrapper).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
 }
 
 function regionOf(pageSrc) {
@@ -557,7 +598,7 @@ function expectedBlock(toolId, manifestIndex, mcpNameByTool, repoRoot) {
   const pageSrc = readRepoFile(`chaingraph/${toolId}.html`, repoRoot);
   const mapped = verifyPageMapping(loaded.m, pageSrc, toolId, propertyIdMap[toolId]);
   if (mapped.error) throw new Error(mapped.error);
-  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId]);
+  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId], mapped.wrapper);
 }
 
 function runCheck() {
@@ -713,7 +754,9 @@ function selftest() {
     check('adjudication picks _lastArtifact as the result global', d.ok && d.detail.resGlobal === '_lastArtifact');
 
     // 3. Emitted block: verbatim name/schema, async delegate, truthful annotations.
-    const block = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal);
+    const wrap1 = findWrapperName(pageBody, 'run');
+    check('G3b: zero-arg fn is its own wrapper (run)', wrap1 === 'run');
+    const block = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1);
     check('name emitted verbatim from mcp_tool_definition', block.includes("name: 'run_fx_100_selftest'"));
     check('inputSchema emitted verbatim', block.includes(JSON.stringify(schema, null, 2).replace(/\n/g, '\n    ')));
     check('execute is async and awaits the manifest function', block.includes('execute: async function(params)') && block.includes('await run();'));
@@ -753,14 +796,14 @@ function selftest() {
     const mappedPage = pageBody.replace('<input id="principal">', '<input id="amtInput">');
     const okMapped = verifyPageMapping(manifest, mappedPage, 'fixture page', { principal: { element_id: 'amtInput', via: 'string' } });
     check('valid mapping passes G2 against the authored element_id', !okMapped.error);
-    const mappedBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { principal: { element_id: 'amtInput', via: 'string' } });
+    const mappedBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { principal: { element_id: 'amtInput', via: 'string' } }, 'run');
     check('emission writes the mapped element_id, not the property name', mappedBlock.includes("document.getElementById('amtInput').value = String(params.principal);") && !mappedBlock.includes("getElementById('principal')"));
     // Unmapped properties keep the literal guard even when a map is present.
     const partialMap = { principal: { element_id: 'amtInput', via: 'string' } };
     const refusedPartial = verifyPageMapping(manifest, pageBody, 'fixture page', partialMap);
     check('unmapped property still requires its literal id under a mapping', !!(refusedPartial && refusedPartial.error && refusedPartial.error.includes('principal') && !refusedPartial.error.includes('label')));
     // boolstring via emits a 'true'/'false' select write, not .checked.
-    const boolBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { flag: { element_id: 'flag', via: 'boolstring' } });
+    const boolBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { flag: { element_id: 'flag', via: 'boolstring' } }, 'run');
     check("boolstring via emits .value = String(params.x === true)", boolBlock.includes("document.getElementById('flag').value = String(params.flag === true);") && !boolBlock.includes("getElementById('flag').checked"));
 
     // 7. G3 refusal: no result global -> refused.
@@ -809,6 +852,35 @@ function selftest() {
       return adjudicateTool('fx-102-entry', tmp, idx2, mcpNameByTool);
     })();
     check('G5 refusal: execution.entry not this page', !d5.ok && d5.reason.includes('execution.entry'));
+
+    // 12. G3b red-before-green (WEBMCP-GEN-RUNWRAPPER-1): a fn(pp)-shaped page.
+    // The pre-fix emitter produced `await compute();` against exactly this page
+    // shape — the halt-3 art-635 compute_failed defect. The guard below is RED
+    // on that emission shape and GREEN only when the region calls the wrapper.
+    const ppPage = [
+      '<html><body>',
+      '<input id="principal"><input id="label"><input id="flag"><input id="rows">',
+      '<script>',
+      'var _lastArtifact = null;',
+      'function compute(pp){ _lastArtifact = { pp: pp }; }',
+      'async function run(){ compute({ principal: Number(document.getElementById(\'principal\').value) }); }',
+      '</script>',
+      '</body></html>'
+    ].join('\n');
+    const ppMan = JSON.parse(JSON.stringify(manifest));
+    ppMan.execution = { ...ppMan.execution, function_name: 'compute' };
+    check('G3b detection: zero-arg invoker of compute(pp) is run', findWrapperName(ppPage, 'compute') === 'run');
+    const ppMapped = verifyPageMapping(ppMan, ppPage, 'pp fixture page');
+    check('G3b: parametered page maps with wrapper run', !ppMapped.error && ppMapped.wrapper === 'run');
+    const ppBlock = buildBlockForPage(ppMan, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', undefined, ppMapped.wrapper);
+    // The RED control: the pre-fix emission shape fails this assertion.
+    check('red-before-green: pre-fix shape (await compute();) FAILS the wrapper guard', !ppBlock.includes('await compute();'));
+    check('emitted call targets the page wrapper run()', ppBlock.includes('await run();'));
+    // No wrapper on the page -> refused, never guessed.
+    const noWrapPage = ppPage.replace('async function run(){ compute({ principal: Number(document.getElementById(\'principal\').value) }); }', '');
+    check('findWrapperName: absent wrapper -> null', findWrapperName(noWrapPage, 'compute') === null);
+    const refusedWrap = verifyPageMapping(ppMan, noWrapPage, 'pp fixture page');
+    check('G3b refusal: parametered fn with no detectable wrapper refused', !!(refusedWrap.error && refusedWrap.error.includes('wrapper')));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
