@@ -90,6 +90,12 @@ nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:
 .caveat p{font-size:.78rem;color:var(--body);line-height:1.65}
 .caveat strong{color:var(--bright);font-weight:500}
 
+/* ── FIXTURE BLOCK ── */
+.fixture-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin:1.5rem 0}
+.fixture-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--purple);margin-bottom:.6rem}
+.fixture-block pre{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.fixture-note{font-size:.72rem;color:var(--muted);margin-top:.7rem;line-height:1.6}
+
 /* ── GROUP HEADERS ── */
 .group-header{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:.5rem 0;border-top:1px solid rgba(20,184,166,.25);margin:2rem 0 1.25rem;display:flex;align-items:center;gap:.75rem}
 .group-header::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(20,184,166,.15),transparent)}
@@ -250,6 +256,63 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
     </div><!-- /group -->
 
     <p class="last-reviewed">v1.0 · Jul 2026 · 1 Tool · Cat-MCP · Agent Observability</p>
+  </div>
+</section>
+
+<!-- External Comparison -->
+<section class="section">
+  <div class="container">
+    <div class="sec-label">Research Note</div>
+    <h2 class="sec-heading">Spans, Receiver-Attested Receipts, and Witnessed Anchors: Three Answers to "Did the Agent Really Do That"</h2>
+    <p class="sec-sub">A 2026 paper on the Sello protocol (arXiv 2606.04193, "Notarized Agents: Receiver-Attested Confidential Receipts for AI Agent Actions") names a failure class this estate has documented internally under a different name: a self-consistent writer validating its own claim about itself. Its framing is worth restating plainly, because the OTLP spans this hub composes above sit squarely inside the problem it describes.</p>
+
+    <div class="caveat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      <p>The critique, quoted from the paper's spec: "the entity producing the activity log is the same entity whose activity is being logged." An OTLP trace composed above is exactly that: the agent (or its own instrumentation) writes the spans describing what the agent did. A compromised or buggy agent can omit, alter, or fabricate that trace, and nothing structural in OTLP catches it. The composer and linter on this page validate a trace's shape and semconv conformance, never the truth of its contents, and the tool has never claimed otherwise.</p>
+    </div>
+
+    <div class="audience-grid">
+      <div class="audience-role">
+        <h4>Self-Reported Spans (OTLP, this hub)</h4>
+        <p>The agent's own runtime emits the trace. Structurally sound, semconv-checkable, but the writer and the subject are the same party. Good for debugging and dashboards; not evidence against a disputed claim.</p>
+      </div>
+      <div class="audience-role">
+        <h4>Receiver-Attested Receipts (Sello)</h4>
+        <p>The called service signs a receipt of what it observed (COSE_Sign1 / Ed25519), HPKE-encrypts it to the agent owner's key, and publishes it to a witness-cosigned Merkle transparency log. The owner discovers and decrypts independently of the agent or its operator. Proves the call happened as the receiver saw it.</p>
+      </div>
+      <div class="audience-role">
+        <h4>Deterministic Recompute + Witnessed Anchor (this estate)</h4>
+        <p>Every OCG kernel emits an <code>execution_hash</code> over a canonical (JCS) preimage that anyone can recompute from the same inputs, then anchors that digest to third-party time via Sigsum's witness-cosigned transparency log (12 pinned cosigners). Proves the computation is re-derivable by anyone, not just attested by one party who saw it happen.</p>
+      </div>
+    </div>
+
+    <div class="fixture-block">
+      <div class="fixture-label">Synthetic Fixture &middot; Field Names From SPEC.md &sect;5.1&ndash;5.3, Values Invented</div>
+      <pre>{
+  "receipt_body": {
+    "agent-identifier": "9f2c...redacted",
+    "action-type": "invoke_agent.execute_tool",
+    "action-input-hash": "sha256:3a7e...(synthetic)",
+    "action-output-hash": "sha256:c091...(synthetic)",
+    "result-status": "success",
+    "timestamp": "2026-08-30T00:00:00Z"
+  },
+  "cose_sign1_header": {
+    "alg": "EdDSA",
+    "kid": "svc-key-01 (synthetic)",
+    "sello_version": "0.1.0",
+    "sello_token_ref": "sha256:71bd...(synthetic)",
+    "sello_log_url": "https://example-log.invalid/v1"
+  },
+  "jws_payload": {
+    "owner_hpke_pk": "base64url-x25519-pk (synthetic)",
+    "sello_logs": ["https://example-log.invalid/v1"]
+  }
+}</pre>
+      <p class="fixture-note">Field names quoted verbatim from the Sello reference spec (SPEC.md &sect;3.1, &sect;5.1, &sect;5.3), attributed to arXiv 2606.04193; every value above is invented for illustration and matches no real Sello deployment. This estate does not implement Sello, does not call any Sello log, and this fixture never leaves this page.</p>
+    </div>
+
+    <p class="sec-sub" style="margin-top:1.5rem">These are complementary, not competing. Sello's receiver-attestation answers a question deterministic recompute cannot: what did a third party actually observe at call time, when the "correct" output is not independently recomputable (a discretionary approval, a human-in-the-loop decision, a call to an opaque external system). Recompute-based anchoring answers a different question: given fixed inputs and a public kernel, is this exact output the one a fixed procedure produces, checkable by anyone, forever, with no reliance on any single receiver staying honest or online. A workflow that combines both, an opaque call receiver-attested via Sello, chained into a deterministic kernel anchored the way this estate anchors, would close gaps neither covers alone. Read more on how this estate's anchoring model works on the <a href="../chaingraph/evidence-estate-explainer.html">evidence estate explainer</a>.</p>
   </div>
 </section>
 

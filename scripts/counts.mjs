@@ -34,6 +34,17 @@
  *   chainL2.gateTotal         buildReport() (SO #34 independent derivation — never read back from a
  *                             report file it already wrote). NOT a claim of formal verification; see
  *                             fv-explainer.html's boundary statement for what L2 does and does not cover.
+ *   chainL2.sharedPass          L2-S shared-input coherence chain verdicts (pass/fail/indeterminate)
+ *   chainL2.sharedFail          and the number of shared input fields examined, from the same
+ *   chainL2.sharedIndeterminate buildReport() call as chainL2.gate* (WHITEPAPER-CORRECTIONS-1 —
+ *   chainL2.sharedFields        the paper's §11.7 L2-S sentence had no sentinel and rotted).
+ *   nodes.live         chaingraph.json nodes with status live (the paper's node headline;
+ *                      distinct from zk.provenTotal, which is the §18 proof-scope denominator
+ *                      even though the two coincide today)
+ *   chains.gated       chains with at least one step carrying a gate object
+ *   webmcp.pages       chaingraph/*.html pages carrying a WebMCP registerTool( call
+ *                      (WHITEPAPER-CORRECTIONS-1 — the paper's §8.4 count said 3 while 19
+ *                      pages were registered; a hand-typed registration count rots by tranche)
  *   hubTools.dora           } number of distinct ../tools/*.html links inside class="tool-card-link"
  *   hubTools.fraudRisk      } anchors on the named guides/*-hub.html page (CLAIMS-SENTINEL-TIER1-1,
  *   hubTools.sme            } audit Q7 — the hub hero paragraphs' spelled-out tool counts, unprotected
@@ -94,6 +105,20 @@ export async function deriveCounts() {
   const toolsHtml = readFileSync(resolve(repoRoot, 'tools.html'), 'utf8')
   const categories = (toolsHtml.match(/class="cat-heading"/g) || []).length
 
+  // cat.* — per-category .tool-card counts in tools.html (TOOLSHTML-CATCOUNT-GATE-1).
+  // Mirrors tools.html's own runtime counter exactly: only tags carrying
+  // class="tool-card" count. The featured-callout divs and the cat-8 heading's own
+  // data-cat attribute (both used for filter visibility, not counting) are excluded,
+  // so cat.8 here and byCat['cat-8'] in the page agree by construction. Card keys are
+  // "cat-N" / "mcp" / "rbe"; sentinels use the dot form ("cat.8", "cat.mcp", "cat.rbe")
+  // because the <!--COUNT:...--> comment-sentinel regex forbids hyphens in keys.
+  const catCounts = {}
+  for (const m of toolsHtml.matchAll(/<[^>]*\bdata-cat="([^"]+)"[^>]*>/g)) {
+    if (!/\bclass="[^"]*tool-card/.test(m[0])) continue
+    const key = 'cat.' + m[1].replace(/^cat-/, '')
+    catCounts[key] = (catCounts[key] || 0) + 1
+  }
+
   // chains
   const chaingraph = JSON.parse(readFileSync(resolve(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'))
   const chains = (chaingraph.chains ?? []).length
@@ -111,6 +136,10 @@ export async function deriveCounts() {
   )
   const liveNodes = (chaingraph.nodes ?? []).filter(n => n.status === 'live').length
   const mcpLive = liveNodes + mcpCountsData.pilot_widgets + mcpCountsData.utility_tools
+
+  // chains.gated — chains with >=1 gated step (WHITEPAPER-CORRECTIONS-1; same derivation the
+  // 2026-09-02 claims audit used to confirm the paper's "64 of them gated").
+  const chainsGated = (chaingraph.chains ?? []).filter(c => (c.steps ?? []).some(s => s.gate)).length
   const mcpWidgets = mcpCountsData.pilot_widgets
 
   // openapi.ops — unique mcp_names: all manifests + chaingraph nodes not already covered
@@ -158,6 +187,18 @@ export async function deriveCounts() {
   const chainL2GateFail = l2Report.summary.edges_fail
   const chainL2GateIndeterminate = l2Report.summary.edges_indeterminate
   const chainL2GateTotal = l2Report.summary.gates_checked
+  const chainL2SharedPass = l2Report.l2s['L2S-pass']
+  const chainL2SharedFail = l2Report.l2s['L2S-fail']
+  const chainL2SharedIndeterminate = l2Report.l2s['L2S-indeterminate']
+  const chainL2SharedFields = l2Report.l2s.shared_fields_examined
+
+  // webmcp.pages — chaingraph pages that REGISTER a WebMCP tool (a registerTool( call, the
+  // construct itself), not pages that merely mention the API in prose; the whitepaper's own
+  // §8.4 <code> mentions carry no registerTool( and are excluded by construction.
+  const CGDIR = resolve(repoRoot, 'chaingraph')
+  const webmcpPages = readdirSync(CGDIR)
+    .filter(f => f.endsWith('.html'))
+    .filter(f => readFileSync(resolve(CGDIR, f), 'utf8').includes('registerTool(')).length
 
   // hubTools.* — CLAIMS-SENTINEL-TIER1-1 (audit Q7): the five hub hero paragraphs' spelled-out
   // tool counts, previously hand-typed prose with nothing re-deriving them from the page itself.
@@ -174,6 +215,7 @@ export async function deriveCounts() {
     'categories':        categories,
     'chains':            chains,
     'workflows.recipes': workflowsRecipes,
+    ...catCounts,
     'mcp.live':          mcpLive,
     'mcp.widgets':       mcpWidgets,
     'openapi.ops':       openapiOps,
@@ -187,6 +229,13 @@ export async function deriveCounts() {
     'chainL2.gateFail':          chainL2GateFail,
     'chainL2.gateIndeterminate': chainL2GateIndeterminate,
     'chainL2.gateTotal':         chainL2GateTotal,
+    'chainL2.sharedPass':          chainL2SharedPass,
+    'chainL2.sharedFail':          chainL2SharedFail,
+    'chainL2.sharedIndeterminate': chainL2SharedIndeterminate,
+    'chainL2.sharedFields':        chainL2SharedFields,
+    'nodes.live':        liveNodes,
+    'chains.gated':      chainsGated,
+    'webmcp.pages':      webmcpPages,
     'hubTools.dora':             hubToolsDora,
     'hubTools.fraudRisk':        hubToolsFraudRisk,
     'hubTools.sme':              hubToolsSme,

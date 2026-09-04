@@ -7,7 +7,7 @@
 <title>Compute-Integrity (OCG §18): Proving a Financial Calculation Ran the Way It Claims</title>
 <meta name="description" content="How OpenChainGraph §18 compute-integrity proofs work, with the math and code for each step, why they matter for regulated financial computation, and what we learned building them (including the parts that did not work) so other teams can skip the same mistakes. Software and cryptography only: no trusted hardware, no blockchain in the verify path.">
 <meta property="og:title" content="Compute-Integrity (OCG §18): Verifiable Financial Computation, with the math, code, and lessons">
-<meta property="og:description" content="Prove a financial calculation ran the published code on the stated inputs. Verify it offline in milliseconds, no trust in the operator, no special hardware, no blockchain. A step-by-step walkthrough with math and code, plus the honest lessons from the build.">
+<meta property="og:description" content="Prove a financial calculation ran the code identified by a published fingerprint. Verify it offline in milliseconds, no trust in the operator, no special hardware, no blockchain. A step-by-step walkthrough with math and code, plus the honest lessons from the build.">
 <meta property="og:type" content="website">
 <meta name="author" content="Post Oak Labs">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/zkvm-compute-integrity.html">
@@ -167,7 +167,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <div class="wrap">
     <div class="eyebrow">Compute-Integrity · OCG §18</div>
     <h1>Proving a financial calculation ran the way it claims</h1>
-    <p>A §18 proof is a small piece of cryptography attached to a result. It says the published code, given these inputs, produced this exact output. You can check that in a few milliseconds, on your own machine, with no network, without re-running the calculation, and without taking the operator's word for it. If you need to, the proof can confirm the output while keeping the inputs private.</p>
+    <p>A §18 proof is a small piece of cryptography attached to a result. It says the code identified by this published fingerprint produced this exact output; the policy parameters displayed alongside are not bound by the seal, so checking that the displayed inputs match yours remains your step. You can check that in a few milliseconds, on your own machine, with no network, without re-running the calculation, and without taking the operator's word for it. If you need to, the proof can confirm the output while keeping the inputs private.</p>
     <p>This page explains why that matters for regulated financial work, walks through how the proof is built and checked one step at a time with the math and code for each step, and tells you what we got wrong on the way so your team can skip the same mistakes.</p>
   </div>
 </header>
@@ -290,7 +290,7 @@ function guest(kernel_source, policy_parameters) {
     <div class="math">ImageID = digest( compiled_guest_method_image )     // the RV64IM ELF, pinned toolchain
 
 reproducible build  =&gt;  same ImageID  =&gt;  one image covers every kernel</div>
-    <p>Why it matters: anyone can rebuild the guest from public source and get the same ImageID. That is how a third party confirms exactly what program runs their data, trusting no one.</p>
+    <p>Why it matters: the guest source is not yet public, so reproducibility is asserted by the operator; until a third party can rebuild the guest and get the same ImageID, the ImageID tells you which program the operator says runs their data.</p>
 
     <h3>Step 5: Prove it, off-line</h3>
     <p>A prover runs the guest in the zkVM and produces a STARK receipt, then wraps it into a Groth16 proof over the BN254 curve, about 200 bytes. This is heavy and happens out of band, never in a browser and never on a request path. Always with development mode off, so the receipt is real.</p>
@@ -532,7 +532,7 @@ fmtEnUS(1234.5)             // "1,234.5" always, fixed and deterministic everywh
     <div class="note"><strong>Stage 4, exercised for real:</strong> when a kernel stayed too expensive even after the chunk ladder, the next lever was a second, native-Rust-compiled guest image built for that kernel specifically, trading the "one universal guest" simplicity for raw speed on that one hot path. The content-identification kernel (<code>art-201</code>) is the case that needed it: its in-guest hashing ran to over a billion cycles under the universal QuickJS guest, and a purpose-built native image brought it to a real proof. It carries a second entry in <code>compute_images[]</code> alongside the universal ImageID, not a replacement for it; <code>verifySeal</code> checks whichever image the artifact declares.</div>
 
     <h3 id="full-coverage">Reaching full coverage: how every deferral fell</h3>
-    <p><strong><!--COUNT:zk.provenPct-->96<!--/COUNT-->% of live deterministic nodes are ZK-proven</strong> (<!--COUNT:zk.provenNodes-->617<!--/COUNT--> of <!--COUNT:zk.provenTotal-->639<!--/COUNT--> live nodes, re-derived from <code>chaingraph.json</code> on every build, never a hardcoded figure). Scope, precisely: "live" means shipped and callable today, not a target; "deterministic node" means a kernel with no clock, randomness, or I/O; "ZK-proven" means a real risc0 groth16-bn254 receipt whose journal is byte-identical to the kernel's own <code>compute()</code> output, independently replayable and verifiable offline by anyone, with development mode off for every one of them.</p>
+    <p><strong><!--COUNT:zk.provenPct-->96<!--/COUNT-->% of live deterministic nodes are ZK-proven</strong> (<!--COUNT:zk.provenNodes-->621<!--/COUNT--> of <!--COUNT:zk.provenTotal-->641<!--/COUNT--> live nodes, re-derived from <code>chaingraph.json</code> on every build, never a hardcoded figure). Scope, precisely: "live" means shipped and callable today, not a target; "deterministic node" means a kernel with no clock, randomness, or I/O; "ZK-proven" means a real risc0 groth16-bn254 receipt whose journal is byte-identical to the kernel's own <code>compute()</code> output, independently replayable and verifiable offline by anyone, with development mode off for every one of them.</p>
     <p>Coverage started partial and candid. Nodes that could not yet be proven carried an explicit <code>compute_proof_ready:"deferred"</code> flag; no placeholder or fake proof ever shipped. A downward-only ratchet gate (<code>check-compute-proof-coverage.mjs</code>) ensured the deferred count could only ever go down, never up, and it now reads zero. Getting there meant working through five distinct failure classes, plus one final holdout: the content-identification kernel whose in-guest hashing interpreted to over a billion cycles was carried to a working proof via a second, native-compiled guest image (see the note below), and a 35,000-segment Monte Carlo node followed the same route. Nothing was proven by relaxing what "proven" means; the holdouts took longer compute, not a lower bar.</p>
 
     <div class="cap">coverage, by class</div>
@@ -626,7 +626,7 @@ deterministic isHttpsUrl, used everywhere   ~ 6.9 x 10^6 cycles   (~800x cheaper
       <tbody>
         <tr><td>Secure hardware (TEE, confidential compute)</td><td>A chip vendor's attestation and supply chain</td><td>No enclave. Trust comes from the reproducible re-execution and the proof.</td></tr>
         <tr><td>Blockchain or token network</td><td>A consensus set and its economic incentives</td><td>No chain in the verify path. Verification is a local pairing check.</td></tr>
-        <tr><td>Operator attestation (SOC reports)</td><td>The operator's controls and an auditor's review of them</td><td>No operator trust. The proof binds the published code to this output.</td></tr>
+        <tr><td>Operator attestation (SOC reports)</td><td>The operator's controls and an auditor's review of them</td><td>No operator trust in the math: the proof binds the code identified by the published fingerprint to this output. The verifier itself is our JavaScript served from our origin; a skeptic pins a reviewed commit or reimplements the check.</td></tr>
       </tbody>
     </table>
     <p>Proving can use heavy compute, and a proving network is one way to get it. Verification stays self-contained, offline, and chain-free. That split is the whole promise: proving may be expensive and optional, checking is cheap and for everyone.</p>
@@ -655,7 +655,7 @@ r0vm --id                       # confirm the SAME ImageID  ->  sha256:a1a0bc89.
 
 RISC0_DEV_MODE=0 cargo run --release   # real proof: STARK -> groth16-bn254 (never dev mode)</pre>
     <p>Then check that the journal's output equals what the JavaScript kernel produces for the same inputs, and verify your own receipt with the same self-contained verifier. The exact field definitions are in the technical spec under §17 and §18.</p>
-    <div class="note"><strong>The keystone is the ImageID.</strong> Rebuilding the guest from public source and getting the same fingerprint we published is what turns "trust our attestation" into "check it yourself." Everything else follows from that one reproducible build.</div>
+    <div class="note"><strong>The keystone is the ImageID.</strong> The guest source is not yet public, so for now the ImageID rests on our attestation: it identifies the guest we built, and turning "trust our attestation" into "check it yourself" must wait until the source is published and a stranger can rebuild it and get the same fingerprint. Everything else follows from that one reproducible build.</div>
   </div>
 </section>
 

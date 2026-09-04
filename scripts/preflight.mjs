@@ -886,10 +886,31 @@ const GATES = [
   ["Floor label strength lint fixture proof (SO #40b pairing)", "node scripts/check-floor-label-strength.test.mjs"],
   ["Narrative vocab lint (NARRATIVE-VOCAB-LINT-1)", "node scripts/check-narrative-vocab.mjs"],
   ["Narrative vocab lint fixture proof (SO #40b pairing)", "node scripts/check-narrative-vocab.test.mjs"],
+  // FLAGS-COMPUTED-LINT-1 (Tim popup GO 2026-08-30): compliance_flags values emitted
+  // UNCONDITIONALLY -- literal constant arrays, always-on object entries, bare pushes with no
+  // enclosing conditional -- the unearned-green attestation class (qfa-04 L1652 FRTB_CVA_DESK_COMPUTED
+  // on zero-input runs; qfa-03 L1706; rca-01 L1673 'PLA_TEST_' + plaStatus). sim-03/rca-02 are
+  // the live-byte GREEN controls in the paired proof. Ratcheted baseline
+  // (scripts/flags-computed-baseline.json, counts only go DOWN); the three named engines are
+  // baselined hits -- the batch-3 rows fix them and the baseline shrinks.
+  ["Flags-computed lint (FLAGS-COMPUTED-LINT-1)", "node scripts/check-flags-computed.mjs"],
+  ["Flags-computed lint fixture proof (SO #40b pairing)", "node scripts/check-flags-computed.test.mjs"],
   ["Vow-vs-code lint (VOW-VS-CODE-LINT-1)", "node scripts/check-vow-vs-code.mjs"],
   ["Vow-vs-code lint fixture proof (SO #40b pairing)", "node scripts/check-vow-vs-code.test.mjs"],
   ["Frozen clock lint (NO-CLOCK-LINT-1)", "node scripts/lint-frozen-clock.mjs"],
   ["Frozen clock lint fixture proof (SO #40b pairing)", "node scripts/lint-frozen-clock.test.mjs"],
+  // COMPARATOR-EPSILON-LINT-1 (boundary-semantics program 2026-09-01): the art-234 L106
+  // inversion (`> X - 1e-5` fires AT x where the regulation is strict) is a MECHANICALLY
+  // DETECTABLE shape -- an epsilon whose sign widens a strict comparator across the
+  // boundary. Scans chaingraph/kernels/*.kernel.mjs for comparator+epsilon shapes;
+  // widening-strict (`> X - eps` / `< X + eps`) is the flagged ratchet class behind
+  // scripts/comparator-epsilon-baseline.json (counts only go DOWN; art-234 L93+L106
+  // pinned at ship time -- their fix row owns the fix); tightening is informational;
+  // widening-inclusive is census-only; plain comparators stay audit-lane. ⛔ Never grow
+  // the baseline to make the gate pass. Paired red-proof (SO #40b / GATE-SELFTEST-META-1):
+  // the fixture proof entry below.
+  ["Comparator epsilon lint (COMPARATOR-EPSILON-LINT-1)", "node scripts/lint-comparator-epsilon.mjs"],
+  ["Comparator epsilon lint fixture proof (SO #40b pairing)", "node scripts/lint-comparator-epsilon.test.mjs"],
   // KERNEL-PREFLIGHT-1: one entry per kernel id touched by this push (TOUCHED_KERNEL_IDS
   // above) — the FULL per-kernel composite (syntax/exports/hash-lint/guest-builtin/VM-
   // parity/tsc/proptest-floor/registration/hub-categories/node-page/clause-digest), not
@@ -1057,6 +1078,8 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
+  ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment
   // that states a temporary condition and names its own exit ("only 5 of ~79 kernels ship fixtures
   // today ... Flip to --strict once every kernel has a fixture") is read as permanent fact forever,
@@ -1080,9 +1103,27 @@ const GATES = [
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
+  // VENDOR-DIGEST-GATE-1 (ESTATE-ATTACK-SURFACE SC-3, top-5 #5): the vendored crypto bytes that
+  // decide whether forged proofs/cosignatures/seals VERIFY (the noble bn254/ed25519/secp256k1
+  // bundles + the inlined noble ML-DSA/SLH-DSA blocks in _proof.mjs) had provenance comments but
+  // NO digest gate — a skimmed green PR swapping curve code would slide through and generate.mjs
+  // would propagate the swap to the live worker. The worker's check-vendor-fresh.mjs asserts
+  // worker==SITE equality, so it ASSUMES this side; this gate is the site-side anchor: site bytes
+  // ≡ sha256 pins in chaingraph/kernels/VENDORED.md (the anchor-suite VENDORED.md pattern,
+  // replicated). Scope enumerates _noble-*.bundle.mjs LIVE, so a new noble bundle with no pin row
+  // is itself red. Upgrade protocol in the table's header: same-PR pin edit, visible, never
+  // impossible.
+  ['Vendored crypto digest pins (VENDOR-DIGEST-GATE-1)', 'node scripts/check-vendored-digests.mjs'],
+  ['Vendored crypto digest fixture proof (1-byte perturbation RED, SO #34c)', 'node scripts/check-vendored-digests.test.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
+  // MANIFEST-SCHEMA-BACKFILL-1: derived input schemas carry
+  // x_schema_provenance derived-from-kernel-reads <date>; any hand-edit to a
+  // provenance-marked block drifts from a fresh derivation of the kernel's
+  // measured reads and reds here (regenerate with gen-input-schemas.mjs --write).
+  ['Input-schema backfill freshness (MANIFEST-SCHEMA-BACKFILL-1)', 'node scripts/gen-input-schemas.mjs --check'],
+  ['Input-schema backfill controls (enum/unknown/defaults + mutation red, MANIFEST-SCHEMA-BACKFILL-1)', 'node scripts/gen-input-schemas.selftest.mjs'],
   ['Evidence-profile manifest (EF-2)', 'node scripts/validate-evidence-profiles.mjs'],
   ['Chain domain taxonomy',        'node scripts/check-chain-domain.mjs'],
   // TOUCHTAX-DIFFSCOPE-1 (J19 §3.3): the shared line-level diff-scoping helper — one module,
@@ -1118,6 +1159,18 @@ const GATES = [
   ['Chain step-status controls (RED+GREEN)', 'node scripts/check-chain-step-status.test.mjs'],
   ['Node status lens controls (GENERATOR-STATUS-FILTER-1)', 'node scripts/_node-status.test.mjs'],
   ['Hub freshness (chains↔hub)',   'node scripts/gen-chain-index.mjs --check'],
+  // WEBMCP-GEN-FROM-MANIFEST-1: the WebMCP registration is a derived artifact.
+  // --check rebuilds every marker-delimited block from its manifest and reds any
+  // hand-edit (byte drift) or coverage regression (emittable page with no block).
+  // The emitted shape re-verifies the schema-read sweep gate LIVE per candidate,
+  // so a schema that drifts after landing turns the freshness gate red too.
+  ['WebMCP registration freshness (WEBMCP-GEN-FROM-MANIFEST-1)', 'node scripts/gen-webmcp-registrations.mjs --check'],
+  ['WebMCP registration generator controls (RED+GREEN)', 'node scripts/gen-webmcp-registrations.mjs --self-test'],
+  // Same gate family as the worker's check-tool-names (CONTRACT §A4.1): 600+
+  // registration names in one browser namespace must never collide with each
+  // other or with the worker's live mcp_names.
+  ['WebMCP name uniqueness (check-tool-names family)', 'node scripts/check-webmcp-name-uniqueness.mjs'],
+  ['WebMCP name uniqueness controls (RED+GREEN)', 'node scripts/check-webmcp-name-uniqueness.mjs --self-test'],
   ['OCG conformance roster self-claim (OCG-CONFROSTER-BUILD-1)', 'node scripts/gen-ocg-conformance-roster.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
@@ -1177,6 +1230,13 @@ const GATES = [
   ['AP2 bulk contract-gap ratchet (AP2-DEBT-BASELINE-1)', 'node scripts/check-ap2-contract.mjs'],
   ['AP2 contract-gap gate controls (SO #40b pairing)', 'node scripts/check-ap2-contract.test.mjs'],
   ['Policy Mandate v1.1 additivity (§3.1.1 A10.5, MANDATE-V11-CAVEATS-1)', 'node scripts/validate-policy-mandate.test.mjs'],
+  // AP2VERSION-RETIREMENT-SWEEP-1: the in-payload ap2_version field is RETIRED
+  // (CONTRACT §3.1/§A3.2). Emission-shape-only ratchet — a bare ap2_version:
+  // payload literal in live JS of any tracked .html is RED; validator/quoted-key
+  // back-compat paths never fire it. Baseline grandfathers the 41 files whose
+  // kept in-file validator hard-requires the field on their own export path.
+  ['AP2 version-field emission ratchet (AP2VERSION-RETIREMENT-SWEEP-1)', 'node scripts/check-ap2version-emission.mjs'],
+  ['AP2 version-field emission ratchet fixture proof (SO #40b pairing)', 'node scripts/check-ap2version-emission.test.mjs'],
   ['§16 proof surface (chains)',   'node scripts/verify-proof-surface.mjs --chains-only'],
   ['§16 proof binding (unit)',     'node chaingraph/kernels/proof-binding.test.mjs'],
   ['§PPH-1 policy_parameters_hash', 'node chaingraph/kernels/policy-params-hash.test.mjs'],
@@ -1217,6 +1277,14 @@ const GATES = [
   // (see the file's own header for why it is deliberately not a *.proptest.mjs).
   ['art-27 exhaustive enumeration (ART27-HARNESS-INREPO-1)',
     'node chaingraph/kernels/__proptests__/art-27-agentic-readiness-diagnostic.exhaustive.mjs'],
+  // FVLEG-DIGEST-CONSUMER-1: research/FV-TRIPLEBIND-MUTATE-1-2026-08-11.md named toolchain_digest.fv_leg
+  // (the 8 Dafny/Z3 toolchain sub-digests on a class-C FV artifact) as recorded but never consumed by any
+  // checker anywhere — a mutation to any of the 8 fields went undetected. This closes that: recomputes and
+  // compares the 3 in-repo fields (model/compiled_js/harness digests), NOT_EVALUABLE (never a pass, SO
+  // #34c) for the 5 that need an out-of-repo Dafny/Z3 toolchain or a network fetch. Selftest first —
+  // demonstrates the RED catch on the exact mutation shape the named defect called uncatchable.
+  ['FV toolchain-digest (fv_leg) selftest (FVLEG-DIGEST-CONSUMER-1)', 'node scripts/check-fv-toolchain-digest.selftest.mjs'],
+  ['FV toolchain-digest (fv_leg) consumer (FVLEG-DIGEST-CONSUMER-1)', 'node scripts/check-fv-toolchain-digest.mjs --check'],
   // RATCHET-BASELINE-LOADER-1 (gate-integrity F-11). Runs BEFORE the three ratchet gates it protects:
   // if a baseline file has been deleted, corrupted, key-stripped or given a non-finite ceiling, this
   // names the state directly instead of a gate downstream printing a green line over a ratchet that has
@@ -1359,6 +1427,8 @@ const GATES = [
   ['Amendment detection gate (CB7-AMENDMENT-DETECT-1)', 'node scripts/check-amendment-detection.mjs'],
   ['Amendment detection gate fixture proof', 'node scripts/check-amendment-detection.test.mjs'],
   ['JSON-LD structural validity (JSONLD-1)', 'node scripts/check-jsonld.mjs'],
+  ['Citation drift -- pinned numbers vs clause snapshot (CITATION-DRIFT-GATE-1)', 'node scripts/check-citation-drift.mjs'],
+  ['Citation drift gate fixture proof', 'node scripts/check-citation-drift.test.mjs'],
   ['Template integrity (advisory, TPL-GATE-1)', 'node scripts/check-template-integrity.mjs'],
   ['CSV-injection sanitization (WB-5)', 'node scripts/check-csv-injection.mjs'],
   ['Workbook unit fixtures (WB-1)',     'node chaingraph/workbook/workbook.test.mjs'],
@@ -1441,6 +1511,31 @@ const GATES = [
   // last block also re-derives the gate set from the real workflow, so removing
   // those steps (or breaking the parse) goes red here rather than on main.
   ['Deploy supersede classifier control (mutation + live derivation)', 'node scripts/check-deploy-superseded.test.mjs'],
+  // SERVED-EGRESS-CHECK-1: the control for scripts/check-served-egress.mjs, the
+  // post-deploy smoke step deploy-to-dreamhost.yml runs against the LIVE site.
+  // That script is main-only by construction (a branch push has no deployment
+  // of itself to compare served bytes against), so it is CI_ONLY in
+  // check-workflow-gate-parity.mjs and THIS fixture proof is where it gets its
+  // pre-push coverage — same shape as the deploy-supersede control above. RED
+  // controls: the exact art-129 incident shape (Cloudflare Web Analytics
+  // beacon in served bytes), a served-but-not-source external ref, a sha256
+  // mismatch vs deploy-checksums.txt, all 10 row patterns, and the stale-cache
+  // downgrade (beacon on a HIT-class copy + clean unique-key refetch is a WARN,
+  // not a red). No network: every control runs the real exported detectors
+  // against synthetic bodies.
+  ['Served-egress detector control (RED/GREEN fixtures, SERVED-EGRESS-CHECK-1)', 'node scripts/check-served-egress.test.mjs'],
+  // DUP-TABLE-HASH-GATE-1: a regulatory schedule vendored into more than one
+  // kernel (the 2026-08-21 time-decaying-constants audit's phantom 2025 QM/HOEPA
+  // row shipped identically fabricated into art-218/art-220/art-234) can pass a
+  // per-kernel SIDEBYSIDE check against a pinned source text and still diverge
+  // from its own sibling copy — SIDEBYSIDE never puts the two copies next to
+  // each other. This gate does: scripts/shared-tables.json declares closed sets
+  // of "this schedule lives in these kernels' named consts, compare these cells
+  // across these years", and the checker statically extracts each kernel's
+  // module-private const (no import/eval/Function — SO #34's security rider)
+  // and byte-compares the declared cells. Scope is DECLARED sets only.
+  ['Shared vendored-table convergence (DUP-TABLE-HASH-GATE-1)', 'node scripts/check-shared-tables.mjs --check'],
+  ['Shared vendored-table convergence control (mutation)', 'node scripts/check-shared-tables.test.mjs'],
   // TWO AXES since WORKFLOW-GATE-PARITY-ASSERT-1 (2026-08-23): PRESENCE (does CI
   // run a node gate preflight doesn't?) and STATUS (is the same gate advisory at
   // one call site and blocking at another, in a context both can reach?). Variant
@@ -1454,7 +1549,20 @@ const GATES = [
   // which reads exactly like a clean repo. Every case is a mutation control; the
   // ABSENCE cases (stale declaration, argument drift, uncalled gate, unparseable
   // `on:` block, an unmodelled softener) are the ones this family is made of.
-  ['Workflow gate parity controls (status axis, mutation)', 'node scripts/check-workflow-gate-parity.test.mjs'],
+  ['Workflow gate parity controls (status + reverse-presence axes, mutation)', 'node scripts/check-workflow-gate-parity.test.mjs'],
+  // CONTRACT-CLAIM-COVERAGE-1: the mirror of RULINGS 2026-08-22's "no gate without a
+  // normative source" — no normative source without an enforcement disposition. Asserts
+  // every CONTRACT.md §15 claim row names a gate that EXISTS, or the honest values
+  // DISCIPLINE / UNTESTABLE. It is not a coverage mandate: both honest values pass, and
+  // the defect is a claim with no disposition (or one naming a gate that isn't there,
+  // which reads as enforcement and enforces nothing — the audit's F2 "gate-name theater").
+  ['CONTRACT §15 claim coverage (every claim disposed)', 'node scripts/check-contract-claim-coverage.mjs'],
+  // The paired controls (GATE-SELFTEST-META-1 form (b)). Two parser bugs inherited from
+  // spec-gate-coverage.mjs are proven fixed against the LEGACY parser on every run —
+  // an empty Gate cell (which the legacy `.filter(Boolean)` deletes, shifting the verdict
+  // into the gate column, so the exact defect this gate exists to catch was the one input
+  // that silently passed) and an escaped `\|` inside a cell.
+  ['CONTRACT §15 claim-coverage controls (parser fixes, RED+GREEN)', 'node scripts/check-contract-claim-coverage.mjs --self-test'],
   // The CONTROL for the L1 chain edge-contract checker — not a check on the estate. In-memory
   // fixture chains (right kernels / wrong edge must fail, known-good must pass) plus mutation
   // controls that flip each fact and require the verdict to move. Hard here because a red
@@ -2073,6 +2181,29 @@ gateStart(VERSION_PROSE_LABEL);
     console.log('\n' + r.out.trim() + '\n');
   } else {
     gatePass('see `node chaingraph/standard/spec-version-consistency.mjs --remnants` after any spec-version bump');
+  }
+}
+
+// ── Advisory (non-blocking): kernel schema-read divergence report ───────────
+// SCHEMA-READ-DIVERGENCE-SWEEP-1 (2026-08-30). Mechanical both-directions sweep: every live
+// kernel's input-field READS vs its DECLARED input schema (manifests/*.manifest.json primary,
+// page-embedded manifest cross-check), verdict per kernel CLEARED / DIVERGES / UNPARSEABLE.
+// Per-kernel lines: chaingraph/reports/schema-read-divergence-2026-08-30.tsv (regenerate with
+// `node scripts/check-schema-read-divergence.mjs --tsv <path>`).
+// ADVISORY BY DESIGN, exit 0 always: the day-one estate measurement carries a large known
+// divergence baseline (art-09-class name mismatches — 6 kernels — plus 537 kernels with NO
+// declared schema anywhere), and promoting this to a hard gate is a SEPARATE follow-on row to
+// be taken once the confirmed hits are fixed or baselined — never a side effect of this line.
+const SCHEMA_DIV_LABEL = 'kernel schema-read divergence (advisory report)';
+gateStart(SCHEMA_DIV_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-schema-read-divergence.mjs --summary');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(SCHEMA_DIV_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no summary line printed — see node scripts/check-schema-read-divergence.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
   }
 }
 

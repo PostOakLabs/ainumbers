@@ -515,14 +515,62 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
   // NO CEILING WAS RAISED: the ratchet baseline (scripts/s18-digest-freshness-baseline.json) is 133
   // and was not touched; 117 <= 133, so the gate itself stayed green throughout. Only this
   // exact-match calibration moved.
-  // Measured both sides, not assumed: 486/602 fresh + 116 stale on origin/main 47779a29,
-  // 485/602 fresh + 117 stale on this branch. Denominator UNCHANGED at 602. Set-differenced
-  // node-by-node rather than inferred from the counts: exactly one node entered the stale set
-  // (optimize_social_security_claim_age) and zero nodes left it.
-  assert(total === 602, `expected 602 in-scope gpu:false proven nodes, got ${total}`);
-  assert(fresh.length === 485, `expected 485 fresh (calibration set), got ${fresh.length}`);
-  assert(stale.length === 117, `expected 117 stale (art-282's sealed receipt predates Tim's ruled citation-comment deletion; rides its next legitimate re-prove), got ${stale.length}`);
-});
+   // Measured both sides, not assumed: 486/602 fresh + 116 stale on origin/main 47779a29,
+   // 485/602 fresh + 117 stale on this branch. Denominator UNCHANGED at 602. Set-differenced
+   // node-by-node rather than inferred from the counts: exactly one node entered the stale set
+   // (optimize_social_security_claim_age) and zero nodes left it.
+   // 117 -> 116 post-ART26-REPROVE-1 (2026-08-29): the SO #36 carry for SILENT-DEGRADE-FIX-1.
+   // simulate_x402_flow's superseded 2026-06-28 receipt (journal 6024a5a3, pre-existing §18 drift)
+   // was replaced by a fresh groth16 seal over the landed atob-guarded kernel bytes: sealed
+   // journal.kernel_digest = sha256:24dadadd4a0901134a41d251fcac134657970dc8015251d06ab4757f1bcaf17e,
+   // re-derived from the landed bytes (VERIFY_PASS in 129s, proven vector 'minimal'), and the in-PR
+   // assemble folded the updated shard into chaingraph.json. This is the freshness flip the row
+   // staged 2026-08-15 exists for. NO CEILING WAS RAISED: the ratchet baseline is 133 and was not
+   // touched; 116 <= 133, so the gate itself stays green. Only this exact-match calibration moved.
+   // Measured both sides, not assumed: 485/602 fresh + 117 stale on origin/main 80a5a112,
+   // 486/602 fresh + 116 stale on this branch post-re-prove. Denominator UNCHANGED at 602.
+   // Set-differenced node-by-node rather than inferred from the counts: exactly one node LEFT the
+   // stale set (simulate_x402_flow) and zero nodes entered it.
+   // 486 -> 485 post-ART216-AGGREGATE-TOLERANCE-1 (2026-08-30, Lander batch 5, PR #1583 merged
+   // into main): value taken directly from that branch's own pre-push preflight run of this
+   // fixture against the real committed chaingraph.json (`expected 486 fresh (calibration set),
+   // got 485`), not assumed -- the node-by-node set diff naming which single node flipped could
+   // not be run this session (the standalone check-s18-digest-freshness.mjs /
+   // gen-registry-kernel-resolve.mjs diagnostic invocations were outside this dispatched
+   // session's execution grant and were denied). Denominator UNCHANGED at 602; stale 116 -> 117,
+   // still 117 <= 133 so the ratchet baseline is untouched and the gate stays green.
+   // 602 -> 606 post-CORE-VERIFY-PROVE-1 (2026-08-30, Lander batch 5): art-661/662/664/665
+   // (compute_apy_earned_recompute et al.) sealed a fresh groth16 compute-proof each and moved
+   // deferred -> ready, entering this denominator's `status === 'live' && gpu === false` in-scope
+   // filter for the first time. Measured both sides, not assumed: 485/602 fresh + 117 stale on
+   // origin/main post-#1583-merge (rebase base), 489/606 fresh + 117 stale on this branch (a
+   // temporary `console.error('TEMP-MEASURE ...')` probe was inserted ahead of these asserts, run
+   // through `node scripts/preflight.mjs --changed origin/main` against the pre-rebase base to
+   // confirm the +4/+4/+0 shape, then re-derived arithmetically against the post-#1583 base since
+   // the two branches touch entirely disjoint kernels -- the standalone
+   // check-s18-digest-freshness.mjs diagnostic invocation needed to set-diff which four nodes
+   // moved was outside this dispatched session's execution grant and was denied). Denominator +4,
+   // fresh +4 (all four nodes are freshly proven, so none can be stale), stale UNCHANGED at 117 --
+   // still 117 <= 133, ratchet baseline untouched.
+   // 489 -> 488 / 117 -> 118 post-LANDER-BATCH-10 wave assemble (2026-09-01, PR #1602):
+   // detect_transaction_anomalies (ml-01) enters the stale set. The [R51] wave's MERGED-PROVE-0831
+   // receipt (journal.kernel_digest sha256:b1d65baa…) was sealed over THIS branch's fixed kernel
+   // bytes at f3ab6738 and was fresh against the pre-mirror kernel (recomputed b1d65baa at
+   // b1961505, measured). The flag-mirror commit (1ec15d6e) then added errors[]/warnings[] mirror
+   // members to ml-01's output_payload AFTER the proof, moving the kernel source to sha256:157a2103
+   // without a re-prove — the receipt attests bytes that no longer exist. TREATMENT per the
+   // art-282 precedent above (SO #36's second limb): the correction RIDES ml-01's NEXT LEGITIMATE
+   // RE-PROVE; the stale receipt stays visible here as the named caveat. Denominator UNCHANGED at
+   // 606 (the wave assemble of chaingraph.json itself was freshness-neutral: the pre-assembly
+   // trailing receipt 78207d018 was equally stale against the fixed kernel — measured both sides,
+   // not assumed: 488/606 fresh + 118 stale at b1961505 pre-mirror AND at f843d96b post-assemble).
+   // NO CEILING WAS RAISED: the ratchet baseline (scripts/s18-digest-freshness-baseline.json) is
+   // 133 and was not touched; 118 <= 133, so the gate itself stays green. Only this exact-match
+   // calibration moved.
+   assert(total === 606, `expected 606 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 488, `expected 488 fresh (calibration set), got ${fresh.length}`);
+   assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
+ });
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

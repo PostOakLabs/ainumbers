@@ -733,9 +733,10 @@ const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.m
 if (mc) {
   mc.registerTool({
     name: 'art-574-certified-payroll-compute',
-    description: 'Recomputes, for one stated certified-payroll week, whether each worker was paid at or above the wage-determination rate with CWHSSA overtime, compares against a submitted certified payroll, and in PWA mode computes the IRC Sec. 45(b)(7)-(8) correction and penalty for any deficiency.',
+    description: 'Recomputes, for one stated certified-payroll week, whether each worker was paid at or above the wage-determination rate with CWHSSA overtime, compares against a submitted certified payroll, and in PWA mode computes the IRC Sec. 45(b)(7)-(8) correction and penalty for any deficiency. Returns a MATCHES/DIVERGES/INDETERMINATE verdict, per-worker recomputation, item-wise rejected inputs, and in PWA mode the Sec. 45 correction and penalty.',
     inputSchema: {
       type: 'object',
+      required: ['wdJson', 'payrollJson'],
       properties: {
         projectRef: { type: 'string', description: 'Project reference' },
         weekEndingLabel: { type: 'string', description: 'Week ending label (your input, never a clock read)' },
@@ -750,8 +751,10 @@ if (mc) {
         underpaymentDays: { type: 'number', description: 'Underpayment days (declared, for simple-interest approximation)' }
       }
     },
-    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    annotations: { readOnlyHint: true },
     execute: function(params) {
+      if (!Array.isArray(params.wdJson)) throw new Error('wdJson must be an array of wage-determination rows, each { classification, base_rate_minor_units, fringe_rate_minor_units } (minor units = 1/100 of the currency).');
+      if (!Array.isArray(params.payrollJson)) throw new Error('payrollJson must be an array of payroll rows, each { worker_id, classification, st_hours, ot_hours, rate_paid_minor_units, fringe_paid_minor_units }.');
       if (params.projectRef !== undefined) document.getElementById('projectRef').value = params.projectRef;
       if (params.weekEndingLabel !== undefined) document.getElementById('weekEndingLabel').value = params.weekEndingLabel;
       if (params.currency !== undefined) document.getElementById('currency').value = params.currency;

@@ -19,7 +19,7 @@ This is the **Single Source of Truth (SSOT)** for all AINumbers.co builds. It su
 | Constraint | Specification | Rationale |
 |---|---|---|
 | **Architecture** | Single self-contained `.html` per tool. All CSS/JS inline. Google Fonts only (`DM Serif Display`, `Sora`, `JetBrains Mono`). | Zero build step, zero dependency drift, portable static deployment. |
-| **Runtime** | Synchronous, deterministic execution. Zero `fetch`, `async`, `WebWorker`, or external network calls after page load. Seeded PRNG allowed *only* for synthetic data. | Ensures bit-for-bit reproducible outputs across sessions and clients. |
+| **Runtime** | Deterministic execution. Zero network I/O after page load — `fetch`, XHR (`XMLHttpRequest`), `WebSocket`, and any network-touching Worker are banned by name; zero `WebWorker`. Local Promise-based `async` is permitted **solely** for local platform APIs that have no synchronous form — WebCrypto (`crypto.subtle`) and Blob/File APIs — and must never wrap network activity, timers-as-polling, or nondeterminism; "async permitted" is never an egress loophole. Egress remains mechanically enforced by the egress/CSP gates (`scripts/check-site-egress.mjs`, `scripts/check-csp-consistency.mjs`). Seeded PRNG allowed *only* for synthetic data. | Ensures bit-for-bit reproducible outputs across sessions and clients; resolves the prior self-contradiction with the CONTRACT-mandated Promise-only `execution_hash` WebCrypto path (amended September 2026). |
 | **Data Safety** | **Zero PII** collected, stored, logged, or transmitted. Input sanitization strips identifiable fields. Output schemas exclude personal data. | Compliance-first design; eliminates regulatory liability. |
 | **Client Storage** | **Forbidden:** `localStorage`, `cookies`, `IndexedDB`, `sessionStorage`, any PII-adjacent cache. All state is in-memory. (`ain_lang` sessionStorage exemption removed — lang toggle deferred; see §1.1.) | Aligns with ePrivacy session-scoping norms; preserves tab-close data wipe. |
 | **Routing & URLs** | Internal cross-links **MUST** use relative paths (`../tools/...`). Absolute URLs reserved **strictly** for the generated registry surfaces (`.well-known/mcp.json`, `mcp/catalog.json`, `mcp/server.json` — §2.1) and external MCP endpoints. | Build-time resilience + portability; prevents broken links on staging/mirrors. |
@@ -400,7 +400,7 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - [ ] Input validation covers empty, negative, non-numeric, malformed
 - [ ] Export output matches Tier system contract
 - [ ] Complex logic & payments math are inline-commented
-- [ ] `node scripts/regen-sitemap.mjs` run after adding any new tool or guide, leaving `node scripts/regen-sitemap.mjs --check` green (Amendment A2.3; supersedes `python scripts/regen_sitemap.py --apply`, quarantined as `scripts/regen_sitemap.py.DEPRECATED` for scanning only `tools/`, `guides/` and `chaingraph/` and silently dropping every published page outside that scope)
+- [ ] `sitemap.xml` left to the main-side single writer (2026-08-29 — supersedes the same-PR requirement this item used to carry): do NOT run or commit `node scripts/regen-sitemap.mjs` in this PR. `derived-artifacts-regen.yml` regenerates and commits it on `main` after merge (`derived-artifacts.mjs` COVERED id `sitemap-xml`), scanning every directory in `scripts/published-dirs.json` — the shared manifest `scripts/verify_repo.py`'s `check_sitemap` reads too, so generator and gate cannot scope-drift. `node scripts/regen-sitemap.mjs --check` is ADVISORY on a PR and BLOCKING on `main` — a red result on your PR means main hasn't regenerated yet, not that your PR owes a fix. (Amendment A2.3 history retained: this gate supersedes `python scripts/regen_sitemap.py --apply`, quarantined as `scripts/regen_sitemap.py.DEPRECATED` for scanning only `tools/`, `guides/` and `chaingraph/` and silently dropping every published page outside that scope.)
 
 ### 6.2 Pre-Merge Validation Pipeline
 **`node scripts/check_tools.js` is the BLOCKING first gate** — it parses every tool's inline JavaScript and exits non-zero if any `<script>` has a syntax error. NEVER commit or merge tool HTML while it reports a failure; run `node scripts/locate_errors.js` to pinpoint each break.
@@ -445,6 +445,11 @@ node chaingraph/standard/catalog-parity.mjs            # pages <-> chaingraph.js
 
 ### 6.4 AIN Bridge Snippet — Amendment A1.3
 Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted verbatim before `</body>` with a one-line `window.AIN_BRIDGE_CFG={runFn,intake,intakeTarget,intakeAnchor}`. The bridge provides prefill (§2.4), intake (§3.3), and same-origin parent messaging for Runners (§5.3); its UI strings are English-only (lang toggle deferred — §1.1). Tools with a non-downloading mandate builder SHOULD expose it as `window.AIN_BUILD_MANDATE()` so Runner capture works without an export click. Constraints honored: zero network, zero storage reads or writes. Manifest signals: `prefill`, `bridge_version`; `mcp/catalog.json` carries `metadata.prefill` (regenerated via `scripts/regen_catalog.py` — never hand-edit).
+
+### 6.5 Scheduled/report-only CI surfaces MUST surface their own reds (NIGHTLY-RED doctrine)
+A scheduled or report-only CI surface (nightly mutation run, fullsuite, report-only attestation — anything whose trigger is `schedule:` rather than a PR, and that never blocks a merge) that goes red MUST open or update **one idempotent tracking issue per surface**: body carries the surface name, the run id, and the first failure line; a second red on the same surface updates that same issue rather than opening a new one; the surface going green again closes or resolves it; a green run touches nothing. Copy the existing idempotent pattern already in use elsewhere in this estate (`helm-guide-freshness-schedule.yml`'s shape) rather than inventing a second one. This does **not** make the surface blocking — a scheduled surface stays non-blocking by design; it only makes a red one visible instead of silent.
+
+⚠ **Implementation status (2026-08-30): this is doctrine only.** As of this writing `.github/workflows/mutation-full-scheduled.yml` files no issue on red by design — its own header states *"Actions tab IS the finding — no GitHub issue is filed"* — and is `continue-on-error: true` with a step that prints "Report-only: this workflow never blocks a merge or deploy." No scheduled workflow in this repo opens or updates a tracking issue on red today. This clause states the target behavior; a separate build row is owed to wire the mechanism.
 
 ---
 
@@ -508,7 +513,7 @@ A fifth valid page architecture, **superseding architecture #4** (Composer Runne
 5. **Branching chains** (former Scenario Guides) MUST declare each path in `chaingraph.json` `chains[].branches` and swap nodes by branch key, mirroring the existing branching Runner pattern.
 6. Obey **all §0 hard constraints**: single self-contained HTML, zero PII, **zero forbidden storage (no `sessionStorage`/`setLang` stub)**, zero post-load network beyond the same-origin iframes, every regulatory claim real and citable.
 
-The nouns **"composer," "workflow," and "scenario guide" MUST NOT appear** in any shipped surface copy. The only orchestration namespace is `/chaingraph/`.
+The nouns **"composer," "workflow," and "scenario guide" MUST NOT appear** in shipped-surface **slugs, namespaces, and internal identifiers** — the only orchestration namespace is `/chaingraph/`. This ban is an identifier/naming rule, not a vocabulary rule: it does NOT reach §1.4's reader-facing term, and user-facing prose MAY continue to call OpenChainGraph chains "workflows" per §1.4 (amended 2026-09-03, resolving the A3.1-vs-§1.4 contradiction).
 
 ### A3.2 · Mandatory chain block + execution_hash (RFC 2119: MUST)
 
@@ -588,7 +593,7 @@ That is the entire list — **one host**. The Worker holds **no runtime secret**
 
 **RFC 3161 TSAs are NOT worker egress, and MUST NOT be added to this list on the assumption that they already are.** Verified against `origin/master` at authoring time: the Worker's RFC 3161 support is **verify-only and 100% offline** — `kernels/_rfc3161.mjs` contains **zero** `fetch` calls and validates a timestamp token against a **pinned** `FREETSA_ROOT_PEM` using `node:crypto` alone, and `_blta.mjs` states in-file that the Worker has *"no existing TSA-REQUEST integration"*, explicitly FLAGS obtaining a fresh timestamp as not built, and names anchor-suite as the natural future owner. Live TSA traffic belongs to the **anchor-suite / `anchor.ainumbers.co`** surface, which is not this Worker. The one `freetsa.org/tsr` call in the repo is in `scripts/_regen-input-attestations-fixture.mjs`, a developer fixture-regeneration script that never runs in the Worker. If a future WU adds a real TSA client to the Worker, it amends this table then — it does not inherit permission from this note.
 
-**Browser tools remain §0 zero-egress — unchanged and unaffected by this section.** §A4.7 authorizes **worker-side** calls only. Every `tools/`, `guides/`, and `chaingraph/` page stays bound by §0 *Runtime* ("Zero `fetch`, `async`, `WebWorker`, or external network calls after page load"). Nothing in this section relaxes that, and no browser page may call any host named above. **Enforcement note:** the browser-side constraint is carried by §0 policy, the per-page CSP tag (§0 *Content Security Policy*, gated by `scripts/check-csp-consistency.mjs`), **and a static text scan of every `tools/`, `guides/`, and `chaingraph/` page** (`scripts/check-site-egress.mjs`, wired into `preflight.mjs` + `html-verify.yml`) for `fetch(`/`XMLHttpRequest`/`WebSocket`/`EventSource`/`sendBeacon`/URL-`import(`. It is baseline-shielded (`scripts/site-egress-baseline.json`) against known-inert textual matches (vendored-library dead code, sample text inside a template literal, unreachable WASM glue) and excludes exactly one lawful exception, `ledger/` (§A7, `check-ledger-hermetic.mjs`, permits only `anchor.ainumbers.co`) — a new live network call anywhere else fails CI. The Worker repo's `scripts/gate-zero-egress.mjs` is **kernel-scoped and worker-side**; it does not cover `tools/` pages, and MUST NOT be cited as if it did.
+**Browser tools remain §0 zero-egress — unchanged and unaffected by this section.** §A4.7 authorizes **worker-side** calls only. Every `tools/`, `guides/`, and `chaingraph/` page stays bound by §0 *Runtime* (zero network I/O after page load; local Promise-based `async` only, per the §0 Runtime row). Nothing in this section relaxes that, and no browser page may call any host named above. **Enforcement note:** the browser-side constraint is carried by §0 policy, the per-page CSP tag (§0 *Content Security Policy*, gated by `scripts/check-csp-consistency.mjs`), **and a static text scan of every `tools/`, `guides/`, and `chaingraph/` page** (`scripts/check-site-egress.mjs`, wired into `preflight.mjs` + `html-verify.yml`) for `fetch(`/`XMLHttpRequest`/`WebSocket`/`EventSource`/`sendBeacon`/URL-`import(`. It is baseline-shielded (`scripts/site-egress-baseline.json`) against known-inert textual matches (vendored-library dead code, sample text inside a template literal, unreachable WASM glue) and excludes the lawful exceptions recorded in §A7 (`ledger/`, `check-ledger-hermetic.mjs`, permits only `anchor.ainumbers.co`), §A8.3 (`mcp-playground.html`), and §A10 (`docs/`, same-origin static JSON only) — a new live network call anywhere else fails CI. The Worker repo's `scripts/gate-zero-egress.mjs` is **kernel-scoped and worker-side**; it does not cover `tools/` pages, and MUST NOT be cited as if it did.
 
 ---
 
@@ -600,7 +605,7 @@ That is the entire list — **one host**. The Worker holds **no runtime secret**
 The normative OpenChainGraph standard is **`repo/chaingraph/standard/SPEC.md`** + **`openchain-graph-v0.4.schema.json`** (the machine schema). The published `openchain-graph-spec.html` renders it, the GitHub Pages mirror copies it, `chaingraph.json` + kernels validate against the schema, and **this contract references it — it does not restate it.** When any surface disagrees with SPEC.md, **SPEC.md wins and the disagreement is a CI failure.** The single version of record is `chaingraph.json.spec_version`.
 
 ### A5.2 · "Compliant" has a runnable definition
-A tool, node, chain, kernel, or surface is **v0.4-compliant iff it passes the SPEC.md §15 conformance-gate suite** — not "matches someone's reading of the docs." The gates (CI-blocking): `kernel-hash-integrity` · `lint-forbidden-hash` · `golden-parity` · `kernel-coverage --strict` · `kernel-contract` · **`hash-sweep`** (post-deploy) · **`verify-mcp-registered`** (post-deploy) · `check-tool-names` · `validate-chains` · `smoke-mcp` · **`schema-validate`** · **`spec-version-consistency`** · **`surface-parity`** · **`catalog-parity`** · **`spec-gate-coverage`** (meta).
+A tool, node, chain, kernel, or surface is **v0.4-compliant iff it passes the SPEC.md §15 conformance-gate suite** — not "matches someone's reading of the docs." The gates (CI-blocking): `kernel-hash-integrity` · `lint-forbidden-hash` · `golden-parity` · `check-kernel-coverage --strict` · `kernel-contract` · **`hash-sweep`** (post-deploy) · **`verify-mcp-registered`** (post-deploy) · `check-tool-names` · `validate-chains` · `smoke-mcp` · **`schema-validate`** · **`spec-version-consistency`** · **`surface-parity`** · **`catalog-parity`** · **`spec-gate-coverage`** (meta).
 
 ### A5.3 · Surfaces are generated, never hand-typed (Addendum A)
 `mcp.html`, `chaingraph-hub.html`, sitemap, `llms.txt`, and the MCP tool/resource/prompt registrations are **generated from `chaingraph.json`** (+ `counts.json`). Displayed counts MUST be injected from `counts.json` (`data-ocg-count` tokens); hand-typing a count is a `surface-parity` failure. The three access layers map to MCP primitives: browser tools = **Resources**, compute kernels = **Tools**, named chains = **Prompts**.
@@ -655,6 +660,82 @@ Every OCG §13 export profile embeds a `reliance_notice` string in its shared me
 
 ### A9.3 · Not a coverage gate
 This amendment does not create a live "% of tools carrying a hedge" gate, and none should be built from it (mirrors §12's non-goal in `CLAUSE-BINDING-BUILD-SPEC.md`). The 104/155 and 12 figures above are the measured baseline this clause responds to, not a target a gate checks against.
+
+---
+
+## Amendment A10 — docs/ API-portal carve-out (September 2026)
+
+*Applied September 2026 under recorded maintainer sign-off, closing the public-audit finding that `docs/` was neither bound by §0 nor carved out. Numbered §A10 because §A9 was already occupied by the reliance-hedge amendment — nothing renumbers, nothing displaces.*
+
+### A10.1 · Scope: same-origin GET of repo-generated static JSON — nothing else
+The `docs/` directory hosts the generated API/OpenAPI portal (`scripts/gen-openapi.mjs`). Pages under `docs/` MAY `fetch` same-origin, repo-generated static JSON **only** (`./catalog.json`, `./openapi.json`) via GET, and MAY load the **vendored** Redoc renderer (`docs/vendor/redoc.standalone.js`) on explicit user action, and are exempt from §0's zero-egress letter **to exactly that extent**. The carve-out covers **no other fetch shape** (no POST, no cross-origin, no non-repo-generated resource), **no other directory**, and **no other egress**. The `docs/` directory stores no PII and processes no user inputs.
+
+### A10.2 · CSP is mandatory and generator-enforced
+Every `docs/` page MUST carry a CSP meta whose `connect-src` is `'self'` and whose `script-src` names only `'self'` (plus the estate's canonical `'unsafe-inline'` allowance) — **no external script host; no CDN entry for the renderer or anything else**. The canonical value is profile `CSP_DOCS_PORTAL`:
+
+> `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`
+
+The docs/ generator (`scripts/gen-openapi.mjs`) **emits and repairs** this meta and the local renderer path on every regeneration, so a regen can never reintroduce a CDN reference or drop the tag. `scripts/check-site-egress.mjs` and `scripts/check-csp-consistency.mjs` scan `docs/` and enforce this allowlist; where their scan scope does not yet include `docs/`, widening it is required follow-on work and this clause is the normative source that widening consumes.
+
+### A10.3 · Vendoring duties travel with the tree
+The vendored Redoc tree (`docs/vendor/`) carries a `data/credits-registry.json` entry and falls under the vendored-code license gate (`scripts/check-credits-coverage.mjs`) like every other vendored tree. The version is **pinned** (bundle + its stripped-license sidecar committed together); an upgrade is a deliberate reviewed diff, never a floating "latest" reference.
+
+---
+
+## 🧾 §15 Claim-coverage matrix — every normative claim carries an enforcement disposition
+
+**The mirror of `board/RULINGS.md` 2026-08-22 ("no gate without a normative source"): there is no normative source without an enforcement disposition.** Before this section, CONTRACT.md made 44 claims about how this estate is built and said of none of them what enforces it, so a reader auditing enforcement by CTRL-F could not tell a gated rule from an ungated one. The 2026-08-23 doctrine-execution audit measured the consequence: 19 of 44 claims (43%) rested on authorship alone, and two were VIOLATED on `main` with nothing anywhere able to notice.
+
+**`DISCIPLINE` and `UNTESTABLE` are honest values.** A rule no script can check is not a defect in this contract; claiming it is checked would be. **The defect this section forbids is a claim with NO disposition** — and, worse, a claim naming a gate that does not exist, which reads as enforcement and enforces nothing (the audit's F2 finding, "gate-name theater"). **This is explicitly NOT a coverage mandate:** nothing here asks a `DISCIPLINE` row to become a gated one, and a change that converts dispositions wholesale to raise a number has misread the section.
+
+**Gate:** `check-contract-claim-coverage.mjs` (meta) asserts every row below has a non-empty `Gate` cell that resolves to a script on disk, to a known worker-repo gate, or to `DISCIPLINE` / `UNTESTABLE`. Ⓦ marks a gate verified in the worker repo's own CI. Verdicts are the audit's, measured at `main` on 2026-08-23.
+
+| # | Claim | Gate | Verdict |
+|---|---|---|---|
+| 1 | §0 single self-contained HTML per tool, all CSS/JS inline | DISCIPLINE | HOLDS |
+| 2 | §0 Google Fonts only (DM Serif Display, Sora, JetBrains Mono) | DISCIPLINE | HOLDS |
+| 3 | §0 zero fetch/WebWorker/external calls after load | `check-site-egress.mjs` | HOLDS |
+| 4 | §0 zero PII collected, stored or logged | UNTESTABLE | no PII scanner exists in the estate |
+| 5 | §0 all client storage forbidden (sessionStorage, localStorage, cookies, IndexedDB) | DISCIPLINE | HOLDS (write-shaped scan: 0 files) |
+| 6 | §0 relative internal links; absolute URLs reserved | `dead-link-check.mjs` | HOLDS, PARTIAL (covers rot, not absoluteness) |
+| 7 | §0 CSP tag on every page, canonical profiles | `check-csp-consistency.mjs` | HOLDS (ratchet baseline; value-blind) |
+| 8 | §1.1 no lang toggle in new builds | DISCIPLINE | HOLDS (newest 40 tool numbers: 0 carry it) |
+| 9 | §1.1 grandfathered tools keep `TRANSLATIONS` | DISCIPLINE | STALE NOTE: doctrine says ~187, actual 262 tools + 32 guides |
+| 10 | §1.2 mfst toggle present, exactly one per tool | `verify_repo.py` | HOLDS |
+| 11 | §1.2 `.mcp-toggle`/`toggleMCP()` RETIRED, MUST NOT appear in new or existing tools | `check-retired-mcp-toggle.mjs` | was VIOLATED (7 live tools) at audit; tombstone gate landed since |
+| 12 | §1.3 PII banner exact text | `verify_repo.py` | HOLDS, PARTIAL (enforces text-correctness, narrower than "all tools") |
+| 13 | §1.4 hard copy rules (em-dash, double-hyphen, entity decode, build codes `Wave N \| W-A…W-G \| D0`, heading emphasis) | `check-copy-hallmarks.mjs` | HOLDS (1529-file baseline ratchet) |
+| 14 | §1.4 prose rules (negation-boxes, audience statement, date-currency) | UNTESTABLE | judgement rules; nothing scans them |
+| 15 | §1.4 inline SSOT copies byte-identical to kernels | `check-inline-ssot-sync.mjs` | HOLDS |
+| 16 | §1.5 `generated_at` visibility and decision-state rendering | DISCIPLINE | UNENFORCED BY DESIGNATED GATE: `check-node-page-chrome.mjs` contains zero §1.5 assertions (audit F2) |
+| 17 | §2.1/§2.3 root `suite-registry.json` exists and lists all tools | DISCIPLINE | STALE PHANTOM: the file has never existed in git history |
+| 18 | §2.2 manifest schema, `verb_noun_context` unique | `check-manifest-schema.mjs`, Ⓦ`check-tool-names.mjs` | HOLDS |
+| 19 | §2.4 AIN Bridge deep-link behaviour contract | UNTESTABLE | runtime-only; no static artifact |
+| 20 | §2.5 chain steps and `composer_url` resolve | `check-chain-composer-urls.mjs`, Ⓦ`validate-chains.mjs` | HOLDS |
+| 21 | §2.7 new live nodes ship a manifest with `output_schema` in the same PR | DISCIPLINE | VIOLATED (2): art-527, art-541. Rule declares itself gate-free by design |
+| 22 | §3.2 export button in `.results-export-row`, validate-before-download | `verify_repo.py` | PARTIAL: Check 3 gates placement; DOM/state/toast details are not covered |
+| 23 | §3.1 `{tool_id}_{YYYYMMDDHHMMSS}.policy.json` naming | UNTESTABLE | runtime artifact, not statically observable |
+| 24 | §4 Tier 1 export mandatory for the policy/rule/risk class | DISCIPLINE | HOLDS on the named set; the general predicate is judgement |
+| 25 | §4 exports use native Blob; libraries only if approved and bundled inline | DISCIPLINE | HOLDS (0 external lib loads) |
+| 26 | §5.1 canonical ranges, RESERVED numbers never reused | `check-tool-number-unique.mjs` | HOLDS on uniqueness; range table stale (ends T476, estate runs to #665) |
+| 27 | §5.4 `start.html` grid: families only, cap 12 cards | DISCIPLINE | VIOLATED AS WRITTEN: 29 recipe cards, 0 family-hub links; page redesigned, rule never amended |
+| 28 | A3.1 "composer/workflow/scenario guide" nouns banned in shipped copy | `check-shipped-prose.mjs` | PARTIAL: 1003 node+chain descriptions covered; guide/tool page prose and slugs are not |
+| 29 | A3.3 `guides/` retains only hubs plus two utility pages | DISCIPLINE | STALE WHITELIST: 35 non-hub hand-built pages sit outside it |
+| 30 | A3.4 no catalog/node twins | UNTESTABLE | the coverage predicate is undefined |
+| 31 | A3.7 every chain and node in sitemap, `llms.txt` and catalog | `regen-sitemap.mjs`, `gen-llms-full.mjs`, `check-catalog-parity.mjs` | HOLDS |
+| 32 | §6.2 `check_tools.js` is "the BLOCKING first gate" | `check_tools.js` | WIRING FRAGILE: runs in preflight, appears in ZERO workflow files; reached in CI only via `scripts-verify.yml`'s path-scoped preflight. Declared in `check-workflow-gate-parity.mjs`'s `PREFLIGHT_ONLY` |
+| 33 | §6.2 SSOT conformance gates run before touching `standard/` | `schema-validate.mjs`, `spec-version-consistency.mjs`, `spec-gate-coverage.mjs` | HOLDS |
+| 34 | §6.3 JSON-LD block on hub pages | `check-jsonld.mjs` | PARTIAL: preflight-only, no workflow invokes it. Declared in `PREFLIGHT_ONLY` |
+| 35 | A4.0 shards not the monolith, plus assembly freshness | `assemble-chaingraph.mjs` | HOLDS |
+| 36 | A4.2 re-vendor and commit generated worker inputs in the same push | `check-cross-surface.mjs` | HOLDS (634/634 byte-identical at audit) |
+| 37 | A4.3 canonical `execution_hash` via the one shared module | `lint-forbidden-hash.mjs`, `golden-parity.test.mjs`, `parity-art-01.test.mjs` | HOLDS |
+| 38 | A4.4 deploys solely via gated GitHub Actions; `NAMED_CHAINS` generated | DISCIPLINE | HOLDS WITH RESIDUE: `wrangler deploy` in exactly one workflow; a retired `NAMED_CHAINS` const survives beside the generated projection |
+| 39 | A4.6 the kernel registry is codegen, never hand-edited | `gen-index.mjs` | HOLDS |
+| 40 | A4.7 worker egress is a named closed allowlist; browser zero-egress | `check-site-egress.mjs` | HOLDS |
+| 41 | A5.1/A5.4 SPEC wins; every SPEC MUST has a §15 gate | `spec-gate-coverage.mjs` | FORMALLY HOLDS: the meta-gate is green inside the matrix's visibility, and ≥603 MUSTs sit outside it (audit F5) |
+| 42 | A7/A8 ledger and playground hermetic carve-outs | `check-ledger-hermetic.mjs`, `check-playground-hermetic.mjs` | HOLDS |
+| 43 | A9 the reliance hedge travels with the artifact | DISCIPLINE | HOLDS BY STAGING: no coverage gate, by A9.3's explicit ruling |
+| 44 | `repo/CLAUDE.md`: author via Write/Edit not heredoc, preflight before every push, hook opt-in | DISCIPLINE | process rules; the hook exists, and its CI backstop is row 32's fragile path |
 
 ---
 

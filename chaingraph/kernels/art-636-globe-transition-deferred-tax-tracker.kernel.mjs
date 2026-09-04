@@ -243,7 +243,16 @@ function evaluateItem(raw, idx, ctx) {
     } else if (code === 'EXCL_RETROACTIVE_ELECTION_POST_CUTOFF') {
       holds = item.arises_from_retroactive_election === true && postCutoff;
     } else if (code === 'EXCL_NEW_CIT_BASIS_STEP_UP_POST_CUTOFF') {
-      holds = item.arises_from_new_cit_basis_step_up === true && postCutoff;
+      // Bounded at BOTH ends: after the cut-off AND before the commencement of a
+      // Transition Year, the same window the intra-group basis limb below applies.
+      // A step-up arising on or after the Transition Year start is outside the limb
+      // and recasts normally; excluding it would over-exclude and under-state the
+      // recast. The code name records the lower bound only and is a retained
+      // identifier — it travels in policy_parameters and in exclusion_reason, so
+      // renaming it would break the parameter contract and every pinned vector.
+      holds = item.arises_from_new_cit_basis_step_up === true
+        && postCutoff
+        && ctx.transitionKey !== null && aKey < ctx.transitionKey;
     }
     if (holds) rec.exclusion_reason = code;
   }

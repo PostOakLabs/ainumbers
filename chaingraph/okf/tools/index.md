@@ -589,6 +589,7 @@ status: stable
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md) — `compute_derivatives_margin_workbench`
 - [Forecast Accuracy Scorer](./art-657-forecast-accuracy-scorer.md) — `compute_forecast_accuracy_score`
 - [Publish Index Head](./art-658-publish-index-head.md) — `publish_index_head`
+- [Publish Fund NAV Head](./art-659-publish-fund-nav-head.md) — `publish_fund_nav_head`
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md) — `build_fria_monitoring_plan`
 - [Compile NAV-Error Evidence Pack](./art-660-compile-nav-error-evidence-pack.md) — `compile_nav_error_evidence_pack`
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md) — `compute_interest_accrual_recompute`
@@ -596,6 +597,7 @@ status: stable
 - [APY-Earned Recompute](./art-663-apy-earned-recompute.md) — `compute_apy_earned_recompute`
 - [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md) — `compute_loan_servicing_waterfall_recompute`
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md) — `compute_gl_tieout_recompute`
+- [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md) — `compute_algo_execution_schedule_simulator`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`

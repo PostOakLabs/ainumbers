@@ -1,0 +1,259 @@
+{
+  "tool_id": "art-511-recompute-fund-fees",
+  "version": "1.0.0",
+  "title": "Recompute Fund Fees",
+  "description": "Recomputes a fund's management fee and performance fee from the terms the investor already holds (the fee statement and the fund agreement) and diffs the result against what was actually charged, where supplied. Management fee accrues on a declared fee base with a declared day-count convention. Performance fee applies a declared hurdle: a HARD hurdle charges only the excess return above the hurdle, a SOFT hurdle charges the full return once the hurdle is cleared, and conflating the two is the single most common performance-fee error, so hurdle_type carries no default and its absence raises judgment_required naming the field rather than guessing. The high-water mark then gates the fee to the excess above the prior peak, and a loss carry-forward is NOT cleared by a fee period ending unless the caller explicitly declares otherwise. Crystallised (payable now) and accrued-but-uncrystallised performance fee are reported as SEPARATE figures, never summed. HARD FENCE: fee rate, hurdle rate and type, high-water mark, crystallisation policy, accrual basis and day count are every one of them a caller input transcribed from the fund agreement: this kernel ships no rate table, no fund library, no term database, zero fund-administrator or market-data lookups (zero-egress). agreement_ref and terms_version are pinned in the artifact and shown on screen, so a later side letter makes an old receipt dated, not wrong. Absent charged_amounts the run is reported recompute-only, its own state, never folded into a match. A diff against charged_amounts is a finding that the recomputation disagrees on the supplied terms, never an allegation that the manager overcharged. Distinct from art-373-recompute-fund-nav, which recomputes NAV per share and is consumed rather than reimplemented here, and from art-375-compute-fund-expense-ratios, whose expense ratio cannot detect a misapplied high-water-mark reset; this node reuses art-375's fixed-point money math pattern without editing either node's kernel. Out of scope: equalisation and series accounting, carried-interest waterfalls for closed-end funds, tax treatment, and any submittability or coverage-ratio claim.",
+  "category": "fund-nav-accuracy-and-private-input-compliance-screens",
+  "tags": [
+    "TODO_TAGS_REVIEW",
+    "TODO_AP2_EXPORT_REVIEW"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "management_fee",
+      "nav",
+      "performance_fee",
+      "period_days",
+      "rounding"
+    ],
+    "properties": {
+      "agreement_ref": {
+        "type": "unknown",
+        "default": null
+      },
+      "as_of": {
+        "type": "unknown",
+        "default": null
+      },
+      "charged_amounts": {
+        "type": "unknown",
+        "default": null
+      },
+      "fund_id": {
+        "type": "unknown",
+        "default": null
+      },
+      "management_fee": {
+        "type": "unknown"
+      },
+      "nav": {
+        "type": "unknown"
+      },
+      "performance_fee": {
+        "type": "unknown"
+      },
+      "period_days": {
+        "type": "number",
+        "description": "Duration in days"
+      },
+      "period_end": {
+        "type": "unknown",
+        "default": null
+      },
+      "period_start": {
+        "type": "unknown",
+        "default": null
+      },
+      "rounding": {
+        "type": "unknown"
+      },
+      "terms_version": {
+        "type": "unknown",
+        "default": null
+      }
+    },
+    "x_schema_provenance": "derived-from-kernel-reads 2026-09-01"
+  },
+  "mcp_tool_definition": {
+    "name": "recompute_fund_fees",
+    "description": "Recomputes a fund's management fee and performance fee from the terms the investor already holds (the fee statement and the fund agreement) and diffs the result against what was actually charged, where supplied. Management fee accrues on a declared fee base with a declared day-count convention. Performance fee applies a declared hurdle: a HARD hurdle charges only the excess return above the hurdle, a SOFT hurdle charges the full return once the hurdle is cleared, and conflating the two is the single most common performance-fee error, so hurdle_type carries no default and its absence raises judgment_required naming the field rather than guessing. The high-water mark then gates the fee to the excess above the prior peak, and a loss carry-forward is NOT cleared by a fee period ending unless the caller explicitly declares otherwise. Crystallised (payable now) and accrued-but-uncrystallised performance fee are reported as SEPARATE figures, never summed. HARD FENCE: fee rate, hurdle rate and type, high-water mark, crystallisation policy, accrual basis and day count are every one of them a caller input transcribed from the fund agreement: this kernel ships no rate table, no fund library, no term database, zero fund-administrator or market-data lookups (zero-egress). agreement_ref and terms_version are pinned in the artifact and shown on screen, so a later side letter makes an old receipt dated, not wrong. Absent charged_amounts the run is reported recompute-only, its own state, never folded into a match. A diff against charged_amounts is a finding that the recomputation disagrees on the supplied terms, never an allegation that the manager overcharged. Distinct from art-373-recompute-fund-nav, which recomputes NAV per share and is consumed rather than reimplemented here, and from art-375-compute-fund-expense-ratios, whose expense ratio cannot detect a misapplied high-water-mark reset; this node reuses art-375's fixed-point money math pattern without editing either node's kernel. Out of scope: equalisation and series accounting, carried-interest waterfalls for closed-end funds, tax treatment, and any submittability or coverage-ratio claim.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "management_fee",
+        "nav",
+        "performance_fee",
+        "period_days",
+        "rounding"
+      ],
+      "properties": {
+        "agreement_ref": {
+          "type": "unknown",
+          "default": null
+        },
+        "as_of": {
+          "type": "unknown",
+          "default": null
+        },
+        "charged_amounts": {
+          "type": "unknown",
+          "default": null
+        },
+        "fund_id": {
+          "type": "unknown",
+          "default": null
+        },
+        "management_fee": {
+          "type": "unknown"
+        },
+        "nav": {
+          "type": "unknown"
+        },
+        "performance_fee": {
+          "type": "unknown"
+        },
+        "period_days": {
+          "type": "number",
+          "description": "Duration in days"
+        },
+        "period_end": {
+          "type": "unknown",
+          "default": null
+        },
+        "period_start": {
+          "type": "unknown",
+          "default": null
+        },
+        "rounding": {
+          "type": "unknown"
+        },
+        "terms_version": {
+          "type": "unknown",
+          "default": null
+        }
+      },
+      "x_schema_provenance": "derived-from-kernel-reads 2026-09-01"
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-511-recompute-fund-fees.html",
+    "function_name": "TODO_FUNCTION_NAME_REVIEW",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "agreement_ref": {
+        "type": "string"
+      },
+      "as_of": {
+        "type": "string"
+      },
+      "diff": {
+        "type": "array"
+      },
+      "fence": {
+        "type": "string"
+      },
+      "fund_id": {
+        "type": "string"
+      },
+      "judgment_required": {
+        "type": "string"
+      },
+      "management_fee_computed": {
+        "type": "string"
+      },
+      "not_proven": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "detail": {
+              "type": "string"
+            },
+            "item": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "performance_fee": {
+        "type": "object",
+        "properties": {
+          "crystallisation": {
+            "type": "string"
+          },
+          "eligible_gain": {
+            "type": "string"
+          },
+          "first_period_no_prior_hwm": {
+            "type": "boolean"
+          },
+          "gain_above_hwm": {
+            "type": "string"
+          },
+          "hurdle_cleared": {
+            "type": "boolean"
+          },
+          "hurdle_excess_amount": {
+            "type": "string"
+          },
+          "hurdle_rate": {
+            "type": "string"
+          },
+          "hurdle_type": {
+            "type": "string"
+          },
+          "hwm_exceeded": {
+            "type": "boolean"
+          },
+          "loss_carryforward": {
+            "type": "boolean"
+          },
+          "new_high_water_mark": {
+            "type": "string"
+          },
+          "performance_fee_accrued": {
+            "type": "string"
+          },
+          "performance_fee_crystallised": {
+            "type": "string"
+          },
+          "period_return_pct": {
+            "type": "string"
+          },
+          "prior_high_water_mark": {
+            "type": "string"
+          }
+        }
+      },
+      "period_days": {
+        "type": "integer"
+      },
+      "period_end": {
+        "type": "string"
+      },
+      "period_start": {
+        "type": "string"
+      },
+      "rationale": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "recompute_only": {
+        "type": "boolean"
+      },
+      "rounding": {
+        "type": "object",
+        "properties": {
+          "decimal_places": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "string"
+          }
+        }
+      },
+      "terms_version": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier 2); tags, execution.function_name, ap2_export are TODO markers, no source found; category sourced from hub-categories.json cluster; output_schema is best-effort single-sample typing — review before treating as authoritative"
+}

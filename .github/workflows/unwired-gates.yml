@@ -1,0 +1,115 @@
+name: Unwired Gates
+
+# Wire 16 standalone gate scripts (all green on main, ~21s total, node stdlib
+# only — zero npm deps) as one parallel CI job, so a PR that breaks or weakens
+# any of them is caught before merge instead of never.
+#
+# check-node-surface-parity.mjs runs here in REPORT MODE only
+# (continue-on-error + step summary + uploaded artifact): it is red today
+# (171/624 compared page<->kernel pairs divergent), so making it blocking
+# would red main. It surfaces the drift per run; a later change can promote
+# it to blocking once the drift sweep lands.
+#
+# mandate-binding.test.mjs reads ../mcp-apps-poc/test/linear-hash-freeze.goldens.json
+# — a file that lives in the companion worker repo, not this one, so an
+# isolated checkout of this repo reds with ENOENT. The "Stage linear-hash-
+# freeze goldens" step guarantees that path before the gate runs, fetching
+# the file pinned to a worker-repo commit SHA.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/**'
+      - 'chaingraph/**'
+      - '.github/workflows/unwired-gates.yml'
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'chaingraph/**'
+      - '.github/workflows/unwired-gates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: 16 measured-green gates + surface-parity report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout site repo
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+
+      # Fixture step: mandate-binding.test.mjs resolves
+      # test/linear-hash-freeze.goldens.json under ../mcp-apps-poc. Pin the
+      # fetch to commit 809c7da1eb1d032424836b9f46f46b7410641687 of
+      # PostOakLabs/ainumbers-mcp-apps so the fixture is immutable.
+      - name: Stage linear-hash-freeze goldens
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/../mcp-apps-poc/test"
+          curl -fsSL \
+            "https://raw.githubusercontent.com/PostOakLabs/ainumbers-mcp-apps/809c7da1eb1d032424836b9f46f46b7410641687/test/linear-hash-freeze.goldens.json" \
+            -o "$GITHUB_WORKSPACE/../mcp-apps-poc/test/linear-hash-freeze.goldens.json"
+          node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); console.log('goldens fixture: valid JSON')" \
+            "$GITHUB_WORKSPACE/../mcp-apps-poc/test/linear-hash-freeze.goldens.json"
+
+      # The 16 green gates, sequentially; any red fails the job.
+      - name: Run the 16 measured-green gates
+        run: |
+          set -e
+          gates=(
+            "chaingraph/kernels/kernel-hash-integrity.mjs"
+            "chaingraph/kernels/kernel-contract.test.mjs"
+            "chaingraph/exporters/export.test.mjs"
+            "chaingraph/exporters/xbrl-json-fixtures.test.mjs"
+            "chaingraph/exporters/xbrl-csv-fixtures.test.mjs"
+            "scripts/compile-mandate-determinism.test.mjs"
+            "scripts/mandate-binding.test.mjs"
+            "scripts/check-workflow-gate-parity.test.mjs"
+            "chaingraph/standard/cid-roundtrip.test.mjs"
+            "chaingraph/standard/head-commit.test.mjs"
+            "chaingraph/standard/car-roundtrip.test.mjs"
+            "chaingraph/kernels/seed-replay.test.mjs"
+            "chaingraph/kernels/validate-ha-records.test.mjs"
+            "chaingraph/kernels/clause-binding.test.mjs"
+            "chaingraph/standard/ancestry-digest.test.mjs"
+            "chaingraph/standard/retention-profile.test.mjs"
+          )
+          for g in "${gates[@]}"; do
+            echo "::group::node $g"
+            node "$g"
+            echo "::endgroup::"
+          done
+
+      # REPORT MODE only: surface-parity is red today (171/624 divergent).
+      # continue-on-error + summary artifact — never blocking.
+      - name: Surface-parity report (non-blocking)
+        id: parity
+        continue-on-error: true
+        run: |
+          node scripts/check-node-surface-parity.mjs | tee parity-report.txt
+          {
+            echo "## Surface-parity report (non-blocking)"
+            echo
+            echo '```'
+            cat parity-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload parity report artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: surface-parity-report
+          path: parity-report.txt
+          if-no-files-found: error

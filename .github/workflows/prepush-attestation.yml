@@ -20,6 +20,36 @@ name: Pre-push Attestation Check
 # because a predecessor has not merged yet). The SILENT bypass is the only thing
 # being closed.
 #
+# Mechanics fix, 2026-09-03 — two resolution routes this gate was missing, each
+# of which had produced ~daily false reds on main (runs 33526718525 / 33530845476
+# / 33532601172 / 33646838391 / 33701117493, all landed anyway):
+#
+#   SQUASH PATH. A squash merge drops the declaration the pusher wrote in the PR
+#   body and rewrites the attested sha, so a legitimately-bypassed PR arrived
+#   here with no note anywhere. The checker now resolves the merged PR and
+#   accepts its REQUIRED checks (re-derived from the active rulesets, read on
+#   the PR head) as the attestation — evidence CI itself creates for every
+#   merged PR, with zero human copy discipline. A merged PR whose required
+#   checks were red or absent stays RED: that red means the merge reached main
+#   past a required check.
+#
+#   BOT PATH. The AUTOMATION carve-out used to accept ANY "[bot]" committer
+#   string — decorative. It now accepts ONLY the pinned single-writer app
+#   (ainumbers-spec-sync, app id 4152587, exact bot identity, slug resolved to the
+#   pinned id at check time) AND only commits whose every file is inside the
+#   derived-surface set scripts/derived-artifacts.mjs declares — the same SSOT
+#   derived-artifacts-regen.yml stages from. Anything else bot-shaped stays red.
+#
+#   Retroactive adjudications of investigated reds (PREFLIGHT-ADJUDICATED notes,
+#   written by --attest-adjudicated) read as BYPASS-DECLARED with the reason
+#   printed, so the backfilled history reads as adjudicated rather than ignored.
+#
+# Human DIRECT pushes (no PR, no note) hard-fail, unchanged — and after these
+# fixes a red on main can only mean one of: a direct push that skipped
+# everything, the single writer escaping its fence, a merge past a red/absent
+# required check, or a resolution failure (INDETERMINATE). Every one of those
+# deserves the red it gets.
+#
 # No new third-party Action: a plain `git fetch` of the notes ref plus a node
 # script, on the two Actions this repo already pins by commit SHA everywhere else.
 #
@@ -56,7 +86,7 @@ on:
         type: boolean
         default: true
       scenario:
-        description: 'self-test = assert all five fixtures; live = check main; others = demonstrate ONE fixture end to end'
+        description: 'self-test = assert all twelve fixtures; live = check main; others = demonstrate ONE fixture end to end'
         type: choice
         default: self-test
         options:
@@ -66,6 +96,13 @@ on:
           - declared-bypass
           - notes-ref-absent
           - unprotected-only
+          - squash-note-on-pr-head
+          - squash-pr-green
+          - squash-pr-red
+          - bot-in-scope
+          - bot-out-of-scope
+          - bot-wrong-app
+          - adjudicated-note
           - live
 
 permissions:
@@ -99,6 +136,9 @@ jobs:
       # commit back to the pull-request head the hook actually attested — the sha on
       # main is never the sha that was attested for.
       pull-requests: read
+      # The squash path reads the PR's check runs on its head sha (required-checks
+      # attestation) — mechanics fix, 2026-09-03.
+      checks: read
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -166,7 +206,7 @@ jobs:
             live)
               node scripts/check-prepush-attestation.mjs --base "$(git rev-parse HEAD~1)" --head "$(git rev-parse HEAD)" "${REPORT[@]+"${REPORT[@]}"}"
               ;;
-            note-present|note-absent|declared-bypass|notes-ref-absent|unprotected-only)
+            note-present|note-absent|declared-bypass|notes-ref-absent|unprotected-only|squash-note-on-pr-head|squash-pr-green|squash-pr-red|bot-in-scope|bot-out-of-scope|bot-wrong-app|adjudicated-note)
               node scripts/check-prepush-attestation.mjs --demo "$SCENARIO" "${REPORT[@]+"${REPORT[@]}"}"
               ;;
             *)
