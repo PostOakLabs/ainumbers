@@ -1,5 +1,5 @@
 // art-674-eba-im-model-validation-tracker — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:SEE-NODE-COMPUTE-IMAGES
+// kernel_digest_at_authoring: sha256:9521fc1f815df0bdd6252148037398a0d0eb75111936058c17e74a864b8ee999
 // spec: EBA-IM-TRACKER-BUILD-SPEC.md (EBA-IM-TRACKER-BUILD-1) — worked example is the parity pin
 // d8f8d45f070f7c99249eb2877e2ac17606f0104ec7e67f99c056b80c59690436.
 // human_sign_off: PENDING (this row does not sign — manifest-level signature per spec).
