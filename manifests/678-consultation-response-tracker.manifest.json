@@ -1,0 +1,145 @@
+{
+  "tool_id": "678-consultation-response-tracker",
+  "version": "1.0.0",
+  "title": "Consultation Response Tracker",
+  "description": "Open/closed roll-up over a caller-declared set of regulatory consultations against a declared as-of date: open count, closed-unresponded count, the ids of missed closes, whole days to the next unresponded close, and an overall verdict (ATTENTION_REQUIRED / ON_TRACK / ALL_RESPONDED). Declared-date discipline: as_of is your declared date, never a clock; it does not read any register, portal, feed, or calendar, and responded is your declaration, never a check. Absent or invalid inputs fail closed and are named. No network, no storage, no clock.",
+  "category": "regtech",
+  "tags": [
+    "consultations",
+    "comment periods",
+    "rulemaking",
+    "deadlines",
+    "missed closes",
+    "days to close",
+    "as-of roll-up",
+    "zero network",
+    "zero-PII"
+  ],
+  "audience": [
+    "compliance",
+    "policy",
+    "regulatory affairs",
+    "audit"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "as_of": {
+        "type": "string",
+        "description": "Declared as-of calendar date, YYYY-MM-DD. Never a runtime clock."
+      },
+      "consultations": {
+        "type": "array",
+        "description": "Declared consultations, 1 to 512 entries.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Unique non-empty consultation id."
+            },
+            "closes": {
+              "type": "string",
+              "description": "Declared close date, YYYY-MM-DD. A close equal to as_of is still open."
+            },
+            "responded": {
+              "type": "boolean",
+              "description": "Caller-declared response status; the tool never verifies against a register."
+            }
+          },
+          "required": [
+            "id",
+            "closes",
+            "responded"
+          ]
+        }
+      }
+    },
+    "required": [
+      "as_of",
+      "consultations"
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "open": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Count of consultations whose closes date is on or after as_of; null on the fail-closed path."
+      },
+      "closed_unresponded": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Count of consultations that closed before as_of with responded=false."
+      },
+      "missed": {
+        "type": "array",
+        "description": "Ids of closed-unresponded consultations, in declared order."
+      },
+      "days_to_next_close": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Whole days from as_of to the earliest close among open unresponded consultations; null when none remains."
+      },
+      "overall": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "ATTENTION_REQUIRED",
+          "ON_TRACK",
+          "ALL_RESPONDED",
+          null
+        ],
+        "description": "ATTENTION_REQUIRED iff a missed close exists; else ON_TRACK iff an open unresponded consultation exists; else ALL_RESPONDED."
+      },
+      "trace": {
+        "type": "string",
+        "description": "Human-readable derivation, or fail-closed reasons naming each rejected input."
+      },
+      "domain_errors": {
+        "type": "array",
+        "description": "Fail-closed error codes (fail-closed path only)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_consultation_response_tracker",
+    "description": "Rolls up a caller-declared consultation list against a declared as-of date: open count, closed-unresponded count, missed ids, whole days to the next unresponded close, and an overall ATTENTION_REQUIRED/ON_TRACK/ALL_RESPONDED verdict. Declared dates only, never a clock; reads no register, portal, feed, or calendar. Invalid inputs fail closed and are named.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "Declared as-of date (YYYY-MM-DD)."
+        },
+        "consultations": {
+          "type": "array",
+          "description": "Declared consultations: {id, closes (YYYY-MM-DD), responded (boolean)}."
+        }
+      },
+      "required": [
+        "as_of",
+        "consultations"
+      ]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/678-consultation-response-tracker.html",
+    "function_name": "runSimulation",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by CONSULT-TRACKER-BUILD-1 per CONSULT-TRACKER-BUILD-SPEC.md. Declared-date discipline: computes arithmetic of caller-declared consultation declarations under named verdict rules; as_of is an input, never a runtime clock; it reads no register, portal, feed, or calendar; absent or invalid inputs fail closed and are named, never silently repaired."
+}
