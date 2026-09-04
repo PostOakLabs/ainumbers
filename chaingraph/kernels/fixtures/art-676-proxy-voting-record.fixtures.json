@@ -1,0 +1,140 @@
+{
+  "tool_id": "art-676-proxy-voting-record",
+  "note": "worked example (parity pin bb96d0b887d1b1f0508eed97d2decf9cbf29f50eeb8705b911c4306ff32e8ccc from PROXY-VOTING-BUILD-SPEC.md), the opposite-verdict vector (instruction received after the deadline: INSTRUCTION_LATE), a multi-position entitlement sum on the same-day boundary (0 days, still within deadline), and two fail-closed refusal paths (empty inputs, unknown direction). human_sign_off: PENDING.",
+  "vectors": [
+    {
+      "name": "worked_example_parity",
+      "policy_parameters": {
+        "meeting": {
+          "record_date": "2026-09-15",
+          "vote_deadline": "2026-10-01"
+        },
+        "positions": [
+          {
+            "account": "A1",
+            "shares": 1200
+          }
+        ],
+        "instruction": {
+          "received": "2026-09-20",
+          "direction": "for"
+        }
+      },
+      "output_payload": {
+        "entitled_shares": 1200,
+        "instruction_within_deadline": true,
+        "days_before_deadline": 11,
+        "trace": "received 2026-09-20 is 11 days before 2026-10-01 deadline; entitlement = record-date position",
+        "overall": "VOTE_RECORDED"
+      },
+      "golden_hash": "bb96d0b887d1b1f0508eed97d2decf9cbf29f50eeb8705b911c4306ff32e8ccc"
+    },
+    {
+      "name": "opposite_verdict_instruction_late",
+      "policy_parameters": {
+        "meeting": {
+          "record_date": "2026-09-15",
+          "vote_deadline": "2026-10-01"
+        },
+        "positions": [
+          {
+            "account": "A1",
+            "shares": 1200
+          }
+        ],
+        "instruction": {
+          "received": "2026-10-03",
+          "direction": "against"
+        }
+      },
+      "output_payload": {
+        "entitled_shares": 1200,
+        "instruction_within_deadline": false,
+        "days_before_deadline": -2,
+        "trace": "received 2026-10-03 is -2 days before 2026-10-01 deadline; entitlement = record-date position",
+        "overall": "INSTRUCTION_LATE"
+      },
+      "golden_hash": "b55cbb11322b505ac7ef69aab8ec95c71516c8156a2326d96379b8489a88576e"
+    },
+    {
+      "name": "multi_position_boundary_same_day",
+      "policy_parameters": {
+        "meeting": {
+          "record_date": "2026-09-15",
+          "vote_deadline": "2026-10-01"
+        },
+        "positions": [
+          {
+            "account": "A-101",
+            "shares": 700
+          },
+          {
+            "account": "B-202",
+            "shares": 500
+          }
+        ],
+        "instruction": {
+          "received": "2026-10-01",
+          "direction": "abstain"
+        }
+      },
+      "output_payload": {
+        "entitled_shares": 1200,
+        "instruction_within_deadline": true,
+        "days_before_deadline": 0,
+        "trace": "received 2026-10-01 is 0 days before 2026-10-01 deadline; entitlement = sum of 2 record-date positions",
+        "overall": "VOTE_RECORDED"
+      },
+      "golden_hash": "446a567eb21de910ac49b30a386f8e7f013e80c10107bbd3200bd8297d51c613"
+    },
+    {
+      "name": "fail_closed_empty_inputs",
+      "policy_parameters": {},
+      "output_payload": {
+        "entitled_shares": null,
+        "instruction_within_deadline": null,
+        "days_before_deadline": null,
+        "trace": "fail-closed: meeting.record_date must be a valid calendar date (YYYY-MM-DD); meeting.vote_deadline must be a valid calendar date (YYYY-MM-DD); positions must be a non-empty array of declared record-date positions; instruction.received must be a valid calendar date (YYYY-MM-DD); instruction.direction must be one of for, against, abstain, withhold; no vote record computed -- correct the named inputs and resubmit. Proxy voting record arithmetic over caller-declared synthetic inputs only: not voting advice, not a solicitation, and no instruction is transmitted anywhere.",
+        "overall": null,
+        "domain_errors": [
+          "INVALID_RECORD_DATE",
+          "INVALID_VOTE_DEADLINE",
+          "INVALID_POSITIONS",
+          "INVALID_RECEIVED_DATE",
+          "INVALID_DIRECTION"
+        ]
+      },
+      "golden_hash": "4c57a79cbbd5cf69a09f89a2960f1f30d0b98a49e7a65aa07a115da27571450e"
+    },
+    {
+      "name": "fail_closed_bad_direction",
+      "policy_parameters": {
+        "meeting": {
+          "record_date": "2026-09-15",
+          "vote_deadline": "2026-10-01"
+        },
+        "positions": [
+          {
+            "account": "A1",
+            "shares": 1200
+          }
+        ],
+        "instruction": {
+          "received": "2026-09-20",
+          "direction": "maybe"
+        }
+      },
+      "output_payload": {
+        "entitled_shares": null,
+        "instruction_within_deadline": null,
+        "days_before_deadline": null,
+        "trace": "fail-closed: instruction.direction must be one of for, against, abstain, withhold; no vote record computed -- correct the named inputs and resubmit. Proxy voting record arithmetic over caller-declared synthetic inputs only: not voting advice, not a solicitation, and no instruction is transmitted anywhere.",
+        "overall": null,
+        "domain_errors": [
+          "INVALID_DIRECTION"
+        ]
+      },
+      "golden_hash": "765357104fedb354e33de2cb0ca96d6020c454fd45037ea2b9f33b7e32d3509c"
+    }
+  ]
+}
