@@ -599,6 +599,7 @@ import * as art669    from './art-669-algo-execution-schedule-simulator.kernel.m
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art674    from './art-674-eba-im-model-validation-tracker.kernel.mjs';
 import * as art675    from './art-675-recordkeeping-completeness-mapper.kernel.mjs';
+import * as art676    from './art-676-proxy-voting-record.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
@@ -1246,6 +1247,7 @@ export const KERNELS = {
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-674-eba-im-model-validation-tracker':                    art674,
   'art-675-recordkeeping-completeness-mapper':                  art675,
+  'art-676-proxy-voting-record':                                art676,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
   'art-70-cbam-default-value-resolver':                         art70,
