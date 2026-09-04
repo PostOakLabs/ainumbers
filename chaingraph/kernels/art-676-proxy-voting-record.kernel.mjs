@@ -100,6 +100,7 @@ function parseDate(s) {
 export function compute(pp) {
   pp = pp || {};
   const domain_errors = [];
+  const compliance_flags = [];
 
   const meeting = (pp.meeting && typeof pp.meeting === 'object' && !Array.isArray(pp.meeting)) ? pp.meeting : {};
   const recordT = parseDate(meeting.record_date);
@@ -131,7 +132,7 @@ export function compute(pp) {
 
   if (domain_errors.length > 0) {
     const reasons = domain_errors.map((c) => ERROR_PHRASES[c]).join('; ');
-    const compliance_flags = ['DOMAIN_ERROR'];
+    compliance_flags.push('DOMAIN_ERROR');
     for (const code of domain_errors) compliance_flags.push(`PROXYVOTE_${code}`);
     return {
       output_payload: {
@@ -163,7 +164,7 @@ export function compute(pp) {
     overall: withinDeadline ? 'VOTE_RECORDED' : 'INSTRUCTION_LATE',
   };
 
-  return { output_payload, compliance_flags: [] };
+  return { output_payload, compliance_flags };
 }
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {

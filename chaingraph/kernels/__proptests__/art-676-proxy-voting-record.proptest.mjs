@@ -1,6 +1,6 @@
 // art-676-proxy-voting-record — class-K property-test FLOOR. Authored by PROXY-VOTING-BUILD-1
 // per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:684f0bd52c60833ce89a99a4aa4d3936af39acf0c8f4df688c3a77bd4fdeea81
+// kernel_digest_at_authoring: sha256:45fb986ebd356f1f484f421129638e61a898c1cc3efe8aa4d9f15f8bedf95994
 // spec: PROXY-VOTING-BUILD-SPEC.md (canonical preimage, execution_hash pinned at staging)
 // human_sign_off: PENDING
 //
