@@ -601,6 +601,7 @@ status: stable
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
 - [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md) — `compute_eba_im_model_validation_tracker`
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md) — `compute_recordkeeping_completeness_mapper`
+- [Proxy Voting Record](./art-676-proxy-voting-record.md) — `compute_proxy_voting_record`
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md) — `resolve_cbam_default_value`
