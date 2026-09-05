@@ -116,13 +116,26 @@ const FALLBACK_RULES = [
 
 function loadTasks() {
   if (!existsSync(PROMPTS_PATH)) return FALLBACK_TASKS;
-  const prompts = JSON.parse(readFileSync(PROMPTS_PATH, 'utf8'));
-  return prompts.map((p) => ({
-    id: p.id,
-    task: p.title || p.id,
-    path: p.one_line || '',
-    verify: p.verify_surface || '',
-  }));
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(PROMPTS_PATH, 'utf8'));
+  } catch {
+    return FALLBACK_TASKS;
+  }
+  // SSOT shapes accepted: a bare array, or the landed {prompts: [...]} envelope
+  // (mcp/showcase-prompts.json, MCP-SHOWCASE-PROMPTS-1). verify_surface may be
+  // a string or an array of verify-surface URLs.
+  const prompts = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.prompts) ? parsed.prompts : null);
+  if (!Array.isArray(prompts) || prompts.length === 0) return FALLBACK_TASKS;
+  return prompts.map((p) => {
+    const verify = Array.isArray(p.verify_surface) ? p.verify_surface.join('; ') : (p.verify_surface || '');
+    return {
+      id: p.id,
+      task: p.title || p.id,
+      path: p.one_line || '',
+      verify,
+    };
+  });
 }
 
 function loadRules() {
