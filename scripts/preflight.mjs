@@ -1204,6 +1204,17 @@ const GATES = [
   // advisory gate. Schema/linkset validation of the files themselves rides the
   // existing 'SSOT schema-validate' gate above (blocking, both contexts).
   ['Well-known catalog freshness (AI-CATALOG-1)', 'node scripts/gen-wellknown-catalogs.mjs --check'],
+  // A2A-CARD-SIGN-1 (AGENT-REACH-BUILD-SPEC §3.8): the committed A2A Signed Agent
+  // Card verifies with WebCrypto against the published /.well-known/jwks.json.
+  // BLOCKING in both contexts (unlike the generator freshness gates above): the
+  // card is committed, not regen-on-main (private-key EXCLUDED entry in
+  // derived-artifacts.mjs), so this gate is the drift guard — any card edit
+  // without a local re-sign (scripts/sign-agent-card.mjs) must RED the push.
+  ['Agent card signature (A2A-CARD-SIGN-1)', 'node scripts/check-agent-card-sig.mjs'],
+  // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the --self-test mode flips
+  // one real card byte and asserts the WebCrypto verify FAILS, then re-verifies the
+  // untampered card — the gate is proven to read the bytes, not rubber-stamp.
+  ['Agent card signature fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-agent-card-sig.mjs --self-test'],
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
   ['sitemap.xml freshness (DISCOVER-1)', 'node scripts/regen-sitemap.mjs --check'],

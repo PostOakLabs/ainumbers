@@ -389,6 +389,20 @@ const PREFLIGHT_ONLY = new Map([
     "gate's own diff shape), so a named workflow step would only duplicate the same suite. " +
     "Reads only tracked repo files and writes to an OS temp dir — no CI-only input."],
 
+  // ── A2A-CARD-SIGN-1 (2026-09-05) ───────────────────────────────────────────
+  ["check-agent-card-sig.mjs",
+    "A2A Signed Agent Card drift guard (AGENT-REACH-BUILD-SPEC 3.8): WebCrypto-verifies the " +
+    "COMMITTED signatures[] on .well-known/agent-card.json against /.well-known/jwks.json. Hard " +
+    "in preflight (blocking in both contexts — unlike the catalog freshness gates above, the card " +
+    "is committed, not regen-on-main, since signing needs the 16 private key that never touches a " +
+    "runner). DELIBERATELY not wired as a named CI step: it reads only tracked repo files, so its " +
+    "CI route is scripts-verify.yml's full preflight (which runs `node scripts/preflight.mjs` on " +
+    "scripts/** changes — this gate's own diff shape, since the gate lives at " +
+    "scripts/check-agent-card-sig.mjs), and every push to main runs preflight too. A card edit " +
+    "without a local re-sign therefore REDs the push before it can land. (The paired red-proof is " +
+    "the same script's --self-test mode, wired as its own GATES entry — no separate .test.mjs file, " +
+    "so nothing further to declare here.)"],
+
   // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
   ["check-vendored-digests.mjs",
     "Vendored-crypto sha256 pin gate: recomputes the digest of the noble bn254/ed25519/secp256k1 " +
