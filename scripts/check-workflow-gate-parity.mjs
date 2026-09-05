@@ -626,6 +626,24 @@ const DISTINCT_LEGS = new Map([
       "that one is split via run-gate.mjs. Both legs are invoked identically in preflight.mjs and " +
       "html-verify.yml, so neither leg diverges — this entry exists to prove the pairing was examined.",
   }],
+  ["node scripts/gen-webmcp-registrations.mjs --check", {
+    sibling: "node scripts/gen-webmcp-registrations.mjs --manifest --check",
+    decided: "2026-09-05 (WEBMCP-MANIFEST-1)",
+    why:
+      "WEBMCP-MANIFEST-1 added a SECOND advisory gate leg to this script (the /.well-known/webmcp.json " +
+      "directory-manifest freshness check, derived-artifacts.mjs COVERED id 'webmcp-manifest'). The page-" +
+      "registration freshness leg (--check) predates it and is a HARD content gate at every call site: " +
+      "a hand-edited generated registration block is a defect the PR itself must fix, the main-side regen " +
+      "cannot repair it. Deliberately separate legs of one script, not argument drift.",
+  }],
+  ["node scripts/gen-webmcp-registrations.mjs --self-test", {
+    sibling: "node scripts/gen-webmcp-registrations.mjs --manifest --check",
+    decided: "2026-09-05 (WEBMCP-MANIFEST-1)",
+    why:
+      "Same script as the advisory 'webmcp-manifest' COVERED gate, different leg entirely: the " +
+      "generator-controls self-test (fixture repo, RED+GREEN mutation proofs) is hard at every call " +
+      "site per GATE-SELFTEST-META-1/SO #40b. Not an argument drift of the manifest freshness gate.",
+  }],
 ]);
 
 // advisoryGates() entries invoked at ZERO call sites. An uncalled gate is not
