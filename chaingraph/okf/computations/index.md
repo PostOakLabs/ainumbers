@@ -613,6 +613,7 @@ status: stable
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
 - [Control Attestation Campaign Roll Up](./art-680-control-attestation-campaign-roll-up.md)
 - [Best-Execution Evidence Pack](./art-681-best-execution-evidence-pack.md)
+- [Rule 605 Publication Composer](./art-682-rule-605-publication-composer.md)
 - [Consolidation with CTA and Minority Interest](./art-683-consolidation-cta-minority-interest.md)
 - [Intercompany Elimination and Netting Workflow](./art-684-intercompany-elimination-netting.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)

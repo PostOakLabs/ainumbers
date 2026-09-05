@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (656 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (657 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7067,6 +7067,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/681-best-execution-evidence-pack.html",
     "description": "Compiles a caller-declared best-execution monitoring evidence pack: the fill-weighted average price improvement in basis points across decla",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-682-rule-605-publication-composer",
+    "display_name": "Rule 605 Publication Composer",
+    "mandate_type": "regulatory_reporting",
+    "url": "https://ainumbers.co/tools/682-rule-605-publication-composer.html",
+    "description": "Rule 605 publication composer over caller-declared best-ex/669-shaped inputs: the effective-vs-quoted spread ratio (eq_ratio, 2dp half-up), ",
     "consumes": [],
     "feeds": [],
     "status": "live"
