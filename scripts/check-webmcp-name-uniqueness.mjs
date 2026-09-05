@@ -19,11 +19,17 @@
  *       agents in one vocabulary).
  *
  * FATAL (exit 1):
- *   F1  one WebMCP registration name registered by two different pages;
+ *   F1  one WebMCP registration name registered by two different pages OF THE
+ *       SAME ORIGIN (names bind per origin — LEDGER-WEBMCP-1: pages served from
+ *       ledger.ainumbers.co are a separate namespace from the ainumbers.co
+ *       pages, so the same name on ledger/ and on a root page is NOT a
+ *       collision; a duplicate within one origin still is);
  *   F2  a WebMCP registration name equals a live node's mcp_name where that node's
  *       own page (chaingraph/<tool_id>.html) is NOT the registering page — a
  *       same-tool twin (page registers the node's mcp_name on the node's own page)
- *       is legal and is the generated shape;
+ *       is legal and is the generated shape (root origin only — live node
+ *       mcp_names are served from ainumbers.co, so they cannot collide with a
+ *       ledger-origin registration);
  *   F3  two live nodes sharing one mcp_name (the mcp_name uniqueness half of the
  *       extended gate; measured clean at 640/640 on 2026-09-01).
  *
@@ -85,34 +91,52 @@ export function listTrackedPages(repoRoot) {
 }
 
 /**
+ * Serving origin of a tracked page (LEDGER-WEBMCP-1): names bind per origin, so
+ * the namespace is keyed by the serving origin, derived from the page path.
+ * ledger/ is served from ledger.ainumbers.co; every other tracked page is a
+ * ainumbers.co page.
+ */
+export function originOf(page) {
+  const norm = page.split(/[/\\]/).join('/');
+  return norm.startsWith('ledger/') ? 'ledger.ainumbers.co' : 'ainumbers.co';
+}
+
+/**
  * Core check over (pageRegistrations: Map<pageRelPath, name[]>) and
  * (nodeNames: Map<mcpName, tool_id[]>). Returns FATAL finding strings (empty = clean).
  */
 export function findCollisions(pageRegistrations, nodeNames) {
   const fatal = [];
 
-  // F1 — one name, two pages.
-  const byName = new Map();
+  // F1 — one name, two pages, SAME ORIGIN (names bind per origin).
+  const byNameOrigin = new Map();
   for (const [page, names] of pageRegistrations) {
+    const origin = originOf(page);
     for (const n of names) {
-      if (!byName.has(n)) byName.set(n, []);
-      byName.get(n).push(page);
+      const key = origin + '\u0000' + n;
+      if (!byNameOrigin.has(key)) byNameOrigin.set(key, []);
+      byNameOrigin.get(key).push(page);
     }
   }
-  for (const [name, pages] of byName) {
+  for (const [key, pages] of byNameOrigin) {
     const uniq = [...new Set(pages)];
-    if (uniq.length > 1) fatal.push(`F1: WebMCP name '${name}' is registered by ${uniq.length} pages: ${uniq.join(', ')}`);
+    if (uniq.length > 1) {
+      const name = key.split('\u0000')[1];
+      fatal.push(`F1: WebMCP name '${name}' is registered by ${uniq.length} pages of origin ${originOf(uniq[0])}: ${uniq.join(', ')}`);
+    }
   }
 
-  // F2 — WebMCP name vs a live node mcp_name owned by a DIFFERENT page.
-  for (const [name, pages] of byName) {
+  // F2 — WebMCP name vs a live node mcp_name owned by a DIFFERENT page
+  // (same origin only: node mcp_names are root-origin).
+  for (const [key, pages] of byNameOrigin) {
+    const name = key.split('\u0000')[1];
     const nodes = nodeNames.get(name);
     if (!nodes) continue;
     for (const toolId of nodes) {
       const ownPage = `chaingraph/${toolId}.html`;
       for (const page of new Set(pages)) {
         const pageBase = page.split(/[/\\]/).pop();
-        if (pageBase !== `${toolId}.html`) {
+        if (pageBase !== `${toolId}.html` && originOf(page) === 'ainumbers.co') {
           fatal.push(`F2: WebMCP name '${name}' on ${page} collides with live node mcp_name of ${toolId} (own page ${ownPage})`);
         }
       }
@@ -167,7 +191,9 @@ function run(repoRoot) {
     process.exit(1);
   }
   const nodeCount = [...nodeNames.values()].length;
+  const origins = [...new Set([...pageRegistrations.keys()].map(originOf))].sort();
   console.log(`✓ webmcp-name-uniqueness clean — ${registrationCount} page registration(s) across ${pageRegistrations.size} page(s), ${nodeCount} live node mcp_name(s); no duplicate, no cross-surface collision.`);
+  console.log(`  Names bind per origin; namespaces checked: ${origins.join(', ')}. A name may repeat ACROSS origins (e.g. ledger/ vs root) without collision.`);
 }
 
 const SELFTEST_PAGES = new Map([
@@ -230,6 +256,21 @@ if (mc) {
   check('extraction reads registrations inside <script> blocks', extractPageRegistrationNames(inScript).length === 1 && extractPageRegistrationNames(inScript)[0] === 'probe_tool_two');
   const none = extractRegistrationNames('<p>no registrations here</p>');
   check('extraction returns none for a page without registerTool', none.length === 0);
+
+  // LEDGER-WEBMCP-1: names bind per origin.
+  const crossOrigin = new Map(SELFTEST_PAGES);
+  crossOrigin.set('ledger/index.html', ['fixture_tool_alpha']);
+  const co = findCollisions(crossOrigin, SELFTEST_NODES);
+  check('ORIGIN control: same name on ledger/ + root page is NOT a collision', co.length === 0);
+  const ledgerDup = new Map(SELFTEST_PAGES);
+  ledgerDup.set('ledger/index.html', ['fixture_tool_alpha']);
+  ledgerDup.set('ledger/import.html', ['fixture_tool_alpha']);
+  const ld = findCollisions(ledgerDup, SELFTEST_NODES);
+  check('ORIGIN control: same name on two ledger/ pages IS an F1 collision', ld.some((f) => f.startsWith('F1:')));
+  const ledgerMcpName = new Map(SELFTEST_PAGES);
+  ledgerMcpName.set('ledger/index.html', ['other_live_node_name']);
+  const lm = findCollisions(ledgerMcpName, SELFTEST_NODES);
+  check('ORIGIN control: ledger/ page may reuse a root mcp_name (different origin)', lm.length === 0);
 
   console.log(failures === 0 ? 'WEBMCP-NAME-UNIQUENESS SELFTEST: PASS' : 'WEBMCP-NAME-UNIQUENESS SELFTEST: FAIL');
   process.exit(failures === 0 ? 0 : 1);
