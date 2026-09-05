@@ -1,5 +1,5 @@
 // art-654-perp-funding-implied-yield — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:d10783401eec2998aef2e27c245e97fc78632f94a25943c54ecca3ccec527663
+// kernel_digest_at_authoring: sha256:1a7986042035938b1d91987d97e2c17a6b36146d4c214dbc02ef5507d324ebab (re-stamped 2026-09-04: art-654 Phase 0.2 narrative-vocab comment fix moved kernel bytes post-authoring; comment-only, proven bytes = current bytes, journal.kernel_digest sha256:1a798604 verified)
 // spec: DERIV-WORKFLOWS-BUILD-SPEC.md (DERIVMATH row, AT-13 + AT-15) + DERIV-WF-DERIVMATH-1
 // human_sign_off: PENDING (this row does not sign -- manifest-level signature per spec §4)
 //

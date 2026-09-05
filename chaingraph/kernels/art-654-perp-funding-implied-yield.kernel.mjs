@@ -18,7 +18,8 @@ import { executionHash } from './_hash.mjs';
 // execution_hash) flows straight through policy_parameters into the execution_hash preimage
 // (cryptographically binding this print to its predecessor) and auto-populates
 // chain.parent_hashes/parent_tool_ids in buildArtifact() below. Omitting it reproduces the
-// unlinked single-print artifact shape unchanged.
+// unlinked single-print artifact shape (as of the 2026-09-04 kernel source, this file's
+// own chaining contract).
 
 const TOOL_ID = 'art-654-perp-funding-implied-yield';
 const TOOL_VERSION = '1.0.0';
