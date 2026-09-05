@@ -88,6 +88,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { loadManifestIndex, loadMcpNameIndex, sweepKernel } from './check-schema-read-divergence.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
+import { buildDeeplinkScript, DEEPLINK_MARKER } from '../chaingraph/_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -803,6 +804,28 @@ function mappingLine(prop, type, optional, entry) {
 }
 
 /**
+ * TOOLPAGE-DEEPLINK-1: the page's deep-link prefill table, derived from the SAME
+ * mapping decisions as mappingLine (authored propertyIdMap entry first, literal-id
+ * + type-shape default second) — never a re-derivation. Emitted as a JSON literal
+ * inside the page's deep-link reader (buildDeeplinkScript).
+ */
+function deeplinkPrefillTable(manifest, idMap) {
+  const props = Object.entries(manifest.mcp_tool_definition.inputSchema.properties);
+  const map = idMap || {};
+  const table = {};
+  for (const [name, spec] of props) {
+    const entry = map[name];
+    let via;
+    if (entry) via = entry.via;
+    else if (spec.type === 'boolean') via = 'checked';
+    else if (spec.type === 'array' || spec.type === 'object') via = 'json';
+    else via = 'string';
+    table[name] = [entry ? entry.element_id : name, via];
+  }
+  return JSON.stringify(table);
+}
+
+/**
  * Builds the marker-delimited block for one tool page. Pure: same inputs, same
  * bytes (RESULT_GLOBAL is substituted by buildBlockForPage).
  */
@@ -851,6 +874,14 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
   lines.push('    }');
   lines.push('  });');
   lines.push('}');
+  lines.push('</script>');
+  // TOOLPAGE-DEEPLINK-1: the fragment-only prefill-and-run deep-link reader rides
+  // in the SAME marked region (one region per page keeps regionOf/insertIntoPage/
+  // runCheck byte-exact machinery unchanged). Source of truth: buildDeeplinkScript
+  // in chaingraph/_page-chrome.mjs; prefill table = this file's mapping decisions.
+  lines.push('');
+  lines.push('<script>');
+  lines.push(buildDeeplinkScript(deeplinkPrefillTable(manifest, map), target));
   lines.push('</script>');
   lines.push(END);
   return lines.join('\n');
@@ -1066,10 +1097,14 @@ function runCheck() {
       continue;
     }
     // Byte-exact implies parseable today; keep a parse proof so a future emitter
-    // bug (or an exact-match escape) is a distinct, diagnosable red.
-    const scriptBody = actual.slice(actual.indexOf('<script>') + 8, actual.lastIndexOf('</script>'));
-    try { new Function(scriptBody); } catch (e) {
-      problems.push(`${d.page}: generated region does not parse as JavaScript: ${e.message}`);
+    // bug (or an exact-match escape) is a distinct, diagnosable red. The region
+    // carries TWO scripts since TOOLPAGE-DEEPLINK-1 (registration + deep-link
+    // reader) — parse each separately.
+    const scriptBodies = [...actual.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    for (const scriptBody of scriptBodies) {
+      try { new Function(scriptBody); } catch (e) {
+        problems.push(`${d.page}: generated region does not parse as JavaScript: ${e.message}`);
+      }
     }
   }
   // 2. Every generated region on disk still corresponds to an emittable tool.
@@ -1204,6 +1239,12 @@ function selftest() {
     check('optional mapping guarded, required unguarded', block.includes("if (params.flag !== undefined) document.getElementById('flag').checked") && block.includes("document.getElementById('principal').value = String(params.principal);"));
     check('feature-detect gates the registration', block.indexOf('document.modelContext') !== -1 && block.indexOf('registerTool') > block.indexOf('modelContext'));
     check('markers delimit the block', block.startsWith(beginLine('manifests/950-fx-100-selftest.manifest.json')) && block.endsWith(END));
+
+    // 3b. TOOLPAGE-DEEPLINK-1: the same region carries the chrome-sourced deep-link reader.
+    check('deep-link reader present, sourced from _page-chrome.mjs', block.includes(DEEPLINK_MARKER) && block.includes('#p=v1.'));
+    check('deep-link prefill table mirrors the mapping decisions', block.includes('"principal":["principal","string"]') && block.includes('"flag":["flag","checked"]') && block.includes('"rows":["rows","json"]'));
+    check('deep-link reader targets the page-verified wrapper', block.includes('var RUN_TARGET = "run"'));
+    check('deep-link budget constant carried from the ledger cap', block.includes('var BUDGET = 30000'));
 
     // 4. Insert is idempotent.
     const once = insertIntoPage(pageBody, block);
