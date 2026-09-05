@@ -359,6 +359,18 @@ const PREFLIGHT_ONLY = new Map([
     "browser-side). Hard in preflight; same CI route as above via scripts-verify.yml's full " +
     "preflight. Reads tracked pages + chaingraph.json only — no CI-only input."],
 
+  // ── AI-CATALOG-1 (2026-09-05) ──────────────────────────────────────────────
+  ["gen-wellknown-catalogs.mjs",
+    "Well-known catalogs freshness (ai-catalog.json + RFC 9727 api-catalog, one generator). " +
+    "Hard in preflight. DELIBERATELY not wired as a named CI step: both artifacts are SO #35 " +
+    "single-writer files (derived-artifacts.mjs COVERED ids 'ai-catalog' + 'api-catalog') that " +
+    "DO NOT EXIST on a PR checkout until main's derived-artifacts-regen.yml writes them, so a " +
+    "hard CI --check would red every PR for an absence the PR is forbidden to fix. Blocking " +
+    "routes: derived-artifacts-regen.yml runs the regen + verification on main, " +
+    "scripts-verify.yml runs the full preflight (this gate's own diff shape) on scripts/** " +
+    "changes, and the main push runs preflight too. Advisory on a PR by the generic " +
+    "ADVISORY_ON_PR categorisation, same class as gen-llms-full."],
+
   // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
   ["check-vendored-digests.mjs",
     "Vendored-crypto sha256 pin gate: recomputes the digest of the noble bn254/ed25519/secp256k1 " +
