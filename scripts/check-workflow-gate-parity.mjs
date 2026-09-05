@@ -339,6 +339,16 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── OUTPUTSCHEMA-GAP-1 (2026-09-05) ────────────────────────────────────────
+  ["check-output-schema-coverage.mjs",
+    "MCP output-schema coverage: every live-node manifest either declares output_schema or sits " +
+    "under the down-only ratchet baseline (scripts/output-schema-baseline.json), and every declared " +
+    "output_schema is re-validated against its node's fixture output_payloads. Hard in preflight; " +
+    "its CI route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same suite. " +
+    "Reads only tracked repo files — no CI-only input."],
+  ["check-output-schema-coverage.test.mjs", SELF_TEST],
+
   // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
   ["check-deeplink-contract.mjs",
     "Fragment-only prefill-and-run deep links on every registered WebMCP page (dynamic vm " +

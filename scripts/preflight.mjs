@@ -1130,6 +1130,11 @@ const GATES = [
   ['Vendored crypto digest fixture proof (1-byte perturbation RED, SO #34c)', 'node scripts/check-vendored-digests.test.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
+  // OUTPUTSCHEMA-GAP-1: every live-node manifest either declares output_schema or sits under the
+  // down-only baseline ceiling (scripts/output-schema-baseline.json); every declared output_schema
+  // is re-validated against its node's fixture output_payloads on every run.
+  ['MCP output-schema coverage (OUTPUTSCHEMA-GAP-1)', 'node scripts/check-output-schema-coverage.mjs'],
+  ['MCP output-schema coverage controls (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/check-output-schema-coverage.test.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
   // MANIFEST-SCHEMA-BACKFILL-1: derived input schemas carry
   // x_schema_provenance derived-from-kernel-reads <date>; any hand-edit to a
