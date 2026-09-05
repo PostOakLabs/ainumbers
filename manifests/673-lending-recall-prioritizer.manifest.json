@@ -1,0 +1,48 @@
+{
+  "tool_id": "673-lending-recall-prioritizer",
+  "version": "1.0.0",
+  "title": "Lending Recall Prioritizer",
+  "description": "Deterministic recall-queue ranking over caller-declared synthetic inputs. Ranks declared recalls by due date ascending, then declared quantity ascending, then declared id ascending (a deterministic total order), and flags a recall urgent when its due date is 0 or 1 day after the caller-declared as_of date (due-within-one-day); past-due and further-out recalls are ranked but never flagged. Dates are strict YYYY-MM-DD calendar dates differenced with pure integer civil-day arithmetic -- no Date object, no runtime clock. No securities-lending tape, no borrow list, no cutoff feed, no register, no network.",
+  "category": "capital-markets",
+  "tags": ["securities lending", "recall queue", "prioritization", "due date", "urgency", "trade tech", "zero network", "zero-PII"],
+  "audience": ["securities lending desk", "lending operations", "compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "as_of": { "type": "string", "description": "Declared as-of date, YYYY-MM-DD; urgency is measured from this date, never from the clock." },
+      "recalls": { "type": "array", "description": "Declared recalls, at most 512 entries, each with a non-empty id, a valid due date (YYYY-MM-DD), and a positive whole-number qty." }
+    },
+    "required": ["as_of", "recalls"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "queue": { "type": ["array", "null"], "description": "Recall ids ranked by due date, then qty, then id; null on the fail-closed path." },
+      "urgent": { "type": ["array", "null"], "description": "Ids of recalls due 0 or 1 day after as_of, in queue order; null on the fail-closed path." },
+      "trace": { "type": "string", "description": "Urgency clauses plus the ranking statement, or the fail-closed reasons naming each rejected input." },
+      "overall": { "type": "string", "description": "QUEUE_RANKED on success, INPUT_REFUSED on the fail-closed path." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_lending_recall_prioritizer",
+    "description": "Ranks a caller-declared recall queue by due date then declared size (then id), and flags recalls due within one day of the declared as_of date. Prioritizer over caller-declared synthetic inputs only: no securities-lending tape, no borrow list, no cutoff feed, no instruction to recall or return any security. Absent or invalid inputs are refused fail-closed and named, never silently repaired.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "as_of": { "type": "string", "description": "declared as-of date, YYYY-MM-DD" },
+        "recalls": { "type": "array", "description": "declared recalls, each with id, due (YYYY-MM-DD), and qty (positive whole number)" }
+      },
+      "required": ["as_of", "recalls"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/673-lending-recall-prioritizer.html",
+    "function_name": "runSimulation",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by RECALL-PRIORITIZER-BUILD-1 per RECALL-PRIORITIZER-BUILD-SPEC.md. Scope positioning: a prioritizer of declared inputs under named rules, not live recall data, not an instruction to recall or return any security, and not a check of any live feed; absent or invalid inputs are refused fail-closed and named, never silently repaired."
+}
