@@ -3059,5 +3059,66 @@ function wireNav() {
   });
 })();
 </script>
+<script>
+/* ── WebMCP registration (LEDGER-WEBMCP-1, AGENT-REACH-BUILD-SPEC §3.9) ──
+   Hand-authored under generator rule G4: the ledger is not a manifest-backed
+   node page. Same feature-detect-and-withdraw shape as WEBMCP-KERNELTOOLS-PILOT-1;
+   browsers without WebMCP execute none of this block. Each execute() delegates to
+   the page's existing verification functions — no new verification logic.
+   untrustedContentHint: true — tool inputs are artifact JSON documents of foreign
+   provenance (W3C WebMCP §6.4.3; SWORN adjudication on WEBMCP-KERNELTOOLS-PILOT-1).
+   The user-initiated anchor-share call is deliberately NOT exposed as a tool. */
+(function () {
+  const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+  if (!mc) return;
+  mc.registerTool({
+    name: 'verify_artifact',
+    description: 'Verifies an AINumbers artifact receipt client-side: recomputes the execution hash, checks the audit signature, compute proof, anchor bindings and gate replay, returning the same verdict object the page verification panel renders.',
+    inputSchema: {
+      type: 'object',
+      required: ['artifact'],
+      properties: {
+        artifact: { type: 'object', description: 'The AINumbers artifact receipt JSON to verify.' }
+      }
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function (params) {
+      return await verifyArtifact(params.artifact);
+    }
+  });
+  mc.registerTool({
+    name: 'replay_gates',
+    description: 'Replays the recorded gate decisions of a composite AINumbers artifact against its steps, returning per-gate verdicts (pass or fail per decision, plus the tamper flag) exactly as the page gate-replay panel computes them.',
+    inputSchema: {
+      type: 'object',
+      required: ['artifact'],
+      properties: {
+        artifact: { type: 'object', description: 'The composite AINumbers artifact whose gate decisions should be replayed.' }
+      }
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function (params) {
+      return _replayGates(params.artifact);
+    }
+  });
+  mc.registerTool({
+    name: 'import_artifact_fragment',
+    description: 'Decodes an AINumbers #a=v1. artifact fragment string back into its artifact JSON and verifies it, returning the decoded artifact together with the page verification result object.',
+    inputSchema: {
+      type: 'object',
+      required: ['fragment'],
+      properties: {
+        fragment: { type: 'string', description: 'The #a=v1. fragment string (starting with #a=) carrying the encoded artifact.' }
+      }
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function (params) {
+      const artifact = await decodeFragment(params.fragment);
+      if (!artifact) throw new Error('Fragment could not be decoded as an AINumbers artifact (expected a #a=v1. fragment or base64url JSON).');
+      return { artifact: artifact, result: await verifyArtifact(artifact) };
+    }
+  });
+})();
+</script>
 </body>
 </html>
