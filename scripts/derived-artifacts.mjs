@@ -140,21 +140,32 @@ export const COVERED = [
     share: '71%',
   },
   {
-    id: 'nav-island',
-    // The baseline is the allowlist of by-design island pages. A new page that
-    // is reachable REMOVES entries; one that is not ADDS them. Either way the
-    // baseline is shared state every page-adding shard rewrites.
-    // --prune, NOT --update: regen may only remove entries that became
-    // reachable. --update accepts every current island and would baseline an
-    // unlinked page within a minute of it landing (bot commit 130b63db did).
-    regen: 'node scripts/check-nav-reachability.mjs --prune',
-    // ⚠ --baseline-check ONLY. The plain command (new-island detection) is a
-    // content gate, hard in every context — it is NOT a derived-artifact gate
-    // and must never be listed here, or a PR that ships an unlinked page goes
-    // green (PR #1309, 2026-08-16, chaingraph/integrator-profile.html).
-    gate: 'node scripts/check-nav-reachability.mjs --baseline-check',
-    artifacts: ['scripts/nav-island-baseline.json'],
-    share: '57%',
+    id: 'chaingraph-assemble',
+    // ASSEMBLE-MAINSIDE-1 (SO #35 extended): chaingraph.json joins the shared
+    // single-writer set. The assembler itself refuses (no write, exit 0) when
+    // the shard diff includes node removals/renames or any graph/chains/
+    // change — those stay explicit ASSEMBLE/LAND rows, never auto-committed
+    // here. Gate command is intentionally identical to preflight.mjs's
+    // existing 'chaingraph.json shard freshness (CGSHARD-1)' entry — that
+    // string match is what makes it advisory-on-PR/blocking-on-main via the
+    // generic ADVISORY_ON_PR categorisation in preflight.mjs, no second gate
+    // needed.
+    // --enroll (ASSEMBLE-MAINSIDE-ENROLL-1): MAINSIDE-1 shipped assembly
+    // without enrolment, so a node shard present on disk but absent from
+    // order.nodes (art-662, PR #1412) was silently never assembled. --enroll
+    // appends any such id to order.nodes (append-only, no re-sort) BEFORE
+    // assembling, closing that gap at the source.
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): hoisted BEFORE
+    // catalog/stats/counts — all three transitively read chaingraph.json
+    // (regen_catalog.py:171, sync-stats.mjs:89, counts.mjs:123), so the
+    // assembler is a producer that must precede them (report B3/B4/B7).
+    regen: 'node scripts/assemble-chaingraph.mjs --enroll',
+    gate: 'node scripts/assemble-chaingraph.mjs --check',
+    // chaingraph.meta.json (ENROLL-DECLARE-META-1): --enroll appends new node
+    // ids to order.nodes in this file. Undeclared, this write escaped the
+    // anti-escape guard and failed the whole regen run (RED-MAIN incident).
+    artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
+    share: '8%',
   },
   {
     id: 'catalog',
@@ -188,6 +199,10 @@ export const COVERED = [
       'mcp/catalog.json', 'mcp/server.json',
       '.well-known/mcp.json', 'llms.txt', 'tools.html', 'index.html',
     ],
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): catalog
+    // transitively reads chaingraph.json (regen_catalog.py:171 →
+    // counts.mjs:123), written by the assembler that now precedes it (B3).
+    after: 'chaingraph-assemble',
     share: '15-27%',
   },
   {
@@ -210,31 +225,11 @@ export const COVERED = [
     // helper called with a variable, not a literal at the writeFileSync call
     // site — unresolvable by static source analysis. Mirrors `artifacts`.
     writes: ['mcp.html', 'chaingraph/chaingraph-hub.html'],
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): stats reads
+    // chaingraph.json (sync-stats.mjs:89 → counts.mjs:123) and mcp.html —
+    // both written earlier in the pass now (report B4/B7).
+    after: 'chaingraph-assemble',
     share: '27%',
-  },
-  {
-    id: 'chaingraph-assemble',
-    // ASSEMBLE-MAINSIDE-1 (SO #35 extended): chaingraph.json joins the shared
-    // single-writer set. The assembler itself refuses (no write, exit 0) when
-    // the shard diff includes node removals/renames or any graph/chains/
-    // change — those stay explicit ASSEMBLE/LAND rows, never auto-committed
-    // here. Gate command is intentionally identical to preflight.mjs's
-    // existing 'chaingraph.json shard freshness (CGSHARD-1)' entry — that
-    // string match is what makes it advisory-on-PR/blocking-on-main via the
-    // generic ADVISORY_ON_PR categorisation in preflight.mjs, no second gate
-    // needed.
-    // --enroll (ASSEMBLE-MAINSIDE-ENROLL-1): MAINSIDE-1 shipped assembly
-    // without enrolment, so a node shard present on disk but absent from
-    // order.nodes (art-662, PR #1412) was silently never assembled. --enroll
-    // appends any such id to order.nodes (append-only, no re-sort) BEFORE
-    // assembling, closing that gap at the source.
-    regen: 'node scripts/assemble-chaingraph.mjs --enroll',
-    gate: 'node scripts/assemble-chaingraph.mjs --check',
-    // chaingraph.meta.json (ENROLL-DECLARE-META-1): --enroll appends new node
-    // ids to order.nodes in this file. Undeclared, this write escaped the
-    // anti-escape guard and failed the whole regen run (RED-MAIN incident).
-    artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
-    share: '8%',
   },
   {
     id: 'counts',
@@ -289,6 +284,10 @@ export const COVERED = [
       'guides/capital-markets-settlement-hub.html',
     ],
     share: '27%',
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): counts reads
+    // chaingraph.json (counts.mjs:123) — assembler precedes it now (B7 also
+    // fixed: stats reads mcp.html before counts rewrote its sentinels).
+    after: 'chaingraph-assemble',
   },
   {
     id: 'webmcp-manifest',
@@ -460,9 +459,11 @@ export const COVERED = [
     // (see scripts/gen-openapi.mjs's own header comment), not by regen_catalog.py —
     // undeclared here until ASSEMBLE-ART628-1-FIX2 (2026-08-16), which is why it read
     // as an "escaped" write the first time art-628's tool-count bump made it drift.
-    // ⚠ 'catalog' (mcp/catalog.json) must ALSO precede this entry — it sits before
-    // 'chaingraph-assemble' in the array, so the enforced edge below pins it
-    // transitively. Do not move 'catalog' after 'chaingraph-assemble'.
+    // ⚠ 'catalog' (mcp/catalog.json) must ALSO precede this entry — since the
+    // DERIVED-DEP-MAP-1 reorder it sits after 'chaingraph-assemble' with its own
+    // enforced `after:` edge, and this entry's edge below still orders it before
+    // 'openapi' (check-derived-fanout-coverage.mjs only pins the LAST writer, so
+    // the catalog-before-openapi half is array order — do not re-sort it away).
     after: 'chaingraph-assemble',
     artifacts: ['openapi.json', 'docs/openapi.json', 'docs/catalog.json', 'docs/index.html'],
     share: '27%',
@@ -608,6 +609,29 @@ export const COVERED = [
     gate: 'node scripts/gen-debt-ledger.mjs --check',
     artifacts: ['fv-explainer.html'],
     share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
+  },
+  {
+    id: 'nav-island',
+    // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): moved from the
+    // head of the array (was position 4, before every html writer). The check
+    // READS every *.html (check-nav-reachability.mjs:131,141) plus
+    // chaingraph.json (:186), so it must run AFTER all of them — earliest
+    // position yet widest read set (report B5/B6). The baseline is the
+    // allowlist of by-design island pages. A new page that is reachable
+    // REMOVES entries; one that is not ADDS them. Either way the baseline is
+    // shared state every page-adding shard rewrites.
+    // --prune, NOT --update: regen may only remove entries that became
+    // reachable. --update accepts every current island and would baseline an
+    // unlinked page within a minute of it landing (bot commit 130b63db did).
+    regen: 'node scripts/check-nav-reachability.mjs --prune',
+    // ⚠ --baseline-check ONLY. The plain command (new-island detection) is a
+    // content gate, hard in every context — it is NOT a derived-artifact gate
+    // and must never be listed here, or a PR that ships an unlinked page goes
+    // green (PR #1309, 2026-08-16, chaingraph/integrator-profile.html).
+    gate: 'node scripts/check-nav-reachability.mjs --baseline-check',
+    artifacts: ['scripts/nav-island-baseline.json'],
+    after: 'debt-ledger',
+    share: '57%',
   },
 ];
 
