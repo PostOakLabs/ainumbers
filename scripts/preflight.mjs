@@ -2207,6 +2207,26 @@ gateStart(SCHEMA_DIV_LABEL);
   }
 }
 
+// ── Advisory (non-blocking): Lighthouse llms.txt audit (LLMS-TXT-AGENTIC-1) ──
+// Runs Chrome Lighthouse's llms.txt audit (agentic-browsing) against the local
+// llms.txt IF a lighthouse binary is already on PATH; otherwise prints SKIP.
+// Advisory by design, exit 0 always, never installs anything (SO #10). The
+// mechanical gate for the llms.txt agent-tasks block remains the derived-
+// artifact freshness gate (gen-estate-map.mjs --check, COVERED id estate-map).
+// Last preflight line per the row's fence.
+const LH_LLMS_LABEL = 'llms.txt Lighthouse audit (advisory, LLMS-TXT-AGENTIC-1)';
+gateStart(LH_LLMS_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-llms-lighthouse.mjs');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(LH_LLMS_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no output — see node scripts/check-llms-lighthouse.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
+  }
+}
+
 // ── ADVISORY-CRASH-DISTINCT-1: checkers that produced NO result ─────────────
 printUnavailableBlock();
 
