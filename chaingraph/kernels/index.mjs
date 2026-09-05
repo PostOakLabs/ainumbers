@@ -603,6 +603,7 @@ import * as art673    from './art-673-lending-recall-prioritizer.kernel.mjs';
 import * as art674    from './art-674-eba-im-model-validation-tracker.kernel.mjs';
 import * as art675    from './art-675-recordkeeping-completeness-mapper.kernel.mjs';
 import * as art676    from './art-676-proxy-voting-record.kernel.mjs';
+import * as art677    from './art-677-whistleblowing-channel-clock.kernel.mjs';
 import * as art679    from './art-679-orsa-readiness-pack.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art680    from './art-680-control-attestation-campaign-roll-up.kernel.mjs';
@@ -1256,6 +1257,7 @@ export const KERNELS = {
   'art-674-eba-im-model-validation-tracker':                    art674,
   'art-675-recordkeeping-completeness-mapper':                  art675,
   'art-676-proxy-voting-record':                                art676,
+  'art-677-whistleblowing-channel-clock':                       art677,
   'art-679-orsa-readiness-pack':                                art679,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-680-control-attestation-campaign-roll-up':               art680,

@@ -607,6 +607,7 @@ status: stable
 - [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md)
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md)
 - [Proxy Voting Record](./art-676-proxy-voting-record.md)
+- [Whistleblowing Channel Clock Checker](./art-677-whistleblowing-channel-clock.md)
 - [ORSA Readiness Pack](./art-679-orsa-readiness-pack.md)
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
 - [Control Attestation Campaign Roll Up](./art-680-control-attestation-campaign-roll-up.md)
