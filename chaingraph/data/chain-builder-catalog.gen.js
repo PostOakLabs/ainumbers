@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (650 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (651 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6950,6 +6950,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/tools/671-short-sale-locate-ssr-checker.html",
     "description": "Deterministic locate-documentation and SSR-flag arithmetic over caller-declared synthetic inputs. Classifies a declared short-sale order aga",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-672-fx-funding-sequencer",
+    "display_name": "FX Funding Sequencer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-672-fx-funding-sequencer.html",
+    "description": "Orders a trade's declared currency legs by FX cutoff and computes margin-to-cutoff minutes from the declared confirm time, for one declared ",
     "consumes": [],
     "feeds": [],
     "status": "live"
