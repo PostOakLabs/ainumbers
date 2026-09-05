@@ -599,6 +599,7 @@ status: stable
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md) — `compute_gl_tieout_recompute`
 - [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md) — `compute_algo_execution_schedule_simulator`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
+- [Short-Sale Locate and SSR Checker](./art-671-short-sale-locate-ssr-checker.md) — `compute_short_sale_locate_ssr_checker`
 - [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md) — `compute_eba_im_model_validation_tracker`
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md) — `compute_recordkeeping_completeness_mapper`
 - [Proxy Voting Record](./art-676-proxy-voting-record.md) — `compute_proxy_voting_record`
