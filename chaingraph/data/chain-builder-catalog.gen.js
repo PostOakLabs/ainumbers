@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (648 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (649 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6942,6 +6942,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-33-mcp-server-self-attestation-pack",
       "art-62-ap2-payment-receipt-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-671-short-sale-locate-ssr-checker",
+    "display_name": "Short-Sale Locate and SSR Checker",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/tools/671-short-sale-locate-ssr-checker.html",
+    "description": "Deterministic locate-documentation and SSR-flag arithmetic over caller-declared synthetic inputs. Classifies a declared short-sale order aga",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
