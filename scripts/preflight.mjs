@@ -1179,6 +1179,12 @@ const GATES = [
   // so a schema that drifts after landing turns the freshness gate red too.
   ['WebMCP registration freshness (WEBMCP-GEN-FROM-MANIFEST-1)', 'node scripts/gen-webmcp-registrations.mjs --check'],
   ['WebMCP registration generator controls (RED+GREEN)', 'node scripts/gen-webmcp-registrations.mjs --self-test'],
+  // WEBMCP-MANIFEST-1: /.well-known/webmcp.json directory manifest. The gate
+  // string is derived-artifacts.mjs COVERED id 'webmcp-manifest''s own `gate`,
+  // so the generic ADVISORY_ON_PR categorisation downgrades it on a PR (the
+  // file is a SO #35 single-writer artifact written main-side) while it stays
+  // BLOCKING on main.
+  ['WebMCP directory manifest freshness (WEBMCP-MANIFEST-1)', 'node scripts/gen-webmcp-registrations.mjs --manifest --check'],
   // Same gate family as the worker's check-tool-names (CONTRACT §A4.1): 600+
   // registration names in one browser namespace must never collide with each
   // other or with the worker's live mcp_names.
