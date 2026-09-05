@@ -75,3 +75,14 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Path(s) in this repo:**
   - `chaingraph/standard/vendor/ai-catalog.schema.json`
   - `chaingraph/standard/vendor/VENDORED.md`
+
+## Claude Code plugin manifest JSON Schema (unofficial, hesreallyhim/claude-code-json-schema)
+
+- **Version:** pin 4e0730d92067d524201efd12b1efbdad26ee10b0
+- **License:** MIT
+- **Upstream:** https://github.com/hesreallyhim/claude-code-json-schema
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** Unofficial Claude Code plugin.json schema, vendored by AIN-AGENT-KIT-1 (AGENT-REACH-BUILD-SPEC §3.4) for scripts/check-agent-kit.mjs to validate the emitted agent-kit/claude-plugin/.claude-plugin/plugin.json. Pinned upstream commit 4e0730d92067d524201efd12b1efbdad26ee10b0 (2026-04-27); file sha256 a54dfaba70f1596744eb7e038f83a73005a62858a0298185f788d077c9cda57d. VENDORED.md in the same directory is first-party pin documentation, covered by this entry because the coverage gate keys on the vendor/ path segment.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/claude-plugin.schema.json`
+  - `chaingraph/standard/vendor/VENDORED.md`

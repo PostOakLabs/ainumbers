@@ -25,3 +25,13 @@ against this schema. The subset restriction (no `format`, no `not`, no `if/then`
 shared zero-dependency validator in schema-validate.mjs implements; the entry-level
 "exactly one of `url` / `data`" rule is expressed as a two-branch `oneOf`, which the
 subset validator already evaluates as exactly-one-match.
+
+| `claude-plugin.schema.json` | `github.com/hesreallyhim/claude-code-json-schema` | commit `4e0730d92067d524201efd12b1efbdad26ee10b0` (2026-04-27, `schemas/plugin.schema.json`) | MIT | 2026-09-05 |
+
+## `claude-plugin.schema.json` — Claude Code plugin manifest (unofficial, AIN-AGENT-KIT-1)
+
+- **Source:** https://github.com/hesreallyhim/claude-code-json-schema — `schemas/plugin.schema.json` ("Claude Code Plugin Manifest (.claude-plugin/plugin.json) - unofficial best-effort schema").
+- **Pinned upstream commit:** `4e0730d92067d524201efd12b1efbdad26ee10b0` (main, committed 2026-04-27T16:21:42Z). Licence MIT (upstream repo `LICENSE`). Retrieved 2026-09-05 via raw.githubusercontent.com at the pinned commit; file sha256 `a54dfaba70f1596744eb7e038f83a73005a62858a0298185f788d077c9cda57d`.
+- **Consumer:** `scripts/check-agent-kit.mjs` validates the emitted `agent-kit/claude-plugin/.claude-plugin/plugin.json` against this schema (a local minimal JSON Schema validator; no npm, per SO #10). External validators (`skills-ref`, `claude-plugin-validate`) are reference only and are never installed.
+- Registered in `data/credits-registry.json` (id `claude-code-plugin-schema`) for the vendored-coverage gate.
+
