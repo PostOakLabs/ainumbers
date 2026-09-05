@@ -1080,6 +1080,10 @@ const GATES = [
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
   ['Shipped-prose (no build jargon)', 'node scripts/check-shipped-prose.mjs'],
   ['Copy hallmarks (§1.4)',           'node scripts/check-copy-hallmarks.mjs'],
+  // AIN-AGENT-KIT-1: agent-kit artifacts are generator-emitted (gen-agent-kit.mjs from
+  // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
+  // and freshness, and validates SKILL.md frontmatter + plugin.json against the vendored schema.
+  ['Agent kit freshness + schema (AIN-AGENT-KIT-1)', 'node scripts/check-agent-kit.mjs'],
   ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
   ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment
