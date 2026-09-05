@@ -237,6 +237,60 @@ export const COVERED = [
     share: '8%',
   },
   {
+    id: 'counts',
+    // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
+    // every page that publishes one. File list mirrors verify-counts.mjs's own
+    // sentinel list + ATTR_RULES targets.
+    regen: 'node scripts/verify-counts.mjs --fix',
+    gate: 'node scripts/verify-counts.mjs --check',
+    artifacts: [
+      'docs/index.html', 'index.html', 'start.html', 'about.html',
+      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
+      'mcp.html', 'chaingraph/chaingraph-hub.html',
+      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
+      // list includes it). Omitting it here made the regen bot's anti-escape
+      // guard reject the whole run — "a generator wrote outside the declared
+      // set" — which stalled every downstream regen and kept main red.
+      // Reconciled against verify-counts.mjs's full 16-file list, not patched
+      // one file at a time. (DERIVED-SET-SELFTEST-1, 2026-08-22: this entry
+      // used to list the path TWICE — a pure authoring duplicate with zero
+      // effect on coveredPaths()'s Set-dedupe, but caught as a genuine
+      // within-entry CLASS C finding by check-derived-regen-live.mjs, which
+      // treats that shape as always a bug, unlike the cross-entry sharing
+      // check-derived-declare-parity.mjs's WARN allows by design. Collapsed
+      // to one entry here so that gate can be wired blocking.)
+      'fv-explainer.html',
+      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      'llms.txt',
+      // CLAIMS-SENTINEL-TIER1-1: verify-counts.mjs's comment-sentinel scan now also covers the
+      // five hub hero pages (hubTools.* — audit Q7). SO #47: any write verify-counts.mjs --fix
+      // gains must be declared here in the same diff, or the main-side regen's anti-escape guard
+      // rejects the whole run exactly like the fv-explainer.html omission above did.
+      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
+      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
+      'guides/capital-markets-settlement-hub.html',
+    ],
+    // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
+    // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
+    // the HTML-sentinel loop's `rel`), not literals at the call site —
+    // unresolvable by static source analysis. Mirrors `artifacts` (already
+    // reconciled against verify-counts.mjs's own file list, see comment above).
+    writes: [
+      'docs/index.html', 'index.html', 'start.html', 'about.html',
+      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
+      'mcp.html', 'chaingraph/chaingraph-hub.html',
+      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
+      'fv-explainer.html',
+      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
+      'llms.txt',
+      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
+      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
+      'guides/capital-markets-settlement-hub.html',
+    ],
+    share: '27%',
+  },
+  {
     id: 'llms-full',
     regen: 'node scripts/gen-llms-full.mjs',
     gate: 'node scripts/gen-llms-full.mjs --check',
@@ -443,60 +497,6 @@ export const COVERED = [
     writes: ['chaingraph/okf'],
     artifacts: ['chaingraph/okf'],
     share: '100% (3/3 node registrations on 2026-08-21)',
-  },
-  {
-    id: 'counts',
-    // Count sentinels (<!--COUNT:key-->N<!--/COUNT-->, data-count="key") across
-    // every page that publishes one. File list mirrors verify-counts.mjs's own
-    // sentinel list + ATTR_RULES targets.
-    regen: 'node scripts/verify-counts.mjs --fix',
-    gate: 'node scripts/verify-counts.mjs --check',
-    artifacts: [
-      'docs/index.html', 'index.html', 'start.html', 'about.html',
-      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
-      'mcp.html', 'chaingraph/chaingraph-hub.html',
-      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
-      // fv-explainer.html carries count sentinels too (verify-counts.mjs's own
-      // list includes it). Omitting it here made the regen bot's anti-escape
-      // guard reject the whole run — "a generator wrote outside the declared
-      // set" — which stalled every downstream regen and kept main red.
-      // Reconciled against verify-counts.mjs's full 16-file list, not patched
-      // one file at a time. (DERIVED-SET-SELFTEST-1, 2026-08-22: this entry
-      // used to list the path TWICE — a pure authoring duplicate with zero
-      // effect on coveredPaths()'s Set-dedupe, but caught as a genuine
-      // within-entry CLASS C finding by check-derived-regen-live.mjs, which
-      // treats that shape as always a bug, unlike the cross-entry sharing
-      // check-derived-declare-parity.mjs's WARN allows by design. Collapsed
-      // to one entry here so that gate can be wired blocking.)
-      'fv-explainer.html',
-      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
-      'llms.txt',
-      // CLAIMS-SENTINEL-TIER1-1: verify-counts.mjs's comment-sentinel scan now also covers the
-      // five hub hero pages (hubTools.* — audit Q7). SO #47: any write verify-counts.mjs --fix
-      // gains must be declared here in the same diff, or the main-side regen's anti-escape guard
-      // rejects the whole run exactly like the fv-explainer.html omission above did.
-      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
-      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
-      'guides/capital-markets-settlement-hub.html',
-    ],
-    // DERIVED-DECLARE-PARITY-1: verify-counts.mjs writes via a `write(rel, …)`
-    // helper called mostly with loop/lookup variables (ATTR_RULES `.file`,
-    // the HTML-sentinel loop's `rel`), not literals at the call site —
-    // unresolvable by static source analysis. Mirrors `artifacts` (already
-    // reconciled against verify-counts.mjs's own file list, see comment above).
-    writes: [
-      'docs/index.html', 'index.html', 'start.html', 'about.html',
-      'chaingraph/openchain-graph-paper.html', 'sitemap.html', 'tools.html',
-      'mcp.html', 'chaingraph/chaingraph-hub.html',
-      'chaingraph/zkvm-compute-integrity.html', 'chaingraph/why-openchain-graph.html',
-      'fv-explainer.html',
-      '.well-known/mcp.json', '.well-known/mcp/server.json', 'mcp/server.json',
-      'llms.txt',
-      'guides/dora-operational-resilience-hub.html', 'guides/fraud-risk-hub.html',
-      'guides/sme-financial-health-hub.html', 'guides/tradetech-hub.html',
-      'guides/capital-markets-settlement-hub.html',
-    ],
-    share: '27%',
   },
   {
     id: 'sitemap-xml',
