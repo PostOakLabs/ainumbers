@@ -1,0 +1,67 @@
+{
+  "tool_id": "683-consolidation-cta-minority-interest",
+  "version": "1.0.0",
+  "title": "Consolidation with CTA and Minority Interest",
+  "description": "Deterministic foreign-subsidiary consolidation arithmetic over caller-declared synthetic inputs, per the translation method: equity translated at declared current and historical rates, the cumulative translation adjustment as the difference, and the parent/minority split at the declared ownership percentage. No FX feed, no ledger store, no network, no clock.",
+  "category": "accounting",
+  "tags": ["consolidation", "CTA", "cumulative translation adjustment", "minority interest", "non-controlling interest", "translation method", "current rate", "historical rate", "FX translation", "zero network", "zero-PII"],
+  "audience": ["accountants", "group finance", "controllers", "auditors", "FP&A"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "sub_equity_fc": {
+        "type": "number",
+        "description": "Subsidiary equity in its functional currency; a finite number greater than 0."
+      },
+      "rate_current": {
+        "type": "number",
+        "description": "Declared current (closing) translation rate; a finite number greater than 0."
+      },
+      "rate_historical": {
+        "type": "number",
+        "description": "Declared historical translation rate; a finite number greater than 0."
+      },
+      "parent_ownership_pct": {
+        "type": "number",
+        "description": "Declared parent ownership percentage; a finite number strictly between 0 and 100."
+      }
+    },
+    "required": ["sub_equity_fc", "rate_current", "rate_historical", "parent_ownership_pct"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "equity_at_current": { "type": ["number", "null"], "description": "Subsidiary equity translated at the declared current rate, 2dp half-up; null on the fail-closed path." },
+      "equity_at_historical": { "type": ["number", "null"], "description": "Subsidiary equity translated at the declared historical rate, 2dp half-up; null on the fail-closed path." },
+      "cta": { "type": ["number", "null"], "description": "Cumulative translation adjustment: equity_at_current minus equity_at_historical." },
+      "parent_share": { "type": ["number", "null"], "description": "Parent's share of translated equity at the declared ownership, 2dp half-up." },
+      "minority_interest": { "type": ["number", "null"], "description": "Residual non-controlling interest; parent plus minority always equals translated equity." },
+      "trace": { "type": "string", "description": "Full translation, CTA, and split trace, or the fail-closed reasons naming each rejected input." },
+      "overall": { "type": ["string", "null"], "enum": ["CONSOLIDATION_COMPUTED", "CONSOLIDATION_REFUSED", null], "description": "CONSOLIDATION_COMPUTED on any well-formed input; CONSOLIDATION_REFUSED on the fail-closed path." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_consolidation_cta",
+    "description": "Computes foreign-subsidiary consolidation figures from declared inputs: equity translated at declared current and historical rates (2dp half-up), the cumulative translation adjustment as the difference, and the parent/minority-interest split at the declared ownership percentage. Translation and split arithmetic over caller-declared synthetic inputs only: no accounting advice, no framework-conformance determination, and nothing is posted anywhere.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "sub_equity_fc": { "type": "number", "description": "subsidiary equity in functional currency" },
+        "rate_current": { "type": "number", "description": "declared current translation rate" },
+        "rate_historical": { "type": "number", "description": "declared historical translation rate" },
+        "parent_ownership_pct": { "type": "number", "description": "declared parent ownership percentage" }
+      },
+      "required": ["sub_equity_fc", "rate_current", "rate_historical", "parent_ownership_pct"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/683-consolidation-cta-minority-interest.html",
+    "function_name": "runConsolidationCta",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by CONSOLIDATION-CTA-BUILD-1 per CONSOLIDATION-CTA-BUILD-SPEC.md. Canonical preimage pinned at staging: execution_hash 29713a75d87ece357de41777c93e491acf3c752216ca9f4fbb3007b924f42c49, recomputed byte-exact from the spec's embedded JSON. Scope positioning: translation and split arithmetic over caller-declared synthetic inputs, not accounting advice, not a framework-conformance determination, and not a filing; absent or invalid inputs are refused fail-closed and named, never silently repaired."
+}

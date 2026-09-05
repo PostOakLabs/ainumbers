@@ -612,6 +612,7 @@ status: stable
 - [ORSA Readiness Pack](./art-679-orsa-readiness-pack.md)
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
 - [Control Attestation Campaign Roll Up](./art-680-control-attestation-campaign-roll-up.md)
+- [Consolidation with CTA and Minority Interest](./art-683-consolidation-cta-minority-interest.md)
 - [Intercompany Elimination and Netting Workflow](./art-684-intercompany-elimination-netting.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md)
