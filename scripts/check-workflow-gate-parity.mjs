@@ -358,6 +358,14 @@ const PREFLIGHT_ONLY = new Map([
     "repo files — no CI-only input; pre-existing divergences are baselined WARN with a downward ratchet."],
   ["check-deeplink-contract.test.mjs", SELF_TEST],
 
+  // ── EXAMPLE-PROMPTS-JSON-1 (2026-09-05) ──────────────────────────────────
+  ["check-showcase-prompts.mjs",
+    "Showcase-prompts SSOT gate (tools[] liveness, body/tool consistency, enums, " +
+    "down-only count baseline, scoped copy-hallmarks) + its --self-test RED battery. " +
+    "Hard in preflight; CI route is the full-preflight workflow that runs " +
+    "`node scripts/preflight.mjs` on push/PR, so a named workflow step would duplicate " +
+    "the same suite. Reads tracked files only (chaingraph.json + pinned snapshots) — " +
+    "no CI-only input."],
   // ── PIIBANNER-GATE-SWEEP-1 (2026-09-02) ──────────────────────────────────
   ["check-pii-banner.mjs", VIA_PREFLIGHT],
   ["check-pii-banner.test.mjs", SELF_TEST],
