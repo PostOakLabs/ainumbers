@@ -573,8 +573,17 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // binding current kernel bytes (kernel_digest sha256:a1bb4dd8... verified equal to origin/main
    // bytes at 6b9a1c87 before landing). Denominator +1, fresh +1 (newly proven => fresh),
    // stale UNCHANGED. Measured, not assumed: the failing assert printed got 607 before this edit.
-   assert(total === 607, `expected 607 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 489, `expected 489 fresh (calibration set), got ${fresh.length}`);
+   // 607 -> 622 post-ASSEMBLE-LAND prove-campaign-wknd (2026-09-04, PROVE-BATCH-DEFERRED-1
+   // weekend campaign landing via draft #1717; local-merge land per RUNBOOK -0.6/-0.7):
+   // 15 nodes flip compute_proof_ready deferred -> ready with fresh groth16 receipts binding
+   // current kernel bytes (art-618, art-626, art-628, art-654, art-655, art-656, art-657,
+   // art-658, art-659, art-660, art-669, art-674, art-675, art-676, art-679). The campaign's
+   // 16th receipt, art-653-pta-verifier, is shard-only (no chaingraph/register node entry,
+   // pre-existing NODE-REGISTRATION-GAP), so it does not enter this denominator.
+   // Denominator +15, fresh +15 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: the failing assert printed got 622 before this edit.
+   assert(total === 622, `expected 622 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 504, `expected 504 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
