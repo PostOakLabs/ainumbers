@@ -598,13 +598,20 @@ import * as art665    from './art-665-gl-tieout-recompute.kernel.mjs';
 import * as art669    from './art-669-algo-execution-schedule-simulator.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art671    from './art-671-short-sale-locate-ssr-checker.kernel.mjs';
+import * as art672    from './art-672-fx-funding-sequencer.kernel.mjs';
+import * as art673    from './art-673-lending-recall-prioritizer.kernel.mjs';
 import * as art674    from './art-674-eba-im-model-validation-tracker.kernel.mjs';
 import * as art675    from './art-675-recordkeeping-completeness-mapper.kernel.mjs';
 import * as art676    from './art-676-proxy-voting-record.kernel.mjs';
+import * as art677    from './art-677-whistleblowing-channel-clock.kernel.mjs';
+import * as art678    from './art-678-consultation-response-tracker.kernel.mjs';
 import * as art679    from './art-679-orsa-readiness-pack.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art680    from './art-680-control-attestation-campaign-roll-up.kernel.mjs';
+import * as art681    from './art-681-best-execution-evidence-pack.kernel.mjs';
 import * as art682    from './art-682-rule-605-publication-composer.kernel.mjs';
+import * as art683    from './art-683-consolidation-cta-minority-interest.kernel.mjs';
+import * as art684    from './art-684-intercompany-elimination-netting.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
@@ -1250,13 +1257,20 @@ export const KERNELS = {
   'art-669-algo-execution-schedule-simulator':                  art669,
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-671-short-sale-locate-ssr-checker':                      art671,
+  'art-672-fx-funding-sequencer':                               art672,
+  'art-673-lending-recall-prioritizer':                         art673,
   'art-674-eba-im-model-validation-tracker':                    art674,
   'art-675-recordkeeping-completeness-mapper':                  art675,
   'art-676-proxy-voting-record':                                art676,
+  'art-677-whistleblowing-channel-clock':                       art677,
+  'art-678-consultation-response-tracker':                      art678,
   'art-679-orsa-readiness-pack':                                art679,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-680-control-attestation-campaign-roll-up':               art680,
+  'art-681-best-execution-evidence-pack':                       art681,
   'art-682-rule-605-publication-composer':                      art682,
+  'art-683-consolidation-cta-minority-interest':                art683,
+  'art-684-intercompany-elimination-netting':                   art684,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
   'art-70-cbam-default-value-resolver':                         art70,
   'art-71-cbam-certificate-cost-engine':                        art71,

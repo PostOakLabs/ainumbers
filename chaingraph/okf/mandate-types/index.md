@@ -34,7 +34,7 @@ status: stable
 - [perp_funding_rate](./perp_funding_rate.md) (1)
 - [prompt_template](./prompt_template.md) (1)
 - [readiness_diagnostic](./readiness_diagnostic.md) (1)
-- [regulatory_reporting](./regulatory_reporting.md) (12)
+- [regulatory_reporting](./regulatory_reporting.md) (13)
 - [risk_control](./risk_control.md) (5)
 - [risk_parameter](./risk_parameter.md) (8)
 - [routing_policy](./routing_policy.md) (2)

@@ -1,6 +1,6 @@
 // art-682-rule-605-publication-composer — class-K property-test FLOOR.
 // Authored by RULE605-COMPOSER-BUILD-1 per RULE605-COMPOSER-BUILD-SPEC.md.
-// kernel_digest_at_authoring: filled after authoring (sha256 of the kernel file)
+// kernel_digest_at_authoring: sha256:102dc03590fc41678c0b5303fa14a37825e69015161b20e6636d79a4210520b4
 // spec: RULE605-COMPOSER-BUILD-SPEC.md (workspace root)
 // human_sign_off: PENDING
 //
