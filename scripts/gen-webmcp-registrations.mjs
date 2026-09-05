@@ -278,6 +278,215 @@ export const propertyIdMap = {
     statutory_rate_pct: { element_id: 'rate', via: 'string' },
     entity_is_public_business_entity: { element_id: 'isPbe', via: 'checked' },
   },
+
+  // ── WEBMCP-IDMAP-BATCH-1 (first 25 RENAME-ONLY pages from
+  // research/WEBMCP-TRIAGE-2026-09.json, PR #1729). Every control below was
+  // re-verified against the page at base e83a3992: the id exists and the
+  // page's own compute reads it (cited file:line). art-173 was DROPPED from
+  // this batch: its only inputSchema property `system` is a composite spread
+  // across six checkboxes (getParams, art-173:561-568) with no single
+  // faithful control — honest exclusion, not a guess.
+
+  // getParams reads geo_type select:
+  //   chaingraph/art-166-eudr-geolocation-plot-validator.html:390
+  'art-166-eudr-geolocation-plot-validator': {
+    geo: { element_id: 'geo_type', via: 'string' },
+  },
+  // getParams reads entity_type select:
+  //   chaingraph/art-167-eudr-commodity-scope-classifier.html:395
+  'art-167-eudr-commodity-scope-classifier': {
+    entity: { element_id: 'entity_type', via: 'string' },
+  },
+  // getParams reads is_gpai_provider checkbox (the schema's provider flag):
+  //   chaingraph/art-175-gpai-code-of-practice-conformance.html:489
+  'art-175-gpai-code-of-practice-conformance': {
+    provider: { element_id: 'is_gpai_provider', via: 'checked' },
+  },
+  // loadParams assigns content/creator/title inputs verbatim:
+  //   chaingraph/art-201-iscc-content-code-generator.html:571-579
+  'art-201-iscc-content-code-generator': {
+    content: { element_id: 'contentIn', via: 'string' },
+    creator: { element_id: 'creatorIn', via: 'string' },
+    title: { element_id: 'titleIn', via: 'string' },
+  },
+  // pp assembly names every camelCase control explicitly:
+  //   chaingraph/art-221-llpa-stack.html:447-455
+  'art-221-llpa-stack': {
+    ami_pct: { element_id: 'amiPct', via: 'string' },
+    fico_score: { element_id: 'ficoScore', via: 'string' },
+    first_time_buyer: { element_id: 'firstTimeBuyer', via: 'checked' },
+    loan_purpose: { element_id: 'loanPurpose', via: 'string' },
+    ltv_pct: { element_id: 'ltvPct', via: 'string' },
+    occupancy_type: { element_id: 'occupancyType', via: 'string' },
+    property_type: { element_id: 'propertyType', via: 'string' },
+    subordinate_financing: { element_id: 'subordinateFinancing', via: 'checked' },
+  },
+  // pp assembly names every camelCase control explicitly:
+  //   chaingraph/art-225-va-funding-fee-residual.html:524-533
+  'art-225-va-funding-fee-residual': {
+    base_loan_amount: { element_id: 'baseLoanAmount', via: 'string' },
+    down_payment_pct: { element_id: 'downPaymentPct', via: 'string' },
+    dti_pct: { element_id: 'dtiPct', via: 'string' },
+    family_size: { element_id: 'familySize', via: 'string' },
+    funding_fee_exempt: { element_id: 'fundingFeeExempt', via: 'checked' },
+    gross_monthly_income: { element_id: 'grossMonthlyIncome', via: 'string' },
+    loan_purpose: { element_id: 'loanPurpose', via: 'string' },
+    monthly_shelter_expenses: { element_id: 'monthlyShelterExpenses', via: 'string' },
+    state: { element_id: 'stateCode', via: 'string' },
+    va_use_type: { element_id: 'vaUseType', via: 'string' },
+  },
+  // raw = loanDataJson.value parsed as JSON text:
+  //   chaingraph/art-226-mismo-uldd-ulad.html:542
+  'art-226-mismo-uldd-ulad': {
+    loan_data: { element_id: 'loanDataJson', via: 'json' },
+  },
+  // pp assembly names every group_* control explicitly:
+  //   chaingraph/art-229-compute-disparity-metrics.html:420-425
+  'art-229-compute-disparity-metrics': {
+    group_a_approvals: { element_id: 'groupAApprovals', via: 'string' },
+    group_a_label: { element_id: 'groupALabel', via: 'string' },
+    group_a_total: { element_id: 'groupATotal', via: 'string' },
+    group_b_approvals: { element_id: 'groupBApprovals', via: 'string' },
+    group_b_label: { element_id: 'groupBLabel', via: 'string' },
+    group_b_total: { element_id: 'groupBTotal', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-230-compute-hmda-rate-spread.html:389-393
+  'art-230-compute-hmda-rate-spread': {
+    apor_pct: { element_id: 'aporPct', via: 'string' },
+    apr_pct: { element_id: 'aprPct', via: 'string' },
+    lien_type: { element_id: 'lienType', via: 'string' },
+    lock_date: { element_id: 'lockDate', via: 'string' },
+    product_type: { element_id: 'productType', via: 'string' },
+  },
+  // pp assembly; two booleans are "true"/"false" selects:
+  //   chaingraph/art-232-compute-scra-rate-cap.html:387-391
+  'art-232-compute-scra-rate-cap': {
+    covered_months: { element_id: 'coveredMonths', via: 'string' },
+    is_pre_service_obligation: { element_id: 'isPreServiceObligation', via: 'boolstring' },
+    loan_balance: { element_id: 'loanBalance', via: 'string' },
+    original_rate_pct: { element_id: 'originalRatePct', via: 'string' },
+    servicemember_notified: { element_id: 'servicememberNotified', via: 'boolstring' },
+  },
+  // pp assembly names every party control explicitly:
+  //   chaingraph/art-242-pacs008-party-completeness-validator.html:349-365
+  'art-242-pacs008-party-completeness-validator': {
+    creditor_agent_bic: { element_id: 'creditorAgentBic', via: 'string' },
+    creditor_lei: { element_id: 'creditorLei', via: 'string' },
+    creditor_name: { element_id: 'creditorName', via: 'string' },
+    debtor_agent_bic: { element_id: 'debtorAgentBic', via: 'string' },
+    debtor_lei: { element_id: 'debtorLei', via: 'string' },
+    debtor_name: { element_id: 'debtorName', via: 'string' },
+    purpose_code: { element_id: 'purposeCode', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-244-gpi-tracker-lifecycle-simulator.html:363-372
+  'art-244-gpi-tracker-lifecycle-simulator': {
+    amount_usd: { element_id: 'amountUsd', via: 'string' },
+    current_status: { element_id: 'currentStatus', via: 'string' },
+    hours_elapsed: { element_id: 'hoursElapsed', via: 'string' },
+    next_status: { element_id: 'nextStatus', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-249-compare-corridor-cost.html:371-377
+  'art-249-compare-corridor-cost': {
+    from_country: { element_id: 'fromCountry', via: 'string' },
+    fx_rate_mid: { element_id: 'fxRateMid', via: 'string' },
+    fx_rate_used: { element_id: 'fxRateUsed', via: 'string' },
+    provider_fee: { element_id: 'providerFee', via: 'string' },
+    send_amount: { element_id: 'sendAmount', via: 'string' },
+    service_name: { element_id: 'serviceName', via: 'string' },
+    to_country: { element_id: 'toCountry', via: 'string' },
+  },
+  // record = JSON.parse(recordJson.value):
+  //   chaingraph/art-256-validate-openids-homeowners-record.html:381
+  'art-256-validate-openids-homeowners-record': {
+    record: { element_id: 'recordJson', via: 'json' },
+  },
+  // one line reads openingBalance/dayCountConvention/closingBalance:
+  //   chaingraph/art-258-parse-camt053-reconciliation.html:356
+  'art-258-parse-camt053-reconciliation': {
+    closing_balance: { element_id: 'closingBalance', via: 'string' },
+    day_count_convention: { element_id: 'dayCountConvention', via: 'string' },
+    opening_balance: { element_id: 'openingBalance', via: 'string' },
+  },
+  // pp assembly reads the three controls directly:
+  //   chaingraph/art-267-check-producer-license-reciprocity.html:327-329
+  'art-267-check-producer-license-reciprocity': {
+    loa_codes: { element_id: 'loaCodes', via: 'string' },
+    resident_state: { element_id: 'residentState', via: 'string' },
+    target_states: { element_id: 'targetStates', via: 'string' },
+  },
+  // JSON.parse on both JSON textareas + entity id:
+  //   chaingraph/art-268-compute-cdd-ownership-25pct.html:363-365
+  'art-268-compute-cdd-ownership-25pct': {
+    natural_persons: { element_id: 'naturalPersons', via: 'json' },
+    ownership_tiers: { element_id: 'ownershipTiers', via: 'json' },
+    target_entity_id: { element_id: 'targetEntityId', via: 'string' },
+  },
+  // mandateHash read into pp.mandate_hash:
+  //   chaingraph/art-274-compile-work-mandate.html:341
+  'art-274-compile-work-mandate': {
+    mandate: { element_id: 'mandateHash', via: 'string' },
+  },
+  // f_* controls read verbatim in the composer payload:
+  //   chaingraph/art-276-mutual-nda-composer.html:388-403
+  'art-276-mutual-nda-composer': {
+    confidentiality_term_mode: { element_id: 'f_confidentiality_term_mode', via: 'string' },
+    confidentiality_term_years: { element_id: 'f_confidentiality_term_years', via: 'string' },
+    effective_date: { element_id: 'f_effective_date', via: 'string' },
+    governing_law: { element_id: 'f_governing_law', via: 'string' },
+    jurisdiction: { element_id: 'f_jurisdiction', via: 'string' },
+    mnda_term_mode: { element_id: 'f_mnda_term_mode', via: 'string' },
+    mnda_term_years: { element_id: 'f_mnda_term_years', via: 'string' },
+    modifications: { element_id: 'f_modifications', via: 'string' },
+    purpose: { element_id: 'f_purpose', via: 'string' },
+  },
+  // f_* controls read verbatim in the binder payload:
+  //   chaingraph/art-277-agreement-acceptance-binder.html:341-346
+  'art-277-agreement-acceptance-binder': {
+    acceptance_statement: { element_id: 'f_acceptance_statement', via: 'string' },
+    accepting_party_role: { element_id: 'f_accepting_party_role', via: 'string' },
+    body_sha256: { element_id: 'f_body_sha256', via: 'string' },
+    previous_proof_hash: { element_id: 'f_previous_proof_hash', via: 'string' },
+    referenced_execution_hash: { element_id: 'f_referenced_execution_hash', via: 'string' },
+    template_id: { element_id: 'f_template_id', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-318-rhc-regime-mapper.html:384-389
+  'art-318-rhc-regime-mapper': {
+    holder_of_record: { element_id: 'holderOfRecord', via: 'string' },
+    instrument_type: { element_id: 'instrumentType', via: 'string' },
+    issuer_entity: { element_id: 'issuerEntity', via: 'string' },
+    target_jurisdictions: { element_id: 'targetJurisdictions', via: 'string' },
+    voting_rights: { element_id: 'votingRights', via: 'checked' },
+  },
+  // solveFor select + ratePct:
+  //   chaingraph/art-327-tvm-annuity.html:341,392
+  'art-327-tvm-annuity': {
+    rate_pct: { element_id: 'ratePct', via: 'string' },
+    solve_for: { element_id: 'solveFor', via: 'string' },
+  },
+  // pp assembly names every TVM control explicitly:
+  //   chaingraph/art-330-tvm-dv01.html:329-331,396-401
+  'art-330-tvm-dv01': {
+    basis_points: { element_id: 'basisPoints', via: 'string' },
+    coupon_rate_pct: { element_id: 'couponRatePct', via: 'string' },
+    face_value: { element_id: 'faceValue', via: 'string' },
+    periods_per_year: { element_id: 'periodsPerYear', via: 'string' },
+    years_to_maturity: { element_id: 'yearsToMaturity', via: 'string' },
+    ytm_pct: { element_id: 'ytmPct', via: 'string' },
+  },
+  // pp assembly names every TVM control explicitly:
+  //   chaingraph/art-331-tvm-convexity.html:329-331,396-400
+  'art-331-tvm-convexity': {
+    coupon_rate_pct: { element_id: 'couponRatePct', via: 'string' },
+    face_value: { element_id: 'faceValue', via: 'string' },
+    periods_per_year: { element_id: 'periodsPerYear', via: 'string' },
+    years_to_maturity: { element_id: 'yearsToMaturity', via: 'string' },
+    yield_shock_bp: { element_id: 'yieldShockBp', via: 'string' },
+    ytm_pct: { element_id: 'ytmPct', via: 'string' },
+  },
 };
 
 // ── Guard helpers ─────────────────────────────────────────────────────────────
