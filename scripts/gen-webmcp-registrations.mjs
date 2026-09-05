@@ -77,6 +77,8 @@
  *   node scripts/gen-webmcp-registrations.mjs --all --write   (regen tranche)
  *   node scripts/gen-webmcp-registrations.mjs --tool <id> --write
  *   node scripts/gen-webmcp-registrations.mjs --check         (CI/preflight)
+ *   node scripts/gen-webmcp-registrations.mjs --manifest [--write|--check]
+ *       (WEBMCP-MANIFEST-1: the /.well-known/webmcp.json directory emitter)
  *   node scripts/gen-webmcp-registrations.mjs --selftest
  *
  * Exit: 0 clean; 1 on any --check drift or hard-guard failure.
@@ -86,6 +88,7 @@ import { resolve, dirname, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { loadManifestIndex, loadMcpNameIndex, sweepKernel } from './check-schema-read-divergence.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
@@ -984,6 +987,115 @@ function runReportOrWrite(write, onlyTool) {
   exclusions.forEach((e) => console.log(`  EXCLUDED ${e.id}: ${e.reason}`));
 }
 
+// ── Directory manifest emitter (WEBMCP-MANIFEST-1) ───────────────────────────
+/**
+ * `--manifest`: emits `/.well-known/webmcp.json` FROM the live registration set
+ * (the same adjudication the page emitter uses), so the directory listing can
+ * never claim a tool the pages do not register. Shape is deliberately minimal —
+ * no cross-directory standard exists yet (WEBMCP-AGENT-SHOWCASE-PROMPTS
+ * 2026-09-05 §9 #15): one entry per registered page (page URL, tool name,
+ * description, sha256 of the inputSchema JSON, annotations) plus a top-level
+ * `origin_trial` field read from the OT gate (chaingraph/webmcp-ot-token.txt,
+ * landed by WEBMCP-OT-META-1 #1726), so the manifest states the token status
+ * truthfully rather than promising trial coverage.
+ *
+ * Modes:
+ *   node scripts/gen-webmcp-registrations.mjs --manifest            (print)
+ *   node scripts/gen-webmcp-registrations.mjs --manifest --write    (regen)
+ *   node scripts/gen-webmcp-registrations.mjs --manifest --check    (freshness;
+ *       drift vs the live registration set is RED — wired into preflight and
+ *       registered in derived-artifacts.mjs COVERED id 'webmcp-manifest')
+ *
+ * Deterministic by construction: no timestamps, no wall clock — two passes over
+ * the same tree are byte-identical (the idempotency property the COVERED
+ * registration requires). ⛔ The generated file itself is NOT committed by a
+ * PR: `.well-known/webmcp.json` is a SO #35 single-writer artifact written by
+ * derived-artifacts-regen.yml on main.
+ */
+export const MANIFEST_REL = '.well-known/webmcp.json';
+export const SITE_ORIGIN = 'https://ainumbers.co';
+export const OT_TOKEN_REL = 'chaingraph/webmcp-ot-token.txt';
+
+/** Truthful OT-token status: 'first-party token present' | 'absent'. */
+export function otTokenStatus(repoRoot) {
+  return existsSync(resolve(repoRoot || REPO, OT_TOKEN_REL))
+    ? 'first-party token present'
+    : 'absent';
+}
+
+/** sha256 over the compact JSON encoding of the manifest's inputSchema. */
+export function inputSchemaSha256(inputSchema) {
+  return createHash('sha256').update(JSON.stringify(inputSchema), 'utf8').digest('hex');
+}
+
+/** One directory entry per emittable (registered) page. */
+export function buildDirectoryEntries(repoRoot) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(repoRoot || REPO);
+  const entries = [];
+  for (const id of cleared) {
+    const d = adjudicateTool(id, repoRoot || REPO, manifestIndex, mcpNameByTool);
+    if (!d.ok) continue; // excluded tools are not registered anywhere, so they are not listed
+    const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, repoRoot || REPO);
+    if (loaded.error) throw new Error(loaded.error);
+    const def = loaded.m.mcp_tool_definition;
+    entries.push({
+      url: `${SITE_ORIGIN}/chaingraph/${id}.html`,
+      name: def.name,
+      description: def.description,
+      input_schema_sha256: inputSchemaSha256(def.inputSchema),
+      annotations: { readOnlyHint: true },
+    });
+  }
+  return entries;
+}
+
+/** Full file bytes: stable key order, 2-space indent, trailing newline.
+ *  `directoryJsonFromEntries` is the pure half (selftest-friendly, no live-set
+ *  sweep); `buildDirectoryJson` derives the entries from the live set itself. */
+export function directoryJsonFromEntries(entries, repoRoot) {
+  const doc = {
+    origin_trial: otTokenStatus(repoRoot),
+    tools: entries,
+  };
+  return JSON.stringify(doc, null, 2) + '\n';
+}
+
+export function buildDirectoryJson(repoRoot) {
+  return directoryJsonFromEntries(buildDirectoryEntries(repoRoot), repoRoot);
+}
+
+function runManifest(write, check) {
+  const expected = buildDirectoryJson(REPO);
+  const abs = resolve(REPO, MANIFEST_REL);
+  if (check) {
+    if (!existsSync(abs)) {
+      console.error(`✗ webmcp.json freshness FAILED: ${MANIFEST_REL} absent — run node scripts/gen-webmcp-registrations.mjs --manifest --write`);
+      process.exit(1);
+    }
+    const actual = readFileSync(abs, 'utf8');
+    if (actual !== expected) {
+      const a = JSON.parse(actual);
+      const e = JSON.parse(expected);
+      console.error(`✗ webmcp.json freshness FAILED: ${MANIFEST_REL} drifted from the live registration set ` +
+        `(on disk: ${a.tools.length} tool(s), origin_trial ${JSON.stringify(a.origin_trial)}; live set: ${e.tools.length} tool(s), origin_trial ${JSON.stringify(e.origin_trial)}) — run node scripts/gen-webmcp-registrations.mjs --manifest --write`);
+      process.exit(1);
+    }
+    console.log(`✓ webmcp.json freshness clean — ${JSON.parse(actual).tools.length} entr(ies) byte-exact vs the live registration set; origin_trial ${JSON.stringify(JSON.parse(actual).origin_trial)}.`);
+    return;
+  }
+  if (write) {
+    const existing = existsSync(abs) ? readFileSync(abs, 'utf8') : null;
+    if (existing === expected) {
+      console.log(`${MANIFEST_REL} already byte-exact (${JSON.parse(expected).tools.length} entr(ies)) — no write (idempotent).`);
+      return;
+    }
+    writeFileSync(abs, expected, 'utf8');
+    console.log(`✓ wrote ${MANIFEST_REL} (${JSON.parse(expected).tools.length} entr(ies), origin_trial ${JSON.stringify(JSON.parse(expected).origin_trial)})`);
+    return;
+  }
+  process.stdout.write(expected);
+}
+
 // ── Selftest (synthetic fixture repo; the real tree is never written) ─────────
 
 function selftest() {
@@ -1240,6 +1352,30 @@ function selftest() {
     const recNoTa = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode']).replace('<textarea id="json_blob"></textarea>', ''));
     check('triage: has_json_textarea false without one', recNoTa.has_json_textarea === false);
     check('triage: report-only — plain data out, nothing bound', Array.isArray(recGreen.missing_props) && recGreen.bucket === 'RENAME-ONLY');
+
+    // 14. Directory manifest emitter (WEBMCP-MANIFEST-1): pure halves against the
+    // fixture — entry shape, sha256 correctness, truthful OT status, drift RED.
+    const fxEntry = {
+      url: `${SITE_ORIGIN}/chaingraph/fx-100-selftest.html`,
+      name: manifest.mcp_tool_definition.name,
+      description: manifest.mcp_tool_definition.description,
+      input_schema_sha256: inputSchemaSha256(manifest.mcp_tool_definition.inputSchema),
+      annotations: { readOnlyHint: true },
+    };
+    const fxJson = directoryJsonFromEntries([fxEntry], tmp);
+    check('manifest emitter: fixture has NO OT token -> origin_trial "absent"', JSON.parse(fxJson).origin_trial === 'absent');
+    writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), 'dummy-token\n');
+    const fxJsonTok = directoryJsonFromEntries([fxEntry], tmp);
+    check('manifest emitter: token file present -> origin_trial "first-party token present"', JSON.parse(fxJsonTok).origin_trial === 'first-party token present');
+    check('manifest emitter: input_schema_sha256 equals sha256 of compact inputSchema JSON',
+      fxEntry.input_schema_sha256 === createHash('sha256').update(JSON.stringify(schema), 'utf8').digest('hex'));
+    check('manifest emitter: entry carries url/name/description/annotations',
+      fxEntry.url.endsWith('/fx-100-selftest.html') && fxEntry.annotations.readOnlyHint === true && fxEntry.name === 'run_fx_100_selftest');
+    // RED-then-GREEN by mutation: a drifted file (extra tool) fails byte equality.
+    const driftedManifest = JSON.parse(fxJson); driftedManifest.tools.push({ ...fxEntry, name: 'extra_tool' });
+    check('manifest emitter: drift (extra entry) is detectable by byte compare', driftedManifest.tools.length !== JSON.parse(fxJson).tools.length);
+    // Idempotency: two builds over the same fixture bytes are identical.
+    check('manifest emitter: deterministic (two builds byte-identical)', directoryJsonFromEntries([fxEntry], tmp) === fxJsonTok);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -1256,6 +1392,8 @@ if (args.includes('--self-test')) {
 } else if (args.includes('--triage')) {
   const oIdx = args.indexOf('--out');
   runTriage(oIdx !== -1 ? args[oIdx + 1] : null);
+} else if (args.includes('--manifest')) {
+  runManifest(args.includes('--write'), args.includes('--check'));
 } else if (args.includes('--check')) {
   runCheck();
 } else {

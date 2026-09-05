@@ -291,6 +291,29 @@ export const COVERED = [
     share: '27%',
   },
   {
+    id: 'webmcp-manifest',
+    // WEBMCP-MANIFEST-1: /.well-known/webmcp.json, emitted from the live WebMCP
+    // registration set by the same generator that emits the page registrations
+    // (--manifest --write). The directory listing can never claim a tool the
+    // pages do not register: --manifest --check recomputes the file from the
+    // live adjudication and reds any drift. Deterministic (no timestamps), so
+    // two passes over the same tree are byte-identical (idempotency measured:
+    // second --write prints "already byte-exact — no write"). The generator
+    // reads ONLY committed sources (manifests/, kernels, tool pages, the OT
+    // token file) — nothing any COVERED entry writes within a pass, so it has
+    // no after: edge; placed after 'counts' per REGEN-COVERED-ORDER-FIX-2, and
+    // BEFORE 'ai-catalog' below on purpose: gen-wellknown-catalogs.mjs includes
+    // .well-known/webmcp.json in its entries ONLY IF the file exists, so within
+    // one regen pass the webmcp.json write must precede the catalog build.
+    regen: 'node scripts/gen-webmcp-registrations.mjs --manifest --write',
+    gate: 'node scripts/gen-webmcp-registrations.mjs --manifest --check',
+    // DERIVED-DECLARE-PARITY-1: the emitter's writeFileSync call site names a
+    // module-level constant (MANIFEST_REL), not a literal — mirrors `artifacts`.
+    writes: ['.well-known/webmcp.json'],
+    artifacts: ['.well-known/webmcp.json'],
+    share: '0% (new artifact, no co-modification sample yet)',
+  },
+  {
     // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): Agentic Resource Discovery
     // catalog + RFC 9727 api-catalog. ONE generator, two entries — separate ids
     // so each artifact's freshness is named individually by the workflow, but a
@@ -300,6 +323,7 @@ export const COVERED = [
     // generator READS .well-known/mcp.json, which 'counts' writes — it must not
     // run before counts in the regen sequence. It consumes nothing from
     // chaingraph.json, so no `after: chaingraph-assemble` is needed.
+    // (WEBMCP-MANIFEST-1: and AFTER 'webmcp-manifest' above — see its comment.)
     id: 'ai-catalog',
     regen: 'node scripts/gen-wellknown-catalogs.mjs',
     gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
