@@ -1,5 +1,5 @@
 // art-652-verify-receipt — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:2662a63bf15814b04ad4a314cabd6b1b4f47260c916cc58df3ae59bbd24eedf9
+// kernel_digest_at_authoring: sha256:85446228f22d4a193cc19d26eae1288b1c31eaca06f84f181ae878c72335bea3
 // spec: research/EVIDENCE-ENVELOPE-V01-RATIFIED-2026-08-20.md (MCP-VERIFY-RECEIPT-TOOL-1)
 // human_sign_off: PENDING
 //
