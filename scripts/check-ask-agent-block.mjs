@@ -41,7 +41,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import {
-  ASK_AGENT_END, buildAskAgentBlock,
+  ASK_AGENT_END, askAgentImperative, buildAskAgentBlock, encodeAskAgentFragment,
 } from '../chaingraph/_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -49,6 +49,31 @@ const REPO = resolve(HERE, '..');
 
 const WRITE = process.argv.includes('--write');
 const RED_GREEN = process.argv.includes('--red-green');
+
+function assert(cond, what) {
+  if (!cond) fail('self-test assertion failed: ' + what);
+}
+
+/** SO #34c RED-then-GREEN proof, in-process (never exits non-zero):
+ *  1. pristine tree clean (GREEN before), 2. one byte inside one page's emitted
+ *  block mutated -> collect() reports a drift problem (RED), 3. page restored ->
+ *  clean again (GREEN after). */
+function redGreen() {
+  const before = collect();
+  if (before.problems.length) fail('tree is not green before the red-green proof');
+  const target = before.adjudicated.find((d) => regionsOf(d.pageSrc).length === 1);
+  if (!target) fail('no emitted block found to mutate for the red-green proof');
+  const mutated = target.pageSrc.replace('Run the AINumbers MCP tool', 'Run the AINumbers MCP t00l');
+  if (mutated === target.pageSrc) fail('mutation did not apply');
+  writeFileSync(target.pageAbs, mutated, 'utf8');
+  const during = collect();
+  const redOk = during.problems.some((p) => p.startsWith(target.pageRel) && p.includes('drifted'));
+  writeFileSync(target.pageAbs, target.pageSrc, 'utf8'); // restore
+  const after = collect();
+  if (!redOk) fail('mutated tree did NOT red the gate — the gate is deaf');
+  if (after.problems.length) fail('tree still red after restore');
+  console.log(`RED-GREEN OK: mutated block in ${target.pageRel} redded the gate (${during.problems.length} problem(s), first: "${during.problems[0]}"); restored tree is clean again.`);
+}
 
 function fail(msg) {
   console.error('GEN-ERROR: ' + msg);
@@ -183,22 +208,37 @@ function run() {
     let written = 0;
     let exact = 0;
     for (const d of adjudicated) {
-      const regions = regionsOf(d.pageSrc);
-      let next;
-      if (regions.length === 1) {
-        next = d.pageSrc.slice(0, regions[0].start) + d.expected + d.pageSrc.slice(regions[0].end);
-      } else if (regions.length === 0) {
-        // Insert before the LAST </body>: several pages embed the literal
-        // string '</body>' inside document.write()/template strings in their
-        // own scripts (measured: art-373 etc.), so a first-match replace would
-        // inject the block into script context and break page parsing.
-        const close = d.pageSrc.lastIndexOf('</body>');
-        if (close === -1) { problems.push(`${d.pageRel}: no </body> to insert before`); continue; }
-        next = d.pageSrc.slice(0, close) + d.expected + '\n\n' + d.pageSrc.slice(close);
-      } else {
-        problems.push(`${d.pageRel}: ${regions.length} ask-agent blocks, refusing to write`);
-        continue;
+      // Strip any existing region, then re-insert at the preferred anchor, so a
+      // placement-policy change moves existing blocks instead of freezing them.
+      let base = d.pageSrc;
+      for (const r of regionsOf(base).reverse()) {
+        base = base.slice(0, r.start) + base.slice(r.end);
       }
+      let next;
+      // Visible block: insert BEFORE the first <footer> that is NOT inside a
+      // <script> span (reader-facing content belongs above the footer). Some
+      // pages build their whole body inside a template literal in a script
+      // that itself contains '<footer>' (measured: art-139/140/142/143) —
+      // injecting there breaks page parsing. Fallback: before the LAST
+      // </body> (never a first-match replace — several pages embed the
+      // literal '</body>' inside script strings, measured: art-373 etc.).
+      const scriptSpans = [];
+      {
+        const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+        let m;
+        while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
+      }
+      const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
+      let close = -1;
+      let f = base.indexOf('<footer>');
+      while (f !== -1) {
+        if (!inScript(f)) { close = f; break; }
+        f = base.indexOf('<footer>', f + 1);
+      }
+      if (close === -1) close = base.lastIndexOf('</body>');
+      if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
+      const head = base.slice(0, close).replace(/\s+$/, '');
+      next = head + '\n\n' + d.expected + '\n\n' + base.slice(close);
       if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
       else exact++;
     }
@@ -221,25 +261,31 @@ function run() {
 }
 
 if (RED_GREEN) {
-  // SO #34c RED-then-GREEN proof, in-process (never exits non-zero):
-  //   1. pristine tree must be clean (GREEN before),
-  //   2. one byte inside one page's emitted block mutated -> collect() must
-  //      report a drift problem (RED),
-  //   3. page restored -> collect() must be clean again (GREEN after).
-  const before = collect();
-  if (before.problems.length) fail('tree is not green before the red-green proof');
-  const target = before.adjudicated.find((d) => regionsOf(d.pageSrc).length === 1);
-  if (!target) fail('no emitted block found to mutate for the red-green proof');
-  const mutated = target.pageSrc.replace('Run the AINumbers MCP tool', 'Run the AINumbers MCP t00l');
-  if (mutated === target.pageSrc) fail('mutation did not apply');
-  writeFileSync(target.pageAbs, mutated, 'utf8');
-  const during = collect();
-  const redOk = during.problems.some((p) => p.startsWith(target.pageRel) && p.includes('drifted'));
-  writeFileSync(target.pageAbs, target.pageSrc, 'utf8'); // restore
-  const after = collect();
-  if (!redOk) fail('mutated tree did NOT red the gate — the gate is deaf');
-  if (after.problems.length) fail('tree still red after restore');
-  console.log(`RED-GREEN OK: mutated block in ${target.pageRel} redded the gate (${during.problems.length} problem(s), first: "${during.problems[0]}"); restored tree is clean again.`);
+  redGreen();
+} else if (process.argv.includes('--self-test')) {
+  // GATE-SELFTEST-META-1 pairing (rail 3: --self-test as its own GATES entry):
+  // pure-function proofs plus the tree-touching mutation proof (never exits
+  // non-zero on a red tree — it only proves the CHECKER goes red).
+  assert(askAgentImperative('Validates AP2 v0.2 mandate chains. Extra.') === 'Validate AP2 v0.2 mandate chains.', 'verb table: Validates -> Validate');
+  assert(askAgentImperative('Computes fund NAVs. Extra.') === 'Compute fund NAVs.', 'verb table: Computes -> Compute');
+  assert(askAgentImperative('Basel III endgame RWA calculator. Extra.') === 'Basel III endgame RWA calculator.', 'unknown first word keeps the sentence verbatim');
+  assert(askAgentImperative('') === '', 'empty description stays empty');
+  const frag = encodeAskAgentFragment({ b: 2, a: [1, 'x'] });
+  assert(frag.startsWith('#p=v1.') && !/[+/=]/.test(frag.slice(6)), 'fragment is #p=v1.<base64url>');
+  const back = JSON.parse(gunzipSync(Buffer.from(frag.slice(6).replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (frag.slice(6).length % 4)) % 4), 'base64')).toString('utf8'));
+  assert(JSON.stringify(back) === JSON.stringify({ b: 2, a: [1, 'x'] }), 'fragment round-trips to the sample');
+  const block = buildAskAgentBlock({
+    manifestPath: 'manifests/selftest.manifest.json', toolName: 'self_test_tool',
+    description: 'Validates the self-test. Twice.', sample: { k: 1 },
+    pageUrl: 'https://ainumbers.co/chaingraph/self-test.html', webmcpRegistered: true,
+  });
+  assert(block.startsWith('<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/selftest.manifest.json -->'), 'block begins with its provenance marker');
+  assert(block.trimEnd().endsWith(ASK_AGENT_END), 'block ends with the END marker');
+  assert((block.match(/<pre id="ask-agent-copy"/g) || []).length === 1, 'exactly one copy surface (a single pre carrying the paragraph)');
+  assert(block.includes('verify_execution_hash') && block.includes('https://ledger.ainumbers.co/'), 'verify + ledger sentences present');
+  assert(verifyFragment(block, { k: 1 }) === null, 'emitted block fragment decodes to the sample');
+  redGreen();
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, mutation red-green).');
 } else {
   run();
 }
