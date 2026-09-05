@@ -291,6 +291,41 @@ export const COVERED = [
     share: '27%',
   },
   {
+    // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): Agentic Resource Discovery
+    // catalog + RFC 9727 api-catalog. ONE generator, two entries — separate ids
+    // so each artifact's freshness is named individually by the workflow, but a
+    // single regen command writes both (the second entry's regen is the same
+    // command; it is a no-op second pass, byte-identical by construction since
+    // the generator is deterministic). ORDERED AFTER 'counts' ON PURPOSE: the
+    // generator READS .well-known/mcp.json, which 'counts' writes — it must not
+    // run before counts in the regen sequence. It consumes nothing from
+    // chaingraph.json, so no `after: chaingraph-assemble` is needed.
+    id: 'ai-catalog',
+    regen: 'node scripts/gen-wellknown-catalogs.mjs',
+    gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
+    artifacts: ['.well-known/ai-catalog.json'],
+    // prAbsentOk: the artifact BY DESIGN does not exist on a PR checkout (SO #35
+    // single-writer; derived-artifacts-regen.yml writes it on main after merge and
+    // a PR is forbidden to commit it). --check-paths skips it in a PR context only;
+    // the existence check stays hard on main, and freshness stays advisory-on-PR /
+    // blocking-on-main via the generic downgrade.
+    prAbsentOk: true,
+    // Explicit `writes` (counts precedent): the generator has ONE shared regen
+    // command for both artifacts, so static resolution attributes BOTH paths to
+    // EACH entry — declare the single path each entry owns.
+    writes: ['.well-known/ai-catalog.json'],
+    share: 'n/a (new 2026-09-05, AI-CATALOG-1)',
+  },
+  {
+    id: 'api-catalog',
+    regen: 'node scripts/gen-wellknown-catalogs.mjs',
+    gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
+    artifacts: ['.well-known/api-catalog'],
+    prAbsentOk: true, // see the ai-catalog entry above
+    writes: ['.well-known/api-catalog'],
+    share: 'n/a (new 2026-09-05, AI-CATALOG-1)',
+  },
+  {
     id: 'llms-full',
     regen: 'node scripts/gen-llms-full.mjs',
     gate: 'node scripts/gen-llms-full.mjs --check',
@@ -818,12 +853,24 @@ if (isMain) {
     }
     console.log(coveredPaths().join('\n'));
   } else if (arg === '--check-paths') {
-    const missing = missingPaths();
+    // AI-CATALOG-1: entries flagged `prAbsentOk` declare artifacts that BY DESIGN
+    // do not exist on a PR checkout (SO #35: written by this regen workflow on
+    // main after merge; a PR is forbidden to commit them). In a PR context the
+    // existence check skips them — freshness is still enforced by their --check
+    // gates via the generic advisory downgrade, and the existence check stays
+    // HARD on main, where the regen has no excuse. isMainContext fails closed,
+    // so an undeterminable context keeps the full hard check.
+    const prSkip = new Set(
+      isMainContext()
+        ? []
+        : COVERED.filter((c) => c.prAbsentOk).flatMap((c) => c.artifacts)
+    );
+    const missing = missingPaths().filter((p) => !prSkip.has(p));
     if (missing.length) {
       console.log(`✗ derived-artifacts: ${missing.length} declared artifact(s) missing on disk:\n  ${missing.join('\n  ')}`);
       process.exit(1);
     }
-    console.log(`✓ derived-artifacts: all ${coveredPaths().length} declared artifacts exist on disk.`);
+    console.log(`✓ derived-artifacts: all declared artifacts exist on disk${prSkip.size ? ` (${prSkip.size} prAbsentOk path(s) skipped in PR context)` : ''}.`);
   } else if (arg === '--context') {
     console.log(isMainContext() ? 'main' : 'pr');
   } else if (arg === '--regen') {

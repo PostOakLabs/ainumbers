@@ -1179,6 +1179,14 @@ const GATES = [
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
   ['Guides index coverage (GUIDES-INDEX-GEN-1)', 'node scripts/gen-guides-index.mjs --check'],
   ['llms-full.txt freshness (§M2.3)', 'node scripts/gen-llms-full.mjs --check'],
+  // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
+  // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
+  // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
+  // the artifacts are single-writer (SO #35), written by derived-artifacts-regen.yml
+  // on main, so absence on a fresh PR checkout is expected and REDs only the
+  // advisory gate. Schema/linkset validation of the files themselves rides the
+  // existing 'SSOT schema-validate' gate above (blocking, both contexts).
+  ['Well-known catalog freshness (AI-CATALOG-1)', 'node scripts/gen-wellknown-catalogs.mjs --check'],
   ['llms.txt estate map freshness', 'node scripts/gen-estate-map.mjs --check'],
   ['start.html search index freshness', 'node scripts/gen-start-index.mjs --check'],
   ['sitemap.xml freshness (DISCOVER-1)', 'node scripts/regen-sitemap.mjs --check'],
