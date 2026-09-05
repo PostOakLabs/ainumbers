@@ -601,6 +601,7 @@ status: stable
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md)
 - [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md)
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md)
+- [Short-Sale Locate and SSR Checker](./art-671-short-sale-locate-ssr-checker.md)
 - [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md)
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md)
 - [Proxy Voting Record](./art-676-proxy-voting-record.md)
