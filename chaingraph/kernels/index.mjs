@@ -608,6 +608,7 @@ import * as art678    from './art-678-consultation-response-tracker.kernel.mjs';
 import * as art679    from './art-679-orsa-readiness-pack.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art680    from './art-680-control-attestation-campaign-roll-up.kernel.mjs';
+import * as art681    from './art-681-best-execution-evidence-pack.kernel.mjs';
 import * as art683    from './art-683-consolidation-cta-minority-interest.kernel.mjs';
 import * as art684    from './art-684-intercompany-elimination-netting.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
@@ -1265,6 +1266,7 @@ export const KERNELS = {
   'art-679-orsa-readiness-pack':                                art679,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-680-control-attestation-campaign-roll-up':               art680,
+  'art-681-best-execution-evidence-pack':                       art681,
   'art-683-consolidation-cta-minority-interest':                art683,
   'art-684-intercompany-elimination-netting':                   art684,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
