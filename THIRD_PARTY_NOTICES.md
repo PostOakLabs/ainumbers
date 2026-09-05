@@ -65,6 +65,17 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Path(s) in this repo:**
   - `docs/vendor/`
 
+## AI Catalog specification (Agent-Card/ai-catalog)
+
+- **Version:** spec @ b062278f (2026-08-27)
+- **License:** Apache-2.0
+- **Upstream:** https://github.com/Agent-Card/ai-catalog
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** AI-CATALOG-1 (2026-09-05): chaingraph/standard/vendor/ai-catalog.schema.json is authored from the pinned specification markdown (specification/ai-catalog.md @ b062278fd7f5a83202d33208f1d07c5b5eb7ccb3), not copied bytes; chaingraph/standard/vendor/VENDORED.md records the pin and provenance. Workspace snapshot: research/clause-snapshots/ai-catalog-spec-b062278f.md.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/ai-catalog.schema.json`
+  - `chaingraph/standard/vendor/VENDORED.md`
+
 ## Claude Code plugin manifest JSON Schema (unofficial, hesreallyhim/claude-code-json-schema)
 
 - **Version:** pin 4e0730d92067d524201efd12b1efbdad26ee10b0
