@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-85"]
+tags: ["compliance_control", "count-86"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-85 tool(s) in this mandate-type group:
+86 tool(s) in this mandate-type group:
 
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -96,4 +96,5 @@ status: stable
 - [Whistleblowing Channel Clock Checker](../tools/art-677-whistleblowing-channel-clock.md)
 - [ORSA Readiness Pack](../tools/art-679-orsa-readiness-pack.md)
 - [Control Attestation Campaign Roll Up](../tools/art-680-control-attestation-campaign-roll-up.md)
+- [Best-Execution Evidence Pack](../tools/art-681-best-execution-evidence-pack.md)
 - [Intercompany Elimination and Netting Workflow](../tools/art-684-intercompany-elimination-netting.md)
