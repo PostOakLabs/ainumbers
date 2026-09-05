@@ -370,6 +370,15 @@ const PREFLIGHT_ONLY = new Map([
     "scripts-verify.yml runs the full preflight (this gate's own diff shape) on scripts/** " +
     "changes, and the main push runs preflight too. Advisory on a PR by the generic " +
     "ADVISORY_ON_PR categorisation, same class as gen-llms-full."],
+  // ── AIN-AGENT-KIT-1 (2026-09-05) ──────────────────────────────────────────
+  ["check-agent-kit.mjs",
+    "Agent-kit freshness + schema gate: regenerates every agent-kit artifact from " +
+    "agent-kit/kit.json twice into temp, byte-compares determinism and freshness, and " +
+    "validates SKILL.md frontmatter + plugin.json against the vendored claude-plugin " +
+    "schema. Hard in preflight; its CI route is scripts-verify.yml's full preflight (the " +
+    "workflow literally runs `node scripts/preflight.mjs` on every scripts/ change — this " +
+    "gate's own diff shape), so a named workflow step would only duplicate the same suite. " +
+    "Reads only tracked repo files and writes to an OS temp dir — no CI-only input."],
 
   // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
   ["check-vendored-digests.mjs",
