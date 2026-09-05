@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (651 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (652 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7000,6 +7000,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/676-proxy-voting-record.html",
     "description": "Deterministic proxy-voting record arithmetic over caller-declared synthetic inputs. From a declared meeting record date and vote deadline, d",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-677-whistleblowing-channel-clock",
+    "display_name": "Whistleblowing Channel Clock Checker",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/677-whistleblowing-channel-clock.html",
+    "description": "Pure calendar-clock arithmetic for a whistleblowing channel over caller-declared synthetic dates. Checks the declared acknowledgement date a",
     "consumes": [],
     "feeds": [],
     "status": "live"
