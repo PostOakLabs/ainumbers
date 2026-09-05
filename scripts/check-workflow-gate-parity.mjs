@@ -339,6 +339,15 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
+  ["check-deeplink-contract.mjs",
+    "Fragment-only prefill-and-run deep links on every registered WebMCP page (dynamic vm " +
+    "harness: fixture-0 fragment decode, prefill, run, execution_hash reproduction + the " +
+    "location.search grep gate). Hard in preflight; its CI route is scripts-verify.yml's full " +
+    "preflight, so a named workflow step would only duplicate the same suite. Reads only tracked " +
+    "repo files — no CI-only input; pre-existing divergences are baselined WARN with a downward ratchet."],
+  ["check-deeplink-contract.test.mjs", SELF_TEST],
+
   // ── PIIBANNER-GATE-SWEEP-1 (2026-09-02) ──────────────────────────────────
   ["check-pii-banner.mjs", VIA_PREFLIGHT],
   ["check-pii-banner.test.mjs", SELF_TEST],

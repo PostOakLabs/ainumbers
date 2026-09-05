@@ -736,6 +736,150 @@ if (mc) {
   });
 }
 </script>
+
+<script>
+/* OCG-DEEPLINK v1 */
+/* Fragment-only prefill-and-run deep link: #p=v1.<b64url(gzip(JSON policy_parameters))>[&run=1]
+   Contract: AGENT-REACH-BUILD-SPEC.md section 3.1 (TOOLPAGE-DEEPLINK-1). Zero egress
+   by construction — a URL fragment is never sent to any server. Codec copied verbatim
+   from ledger/index.html lines 812-857 (gzip/gunzip/b64uEnc/b64uDec). DO NOT
+   hand-edit; emitted by scripts/gen-webmcp-registrations.mjs from chaingraph/_page-chrome.mjs. */
+(function () {
+  'use strict';
+  var BUDGET = 30000;
+  var RUN_TARGET = "run";
+  var PREFILL = {"attestation_date":["attestation_date","string"],"attestation_present":["attestation_present","checked"],"examiner_name":["examiner_name","string"],"examiner_registered":["examiner_registered","checked"],"onchain_supply_check":["onchain_supply_check","string"],"outstanding_tokens_reported":["outstanding_tokens_reported","string"],"period_end_date":["period_end_date","string"],"report_period":["report_period","string"],"token_price":["token_price","string"],"total_reserves_usd":["total_reserves_usd","string"]};
+  var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
+
+  function b64uDec(s) {
+    const p = s.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = (4 - p.length % 4) % 4;
+    const b64 = p + '='.repeat(pad);
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  async function gunzip(bytes) {
+    const cs = new DecompressionStream('gzip');
+    const w = cs.writable.getWriter();
+    w.write(bytes); w.close();
+    const chunks = [];
+    const reader = cs.readable.getReader();
+    while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+    const total = chunks.reduce((a, c) => a + c.length, 0);
+    const out = new Uint8Array(total); let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return new TextDecoder().decode(out);
+  }
+
+  function fail(msg) {
+    try {
+      var el = document.createElement('div');
+      el.setAttribute('role', 'alert');
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;border:2px solid #b45309;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:.72rem;background:#1a1206;color:#f4e8d4;max-height:40vh;overflow:auto';
+      el.textContent = PII_BANNER + ' Deep link rejected: ' + msg + ' Nothing was truncated, prefilled, or executed.';
+      document.body.appendChild(el);
+      if (typeof console !== 'undefined' && console.warn) console.warn('[deeplink]', msg);
+    } catch (e) { /* never let the banner path throw */ }
+  }
+
+  function typeOk(v, t) {
+    switch (t) {
+      case 'string': return typeof v === 'string';
+      case 'number': return typeof v === 'number' && Number.isFinite(v);
+      case 'boolean': return typeof v === 'boolean';
+      case 'array': return Array.isArray(v);
+      case 'object': return v !== null && typeof v === 'object' && !Array.isArray(v);
+      default: return true; /* 'unknown' or undeclared — value-shape handled at prefill */
+    }
+  }
+
+  async function run() {
+    var done;
+    window.__ocgDeeplinkDone = new Promise(function (res) { done = res; });
+    try {
+      if (!location.hash || location.hash.indexOf('#p=v1.') !== 0) return;
+      var parts = location.hash.slice(1).split('&');
+      var payload = null, doRun = false;
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i].indexOf('p=v1.') === 0) payload = parts[i].slice(5);
+        else if (parts[i] === 'run=1') doRun = true;
+      }
+      if (!payload) return;
+      var compressed;
+      try { compressed = b64uDec(payload); }
+      catch (e) { fail('payload is not valid base64url'); return; }
+      if (compressed.length > BUDGET) { fail('payload too large (' + compressed.length + ' bytes compressed; cap is ' + BUDGET + ')'); return; }
+      var json;
+      try { json = await gunzip(compressed); }
+      catch (e) { fail('payload failed gzip decompression'); return; }
+      var params;
+      try { params = JSON.parse(json); }
+      catch (e) { fail('payload is not valid JSON'); return; }
+      if (!params || typeof params !== 'object' || Array.isArray(params)) { fail('payload must be a JSON object of policy_parameters'); return; }
+      var schema = (typeof MANIFEST !== 'undefined' && MANIFEST.mcp_tool_definition && MANIFEST.mcp_tool_definition.inputSchema) || null;
+      if (schema) {
+        var required = Array.isArray(schema.required) ? schema.required : [];
+        for (var r = 0; r < required.length; r++) {
+          if (!(required[r] in params)) { fail('missing required parameter "' + required[r] + '"'); return; }
+        }
+        var props = schema.properties || {};
+        for (var name in params) {
+          if (!(name in props)) { fail('unknown parameter "' + name + '" is not declared in the tool inputSchema'); return; }
+          var t = props[name] && props[name].type;
+          /* A declared 'string' carrying a JSON object/array is prefilled as JSON
+             text — several pages' controls are JSON-text areas whose kernels read
+             the parsed value, so serializing is the faithful binding. Hard type
+             mismatches that cannot be serialized faithfully still reject. */
+          if ((t === 'number' || t === 'boolean') && !typeOk(params[name], t)) { fail('parameter "' + name + '" does not match the declared type "' + t + '"'); return; }
+          if ((t === 'object' || t === 'array') && params[name] !== null && typeof params[name] !== 'object') { fail('parameter "' + name + '" must be a JSON ' + t); return; }
+        }
+      }
+      var prefilled = 0, paramCount = 0;
+      for (var prop in PREFILL) {
+        if (!(prop in params)) continue;
+        paramCount++;
+        var ent = PREFILL[prop];
+        var el = document.getElementById(ent[0]);
+        if (!el) continue;
+        var v = params[prop];
+        if (ent[1] === 'checked') el.checked = (v === true);
+        else if (ent[1] === 'boolstring') el.value = String(v === true);
+        else if (ent[1] === 'json' || (v !== null && typeof v === 'object')) el.value = JSON.stringify(v);
+        else el.value = String(v);
+        prefilled++;
+      }
+      /* A parameter-free tool (empty policy_parameters) is legitimate — prefill
+         is a no-op and run=1 still executes the declared compute. */
+      if (prefilled === 0 && paramCount > 0) { fail('no form control matched any parameter'); return; }
+      if (!doRun) return;
+      var fn = null;
+      try { fn = (typeof MANIFEST !== 'undefined' && MANIFEST.execution && MANIFEST.execution.function_name) || null; } catch (e) {}
+      var target = (fn && typeof window[fn] === 'function') ? fn : (typeof window[RUN_TARGET] === 'function' ? RUN_TARGET : null);
+      if (!target) { fail('execution function not found on page'); return; }
+      await window[target]();
+      /* Expose the produced artifact on window for programmatic consumers (the
+         deep-link contract gate). _lastArtifact/_lastResult are page globals —
+         top-level let/const bindings are visible here lexically but not as
+         window properties, so re-read them by name. */
+      try {
+        if (typeof _lastArtifact !== 'undefined') window.__ocgDeeplinkArtifact = _lastArtifact;
+        else if (typeof _lastResult !== 'undefined') window.__ocgDeeplinkArtifact = _lastResult;
+      } catch (e2) { /* pages without either global simply expose nothing */ }
+    } catch (e) {
+      fail('execution failed: ' + ((e && e.message) || e));
+    } finally {
+      done();
+    }
+  }
+
+  window.__ocgDeeplinkRun = run;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { run(); });
+  else run();
+})();
+</script>
 <!-- WEBMCP:GEN-END -->
 
 </body>
