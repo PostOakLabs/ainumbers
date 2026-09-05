@@ -311,6 +311,11 @@ export const COVERED = [
     // module-level constant (MANIFEST_REL), not a literal — mirrors `artifacts`.
     writes: ['.well-known/webmcp.json'],
     artifacts: ['.well-known/webmcp.json'],
+    // prAbsentOk (AI-CATALOG-1's precedent): the file BY DESIGN does not exist
+    // on a PR checkout (SO #35 single-writer; derived-artifacts-regen.yml writes
+    // it on main after merge and a PR is forbidden to commit it) — --check-paths
+    // skips it in a PR context only; the existence check stays hard on main.
+    prAbsentOk: true,
     share: '0% (new artifact, no co-modification sample yet)',
   },
   {
