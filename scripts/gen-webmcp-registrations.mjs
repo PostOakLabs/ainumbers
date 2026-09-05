@@ -91,7 +91,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { loadManifestIndex, loadMcpNameIndex, sweepKernel } from './check-schema-read-divergence.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
-import { buildDeeplinkScript, DEEPLINK_MARKER } from '../chaingraph/_page-chrome.mjs';
+import { buildDeeplinkScript, buildFileImportScript, DEEPLINK_MARKER, FILE_IMPORT_MARKER } from '../chaingraph/_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -886,6 +886,13 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
   lines.push('<script>');
   lines.push(buildDeeplinkScript(deeplinkPrefillTable(manifest, map), target));
   lines.push('</script>');
+  // TOOLPAGE-FILE-IMPORT-1: the zero-upload file-import reader (drop zone +
+  // picker) rides in the SAME marked region, sharing the prefill table and the
+  // verified run target. Source of truth: buildFileImportScript in _page-chrome.mjs.
+  lines.push('');
+  lines.push('<script>');
+  lines.push(buildFileImportScript(deeplinkPrefillTable(manifest, map), target));
+  lines.push('</script>');
   lines.push(END);
   return lines.join('\n');
 }
@@ -1357,6 +1364,12 @@ function selftest() {
     check('deep-link prefill table mirrors the mapping decisions', block.includes('"principal":["principal","string"]') && block.includes('"flag":["flag","checked"]') && block.includes('"rows":["rows","json"]'));
     check('deep-link reader targets the page-verified wrapper', block.includes('var RUN_TARGET = "run"'));
     check('deep-link budget constant carried from the ledger cap', block.includes('var BUDGET = 30000'));
+    // 3c. TOOLPAGE-FILE-IMPORT-1: the same region carries the chrome-sourced
+    // zero-upload file-import reader (drop zone + picker), sharing the prefill
+    // table and the verified run target with the deep-link reader.
+    check('file-import reader present, sourced from _page-chrome.mjs', block.includes(FILE_IMPORT_MARKER) && block.includes('__ocgFileImport'));
+    check('file-import reader shares the deep-link run target', block.includes('var RUN_TARGET = "run"'));
+    check('file-import reader declares json/csv acceptance and no-upload posture', block.includes(".csv") && block.includes(".json") && block.includes("no storage, no network"));
 
     // 4. Insert is idempotent.
     const once = insertIntoPage(pageBody, block);
