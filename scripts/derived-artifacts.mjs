@@ -355,6 +355,22 @@ export const COVERED = [
     share: 'n/a (new 2026-09-05, AI-CATALOG-1)',
   },
   {
+    // A2A-CARD-SIGN-1 (AGENT-REACH-BUILD-SPEC §3.8): public key of the A2A Signed
+    // Agent Card, emitted by the SAME generator as ai-catalog/api-catalog (third
+    // write of one regen command — same no-op-second-pass determinism argument).
+    // Its INPUT is .well-known/agent-card.json's committed signatures[] (public
+    // material only; the PRIVATE key never touches any runner — see the EXCLUDED
+    // entry for scripts/sign-agent-card.mjs). ORDERED AFTER 'counts' like its
+    // siblings; it consumes nothing from chaingraph.json.
+    id: 'jwks',
+    regen: 'node scripts/gen-wellknown-catalogs.mjs',
+    gate: 'node scripts/gen-wellknown-catalogs.mjs --check',
+    artifacts: ['.well-known/jwks.json'],
+    prAbsentOk: true, // see the ai-catalog entry above
+    writes: ['.well-known/jwks.json'],
+    share: 'n/a (new 2026-09-05, A2A-CARD-SIGN-1)',
+  },
+  {
     id: 'llms-full',
     regen: 'node scripts/gen-llms-full.mjs',
     gate: 'node scripts/gen-llms-full.mjs --check',
@@ -781,6 +797,19 @@ export const EXCLUDED = [
        + 'live source." `--check` (read-only recompute-and-verify against the currently-published checkpoint, no '
        + 'network call) is wired into scripts/preflight.mjs directly, same as lineage\'s. Publishing a new entry '
        + 'set stays a manual/generated run: `node scripts/gen-registry-errata.mjs`.',
+  },
+  {
+    what: '.well-known/agent-card.json signatures[] (via scripts/sign-agent-card.mjs — A2A-CARD-SIGN-1)',
+    script: 'scripts/sign-agent-card.mjs',
+    share: 'n/a',
+    why: 'SIGNING NEEDS THE PRIVATE KEY (AGENT-REACH-BUILD-SPEC §3.8). The A2A Signed Agent Card\'s detached '
+       + 'JWS is produced by the estate\'s §16 signer (the worker\'s key.pem), which exists only on Tim\'s '
+       + 'machine — it is never present on the main-regen runner, by the same law that keeps it out of the '
+       + 'site repo entirely. So the card + signature CANNOT be a regen-on-main artifact: the single writer '
+       + 'is sign-agent-card.mjs run LOCALLY, and the signed card is committed by the signing row\'s PR. '
+       + 'Drift is guarded instead by scripts/check-agent-card-sig.mjs (wired into preflight): any later '
+       + 'card content edit without a local re-sign goes RED. Only PUBLIC material (the signatures[] block '
+       + 'and .well-known/jwks.json, COVERED id jwks) ever touches main-side generation.',
   },
 ];
 
