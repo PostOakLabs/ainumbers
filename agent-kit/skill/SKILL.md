@@ -29,5 +29,3 @@ Deep links follow the fragment-only contract in kit.json (deeplink_contract):
 #p=v1.<base64url(gzip(JSON policy_parameters))> plus optional &run=1.
 
 Showcase prompts (full bodies in kit.json prompts[]): same-law-three-doorways, agent-commerce-work-mandate, zero-egress-emir-evidence, c2pa-aiact50-anchor, helm-air-gapped-control-plane.
-
-STALE HAND-EDIT LINE
