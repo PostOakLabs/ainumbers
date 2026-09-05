@@ -606,6 +606,7 @@ status: stable
 - [Proxy Voting Record](./art-676-proxy-voting-record.md)
 - [ORSA Readiness Pack](./art-679-orsa-readiness-pack.md)
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
+- [Control Attestation Campaign Roll Up](./art-680-control-attestation-campaign-roll-up.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md)
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md)

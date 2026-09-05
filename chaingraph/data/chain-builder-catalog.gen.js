@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (647 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (648 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -6999,6 +6999,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-76-climate-scenario-applicator",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-680-control-attestation-campaign-roll-up",
+    "display_name": "Control Attestation Campaign Roll Up",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/680-control-attestation-campaign-roll-up.html",
+    "description": "Roll-up of a caller-declared control-attestation campaign: completion percentage (attested / controls_total, 2dp half-up), exception rate, a",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
