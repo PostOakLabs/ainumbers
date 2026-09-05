@@ -600,6 +600,7 @@ status: stable
 - [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md) — `compute_algo_execution_schedule_simulator`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
 - [Short-Sale Locate and SSR Checker](./art-671-short-sale-locate-ssr-checker.md) — `compute_short_sale_locate_ssr_checker`
+- [FX Funding Sequencer](./art-672-fx-funding-sequencer.md) — `compute_fx_funding_sequencer`
 - [Lending Recall Prioritizer](./art-673-lending-recall-prioritizer.md) — `compute_lending_recall_prioritizer`
 - [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md) — `compute_eba_im_model_validation_tracker`
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md) — `compute_recordkeeping_completeness_mapper`
