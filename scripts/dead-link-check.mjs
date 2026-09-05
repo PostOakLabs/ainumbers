@@ -50,7 +50,7 @@ function links(html){
 function skip(v){
   if(!v) return true;
   if(/^(https?:)?\/\//i.test(v)) return true;
-  if(/^(mailto:|tel:|javascript:|data:|#)/i.test(v)) return true;
+  if(/^(mailto:|tel:|javascript:|data:|#|cursor:|vscode:|goose:)/i.test(v)) return true; // cursor:/vscode:/goose: = opaque one-click MCP install schemes (MCP-INSTALL-LINKS-1), never fetched
   return false;
 }
 // Scan set: every file, or (with --changed, determinable) only touched files.

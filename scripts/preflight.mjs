@@ -1055,6 +1055,8 @@ const GATES = [
   ['Rule-registry table freshness (ACCT-RULEREG-K-1)', 'node scripts/gen-rule-registry.mjs --check'],
   ['Rule-registry generator mutation control (SO #34)', 'node scripts/gen-rule-registry.test.mjs'],
   ['Dead-link gate',               'node scripts/dead-link-check.mjs'],
+  ['Install-link anchors embed the canonical MCP endpoint (MCP-INSTALL-LINKS-1)', 'node scripts/check-install-links.mjs'],
+  ['Install-link gate mutation controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-install-links.test.mjs'],
   // Two nav gates, deliberately: the plain one is a CONTENT gate (a new page no
   // nav reaches) and is hard in every context; --baseline-check is the
   // derived-artifact freshness gate (advisory on PR, repaired on main). Folding

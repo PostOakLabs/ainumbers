@@ -391,6 +391,10 @@ const PREFLIGHT_ONLY = new Map([
     "sufficient route. ⚠ Declared, not hidden — it inherits exactly the fragility this axis exists to name, " +
     "and if the §15 matrix is ever to be a required check it needs its own workflow step."],
 
+  // ── MCP-INSTALL-LINKS-1 (2026-09-05) ──────────────────────────────────────
+  ["check-install-links.mjs", VIA_PREFLIGHT],
+  ["check-install-links.test.mjs", SELF_TEST],
+
   // ── paired self-tests / mutation controls (66) ──────────────────────────────
   ["pre-push.test.mjs", SELF_TEST],
   ["check-binary-bytes.test.mjs", SELF_TEST],
