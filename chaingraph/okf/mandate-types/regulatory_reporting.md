@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "regulatory_reporting"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"regulatory_reporting\"."
-tags: ["regulatory_reporting", "count-12"]
+tags: ["regulatory_reporting", "count-13"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # regulatory_reporting
 
-12 tool(s) in this mandate-type group:
+13 tool(s) in this mandate-type group:
 
 - [Call Report Schedule RC (Balance Sheet) Mapper](../tools/art-432-call-report-rc-balance-sheet.md)
 - [Call Report Schedule RC-R (Regulatory Capital) Mapper](../tools/art-433-call-report-rcr-capital.md)
@@ -24,3 +24,4 @@ status: stable
 - [Regulatory Report Period-over-Period Variance Explainer](../tools/art-485-regrpt-variance-explainer.md)
 - [Identity-Proofing Assurance Level Evaluator](../tools/art-523-identity-proofing-assurance-level.md)
 - [Cross-CCP PQD Comparator](../tools/art-528-cross-ccp-pqd-comparator.md)
+- [Rule 605 Publication Composer](../tools/art-682-rule-605-publication-composer.md)
