@@ -2020,7 +2020,7 @@ function pow(num, power, modulo) {
 /**
  * Does `x^(2^power)` mod p. `pow2(30, 4)` == `30^(2^4)`.
  * Low-level helper: callers that need canonical residues must pass a valid `x` for the chosen
- * modulus; the `power===0` fast path intentionally returns the input unchanged.
+ * modulus; observation dated 2026-09-05: the `power===0` fast path returns the input as-is.
  * @param x - Base value.
  * @param power - Number of squarings.
  * @param modulo - Reduction modulus.
@@ -2890,7 +2890,7 @@ function negateCt(condition, item) {
  * inversion on all of them. Inversion is very slow operation,
  * so this improves performance massively.
  * Optimization: converts a list of projective points to a list of identical points with Z=1.
- * Input points are left unchanged; the normalized points are returned as fresh instances.
+ * Observation dated 2026-09-05: input points are left as-is; the normalized points are returned as fresh instances.
  * @param c - Point constructor.
  * @param points - Projective points.
  * @returns Fresh projective points reconstructed from normalized affine coordinates.
@@ -4472,6 +4472,7 @@ export function compute(pp) {
     valid,
     checks,
     failed_codes,
+    errors: failed_codes,
   };
 
   const compliance_flags = [valid ? 'RECEIPT_VERIFIED' : 'RECEIPT_VERIFICATION_FAILED'];
