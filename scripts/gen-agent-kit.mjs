@@ -48,8 +48,15 @@ const kit = JSON.parse(readFileSync(join(kitDir, 'kit.json'), 'utf8'));
 // references the five ids; MCP-SHOWCASE-PROMPTS-1 (#1730) landed the SSOT, so
 // the earlier TODO-SSOT embedded-bodies stage is resolved and must NOT return.
 const ssotPath = join(dirname(fileURLToPath(import.meta.url)), '..', kit.prompts_ssot.file);
-const ssot = JSON.parse(readFileSync(ssotPath, 'utf8'));
-const ssotById = new Map(ssot.prompts.map((p) => [p.id, p]));
+const ssotParsed = JSON.parse(readFileSync(ssotPath, 'utf8'));
+// Both published shapes accepted (mirrors gen-estate-map.mjs loadTasks): a bare
+// array of prompt objects, or the {prompts: [...]} envelope.
+const ssotPrompts = Array.isArray(ssotParsed) ? ssotParsed : ssotParsed.prompts;
+if (!Array.isArray(ssotPrompts)) {
+  console.error('gen-agent-kit: ' + kit.prompts_ssot.file + ' has neither an array nor a prompts[] envelope');
+  process.exit(1);
+}
+const ssotById = new Map(ssotPrompts.map((p) => [p.id, p]));
 if (kit.prompts_ssot.ids.length !== 5 || !kit.prompts_ssot.ids.every((id) => ssotById.has(id))) {
   console.error('gen-agent-kit: kit.json prompts_ssot.ids must list exactly the five ids present in ' + kit.prompts_ssot.file);
   process.exit(1);
