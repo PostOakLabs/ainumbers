@@ -1084,6 +1084,7 @@ const GATES = [
   // agent-kit/kit.json); this gate regenerates twice into temp, byte-compares determinism
   // and freshness, and validates SKILL.md frontmatter + plugin.json against the vendored schema.
   ['Agent kit freshness + schema (AIN-AGENT-KIT-1)', 'node scripts/check-agent-kit.mjs'],
+  ['Agent kit gate controls (GREEN + RED mutations + zip known-answer)', 'node scripts/check-agent-kit.mjs --self-test'],
   ['PII banner exact text (CONTRACT §1.3, PIIBANNER-GATE-SWEEP-1)', 'node scripts/check-pii-banner.mjs'],
   ['PII banner gate controls (RED+GREEN mutation)', 'node scripts/check-pii-banner.test.mjs'],
   // STALE-PHASING-NOTE-SWEEP-1 (2026-08-23). The documentation twin of the silent-green gate: a comment

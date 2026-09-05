@@ -27,14 +27,18 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(scriptDir, '..');
+// `--root <dir>` validates a fixture tree instead of the real repo (used by
+// --self-test below to prove RED on tampered fixtures); the generator and the
+// kit source always come from the real scripts/ and agent-kit/.
+const rootArgIdx = process.argv.indexOf('--root');
+const repoRoot = rootArgIdx !== -1 ? resolve(process.argv[rootArgIdx + 1]) : resolve(scriptDir, '..');
 const genScript = join(scriptDir, 'gen-agent-kit.mjs');
 const schemaPath = join(repoRoot, 'chaingraph', 'standard', 'vendor', 'claude-plugin.schema.json');
 
@@ -261,6 +265,71 @@ const pluginErr = validate(schema, pluginJson, 'plugin.json');
 if (pluginErr) fail(`plugin.json fails the vendored claude-plugin schema: ${pluginErr}`);
 
 rmSync(tmpBase, { recursive: true, force: true });
+
+// --- self-test: RED+GREEN mutation control (GATE-SELFTEST-META-1) ------------
+
+if (process.argv.includes('--self-test')) {
+  const assert = (cond, label) => {
+    if (!cond) {
+      console.error(`check-agent-kit self-test: FAIL ${label}`);
+      process.exit(1);
+    }
+    console.log(`check-agent-kit self-test: ok ${label}`);
+  };
+  const run = (root, args = []) => {
+    try {
+      execFileSync(process.execPath, [fileURLToPath(import.meta.url), '--root', root, ...args], {
+        cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      return 0;
+    } catch (err) {
+      return err.status ?? 1;
+    }
+  };
+  const cp = (from, to) => {
+    mkdirSync(dirname(to), { recursive: true });
+    copyFileSync(from, to);
+  };
+  const cpTree = (fromDir, toDir) => {
+    for (const entry of readdirSync(fromDir)) {
+      const f = join(fromDir, entry);
+      const t = join(toDir, entry);
+      if (statSync(f).isDirectory()) cpTree(f, t);
+      else cp(f, t);
+    }
+  };
+  const { copyFileSync, rmSync: rmRf } = await import('node:fs');
+  const { mkdtempSync: mkdtemp } = await import('node:fs');
+
+  // GREEN: a faithful copy of the emitted tree passes.
+  const fx = mkdtemp(join(tmpdir(), 'agent-kit-selftest-'));
+  const fxRoot = join(fx, 'root');
+  const repoTree = resolve(scriptDir, '..');
+  cpTree(join(repoTree, 'agent-kit'), join(fxRoot, 'agent-kit'));
+  cp(schemaPath, join(fxRoot, 'chaingraph', 'standard', 'vendor', 'claude-plugin.schema.json'));
+  assert(run(fxRoot) === 0, 'GREEN: faithful copy of the emitted tree passes');
+
+  // RED (mutation 1): a tampered emitted file must fail freshness.
+  appendFileSync(join(fxRoot, 'agent-kit', 'skill', 'SKILL.md'), '\nTAMPERED\n');
+  assert(run(fxRoot) === 1, 'RED: tampered emitted file fails freshness');
+  cp(join(repoTree, 'agent-kit', 'skill', 'SKILL.md'), join(fxRoot, 'agent-kit', 'skill', 'SKILL.md'));
+
+  // RED (mutation 2): a plugin.json the vendored schema rejects must fail.
+  const pluginPath = join(fxRoot, 'agent-kit', 'claude-plugin', '.claude-plugin', 'plugin.json');
+  const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+  plugin.Name = 'Not-Kebab'; // unknown top-level property AND bad casing
+  writeFileSync(pluginPath, JSON.stringify(plugin, null, 2));
+  assert(run(fxRoot) === 1, 'RED: schema-invalid plugin.json fails the vendored schema');
+  rmRf(fx, { recursive: true, force: true });
+
+  // Known-answer: the real emitted zip carries the store-only local header magic.
+  const zip = readFileSync(join(repoTree, 'agent-kit', 'ainumbers-skill.zip'));
+  assert(zip.readUInt32LE(0) === 0x04034b50, 'known-answer: zip starts with a local file header');
+  assert(zip.readUInt16LE(8) === 0, 'known-answer: zip entries are store-only (method 0)');
+
+  console.log('check-agent-kit self-test: ALL OK');
+  process.exit(failures.length ? 1 : 0);
+}
 
 if (failures.length) {
   console.error(`\ncheck-agent-kit: ${failures.length} failure(s) — regenerate with "node scripts/gen-agent-kit.mjs" and commit, per AIN-AGENT-KIT-1.`);
