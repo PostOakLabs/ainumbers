@@ -349,6 +349,17 @@ const PREFLIGHT_ONLY = new Map([
     "Reads only tracked repo files — no CI-only input."],
   ["check-output-schema-coverage.test.mjs", SELF_TEST],
 
+  // ── LEDGER-GROTH16-VERIFY-1 (2026-09-05) ────────────────────────────────────
+  ["check-ledger-proof-parity.mjs",
+    "§18.1 Groth16 (BN254) seal parity: extracts the ledger page's SHIPPED in-browser verifier " +
+    "live from ledger/index.html and asserts identical verdicts with kernels/_computeproof.mjs " +
+    "verifySeal over every published receipt in chaingraph.json + a tampered-seal red fixture " +
+    "(--self-test = GATE-SELFTEST-META-1 red-proof). Hard in preflight; its CI route is " +
+    "scripts-verify.yml's full preflight (the workflow runs node scripts/preflight.mjs, so a named " +
+    "workflow step would only duplicate the same suite). Reads only tracked repo files — no CI-only " +
+    "input; the full-corpus pairing run costs ~2 min, the same CI-minutes trade as the other " +
+    "VIA_PREFLIGHT verify-path gates."],
+
   // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
   ["check-deeplink-contract.mjs",
     "Fragment-only prefill-and-run deep links on every registered WebMCP page (dynamic vm " +
