@@ -635,7 +635,7 @@ if (!CHANGED || isTouched('mcp/showcase-prompts.json', CHANGED)) {
     const sp = JSON.parse(readFileSync(spPath, 'utf8'));
     let spEmdash = 0, spTwotone = 0;
     const spAi = [], spAbs = [];
-    for (const p of sp.prompts || []) {
+    for (const p of (Array.isArray(sp) ? sp : (sp.prompts ?? []))) {
       for (const field of ['title', 'one_line']) {
         const t = decodeDashEntities(String(p[field] ?? ''));
         spEmdash += (t.match(EMDASH) || []).length;
