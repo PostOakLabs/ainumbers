@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (652 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (653 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7010,6 +7010,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/677-whistleblowing-channel-clock.html",
     "description": "Pure calendar-clock arithmetic for a whistleblowing channel over caller-declared synthetic dates. Checks the declared acknowledgement date a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-678-consultation-response-tracker",
+    "display_name": "Consultation Response Tracker",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/tools/678-consultation-response-tracker.html",
+    "description": "Open/closed roll-up over a caller-declared set of regulatory consultations against a declared as-of date: open count (a consultation whose c",
     "consumes": [],
     "feeds": [],
     "status": "live"

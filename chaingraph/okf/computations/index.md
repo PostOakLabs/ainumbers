@@ -608,6 +608,7 @@ status: stable
 - [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md)
 - [Proxy Voting Record](./art-676-proxy-voting-record.md)
 - [Whistleblowing Channel Clock Checker](./art-677-whistleblowing-channel-clock.md)
+- [Consultation Response Tracker](./art-678-consultation-response-tracker.md)
 - [ORSA Readiness Pack](./art-679-orsa-readiness-pack.md)
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md)
 - [Control Attestation Campaign Roll Up](./art-680-control-attestation-campaign-roll-up.md)
