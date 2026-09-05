@@ -610,6 +610,7 @@ import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs
 import * as art680    from './art-680-control-attestation-campaign-roll-up.kernel.mjs';
 import * as art683    from './art-683-consolidation-cta-minority-interest.kernel.mjs';
 import * as art684    from './art-684-intercompany-elimination-netting.kernel.mjs';
+import * as art685    from './art-685-direct-indexing-fit-screen.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
@@ -1267,6 +1268,7 @@ export const KERNELS = {
   'art-680-control-attestation-campaign-roll-up':               art680,
   'art-683-consolidation-cta-minority-interest':                art683,
   'art-684-intercompany-elimination-netting':                   art684,
+  'art-685-direct-indexing-fit-screen':                         art685,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
   'art-70-cbam-default-value-resolver':                         art70,
   'art-71-cbam-certificate-cost-engine':                        art71,
