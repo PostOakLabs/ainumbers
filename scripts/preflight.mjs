@@ -1437,6 +1437,8 @@ const GATES = [
   ['Verify-path no-egress (AV-NOEGRESS-1)', 'node scripts/check-verify-no-egress.mjs'],
   ['Site static egress scan (EGRESS-SITE-1)', 'node scripts/check-site-egress.mjs'],
   ['Ledger hermetic',              'node scripts/check-ledger-hermetic.mjs'],
+  ['Ledger §18 Groth16 seal parity (LEDGER-GROTH16-VERIFY-1)', 'node scripts/check-ledger-proof-parity.mjs'],
+  ['Ledger §18 Groth16 seal parity red-proof (GATE-SELFTEST-META-1 pair)', 'node scripts/check-ledger-proof-parity.mjs --self-test'],
   ['Playground hermetic (A8)',     'node scripts/check-playground-hermetic.mjs'],
   ['Ledger codec round-trip',      'node scripts/codec-roundtrip.test.mjs'],
   ['Ledger gate-replay tamper (shipped source)', 'node scripts/gate-replay-tamper.test.mjs'],
