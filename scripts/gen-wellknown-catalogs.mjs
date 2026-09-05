@@ -13,6 +13,12 @@
  *   (b) .well-known/api-catalog      — RFC 9727 API Catalog as
  *       application/linkset+json (api-catalog → docs/openapi.json,
  *       service-doc → mcp.html).
+ *   (c) .well-known/jwks.json        — the A2A Signed Agent Card's public key
+ *       (A2A-CARD-SIGN-1, AGENT-REACH-BUILD-SPEC §3.8). Derived from the card's
+ *       own signatures[] protected header `kid` (a did:key, the §16 fingerprint
+ *       convention) — PUBLIC material only, no private key anywhere near this
+ *       generator (the card is signed locally by scripts/sign-agent-card.mjs and
+ *       committed; that commit is this file's input).
  *
  * DETERMINISM: no wall-clock values anywhere (the EXCLUDED list in
  * scripts/derived-artifacts.mjs bans non-idempotent wall-clock generators from
@@ -38,6 +44,7 @@ const REPO = resolve(HERE, '..');
 const SITE = 'https://ainumbers.co';
 const OUT_AI = resolve(REPO, '.well-known', 'ai-catalog.json');
 const OUT_API = resolve(REPO, '.well-known', 'api-catalog');
+const OUT_JWKS = resolve(REPO, '.well-known', 'jwks.json');
 
 const mcp = JSON.parse(readFileSync(resolve(REPO, '.well-known', 'mcp.json'), 'utf8'));
 const agentCard = JSON.parse(readFileSync(resolve(REPO, '.well-known', 'agent-card.json'), 'utf8'));
@@ -144,6 +151,47 @@ const apiCatalog = {
 const aiText = JSON.stringify(aiCatalog, null, 2) + '\n';
 const apiText = JSON.stringify(apiCatalog, null, 2) + '\n';
 
+// ── .well-known/jwks.json (A2A-CARD-SIGN-1) ───────────────────────────────────
+// The signed card's signatures[0].protected header carries `kid` = did:key:z…
+// (multicodec ed25519-pub 0xed 0x01, base58btc — the rawPubkeyToDidKey
+// convention). Decoding it back to the raw 32-byte public key is pure public
+// math, so the JWKS is a deterministic function of the committed card.
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58decode(str) {
+  // verbatim from chaingraph/kernels/_proof.mjs (single canon for did:key math)
+  let zeros = 0; while (zeros < str.length && str[zeros] === '1') zeros++;
+  const bytes = [0];
+  for (let i = zeros; i < str.length; i++) {
+    let carry = B58.indexOf(str[i]);
+    if (carry < 0) throw new Error('bad base58 char');
+    for (let j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 0xff; carry >>= 8; }
+    while (carry) { bytes.push(carry & 0xff); carry >>= 8; }
+  }
+  const out = new Uint8Array(zeros + bytes.length);
+  for (let k = 0; k < bytes.length; k++) out[zeros + bytes.length - 1 - k] = bytes[k];
+  return out;
+}
+let jwksText = null;
+{
+  const sig = agentCard.signatures && agentCard.signatures[0];
+  if (!sig || typeof sig.protected !== 'string')
+    fail('.well-known/agent-card.json has no signatures[] — run scripts/sign-agent-card.mjs locally and commit the signed card (A2A-CARD-SIGN-1)');
+  let kid;
+  try {
+    kid = JSON.parse(Buffer.from(sig.protected, 'base64url').toString('utf8')).kid;
+  } catch {
+    fail('agent-card signatures[0].protected is not decodable JSON');
+  }
+  if (typeof kid !== 'string' || !kid.startsWith('did:key:z'))
+    fail(`agent-card signature kid is not a did:key (got ${JSON.stringify(kid).slice(0, 40)})`);
+  const prefixed = b58decode(kid.slice('did:key:z'.length));
+  if (prefixed.length !== 34 || prefixed[0] !== 0xed || prefixed[1] !== 0x01)
+    fail('signature kid does not decode to a 32-byte Ed25519 multicodec key');
+  const raw = prefixed.slice(2);
+  const jwk = { kty: 'OKP', crv: 'Ed25519', kid, x: Buffer.from(raw).toString('base64url') };
+  jwksText = JSON.stringify({ keys: [jwk] }, null, 2) + '\n';
+}
+
 function fail(msg) {
   console.error(`gen-wellknown-catalogs: ${msg}`);
   process.exit(1);
@@ -154,6 +202,7 @@ if (process.argv.includes('--check')) {
   for (const [path, want, label] of [
     [OUT_AI, aiText, '.well-known/ai-catalog.json'],
     [OUT_API, apiText, '.well-known/api-catalog'],
+    [OUT_JWKS, jwksText, '.well-known/jwks.json'],
   ]) {
     if (!existsSync(path)) {
       console.error(`✗ ${label}: MISSING (main-side regen writes it; run without --check locally)`);
@@ -174,3 +223,5 @@ writeFileSync(OUT_AI, aiText);
 console.log(`wrote ${resolve(REPO, '.well-known', 'ai-catalog.json')} (${aiCatalog.entries.length} entries)`);
 writeFileSync(OUT_API, apiText);
 console.log(`wrote ${OUT_API}`);
+writeFileSync(OUT_JWKS, jwksText);
+console.log(`wrote ${OUT_JWKS}`);
