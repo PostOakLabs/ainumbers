@@ -608,6 +608,7 @@ import * as art678    from './art-678-consultation-response-tracker.kernel.mjs';
 import * as art679    from './art-679-orsa-readiness-pack.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art680    from './art-680-control-attestation-campaign-roll-up.kernel.mjs';
+import * as art684    from './art-684-intercompany-elimination-netting.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
@@ -1263,6 +1264,7 @@ export const KERNELS = {
   'art-679-orsa-readiness-pack':                                art679,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-680-control-attestation-campaign-roll-up':               art680,
+  'art-684-intercompany-elimination-netting':                   art684,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
   'art-70-cbam-default-value-resolver':                         art70,
   'art-71-cbam-certificate-cost-engine':                        art71,
