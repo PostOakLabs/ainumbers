@@ -28,4 +28,4 @@ Ledger https://ledger.ainumbers.co/ · catalog https://ainumbers.co/llms.txt
 Deep links follow the fragment-only contract in kit.json (deeplink_contract):
 #p=v1.<base64url(gzip(JSON policy_parameters))> plus optional &run=1.
 
-Showcase prompts (full bodies in kit.json prompts[]): same-law-three-doorways, agent-commerce-work-mandate, zero-egress-emir-evidence, c2pa-aiact50-anchor, helm-air-gapped-control-plane.
+Showcase prompts: same-law-three-doorways, signed-policy-agentic-commerce, zero-egress-emir-proof, ai-marked-asset-anchored, air-gapped-helm-handover (bodies: mcp/showcase-prompts.json).

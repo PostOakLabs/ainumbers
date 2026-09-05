@@ -43,14 +43,18 @@ const kitDir = outRoot
   : join(repoRoot, 'agent-kit');
 const kit = JSON.parse(readFileSync(join(kitDir, 'kit.json'), 'utf8'));
 
-if (!kit.prompts_ssot_note || !kit.prompts_ssot_note.startsWith('TODO-SSOT')) {
-  console.error('gen-agent-kit: kit.json prompts_ssot_note must carry the TODO-SSOT marker while prompts are embedded (removed by MCP-SHOWCASE-PROMPTS-1).');
+// Prompt bodies come from the SSOT (AGENT-REACH-BUILD-SPEC §3.3: prompts.html,
+// the worker's prompts/list and the agent kit render the same file). kit.json
+// references the five ids; MCP-SHOWCASE-PROMPTS-1 (#1730) landed the SSOT, so
+// the earlier TODO-SSOT embedded-bodies stage is resolved and must NOT return.
+const ssotPath = join(dirname(fileURLToPath(import.meta.url)), '..', kit.prompts_ssot.file);
+const ssot = JSON.parse(readFileSync(ssotPath, 'utf8'));
+const ssotById = new Map(ssot.prompts.map((p) => [p.id, p]));
+if (kit.prompts_ssot.ids.length !== 5 || !kit.prompts_ssot.ids.every((id) => ssotById.has(id))) {
+  console.error('gen-agent-kit: kit.json prompts_ssot.ids must list exactly the five ids present in ' + kit.prompts_ssot.file);
   process.exit(1);
 }
-if (!Array.isArray(kit.prompts) || kit.prompts.length !== 5) {
-  console.error('gen-agent-kit: kit.json must embed exactly the five showcase prompts (research §1–§5).');
-  process.exit(1);
-}
+const prompts = kit.prompts_ssot.ids.map((id) => ssotById.get(id));
 const MCP_URL = kit.estate.mcp_url;
 
 // --- determinism helpers -----------------------------------------------------
@@ -160,7 +164,7 @@ Ledger ${kit.estate.ledger_url} · catalog ${kit.estate.llms_txt}
 Deep links follow the fragment-only contract in kit.json (deeplink_contract):
 #p=v1.<base64url(gzip(JSON policy_parameters))> plus optional &run=1.
 
-Showcase prompts (full bodies in kit.json prompts[]): ${kit.prompts.map((p) => p.id).join(', ')}.
+Showcase prompts: ${prompts.map((p) => p.id).join(', ')} (bodies: ${kit.prompts_ssot.file}).
 `;
 
 /** AgentSkills frontmatter — the field list check-agent-kit.mjs validates. */
@@ -263,7 +267,7 @@ emit('agent-kit/skill/SKILL.md', skillMd());
 emit('agent-kit/openclaw/openclaw.mcp.json', sortedStringify(mcpServerBlock()));
 emit('agent-kit/claude-plugin/.claude-plugin/plugin.json', sortedStringify(pluginJson()));
 emit('agent-kit/claude-plugin/skills/ainumbers/SKILL.md', skillMd());
-for (const p of kit.prompts) emit(`agent-kit/claude-plugin/commands/${p.id}.md`, commandMd(p));
+for (const p of prompts) emit(`agent-kit/claude-plugin/commands/${p.id}.md`, commandMd(p));
 emit('agent-kit/gemini/gemini-extension.json', sortedStringify(geminiExtension()));
 emit('agent-kit/cursor.mcp.json', sortedStringify(cursorMcp()));
 emit('agent-kit/vscode.mcp.json', sortedStringify(vscodeMcp()));

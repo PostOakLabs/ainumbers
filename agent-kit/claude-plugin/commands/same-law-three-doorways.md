@@ -1,5 +1,5 @@
 ---
-description: Prove one tool gives the same execution_hash in-page, at the edge, and under a zk receipt.
+description: Run one tool in the page, on the hosted MCP worker, and against its signed receipt, then compare the execution_hash character by character.
 ---
 
 # Same law, three doorways
