@@ -624,6 +624,32 @@ if (!CHANGED || isTouched('chaingraph/chaingraph.json', CHANGED)) {
   if (cgEmdash) findings['chaingraph/chaingraph.json#descriptions'] = { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [] };
 }
 
+// mcp/showcase-prompts.json titles + one_lines (MCP-SHOWCASE-PROMPTS-1) — reader-facing
+// copy served as MCP prompt titles/descriptions and rendered on prompts.html. Gate applies
+// em-dash, AI-vocabulary, absolute-claim and HIGH-PRECISION twotone to those two fields
+// only (prompt bodies are verbatim research-file instruction text and are exempt). Same
+// scoped-run shape as the chaingraph.json block above; this gate only reads the file.
+if (!CHANGED || isTouched('mcp/showcase-prompts.json', CHANGED)) {
+  const spPath = resolve(REPO, 'mcp', 'showcase-prompts.json');
+  if (existsSync(spPath)) {
+    const sp = JSON.parse(readFileSync(spPath, 'utf8'));
+    let spEmdash = 0, spTwotone = 0;
+    const spAi = [], spAbs = [];
+    for (const p of sp.prompts || []) {
+      for (const field of ['title', 'one_line']) {
+        const t = decodeDashEntities(String(p[field] ?? ''));
+        spEmdash += (t.match(EMDASH) || []).length;
+        spTwotone += (t.match(TWOTONE_HIGHPRECISION) || []).length;
+        spAi.push(...aiVocabHits(t).map((h) => field + ': ' + h));
+        spAbs.push(...absolutesHits(t).map((h) => field + ': ' + h));
+      }
+    }
+    if (spEmdash || spTwotone || spAi.length || spAbs.length) {
+      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, notX: 0, panel: [] };
+    }
+  }
+}
+
 if (REPORT) {
   const date = process.env.COPY_HALLMARK_REPORT_DATE || new Date().toISOString().slice(0, 10);
   const ranked = Object.entries(findings)
