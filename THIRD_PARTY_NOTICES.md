@@ -64,3 +64,14 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Note:** OpenAPI reference renderer for the docs/ API portal (CONTRACT §A10 carve-out). Pinned bundle + stripped-license sidecar (redoc.standalone.js.LICENSE.txt); loaded on explicit user action only, script-src 'self', no CDN host. sha256 1320f442151c57c447d3b70c7ffc6c4f86d08464020fe34c8cc5d3164e9944f0.
 - **Path(s) in this repo:**
   - `docs/vendor/`
+
+## AI Catalog specification (Agent-Card/ai-catalog)
+
+- **Version:** spec @ b062278f (2026-08-27)
+- **License:** Apache-2.0
+- **Upstream:** https://github.com/Agent-Card/ai-catalog
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** AI-CATALOG-1 (2026-09-05): chaingraph/standard/vendor/ai-catalog.schema.json is authored from the pinned specification markdown (specification/ai-catalog.md @ b062278fd7f5a83202d33208f1d07c5b5eb7ccb3), not copied bytes; chaingraph/standard/vendor/VENDORED.md records the pin and provenance. Workspace snapshot: research/clause-snapshots/ai-catalog-spec-b062278f.md.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/ai-catalog.schema.json`
+  - `chaingraph/standard/vendor/VENDORED.md`
