@@ -6,6 +6,7 @@ Pointers for coding and browsing agents working on ainumbers.co.
 - **Tool/workflow catalog for agents:** https://ainumbers.co/llms.txt (extended: https://ainumbers.co/llms-full.txt)
 - **Hash resolver (verify a receipt):** https://ledger.ainumbers.co/
 - **MCP endpoint:** https://mcp.ainumbers.co/mcp
+- **What an agent can do here:** the agent-tasks block in https://ainumbers.co/llms.txt; reusable kit: `agent-kit/`
 
 Full tool catalog, counts, and usage detail live at the links above. This file only points, it does not restate them.
 
