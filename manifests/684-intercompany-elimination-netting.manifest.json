@@ -1,0 +1,62 @@
+{
+  "tool_id": "684-intercompany-elimination-netting",
+  "version": "1.0.0",
+  "title": "Intercompany Elimination and Netting Workflow",
+  "description": "Deterministic intercompany elimination and netting arithmetic over caller-declared synthetic entity pairs: receivable-versus-payable matching at 2dp half-up rounding, mismatch listing with differences, elimination totals, unmatched residual, and an overall GAPS_FOUND or ALL_MATCHED verdict. Pure matching arithmetic — no posting, no payment, no network, no clock.",
+  "category": "accounting",
+  "tags": ["intercompany", "elimination", "netting", "consolidation", "receivable", "payable", "matching", "mismatch", "settlement summary", "zero network", "zero-PII"],
+  "audience": ["group accountants", "consolidation teams", "controllers", "auditors", "treasury"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "pairs": {
+        "type": "array",
+        "description": "Declared intercompany entity pairs: a_receivable is the receivable declared by entity a, b_payable is the payable declared by entity b.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "a": { "type": "string", "description": "Entity declaring the receivable." },
+            "b": { "type": "string", "description": "Entity declaring the payable." },
+            "a_receivable": { "type": "number", "description": "Receivable amount declared by a; finite, non-negative." },
+            "b_payable": { "type": "number", "description": "Payable amount declared by b; finite, non-negative." }
+          },
+          "required": ["a", "b", "a_receivable", "b_payable"]
+        }
+      }
+    },
+    "required": ["pairs"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "matched_pairs": { "type": ["integer", "null"], "description": "Count of pairs whose rounded receivable equals the rounded payable; null on the fail-closed path." },
+      "mismatched_pairs": { "type": ["integer", "null"], "description": "Count of pairs with unequal rounded amounts." },
+      "elimination_total": { "type": ["number", "null"], "description": "Sum over all pairs of the smaller (eliminated) side, 2dp half-up." },
+      "unmatched_residual": { "type": ["number", "null"], "description": "Sum of mismatch differences, 2dp half-up." },
+      "mismatches": { "type": ["array", "null"], "description": "Mismatched pairs with their differences, declared order preserved." },
+      "trace": { "type": "string", "description": "Full elimination and residual trace, or the fail-closed reasons naming each rejected input." },
+      "overall": { "type": ["string", "null"], "enum": ["GAPS_FOUND", "ALL_MATCHED", null], "description": "GAPS_FOUND when at least one pair mismatches." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_intercompany_elimination_netting",
+    "description": "Computes an intercompany elimination and netting summary from declared entity pairs: matched and mismatched pair counts, elimination total (sum of the smaller side of every pair), unmatched residual (sum of mismatch differences), the mismatch listing, and an overall GAPS_FOUND or ALL_MATCHED verdict. Matching arithmetic over caller-declared synthetic inputs only: not legal advice, not an audit opinion, not a settlement instruction — nothing is posted or paid anywhere.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "pairs": { "type": "array", "description": "declared entity pairs with a, b, a_receivable, b_payable" }
+      },
+      "required": ["pairs"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/684-intercompany-elimination-netting.html",
+    "function_name": "runIntercompanyElimination",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by INTERCOMPANY-ELIM-BUILD-1 per INTERCOMPANY-ELIM-BUILD-SPEC.md. Scope positioning: a matching-arithmetic checker over caller-declared synthetic inputs, not legal advice, not an audit opinion, and not a settlement instruction; absent or invalid inputs are refused fail-closed and named, never silently repaired. Rounding: 2 decimal places, half-up, declared in-kernel and in trace."
+}

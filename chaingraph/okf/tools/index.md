@@ -610,6 +610,7 @@ status: stable
 - [ORSA Readiness Pack](./art-679-orsa-readiness-pack.md) — `compute_orsa_readiness_pack`
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
 - [Control Attestation Campaign Roll Up](./art-680-control-attestation-campaign-roll-up.md) — `compute_control_attestation_campaign_roll_up`
+- [Intercompany Elimination and Netting Workflow](./art-684-intercompany-elimination-netting.md) — `compute_intercompany_elimination_netting`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md) — `resolve_cbam_default_value`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`
