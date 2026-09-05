@@ -496,6 +496,143 @@ export const propertyIdMap = {
     yield_shock_bp: { element_id: 'yieldShockBp', via: 'string' },
     ytm_pct: { element_id: 'ytmPct', via: 'string' },
   },
+
+  // ── WEBMCP-IDMAP-BATCH-2 (the remaining 15 RENAME-ONLY pages from
+  // research/WEBMCP-TRIAGE-2026-09.json after BATCH-1's 25; PR #1729). Every
+  // control below was re-verified against the page at base 1eec8891: the id
+  // exists and the page's own compute reads it (cited file:line).
+  // DROPPED (honest exclusion, no faithful single control):
+  //   art-375-compute-fund-expense-ratios + art-515-build-allocation-decision-
+  //   receipt — `rounding` is a composite object assembled from two controls
+  //   (decimal_places + rounding_mode; art-375:515, art-515:695-696).
+  //   art-404-check-retail-installment-disclosures — `inputs` is a composite
+  //   object spread across ten controls (getParams, art-404:327-339).
+  //   rca-03-iso20022-address-migration-verifier — partial mapping below; the
+  //   required `records` prop has no faithful control (CSV-imported in-memory
+  //   `_records` state rendered as dynamic per-field inputs; importCsv,
+  //   rca-03:637-652), so the page stays excluded.
+
+  // getParams reads the merchant/duration/rail/cadence controls:
+  //   chaingraph/art-36-tempo-mpp-agent-mandate.html:513-518
+  'art-36-tempo-mpp-agent-mandate': {
+    merchant: { element_id: 'merchantEndpoint', via: 'string' },
+    duration: { element_id: 'sessionDuration', via: 'string' },
+    rail: { element_id: 'paymentRail', via: 'string' },
+    cadence: { element_id: 'voucherCadence', via: 'string' },
+  },
+  // getParams reads every camelCase control explicitly:
+  //   chaingraph/art-367-compute-cross-border-fees.html:307-314
+  'art-367-compute-cross-border-fees': {
+    invoice_amount: { element_id: 'invoiceAmount', via: 'string' },
+    origin_country: { element_id: 'originCountry', via: 'string' },
+    dest_country: { element_id: 'destCountry', via: 'string' },
+    fx_spread_bps: { element_id: 'fxSpreadBps', via: 'string' },
+    method_fee: { element_id: 'methodFee', via: 'string' },
+    vat_rate: { element_id: 'vatRate', via: 'string' },
+    doc_cost: { element_id: 'docCost', via: 'string' },
+    recon_cost: { element_id: 'reconCost', via: 'string' },
+  },
+  // assembler payload reads f_* selects verbatim; two booleans are
+  // "true"/"false" selects (bool(): art-411:416):
+  //   chaingraph/art-411-ai-addendum-assembler.html:418-427
+  'art-411-ai-addendum-assembler': {
+    train_on_customer_data: { element_id: 'f_train_on_customer_data', via: 'boolstring' },
+    model_improvement: { element_id: 'f_model_improvement', via: 'boolstring' },
+    training_data: { element_id: 'f_training_data', via: 'string' },
+    training_purposes: { element_id: 'f_training_purposes', via: 'string' },
+    training_restrictions: { element_id: 'f_training_restrictions', via: 'string' },
+    improvement_restrictions: { element_id: 'f_improvement_restrictions', via: 'string' },
+    retention_window: { element_id: 'f_retention_window', via: 'string' },
+    output_ownership: { element_id: 'f_output_ownership', via: 'string' },
+    subprocessor_ai: { element_id: 'f_subprocessor_ai', via: 'string' },
+    effective_date: { element_id: 'f_effective_date', via: 'string' },
+  },
+  // mapper payload reads the two f_* controls verbatim:
+  //   chaingraph/art-412-ai-act-procurement-clause-mapper.html:337-338
+  'art-412-ai-act-procurement-clause-mapper': {
+    risk_tier: { element_id: 'f_risk_tier', via: 'string' },
+    deployment_context: { element_id: 'f_deployment_context', via: 'string' },
+  },
+  // getParams reads listVersion select:
+  //   chaingraph/art-413-screen-sanctions-private.html:338
+  'art-413-screen-sanctions-private': {
+    list_version: { element_id: 'listVersion', via: 'string' },
+  },
+  // getParams reads every camelCase control explicitly; two are checkboxes:
+  //   chaingraph/art-450-model-inventory-entry.html:362-372
+  'art-450-model-inventory-entry': {
+    model_name: { element_id: 'modelName', via: 'string' },
+    model_owner: { element_id: 'modelOwner', via: 'string' },
+    business_purpose: { element_id: 'businessPurpose', via: 'string' },
+    development_date: { element_id: 'developmentDate', via: 'string' },
+    deployment_date: { element_id: 'deploymentDate', via: 'string' },
+    last_validation_date: { element_id: 'lastValidationDate', via: 'string' },
+    materiality_score: { element_id: 'materialityScore', via: 'string' },
+    complexity_score: { element_id: 'complexityScore', via: 'string' },
+    usage_scope: { element_id: 'usageScope', via: 'string' },
+    third_party_vendor: { element_id: 'thirdPartyVendor', via: 'checked' },
+    ai_ml_model: { element_id: 'aiMlModel', via: 'checked' },
+  },
+  // getParams reads every camelCase control explicitly:
+  //   chaingraph/art-458-attribute-sampling-plan.html:331-335
+  'art-458-attribute-sampling-plan': {
+    confidence_level: { element_id: 'confidenceLevel', via: 'string' },
+    population_size: { element_id: 'populationSize', via: 'string' },
+    tolerable_deviation_rate: { element_id: 'tolerableDeviationRate', via: 'string' },
+    expected_deviation_rate: { element_id: 'expectedDeviationRate', via: 'string' },
+    population_hash: { element_id: 'populationHash', via: 'string' },
+  },
+  // getParams reads every camelCase control explicitly:
+  //   chaingraph/art-460-ipe-integrity-verifier.html:331-336
+  'art-460-ipe-integrity-verifier': {
+    source_extract_hash: { element_id: 'sourceExtractHash', via: 'string' },
+    report_hash: { element_id: 'reportHash', via: 'string' },
+    source_row_count: { element_id: 'sourceRowCount', via: 'string' },
+    report_row_count: { element_id: 'reportRowCount', via: 'string' },
+    source_control_total: { element_id: 'sourceControlTotal', via: 'string' },
+    report_control_total: { element_id: 'reportControlTotal', via: 'string' },
+  },
+  // pp assembly JSON.parses the three textarea controls:
+  //   chaingraph/art-482-emir-recon-adjudicator.html:450-452
+  'art-482-emir-recon-adjudicator': {
+    tr_response: { element_id: 'trResponse', via: 'json' },
+    firm_state: { element_id: 'firmState', via: 'json' },
+    policy: { element_id: 'policyInput', via: 'json' },
+  },
+  // buildPolicyParameters reads every control explicitly; five booleans are
+  // fieldBool "true"/"false" selects (art-492:561):
+  //   chaingraph/art-492-classify-settlement-finality.html:564-587
+  'art-492-classify-settlement-finality': {
+    settlement_model: { element_id: 'settlementModel', via: 'string' },
+    as_of_ts: { element_id: 'asOfTs', via: 'string' },
+    required_tier: { element_id: 'requiredTier', via: 'string' },
+    claimed_tier: { element_id: 'claimedTier', via: 'string' },
+    chain_label: { element_id: 'chainLabel', via: 'string' },
+    assertion_created_at: { element_id: 'assertionCreatedAt', via: 'string' },
+    challenge_window_seconds: { element_id: 'challengeWindowSeconds', via: 'string' },
+    batch_posted: { element_id: 'batchPosted', via: 'boolstring' },
+    batch_committed_at: { element_id: 'batchCommittedAt', via: 'string' },
+    proof_submitted_at: { element_id: 'proofSubmittedAt', via: 'string' },
+    proof_accepted: { element_id: 'proofAccepted', via: 'boolstring' },
+    l1_finalized: { element_id: 'l1Finalized', via: 'boolstring' },
+    l1_finality_seconds: { element_id: 'l1FinalitySeconds', via: 'string' },
+    expected_proof_cadence_seconds: { element_id: 'expectedProofCadenceSeconds', via: 'string' },
+    included_in_block: { element_id: 'includedInBlock', via: 'boolstring' },
+    quorum_committed: { element_id: 'quorumCommitted', via: 'boolstring' },
+    quorum_pct_of_stake: { element_id: 'quorumPctOfStake', via: 'string' },
+  },
+  // run() JSON.parses the payloadJson textarea:
+  //   chaingraph/art-564-ucp-checkout-payload-lint.html:462
+  'art-564-ucp-checkout-payload-lint': {
+    payload: { element_id: 'payloadJson', via: 'json' },
+  },
+  // PARTIAL: `records` dropped (no faithful control — see batch header note).
+  // runFinality reads the two remaining controls directly:
+  //   chaingraph/rca-03-iso20022-address-migration-verifier.html:774-775
+  'rca-03-iso20022-address-migration-verifier': {
+    strictness: { element_id: 'strictnessSelect', via: 'string' },
+    trunc_threshold: { element_id: 'truncThreshold', via: 'string' },
+  },
 };
 
 // ── Guard helpers ─────────────────────────────────────────────────────────────
