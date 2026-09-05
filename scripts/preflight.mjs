@@ -942,6 +942,12 @@ const GATES = [
   ['Page determinism (preimage-reachable, warn-only)', 'node scripts/check-page-determinism.mjs --warn-only',
     { note: 'runs with --warn-only, which exits 0 even on a new defect — a green here reports, it does not verdict' }],
   ['Page determinism gate controls', 'node scripts/check-page-determinism.test.mjs'],
+  // TOOLPAGE-DEEPLINK-1: fragment-only prefill-and-run deep links on every
+  // registered WebMCP page — dynamic vm harness asserting fixture-0
+  // execution_hash reproduction + the fragment-only grep gate. Pre-existing
+  // fixture/manifest/page divergences are baselined WARN (downward ratchet).
+  ['Deep-link contract (fragment-only prefill+run)', 'node scripts/check-deeplink-contract.mjs'],
+  ['Deep-link contract gate controls', 'node scripts/check-deeplink-contract.test.mjs'],
   ['Kernel index current',         'node chaingraph/kernels/gen-index.mjs --check'],
   // REGISTRY-RESOLVE-STATIC-1: positive-half kernel_digest -> spec_digest resolution
   // records (registry/kernel/<hex>.json). NODE-FANOUT-REGEN-CLOSE-1 (2026-08-21)
