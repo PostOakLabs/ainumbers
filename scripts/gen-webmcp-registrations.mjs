@@ -65,6 +65,15 @@
  *
  * Modes:
  *   node scripts/gen-webmcp-registrations.mjs                 (report only)
+ *   node scripts/gen-webmcp-registrations.mjs --triage [--out <file>]
+ *       (WEBMCP-EXCLUSION-TRIAGE-1: one JSON line per page excluded with the
+ *       reason "form-element mapping incomplete" — missing props with schema
+ *       kind, heuristic name-similarity candidates, JSON-textarea presence,
+ *       parametered-function flag, and a RENAME-ONLY / AGGREGATE /
+ *       VOCAB-DIVERGENT / MIXED bucket. REPORT ONLY: the IDMAP ruling bans
+ *       heuristic BINDING, not heuristic REPORTING — a candidate emitted here
+ *       is never written into a propertyIdMap or a registration block; authored
+ *       mappings remain the only binding path.)
  *   node scripts/gen-webmcp-registrations.mjs --all --write   (regen tranche)
  *   node scripts/gen-webmcp-registrations.mjs --tool <id> --write
  *   node scripts/gen-webmcp-registrations.mjs --check         (CI/preflight)
@@ -590,7 +599,88 @@ export function deriveTargets(repoRoot) {
   return { cleared, manifestIndex, mcpNameByTool };
 }
 
-// ── Modes ─────────────────────────────────────────────────────────────────────
+// ── Triage (WEBMCP-EXCLUSION-TRIAGE-1 — report only, never a binding) ────────
+
+/** Lowercase, strip `_`/`-`, strip a leading `in`/`inp` prefix. */
+export function normaliseName(s) {
+  let n = String(s).toLowerCase().replace(/[_-]/g, '');
+  if (n.startsWith('inp')) n = n.slice(3);
+  else if (n.startsWith('in')) n = n.slice(2);
+  return n;
+}
+
+/** Schema kind for a property spec: enum | array | object | scalar. */
+export function schemaKind(spec) {
+  if (Array.isArray(spec?.enum)) return 'enum';
+  if (spec?.type === 'array') return 'array';
+  if (spec?.type === 'object') return 'object';
+  return 'scalar';
+}
+
+function elementIdsOnPage(pageSrc) {
+  const ids = [];
+  const re = /\bid=["']([^"']+)["']/g;
+  let m;
+  while ((m = re.exec(pageSrc)) !== null) ids.push(m[1]);
+  return ids;
+}
+
+/**
+ * One triage record for one "form-element mapping incomplete" page.
+ * HEURISTIC REPORTING ONLY: `candidates` are name-similarity hints for the
+ * human authoring a propertyIdMap; nothing here is ever bound automatically.
+ */
+export function triagePage(manifest, pageSrc) {
+  const def = manifest.mcp_tool_definition;
+  const ids = elementIdsOnPage(pageSrc);
+  const props = Object.entries(def.inputSchema.properties);
+  const present = new Set(props.filter(([p]) => ids.includes(p)).map(([p]) => p));
+  const missingProps = props.filter(([p]) => !present.has(p)).map(([prop, spec]) => {
+    const kind = schemaKind(spec);
+    const norm = normaliseName(prop);
+    const candidates = kind === 'array' || kind === 'object' ? [] : ids.filter((id) => {
+      const ni = normaliseName(id);
+      return ni === norm || ni.includes(norm);
+    });
+    return { prop, kind, candidates };
+  });
+  const hasJsonTextarea = /<textarea\b[^>]*\b(id|name)=["'][^"']*json[^"']*["']/i.test(pageSrc);
+  const fn = manifest.execution?.function_name || '';
+  const fnMatch = new RegExp(`function\\s+${fn}\\s*\\(([^)]*)\\)`).exec(pageSrc);
+  const fnIsParametered = !!(fnMatch && fnMatch[1].trim().length > 0);
+  const anyAggregate = missingProps.some((p) => p.kind === 'array' || p.kind === 'object');
+  const anyZero = missingProps.some((p) => (p.kind === 'scalar' || p.kind === 'enum') && p.candidates.length === 0);
+  const allSingle = missingProps.every((p) => p.candidates.length === 1);
+  const bucket = anyAggregate ? 'AGGREGATE' : anyZero ? 'VOCAB-DIVERGENT' : allSingle ? 'RENAME-ONLY' : 'MIXED';
+  return { missing_props: missingProps, has_json_textarea: hasJsonTextarea, fn_is_parametered: fnIsParametered, bucket };
+}
+
+function runTriage(outFile) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  const lines = [];
+  for (const id of cleared) {
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (d.ok || !d.reason.includes('form-element mapping incomplete')) continue;
+    const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, REPO);
+    if (loaded.error) { console.error(`TRIAGE-SKIP ${id}: ${loaded.error}`); continue; }
+    const pageSrc = readFileSync(resolve(REPO, `chaingraph/${id}.html`), 'utf8');
+    const rec = { tool_id: id, ...triagePage(loaded.m, pageSrc) };
+    lines.push(JSON.stringify(rec));
+  }
+  const counts = {};
+  for (const l of lines) { const b = JSON.parse(l).bucket; counts[b] = (counts[b] || 0) + 1; }
+  const summary = `triage: ${lines.length} mapping-incomplete page(s) — ` +
+    Object.entries(counts).sort().map(([k, v]) => `${k}=${v}`).join(' ');
+  console.log(summary);
+  if (outFile) {
+    writeFileSync(resolve(outFile), lines.join('\n') + '\n', 'utf8');
+    console.log(`wrote ${lines.length} JSON line(s) to ${outFile}`);
+  } else {
+    lines.forEach((l) => console.log(l));
+  }
+}
+
+
 
 function expectedBlock(toolId, manifestIndex, mcpNameByTool, repoRoot) {
   const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot);
@@ -881,6 +971,66 @@ function selftest() {
     check('findWrapperName: absent wrapper -> null', findWrapperName(noWrapPage, 'compute') === null);
     const refusedWrap = verifyPageMapping(ppMan, noWrapPage, 'pp fixture page');
     check('G3b refusal: parametered fn with no detectable wrapper refused', !!(refusedWrap.error && refusedWrap.error.includes('wrapper')));
+
+    // 13. Triage buckets (WEBMCP-EXCLUSION-TRIAGE-1): one fixture page per
+    // bucket asserts the verdict; RED-then-GREEN by flipping a fixture id.
+    const tManifest = {
+      tool_id: 'fx-100-selftest',
+      input_schema: {},
+      mcp_tool_definition: {
+        name: 'run_fx_100_selftest',
+        description: 'Selftest fixture tool that exercises the registration generator end to end.',
+        inputSchema: { type: 'object', required: [], properties: {
+          spot: { type: 'number' },
+          vol: { type: 'number' },
+          trades: { type: 'array' },
+          cn_code: { type: 'string' },
+          mode: { type: 'string' }
+        } }
+      },
+      execution: { entry: 'chaingraph/fx-100-selftest.html', function_name: 'run' }
+    };
+    const tPage = (ids, fnDecl) => [
+      '<html><body>',
+      ids.map((i) => `<input id="${i}">`).join(''),
+      '<textarea id="json_blob"></textarea>',
+      '<script>var _lastResult=null;' + (fnDecl || 'function run(){_lastResult=null;}') + '</script>',
+      '</body></html>'
+    ].join('\n');
+    const without = (mf, ...props) => {
+      const c = JSON.parse(JSON.stringify(mf));
+      for (const p of props) delete c.mcp_tool_definition.inputSchema.properties[p];
+      return c;
+    };
+    // RENAME-ONLY fixture: every missing scalar has exactly one renamed candidate.
+    const full = without(tManifest, 'trades'); // trades already bound? no — remove array prop to isolate rename class
+    const recRename = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode']));
+    check('triage RENAME-ONLY fixture: spot/vol each match exactly one renamed control', recRename.bucket === 'RENAME-ONLY');
+    check('triage RENAME-ONLY fixture: candidate ids are the renamed controls', JSON.stringify(recRename.missing_props.find((p) => p.prop === 'spot').candidates) === '["inSpot"]');
+    // RED-then-GREEN: flip the inSpot fixture id.
+    const recRed = triagePage(full, tPage(['unrelated', 'inVol', 'cn_code', 'mode']));
+    check('triage RED: flipping inSpot to an unrelated id leaves spot zero candidates -> VOCAB-DIVERGENT', recRed.bucket === 'VOCAB-DIVERGENT');
+    const recGreen = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode']));
+    check('triage GREEN: restored inSpot returns the bucket to RENAME-ONLY', recGreen.bucket === 'RENAME-ONLY');
+    // AGGREGATE fixture: any array/object prop present.
+    const recAgg = triagePage(tManifest, tPage(['inSpot', 'inVol', 'cn_code', 'mode']));
+    check('triage AGGREGATE fixture: array prop (trades) present -> AGGREGATE', recAgg.bucket === 'AGGREGATE');
+    check('triage AGGREGATE fixture: array prop carries no candidates (never heuristically bound)', recAgg.missing_props.find((p) => p.prop === 'trades').candidates.length === 0);
+    // VOCAB-DIVERGENT fixture: a scalar prop with zero candidates.
+    const vocab = without(tManifest, 'trades', 'spot', 'vol', 'mode');
+    const recVocab = triagePage(vocab, tPage(['good_category', 'country_of_origin']));
+    check('triage VOCAB-DIVERGENT fixture: cn_code has zero candidates', recVocab.bucket === 'VOCAB-DIVERGENT');
+    // MIXED fixture: one scalar prop with two candidates.
+    const recMixed = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode_a', 'mode_b']));
+    check('triage MIXED fixture: mode has two candidates -> MIXED', recMixed.bucket === 'MIXED');
+    // Flags.
+    check('triage: fn_is_parametered false for the argumentless run()', recGreen.fn_is_parametered === false);
+    const recParam = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode'], 'function run(pp){_lastResult=pp;}'));
+    check('triage: fn_is_parametered true when the declared function has a parameter', recParam.fn_is_parametered === true);
+    check('triage: has_json_textarea true for id containing json', recGreen.has_json_textarea === true);
+    const recNoTa = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode']).replace('<textarea id="json_blob"></textarea>', ''));
+    check('triage: has_json_textarea false without one', recNoTa.has_json_textarea === false);
+    check('triage: report-only — plain data out, nothing bound', Array.isArray(recGreen.missing_props) && recGreen.bucket === 'RENAME-ONLY');
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -894,6 +1044,9 @@ function selftest() {
 const args = process.argv.slice(2);
 if (args.includes('--self-test')) {
   selftest();
+} else if (args.includes('--triage')) {
+  const oIdx = args.indexOf('--out');
+  runTriage(oIdx !== -1 ? args[oIdx + 1] : null);
 } else if (args.includes('--check')) {
   runCheck();
 } else {
