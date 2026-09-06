@@ -5,6 +5,7 @@
  * Both normalize-node-chrome.mjs and check-node-page-chrome.mjs import from here.
  */
 import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
