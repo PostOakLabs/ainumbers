@@ -638,6 +638,13 @@ const PREFLIGHT_ONLY = new Map([
   ["gen-output-schema.mjs", VIA_PREFLIGHT],
   ["check-shared-tables.mjs", VIA_PREFLIGHT],
   ["check-fv-toolchain-digest.mjs", VIA_PREFLIGHT],
+
+  // ID-COLLISION GATE (2026-09-06): the diff-scoped gate runs in preflight, whose CI
+  // route is scripts-verify.yml's full-preflight step (same reasoning as
+  // check-output-schema-coverage above) — scripts-verify's pull_request + merge_group
+  // triggers are exactly the events that must catch an id collision, so a named
+  // duplicate step would run the same suite twice.
+  ["check-id-collision.mjs", VIA_PREFLIGHT],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
