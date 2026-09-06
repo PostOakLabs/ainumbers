@@ -616,6 +616,7 @@ status: stable
 - [Rule 605 Publication Composer](./art-682-rule-605-publication-composer.md)
 - [Consolidation with CTA and Minority Interest](./art-683-consolidation-cta-minority-interest.md)
 - [Intercompany Elimination and Netting Workflow](./art-684-intercompany-elimination-netting.md)
+- [LTC Funding Comparator](./art-686-ltc-funding-comparator.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md)
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md)
