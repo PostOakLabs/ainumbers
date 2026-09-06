@@ -26,6 +26,13 @@ try {
     process.exit(0);
   }
   if (CHECK_ONLY) {
+    // CI checkouts never carry clone-local git config, so core.hooksPath is unwired there by
+    // construction — the wiring this gate verifies cannot exist (measured: CI run 34038760287
+    // failed this gate while the same tree passed locally). Advisory there, hard only locally.
+    if (process.env.GITHUB_ACTIONS === 'true') {
+      console.log('✓ CI checkout: core.hooksPath is clone-local and not applicable here — wiring advisory skipped.');
+      process.exit(0);
+    }
     console.error('✗ --check: core.hooksPath is NOT .githooks — the pre-push gate is NOT wired.');
     console.error('   Fix: node scripts/setup-hooks.mjs   (enables it for this clone and all its worktrees)');
     process.exit(1);
