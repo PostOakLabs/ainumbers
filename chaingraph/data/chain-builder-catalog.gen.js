@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (660 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (661 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7127,6 +7127,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/688-education-funding-gap-calculator.html",
     "description": "Computes the arithmetic of a declared education funding plan: the future value of a declared current balance grown at a declared annual retu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-689-pack-dependency-map",
+    "display_name": "Pack Dependency Map",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-689-pack-dependency-map.html",
+    "description": "Maps the blast radius of a changed component across caller-declared pack-to-component usage lists: each declared pack carries the component ",
     "consumes": [],
     "feeds": [],
     "status": "live"

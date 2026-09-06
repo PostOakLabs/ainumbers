@@ -619,6 +619,7 @@ status: stable
 - [LTC Funding Comparator](./art-686-ltc-funding-comparator.md)
 - [Wash-Sale Window Guard](./art-687-wash-sale-window-guard.md)
 - [Education Funding Gap Calculator](./art-688-education-funding-gap-calculator.md)
+- [Pack Dependency Map](./art-689-pack-dependency-map.md)
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md)
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md)
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md)
