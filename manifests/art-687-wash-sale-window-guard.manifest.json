@@ -1,0 +1,144 @@
+{
+  "tool_id": "art-687-wash-sale-window-guard",
+  "version": "1.0.0",
+  "title": "Wash-Sale Window Guard",
+  "description": "Deterministic wash-sale window arithmetic over caller-declared synthetic inputs: the declared 61-day acquisition window (sale date minus 30 days through sale date plus 30 days, inclusive) is applied to a declared lot sale and a declared replacement-purchase list; the node totals the disallowed loss at 2dp half-up, flags a replacement account declared tax-deferred inside the window, and raises a basis-carryforward flag on the flagged taxable path. Arithmetic of a named rule only — never advice, never an optimizer. Zero storage, zero network, no runtime clock.",
+  "category": "compliance",
+  "tags": [
+    "wash-sale",
+    "section-1091",
+    "tax-lot",
+    "window",
+    "disallowed-loss",
+    "ira-trap",
+    "carryforward",
+    "wealthtech",
+    "zero network",
+    "zero-PII"
+  ],
+  "audience": [
+    "tax-aware investors",
+    "wealth-platform engineers",
+    "portfolio operations",
+    "compliance reviewers"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "sale": {
+        "type": "object",
+        "description": "The declared lot sale.",
+        "properties": {
+          "lot_id": {
+            "type": "string",
+            "description": "Declared lot identifier, non-empty."
+          },
+          "sale_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Declared sale date, ISO yyyy-mm-dd; an undated lot fails closed."
+          },
+          "realized_loss": {
+            "type": "number",
+            "description": "Declared realized loss on the lot; finite, non-negative."
+          }
+        },
+        "required": ["lot_id", "sale_date", "realized_loss"]
+      },
+      "replacement_purchases": {
+        "type": "array",
+        "description": "Declared replacement purchases; may be empty. Each entry carries a date and an account_type; an undated entry fails closed.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "format": "date",
+              "description": "Declared purchase date, ISO yyyy-mm-dd."
+            },
+            "account_type": {
+              "type": "string",
+              "enum": ["taxable", "tax_deferred"],
+              "description": "Declared account type of the replacement purchase."
+            }
+          },
+          "required": ["date", "account_type"]
+        }
+      }
+    },
+    "required": ["sale", "replacement_purchases"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "window_start": {
+        "type": "string",
+        "description": "Sale date minus 30 days, ISO yyyy-mm-dd; window endpoint is inclusive."
+      },
+      "window_end": {
+        "type": "string",
+        "description": "Sale date plus 30 days, ISO yyyy-mm-dd; window endpoint is inclusive."
+      },
+      "replacements_in_window": {
+        "type": "integer",
+        "description": "Count of declared replacement purchases with dates inside the inclusive 61-day window."
+      },
+      "disallowed_loss": {
+        "type": "number",
+        "description": "The declared realized loss rounded 2dp half-up when the window is non-empty, otherwise 0."
+      },
+      "ira_trap": {
+        "type": "boolean",
+        "description": "True when an in-window replacement purchase is declared in a tax-deferred account."
+      },
+      "trace": {
+        "type": "string",
+        "description": "Human-readable restatement of the declared arithmetic."
+      },
+      "overall": {
+        "type": "string",
+        "enum": ["WASH_SALE_FLAGGED", "WASH_SALE_CLEAR"],
+        "description": "Sign-of-arithmetic verdict over the declared window arithmetic only."
+      },
+      "warnings": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Conditional warning flags mirrored into the payload; present only when one fired (WSG_IRA_TRAP)."
+      }
+    },
+    "required": [
+      "window_start",
+      "window_end",
+      "replacements_in_window",
+      "disallowed_loss",
+      "ira_trap",
+      "trace",
+      "overall"
+    ]
+  },
+  "mcp_tool_definition": {
+    "name": "compute_wash_sale_window_guard",
+    "description": "Applies the declared 61-day wash-sale window (sale date plus or minus 30 days, inclusive) to a declared lot sale and a declared replacement-purchase list: totals the disallowed loss, flags a replacement account declared tax-deferred, and raises a basis-carryforward flag on the flagged taxable path; arithmetic of a named rule only, never advice.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "sale": {
+          "type": "object",
+          "description": "declared lot sale with lot_id, sale_date, realized_loss"
+        },
+        "replacement_purchases": {
+          "type": "array",
+          "description": "declared replacement purchases, each with date and account_type"
+        }
+      },
+      "required": ["sale", "replacement_purchases"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-687-wash-sale-window-guard.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}
