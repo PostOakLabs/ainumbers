@@ -1081,6 +1081,14 @@ const GATES = [
   ['Deadline-wall freshness (SI-DEADLINE-FRESH-1)', 'node scripts/check-deadline-freshness.mjs'],
   ['Bank-fact freshness (REVERIFY-BANK-1)', 'node scripts/check-bank-fact-freshness.mjs'],
   ['Tool-number uniqueness',       'node scripts/check-tool-number-unique.mjs'],
+  // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
+  // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate
+  // scopes NEW node/manifest/tool ids in the PR diff against (a) origin/main,
+  // (b) chaingraph/graph/RESERVATIONS.json (the lock — same-line JSON conflicts in the
+  // merge queue are the mechanical backstop), (c) other open PRs (gh, token-free;
+  // skipped on merge_group — serial queue — and NAMED when unavailable, never silent).
+  ['ID-collision gate (PR-ID-COLLISION-GATE-1)', 'node scripts/check-id-collision.mjs'],
+  ['ID-collision gate controls (RED/GREEN fixtures, SO #34c pairing)', 'node scripts/check-id-collision.mjs --self-test'],
   ['Tool-node pairing registry',   'node scripts/check-tool-node-pairings.mjs'],
   ['Topic cross-link registry (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/check-topic-links.mjs'],
   ['Topic cross-link block freshness (TOOLS-GRAPH-BRIDGE-1)', 'node scripts/apply-topic-links.mjs --check'],
