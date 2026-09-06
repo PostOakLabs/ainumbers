@@ -5,7 +5,6 @@
  * Both normalize-node-chrome.mjs and check-node-page-chrome.mjs import from here.
  */
 import { readFileSync } from 'node:fs';
-import { gzipSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -825,16 +824,66 @@ export function askAgentImperative(description) {
   return mapped ? mapped + rest : sentence;
 }
 
+/* CRC32 (IEEE 802.3, reflected) for the deterministic gzip container below. */
+const ASK_AGENT_CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function askAgentCrc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = ASK_AGENT_CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/**
+ * DETERMINISTIC gzip container (DEFLATE *stored* blocks, fixed header):
+ *   header 1f 8b 08 00 00000000(mtime=0) 00(XFL) ff(OS=unknown), then stored
+ *   BTYPE=00 blocks of <=65535 raw bytes, then CRC32 + ISIZE trailer.
+ * WHY NOT zlib.gzipSync: zlib's compressed output varies across zlib
+ * builds/versions (measured 2026-09-06: local vs CI blocks disagree), which
+ * redded the byte-exact freshness gate in CI. Stored blocks are fully
+ * specified by RFC 1951/1952 and byte-identical in every environment; valid
+ * gzip everywhere (DecompressionStream/gunzipSync decode it unchanged).
+ * Measured sample budget: largest live-node fixture 0 policy_parameters is
+ * 14,024 JSON bytes -> ~14 KB stored, well under the 30 KB fragment cap.
+ */
+export function askAgentDeterministicGzip(buf) {
+  const head = Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff]);
+  const parts = [];
+  let off = 0;
+  do {
+    const chunk = buf.subarray(off, off + 65535);
+    off += chunk.length;
+    const last = off >= buf.length;
+    parts.push(Buffer.from([last ? 0x01 : 0x00]));
+    const len = Buffer.alloc(4);
+    len.writeUInt16LE(chunk.length, 0);
+    len.writeUInt16LE(~chunk.length & 0xFFFF, 2);
+    parts.push(len, chunk);
+  } while (off < buf.length);
+  const trailer = Buffer.alloc(8);
+  trailer.writeUInt32LE(askAgentCrc32(buf), 0);
+  trailer.writeUInt32LE(buf.length >>> 0, 4);
+  return Buffer.concat([head, ...parts, trailer]);
+}
+
 /**
  * The section 3.1 deep-link fragment for a policy_parameters object, matching
  * the in-page reader byte-for-byte: `#p=v1.<base64url(gzip(JSON))>` — the same
  * shape buildDeeplinkScript's reader decodes (b64uDec + DecompressionStream
- * gunzip). Node-side twin of the ledger codec; gzipSync with default options is
- * deterministic, so two renders are byte-equal. Pure.
+ * gunzip). Node-side twin of the ledger codec, compressed with
+ * askAgentDeterministicGzip (stored blocks) so two renders are byte-equal in
+ * EVERY environment, not just one zlib build. Pure.
  */
 export function encodeAskAgentFragment(params) {
   const json = JSON.stringify(params);
-  const gz = gzipSync(Buffer.from(json, 'utf8'));
+  const gz = askAgentDeterministicGzip(Buffer.from(json, 'utf8'));
   return '#p=v1.' + gz.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
