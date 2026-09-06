@@ -174,6 +174,22 @@ assertRepoFresh(REPO, REPO_VIA, REPO_STRICT);
 // and in a plain terminal run, and only differ where they were previously WRONG — under a hook.
 const env = gitEnv({ PYTHONIOENCODING: 'utf-8' }); // Windows: python gates print ✓/✗
 
+// MERGEGROUP-HARD-GATES-1: on a merge_group run the workflow exports
+// DERIVED_ROOT (the ephemeral assembled tree). Preflight strips it from its own
+// process and from the shared child `env` so the SUITE-WIDE isMainContext()
+// stays PR-advisory — most advisory gates read in-tree artifacts that the
+// scratch tree does NOT cover. The captured value is re-injected, per
+// subprocess, ONLY for the DERIVED_ROOT_GATES commands (which know how to
+// overlay-read the scratch tree), and those gates are classified HARD below
+// via gateBlocks().
+const MERGE_GROUP_DERIVED_ROOT =
+  process.env.GITHUB_EVENT_NAME === 'merge_group' && process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+    ? process.env.DERIVED_ROOT.trim() : '';
+if (MERGE_GROUP_DERIVED_ROOT) {
+  delete process.env.DERIVED_ROOT;
+  if (env.DERIVED_ROOT) delete env.DERIVED_ROOT;
+}
+
 // --changed <ref>: incremental mode for local/pre-push runs only (PREFLIGHT-BUDGET-1 §1).
 // Scopes verify_repo.py to files touched vs <ref>. CI never passes this — the
 // land-verify.yml / deploy-to-dreamhost.yml workflows call the gates directly with a
@@ -336,7 +352,7 @@ function classifyExecFailure(e) {
  */
 function runAdvisoryChecker(cmd) {
   try {
-    return { state: 'RAN', out: execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] }).toString(), reason: '' };
+    return { state: 'RAN', out: execSync(cmd, { cwd: REPO, env: gateEnvFor(cmd), stdio: ['ignore', 'pipe', 'pipe'] }).toString(), reason: '' };
   } catch (e) {
     const c = classifyExecFailure(e);
     const out = (e?.stdout?.toString() || '') + (e?.stderr?.toString() || '');
@@ -750,7 +766,7 @@ const TOUCHED_KERNEL_IDS = touchedKernelIdsFromJsdocSet(TOUCHED_KERNEL_FILES_JSD
 //
 // isMainContext() FAILS CLOSED — anything undeterminable blocks. The downgrade
 // has to be affirmatively earned, never inherited from a failed lookup.
-const { advisoryGates, isMainContext, COVERED } = await import('./derived-artifacts.mjs');
+const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await import('./derived-artifacts.mjs');
 
 // DERIVED-SET-SELFTEST-1: which files this push touches, for the live regen
 // self-test's scoping below. It ACTUALLY EXECUTES every declared regen command
@@ -794,6 +810,24 @@ function derivedRegenLiveScopeTouched() {
 const DERIVED_REGEN_LIVE_SCOPE_TOUCHED = derivedRegenLiveScopeTouched();
 const MAIN_CONTEXT = isMainContext();
 const ADVISORY_ON_PR = advisoryGates();
+
+// MERGEGROUP-HARD-GATES-1: per-gate HARD classification. An advisory gate is
+// blocking iff it is a main context (unchanged), OR we are on merge_group with
+// the ephemeral derived tree mounted AND this exact command is one of the
+// DERIVED_ROOT_GATES that overlay-reads that tree. Every other advisory gate
+// keeps its PR-advisory downgrade even on merge_group — its inputs are still
+// the stale in-tree artifacts, so HARD there would be a false red.
+function gateBlocks(cmd) {
+  return MAIN_CONTEXT || (Boolean(MERGE_GROUP_DERIVED_ROOT) && DERIVED_ROOT_GATES.has(cmd));
+}
+// Child env for a gate subprocess: re-inject the ephemeral tree ONLY for the
+// gates that read it (they were stripped above so nothing else inherits it).
+function gateEnvFor(cmd) {
+  if (MERGE_GROUP_DERIVED_ROOT && DERIVED_ROOT_GATES.has(cmd)) {
+    return { ...env, DERIVED_ROOT: MERGE_GROUP_DERIVED_ROOT };
+  }
+  return env;
+}
 
 // MERGEQUEUE-GATE-PARITY-1: a CI run in a MAIN context (push to main, schedule)
 // runs the suite to COMPLETION, not fail-fast.
@@ -1841,7 +1875,7 @@ if (!KEEP_GOING) {
     gateStart(label);
     const t0 = Date.now();
     try {
-      execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      execSync(cmd, { cwd: REPO, env: gateEnvFor(cmd), stdio: ['ignore', 'pipe', 'pipe'] });
       const ms = Date.now() - t0;
       timings.push([label, ms]);
       gatePass(`✓ (${ms}ms)`);
@@ -1850,7 +1884,7 @@ if (!KEEP_GOING) {
       const ms = Date.now() - t0;
       timings.push([label, ms]);
       const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
-      if (!MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) {
+      if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
         const c = classifyExecFailure(e);
         if (c.ran) {
           gateFail(`⚠ (${ms}ms) ADVISORY`);
@@ -1865,7 +1899,7 @@ if (!KEEP_GOING) {
         }
         continue;
       }
-      if (MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+      if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
       gateFail(`✗ (${ms}ms)`);
       console.log('\n' + out.trim() + '\n');
       results.push({ label, state: 'FAIL', ms, note: meta?.note });
@@ -1914,7 +1948,7 @@ if (!KEEP_GOING) {
     const [label, cmd, meta] = GATES[i];
     const t0 = Date.now();
     const { err, stdout, stderr } = await new Promise((res) => {
-      exec(cmd, { cwd: REPO, env }, (err, stdout, stderr) => res({ err, stdout, stderr }));
+      exec(cmd, { cwd: REPO, env: gateEnvFor(cmd) }, (err, stdout, stderr) => res({ err, stdout, stderr }));
     });
     const ms = Date.now() - t0;
     timings.push([label, ms]);
@@ -1935,7 +1969,7 @@ if (!KEEP_GOING) {
     err.stdout = stdout;
     err.stderr = stderr;
     const out = (stdout?.toString() || '') + (stderr?.toString() || '');
-    if (!MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) {
+    if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
       const c = classifyExecFailure(err);
       if (c.ran) {
         advisoryFailures.push([label, cmd]);
@@ -1950,7 +1984,7 @@ if (!KEEP_GOING) {
       }
       return;
     }
-    if (MAIN_CONTEXT && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+    if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
     const declared = expectedRedFor(label);
     if (failed === null) failed = label; // truthiness only under --keep-going; see PROBE_LABEL below
     slots[i] = {

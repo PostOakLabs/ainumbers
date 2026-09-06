@@ -75,12 +75,18 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isMainContext } from './derived-artifacts.mjs';
+import { isMainContext, derivedResolve } from './derived-artifacts.mjs';
 import { loadRatchetBaselineOrExit, readBaselineForUpdate, assertFiniteCeiling } from './ratchet-baseline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
-const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
+// MERGEGROUP-HARD-GATES-1: on merge_group the job assembles the monolith
+// ephemerally into $DERIVED_ROOT (never in-tree), so THIS gate — the §18
+// deferred ratchet — reads THAT monolith and is HARD there (isMainContext's
+// third state). Everywhere else DERIVED_ROOT is unset and this resolves to the
+// committed chaingraph.json exactly as before. The shards, fixtures and the
+// baseline stay repo-rooted: they are authored, not derived.
+const CG_PATH = derivedResolve('chaingraph', 'chaingraph.json');
 const FIXTURES_DIR = resolve(REPO, 'chaingraph', 'kernels', 'fixtures');
 const BASELINE_PATH = resolve(HERE, 'compute-proof-baseline.json');
 

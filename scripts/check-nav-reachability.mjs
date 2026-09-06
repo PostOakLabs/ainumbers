@@ -107,6 +107,12 @@ import { runSubGate, SUBGATE_VERDICT } from './lib-subgate-contract.mjs';
 
 const ROOT = process.env.NAV_ROOT ? resolve(process.env.NAV_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// MERGEGROUP-HARD-GATES-1: on merge_group DERIVED_ROOT points at the ephemeral
+// assembled tree; the monolith read below (the gate's only DYNAMIC root) prefers
+// the scratch copy, so this gate sees the true speculative graph and stays HARD
+// there. Everywhere else DERIVED_ROOT is unset — unchanged behaviour.
+const DERIVED_ROOT = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+  ? resolve(process.env.DERIVED_ROOT.trim()) : null;
 const BASELINE = process.env.NAV_BASELINE ? resolve(process.env.NAV_BASELINE)
   : join(ROOT, 'scripts', 'nav-island-baseline.json');
 const MODE = (process.argv.includes('--init') || process.argv.includes('--update')) ? 'update'
@@ -138,7 +144,13 @@ function collect(dir, out = []) {
   return out;
 }
 function rel(abs) { return relative(ROOT, abs).split(/[\\/]/).join('/'); }
-function read(relPath) { try { return readFileSync(join(ROOT, relPath), 'utf-8'); } catch { return ''; } }
+function read(relPath) {
+  if (DERIVED_ROOT) {
+    const scratch = join(DERIVED_ROOT, relPath);
+    if (existsSync(scratch)) { try { return readFileSync(scratch, 'utf-8'); } catch { /* fall through */ } }
+  }
+  try { return readFileSync(join(ROOT, relPath), 'utf-8'); } catch { return ''; }
+}
 function stripCode(html) {
   return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
              .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
@@ -327,7 +339,26 @@ if (candidateNodePages.length > 0) {
   }
 }
 
-const islands = preIslands.filter(p => !excused.has(p)).sort();
+// MERGEGROUP-HARD-GATES-1 (the a62d8601 incident) — REACHABLE-PENDING-REGEN on
+// pull_request. When main-side regen fails, every later PR inherits the new
+// island through the stale committed monolith and the fix PR is blocked by the
+// very gate it is fixing (#1772 needed a baseline accept to land). So on a
+// pull_request, a candidate island page chaingraph/<id>.html whose shard EXISTS
+// on disk (i.e. in this diff or on main) is treated as reachable-pending-regen:
+// surfaced, advisory, never a failure, never added to the baseline. The
+// #1309 guard survives: a page with NO shard is still a real island. On
+// merge_group with DERIVED_ROOT the assembled monolith is fresh, so a
+// genuinely unlinked page still fails — HARD — there.
+const pendingRegen = new Set();
+if (MODE === 'check' && process.env.GITHUB_EVENT_NAME === 'pull_request') {
+  for (const { p } of candidateNodePages) if (!excused.has(p)) pendingRegen.add(p);
+  if (pendingRegen.size) {
+    console.log(`nav-reachability: ${pendingRegen.size} page(s) treated as REACHABLE-PENDING-REGEN on pull_request (shard on disk; main-side regen owns the monolith) -- advisory, not an island, not added to the baseline (MERGEGROUP-HARD-GATES-1):`);
+    for (const p of [...pendingRegen].sort()) console.log(`  ${p}`);
+  }
+}
+
+const islands = preIslands.filter(p => !excused.has(p) && !pendingRegen.has(p)).sort();
 
 if (MODE === 'update') {
   writeFileSync(BASELINE, JSON.stringify(islands, null, 2) + '\n');
