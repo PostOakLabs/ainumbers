@@ -1,17 +1,17 @@
-// art-687-education-funding-gap-calculator — class-K property-test FLOOR.
+// art-688-education-funding-gap-calculator — class-K property-test FLOOR.
 // Authored by EDUCATION-FUNDING-BUILD-1 per EDUCATION-FUNDING-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:f25682cd8ea4510db6554e3eb3eaca190ad3452ea71e0190c0d7787c62e27365
+// kernel_digest_at_authoring: sha256:fc261c3ad8218c3aa80c320728eb8f30767cd816fe91519ce9b0283d28fb6415
 // spec: EDUCATION-FUNDING-BUILD-SPEC.md (workspace root)
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-687-education-funding-gap-calculator.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-688-education-funding-gap-calculator.proptest.mjs
 
-import { compute } from '../art-687-education-funding-gap-calculator.kernel.mjs';
+import { compute } from '../art-688-education-funding-gap-calculator.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-687-education-funding-gap-calculator';
+const KERNEL_ID = 'art-688-education-funding-gap-calculator';
 
 // ---------- deterministic PRNG (xorshift32) ----------
 let seed = 0x685e0a1f;

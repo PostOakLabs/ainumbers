@@ -1,5 +1,5 @@
 /**
- * art-687-education-funding-gap-calculator.kernel.mjs
+ * art-688-education-funding-gap-calculator.kernel.mjs
  *
  * EDUCATION-FUNDING-BUILD-1 (EDUCATION-FUNDING-BUILD-SPEC.md) -- deterministic
  * education-funding arithmetic over caller-declared synthetic inputs. A GAP
@@ -53,7 +53,7 @@
  */
 import { executionHash } from './_hash.mjs';
 
-const TOOL_ID = 'art-687-education-funding-gap-calculator';
+const TOOL_ID = 'art-688-education-funding-gap-calculator';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
