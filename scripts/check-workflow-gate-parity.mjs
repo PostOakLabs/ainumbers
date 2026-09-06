@@ -339,6 +339,15 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── PREFLIGHT-QUICK-1 (2026-09-06) ─────────────────────────────────────────
+  ["setup-hooks.mjs",
+    "Pre-push hook wiring verifier (the `--check` leg): asserts core.hooksPath = .githooks so " +
+    "the local pre-shift gate is actually enabled on THIS clone. It is preflight-only BY " +
+    "SUBJECT MATTER — it checks a property of the local machine's clone config that no remote " +
+    "workflow can observe (CI always runs with hooksPath unset by construction), so wiring it " +
+    "into a blocking workflow would assert nothing. The thing CI DOES backstop — that the " +
+    "hook file exists and invokes preflight — is covered by pre-push.test.mjs and the " +
+    "scripts-verify.yml full-preflight run."],
   // ── COMPOSER-PLAN-AND-ROOT-WEBMCP-1 (2026-09-05) ───────────────────────────
   ["check-chain-plan-parity.mjs",
     "Chain plan parity (parity gate A): recomputes every chain's section 4 plan hash from " +
