@@ -1495,6 +1495,12 @@ const GATES = [
   // label only when a gate actually exercises signature verification.
   ['art-424 checkpoint root/origin tamper (signature legs NOT exercised) (AV-REJECT-FIX-1)', 'node scripts/witness-checkpoint-424-tamper.test.mjs'],
   ['Generator coverage (meta-gate)', 'node scripts/check-generator-coverage.mjs'],
+  // PREFLIGHT-QUICK-1: setup-hooks.mjs grew a `--check` wiring verifier, and the
+  // generator-coverage meta-gate above demands every --check-capable script be
+  // called from preflight — so the hook wiring itself is now a gate. Verifies
+  // core.hooksPath = .githooks (the pre-push gate is actually enabled on this
+  // clone) without writing anything.
+  ['Pre-push hook wiring (setup-hooks --check, PREFLIGHT-QUICK-1)', 'node scripts/setup-hooks.mjs --check'],
   // GATE-SELFTEST-META-1 (0xAlpha 2026-08-21 audit, Tier B Rec 1 / SO #40b): natural
   // home alongside the generator-coverage meta-gate above — same shape, different
   // question ("does every NEW blocking check-X.mjs gate carry a paired red-proof
