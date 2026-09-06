@@ -366,6 +366,13 @@ const PREFLIGHT_ONLY = new Map([
     "workflow step would only duplicate the same suite). Reads only tracked repo files — no CI-only " +
     "input; the full-corpus pairing run costs ~2 min, the same CI-minutes trade as the other " +
     "VIA_PREFLIGHT verify-path gates."],
+  // ── TOOLPAGE-ASK-AGENT-1 (2026-09-05) ────────────────────────────────────
+  ["check-ask-agent-block.mjs",
+    "Ask-your-agent copyable block on every live node page, emitted from the node's " +
+    "manifest (AGENT-REACH-BUILD-SPEC 3.6): freshness + exactly-one + tool-name==mcp_name " +
+    "+ deep-link-decodes-to-sample. Hard in preflight; its CI route is scripts-verify.yml's " +
+    "full preflight, so a named workflow step would only duplicate the same suite. Reads only " +
+    "tracked repo files — no CI-only input."],
 
   // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
   ["check-deeplink-contract.mjs",

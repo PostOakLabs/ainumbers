@@ -744,3 +744,192 @@ export function buildFileImportScript(prefillTable, runTarget) {
   else wire();
 })();`;
 }
+
+/* ==========================================================================
+ * OCG-ASK-AGENT v1 — the "Ask your agent" copyable block on node pages.
+ * Contract: AGENT-REACH-BUILD-SPEC.md section 3.6 (row TOOLPAGE-ASK-AGENT-1).
+ * Emitted from the node's manifest by scripts/check-ask-agent-block.mjs
+ * (generator + freshness gate, SO #35 shape); the bytes below are the single
+ * source of truth. Pure: same inputs, same bytes (two renders are byte-equal).
+ * ========================================================================== */
+
+/** End marker of the emitted ask-agent region — the gate detects the region by
+ *  BEGIN(manifest-pathed) + this END pair. */
+export const ASK_AGENT_END = '<!-- ASK-AGENT:END -->';
+
+/** Begin marker line for one node page (manifest-pathed for provenance). */
+export function askAgentBeginLine(manifestPath) {
+  return `<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=${manifestPath} -->`;
+}
+
+/**
+ * The FIXED verb table — the whole description transform, no LLM (row fence).
+ * First word of the manifest description's first sentence, third-person
+ * singular to imperative. A first word not in this table keeps the sentence
+ * verbatim (measured 2026-09-05 over all 579 live-node manifests: the table
+ * covers every verb-led description; noun-led ones like "Basel III…", "TRID…"
+ * pass through unchanged by design).
+ */
+export const ASK_AGENT_VERB_TABLE = {
+  'Validates': 'Validate', 'Validates,': 'Validate,',
+  'Recomputes': 'Recompute', 'Recomputes,': 'Recompute,',
+  'Computes': 'Compute', 'Checks': 'Check', 'Classifies': 'Classify',
+  'Scores': 'Score', 'Verifies': 'Verify', 'Maps': 'Map', 'Lints': 'Lint',
+  'Assembles': 'Assemble', 'Models': 'Model', 'Builds': 'Build',
+  'Evaluates': 'Evaluate', 'Runs': 'Run', 'Compares': 'Compare',
+  'Composes': 'Compose', 'Reconciles': 'Reconcile', 'Tests': 'Test',
+  'Rolls': 'Roll', 'Binds': 'Bind', 'Generates': 'Generate',
+  'Publishes': 'Publish', 'Assesses': 'Assess', 'Parses': 'Parse',
+  'Estimates': 'Estimate', 'Aggregates': 'Aggregate',
+  'Calculates': 'Calculate', 'Turns': 'Turn', 'Attests': 'Attest',
+  'Simulates': 'Simulate', 'Decodes': 'Decode', 'Resolves': 'Resolve',
+  'Converts': 'Convert', 'Applies': 'Apply', 'Routes': 'Route',
+  'Screens': 'Screen', 'Determines': 'Determine', 'Gives': 'Give',
+  'Packages': 'Package', 'Cross-validates': 'Cross-validate',
+  'Pre-checks': 'Pre-check', 'Machine-checks': 'Machine-check',
+  'Cross-checks': 'Cross-check', 'Batch-verifies': 'Batch-verify',
+  'Stress-tests': 'Stress-test', 'Identifies': 'Identify',
+  'Analyzes': 'Analyze', 'Itemizes': 'Itemize', 'Allocates': 'Allocate',
+  'Benchmarks': 'Benchmark', 'Decomposes': 'Decompose',
+  'Compiles': 'Compile', 'Extends': 'Extend', 'Layers': 'Layer',
+  'Solves': 'Solve', 'Tracks': 'Track', 'Constructs': 'Construct',
+  'Translates': 'Translate', 'Diffs': 'Diff', 'Registers': 'Register',
+  'Closes': 'Close', 'Values': 'Value', 'Derives': 'Derive',
+  'Sweeps': 'Sweep', 'Recovers': 'Recover', 'Correlates': 'Correlate',
+  'Reports': 'Report', 'Confirms': 'Confirm', 'Detects': 'Detect',
+  'Transforms': 'Transform', 'Prices': 'Price', 'Selects': 'Select',
+  'Sequences': 'Sequence', 'Walks': 'Walk', 'Renders': 'Render',
+  'Re-derives': 'Re-derive', 'Ties': 'Tie', 'Hashes': 'Hash',
+  'Joins': 'Join', 'Starts': 'Start', 'Counts': 'Count',
+  'Answers': 'Answer', 'Decides': 'Decide', 'Takes': 'Take',
+  'Sizes': 'Size', 'Rates': 'Rate', 'Shows': 'Show', 'Records': 'Record',
+  'Flags': 'Flag', 'Measures': 'Measure', 'Audits': 'Audit',
+};
+
+/**
+ * First sentence of a description + fixed verb-fronting. Deterministic:
+ * sentence split on the first ". " (or the terminal "."), first word mapped
+ * through ASK_AGENT_VERB_TABLE, unknown first word keeps the sentence
+ * verbatim. Pure.
+ */
+export function askAgentImperative(description) {
+  const d = String(description || '').trim();
+  if (!d) return '';
+  const cut = d.indexOf('. ');
+  const sentence = cut === -1 ? d : d.slice(0, cut + 1);
+  const sp = sentence.indexOf(' ');
+  const first = sp === -1 ? sentence : sentence.slice(0, sp);
+  const rest = sp === -1 ? '' : sentence.slice(sp);
+  const mapped = ASK_AGENT_VERB_TABLE[first];
+  return mapped ? mapped + rest : sentence;
+}
+
+/* CRC32 (IEEE 802.3, reflected) for the deterministic gzip container below. */
+const ASK_AGENT_CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function askAgentCrc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = ASK_AGENT_CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/**
+ * DETERMINISTIC gzip container (DEFLATE *stored* blocks, fixed header):
+ *   header 1f 8b 08 00 00000000(mtime=0) 00(XFL) ff(OS=unknown), then stored
+ *   BTYPE=00 blocks of <=65535 raw bytes, then CRC32 + ISIZE trailer.
+ * WHY NOT zlib.gzipSync: zlib's compressed output varies across zlib
+ * builds/versions (measured 2026-09-06: local vs CI blocks disagree), which
+ * redded the byte-exact freshness gate in CI. Stored blocks are fully
+ * specified by RFC 1951/1952 and byte-identical in every environment; valid
+ * gzip everywhere (DecompressionStream/gunzipSync decode it unchanged).
+ * Measured sample budget: largest live-node fixture 0 policy_parameters is
+ * 14,024 JSON bytes -> ~14 KB stored, well under the 30 KB fragment cap.
+ */
+export function askAgentDeterministicGzip(buf) {
+  const head = Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff]);
+  const parts = [];
+  let off = 0;
+  do {
+    const chunk = buf.subarray(off, off + 65535);
+    off += chunk.length;
+    const last = off >= buf.length;
+    parts.push(Buffer.from([last ? 0x01 : 0x00]));
+    const len = Buffer.alloc(4);
+    len.writeUInt16LE(chunk.length, 0);
+    len.writeUInt16LE(~chunk.length & 0xFFFF, 2);
+    parts.push(len, chunk);
+  } while (off < buf.length);
+  const trailer = Buffer.alloc(8);
+  trailer.writeUInt32LE(askAgentCrc32(buf), 0);
+  trailer.writeUInt32LE(buf.length >>> 0, 4);
+  return Buffer.concat([head, ...parts, trailer]);
+}
+
+/**
+ * The section 3.1 deep-link fragment for a policy_parameters object, matching
+ * the in-page reader byte-for-byte: `#p=v1.<base64url(gzip(JSON))>` — the same
+ * shape buildDeeplinkScript's reader decodes (b64uDec + DecompressionStream
+ * gunzip). Node-side twin of the ledger codec, compressed with
+ * askAgentDeterministicGzip (stored blocks) so two renders are byte-equal in
+ * EVERY environment, not just one zlib build. Pure.
+ */
+export function encodeAskAgentFragment(params) {
+  const json = JSON.stringify(params);
+  const gz = askAgentDeterministicGzip(Buffer.from(json, 'utf8'));
+  return '#p=v1.' + gz.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Estate URLs from the agent kit (AIN-AGENT-KIT-1 #1740) — never hardcoded here. */
+const ASK_AGENT_KIT = JSON.parse(readFileSync(join(__dir, '..', 'agent-kit', 'kit.json'), 'utf-8'));
+export const ASK_AGENT_MCP_URL = ASK_AGENT_KIT.estate.mcp_url;
+export const ASK_AGENT_LEDGER_URL = ASK_AGENT_KIT.estate.ledger_url;
+
+/** The PII banner sentence — verbatim from buildDeeplinkScript's PII_BANNER. */
+export const ASK_AGENT_PII_SENTENCE = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
+
+/**
+ * Build the ask-your-agent block for one node page. PURE: same inputs, same
+ * bytes. Inputs are the already-adjudicated per-page facts the gate derives
+ * from the manifest + chaingraph.json; this function computes the rest
+ * (imperative sentence, deep link, verify sentence) and renders the bytes.
+ *   manifestPath  repo-relative manifest path (provenance in the BEGIN marker)
+ *   toolName      mcp_tool_definition.name (equals the node's mcp_name — gated)
+ *   description   mcp_tool_definition.description (sentence + verb table applied here)
+ *   sample        policy_parameters object (manifest example, else fixture 0)
+ *   pageUrl       the node's canonical url from chaingraph.json (deep-link base)
+ *   webmcpRegistered  true when the page carries a generated WebMCP registration
+ */
+export function buildAskAgentBlock({ manifestPath, toolName, description, sample, pageUrl, webmcpRegistered }) {
+  const task = askAgentImperative(description);
+  const deepLink = pageUrl.split('#')[0] + encodeAskAgentFragment(sample);
+  const verify = webmcpRegistered
+    ? `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the returned execution_hash, or re-run the in-page WebMCP tool \`${toolName}\`.`
+    : `Verify before trusting: call \`verify_execution_hash\` on mcp.ainumbers.co (${ASK_AGENT_MCP_URL}) with the returned execution_hash.`;
+  const copyText = [
+    `Run the AINumbers MCP tool \`${toolName}\`. Task: ${task}`,
+    `Synthetic sample input (policy_parameters): ${JSON.stringify(sample)}`,
+    verify,
+    `Return the ledger link ${ASK_AGENT_LEDGER_URL} so a human can re-verify without contacting us.`,
+    `PII rule: ${ASK_AGENT_PII_SENTENCE}`,
+    `Open the tool with the sample prefilled: ${deepLink}`,
+  ].join('\n');
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `${askAgentBeginLine(manifestPath)}
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">${esc(copyText)}</pre>
+</section>
+${ASK_AGENT_END}`;
+}
