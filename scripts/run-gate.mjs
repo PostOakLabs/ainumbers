@@ -54,9 +54,42 @@
  *           drift is NOT repairable by the main-side regen.
  */
 import { execSync } from 'node:child_process';
-import { advisoryGates, isMainContext, REPO } from './derived-artifacts.mjs';
+import { advisoryGates, isMainContext, DERIVED_ROOT_GATES, REPO } from './derived-artifacts.mjs';
 
-const cmd = process.argv.slice(2).join(' ');
+// ── --self-test (MERGEGROUP-HARD-GATES-1) ─────────────────────────────────────
+// Proves, from OUTSIDE the module, the context matrix this wrapper's exit-code
+// handling is built on — including the merge_group third state. Pure and fast:
+// no gate is executed, no tree is touched.
+function runGateSelfTest() {
+  let passed = 0, failed = 0;
+  const test = (name, fn) => {
+    try { fn(); console.log('  ✓ ' + name); passed++; }
+    catch (e) { console.error('  ✗ ' + name + ' — ' + (e?.message || e)); failed++; }
+  };
+  const assert = (c, m) => { if (!c) throw new Error(m || 'assertion failed'); };
+  function withEnv(overrides, fn) {
+    const keys = ['GITHUB_ACTIONS', 'GITHUB_EVENT_NAME', 'DERIVED_ROOT'];
+    const saved = {};
+    for (const k of keys) { saved[k] = process.env[k]; if (overrides[k] === undefined) delete process.env[k]; else process.env[k] = overrides[k]; }
+    try { return fn(); } finally { for (const k of keys) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } }
+  }
+  const ctx = (o) => withEnv(o, () => isMainContext());
+  test('pull_request is PR-advisory', () => assert(ctx({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }) === false));
+  test('merge_group WITHOUT DERIVED_ROOT is PR-advisory', () => assert(ctx({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group' }) === false));
+  test('merge_group + DERIVED_ROOT is HARD (the third state)', () => assert(ctx({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: '/scratch/derived' }) === true));
+  test('merge_group + empty DERIVED_ROOT is PR-advisory (fails closed)', () => assert(ctx({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: '' }) === false));
+  test('push is HARD', () => assert(ctx({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'push' }) === true));
+  test('unknown event is HARD (fails closed)', () => assert(ctx({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'somewhere_else' }) === true));
+  test('advisoryGates() classifies the canonical count-drift gate', () => assert(advisoryGates().has('node scripts/verify-counts.mjs --check')));
+  test('the count-drift gate is DERIVED_ROOT-aware (HARD on merge_group)', () => assert(DERIVED_ROOT_GATES.has('node scripts/verify-counts.mjs --check')));
+  test('a non-advisory command is never DERIVED_ROOT-classified', () => assert(!DERIVED_ROOT_GATES.has('node scripts/check_tools.js')));
+  console.log(`\nrun-gate self-test — ${passed} passed, ${failed} failed`);
+  return failed ? 1 : 0;
+}
+
+if (process.argv.includes('--self-test')) process.exit(runGateSelfTest());
+
+const cmd = process.argv.slice(2).filter((a) => a !== '--self-test').join(' ');
 if (!cmd) {
   console.error('Usage: node scripts/run-gate.mjs <command...>');
   process.exit(2);

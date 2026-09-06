@@ -672,7 +672,13 @@ const PREFLIGHT_ONLY = new Map([
   ["check-determinism-fixture.mjs", VIA_PREFLIGHT],
   ["check-roundtrip-determinism.mjs", VIA_PREFLIGHT],
   ["check-ruleset-json.mjs", VIA_PREFLIGHT],
-  ["derived-artifacts.mjs", VIA_PREFLIGHT],
+  // ["derived-artifacts.mjs", VIA_PREFLIGHT] REMOVED 2026-09-06 (merge-group
+  // hard-gates row): derived-artifacts.mjs is now named in a PR-reachable
+  // blocking workflow — land-verify.yml's merge_group-only "Ephemeral derived
+  // tree" (--out) and "Derived-freshness, index-sync, sitemap" (--verify)
+  // steps — so the preflight-only exemption no longer has a subject. The
+  // --verify leg is a HARD merge_group gate by design; --out is a scratch
+  // assembly, not a gate (see DISTINCT_LEGS for the assembler's --out leg).
   ["check-derived-fanout-coverage.mjs", VIA_PREFLIGHT],
   ["check-derived-declare-parity.mjs", VIA_PREFLIGHT],
   ["check-derived-regen-live.mjs", VIA_PREFLIGHT],
@@ -738,6 +744,16 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/assemble-chaingraph.mjs --out \"${SCRATCH}/chaingraph/chaingraph.json\"", {
+    sibling: "node scripts/assemble-chaingraph.mjs --check",
+    decided: "2026-09-06 (merge-group hard-gates row)",
+    why:
+      "The --out invocation in land-verify.yml / scripts-verify.yml / html-verify.yml's merge_group-only " +
+      "'Ephemeral derived tree' step is a SCRATCH ASSEMBLY, not a gate: it writes the assembled monolith " +
+      "unconditionally into $RUNNER_TEMP (never the checkout) so the shared-derived-artifact gates can be " +
+      "HARD on the speculative merge result. The gate leg (--check, advisory via advisoryGates()) is " +
+      "unchanged and keeps its own call sites. Deliberately separate legs of one script, not argument drift.",
+  }],
   ["node scripts/check-nav-reachability.mjs", {
     sibling: "node scripts/check-nav-reachability.mjs --baseline-check",
     decided: "2026-08-16 (NAV-ISLAND-1), recorded here 2026-08-23",
