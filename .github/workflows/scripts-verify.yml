@@ -192,6 +192,27 @@ jobs:
           fi
           echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
 
+      # On merge_group, assemble the derived tree
+      # EPHEMERALLY and export DERIVED_ROOT for the preflight run. The queue's
+      # ref is byte-for-byte the tree that will be main, so the shared-derived-
+      # artifact gates (§18 coverage, count-drift, derived-freshness, index-sync,
+      # sitemap, nav-reachability) are HARD there — they read the scratch tree,
+      # never the checkout, and nothing derived is ever committed (asserted
+      # below). preflight.mjs scopes DERIVED_ROOT per gate: only the
+      # DERIVED_ROOT_GATES commands see it; every other advisory gate keeps its
+      # PR-advisory downgrade because its inputs are still the in-tree artifacts.
+      # pull_request and push:main runs skip this step entirely and are UNCHANGED.
+      - name: Ephemeral derived tree (merge_group)
+        id: derived
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
       - name: Preflight (full gate suite)
         env:
           # check-id-collision.mjs leg (c) scans other OPEN PRs for a claimed art-id
@@ -199,7 +220,27 @@ jobs:
           # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
           # own token from the environment — token-free, no extra secret.
           GITHUB_TOKEN: ${{ github.token }}
+          # DERIVED_ROOT is empty on pull_request/push:main (the step above
+          # is merge_group-only), so those runs are unchanged. preflight.mjs scopes
+          # this to the DERIVED_ROOT_GATES commands only.
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: node scripts/preflight.mjs
+
+      # The single-writer law, proven, not assumed. The
+      # ephemeral assembly above must have left the checkout byte-identical —
+      # nothing derived is EVER committed from a merge_group run.
+      - name: Assert clean tree (merge_group — nothing derived was committed)
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          s="$(git status --porcelain)"
+          if [ -n "$s" ]; then
+            echo "::error::merge_group job dirtied the checkout — the ephemeral derived tree must never touch it:"
+            printf '%s\n' "$s"
+            exit 1
+          fi
+          echo "checkout clean — the ephemeral derived tree touched nothing."
 
       - name: Citation drift (degraded, metadata-only -- CI checks out no workspace-root research/clause-snapshots/)
         # Already exercised as part of the preflight run above; a separate named

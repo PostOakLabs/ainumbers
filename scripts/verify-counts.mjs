@@ -18,7 +18,7 @@
  * Exit 1 on any mismatch in --check mode.
  */
 
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { deriveCounts } from './counts.mjs'
@@ -27,7 +27,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 const FIX = process.argv.includes('--fix')
 
-const read  = rel => readFileSync(resolve(root, rel), 'utf8')
+// MERGEGROUP-HARD-GATES-1: overlay-read. On merge_group, DERIVED_ROOT points
+// at the ephemeral assembled tree; reads prefer a scratch copy when the
+// assembly produced one and fall back to the checkout otherwise. Unset
+// everywhere else — behaviour byte-for-byte unchanged.
+const DERIVED_ROOT = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+  ? resolve(root, process.env.DERIVED_ROOT.trim()) : null
+const read = rel => {
+  const scratch = DERIVED_ROOT ? resolve(DERIVED_ROOT, rel) : null
+  return readFileSync(scratch && existsSync(scratch) ? scratch : resolve(root, rel), 'utf8')
+}
 const write = (rel, txt) => writeFileSync(resolve(root, rel), txt, 'utf8')
 
 // ── 1. Derive counts ─────────────────────────────────────────────────────────
