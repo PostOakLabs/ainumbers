@@ -1156,6 +1156,11 @@ const GATES = [
   ['Kernel citation comments fixture proof (KERNEL-CITATION-CLASS-1, TOUCHTAX-DIFFSCOPE-1)', 'node chaingraph/kernels/lint-kernel-citation-comments.test.mjs'],
   ['Branch inventory reachability (AUTHORING-STANDARD §1)', 'node scripts/check-branch-inventory.mjs'],
   ['Branch inventory fixture proof (SO #40b pairing)', 'node scripts/check-branch-inventory.test.mjs'],
+  // CONSUMES-EDGE-CHECK-1: the checker itself runs as the ADVISORY report-only
+  // entry near the end of this file; its controls (scanner, equivalence classes,
+  // mutation-adequacy RED fixture, both-direction declared-expectation surprises)
+  // run here so they cannot rot unrun.
+  ['Declared consumes-edge checker controls (RED fixture + expectations, CONSUMES-EDGE-CHECK-1)', 'node scripts/check-consumes-edges.test.mjs'],
   ['Flag-mirror doctrine (AUTHORING-STANDARD §2)', 'node scripts/check-flag-mirror.mjs'],
   ['Flag-mirror doctrine fixture proof (SO #40b pairing)', 'node scripts/check-flag-mirror.test.mjs'],
   ['Chain composer-url existence (CHAINURL-GATE-1)', 'node scripts/check-chain-composer-urls.mjs'],
@@ -2249,6 +2254,30 @@ gateStart(SCHEMA_DIV_LABEL);
     gateUnavailable(SCHEMA_DIV_LABEL, r.reason, r.out);
   } else {
     const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no summary line printed — see node scripts/check-schema-read-divergence.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
+  }
+}
+
+// ── Advisory (non-blocking): declared consumes: edges vs suppliers ──────────
+// CONSUMES-EDGE-CHECK-1 (2026-09-05). Every kernel that declares `consumes:`
+// (a supplier threshold table pinned locally for deterministic compute) is
+// probed through its own compute() per year and compared with the supplier's
+// published table — equivalence classes BYTE-EQUAL / SUBSET-BY-YEAR / MISMATCH,
+// declared expectations per edge (art-234's known silent year-fallback is
+// DECLARED MISMATCH while CCPP-FIX-ART234-1 is open; observed-vs-declared
+// disagreement in either direction is a reported SURPRISE). RED control:
+// scripts/check-consumes-edges.test.mjs (mutation-adequacy fixture, in GATES).
+// ADVISORY BY DESIGN, exit 0 always: report-only first; blocking promotion is a
+// SEPARATE decision with measured cost — never a side effect of this line.
+const CONSUMES_EDGE_LABEL = 'declared consumes: edges vs suppliers (advisory report, CONSUMES-EDGE-CHECK-1)';
+gateStart(CONSUMES_EDGE_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-consumes-edges.mjs --summary');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(CONSUMES_EDGE_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).pop() || 'no output — see node scripts/check-consumes-edges.mjs';
     gatePass(line);
     if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
   }

@@ -339,6 +339,13 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── CONSUMES-EDGE-CHECK-1 (2026-09-05) ─────────────────────────────────────
+  // The checker itself (check-consumes-edges.mjs) runs as an ADVISORY report-only
+  // entry in preflight's advisory block (exit 0 always; blocking promotion is a
+  // separate decision) — advisory-block checkers are not hard gates, so they are
+  // not censused here. Its RED control IS a GATES entry and therefore censused:
+  ["check-consumes-edges.test.mjs", SELF_TEST],
+
   // ── OUTPUTSCHEMA-GAP-1 (2026-09-05) ────────────────────────────────────────
   ["check-output-schema-coverage.mjs",
     "MCP output-schema coverage: every live-node manifest either declares output_schema or sits " +
