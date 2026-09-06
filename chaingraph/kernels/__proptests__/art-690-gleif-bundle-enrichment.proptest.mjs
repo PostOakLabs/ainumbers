@@ -1,4 +1,4 @@
-// art-666-gleif-bundle-enrichment.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
+// art-690-gleif-bundle-enrichment.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
 // kernel_digest_at_authoring: sha256:c5add6d4113fa1b0a8122f515da39a8d00b607b1e3bf9b1ca2526049f148f8d0
 // spec: BUNDLE-ENRICH-BUILD-SPEC.md §4, §7 WU -GLEIF-1.
 // human_sign_off: PENDING
@@ -15,12 +15,12 @@
 // independent of the kernel's own _utf8Bytes), and the never-guess invariant over nasty
 // values for bundle_asserts_lei_identity.
 //
-// Run: node chaingraph/kernels/__proptests__/art-666-gleif-bundle-enrichment.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-690-gleif-bundle-enrichment.proptest.mjs
 
-import { compute } from '../art-666-gleif-bundle-enrichment.kernel.mjs';
+import { compute } from '../art-690-gleif-bundle-enrichment.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick, pickNasty } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-666-gleif-bundle-enrichment';
+const KERNEL_ID = 'art-690-gleif-bundle-enrichment';
 const rand = mulberry32(0x666A11);
 
 const BUNDLE_TYPES = ['counterparty-onboarding-pack', 'aml-screening-pack', 'workpaper-bundle', ''];

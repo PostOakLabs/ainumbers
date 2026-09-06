@@ -595,10 +595,11 @@ import * as art662    from './art-662-odnsf-fee-recompute.kernel.mjs';
 import * as art663    from './art-663-apy-earned-recompute.kernel.mjs';
 import * as art664    from './art-664-loan-servicing-waterfall-recompute.kernel.mjs';
 import * as art665    from './art-665-gl-tieout-recompute.kernel.mjs';
-import * as art666    from './art-666-gleif-bundle-enrichment.kernel.mjs';
+import * as art669    from './art-669-algo-execution-schedule-simulator.kernel.mjs';
 import * as art67     from './art-67-agentic-ai-risk-classifier.kernel.mjs';
 import * as art68     from './art-68-carbon-compliance-fit-diagnostic.kernel.mjs';
 import * as art69     from './art-69-cbam-embedded-emissions-calculator.kernel.mjs';
+import * as art690    from './art-690-gleif-bundle-enrichment.kernel.mjs';
 import * as art70     from './art-70-cbam-default-value-resolver.kernel.mjs';
 import * as art71     from './art-71-cbam-certificate-cost-engine.kernel.mjs';
 import * as art72     from './art-72-cbam-precursor-emissions-aggregator.kernel.mjs';
@@ -1240,10 +1241,11 @@ export const KERNELS = {
   'art-663-apy-earned-recompute':                               art663,
   'art-664-loan-servicing-waterfall-recompute':                 art664,
   'art-665-gl-tieout-recompute':                                art665,
-  'art-666-gleif-bundle-enrichment':                             art666,
+  'art-669-algo-execution-schedule-simulator':                  art669,
   'art-67-agentic-ai-risk-classifier':                          art67,
   'art-68-carbon-compliance-fit-diagnostic':                    art68,
   'art-69-cbam-embedded-emissions-calculator':                  art69,
+  'art-690-gleif-bundle-enrichment':                            art690,
   'art-70-cbam-default-value-resolver':                         art70,
   'art-71-cbam-certificate-cost-engine':                        art71,
   'art-72-cbam-precursor-emissions-aggregator':                 art72,

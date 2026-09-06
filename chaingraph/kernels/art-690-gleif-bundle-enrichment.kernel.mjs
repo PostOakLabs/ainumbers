@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-const TOOL_ID = 'art-666-gleif-bundle-enrichment';
+const TOOL_ID = 'art-690-gleif-bundle-enrichment';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
