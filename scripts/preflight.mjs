@@ -1334,6 +1334,7 @@ const GATES = [
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§17 kernel-identity coverage (shard, KERNELID-GATE-1)', 'node chaingraph/kernels/gen-kernel-identity.mjs --check --shard'],
   ['Property-testing floor',       changedRef ? `node scripts/run-proptests.mjs --base ${changedRef}` : 'node scripts/run-proptests.mjs'],
+  ['Property-vacuity backlog ratchet (PROPTEST-KILL-ATTRIBUTION-1)', 'node scripts/gen-property-vacuity-backlog.mjs --check'],
   // MUTATION-TIERED-ROLLOUT-1: pure classifier self-test, always runs (milliseconds, no Stryker
   // invocation) — proves chaingraph/kernels/mutation-tier-split.mjs still correctly separates
   // money-math (compute() + its module-scope helpers) from peripheral (buildArtifact()/meta)
