@@ -1092,6 +1092,282 @@ if (mc) {
   else run();
 })();
 </script>
+
+<script>
+/* OCG-FILE-IMPORT v1 */
+/* Drag-drop / file-picker import of policy inputs, zero upload: .json is
+   parsed as policy_parameters and validated against the manifest inputSchema;
+   .csv is accepted only when the schema declares exactly one array-of-objects
+   input. Bytes stay in memory — no storage, no network. Picker detection
+   order per GoogleChromeLabs/browser-fs-access (MIT) README as of main
+   commit 686165d55fc159dae80ef95dc2a70472923aeccd. DO NOT hand-edit; emitted
+   by scripts/gen-webmcp-registrations.mjs from chaingraph/_page-chrome.mjs. */
+(function () {
+  'use strict';
+  var MAX = 1000000;
+  var RUN_TARGET = "runCheck";
+  var PREFILL = {"cart_root":["cartRoot","string"],"cart_items":["cartItems","json"],"merchant":["merchant","string"],"x402_spend_evidence":["x402Evidence","json"]};
+  var PII_BANNER = 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.';
+
+  function fail(msg) {
+    try {
+      var el = document.createElement('div');
+      el.setAttribute('role', 'alert');
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;border:2px solid #b45309;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:.72rem;background:#1a1206;color:#f4e8d4;max-height:40vh;overflow:auto';
+      el.textContent = PII_BANNER + ' File import rejected: ' + msg + ' Nothing was truncated, prefilled, or executed.';
+      document.body.appendChild(el);
+      if (typeof console !== 'undefined' && console.warn) console.warn('[file-import]', msg);
+    } catch (e) { /* never let the banner path throw */ }
+  }
+
+  /* Minimal RFC 4180 CSV reader: quoted fields, escaped quotes, CRLF/CR/LF. */
+  function csvParse(text) {
+    var rows = [[]], field = '', inQ = false, i, c;
+    for (i = 0; i < text.length; i++) {
+      c = text[i];
+      if (inQ) {
+        if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
+        else field += c;
+      } else if (c === '"') inQ = true;
+      else if (c === ',') { rows[rows.length - 1].push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        rows[rows.length - 1].push(field); field = '';
+        rows.push([]);
+      } else field += c;
+    }
+    rows[rows.length - 1].push(field);
+    while (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') rows.pop();
+    return rows;
+  }
+
+  function typeOk(v, t) {
+    switch (t) {
+      case 'string': return typeof v === 'string';
+      case 'number': return typeof v === 'number' && Number.isFinite(v);
+      case 'boolean': return typeof v === 'boolean';
+      case 'array': return Array.isArray(v);
+      case 'object': return v !== null && typeof v === 'object' && !Array.isArray(v);
+      default: return true;
+    }
+  }
+
+  function schema() {
+    return (typeof MANIFEST !== 'undefined' && MANIFEST.mcp_tool_definition && MANIFEST.mcp_tool_definition.inputSchema) || null;
+  }
+
+  /* Same validation + binding semantics as the deep-link reader: required
+     members, faithful type checks, PREFILL-table mapping ('string'|'json'|
+     'checked'|'boolstring'; object values bound via 'string' are JSON-
+     stringified). Returns the number of controls actually prefilled. */
+  function validateAndPrefill(params) {
+    if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('payload must be a JSON object of policy_parameters');
+    var s = schema();
+    if (s) {
+      var required = Array.isArray(s.required) ? s.required : [];
+      for (var r = 0; r < required.length; r++) {
+        if (!(required[r] in params)) throw new Error('missing required parameter "' + required[r] + '"');
+      }
+      var props = s.properties || {};
+      for (var name in params) {
+        if (!(name in props)) throw new Error('unknown parameter "' + name + '" is not declared in the tool inputSchema');
+        var t = props[name] && props[name].type;
+        if ((t === 'number' || t === 'boolean') && !typeOk(params[name], t)) throw new Error('parameter "' + name + '" does not match the declared type "' + t + '"');
+        if ((t === 'object' || t === 'array') && params[name] !== null && typeof params[name] !== 'object') throw new Error('parameter "' + name + '" must be a JSON ' + t);
+      }
+    }
+    var prefilled = 0, paramCount = 0;
+    for (var prop in PREFILL) {
+      if (!(prop in params)) continue;
+      paramCount++;
+      var ent = PREFILL[prop];
+      var el = document.getElementById(ent[0]);
+      if (!el) continue;
+      var v = params[prop];
+      if (ent[1] === 'checked') el.checked = (v === true);
+      else if (ent[1] === 'boolstring') el.value = String(v === true);
+      else if (ent[1] === 'json' || (v !== null && typeof v === 'object')) el.value = JSON.stringify(v);
+      else el.value = String(v);
+      prefilled++;
+    }
+    if (prefilled === 0 && paramCount > 0) throw new Error('no form control matched any parameter');
+    return prefilled;
+  }
+
+  /* The schema's single array-of-objects input, or null when the count is not exactly one. */
+  function singleArrayObjectProp() {
+    var s = schema();
+    if (!s || !s.properties) return null;
+    var hit = null, n = 0;
+    for (var name in s.properties) {
+      var p = s.properties[name];
+      if (p && p.type === 'array' && p.items && p.items.type === 'object') { hit = name; n++; }
+    }
+    return n === 1 ? hit : null;
+  }
+
+  function runCompute() {
+    var fn = null;
+    try { fn = (typeof MANIFEST !== 'undefined' && MANIFEST.execution && MANIFEST.execution.function_name) || null; } catch (e) {}
+    var target = (fn && typeof window[fn] === 'function') ? fn : (typeof window[RUN_TARGET] === 'function' ? RUN_TARGET : null);
+    if (!target) throw new Error('execution function not found on page');
+    return window.__ocgComputeGate = window.__ocgComputeGate.then(function () { return window[target](); });
+  }
+
+  function capture() {
+    try {
+      if (typeof _lastArtifact !== 'undefined') window.__ocgDeeplinkArtifact = _lastArtifact;
+      else if (typeof _lastResult !== 'undefined') window.__ocgDeeplinkArtifact = _lastResult;
+    } catch (e2) { /* pages without either global simply expose nothing */ }
+  }
+
+  /* files: [{ name, text }] — the harness and both UI paths (picker, drop) feed the same entry point. */
+  async function importFiles(files) {
+    try {
+      if (!files || !files.length || !files[0] || typeof files[0].name !== 'string') return { ok: false, error: 'no file handed to the page' };
+      var f = files[0];
+      var text = typeof f.text === 'string' ? f.text : await f.text();
+      if (text.length > MAX) { fail('file too large (' + text.length + ' characters; cap is ' + MAX + ')'); return { ok: false, error: 'file too large' }; }
+      var lower = f.name.toLowerCase(), params, prop, rows, header, r, row, c;
+      if (lower.endsWith('.json')) {
+        try { params = JSON.parse(text); }
+        catch (e) { fail('file is not valid JSON'); return { ok: false, error: 'invalid JSON' }; }
+        if (params && typeof params === 'object' && !Array.isArray(params)
+          && Object.keys(params).length === 1 && params.policy_parameters
+          && typeof params.policy_parameters === 'object' && !Array.isArray(params.policy_parameters)) {
+          params = params.policy_parameters; /* accept the {policy_parameters:{…}} wrapper too */
+        }
+      } else if (lower.endsWith('.csv')) {
+        prop = singleArrayObjectProp();
+        if (!prop) { fail('.csv is accepted only when the tool declares exactly one array-of-objects input'); return { ok: false, error: 'no single array-of-objects input' }; }
+        rows = csvParse(text);
+        if (rows.length < 2) { fail('.csv needs a header row and at least one data row'); return { ok: false, error: 'csv missing data rows' }; }
+        header = rows[0];
+        params = {};
+        params[prop] = [];
+        for (r = 1; r < rows.length; r++) {
+          row = {};
+          for (c = 0; c < header.length; c++) row[header[c]] = rows[r][c] === undefined ? '' : rows[r][c];
+          params[prop].push(row);
+        }
+      } else {
+        fail('unsupported file type — named .json or .csv files are accepted');
+        return { ok: false, error: 'unsupported extension' };
+      }
+      var prefilled;
+      try { prefilled = validateAndPrefill(params); }
+      catch (e) { fail(e.message); return { ok: false, error: e.message }; }
+      try { await runCompute(); capture(); } catch (e3) { fail('execution failed: ' + ((e3 && e3.message) || e3)); return { ok: false, error: 'execution failed' }; }
+      return { ok: true, prefilled: prefilled, artifact: window.__ocgDeeplinkArtifact || null };
+    } catch (e) {
+      fail('import failed: ' + ((e && e.message) || e));
+      return { ok: false, error: 'import failed' };
+    }
+  }
+
+  window.__ocgFileImport = importFiles;
+  /* Serialize computes so a second drop cannot interleave with a running one. */
+  window.__ocgComputeGate = (typeof window.__ocgComputeGate !== 'undefined') ? window.__ocgComputeGate : Promise.resolve();
+
+  /* ── UI: a "Load file" control + a whole-page drop zone ─────────────────── */
+  function handleFiles(fileList) {
+    var files = [];
+    var pending = 0, left = fileList.length;
+    if (!left) return;
+    var step = function (f) {
+      if (f && typeof f.text === 'function') return f.text().then(function (t) { return { name: f.name, text: t }; });
+      return Promise.resolve({ name: f.name, text: String(f.text || '') });
+    };
+    for (var i = 0; i < fileList.length; i++) {
+      (function (f) {
+        pending++;
+        step(f).then(function (rec) { files.push(rec); })
+          .catch(function () { /* unreadable file: skip it */ })
+          .then(function () { if (--pending === 0) importFiles(files); });
+      })(fileList[i]);
+    }
+  }
+
+  /* Detection order (browser-fs-access README, commit 686165d5): the File
+     System Access picker when the browser has it, else <input type=file>. */
+  function pickAndImport() {
+    if (typeof window.showOpenFilePicker === 'function') {
+      window.showOpenFilePicker({ multiple: false, types: [{ description: 'Policy inputs', accept: { 'application/json': ['.json'], 'text/csv': ['.csv'] } }] })
+        .then(function (handles) { return handles[0].getFile(); })
+        .then(function (file) { handleFiles([file]); })
+        .catch(function (e) { if (e && e.name !== 'AbortError') fail('picker failed: ' + e.message); });
+    } else {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,.csv';
+      input.style.display = 'none';
+      input.addEventListener('change', function () {
+        var list = input.files || [];
+        var arr = []; for (var i = 0; i < list.length; i++) arr.push(list[i]);
+        handleFiles(arr);
+      });
+      document.body.appendChild(input);
+      input.click();
+    }
+  }
+
+  function wire() {
+    try {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Load file (.json / .csv — stays in this tab)';
+      btn.setAttribute('aria-label', 'Load policy inputs from a local JSON or CSV file; the file never leaves your browser');
+      btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9998;border:1px solid var(--border-2,#3b4a66);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:.68rem;background:var(--bg-2,#101a2e);color:var(--body,#c7d3e8);cursor:pointer';
+      btn.addEventListener('click', pickAndImport);
+      document.body.appendChild(btn);
+
+      /* Drop zone over the whole page: the overlay lights up on dragover so a
+         drop anywhere lands on the import path, never on browser defaults. */
+      var zone = document.createElement('div');
+      zone.setAttribute('aria-hidden', 'true');
+      zone.textContent = 'Drop a .json or .csv file to prefill this tool — processed locally, nothing is uploaded';
+      zone.style.cssText = 'position:fixed;inset:0;z-index:9997;display:none;align-items:center;justify-content:center;border:3px dashed rgba(20,184,166,.6);background:rgba(8,14,26,.72);color:#e6eefc;font-family:monospace;font-size:.85rem;text-align:center;padding:24px';
+      var depth = 0;
+      var show = function () { depth++; zone.style.display = 'flex'; };
+      var hide = function () { depth = Math.max(0, depth - 1); if (!depth) zone.style.display = 'none'; };
+      document.addEventListener('dragenter', function (e) { e.preventDefault(); show(); });
+      document.addEventListener('dragover', function (e) { e.preventDefault(); });
+      document.addEventListener('dragleave', function (e) { e.preventDefault(); hide(); });
+      document.addEventListener('drop', function (e) {
+        e.preventDefault(); depth = 0; zone.style.display = 'none';
+        var items = (e.dataTransfer && e.dataTransfer.items) || null;
+        var files = [];
+        if (items && items.length) {
+          var pending = 0, left = items.length, collected = [];
+          for (var i = 0; i < items.length; i++) {
+            (function (item) {
+              if (item.kind !== 'file') { left--; return; }
+              if (typeof item.getAsFileSystemHandle === 'function') {
+                pending++;
+                item.getAsFileSystemHandle().then(function (h) { return h.getFile(); })
+                  .then(function (f) { collected.push(f); })
+                  .catch(function () { /* undrop-able entry: skip */ })
+                  .then(function () { if (--pending === 0) handleFiles(collected); });
+              } else {
+                var f = typeof item.getAsFile === 'function' ? item.getAsFile() : null;
+                if (f) files.push(f);
+              }
+            })(items[i]);
+          }
+          if (files.length && pending === 0) handleFiles(files);
+        } else if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          var arr = []; for (var j = 0; j < e.dataTransfer.files.length; j++) arr.push(e.dataTransfer.files[j]);
+          handleFiles(arr);
+        }
+      });
+      document.body.appendChild(zone);
+    } catch (e) { /* a chrome-less harness must never break the tool itself */ }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
+</script>
 <!-- WEBMCP:GEN-END -->
 
 </body>
