@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Education Funding Gap Calculator · AINumbers.co</title>
+<meta name="description" content="Projects education funding: future value of a declared current balance at a declared annual return over a declared horizon, and the funding gap against a declared goal, with a GAP_COMPUTED or GOAL_MET verdict. Client-side. Zero PII. No account, plan record, or market feed is read.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/688-education-funding-gap-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Education Funding Gap Calculator","url":"https://ainumbers.co/tools/688-education-funding-gap-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "688-education-funding-gap-calculator",
+  "version": "1.0.0",
+  "title": "Education Funding Gap Calculator",
+  "description": "Education funding arithmetic over caller-declared inputs: the future value of a declared current balance grown at a declared annual return over a declared horizon, and the funding gap against a declared goal, with a GAP_COMPUTED or GOAL_MET verdict and a full trace. On the overfunded path the page echoes a declared rollover cap in the trace note; the cap is your declaration, never a determination that any rollover is available or advisable. Absent or invalid inputs fail closed and are named. Rounding is 2dp half-up. Arithmetic only: not financial advice. No network, no storage, no clock.",
+  "category": "wealthtech",
+  "tags": [
+    "529",
+    "education funding",
+    "funding gap",
+    "future value",
+    "compound growth",
+    "college savings",
+    "rollover cap",
+    "zero network",
+    "zero-PII"
+  ],
+  "audience": [
+    "families",
+    "financial planners",
+    "benefits educators",
+    "students"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "goal": {
+        "type": "number",
+        "description": "Declared funding goal in currency units, number in (0, 1000000000]."
+      },
+      "years": {
+        "type": "number",
+        "description": "Declared horizon in years, integer in [1, 100]."
+      },
+      "annual_return_pct": {
+        "type": "number",
+        "description": "Declared assumed annual return, percent, number in [-10, 30]."
+      },
+      "current_balance": {
+        "type": "number",
+        "description": "Declared current saved balance in currency units, number in [0, 1000000000]."
+      },
+      "rollover_cap": {
+        "type": "number",
+        "description": "Optional declared lifetime rollover cap in currency units, number in [0, 1000000000]; echoed in the overfunded trace note on the GOAL_MET path."
+      }
+    },
+    "required": [
+      "goal",
+      "years",
+      "annual_return_pct",
+      "current_balance"
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "fv_current_balance": {
+        "type": ["number", "null"]
+      },
+      "funding_gap": {
+        "type": ["number", "null"]
+      },
+      "overall": {
+        "type": ["string", "null"]
+      },
+      "trace": {
+        "type": "string"
+      },
+      "domain_errors": {
+        "type": "array"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_education_funding_gap_calculator",
+    "description": "Education funding arithmetic over caller-declared inputs: future value of the declared current balance at the declared return over the declared horizon, and the funding gap against the declared goal, with a GAP_COMPUTED or GOAL_MET verdict. Inputs fail closed and are named; rounding is 2dp half-up; arithmetic only, not advice.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "goal": {
+          "type": "number",
+          "description": "Declared funding goal, number in (0, 1000000000]."
+        },
+        "years": {
+          "type": "number",
+          "description": "Declared horizon, integer in [1, 100]."
+        },
+        "annual_return_pct": {
+          "type": "number",
+          "description": "Declared assumed annual return, percent, in [-10, 30]."
+        },
+        "current_balance": {
+          "type": "number",
+          "description": "Declared current balance, number in [0, 1000000000]."
+        },
+        "rollover_cap": {
+          "type": "number",
+          "description": "Optional declared lifetime rollover cap, number in [0, 1000000000]."
+        }
+      },
+      "required": [
+        "goal",
+        "years",
+        "annual_return_pct",
+        "current_balance"
+      ]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/688-education-funding-gap-calculator.html",
+    "function_name": "runSimulation",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:760px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-bottom:.75rem}
+.field-cell{display:flex;flex-direction:column;gap:.25rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field-input,select.field-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%}
+.field-input:focus{border-color:var(--purple)}
+.tbl-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;margin-bottom:.75rem}
+table.data-table{width:100%;border-collapse:collapse;font-size:.68rem;min-width:320px}
+table.data-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .5rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-2);white-space:nowrap}
+table.data-table td{padding:.35rem .5rem;border-bottom:1px solid var(--border);vertical-align:middle}
+table.data-table input,table.data-table select{background:var(--bg-2);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.25rem .35rem;border-radius:3px;width:100%;outline:none;min-width:70px}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.15rem .35rem}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px}
+.add-row-btn:hover{border-color:var(--purple);color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.run-btn:hover{background:var(--purple-lt)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.verdict-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;border:1px solid}
+.verdict-COMPUTED{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.verdict-ATTENTION{color:var(--warn);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1)}
+.verdict-FAILCLOSED{color:var(--red);border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.1)}
+.metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem}
+.metric{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.metric-value{font-family:'JetBrains Mono',monospace;font-size:1.15rem;color:var(--bright)}
+.trace-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text);line-height:1.7;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.rationale-list{list-style:none;font-size:.72rem;color:var(--body);line-height:1.8}
+.rationale-list li{padding:.3rem 0;border-bottom:1px solid var(--border)}
+.rationale-list li:last-child{border-bottom:none}
+.sum-indicator{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius)}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+.method-note{font-size:.68rem;color:var(--muted);line-height:1.6;margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-688</span></div>
+    <div class="nav-right"><a href="../tools.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">WealthTech &middot; T688 &middot; Education Funding Gap Calculator</div>
+  <h1 class="tool-title">Education Funding Gap Calculator</h1>
+  <p class="hero-desc">Projects the education funding picture you declare: you declare the goal, the horizon in years, an assumed annual return, and the current balance; the page grows the balance at the declared rate and subtracts it from the goal, returning the future value, the funding gap, and a GAP_COMPUTED or GOAL_MET verdict with a full trace. Every input here is yours: the page holds no account, no plan record, no market data, and no clock.</p>
+  <div class="disclaimer">&#9888; This tool computes arithmetic over caller-declared inputs under named verdict rules. goal, years, annual_return_pct, and current_balance are your declarations, never observations, and it reads no account, plan record, or market feed. Rounding is 2dp half-up, declared in the kernel and in the trace. An absent or invalid input is refused fail-closed and named, never silently repaired. The arithmetic is not financial advice: funding and investment decisions belong to you and your advisers.</div>
+  <div class="hero-meta">
+    <span class="badge badge-purple">Education Funding</span>
+    <span class="badge badge-gold">Future Value &middot; Funding Gap</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side &middot; Declared Dates Only</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note pii-notice" style="border-left:3px solid var(--teal)">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Declared Funding Inputs</span></div>
+    <p class="method-note">Declare the funding goal, the horizon, the assumed annual return, and the current balance. These are your declarations: the page never verifies them against an account or a plan record. The future value is current_balance grown at (1 + annual_return_pct/100) for years, rounded half-up to 2 decimal places (a declared convention); funding_gap is goal minus that future value. rollover_cap is optional and only shapes the overfunded note.</p>
+    <div class="field-grid">
+      <div class="field-cell">
+        <label class="field-label" for="goalInput">goal</label>
+        <input type="number" id="goalInput" class="field-input" value="120000" min="0">
+      </div>
+      <div class="field-cell">
+        <label class="field-label" for="yearsInput">years</label>
+        <input type="number" id="yearsInput" class="field-input" value="10" min="1" max="100" step="1">
+      </div>
+      <div class="field-cell">
+        <label class="field-label" for="rateInput">annual_return_pct</label>
+        <input type="number" id="rateInput" class="field-input" value="5" min="-10" max="30" step="0.25">
+      </div>
+      <div class="field-cell">
+        <label class="field-label" for="balanceInput">current_balance</label>
+        <input type="number" id="balanceInput" class="field-input" value="20000" min="0">
+      </div>
+      <div class="field-cell">
+        <label class="field-label" for="capInput">rollover_cap (optional)</label>
+        <input type="number" id="capInput" class="field-input" value="" min="0">
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem">
+    <button class="run-btn" onclick="runSimulation()">&#9654; Run Projection</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+  <div class="panel" style="margin-top:1.5rem">
+    <div class="panel-header"><span class="panel-title">Overfunded Rollover Note</span></div>
+    <p class="method-note">When the grown balance meets or exceeds the goal, the verdict is GOAL_MET and, if you declared a rollover_cap, the trace carries an overfunded-to-Roth rollover note naming it. The cap is echoed exactly as you declared it: the note never determines that any rollover is available or advisable. For context, the statutory reference for the 529-to-Roth IRA rollover is the SECURE 2.0 Act of 2022, Division T, Section 126 (Public Law 117-328, enacted 2022-12-29): a 35000 USD lifetime limit per beneficiary beginning 2024, subject to a 15-year account-age rule and annual Roth contribution limits (measured 2026-09-05; derive by reading Public Law 117-328, Division T, sec. 126). The contribution solver is out of scope for this version.</p>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)"><button id="ainSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this Policy Mandate, same-origin message, no file, no network" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:pointer;opacity:.85" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">&#x27A1; Send to Verify</button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+// ── Mirrors chaingraph/kernels/art-688-education-funding-gap-calculator.kernel.mjs compute() ──
+var ERROR_PHRASES = {
+  INVALID_GOAL: 'goal must be a number in (0, 1000000000]',
+  INVALID_YEARS: 'years must be an integer in [1, 100]',
+  INVALID_RETURN: 'annual_return_pct must be a finite number in [-10, 30]',
+  INVALID_BALANCE: 'current_balance must be a finite number in [0, 1000000000]',
+  INVALID_ROLLOVER_CAP: 'rollover_cap, when present, must be a finite number in [0, 1000000000]'
+};
+
+// Half-up rounding to dp decimal places (declared rounding convention, mirrors the kernel).
+function roundHalfUp(x, dp){
+  var m = 1;
+  for (var i = 0; i < dp; i++) m *= 10;
+  var scaled = x * m;
+  var r = scaled < 0 ? -Math.floor(-scaled + 0.5) : Math.floor(scaled + 0.5);
+  return r / m;
+}
+
+function isMoney(v, min, max){
+  return typeof v === 'number' && isFinite(v) && v >= min && v <= max;
+}
+
+function computeGap(pp){
+  var domain_errors = [];
+  var goal = pp.goal;
+  if (!isMoney(goal, 0.01, 1000000000)) domain_errors.push('INVALID_GOAL');
+  var years = pp.years;
+  if (typeof years !== 'number' || !isFinite(years) || Math.floor(years) !== years || years < 1 || years > 100) domain_errors.push('INVALID_YEARS');
+  var rate = pp.annual_return_pct;
+  if (typeof rate !== 'number' || !isFinite(rate) || rate < -10 || rate > 30) domain_errors.push('INVALID_RETURN');
+  var balance = pp.current_balance;
+  if (!isMoney(balance, 0, 1000000000)) domain_errors.push('INVALID_BALANCE');
+  var cap = pp.rollover_cap;
+  var capOk = cap === undefined || (isMoney(cap, 0, 1000000000) && cap !== null);
+  if (!capOk) domain_errors.push('INVALID_ROLLOVER_CAP');
+
+  if (domain_errors.length > 0){
+    var reasons = domain_errors.map(function(c){ return ERROR_PHRASES[c]; }).join('; ');
+    return {
+      output_payload: {
+        fv_current_balance: null, funding_gap: null, overall: null,
+        trace: 'fail-closed: ' + reasons + '; no funding-gap computation performed -- correct the named inputs and resubmit. Education funding arithmetic over caller-declared synthetic inputs only: not financial advice, not a savings recommendation, and not a tax determination.',
+        domain_errors: domain_errors
+      },
+      compliance_flags: ['DOMAIN_ERROR'].concat(domain_errors.map(function(c){ return 'EDUFUND_' + c; }))
+    };
+  }
+
+  var growth = Math.pow(1 + rate / 100, years);
+  var fv = roundHalfUp(balance * growth, 2);
+  var gap = roundHalfUp(goal - fv, 2);
+  var factorStr = String(Number((1 + rate / 100).toFixed(10)));
+
+  var overall, trace;
+  if (gap > 0){
+    overall = 'GAP_COMPUTED';
+    trace = balance + ' * ' + factorStr + '^' + years + ' = ' + fv + ' (2dp half-up); gap = ' + goal + ' - ' + fv + ' = ' + gap;
+  } else {
+    overall = 'GOAL_MET';
+    var surplus = roundHalfUp(-gap, 2);
+    trace = balance + ' * ' + factorStr + '^' + years + ' = ' + fv + ' (2dp half-up); gap = ' + goal + ' - ' + fv + ' = ' + gap + ' (goal met by ' + surplus + ')';
+    if (cap !== undefined){
+      trace += '; overfunded-to-Roth rollover note: the DECLARED lifetime rollover cap is ' + roundHalfUp(cap, 2) + ' -- a caller declaration echoed here, never a determination that any rollover is available or advisable';
+    }
+  }
+
+  return {
+    output_payload: { fv_current_balance: fv, funding_gap: gap, trace: trace, overall: overall },
+    compliance_flags: []
+  };
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+function runSimulation(){
+  var pp = {
+    goal: Number(document.getElementById('goalInput').value),
+    years: Number(document.getElementById('yearsInput').value),
+    annual_return_pct: Number(document.getElementById('rateInput').value),
+    current_balance: Number(document.getElementById('balanceInput').value)
+  };
+  if (document.getElementById('goalInput').value === '') pp.goal = undefined;
+  if (document.getElementById('yearsInput').value === '') pp.years = undefined;
+  if (document.getElementById('rateInput').value === '') pp.annual_return_pct = undefined;
+  if (document.getElementById('balanceInput').value === '') pp.current_balance = undefined;
+  if (document.getElementById('capInput').value === '') {
+    pp.rollover_cap = undefined;
+  } else {
+    pp.rollover_cap = Number(document.getElementById('capInput').value);
+  }
+  var r = computeGap(pp);
+  var op = r.output_payload;
+  var fail = Array.isArray(op.domain_errors) && op.domain_errors.length > 0;
+  var html = '';
+
+  html += '<div class="out-section"><div class="out-header"><span class="out-title">Funding Projection</span><span class="verdict-pill ' + (fail ? 'verdict-FAILCLOSED' : (op.overall === 'GOAL_MET' ? 'verdict-COMPUTED' : 'verdict-ATTENTION')) + '">' + (fail ? 'FAIL-CLOSED' : op.overall) + '</span></div><div class="out-body"><ul class="rationale-list">';
+  if (fail){
+    for (var e = 0; e < op.domain_errors.length; e++){
+      html += '<li>' + op.domain_errors[e] + ': ' + ERROR_PHRASES[op.domain_errors[e]] + '</li>';
+    }
+    html += '<li>No projection was computed. The named inputs are refused, never silently repaired or defaulted.</li>';
+  } else {
+    html += '<li>Future value: ' + op.fv_current_balance + ' (' + pp.current_balance + ' grown at ' + pp.annual_return_pct + '%/yr for ' + pp.years + ' years, 2dp half-up).</li>';
+    html += '<li>Funding gap: ' + op.funding_gap + ' (goal ' + pp.goal + ' minus future value ' + op.fv_current_balance + ').</li>';
+    html += '<li>Verdict rule: GAP_COMPUTED when the grown balance is below the goal; GOAL_MET when it meets or exceeds it.</li>';
+    if (pp.rollover_cap !== undefined && op.overall === 'GOAL_MET'){
+      html += '<li>Overfunded-to-Roth rollover note: the declared lifetime rollover cap is ' + pp.rollover_cap + ', echoed as declared; this is not a determination that any rollover is available or advisable.</li>';
+    }
+  }
+  html += '<li>Declared-inputs discipline: arithmetic of your declared goal, horizon, return, and balance only. No account, plan record, or market feed was read, and the arithmetic is not financial advice.</li>';
+  html += '</ul></div></div>';
+
+  if (!fail){
+    html += '<div class="out-section"><div class="out-header"><span class="out-title">Projection Summary</span></div><div class="out-body"><div class="metric-row">' +
+      '<div class="metric"><div class="metric-label">fv_current_balance</div><div class="metric-value">' + op.fv_current_balance + '</div></div>' +
+      '<div class="metric"><div class="metric-label">funding_gap</div><div class="metric-value">' + op.funding_gap + '</div></div>' +
+      '<div class="metric"><div class="metric-label">overall</div><div class="metric-value">' + op.overall + '</div></div>' +
+      '</div></div></div>';
+  }
+
+  html += '<div class="out-section"><div class="out-header"><span class="out-title">Trace</span></div><div class="out-body"><div class="trace-block">' + esc(op.trace) + '</div></div></div>';
+
+  document.getElementById('outputSection').innerHTML = html;
+  window._lastResult = { pp: pp, output_payload: op, compliance_flags: r.compliance_flags, fail: fail };
+}
+
+toggleMfst=function(){}; // reassigned below by manifest script
+runSimulation();
+</script>
+<script>
+  var MANIFEST = JSON.parse('{"tool_id":"688-education-funding-gap-calculator","version":"1.0.0","title":"Education Funding Gap Calculator","description":"Education funding arithmetic over caller-declared inputs: the future value of a declared current balance grown at a declared annual return over a declared horizon, and the funding gap against a declared goal, with a GAP_COMPUTED or GOAL_MET verdict and a full trace. On the overfunded path the page echoes a declared rollover cap in the trace note; the cap is your declaration, never a determination that any rollover is available or advisable. Absent or invalid inputs fail closed and are named. Rounding is 2dp half-up. Arithmetic only: not financial advice. No network, no storage, no clock.","category":"wealthtech","tags":["529","education funding","funding gap","future value","compound growth","college savings","rollover cap","zero network","zero-PII"],"audience":["families","financial planners","benefits educators","students"],"input_schema":{"type":"object","properties":{"goal":{"type":"number","description":"Declared funding goal in currency units, number in (0, 1000000000]."},"years":{"type":"number","description":"Declared horizon in years, integer in [1, 100]."},"annual_return_pct":{"type":"number","description":"Declared assumed annual return, percent, number in [-10, 30]."},"current_balance":{"type":"number","description":"Declared current saved balance in currency units, number in [0, 1000000000]."},"rollover_cap":{"type":"number","description":"Optional declared lifetime rollover cap in currency units, number in [0, 1000000000]; echoed in the overfunded trace note on the GOAL_MET path."}},"required":["goal","years","annual_return_pct","current_balance"]},"output_schema":{"type":"object","properties":{"fv_current_balance":{"type":["number","null"]},"funding_gap":{"type":["number","null"]},"overall":{"type":["string","null"]},"trace":{"type":"string"},"domain_errors":{"type":"array"}}},"mcp_tool_definition":{"name":"compute_education_funding_gap_calculator","description":"Education funding arithmetic over caller-declared inputs: future value of the declared current balance at the declared return over the declared horizon, and the funding gap against the declared goal, with a GAP_COMPUTED or GOAL_MET verdict. Inputs fail closed and are named; rounding is 2dp half-up; arithmetic only, not advice.","inputSchema":{"type":"object","properties":{"goal":{"type":"number","description":"Declared funding goal, number in (0, 1000000000]."},"years":{"type":"number","description":"Declared horizon, integer in [1, 100]."},"annual_return_pct":{"type":"number","description":"Declared assumed annual return, percent, in [-10, 30]."},"current_balance":{"type":"number","description":"Declared current balance, number in [0, 1000000000]."},"rollover_cap":{"type":"number","description":"Optional declared lifetime rollover cap, number in [0, 1000000000]."}},"required":["goal","years","annual_return_pct","current_balance"]}},"execution":{"type":"browser-javascript","entry":"tools/688-education-funding-gap-calculator.html","function_name":"runSimulation","timeout_ms":3000},"ap2_export":true}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+/* AP2 Policy Mandate Export: CONTRACT section 3-4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var el=document.querySelector('#outputSection');
+  if(el&&el.textContent.trim().length>10){
+    var inputs={};
+    document.querySelectorAll('input,select,textarea').forEach(function(f){
+      if(f.id&&f.value)inputs[f.id]=f.value;
+    });
+    window._ap2Result={output:el.textContent.trim().slice(0,3000),inputs:inputs,fail:(window._lastResult&&window._lastResult.fail)||null};
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run the tool first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'688-education-funding-gap-calculator';
+  var mandate={
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_control_mandate',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:window._ap2Result,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' simulation '+ts.slice(0,10),
+    agent_instructions:["Read the education funding projection computed from the declared goal, horizon, assumed return, and current balance. This is arithmetic over declared inputs under named verdict rules, not advice: no account, plan record, or market feed was read, the inputs are the caller's declarations, and any funding or investment decision belongs to the caller and its advisers."],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    var el=document.querySelector('#outputSection');
+    if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();}
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'runSimulation',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.querySelector('.pii-notice')||document.body.firstElementChild;
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ Inputs prefilled from link and executed ('+n+' fields)','ok');
+    else notice('🔗 Inputs prefilled from link, review then Run ('+n+' fields)','ok');
+  }
+}
+var HANDOFF_MAX_CHARS=2000000;
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('⚠ No Policy Mandate to send, run the tool first.','warn');return;}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return;}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return;}
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('➡ Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier…','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+}
+window.apSendToVerify=apSendToVerify;
+window.AINBridge={
+  version:'1.1',
+  apply:applyFields,
+  run:runTool,
+  sendToVerify:apSendToVerify,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+btoa(unescape(encodeURIComponent(JSON.stringify(fields)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')+(run?'&run=1':'');}
+};
+function boot(){initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
