@@ -596,22 +596,15 @@ export const COVERED = [
     share: '94% (124/132; the highest measured skew of any artifact in this file)',
   },
   {
-    id: 'debt-ledger',
-    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
-    // Finding 3): owns ONE self-delimited region of fv-explainer.html
-    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
-    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
-    // this same page — same "two generators, two regions, one shared file"
-    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
-    // chaingraph/chaingraph-hub.html below. New today; no co-modification
-    // history yet to measure a share rate from.
-    regen: 'node scripts/gen-debt-ledger.mjs --write',
-    gate: 'node scripts/gen-debt-ledger.mjs --check',
-    artifacts: ['fv-explainer.html'],
-    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
-  },
-  {
     id: 'nav-island',
+    // REGEN-COVERED-ORDER-FIX-4 (2026-09-06, main 60bb7dff red: "debt-ledger was
+    // stale after pass 1 and fresh after pass 2"): nav-island now runs BEFORE
+    // debt-ledger. gen-debt-ledger.mjs reads every *-baseline.json, including
+    // scripts/nav-island-baseline.json this entry prunes, so the ledger must
+    // follow the prune. debt-ledger's own write is one region inside
+    // fv-explainer.html (a table, never a page or a nav link), so reachability
+    // does not depend on it and nav-island need not follow it. Edge recorded in
+    // workspace scripts/check-incident-replays.mjs (covered-order fixture).
     // DERIVED-DEP-MAP-1 reorder (REGEN-COVERED-ORDER-FIX-3): moved from the
     // head of the array (was position 4, before every html writer). The check
     // READS every *.html (check-nav-reachability.mjs:131,141) plus
@@ -630,8 +623,26 @@ export const COVERED = [
     // green (PR #1309, 2026-08-16, chaingraph/integrator-profile.html).
     gate: 'node scripts/check-nav-reachability.mjs --baseline-check',
     artifacts: ['scripts/nav-island-baseline.json'],
-    after: 'debt-ledger',
+    after: 'chaingraph-assemble',
     share: '57%',
+  },
+  {
+    id: 'debt-ledger',
+    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
+    // Finding 3): owns ONE self-delimited region of fv-explainer.html
+    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
+    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
+    // this same page — same "two generators, two regions, one shared file"
+    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
+    // chaingraph/chaingraph-hub.html below.
+    // REGEN-COVERED-ORDER-FIX-4: LAST in the array, pinned after nav-island —
+    // it reads scripts/nav-island-baseline.json (every *-baseline.json) and
+    // must see the pruned state in the same pass (60bb7dff fixpoint incident).
+    regen: 'node scripts/gen-debt-ledger.mjs --write',
+    gate: 'node scripts/gen-debt-ledger.mjs --check',
+    artifacts: ['fv-explainer.html'],
+    after: 'nav-island',
+    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
   },
 ];
 
