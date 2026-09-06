@@ -1216,6 +1216,14 @@ const GATES = [
   // mismatch vs the node's mcp_name, or coverage regression.
   ['Ask-agent block freshness (TOOLPAGE-ASK-AGENT-1)', 'node scripts/check-ask-agent-block.mjs'],
   ['Ask-agent block controls (RED+GREEN)', 'node scripts/check-ask-agent-block.mjs --self-test'],
+  // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
+  // chain plan hash vs the committed derived set + page-literal sample) and parity
+  // gate B fixtures (session-receipt Merkle; the site-side routine test is
+  // session-root-parity.test.mjs, the worker side runs in the worker repo's tests).
+  ['Chain plan parity (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/check-chain-plan-parity.mjs'],
+  ['Chain plan parity fixture proof (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/check-chain-plan-parity.test.mjs'],
+  ['Session-root fixture freshness (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/gen-session-root-fixtures.mjs --check'],
+  ['Session-root parity controls, site side (COMPOSER-PLAN-AND-ROOT-WEBMCP-1)', 'node scripts/session-root-parity.test.mjs'],
   ['OCG conformance roster self-claim (OCG-CONFROSTER-BUILD-1)', 'node scripts/gen-ocg-conformance-roster.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
