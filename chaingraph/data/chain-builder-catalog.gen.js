@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (657 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (658 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7097,6 +7097,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/684-intercompany-elimination-netting.html",
     "description": "Deterministic intercompany elimination and netting arithmetic over caller-declared synthetic entity pairs. For each declared pair the kernel",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-686-ltc-funding-comparator",
+    "display_name": "LTC Funding Comparator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/686-ltc-funding-comparator.html",
+    "description": "Computes the arithmetic of a declared long-term-care funding comparison over a declared horizon: simple sums of the declared self-fund annua",
     "consumes": [],
     "feeds": [],
     "status": "live"
