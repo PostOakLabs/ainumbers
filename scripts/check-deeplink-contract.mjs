@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 import * as vm from 'node:vm';
 import { webcrypto } from 'node:crypto';
 import { deriveTargets, adjudicateTool } from './gen-webmcp-registrations.mjs';
-import { DEEPLINK_MARKER } from '../chaingraph/_page-chrome.mjs';
+import { DEEPLINK_MARKER, FILE_IMPORT_MARKER } from '../chaingraph/_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -189,6 +189,7 @@ function extractInlineScripts(html) {
 async function runPage(pageAbs, pageRel, fragment) {
   const html = readFileSync(pageAbs, 'utf8');
   if (!html.includes(DEEPLINK_MARKER)) return { ok: false, error: 'page carries no generated deep-link reader (stale generated region?)' };
+  if (!html.includes(FILE_IMPORT_MARKER)) return { ok: false, error: 'page carries no generated file-import reader (stale generated region?)' };
   const { scripts, seedElements } = extractInlineScripts(html);
   if (scripts.length === 0) return { ok: false, error: 'no inline scripts found' };
 
@@ -227,6 +228,7 @@ async function collectFailures(mutateHash) {
   const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
   const problems = [];
   let checked = 0;
+  let imported = 0;
   for (const id of cleared) {
     if (ONLY && id !== ONLY) continue;
     const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
@@ -263,9 +265,45 @@ async function collectFailures(mutateHash) {
       problems.push(`${d.detail.page}: artifact policy_parameters do not echo the fixture (prefill corrupted a value)`);
       continue;
     }
+
+    // FILE-IMPORT case (TOOLPAGE-FILE-IMPORT-1): the SAME fixture JSON handed
+    // to the page's zero-upload import reader (the doorway a drop or a picker
+    // feeds) must prefill via the same table and reproduce the SAME
+    // execution_hash — one computation, one hash, every doorway.
+    if (typeof result.sandbox.__ocgFileImport !== 'function') {
+      problems.push(`${d.detail.page}: no __ocgFileImport on the page (file-import reader missing or failed to load)`);
+      continue;
+    }
+    result.sandbox.location.hash = '';
+    let fi;
+    try {
+      fi = await result.sandbox.__ocgFileImport([{ name: 'fixture.json', text: JSON.stringify(fx.policy_parameters) }]);
+    } catch (e) {
+      problems.push(`${d.detail.page}: __ocgFileImport threw: ${e.message}`);
+      continue;
+    }
+    if (!fi || fi.ok !== true) {
+      problems.push(`${d.detail.page}: file-import path rejected the fixture (${(fi && fi.error) || 'no diagnostic emitted'})`);
+      continue;
+    }
+    const fiArtifact = fi.artifact || result.sandbox.__ocgDeeplinkArtifact || null;
+    if (!fiArtifact || !fiArtifact.execution_hash) {
+      problems.push(`${d.detail.page}: file-import path produced no execution_hash`);
+      continue;
+    }
+    const fiHash = String(fiArtifact.execution_hash).replace(/^sha256:/, '');
+    if (fiHash !== expected) {
+      problems.push(`${d.detail.page}: file-import execution_hash mismatch — import produced ${fiHash.slice(0, 16)}…, fixture golden_hash is ${expected.slice(0, 16)}…`);
+      continue;
+    }
+    if (JSON.stringify(canon(fiArtifact.policy_parameters)) !== JSON.stringify(canon(fx.policy_parameters))) {
+      problems.push(`${d.detail.page}: file-import artifact policy_parameters do not echo the fixture`);
+      continue;
+    }
+    imported++;
     if (JSONMODE) console.log(JSON.stringify({ page: d.detail.page, hash: produced }));
   }
-  return { problems, checked };
+  return { problems, checked, imported };
 }
 
 /* ── BASELINE + DOWNWARD RATCHET, exactly the check-page-determinism pattern ──
@@ -321,7 +359,7 @@ async function main() {
     process.exit(1);
   }
 
-  const { problems, checked } = await collectFailures(false);
+  const { problems, checked, imported } = await collectFailures(false);
   const fresh = [];
   const warned = [];
   for (const p of problems) {
@@ -335,7 +373,7 @@ async function main() {
     console.error('  Pre-existing live divergences belong in scripts/deeplink-contract-baseline.json with a reason — never silence, never a fix-forward.');
     process.exit(1);
   }
-  console.log(`✓ check-deeplink-contract clean — ${checked} registered WebMCP page(s): fixture-0 fragment decodes, prefills, runs, and reproduces the fixture execution_hash; fragment-only grep gate green (no location.search reads). ${warned.length} page(s) WARN on the documented baseline (downward ratchet — follow-up rows shrink it).`);
+  console.log(`✓ check-deeplink-contract clean — ${checked} registered WebMCP page(s): fixture-0 fragment decodes, prefills, runs, and reproduces the fixture execution_hash; ${imported} page(s) reproduce the SAME execution_hash through the zero-upload file-import reader (fixture JSON via the drop/picker doorway); fragment-only grep gate green (no location.search reads). ${warned.length} page(s) WARN on the documented baseline (downward ratchet — follow-up rows shrink it).`);
   warned.forEach((p) => console.log('  WARN ' + p));
   process.exit(0);
 }
