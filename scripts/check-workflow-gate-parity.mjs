@@ -376,6 +376,18 @@ const PREFLIGHT_ONLY = new Map([
   // not censused here. Its RED control IS a GATES entry and therefore censused:
   ["check-consumes-edges.test.mjs", SELF_TEST],
 
+  // ── PROPTEST-KILL-ATTRIBUTION-1 (2026-09-06) ────────────────────────────────
+  ["gen-property-vacuity-backlog.mjs",
+    "Property-vacuity backlog ratchet: regenerates scripts/property-vacuity-backlog.json " +
+    "(the kernels whose property killed no valid mutant, per the corpus-wide vacuity screen) " +
+    "and fails if a kernel is ADDED vs the committed file; removals require a cited " +
+    "property-attributed kill. Preflight-only BY NECESSITY, not by duplication: its --check " +
+    "regenerates from a screen report that lives OUTSIDE this repo " +
+    "(research/step-out/, workspace root), so a CI checkout cannot run the regeneration leg — " +
+    "the check degrades to a noted structural-only pass when the report is absent. CI wiring " +
+    "would be a vacuous green; the full regeneration ratchet runs on the dev/pre-push side " +
+    "where the workspace (and the report) is present."],
+
   // ── OUTPUTSCHEMA-GAP-1 (2026-09-05) ────────────────────────────────────────
   ["check-output-schema-coverage.mjs",
     "MCP output-schema coverage: every live-node manifest either declares output_schema or sits " +
