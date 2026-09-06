@@ -3,6 +3,20 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## §27.6.1 text pass — Archive-corroboration slot (`BUNDLE-ENRICH-ARCHIVE-1`)
+- **SPEC-TEXT PASS — not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
+  carries. Anchored on `BUNDLE-ENRICH-BUILD-SPEC.md` §3.
+- **§27.6.1** adds one OPTIONAL, additive array field to `$defs/haEvidenceBundle`: `archive_corroboration`,
+  zero or more third-party archive captures (`archive_url`, `captured_at`, `archive_source`, optional
+  `observed_content_hash`) of the same page the bundle's `subject_hash` already hashed and timestamped.
+- **Corroboration, never proof.** The bundle's existing hash + RFC 3161/OTS anchor stays the sole proof —
+  this field strengthens a narrative but is never load-bearing, never asserted as authoritative, and a
+  bundle with zero entries is fully valid and unweakened. `observed_content_hash` is never labeled
+  `verified_content_hash`.
+- **No `execution_hash` impact.** `$defs/haEvidenceBundle` is a §13.12 export-profile object, not part of
+  any artifact's hash preimage; `chaingraph_version` stays `"0.4.0"` and no existing hash, gate, or golden
+  vector moves. Selectively disclosable under §13.12, same container as `annotations`.
+
 ## §NODEPAGE-1 text pass — Page-less nodes (the `pageless` declaration)
 - **SPEC-TEXT PASS — not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
   carries, same separation as the §30 pass below. Anchored on `board/done/SCHEMA-PAGELESS-FIELD-1.md`
