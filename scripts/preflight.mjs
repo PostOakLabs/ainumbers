@@ -1769,6 +1769,7 @@ async function runQuickSuite(selfTest) {
   const t0 = Date.now();
   const red = [];
   const green = [];
+  const waived = [];
   for (const [label, cmd] of QUICK_GATES) {
     process.stdout.write(`▶ ${label} … `);
     const g0 = Date.now();
@@ -1779,6 +1780,20 @@ async function runQuickSuite(selfTest) {
     } catch (e) {
       console.log(`✗ (${Date.now() - g0}ms)`);
       console.log('\n' + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim() + '\n');
+      // EXPECTRED-QUICK-GAP-1: --expect-red must bind the quick subset exactly as
+      // it binds the full suite — a by-construction CGSHARD-1 red on a shard
+      // branch is declared via the documented AINUM_EXPECT_RED hook route, and a
+      // declaration the quick leg ignores is a waiver that waives nothing.
+      // Measured live 2026-09-06: the hook ACK'd the declaration and still
+      // blocked, because this exit path counted any red. Declared reds are
+      // EXPECTED-RED (waived, named) and never stop the subset; undeclared reds
+      // keep the fail-fast stop.
+      const declared = expectedRedFor(label);
+      if (declared) {
+        console.log(`   [EXPECTED-RED via --expect-red ${declared}] — waived for this invocation only`);
+        waived.push(label);
+        continue;
+      }
       red.push(label);
       break; // fail-fast, like the default full run
     }
@@ -1790,7 +1805,8 @@ async function runQuickSuite(selfTest) {
   const quickCmds = new Set(QUICK_GATES.map(([, c]) => c));
   const notRun = GATES.filter(([, c]) => !quickCmds.has(c)).map(([l]) => l);
   console.log('');
-  console.log(`--quick: ${green.length}/${QUICK_GATES.length} quick gates green, wall time ${(wallMs / 1000).toFixed(1)} s (budget ${QUICK_BUDGET_MS / 1000} s).`);
+  console.log(`--quick: ${green.length}/${QUICK_GATES.length} quick gates green, ${waived.length} EXPECTED-RED (declared), wall time ${(wallMs / 1000).toFixed(1)} s (budget ${QUICK_BUDGET_MS / 1000} s).`);
+  if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
   if (red.length) {
     console.log(`⛔ RED: ${red[0]}`);
     console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
