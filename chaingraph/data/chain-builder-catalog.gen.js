@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (659 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (660 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7117,6 +7117,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-687-wash-sale-window-guard.html",
     "description": "Computes a wash-sale window screen from caller-declared synthetic inputs: the 61-day acquisition window of the declared wash-sale method (sa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-688-education-funding-gap-calculator",
+    "display_name": "Education Funding Gap Calculator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/688-education-funding-gap-calculator.html",
+    "description": "Computes the arithmetic of a declared education funding plan: the future value of a declared current balance grown at a declared annual retu",
     "consumes": [],
     "feeds": [],
     "status": "live"
