@@ -615,6 +615,7 @@ status: stable
 - [Consolidation with CTA and Minority Interest](./art-683-consolidation-cta-minority-interest.md) — `compute_consolidation_cta`
 - [Intercompany Elimination and Netting Workflow](./art-684-intercompany-elimination-netting.md) — `compute_intercompany_elimination_netting`
 - [LTC Funding Comparator](./art-686-ltc-funding-comparator.md) — `compute_ltc_funding_comparator`
+- [Wash-Sale Window Guard](./art-687-wash-sale-window-guard.md) — `compute_wash_sale_window_guard`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md) — `resolve_cbam_default_value`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`

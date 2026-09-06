@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (658 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (659 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7107,6 +7107,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/686-ltc-funding-comparator.html",
     "description": "Computes the arithmetic of a declared long-term-care funding comparison over a declared horizon: simple sums of the declared self-fund annua",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-687-wash-sale-window-guard",
+    "display_name": "Wash-Sale Window Guard",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-687-wash-sale-window-guard.html",
+    "description": "Computes a wash-sale window screen from caller-declared synthetic inputs: the 61-day acquisition window of the declared wash-sale method (sa",
     "consumes": [],
     "feeds": [],
     "status": "live"
