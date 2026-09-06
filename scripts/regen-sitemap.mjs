@@ -45,7 +45,16 @@ import { loadStatusLens } from './_node-status.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
-const SITEMAP_PATH = resolve(REPO, 'sitemap.xml');
+// MERGEGROUP-HARD-GATES-1: sitemap.xml is a shared DERIVED artifact (single
+// writer on main, SO #35). On merge_group DERIVED_ROOT points at the ephemeral
+// assembled tree — prefer the scratch copy when present so this --check gate is
+// HARD on the speculative merge result. The page scan below stays repo-rooted:
+// the scanned pages are authored (or committed) content, not derived.
+const DERIVED_ROOT = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+  ? resolve(REPO, process.env.DERIVED_ROOT.trim()) : null;
+const SITEMAP_PATH = (DERIVED_ROOT && existsSync(join(DERIVED_ROOT, 'sitemap.xml')))
+  ? join(DERIVED_ROOT, 'sitemap.xml')
+  : resolve(REPO, 'sitemap.xml');
 const MANIFEST = JSON.parse(readFileSync(resolve(HERE, 'published-dirs.json'), 'utf8'));
 const BASE = 'https://ainumbers.co';
 const CHECK = process.argv.includes('--check');

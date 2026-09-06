@@ -87,8 +87,9 @@
  */
 import { execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { existsSync, mkdtempSync, rmSync, mkdirSync, cpSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -164,6 +165,11 @@ export const COVERED = [
     // chaingraph.meta.json (ENROLL-DECLARE-META-1): --enroll appends new node
     // ids to order.nodes in this file. Undeclared, this write escaped the
     // anti-escape guard and failed the whole regen run (RED-MAIN incident).
+    // Explicit `writes:` (declare-parity): the assembler also carries a
+    // dynamic --out scratch write (merge-group ephemeral assembly) the static
+    // parser cannot resolve — the declared list names the real, default-path
+    // write targets, which is exactly what this field is for.
+    writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
   },
@@ -897,6 +903,46 @@ export function missingPaths() {
 }
 
 /**
+ * MERGEGROUP-HARD-GATES-1: the advisory freshness gates that read $DERIVED_ROOT
+ * (the ephemeral derived tree a merge_group job assembles). On merge_group with
+ * DERIVED_ROOT set, isMainContext() is HARD — but ONLY these commands may see
+ * the variable, because only they know how to read the scratch tree. Any other
+ * advisory gate would read the still-stale in-tree artifacts and falsely red.
+ * Callers that spawn gates (preflight.mjs per gate, --verify below) MUST strip
+ * DERIVED_ROOT from the child env for commands not in this set.
+ *
+ * ⛔ Keep in sync with the overlay readers in the gate scripts themselves; the
+ * self-test in check-compute-proof-coverage.test.mjs pins the mechanism.
+ */
+export const DERIVED_ROOT_GATES = new Set([
+  'node scripts/check-compute-proof-coverage.mjs',           // §18 deferred ratchet (reads the monolith)
+  'node scripts/verify-counts.mjs --check',                  // count drift (reads counts sentinels + counts.mjs inputs)
+  'node scripts/derived-artifacts.mjs --verify',             // derived freshness (self; re-scopes per gate below)
+  'python scripts/check_index_sync.py --strict --no-color',  // index-sync (reads tools.html)
+  'node scripts/regen-sitemap.mjs --check',                  // sitemap freshness (reads sitemap.xml)
+  'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
+  'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+]);
+
+/** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,
+ *  but any caller that sets the variable explicitly opts in to the overlay. */
+export function derivedRoot() {
+  const dr = process.env.DERIVED_ROOT;
+  return dr && dr.trim() ? dr.trim() : '';
+}
+
+/** Resolve a repo-relative derived-artifact path against the ephemeral tree
+ *  when one is mounted, falling back to the real repo (overlay semantics: only
+ *  files the assembly actually produced come from the scratch root). Accepts
+ *  path segments, e.g. derivedResolve('chaingraph', 'chaingraph.json'). */
+export function derivedResolve(...parts) {
+  const rel = parts.join('/');
+  const dr = derivedRoot();
+  const scratch = dr ? resolve(REPO, dr, ...parts) : null;
+  return scratch && existsSync(scratch) ? scratch : resolve(REPO, ...parts);
+}
+
+/**
  * Is this a MAIN context (gates block) or a PR context (gates warn)?
  *
  * ⚠ FAILS CLOSED. Anything undeterminable returns true — a gate stays BLOCKING
@@ -911,16 +957,35 @@ export function isMainContext() {
   // context probe, not by review.) Only an affirmative proof of a PR may earn
   // the downgrade; every other state blocks.
 
-  // CI: `pull_request` AND `merge_group` are both PR proofs — the regen bot
-  // writes these artifacts AFTER merge (SO #35), so staleness inside the merge
-  // queue is by-construction, exactly as on a `pull_request`. Treating
-  // `merge_group` as MAIN made a queued assemble that obeys SO #35 get
+  // CI: `pull_request` is a PR proof — the regen bot writes these artifacts
+  // AFTER merge (SO #35), so staleness on a branch is by-construction.
+  // Treating `merge_group` as MAIN made a queued assemble that obeys SO #35 get
   // ejected by its own freshness gate (ASSEMBLE-LAND-0817-1 folded-in step,
   // 2026-08-17). push-to-main, schedule, workflow_dispatch, workflow_call and
   // anything unrecognised still BLOCK.
+  //
+  // MERGEGROUP-HARD-GATES-1 (2026-09-06) — `merge_group` gains a THIRD state.
+  // SO #35's rationale (the branch cannot regenerate a single-writer artifact)
+  // is TRUE for `pull_request` and FALSE for `merge_group`: the merge_group ref
+  // is byte-for-byte the tree that will be main, and the merge_group job now
+  // assembles the derived tree EPHEMERALLY into $DERIVED_ROOT (assemble-chaingraph
+  // --out + derived-artifacts --out; nothing is ever written to the checkout, and
+  // nothing derived is ever committed). Fresh inputs exist, so the gates go HARD
+  // there — that is the whole point of the row: the four same-day red-mains
+  // (#1697/#1700, #1727 class, #1759) were all `exit 0 + ::warning` on
+  // merge_group and `exit 1` only on push:main.
+  //   pull_request                                  → PR-advisory (inputs stale by construction)
+  //   merge_group, DERIVED_ROOT set (non-empty)     → HARD (inputs are the assembled speculative tree)
+  //   merge_group, DERIVED_ROOT absent/empty        → PR-advisory (legacy shape: a workflow that
+  //                                                   has not grown the assembly step yet)
+  //   anything else in CI                           → HARD (fail closed, unchanged)
   if (process.env.GITHUB_ACTIONS === 'true') {
     const event = process.env.GITHUB_EVENT_NAME;
-    return event !== 'pull_request' && event !== 'merge_group';
+    if (event === 'pull_request') return false;
+    if (event === 'merge_group') {
+      return Boolean(process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim());
+    }
+    return true;
   }
 
   // Local pre-push: a feature branch is the PR proof. It must RESOLVE, and be
@@ -999,6 +1064,53 @@ if (isMain) {
     // a half-regenerated tree must never reach a commit.
     runRegenPass();
     console.log('\nregen complete');
+  } else if (arg === '--out') {
+    // MERGEGROUP-HARD-GATES-1: assemble the ENTIRE derived tree ephemerally,
+    // for the merge_group job. The single-writer law (SO #35) is untouched —
+    // nothing is written to the checkout; the job asserts a clean tree after.
+    //   node scripts/derived-artifacts.mjs --out <scratch-dir>
+    // Mechanism: a THROWAWAY GIT WORKTREE of HEAD carries the full regen pass
+    // (every COVERED generator resolves paths module-relative, so running the
+    // worktree's own copy of this script writes only inside the worktree), then
+    // every COVERED artifact is copied out to <scratch-dir> preserving its
+    // repo-relative path. The workflow points DERIVED_ROOT at the scratch dir
+    // and the DERIVED_ROOT-aware gates overlay-read from it.
+    const out = process.argv[3];
+    if (!out || process.argv[4]) {
+      console.error('usage: node scripts/derived-artifacts.mjs --out <scratch-dir>');
+      process.exit(2);
+    }
+    const OUT = resolve(out);
+    const tmpBase = mkdtempSync(join(tmpdir(), 'derived-out-'));
+    const wt = join(tmpBase, 'wt');
+    // gitEnv() (GIT-ENV-LEAK-SWEEP-1): the worktree spawns must not inherit the
+    // ambient GIT_* environment under the pre-push hook, and must never see the
+    // scratch mount (DERIVED_ROOT) — a nested regen must re-derive, not recurse.
+    const envNoDerived = gitEnv();
+    delete envNoDerived.DERIVED_ROOT;
+    try {
+      execSync(`git worktree add --detach ${JSON.stringify(wt)} HEAD`, { cwd: REPO, env: envNoDerived, stdio: 'pipe' });
+      console.log(`▶ ephemeral regen pass in throwaway worktree ${wt} …`);
+      execSync(`${JSON.stringify(process.execPath)} scripts/derived-artifacts.mjs --regen`, {
+        cwd: wt, env: envNoDerived, stdio: 'inherit',
+      });
+      mkdirSync(OUT, { recursive: true });
+      let copied = 0, missing = [];
+      for (const p of coveredPaths()) {
+        const src = join(wt, p);
+        if (!existsSync(src)) { missing.push(p); continue; }
+        const dst = join(OUT, p);
+        // Some COVERED artifacts are DIRECTORIES (e.g. chaingraph/okf) — copy
+        // recursively either way.
+        cpSync(src, dst, { recursive: true, force: true });
+        copied++;
+      }
+      console.log(`✓ derived-artifacts --out: ${copied} artifact(s) copied to ${OUT}` +
+        (missing.length ? `\n  ⚠ absent after regen (overlay falls back to the checkout for these): ${missing.join(', ')}` : ''));
+    } finally {
+      try { execSync(`git worktree remove --force ${JSON.stringify(wt)}`, { cwd: REPO, env: envNoDerived, stdio: 'pipe' }); } catch { /* best effort */ }
+      try { rmSync(tmpBase, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
   } else if (arg === '--verify') {
     // REGEN-CASCADE-CONSOLIDATE-1 (2026-09-03): prove the regen pass left every
     // covered surface fresh, BEFORE the bot commits. Two-tier verdict, because
@@ -1030,6 +1142,16 @@ if (isMain) {
     // ADVISORY BY DESIGN (SO #35 — a shard is forbidden from satisfying them), so
     // this mode would red every honest PR. It exists for the main-side writer to
     // prove its own tree before committing it.
+    const EPHEMERAL = Boolean(derivedRoot());
+    const gateCount = COVERED.filter((c) => c.gate).length;
+    const gateEnv = (gateCmd) => {
+      // MERGEGROUP-HARD-GATES-1: only DERIVED_ROOT_GATES may see the scratch
+      // mount — any other COVERED gate would read the still-stale in-tree
+      // artifacts and hard-fail under the merge_group context flip.
+      const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+      if (EPHEMERAL && !DERIVED_ROOT_GATES.has(gateCmd)) delete env.DERIVED_ROOT;
+      return env;
+    };
     const runGates = (passLabel) => {
       const failed = [];
       for (const c of COVERED) {
@@ -1038,7 +1160,7 @@ if (isMain) {
         try {
           execSync(c.gate, {
             cwd: REPO,
-            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            env: gateEnv(c.gate),
             stdio: ['ignore', 'pipe', 'pipe'],
           });
           console.log('ok');
@@ -1050,12 +1172,24 @@ if (isMain) {
       }
       return failed;
     };
-    const gateCount = COVERED.filter((c) => c.gate).length;
 
     const red1 = runGates('pass-1');
     if (red1.length === 0) {
       console.log(`\n✓ derived-artifacts --verify: all ${gateCount} covered freshness gates green — one pass is a fixpoint on this tree.`);
       process.exit(0);
+    }
+    if (EPHEMERAL) {
+      // MERGEGROUP-HARD-GATES-1: in ephemeral mode (merge_group + DERIVED_ROOT)
+      // this invocation is a GATE, not the bot's self-check. The in-tree second
+      // regen pass below would WRITE to the checkout — the exact thing the
+      // ephemeral design forbids — and could never heal a red anyway, because
+      // the scratch tree, not the checkout, is the gate's input. Fail hard and
+      // name the red set: the speculative merge result is stale/broken and the
+      // queue must refuse it.
+      console.error(`\n✗ derived-artifacts --verify (ephemeral DERIVED_ROOT): ${red1.length} covered freshness gate(s) RED against the assembled speculative tree: ${red1.join(', ')}`);
+      console.error('  The merge_group ref is byte-for-byte the tree that will be main, so this drift');
+      console.error('  would red main post-merge. Fix it in the PR; nothing is written to the checkout.');
+      process.exit(1);
     }
     console.error(`\n⚠ pass-1 red set (${red1.length}): ${red1.join(', ')} — running ONE second regen pass to classify (fixpoint violation vs un-healable content red) …\n`);
     runRegenPass();

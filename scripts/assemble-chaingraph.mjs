@@ -236,7 +236,7 @@
  * classifier exists to sort — RED and GREEN cases both).
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -623,6 +623,24 @@ const CHECK = process.argv.includes('--check')
 const ENROLL = process.argv.includes('--enroll')
 const REFUSAL_STATUS = process.argv.includes('--refusal-status')
 const SANCTION = parseLandStructural(process.argv)
+// MERGEGROUP-HARD-GATES-1: write the assembled monolith to an EPHEMERAL path
+// instead of chaingraph/chaingraph.json. Default (no --out) is byte-for-byte
+// unchanged — the monolith is still written in-tree by the main-side single
+// writer. `--out` is the merge_group job's scratch assembly: it writes
+// UNCONDITIONALLY (no AUTO-LAND/REFUSED classification — that machinery guards
+// a LANDING, and a scratch tree is a gate input, never a landing) and never
+// touches the checkout, so the job's end-of-run `git status --porcelain`
+// assertion holds.
+const OUT_ARG = process.argv.indexOf('--out')
+const OUT_PATH = OUT_ARG !== -1 ? resolve(process.argv[OUT_ARG + 1] || '') : null
+if (OUT_ARG !== -1 && !OUT_PATH) {
+  console.error('assemble-chaingraph: --out requires a path argument')
+  process.exit(2)
+}
+if (OUT_PATH && (CHECK || ENROLL || REFUSAL_STATUS || SANCTION.present)) {
+  console.error('assemble-chaingraph: --out is write-only scratch assembly — combine it with neither --check, --enroll, --refusal-status nor --land-structural')
+  process.exit(2)
+}
 
 // ASSEMBLE-COVER-1 advisory: report node shards on disk that order.nodes
 // doesn't include yet — a mid-flight CGSHARD row is EXPECTED here, so this
@@ -1220,6 +1238,15 @@ if (REFUSAL_STATUS) {
   // a human ASSEMBLE/LAND row. A refusal writes nothing and exits 0 so the rest
   // of the derived-artifact regen still runs — the non-success signal is
   // `--refusal-status`, which the workflow runs as its last step.
+  if (OUT_PATH) {
+    // MERGEGROUP-HARD-GATES-1: ephemeral scratch write — see the OUT_PATH note
+    // above. No diff classification, no refusal, no in-tree write of any kind.
+    mkdirSync(resolve(OUT_PATH, '..'), { recursive: true })
+    writeFileSync(OUT_PATH, assembled, 'utf8')
+    console.log(`assemble-chaingraph: wrote EPHEMERAL ${OUT_PATH} (${order.nodes.length} nodes, ${order.chains.length} chains) — the checkout was not touched.`)
+    reportUnassembledShards(order.nodes)
+    process.exit(0)
+  }
   let committed = ''
   try { committed = readFileSync(CG_PATH, 'utf8') } catch { /* first run, no committed file yet */ }
 

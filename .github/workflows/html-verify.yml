@@ -154,6 +154,22 @@ jobs:
           fi
           echo "base-ref: RESOLVED $BASE @ $(git rev-parse --short=12 "$BASE")"
 
+      # On merge_group, assemble the derived tree
+      # EPHEMERALLY so the nav-reachability gates below read the assembled
+      # speculative monolith (their only DYNAMIC root) instead of the possibly
+      # stale committed one — a genuinely unlinked page FAILS the queue there.
+      # pull_request/push:main skip this step and are unchanged.
+      - name: Ephemeral derived tree (merge_group)
+        id: derived
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
       - name: Binary/control-byte gate (NUL + stray control bytes)
         # Runs first: a NUL byte makes a file read as BINARY to grep and ripgrep,
         # so every grep-based gate after it silently stops matching that file
@@ -202,6 +218,13 @@ jobs:
         # cannot repair it, so it is never advisory. (Measured 2026-08-16: this
         # step used to be advisory on PRs and PR #1309 shipped
         # chaingraph/integrator-profile.html unlinked, green.)
+        # (the a62d8601 incident): on pull_request a
+        # chaingraph/<id>.html page whose shard is on disk is treated as
+        # REACHABLE-PENDING-REGEN (advisory) — a regen failure on main must not
+        # block the fix PR. On merge_group the gate reads the ephemeral assembled
+        # monolith (DERIVED_ROOT below) and the page either resolves or FAILS.
+        env:
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: node scripts/check-nav-reachability.mjs
 
       - name: Nav-island baseline freshness (shared derived artifact)
@@ -218,8 +241,27 @@ jobs:
         # contexts and emits a visible ::warning:: annotation when it fails on a
         # PR. Only the exit code differs. run-gate.mjs (LAND-VERIFY-ADVISORY-
         # SPLIT-1) is the one place this split lives now, shared with
-        # land-verify.yml's count-drift gate.
+        # land-verify.yml's count-drift gate. On merge_group, DERIVED_ROOT
+        # (the DERIVED_ROOT mount) makes isMainContext() HARD and the gate reads
+        # the ephemeral assembled tree, so a stale baseline REFUSES the queue.
+        env:
+          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
         run: node scripts/run-gate.mjs node scripts/check-nav-reachability.mjs --baseline-check
+
+      # Nothing derived is EVER committed from the
+      # ephemeral assembly — proven, not assumed.
+      - name: Assert clean tree (merge_group — nothing derived was committed)
+        if: github.event_name == 'merge_group'
+        shell: bash
+        run: |
+          set -euo pipefail
+          s="$(git status --porcelain)"
+          if [ -n "$s" ]; then
+            echo "::error::merge_group job dirtied the checkout — the ephemeral derived tree must never touch it:"
+            printf '%s\n' "$s"
+            exit 1
+          fi
+          echo "checkout clean — the ephemeral derived tree touched nothing."
 
       - name: Node-page chrome (nav/footer)
         run: node scripts/check-node-page-chrome.mjs
