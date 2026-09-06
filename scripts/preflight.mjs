@@ -85,7 +85,7 @@
  */
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -194,6 +194,17 @@ const KEEP_GOING_FLAG = process.argv.includes('--keep-going');
 // summary blocks. A green run under --quiet is therefore ~10 lines. Sessions that must READ
 // preflight output should use it; humans watching a terminal probably want the default.
 const QUIET = process.argv.includes('--quiet');
+// PREFLIGHT-QUICK-1: --quick — the fixed ≤90 s subset every builder runs before
+// push. The full suite measures ≈660 s on this machine, past the 600 s tool-call
+// cap, so dispatch guidance told builders to skip preflight and push — and the
+// cheapest gates (a baseline bump, a tool-number check, copy hallmarks) were
+// exactly the ones being skipped. --quick fixes the economics instead of the
+// guidance: a FIXED subset, in a FIXED order (QUICK_GATES below), finishing well
+// inside 90 s, printing its wall time AND the list of gates it did NOT run (a
+// green --quick must never read as "preflight ran" — SO #34c). `--quick
+// --self-test` asserts the subset ordering and the 90 s budget on a clean tree.
+// ⛔ It removes NO gate from the full suite below — the fence of its row.
+const QUICK = process.argv.includes('--quick');
 let _pendingLabel = null; // under --quiet we defer printing "▶ label" until we know it failed
 function gateStart(label) { if (QUIET) { _pendingLabel = label; return; } process.stdout.write(`▶ ${label} … `); }
 function gatePass(msg)    { if (QUIET) { _pendingLabel = null; return; } console.log(msg); }
@@ -608,7 +619,10 @@ function runSelfTest() {
   return 0;
 }
 
-if (process.argv.includes('--self-test')) process.exit(runSelfTest());
+// PREFLIGHT-QUICK-1: `--quick --self-test` is the QUICK suite's own control and
+// runs further down (after GATES/QUICK_GATES exist); the generic --self-test
+// above stays the reporting machinery's control and keeps exiting here.
+if (!QUICK && process.argv.includes('--self-test')) process.exit(runSelfTest());
 
 // HELMGATE-DECOUPLE-1 (2026-07-31): the 4 helm drift/freshness gates below
 // assert helm.html against helm/version.json + helm/guide-freshness.json —
@@ -1679,6 +1693,120 @@ if (EXPECT_RED.length) {
 
 let failed = null;
 const timings = []; // [label, ms]
+// ── PREFLIGHT-QUICK-1: the ≤90 s subset every builder runs before push ──────
+// Fixed subset, fixed order (row PREFLIGHT-QUICK-1). This is a PRE-FLIGHT, not
+// a replacement: it removes NO gate from the full suite and never affects any
+// path above or below — when QUICK is unset, every line here is dead code.
+const QUICK_REF = 'origin/main';
+const QUICK_BUDGET_MS = 90_000;
+const QUICK_GATES = [
+  // 1. JS syntax gate on CHANGED files only (`git diff --name-only origin/main`,
+  //    via the shared _changed-files-lib.js scoping: committed diff ∪ uncommitted
+  //    diff ∪ working-tree status, fail-closed).
+  ['JS syntax (CHANGED files, quick)', `node scripts/check_tools.js --changed ${QUICK_REF}`],
+  // 2. The §18 ratchet — RED means "run --update-baseline and commit it".
+  ['§18 compute-proof coverage (ratchet; RED → run --update-baseline and commit it)', 'node scripts/check-compute-proof-coverage.mjs'],
+  // 3. Tool-number uniqueness.
+  ['Tool-number uniqueness (quick)', 'node scripts/check-tool-number-unique.mjs'],
+  // 4. ID-collision gate, if present (PR-ID-COLLISION-GATE-1).
+  ...(existsSync(resolve(REPO, 'scripts/check-id-collision.mjs'))
+    ? [['ID-collision gate (quick, PR-ID-COLLISION-GATE-1)', 'node scripts/check-id-collision.mjs']]
+    : []),
+  // 5. Copy hallmarks, CHANGED scope.
+  ['Copy hallmarks (§1.4, CHANGED scope, quick)', `node scripts/check-copy-hallmarks.mjs --changed ${QUICK_REF}`],
+  // 6. PII banner. The script has no --changed scoping of its own, and a FULL
+  //    scan measures ≈0.1 s — the full scan is a strict superset of "on changed
+  //    tool HTML" and cheaper than porting a second diff-scope into it.
+  ['PII banner exact text (full scan ≈0.1 s; supersedes CHANGED scope, quick)', 'node scripts/check-pii-banner.mjs'],
+  // 7. chaingraph.json shard freshness. `--check` validates the assembled
+  //    monolith against ALL shards — the changed-shard subset is implied by it,
+  //    at the same ≈0.1 s cost.
+  ['chaingraph.json shard freshness (CGSHARD-1, quick)', 'node scripts/assemble-chaingraph.mjs --check'],
+];
+
+async function runQuickSuite(selfTest) {
+  const t0 = Date.now();
+  const red = [];
+  const green = [];
+  for (const [label, cmd] of QUICK_GATES) {
+    process.stdout.write(`▶ ${label} … `);
+    const g0 = Date.now();
+    try {
+      execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      console.log(`✓ (${Date.now() - g0}ms)`);
+      green.push(label);
+    } catch (e) {
+      console.log(`✗ (${Date.now() - g0}ms)`);
+      console.log('\n' + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).trim() + '\n');
+      red.push(label);
+      break; // fail-fast, like the default full run
+    }
+  }
+  const wallMs = Date.now() - t0;
+  // The gates --quick did NOT run: every GATES entry whose command is not one of
+  // the quick subset's, plus the inline mfstSec check. NAMED, never absorbed
+  // (SO #34c) — a green --quick is a pre-flight verdict, never "preflight ran".
+  const quickCmds = new Set(QUICK_GATES.map(([, c]) => c));
+  const notRun = GATES.filter(([, c]) => !quickCmds.has(c)).map(([l]) => l);
+  console.log('');
+  console.log(`--quick: ${green.length}/${QUICK_GATES.length} quick gates green, wall time ${(wallMs / 1000).toFixed(1)} s (budget ${QUICK_BUDGET_MS / 1000} s).`);
+  if (red.length) {
+    console.log(`⛔ RED: ${red[0]}`);
+    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+  }
+  console.log(`Gates NOT run by --quick (${notRun.length} of the full ${RUN_LIST_SIZE}-gate suite — run \`node scripts/preflight.mjs\` for all of them):`);
+  let wrap = '';
+  for (const l of notRun) {
+    if (wrap.length && wrap.length + l.length + 2 > 100) { console.log('  ' + wrap); wrap = ''; }
+    wrap += (wrap ? ', ' : '') + l;
+  }
+  if (wrap) console.log('  ' + wrap);
+  if (selfTest) {
+    const failures = [];
+    // (a) SUBSET ORDER — the mandated fixed order, asserted structurally.
+    const orderMarkers = ['JS syntax', 'compute-proof coverage', 'Tool-number uniqueness', 'ID-collision gate', 'Copy hallmarks', 'PII banner', 'shard freshness'];
+    const quickLabels = QUICK_GATES.map(([l]) => l);
+    let searchFrom = 0;
+    let orderOk = true;
+    for (const m of orderMarkers) {
+      const idx = quickLabels.findIndex((l, i) => i >= searchFrom && l.includes(m));
+      if (idx === -1) { orderOk = false; failures.push(`ordering: no gate matching "${m}" found at or after position ${searchFrom}`); break; }
+      searchFrom = idx + 1;
+    }
+    if (orderOk) console.log('✓ --quick --self-test: subset ordering matches the mandated fixed order');
+    // (b) BUDGET — the ≤90 s premise, measured on this very run.
+    if (wallMs > QUICK_BUDGET_MS) failures.push(`budget: wall time ${(wallMs / 1000).toFixed(1)} s exceeds the ${QUICK_BUDGET_MS / 1000} s budget`);
+    else console.log(`✓ --quick --self-test: wall time ${(wallMs / 1000).toFixed(1)} s is within the ${QUICK_BUDGET_MS / 1000} s budget`);
+    // (c) CLEAN TREE — the documented control: with no UNCOMMITTED changes
+    //     (git status --porcelain empty) every quick gate is green. Branch-vs-
+    //     main drift is not dirt — a committed branch is exactly the state a
+    //     builder self-tests in.
+    let porcelain = 'undeterminable';
+    try { porcelain = execSync('git status --porcelain', { cwd: REPO, env, encoding: 'utf8' }); } catch { /* leave sentinel */ }
+    const dirtyCount = porcelain === 'undeterminable' ? -1 : porcelain.split('\n').filter(Boolean).length;
+    if (dirtyCount === 0) {
+      if (red.length || green.length !== QUICK_GATES.length) failures.push('clean tree: not every quick gate ran green');
+      else console.log(`✓ --quick --self-test: clean tree (${green.length}/${QUICK_GATES.length} quick gates green)`);
+    } else if (dirtyCount < 0) {
+      console.log('(clean-tree assertion skipped — git status undeterminable)');
+    } else {
+      console.log(`(clean-tree assertion skipped — ${dirtyCount} uncommitted path(s) in the tree)`);
+    }
+    // (d) PRESENCE-CONDITIONAL GATE — check-id-collision.mjs included iff it exists.
+    const idcPresent = existsSync(resolve(REPO, 'scripts/check-id-collision.mjs'));
+    const idcIncluded = quickLabels.some((l) => l.includes('ID-collision gate'));
+    if (idcPresent !== idcIncluded) failures.push('ID-collision gate presence mismatch (exists but omitted, or included but missing)');
+    else console.log(`✓ --quick --self-test: ID-collision gate ${idcPresent ? 'present and included' : 'absent and correctly omitted'}`);
+    if (failures.length) {
+      for (const f of failures) console.error(`   ✗ ${f}`);
+      console.error(`❌ --quick --self-test FAILED: ${failures.length} assertion(s) red.`);
+      process.exit(1);
+    }
+    console.log('✅ --quick --self-test PASSED — ordering, ≤90 s budget, clean-tree and presence controls all green.');
+  }
+  process.exit(red.length ? 1 : 0);
+}
+if (QUICK) await runQuickSuite(process.argv.includes('--self-test'));
 // PREFLIGHT-KEEPGOING-1: per-gate outcome ledger — { label, state, ms, note }.
 // state ∈ PASS | FAIL | EXPECTED-RED | DID-NOT-RUN. Written on every path, read
 // ONLY by the --keep-going summary, so it cannot affect default behaviour.
