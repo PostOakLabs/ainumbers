@@ -1202,6 +1202,12 @@ const GATES = [
   // other or with the worker's live mcp_names.
   ['WebMCP name uniqueness (check-tool-names family)', 'node scripts/check-webmcp-name-uniqueness.mjs'],
   ['WebMCP name uniqueness controls (RED+GREEN)', 'node scripts/check-webmcp-name-uniqueness.mjs --self-test'],
+  // TOOLPAGE-ASK-AGENT-1 (AGENT-REACH-BUILD-SPEC 3.6): the ask-your-agent block
+  // is a derived artifact. --check rebuilds every marker-delimited block from
+  // its manifest and reds any hand-edit (byte drift), duplication, tool-name
+  // mismatch vs the node's mcp_name, or coverage regression.
+  ['Ask-agent block freshness (TOOLPAGE-ASK-AGENT-1)', 'node scripts/check-ask-agent-block.mjs'],
+  ['Ask-agent block controls (RED+GREEN)', 'node scripts/check-ask-agent-block.mjs --self-test'],
   ['OCG conformance roster self-claim (OCG-CONFROSTER-BUILD-1)', 'node scripts/gen-ocg-conformance-roster.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
