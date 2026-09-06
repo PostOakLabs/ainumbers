@@ -80,6 +80,23 @@ const DISCOVERY_LEG = argv.includes('--discovery-leg');
 const discoveryOutIdx = argv.indexOf('--discovery-out');
 const DISCOVERY_OUT = discoveryOutIdx !== -1 ? argv[discoveryOutIdx + 1] : null;
 const HEAD_REF = headIdx !== -1 ? argv[headIdx + 1] : null;
+// PROPTEST-KILL-ATTRIBUTION-1: --json prints a machine-readable per-kernel summary
+// ({kernel, property_file, property_failures, oracle_failures}) to stdout.
+const JSON_OUT = argv.includes('--json');
+
+// Kill attribution (PROPTEST-KILL-ATTRIBUTION-1) — labeling only, never a pass/fail
+// change. A floor file that fails is classified by its own first error line: the
+// estate-wide fixture-replay failure convention prints `FIXTURE ORACLE FAILED`
+// (every committed *.proptest.mjs emits exactly this marker from its oracle leg),
+// so a failure carrying it is an ORACLE-FAIL (the fixture replay caught the mutant);
+// any other non-zero exit is a PROPERTY-FAIL (a property assertion fired). Both tags
+// are advisory metadata on top of the existing exit-code semantics, which are untouched.
+const FIXTURE_ORACLE_RE = /FIXTURE ORACLE FAILED/i;
+
+function classifyFailure(r) {
+  const combined = `${r.stderr}\n${r.stdout}`;
+  return FIXTURE_ORACLE_RE.test(combined) ? 'oracle' : 'property';
+}
 
 function findPropertyFiles(dir) {
   if (!existsSync(dir)) return [];
@@ -338,6 +355,11 @@ async function main() {
     const label = r.ok ? 'PASS' : 'FAIL';
     console.log(`  [${label}] ${r.file}`);
     if (!r.ok) {
+      // PROPTEST-KILL-ATTRIBUTION-1: machine-readable source tag on every failure.
+      const tag = classifyFailure(r) === 'oracle'
+        ? 'ORACLE-FAIL'
+        : `PROPERTY-FAIL ${kernelIdOf(r.file)}`;
+      console.log(`    [${tag}]`);
       if (r.spawnError) console.log(`    spawn error: ${r.spawnError}`);
       if (r.stdout.trim()) console.log(`    stdout:\n${indent(r.stdout)}`);
       if (r.stderr.trim()) console.log(`    stderr:\n${indent(r.stderr)}`);
@@ -352,6 +374,27 @@ async function main() {
     }
     writeFileSync(OUT_FILE, JSON.stringify(manifest, null, 2) + '\n');
     console.log(`run-proptests: wrote results manifest to ${OUT_FILE}`);
+  }
+
+  // PROPTEST-KILL-ATTRIBUTION-1: --json summary. Per kernel: {kernel, property_file,
+  // property_failures, oracle_failures}. A kernel contributes to exactly one counter
+  // per failed run under the current single-marker convention; both stay 0 on PASS.
+  if (JSON_OUT) {
+    const summary = {
+      ran: results.length,
+      passed: results.length - failed.length,
+      failed: failed.length,
+      kernels: results.map((r) => {
+        const kind = r.ok ? null : classifyFailure(r);
+        return {
+          kernel: kernelIdOf(r.file),
+          property_file: relative(REPO, r.file),
+          property_failures: kind === 'property' ? 1 : 0,
+          oracle_failures: kind === 'oracle' ? 1 : 0,
+        };
+      }),
+    };
+    console.log('PROPTEST-JSON ' + JSON.stringify(summary));
   }
 
   console.log('');
