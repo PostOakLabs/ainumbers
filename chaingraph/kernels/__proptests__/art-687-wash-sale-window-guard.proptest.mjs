@@ -1,16 +1,16 @@
-// art-686-wash-sale-window-guard — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:0ba1f44734de01d0bd10cfcd1ee44dcc706fe3a2188da810adc675a70a606ef4
+// art-687-wash-sale-window-guard — class-K property-test FLOOR.
+// kernel_digest_at_authoring: sha256:90239f1ed800b3758c774493db294a17aec61bb1f994506ea0d1df46f79c6378
 // spec: HARVEST-GUARD-BUILD-SPEC.md (workspace root)
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-686-wash-sale-window-guard.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-687-wash-sale-window-guard.proptest.mjs
 
-import { compute } from '../art-686-wash-sale-window-guard.kernel.mjs';
+import { compute } from '../art-687-wash-sale-window-guard.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-686-wash-sale-window-guard';
+const KERNEL_ID = 'art-687-wash-sale-window-guard';
 
 // Deterministic pseudo-random draws — never Math.random(), the kernel and the
 // property test must be reproducible byte-for-byte.

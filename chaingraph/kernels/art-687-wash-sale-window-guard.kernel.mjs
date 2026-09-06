@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-686-wash-sale-window-guard — Wash-Sale Window Guard.
+// art-687-wash-sale-window-guard — Wash-Sale Window Guard.
 // Deterministic calculator over caller-declared synthetic inputs: it computes the
 // arithmetic of one named rule, the 61-day acquisition window (sale date minus 30
 // days through sale date plus 30 days, inclusive) applied to a declared lot sale
@@ -15,7 +15,7 @@ import { executionHash } from './_hash.mjs';
 // calendar dates only, never the host clock, so it runs unmodified inside the
 // QuickJS-ng zkVM guest, which is a STRICT SUBSET of a browser/Node environment.
 
-const TOOL_ID = 'art-686-wash-sale-window-guard';
+const TOOL_ID = 'art-687-wash-sale-window-guard';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
