@@ -339,6 +339,27 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── COMPOSER-PLAN-AND-ROOT-WEBMCP-1 (2026-09-05) ───────────────────────────
+  ["check-chain-plan-parity.mjs",
+    "Chain plan parity (parity gate A): recomputes every chain's section 4 plan hash from " +
+    "chaingraph.json with kernels/_hash.mjs (cgCanon + SHA-256), pins all 369 against the committed " +
+    "derived set data/chain-plan-hashes.json, and samples >= 10 composer pages for step-plan parity " +
+    "against their own CHAIN_MANIFEST literals (ratchet shield: " +
+    "scripts/chain-plan-parity-baseline.json). Hard in preflight; its CI route is scripts-verify" +
+    ".yml's full preflight (the workflow literally runs `node scripts/preflight.mjs`), so a named " +
+    "workflow step would only duplicate the same suite. Reads only tracked repo files — no CI-only " +
+    "input. The --write half is declared in derived-artifacts.mjs COVERED id 'chain-plan-hashes' " +
+    "(main-side regen)."],
+  ["check-chain-plan-parity.test.mjs", SELF_TEST],
+  ["gen-session-root-fixtures.mjs",
+    "Session-receipt Merkle fixture source (parity gate B): regenerates the byte-stable committed " +
+    "set data/session-root-fixtures.json (>= 5 ordered hash lists with expected roots) asserted by " +
+    "BOTH runtimes — the site routine (session-root-parity.test.mjs) and the worker's real " +
+    "build_session_receipt (mcp-apps-poc tests, vendored via generate.mjs). The --check form is " +
+    "hard in preflight; its CI route is scripts-verify.yml's full preflight, so a named workflow " +
+    "step would only duplicate the same suite. Reads only tracked repo files — no CI-only input. " +
+    "Declared in derived-artifacts.mjs COVERED id 'session-root-fixtures' (main-side regen)."],
+  ["session-root-parity.test.mjs", SELF_TEST],
   // ── CONSUMES-EDGE-CHECK-1 (2026-09-05) ─────────────────────────────────────
   // The checker itself (check-consumes-edges.mjs) runs as an ADVISORY report-only
   // entry in preflight's advisory block (exit 0 always; blocking promotion is a
