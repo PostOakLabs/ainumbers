@@ -350,7 +350,9 @@ function checkP6_input_contract() {
   }
   // 75% bright line EXACT boundary: term_years/economic_life_years === 0.75 (>= not >).
   {
-    for (const [end, life, met] of [['2028-12-31', 4, true], ['2028-12-30', 4, false]]) {
+    /** @type {[string, number, boolean][]} */
+    const rows75 = [['2028-12-31', 4, true], ['2028-12-30', 4, false]];
+    for (const [end, life, met] of rows75) {
       const pp = baseValid();
       pp.lease_term.end_date = end;
       pp.classification_inputs.major_part_bright_line_elected = true;
@@ -551,7 +553,10 @@ async function checkP8_payload_and_rou_invariants() {
   // buildArtifact wraps the deterministic payload unchanged and stamps chain/audit metadata.
   {
     const pp = baseValid();
-    const artifact = await buildArtifact(pp, { now: '2026-09-06T00:00:00Z', parent_hashes: ['abc'], parent_tool_ids: ['x'], chain_depth: 2 });
+    /** @type {{now?: string, parent_hashes?: string[], parent_tool_ids?: string[], chain_depth?: number}} */
+    const baOpts = { parent_hashes: ['abc'], parent_tool_ids: ['x'], chain_depth: 2 };
+    baOpts.now = '2026-09-06T00:00:00Z';
+    const artifact = await buildArtifact(pp, baOpts);
     checked++;
     if (artifact.tool_id !== meta.tool_id || artifact.tool_version !== '1.1.0' || artifact.mandate_type !== 'compliance_control') violations++;;
     if (artifact.chaingraph_version !== '0.4.0' || artifact.generated_at !== '2026-09-06T00:00:00Z') violations++;;
