@@ -150,7 +150,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
   <div class="panel">
     <span class="panel-label">DNSSEC Chain Capture (optional corroboration)</span>
-    <div class="hint-note" style="margin-bottom:.75rem">Corroboration, not proof. Paste a DNSSEC chain you captured externally with <code>dig +dnssec</code> against a validating resolver at build time. This tool stores the raw record text as-is and does not query DNS or validate the chain itself; validation is deferred to standard tooling (<code>delv</code>, or any validating stub resolver).</div>
+    <div class="hint-note" style="margin-bottom:.75rem">Corroboration, not proof (the one statement of that line is in the Bundle Format Reference below). Paste a DNSSEC chain you captured externally with <code>dig +dnssec</code> against a validating resolver at build time. This tool stores the raw record text as-is and does not query DNS or validate the chain itself; validation is deferred to standard tooling (<code>delv</code>, or any validating stub resolver).</div>
     <div class="panel-row"><label for="dnssecName">Domain / record queried</label><input type="text" id="dnssecName" placeholder="e.g. _ainumbers-verify.example.com TXT"></div>
     <div class="panel-row"><label for="dnssecResolver">Resolver used</label><input type="text" id="dnssecResolver" placeholder="e.g. 1.1.1.1 (Cloudflare)"></div>
     <div class="panel-row"><label for="dnssecCapturedAt">Capture timestamp (ISO 8601)</label><input type="text" id="dnssecCapturedAt" placeholder="e.g. 2026-08-30T14:05:00Z"></div>
@@ -169,6 +169,13 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
   </div>
 
   <div class="output-section" id="outputSection"></div>
+
+  <div class="panel">
+    <span class="panel-label">Bundle Format Reference</span>
+    <div class="hint-note" style="margin-bottom:.75rem">Every bundle this tool builds is one zip with the same layout: <code>verify.html</code> (a self-contained offline verifier), <code>binder.json</code> (the signed case-file binder manifest), <code>receipts/</code> (whichever receipts were attached at build time), an optional <code>dnssec-chain-capture.json</code>, and <code>README.txt</code> (the same reference in plain English, inside the zip).</div>
+    <div class="hint-note" style="margin-bottom:.75rem">The optional DNSSEC capture object has four fields: <code>queried_name</code>, the domain or record the capture covers; <code>resolver</code>, the validating resolver that answered; <code>captured_at</code>, the ISO 8601 time of the capture; and <code>raw_chain_text</code>, the unmodified <code>dig +dnssec</code> output from the leaf RRSIG and DNSKEY through the DS records up to the root. The tool stores the object verbatim. It never queries DNS itself and never validates the chain; confirming the chain is deferred to standard tooling, such as <code>delv</code> or any validating stub resolver, replayed against the well-known, publicly pinned root KSK.</div>
+    <div class="hint-note" style="margin-bottom:0">Proof vs corroboration, for this whole bundle: proof is its own hashes and timestamp anchors, self-contained and re-verifiable offline, and it is the part a reviewer relies on. Corroboration is a third-party public record that happened to capture the same fact around the same time, independently of this tool; it supports a narrative and is never load-bearing. A bundle with zero corroboration items is fully valid and unweakened. The DNSSEC chain capture is corroboration, and every surface that renders it says so and points here; this paragraph is the one statement of the line, and README.txt carries the same statement inside every bundle.</div>
+  </div>
 
 </div></div>
 
@@ -415,18 +422,27 @@ function buildReadme(binder, attachedCount, dnssecCapture){
   lines.push('it existed, unchanged, by that time. Computational correctness (if claimed at all)');
   lines.push('is a separate, per-artifact matter and is never implied by anchoring alone.');
   lines.push('');
+  lines.push('PROOF VS CORROBORATION');
+  lines.push('-----------------------');
+  lines.push('Proof in this bundle is its own hashes and timestamp anchors: self-contained,');
+  lines.push('re-verifiable offline, and the part a reviewer relies on. Corroboration is a');
+  lines.push('third-party public record that happened to capture the same fact around the');
+  lines.push('same time, independently of this bundle. It supports a narrative and is never');
+  lines.push('load-bearing. A bundle with zero corroboration items is fully valid and');
+  lines.push('unweakened.');
+  lines.push('');
   if(dnssecCapture){
     lines.push('DNSSEC CHAIN CAPTURE (OPTIONAL CORROBORATION)');
     lines.push('----------------------------------------------');
     lines.push('Queried: '+dnssecCapture.queried_name);
     lines.push('Resolver: '+dnssecCapture.resolver);
     lines.push('Captured at: '+dnssecCapture.captured_at);
-    lines.push('This is corroboration, not proof: a raw DNSSEC chain snapshot captured');
-    lines.push('externally at build time (dig +dnssec), included as-is in dnssec-chain-');
-    lines.push('capture.json. This bundle does not validate the chain. Confirm it against');
-    lines.push('a validating resolver: run delv (ships with BIND), or any DNSSEC-validating');
-    lines.push('stub resolver, replaying the captured chain against the well-known,');
-    lines.push('publicly pinned root KSK.');
+    lines.push('Corroboration, per PROOF VS CORROBORATION above: a raw DNSSEC chain snapshot');
+    lines.push('captured externally at build time (dig +dnssec), included as-is in dnssec-');
+    lines.push('chain-capture.json. This bundle does not validate the chain. Confirm it');
+    lines.push('against a validating resolver: run delv (ships with BIND), or any');
+    lines.push('DNSSEC-validating stub resolver, replaying the captured chain against the');
+    lines.push('well-known, publicly pinned root KSK.');
     lines.push('');
   }
   lines.push('CONTENTS OF THIS ZIP');
@@ -545,7 +561,7 @@ var VERIFY_HTML_LOGIC = ''
 + '  }).join("");\n'
 + '  var d = __BUNDLE_DATA__.dnssec;\n'
 + '  var dnssecHtml = !d ? "" : "<div class=\\"out-section\\"><div class=\\"out-header\\">DNSSEC Chain Capture (optional corroboration)</div><div class=\\"out-body\\">"\n'
-+ '    + "<div class=\\"verdict neutral\\">Not validated by this page. Corroboration only, captured externally at build time.</div>"\n'
++ '    + "<div class=\\"verdict neutral\\">Not validated by this page. Corroboration only, captured externally at build time. README.txt, PROOF VS CORROBORATION, states the line for the whole bundle.</div>"\n'
 + '    + "<div class=\\"hashbox\\">queried: "+esc(d.queried_name)+"<br>resolver: "+esc(d.resolver)+"<br>captured at: "+esc(d.captured_at)+"</div>"\n'
 + '    + "<div class=\\"note\\">This chain is not re-verified here. Confirm it against a validating resolver: run delv (ships with BIND), or any DNSSEC-validating stub resolver, replaying this chain against the well-known, publicly pinned root KSK.</div>"\n'
 + '    + "<div class=\\"hashbox\\" style=\\"white-space:pre-wrap\\">"+esc(d.raw_chain_text)+"</div>"\n'

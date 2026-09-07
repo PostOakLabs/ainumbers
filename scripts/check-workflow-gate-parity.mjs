@@ -201,6 +201,7 @@ const BLOCKING_WORKFLOWS = [
   "c2patool-oracle.yml",
   "ci-anchor.yml",
   "zizmor.yml",
+  "unwired-gates.yml",
 ];
 
 // Every OTHER workflow, with the reason it gates no merge. BLOCKING_WORKFLOWS ∪
@@ -246,6 +247,13 @@ const NOT_A_GATE = new Map([
 // node gates that legitimately run ONLY in CI, each with the reason it cannot run
 // pre-push. Keep tight — every entry is a hole in "green preflight ⇒ green CI".
 const CI_ONLY = new Map([
+  ["check-node-surface-parity.mjs",
+    "runs in unwired-gates.yml in REPORT MODE ONLY (continue-on-error + summary artifact): " +
+    "it is red on main today (171/624 compared page<->kernel pairs divergent), so adding it " +
+    "to preflight.mjs's blocking GATES would red every pre-push. It surfaces page<->kernel " +
+    "output_payload drift per CI run; promotion to blocking is a separate later decision " +
+    "after the drift sweep lands. Not a softener of any existing gate — it is a new, " +
+    "always-report surface."],
   ["c2patool-oracle-compare.mjs",
     "needs a downloaded + sha256-verified c2patool RUST BINARY (c2patool-oracle.yml) — " +
     "not npx-fetchable like TypeScript, and this repo installs no CI-only binaries pre-push."],
@@ -263,6 +271,15 @@ const CI_ONLY = new Map([
     "to \"do not stand down\" = today's behaviour). Its pre-push coverage is its paired control, " +
     "scripts/check-deploy-superseded.test.mjs, which IS in preflight.mjs's GATES and whose last block " +
     "re-derives the gate set from the real workflow text, so this entry is not a measurement hole."],
+  ["check-served-egress.mjs",
+    "SERVED-EGRESS-CHECK-1's post-deploy smoke step in deploy-to-dreamhost.yml. MAIN-ONLY BY " +
+    "CONSTRUCTION, same named-physical-reason shape as check-deploy-superseded.mjs above: it fetches " +
+    "the LIVE site (fixed sample pages + the /.well-known/deploy-checksums.txt byte-integrity sample) " +
+    "and diffs the SERVED bytes against repo source — on a branch push there is no deployment of that " +
+    "branch anywhere to fetch, so pre-push there is nothing to compare against. Its pre-push coverage " +
+    "is its paired fixture control scripts/check-served-egress.test.mjs, which IS in preflight.mjs's " +
+    "GATES and proves the detector fires on the exact art-129 beacon shape, a served-but-not-source " +
+    "external ref, and a sha256 mismatch vs the deployed manifest — so this entry is not a measurement hole."],
   ["run-gate.mjs",
     "LAND-VERIFY-ADVISORY-SPLIT-1 dispatcher, not a gate itself — it wraps the SAME command " +
     "strings this regex already extracts from the workflow text (e.g. verify-counts.mjs, " +
@@ -322,6 +339,108 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── PREFLIGHT-QUICK-1 (2026-09-06) ─────────────────────────────────────────
+  ["setup-hooks.mjs",
+    "Pre-push hook wiring verifier (the `--check` leg): asserts core.hooksPath = .githooks so " +
+    "the local pre-shift gate is actually enabled on THIS clone. It is preflight-only BY " +
+    "SUBJECT MATTER — it checks a property of the local machine's clone config that no remote " +
+    "workflow can observe (CI always runs with hooksPath unset by construction), so wiring it " +
+    "into a blocking workflow would assert nothing. The thing CI DOES backstop — that the " +
+    "hook file exists and invokes preflight — is covered by pre-push.test.mjs and the " +
+    "scripts-verify.yml full-preflight run."],
+  // ── COMPOSER-PLAN-AND-ROOT-WEBMCP-1 (2026-09-05) ───────────────────────────
+  ["check-chain-plan-parity.mjs",
+    "Chain plan parity (parity gate A): recomputes every chain's section 4 plan hash from " +
+    "chaingraph.json with kernels/_hash.mjs (cgCanon + SHA-256), pins all 369 against the committed " +
+    "derived set data/chain-plan-hashes.json, and samples >= 10 composer pages for step-plan parity " +
+    "against their own CHAIN_MANIFEST literals (ratchet shield: " +
+    "scripts/chain-plan-parity-baseline.json). Hard in preflight; its CI route is scripts-verify" +
+    ".yml's full preflight (the workflow literally runs `node scripts/preflight.mjs`), so a named " +
+    "workflow step would only duplicate the same suite. Reads only tracked repo files — no CI-only " +
+    "input. The --write half is declared in derived-artifacts.mjs COVERED id 'chain-plan-hashes' " +
+    "(main-side regen)."],
+  ["check-chain-plan-parity.test.mjs", SELF_TEST],
+  ["gen-session-root-fixtures.mjs",
+    "Session-receipt Merkle fixture source (parity gate B): regenerates the byte-stable committed " +
+    "set data/session-root-fixtures.json (>= 5 ordered hash lists with expected roots) asserted by " +
+    "BOTH runtimes — the site routine (session-root-parity.test.mjs) and the worker's real " +
+    "build_session_receipt (mcp-apps-poc tests, vendored via generate.mjs). The --check form is " +
+    "hard in preflight; its CI route is scripts-verify.yml's full preflight, so a named workflow " +
+    "step would only duplicate the same suite. Reads only tracked repo files — no CI-only input. " +
+    "Declared in derived-artifacts.mjs COVERED id 'session-root-fixtures' (main-side regen)."],
+  ["session-root-parity.test.mjs", SELF_TEST],
+  // ── CONSUMES-EDGE-CHECK-1 (2026-09-05) ─────────────────────────────────────
+  // The checker itself (check-consumes-edges.mjs) runs as an ADVISORY report-only
+  // entry in preflight's advisory block (exit 0 always; blocking promotion is a
+  // separate decision) — advisory-block checkers are not hard gates, so they are
+  // not censused here. Its RED control IS a GATES entry and therefore censused:
+  ["check-consumes-edges.test.mjs", SELF_TEST],
+
+  // ── PROPTEST-KILL-ATTRIBUTION-1 (2026-09-06) ────────────────────────────────
+  ["gen-property-vacuity-backlog.mjs",
+    "Property-vacuity backlog ratchet: regenerates scripts/property-vacuity-backlog.json " +
+    "(the kernels whose property killed no valid mutant, per the corpus-wide vacuity screen) " +
+    "and fails if a kernel is ADDED vs the committed file; removals require a cited " +
+    "property-attributed kill. Preflight-only BY NECESSITY, not by duplication: its --check " +
+    "regenerates from a screen report that lives OUTSIDE this repo " +
+    "(research/step-out/, workspace root), so a CI checkout cannot run the regeneration leg — " +
+    "the check degrades to a noted structural-only pass when the report is absent. CI wiring " +
+    "would be a vacuous green; the full regeneration ratchet runs on the dev/pre-push side " +
+    "where the workspace (and the report) is present."],
+
+  // ── OUTPUTSCHEMA-GAP-1 (2026-09-05) ────────────────────────────────────────
+  ["check-output-schema-coverage.mjs",
+    "MCP output-schema coverage: every live-node manifest either declares output_schema or sits " +
+    "under the down-only ratchet baseline (scripts/output-schema-baseline.json), and every declared " +
+    "output_schema is re-validated against its node's fixture output_payloads. Hard in preflight; " +
+    "its CI route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same suite. " +
+    "Reads only tracked repo files — no CI-only input."],
+  ["check-output-schema-coverage.test.mjs", SELF_TEST],
+
+  // ── LEDGER-GROTH16-VERIFY-1 (2026-09-05) ────────────────────────────────────
+  ["check-ledger-proof-parity.mjs",
+    "§18.1 Groth16 (BN254) seal parity: extracts the ledger page's SHIPPED in-browser verifier " +
+    "live from ledger/index.html and asserts identical verdicts with kernels/_computeproof.mjs " +
+    "verifySeal over every published receipt in chaingraph.json + a tampered-seal red fixture " +
+    "(--self-test = GATE-SELFTEST-META-1 red-proof). Hard in preflight; its CI route is " +
+    "scripts-verify.yml's full preflight (the workflow runs node scripts/preflight.mjs, so a named " +
+    "workflow step would only duplicate the same suite). Reads only tracked repo files — no CI-only " +
+    "input; the full-corpus pairing run costs ~2 min, the same CI-minutes trade as the other " +
+    "VIA_PREFLIGHT verify-path gates."],
+  // ── TOOLPAGE-ASK-AGENT-1 (2026-09-05) ────────────────────────────────────
+  ["check-ask-agent-block.mjs",
+    "Ask-your-agent copyable block on every live node page, emitted from the node's " +
+    "manifest (AGENT-REACH-BUILD-SPEC 3.6): freshness + exactly-one + tool-name==mcp_name " +
+    "+ deep-link-decodes-to-sample. Hard in preflight; its CI route is scripts-verify.yml's " +
+    "full preflight, so a named workflow step would only duplicate the same suite. Reads only " +
+    "tracked repo files — no CI-only input."],
+
+  // ── TOOLPAGE-DEEPLINK-1 (2026-09-05) ─────────────────────────────────────
+  ["check-deeplink-contract.mjs",
+    "Fragment-only prefill-and-run deep links on every registered WebMCP page (dynamic vm " +
+    "harness: fixture-0 fragment decode, prefill, run, execution_hash reproduction + the " +
+    "location.search grep gate). Hard in preflight; its CI route is scripts-verify.yml's full " +
+    "preflight, so a named workflow step would only duplicate the same suite. Reads only tracked " +
+    "repo files — no CI-only input; pre-existing divergences are baselined WARN with a downward ratchet."],
+  ["check-deeplink-contract.test.mjs", SELF_TEST],
+
+  // ── EXAMPLE-PROMPTS-JSON-1 (2026-09-05) ──────────────────────────────────
+  ["check-showcase-prompts.mjs",
+    "Showcase-prompts SSOT gate (tools[] liveness, body/tool consistency, enums, " +
+    "down-only count baseline, scoped copy-hallmarks) + its --self-test RED battery. " +
+    "Hard in preflight; CI route is the full-preflight workflow that runs " +
+    "`node scripts/preflight.mjs` on push/PR, so a named workflow step would duplicate " +
+    "the same suite. Reads tracked files only (chaingraph.json + pinned snapshots) — " +
+    "no CI-only input."],
+  // ── PIIBANNER-GATE-SWEEP-1 (2026-09-02) ──────────────────────────────────
+  ["check-pii-banner.mjs", VIA_PREFLIGHT],
+  ["check-pii-banner.test.mjs", SELF_TEST],
+
+  // ── COMPARATOR-EPSILON-LINT-1 (2026-09-02) ──────────────────────────────────
+  ["lint-comparator-epsilon.mjs", VIA_PREFLIGHT],
+  ["lint-comparator-epsilon.test.mjs", SELF_TEST],
+
   // ── WEBMCP-GEN-FROM-MANIFEST-1 (2026-09-01) ─────────────────────────────────
   ["gen-webmcp-registrations.mjs",
     "WebMCP registration freshness (--check): rebuilds every marker-delimited registration " +
@@ -333,6 +452,53 @@ const PREFLIGHT_ONLY = new Map([
     "WebMCP registration-name uniqueness (the check-tool-names gate family extended " +
     "browser-side). Hard in preflight; same CI route as above via scripts-verify.yml's full " +
     "preflight. Reads tracked pages + chaingraph.json only — no CI-only input."],
+
+  // ── AI-CATALOG-1 (2026-09-05) ──────────────────────────────────────────────
+  ["gen-wellknown-catalogs.mjs",
+    "Well-known catalogs freshness (ai-catalog.json + RFC 9727 api-catalog, one generator). " +
+    "Hard in preflight. DELIBERATELY not wired as a named CI step: both artifacts are SO #35 " +
+    "single-writer files (derived-artifacts.mjs COVERED ids 'ai-catalog' + 'api-catalog') that " +
+    "DO NOT EXIST on a PR checkout until main's derived-artifacts-regen.yml writes them, so a " +
+    "hard CI --check would red every PR for an absence the PR is forbidden to fix. Blocking " +
+    "routes: derived-artifacts-regen.yml runs the regen + verification on main, " +
+    "scripts-verify.yml runs the full preflight (this gate's own diff shape) on scripts/** " +
+    "changes, and the main push runs preflight too. Advisory on a PR by the generic " +
+    "ADVISORY_ON_PR categorisation, same class as gen-llms-full."],
+  // ── AIN-AGENT-KIT-1 (2026-09-05) ──────────────────────────────────────────
+  ["check-agent-kit.mjs",
+    "Agent-kit freshness + schema gate: regenerates every agent-kit artifact from " +
+    "agent-kit/kit.json twice into temp, byte-compares determinism and freshness, and " +
+    "validates SKILL.md frontmatter + plugin.json against the vendored claude-plugin " +
+    "schema. Hard in preflight; its CI route is scripts-verify.yml's full preflight (the " +
+    "workflow literally runs `node scripts/preflight.mjs` on every scripts/ change — this " +
+    "gate's own diff shape), so a named workflow step would only duplicate the same suite. " +
+    "Reads only tracked repo files and writes to an OS temp dir — no CI-only input."],
+
+  // ── A2A-CARD-SIGN-1 (2026-09-05) ───────────────────────────────────────────
+  ["check-agent-card-sig.mjs",
+    "A2A Signed Agent Card drift guard (AGENT-REACH-BUILD-SPEC 3.8): WebCrypto-verifies the " +
+    "COMMITTED signatures[] on .well-known/agent-card.json against /.well-known/jwks.json. Hard " +
+    "in preflight (blocking in both contexts — unlike the catalog freshness gates above, the card " +
+    "is committed, not regen-on-main, since signing needs the 16 private key that never touches a " +
+    "runner). DELIBERATELY not wired as a named CI step: it reads only tracked repo files, so its " +
+    "CI route is scripts-verify.yml's full preflight (which runs `node scripts/preflight.mjs` on " +
+    "scripts/** changes — this gate's own diff shape, since the gate lives at " +
+    "scripts/check-agent-card-sig.mjs), and every push to main runs preflight too. A card edit " +
+    "without a local re-sign therefore REDs the push before it can land. (The paired red-proof is " +
+    "the same script's --self-test mode, wired as its own GATES entry — no separate .test.mjs file, " +
+    "so nothing further to declare here.)"],
+
+  // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
+  ["check-vendored-digests.mjs",
+    "Vendored-crypto sha256 pin gate: recomputes the digest of the noble bn254/ed25519/secp256k1 " +
+    "bundles + the whole-file _proof.mjs (inlined ML-DSA/SLH-DSA noble blocks) against the " +
+    "chaingraph/kernels/VENDORED.md pin table, so a swapped-curve-code green PR cannot slide " +
+    "through and generate.mjs cannot propagate it to the live worker. Hard in preflight; its CI " +
+    "route is scripts-verify.yml's full preflight (the workflow literally runs " +
+    "`node scripts/preflight.mjs` on every scripts/ change — this gate's own diff shape), so a " +
+    "named workflow step would only duplicate the same suite. Reads only tracked repo files — " +
+    "no CI-only input."],
+  ["check-vendored-digests.test.mjs", SELF_TEST],
 
   // ── the two instances doctrine NAMES, each with its own reason ──────────────
   ["check_tools.js",
@@ -353,6 +519,10 @@ const PREFLIGHT_ONLY = new Map([
     "tracked markdown file and needs no CI-only input, so scripts-verify.yml's path-scoped preflight is a " +
     "sufficient route. ⚠ Declared, not hidden — it inherits exactly the fragility this axis exists to name, " +
     "and if the §15 matrix is ever to be a required check it needs its own workflow step."],
+
+  // ── MCP-INSTALL-LINKS-1 (2026-09-05) ──────────────────────────────────────
+  ["check-install-links.mjs", VIA_PREFLIGHT],
+  ["check-install-links.test.mjs", SELF_TEST],
 
   // ── paired self-tests / mutation controls (66) ──────────────────────────────
   ["pre-push.test.mjs", SELF_TEST],
@@ -419,6 +589,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-derived-regen-live.test.mjs", SELF_TEST],
   ["check-regen-repairable.test.mjs", SELF_TEST],
   ["check-deploy-superseded.test.mjs", SELF_TEST],
+  ["check-served-egress.test.mjs", SELF_TEST],
   ["check-workflow-gate-parity.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
@@ -501,7 +672,13 @@ const PREFLIGHT_ONLY = new Map([
   ["check-determinism-fixture.mjs", VIA_PREFLIGHT],
   ["check-roundtrip-determinism.mjs", VIA_PREFLIGHT],
   ["check-ruleset-json.mjs", VIA_PREFLIGHT],
-  ["derived-artifacts.mjs", VIA_PREFLIGHT],
+  // ["derived-artifacts.mjs", VIA_PREFLIGHT] REMOVED 2026-09-06 (merge-group
+  // hard-gates row): derived-artifacts.mjs is now named in a PR-reachable
+  // blocking workflow — land-verify.yml's merge_group-only "Ephemeral derived
+  // tree" (--out) and "Derived-freshness, index-sync, sitemap" (--verify)
+  // steps — so the preflight-only exemption no longer has a subject. The
+  // --verify leg is a HARD merge_group gate by design; --out is a scratch
+  // assembly, not a gate (see DISTINCT_LEGS for the assembler's --out leg).
   ["check-derived-fanout-coverage.mjs", VIA_PREFLIGHT],
   ["check-derived-declare-parity.mjs", VIA_PREFLIGHT],
   ["check-derived-regen-live.mjs", VIA_PREFLIGHT],
@@ -509,6 +686,13 @@ const PREFLIGHT_ONLY = new Map([
   ["gen-output-schema.mjs", VIA_PREFLIGHT],
   ["check-shared-tables.mjs", VIA_PREFLIGHT],
   ["check-fv-toolchain-digest.mjs", VIA_PREFLIGHT],
+
+  // ID-COLLISION GATE (2026-09-06): the diff-scoped gate runs in preflight, whose CI
+  // route is scripts-verify.yml's full-preflight step (same reasoning as
+  // check-output-schema-coverage above) — scripts-verify's pull_request + merge_group
+  // triggers are exactly the events that must catch an id collision, so a named
+  // duplicate step would run the same suite twice.
+  ["check-id-collision.mjs", VIA_PREFLIGHT],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
@@ -560,6 +744,16 @@ const DECLARED_DIVERGENCES = new Map([
 // would treat them as unrelated commands and an argument-drift typo on an
 // advisory gate would read as "consistent" because it matched nothing (hole (d)).
 const DISTINCT_LEGS = new Map([
+  ["node scripts/assemble-chaingraph.mjs --out \"${SCRATCH}/chaingraph/chaingraph.json\"", {
+    sibling: "node scripts/assemble-chaingraph.mjs --check",
+    decided: "2026-09-06 (merge-group hard-gates row)",
+    why:
+      "The --out invocation in land-verify.yml / scripts-verify.yml / html-verify.yml's merge_group-only " +
+      "'Ephemeral derived tree' step is a SCRATCH ASSEMBLY, not a gate: it writes the assembled monolith " +
+      "unconditionally into $RUNNER_TEMP (never the checkout) so the shared-derived-artifact gates can be " +
+      "HARD on the speculative merge result. The gate leg (--check, advisory via advisoryGates()) is " +
+      "unchanged and keeps its own call sites. Deliberately separate legs of one script, not argument drift.",
+  }],
   ["node scripts/check-nav-reachability.mjs", {
     sibling: "node scripts/check-nav-reachability.mjs --baseline-check",
     decided: "2026-08-16 (NAV-ISLAND-1), recorded here 2026-08-23",
@@ -571,6 +765,24 @@ const DISTINCT_LEGS = new Map([
       "freshness leg over nav-island-baseline.json, which a PR branch must NOT regenerate (SO #35), so " +
       "that one is split via run-gate.mjs. Both legs are invoked identically in preflight.mjs and " +
       "html-verify.yml, so neither leg diverges — this entry exists to prove the pairing was examined.",
+  }],
+  ["node scripts/gen-webmcp-registrations.mjs --check", {
+    sibling: "node scripts/gen-webmcp-registrations.mjs --manifest --check",
+    decided: "2026-09-05 (WEBMCP-MANIFEST-1)",
+    why:
+      "WEBMCP-MANIFEST-1 added a SECOND advisory gate leg to this script (the /.well-known/webmcp.json " +
+      "directory-manifest freshness check, derived-artifacts.mjs COVERED id 'webmcp-manifest'). The page-" +
+      "registration freshness leg (--check) predates it and is a HARD content gate at every call site: " +
+      "a hand-edited generated registration block is a defect the PR itself must fix, the main-side regen " +
+      "cannot repair it. Deliberately separate legs of one script, not argument drift.",
+  }],
+  ["node scripts/gen-webmcp-registrations.mjs --self-test", {
+    sibling: "node scripts/gen-webmcp-registrations.mjs --manifest --check",
+    decided: "2026-09-05 (WEBMCP-MANIFEST-1)",
+    why:
+      "Same script as the advisory 'webmcp-manifest' COVERED gate, different leg entirely: the " +
+      "generator-controls self-test (fixture repo, RED+GREEN mutation proofs) is hard at every call " +
+      "site per GATE-SELFTEST-META-1/SO #40b. Not an argument drift of the manifest freshness gate.",
   }],
 ]);
 
@@ -609,6 +821,10 @@ const DECLARED_SOFTENERS = new Map([
   // and points here).
   ["deploy-to-dreamhost.yml:continue-on-error:762",
    "attest step is advisory-first by design; promotion criterion on the step"],
+  ["unwired-gates.yml:continue-on-error:99",
+   "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
+   "continue-on-error is deliberate so the job surfaces drift without blocking. " +
+   "Promotion to blocking removes this entry together with the continue-on-error."],
 ]);
 
 // ── extraction helpers (pure; the .test.mjs drives these directly) ────────────

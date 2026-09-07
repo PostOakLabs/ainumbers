@@ -10,7 +10,12 @@ name: Deploy drift check
 on:
   schedule:
     - cron: '17 */4 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry-run (SO #40a) — every step in this workflow is read-only (live fetches, no push/deploy/commit), so dry_run=true runs the full check suite; there is no irreversible step to skip.'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -35,3 +40,15 @@ jobs:
 
       - name: 🔎 Check for deploy drift (advisory — see FAIL_ON_DRIFT in the script)
         run: node scripts/check-deploy-drift.mjs
+
+      # The between-deploy leg (2026-09-03): the served-egress/byte-integrity
+      # check landed via #1668 fired ONLY post-deploy in
+      # deploy-to-dreamhost.yml — a CF dashboard change, edge config change,
+      # or origin compromise hours AFTER a deploy was invisible until the
+      # next deploy. Same script, no second checker to drift.
+      # Seeded draw: --sample 25 --seed $(date +%s) gives coverage over time
+      # that the fixed even spread cannot (the post-deploy leg stays
+      # deterministic 12, unchanged). RED = workflow failure; no
+      # auto-remediation; cf-cache-status discipline unchanged.
+      - name: 🔎 Served-egress + byte-integrity check (live, seeded sample)
+        run: node scripts/check-served-egress.mjs --sample 25 --seed $(date +%s)
