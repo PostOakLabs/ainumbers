@@ -722,6 +722,22 @@ const DECLARED_DIVERGENCES = new Map([
       "stay red (SO #54, ASSEMBLE-LAND-ART231-1). Aligning the two is a hard-gate decision and belongs " +
       "to L2-HARDLEG-BLOCKING-1, not here.",
   }],
+  ["unwired-gates.yml :: node scripts/gen-registry-absence-tree.mjs --check", {
+    ci: HARD,
+    preflight: SPLIT,
+    decided: "2026-09-07",
+    by: "REGISTRY-ABSENCE-TREE-BUILD-1 heal — recording the wiring decision, not deciding coverage.",
+    why:
+      "unwired-gates.yml's job is BLOCKING BY PURPOSE: it exists so standalone preflight gates are " +
+      "independently enforced in CI ('green preflight ⇒ green CI' says nothing about the converse). " +
+      "The absence-tree --check gate is repairable inside the branch (node scripts/" +
+      "gen-registry-absence-tree.mjs --write, then the lineage append/publish remedy the gate itself " +
+      "prints), so no PR is structurally unable to satisfy it. preflight.mjs classifies it " +
+      "advisory-on-PR (derived-artifacts.mjs advisoryGates()); CI staying HARD is the whole point of " +
+      "the heal — downgrading CI to match the local advisory would re-create the unwired-gate hole " +
+      "this wiring closes. Same shape as the two land-verify.yml entries above: the local surface " +
+      "under-reports; aligning the two is a hard-gate decision for L2-HARDLEG-BLOCKING-1.",
+  }],
   ["land-verify.yml :: node scripts/assemble-chaingraph.mjs --check", {
     ci: HARD,
     preflight: SPLIT,
@@ -821,7 +837,7 @@ const DECLARED_SOFTENERS = new Map([
   // and points here).
   ["deploy-to-dreamhost.yml:continue-on-error:762",
    "attest step is advisory-first by design; promotion criterion on the step"],
-  ["unwired-gates.yml:continue-on-error:99",
+  ["unwired-gates.yml:continue-on-error:107",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],

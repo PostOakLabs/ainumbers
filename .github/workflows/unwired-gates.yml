@@ -64,10 +64,8 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); console.log('goldens fixture: valid JSON')" \
             "$GITHUB_WORKSPACE/../mcp-apps-poc/test/linear-hash-freeze.goldens.json"
 
-      # The 18 green gates, sequentially; any red fails the job. Entries are
-      # argv strings (a gate may carry flags, e.g. the absence-tree check
-      # gate's --check), split unquoted — no path contains whitespace.
-      - name: Run the 18 measured-green gates
+      # The 16 green gates, sequentially; any red fails the job.
+      - name: Run the 16 measured-green gates
         run: |
           set -e
           gates=(
@@ -87,14 +85,20 @@ jobs:
             "chaingraph/kernels/clause-binding.test.mjs"
             "chaingraph/standard/ancestry-digest.test.mjs"
             "chaingraph/standard/retention-profile.test.mjs"
-            "scripts/gen-registry-absence-tree.mjs --check"
-            "scripts/gen-registry-absence-tree.test.mjs"
           )
           for g in "${gates[@]}"; do
             echo "::group::node $g"
-            node $g
+            node "$g"
             echo "::endgroup::"
           done
+
+      # REGISTRY-ABSENCE-TREE-BUILD-1 heal: the F2 absence-tree gates, wired as
+      # raw `node` lines (REGISTRY-ABSENCE-TREE-BUILD-1's two standalone gates).
+      - name: Run the 2 registry absence-tree gates
+        run: |
+          set -e
+          node scripts/gen-registry-absence-tree.mjs --check
+          node scripts/gen-registry-absence-tree.test.mjs
 
       # REPORT MODE only: surface-parity is red today (171/624 divergent).
       # continue-on-error + summary artifact — never blocking.
