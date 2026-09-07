@@ -19,11 +19,17 @@
  *       agents in one vocabulary).
  *
  * FATAL (exit 1):
- *   F1  one WebMCP registration name registered by two different pages;
+ *   F1  one WebMCP registration name registered by two different pages OF THE
+ *       SAME ORIGIN (names bind per origin — LEDGER-WEBMCP-1: pages served from
+ *       ledger.ainumbers.co are a separate namespace from the ainumbers.co
+ *       pages, so the same name on ledger/ and on a root page is NOT a
+ *       collision; a duplicate within one origin still is);
  *   F2  a WebMCP registration name equals a live node's mcp_name where that node's
  *       own page (chaingraph/<tool_id>.html) is NOT the registering page — a
  *       same-tool twin (page registers the node's mcp_name on the node's own page)
- *       is legal and is the generated shape;
+ *       is legal and is the generated shape (root origin only — live node
+ *       mcp_names are served from ainumbers.co, so they cannot collide with a
+ *       ledger-origin registration);
  *   F3  two live nodes sharing one mcp_name (the mcp_name uniqueness half of the
  *       extended gate; measured clean at 640/640 on 2026-09-01).
  *
@@ -85,34 +91,63 @@ export function listTrackedPages(repoRoot) {
 }
 
 /**
+ * Serving origin of a tracked page (LEDGER-WEBMCP-1): names bind per origin, so
+ * the namespace is keyed by the serving origin, derived from the page path.
+ * ledger/ is served from ledger.ainumbers.co; every other tracked page is a
+ * ainumbers.co page.
+ */
+export function originOf(page) {
+  const norm = page.split(/[/\\]/).join('/');
+  return norm.startsWith('ledger/') ? 'ledger.ainumbers.co' : 'ainumbers.co';
+}
+
+/**
  * Core check over (pageRegistrations: Map<pageRelPath, name[]>) and
  * (nodeNames: Map<mcpName, tool_id[]>). Returns FATAL finding strings (empty = clean).
+ *
+ * exemptNames (COMPOSER-PLAN-AND-ROOT-WEBMCP-1): names whose EVERY registering
+ * page is a generator-owned chain composer page (chaingraph/chains/*.html) AND
+ * which are registered by more than one such page. Those are the byte-identical
+ * generated chain-mode blocks (plan_chain, assemble_session_receipt,
+ * apply_delegation_bundle) emitted by gen-webmcp-registrations.mjs --chains: ONE
+ * logical tool definition rendered on every composer page, drift-controlled by
+ * that generator's byte-exact --check, so per-origin F1 would fire on the
+ * generation pattern, not on a real collision. The set is COMPUTED (see
+ * chainGeneratedNames), never hand-listed. Any registration of these names on a
+ * NON-chain page, or a single-chain-page-only name, stays fully gated (F1/F2).
  */
-export function findCollisions(pageRegistrations, nodeNames) {
+export function findCollisions(pageRegistrations, nodeNames, exemptNames = new Set()) {
   const fatal = [];
 
-  // F1 — one name, two pages.
-  const byName = new Map();
+  // F1 — one name, two pages, SAME ORIGIN (names bind per origin).
+  const byNameOrigin = new Map();
   for (const [page, names] of pageRegistrations) {
+    const origin = originOf(page);
     for (const n of names) {
-      if (!byName.has(n)) byName.set(n, []);
-      byName.get(n).push(page);
+      const key = origin + '\u0000' + n;
+      if (!byNameOrigin.has(key)) byNameOrigin.set(key, []);
+      byNameOrigin.get(key).push(page);
     }
   }
-  for (const [name, pages] of byName) {
+  for (const [key, pages] of byNameOrigin) {
     const uniq = [...new Set(pages)];
-    if (uniq.length > 1) fatal.push(`F1: WebMCP name '${name}' is registered by ${uniq.length} pages: ${uniq.join(', ')}`);
+    if (uniq.length > 1 && !exemptNames.has(key.split('\u0000')[1])) {
+      const name = key.split('\u0000')[1];
+      fatal.push(`F1: WebMCP name '${name}' is registered by ${uniq.length} pages of origin ${originOf(uniq[0])}: ${uniq.join(', ')}`);
+    }
   }
 
-  // F2 — WebMCP name vs a live node mcp_name owned by a DIFFERENT page.
-  for (const [name, pages] of byName) {
+  // F2 — WebMCP name vs a live node mcp_name owned by a DIFFERENT page
+  // (same origin only: node mcp_names are root-origin).
+  for (const [key, pages] of byNameOrigin) {
+    const name = key.split('\u0000')[1];
     const nodes = nodeNames.get(name);
     if (!nodes) continue;
     for (const toolId of nodes) {
       const ownPage = `chaingraph/${toolId}.html`;
       for (const page of new Set(pages)) {
         const pageBase = page.split(/[/\\]/).pop();
-        if (pageBase !== `${toolId}.html`) {
+        if (pageBase !== `${toolId}.html` && originOf(page) === 'ainumbers.co') {
           fatal.push(`F2: WebMCP name '${name}' on ${page} collides with live node mcp_name of ${toolId} (own page ${ownPage})`);
         }
       }
@@ -125,6 +160,36 @@ export function findCollisions(pageRegistrations, nodeNames) {
   }
 
   return fatal;
+}
+
+/**
+ * Names registered ONLY by generator-owned chain composer pages, on 2+ such
+ * pages: the generated chain-mode trio. Computed from the same extraction the
+ * F1 scan uses — never a static allowlist.
+ */
+export function chainGeneratedNames(pageRegistrations) {
+  const byName = new Map();
+  for (const [page, names] of pageRegistrations) {
+    const norm = page.split(/[/\\]/).join('/');
+    if (!norm.startsWith('chaingraph/chains/')) continue;
+    for (const n of names) {
+      if (!byName.has(n)) byName.set(n, { chain: 0, other: 0 });
+      byName.get(n).chain++;
+    }
+  }
+  for (const [page, names] of pageRegistrations) {
+    const norm = page.split(/[/\\]/).join('/');
+    if (norm.startsWith('chaingraph/chains/')) continue;
+    for (const n of names) {
+      if (!byName.has(n)) byName.set(n, { chain: 0, other: 0 });
+      byName.get(n).other++;
+    }
+  }
+  const out = new Set();
+  for (const [name, cnt] of byName) {
+    if (cnt.chain > 1 && cnt.other === 0) out.add(name);
+  }
+  return out;
 }
 
 function loadLiveNodeNames(repoRoot) {
@@ -158,7 +223,7 @@ function run(repoRoot) {
     }
   }
   const nodeNames = loadLiveNodeNames(repoRoot);
-  const fatal = findCollisions(pageRegistrations, nodeNames);
+  const fatal = findCollisions(pageRegistrations, nodeNames, chainGeneratedNames(pageRegistrations));
   if (fatal.length) {
     console.error(`✗ webmcp-name-uniqueness FAILED (${fatal.length} collision${fatal.length === 1 ? '' : 's'}):`);
     fatal.forEach((f) => console.error('    ' + f));
@@ -167,7 +232,9 @@ function run(repoRoot) {
     process.exit(1);
   }
   const nodeCount = [...nodeNames.values()].length;
+  const origins = [...new Set([...pageRegistrations.keys()].map(originOf))].sort();
   console.log(`✓ webmcp-name-uniqueness clean — ${registrationCount} page registration(s) across ${pageRegistrations.size} page(s), ${nodeCount} live node mcp_name(s); no duplicate, no cross-surface collision.`);
+  console.log(`  Names bind per origin; namespaces checked: ${origins.join(', ')}. A name may repeat ACROSS origins (e.g. ledger/ vs root) without collision.`);
 }
 
 const SELFTEST_PAGES = new Map([
@@ -204,6 +271,21 @@ function selftest() {
   const red2 = findCollisions(cross, SELFTEST_NODES);
   check('RED F2 control: cross-surface mcp_name collision caught', red2.some((f) => f.startsWith('F2:')));
 
+  // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: the generated chain-mode trio. The same
+  // name on 2+ chain composer pages is the generation pattern, not a collision
+  // (computed exemption); the SAME name on a non-chain page is still F1.
+  const chainPages = new Map(SELFTEST_PAGES);
+  chainPages.set('chaingraph/chains/fixture-chain-a.html', ['plan_chain', 'assemble_session_receipt', 'apply_delegation_bundle']);
+  chainPages.set('chaingraph/chains/fixture-chain-b.html', ['plan_chain', 'assemble_session_receipt', 'apply_delegation_bundle']);
+  const chainExempt = chainGeneratedNames(chainPages);
+  check('chain exemption computed: trio exempt, node names not', chainExempt.has('plan_chain') && chainExempt.has('assemble_session_receipt') && chainExempt.has('apply_delegation_bundle') && !chainExempt.has('fixture_tool_alpha'));
+  const chainGreen = findCollisions(chainPages, SELFTEST_NODES, chainGeneratedNames(chainPages));
+  check('GREEN control: generated trio on 2 chain pages passes', chainGreen.length === 0);
+  const leak = new Map(chainPages);
+  leak.set('chaingraph/art-9007-intruder.html', ['plan_chain']);
+  const chainRed = findCollisions(leak, SELFTEST_NODES, chainGeneratedNames(leak));
+  check('RED control: plan_chain on a NON-chain page still F1', chainRed.some((f) => f.startsWith('F1:') && f.includes('plan_chain')));
+
   // RED (F3): two live nodes share an mcp_name.
   const dupNodes = new Map(SELFTEST_NODES);
   dupNodes.set('other_live_node_name', ['art-9003-other-node', 'art-9006-second-node']);
@@ -230,6 +312,21 @@ if (mc) {
   check('extraction reads registrations inside <script> blocks', extractPageRegistrationNames(inScript).length === 1 && extractPageRegistrationNames(inScript)[0] === 'probe_tool_two');
   const none = extractRegistrationNames('<p>no registrations here</p>');
   check('extraction returns none for a page without registerTool', none.length === 0);
+
+  // LEDGER-WEBMCP-1: names bind per origin.
+  const crossOrigin = new Map(SELFTEST_PAGES);
+  crossOrigin.set('ledger/index.html', ['fixture_tool_alpha']);
+  const co = findCollisions(crossOrigin, SELFTEST_NODES);
+  check('ORIGIN control: same name on ledger/ + root page is NOT a collision', co.length === 0);
+  const ledgerDup = new Map(SELFTEST_PAGES);
+  ledgerDup.set('ledger/index.html', ['fixture_tool_alpha']);
+  ledgerDup.set('ledger/import.html', ['fixture_tool_alpha']);
+  const ld = findCollisions(ledgerDup, SELFTEST_NODES);
+  check('ORIGIN control: same name on two ledger/ pages IS an F1 collision', ld.some((f) => f.startsWith('F1:')));
+  const ledgerMcpName = new Map(SELFTEST_PAGES);
+  ledgerMcpName.set('ledger/index.html', ['other_live_node_name']);
+  const lm = findCollisions(ledgerMcpName, SELFTEST_NODES);
+  check('ORIGIN control: ledger/ page may reuse a root mcp_name (different origin)', lm.length === 0);
 
   console.log(failures === 0 ? 'WEBMCP-NAME-UNIQUENESS SELFTEST: PASS' : 'WEBMCP-NAME-UNIQUENESS SELFTEST: FAIL');
   process.exit(failures === 0 ? 0 : 1);

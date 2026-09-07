@@ -21,8 +21,9 @@
 // hard PR-side failure this row removed.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   classifyNode,
@@ -32,6 +33,7 @@ import {
   ratchetBreach,
   disposition,
 } from './check-compute-proof-coverage.mjs';
+import { isMainContext } from './derived-artifacts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GATE = resolve(HERE, 'check-compute-proof-coverage.mjs');
@@ -225,6 +227,120 @@ test('END-TO-END — the shipped exit path is wired to disposition() + isMainCon
   const src = readFileSync(GATE, 'utf8');
   assert(/const MAIN_CONTEXT = isMainContext\(\);/.test(src), 'the CLI must read the context via isMainContext()');
   assert(/disposition\(\{ failed, mainContext: MAIN_CONTEXT \}\)/.test(src), 'the CLI exit must be decided by disposition()');
+});
+
+// ── 9. MERGEGROUP-HARD-GATES-1 — the merge_group THIRD state ───────────────────────────────────────
+// merge_group is HARD iff the ephemeral derived tree (DERIVED_ROOT) is mounted;
+// PR-advisory otherwise. `pull_request` stays advisory even WITH a scratch tree
+// (its inputs are stale by construction regardless).
+
+function withEnv(overrides, fn) {
+  const keys = ['GITHUB_ACTIONS', 'GITHUB_EVENT_NAME', 'DERIVED_ROOT'];
+  const saved = {};
+  for (const k of keys) {
+    saved[k] = process.env[k];
+    if (overrides[k] === undefined) delete process.env[k];
+    else process.env[k] = overrides[k];
+  }
+  try { return fn(); }
+  finally { for (const k of keys) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } }
+}
+
+test('MERGE_GROUP — merge_group + DERIVED_ROOT is a MAIN (HARD) context', () => {
+  const ctx = withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: '/scratch/derived' }, () => isMainContext());
+  assert(ctx === true, `merge_group with an assembled tree must be HARD, got ${ctx}`);
+});
+
+test('MERGE_GROUP — merge_group WITHOUT DERIVED_ROOT stays PR-advisory', () => {
+  const ctx = withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group' }, () => isMainContext());
+  assert(ctx === false, `merge_group without the ephemeral tree must stay advisory, got ${ctx}`);
+});
+
+test('MERGE_GROUP — pull_request stays advisory even WITH DERIVED_ROOT (empty DERIVED_ROOT never counts)', () => {
+  const ctx = withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request', DERIVED_ROOT: '/scratch/derived' }, () => isMainContext());
+  assert(ctx === false, `pull_request must stay advisory, got ${ctx}`);
+  const empty = withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: '   ' }, () => isMainContext());
+  assert(empty === false, 'a whitespace DERIVED_ROOT must not read as an assembled tree');
+});
+
+// THE ROW'S FIXTURE (stale monolith + MISSING BUMP → HARD RED; same + bump → GREEN).
+// This is the #1759 shape: a node lands deferred without the SO #59 baseline bump,
+// the §18 deferred count rises past the ceiling. On a merge_group run the job has
+// assembled the speculative tree into DERIVED_ROOT, so isMainContext() is HARD and
+// this exits 1 — previously it was `exit 0 + ::warning` and reded main at push.
+const UNBUMPED_BASELINE = {
+  deferred: 2,
+  deferred_nodes: ['node_c'],
+  known_gpu_false_nodes: ['node_a', 'node_b', 'node_c'],
+};
+const BUMPED_BASELINE = {
+  deferred: 3,
+  deferred_nodes: ['node_a', 'node_b', 'node_c'],
+  known_gpu_false_nodes: ['node_a', 'node_b', 'node_c'],
+};
+
+function fixtureFailed(baseline) {
+  const { deferred } = evaluateCoverage(STALE_MONOLITH, () => null);
+  const { regressions } = findRegressions(deferred, baseline);
+  const ratchet = ratchetBreach(deferred, baseline);
+  return regressions.length > 0 || ratchet.over;
+}
+
+test('MERGE_GROUP RED — stale monolith + missing bump: HARD exit 1 under DERIVED_ROOT', () => {
+  assert(fixtureFailed(UNBUMPED_BASELINE), 'the unbumped fixture must be a failing state');
+  const mgHard = withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: '/scratch/derived' }, () => isMainContext());
+  const d = disposition({ failed: true, mainContext: mgHard });
+  assert(d.exit === 1 && d.mode === 'blocking', `expected HARD RED on merge_group, got exit ${d.exit} mode ${d.mode}`);
+  const prAdvisory = disposition({ failed: true, mainContext: withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group' }, () => isMainContext()) });
+  assert(prAdvisory.exit === 0 && prAdvisory.mode === 'advisory', 'the SAME finding without the assembled tree stays advisory');
+});
+
+test('MERGE_GROUP GREEN — the same fixture with the baseline bump is clean, exit 0', () => {
+  assert(fixtureFailed(BUMPED_BASELINE) === false, 'the bumped fixture must be clean');
+  const mgHard = withEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'merge_group', DERIVED_ROOT: '/scratch/derived' }, () => isMainContext());
+  const d = disposition({ failed: false, mainContext: mgHard });
+  assert(d.exit === 0 && d.mode === 'clean', `expected GREEN, got exit ${d.exit} mode ${d.mode}`);
+});
+
+// END-TO-END under DERIVED_ROOT: poison a scratch tree with ONE fabricated
+// deferral of a really-proven node, then run the real gate CLI against it.
+//   merge_group + poisoned DERIVED_ROOT  -> 1 (HARD RED — the whole row's point)
+//   merge_group + DERIVED_ROOT = repo    -> 0 (GREEN — the fresh overlay reads clean)
+//   merge_group, no DERIVED_ROOT         -> 0 (poisoned scratch is invisible — overlay scoping)
+//   pull_request + poisoned DERIVED_ROOT -> 0 (advisory stays advisory in every case)
+function runGateEnv(eventName, extra = {}) {
+  try {
+    execFileSync(process.execPath, [GATE], {
+      cwd: resolve(HERE, '..'),
+      env: { ...process.env, GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: eventName, ...extra },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return 0;
+  } catch (e) {
+    return e.status ?? 1;
+  }
+}
+
+test('MERGE_GROUP END-TO-END — the real gate is HARD on a poisoned ephemeral tree and green on a fresh one', () => {
+  const committed = JSON.parse(readFileSync(resolve(HERE, '..', 'chaingraph', 'chaingraph.json'), 'utf8'));
+  const victim = committed.nodes.find((n) => n.status === 'live' && n.gpu === false && n.compute_proof);
+  assert(victim, 'fixture needs one proven gpu:false live node in the committed monolith');
+  const poisoned = JSON.parse(JSON.stringify(committed));
+  const p = poisoned.nodes.find((n) => n.tool_id === victim.tool_id);
+  delete p.compute_proof;
+  p.compute_proof_ready = 'deferred';
+  p.deferred_reason = 'in-guest proving cost prohibitive (SPEC §18.2)';
+  const scratch = mkdtempSync(join(tmpdir(), 'mg-hard-gates-'));
+  try {
+    mkdirSync(join(scratch, 'chaingraph'), { recursive: true });
+    writeFileSync(join(scratch, 'chaingraph', 'chaingraph.json'), JSON.stringify(poisoned));
+    assert(runGateEnv('merge_group', { DERIVED_ROOT: scratch }) === 1, 'merge_group + poisoned DERIVED_ROOT must exit 1 (HARD RED)');
+    assert(runGateEnv('merge_group', { DERIVED_ROOT: resolve(HERE, '..') }) === 0, 'merge_group + the fresh overlay (the repo itself) must exit 0 (GREEN)');
+    assert(runGateEnv('merge_group') === 0, 'merge_group WITHOUT DERIVED_ROOT must not see the poisoned scratch at all');
+    assert(runGateEnv('pull_request', { DERIVED_ROOT: scratch }) === 0, 'pull_request stays advisory even on the poisoned tree');
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 });
 
 console.log(`\n§18 coverage gate self-test — ${passed} passed, ${failed} failed`);

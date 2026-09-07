@@ -567,8 +567,32 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // NO CEILING WAS RAISED: the ratchet baseline (scripts/s18-digest-freshness-baseline.json) is
    // 133 and was not touched; 118 <= 133, so the gate itself stays green. Only this exact-match
    // calibration moved.
-   assert(total === 606, `expected 606 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 488, `expected 488 fresh (calibration set), got ${fresh.length}`);
+   // 606 -> 607 post-art-612 receipt landing (2026-09-04, ZZ-PROVE-DOWNTIME-ART612-REIMAGE-1
+   // receipt finally landed via draft #1599 rework; ORCH-authorized per WEEKEND-DISPATCH §A1.3):
+   // compute_erc2612_permit_binding_verifier moves deferred -> ready with a fresh groth16 receipt
+   // binding current kernel bytes (kernel_digest sha256:a1bb4dd8... verified equal to origin/main
+   // bytes at 6b9a1c87 before landing). Denominator +1, fresh +1 (newly proven => fresh),
+   // stale UNCHANGED. Measured, not assumed: the failing assert printed got 607 before this edit.
+   // 607 -> 622 post-ASSEMBLE-LAND prove-campaign-wknd (2026-09-04, PROVE-BATCH-DEFERRED-1
+   // weekend campaign landing via draft #1717; local-merge land per RUNBOOK -0.6/-0.7):
+   // 15 nodes flip compute_proof_ready deferred -> ready with fresh groth16 receipts binding
+   // current kernel bytes (art-618, art-626, art-628, art-654, art-655, art-656, art-657,
+   // art-658, art-659, art-660, art-669, art-674, art-675, art-676, art-679). The campaign's
+   // 16th receipt, art-653-pta-verifier, is shard-only (no chaingraph/register node entry,
+   // pre-existing NODE-REGISTRATION-GAP), so it does not enter this denominator.
+   // Denominator +15, fresh +15 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured, not assumed: the failing assert printed got 622 before this edit.
+   // 622 -> 623 post-ART652-ASSEMBLE-LAND-1 (2026-09-05, art-652 compute_verify_receipt receipt
+   // landing via draft #1725): art-652-verify-receipt flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:85446228... verified equal to this branch's kernel bytes before landing; the landing
+   // row touches NO kernel byte). Denominator +1, fresh +1 (newly proven => fresh), stale
+   // UNCHANGED (118 <= baseline 133, ratchet baseline untouched).
+   // Measured both sides, not assumed: 504/622 fresh + 118 stale on origin/main 9fba6c6d (scratch
+   // worktree, fixture asserts green), 505/623 fresh + 118 stale on this branch; the failing assert
+   // printed got 623 before this edit.
+   assert(total === 623, `expected 623 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 505, `expected 505 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
