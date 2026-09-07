@@ -25,7 +25,17 @@ import argparse
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
-INDEX_PATH = os.path.join(REPO_ROOT, "tools.html")
+# MERGEGROUP-HARD-GATES-1: tools.html is a shared DERIVED artifact (single
+# writer on main, SO #35). On merge_group the job assembles it ephemerally into
+# $DERIVED_ROOT; prefer that copy when present so this gate can be HARD on the
+# speculative merge result. Everywhere else DERIVED_ROOT is unset and this is
+# the committed tools.html, unchanged.
+_DERIVED_ROOT = os.environ.get("DERIVED_ROOT", "").strip()
+INDEX_PATH = (
+    os.path.join(os.path.abspath(_DERIVED_ROOT), "tools.html")
+    if _DERIVED_ROOT and os.path.isfile(os.path.join(os.path.abspath(_DERIVED_ROOT), "tools.html"))
+    else os.path.join(REPO_ROOT, "tools.html")
+)
 
 # Tools that are intentionally omitted from tools.html (duplicates / aliases)
 # Edit this list if you deliberately exclude a tool from the catalog.

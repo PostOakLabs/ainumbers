@@ -1,0 +1,1831 @@
+#!/usr/bin/env node
+/**
+ * gen-webmcp-registrations.mjs — WEBMCP-GEN-FROM-MANIFEST-1
+ *
+ * Emits each tool page's inline WebMCP registration block FROM its manifest
+ * (`manifests/*.manifest.json`, `mcp_tool_definition`), making the registration
+ * a derived artifact: hand-copies drift (generator law), so the block is
+ * generated, marker-delimited, and verified by `--check` in preflight.
+ *
+ * SWEEP GATE FIRST (the row's precondition): a registration generator must never
+ * emit from an uncleared schema. The cleared set is NOT read from the sweep's
+ * dated TSV — it is recomputed LIVE per candidate by importing the exported
+ * sweepKernel/loadManifestIndex/loadMcpNameIndex of
+ * scripts/check-schema-read-divergence.mjs (SCHEMA-READ-DIVERGENCE-SWEEP-1) and
+ * requiring verdict CLEARED (reads == declared both directions). BENIGN-ALIAS is
+ * NOT generable: its resolution is a schema widening, i.e. a manifest edit, which
+ * is outside this generator's fence. Divergent tools are EXCLUDED with a
+ * per-tool reason line in the generator output; the exclusion list shrinks as
+ * fix rows land.
+ *
+ * Emitted pattern (the 2026-08 spec state; all dated observations):
+ *   - `document.modelContext` preferred with `'modelContext' in navigator`
+ *     fallback (getter moved to document, observed 2026-08-10, #1546 pattern);
+ *     absent API registers nothing (page stays byte-identical without it);
+ *   - ONE function per tool, ONE registration per page — namespace uniqueness
+ *     is gated by scripts/check-webmcp-name-uniqueness.mjs (the check-tool-names
+ *     gate family extended to WebMCP registrations);
+ *   - name / description / inputSchema reused VERBATIM from the manifest's
+ *     mcp_tool_definition (the generator computes nothing and restates no
+ *     computed value; the emitted name equals the node's mcp_name, so page,
+ *     manifest and worker agree on one name per tool);
+ *   - required-input validation with actionable errors (the type contract comes
+ *     from the manifest's own schema — restating it is derivation, not invention);
+ *   - annotations: { readOnlyHint: true } — truthful-hint posture (#1616):
+ *     our tools are deterministic local compute with no UGC, so
+ *     untrustedContentHint is stated n/a per tool in the block comment rather
+ *     than emitted as a field; exposedTo is OMITTED entirely (no cross-origin
+ *     exposure — decided posture, 2026-09-01); the comment notes the
+ *     never-trust-client rule and why it is moot for zero-server tools;
+ *   - execute() is async, maps params onto the page's own form element ids,
+ *     awaits the page's own no-arg wrapper (WEBMCP-GEN-RUNWRAPPER-1) and returns the
+ *     page's result global (byte-for-byte delegate, shared experience: the
+ *     human sees what the agent did); errors return structured text, never
+ *     raw exceptions. Async is the canonical form so pages whose compute is
+ *     genuinely asynchronous return the real result instead of null.
+ *   - Everything inline/self-contained: no external script, no CDN — CONTRACT
+ *     constraints bind generated output exactly like hand-authored pages.
+ *
+ * Guard rails (hard failures — the generator never guesses):
+ *   G1 manifest shape: snake_case name, description >= 8 words, typed properties;
+ *   G2 page mapping: every inputSchema property must match a form element id
+ *      (`id="<prop>"`) on the page — a property with no element cannot be
+ *      delegated and is refused;
+ *   G3 the page declares `function <execution.function_name>` and sets a
+ *      result global (_lastResult, else _lastArtifact);
+ *   G3b the emitted call targets the page's OWN no-arg wrapper that assembles
+ *      the params object and invokes the manifest fn — the wrapper name is READ
+ *      from the page (fn itself when fn is zero-arg), never invented (the
+ *      argumentless call to a `fn(pp)` compute is the measured art-635
+ *      compute_failed defect);
+ *   G4 OWNERSHIP: a page carrying a registerTool call outside this generator's
+ *      markers is never touched (pilot pages and index.html are other rows');
+ *   G5 the manifest's execution.entry must be the page being written;
+ *   G6 SWEEP GATE: the tool's kernel must re-verify CLEARED live.
+ *
+ * Modes:
+ *   node scripts/gen-webmcp-registrations.mjs                 (report only)
+ *   node scripts/gen-webmcp-registrations.mjs --triage [--out <file>]
+ *       (WEBMCP-EXCLUSION-TRIAGE-1: one JSON line per page excluded with the
+ *       reason "form-element mapping incomplete" — missing props with schema
+ *       kind, heuristic name-similarity candidates, JSON-textarea presence,
+ *       parametered-function flag, and a RENAME-ONLY / AGGREGATE /
+ *       VOCAB-DIVERGENT / MIXED bucket. REPORT ONLY: the IDMAP ruling bans
+ *       heuristic BINDING, not heuristic REPORTING — a candidate emitted here
+ *       is never written into a propertyIdMap or a registration block; authored
+ *       mappings remain the only binding path.)
+ *   node scripts/gen-webmcp-registrations.mjs --all --write   (regen tranche)
+ *   node scripts/gen-webmcp-registrations.mjs --tool <id> --write
+ *   node scripts/gen-webmcp-registrations.mjs --check         (CI/preflight)
+ *   node scripts/gen-webmcp-registrations.mjs --manifest [--write|--check]
+ *       (WEBMCP-MANIFEST-1: the /.well-known/webmcp.json directory emitter)
+ *   node scripts/gen-webmcp-registrations.mjs --selftest
+ *
+ * Exit: 0 clean; 1 on any --check drift or hard-guard failure.
+ */
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { resolve, dirname, basename, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { loadManifestIndex, loadMcpNameIndex, sweepKernel } from './check-schema-read-divergence.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
+import { buildDeeplinkScript, buildFileImportScript, DEEPLINK_MARKER, FILE_IMPORT_MARKER } from '../chaingraph/_page-chrome.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = resolve(HERE, '..');
+
+export const BEGIN = '<!-- WEBMCP:GEN-BEGIN ';
+// A full HTML comment: a bare `-- WEBMCP:GEN-END -->` line is not a comment to
+// the copy-hallmarks prose stripper, and its `--` bytes read as em-dash
+// substitutes in reader-facing text (measured: 16-page preflight red).
+export const END = '<!-- WEBMCP:GEN-END -->';
+
+function beginLine(manifestPath) {
+  return `<!-- WEBMCP:GEN-BEGIN manifest=${manifestPath} generator=scripts/gen-webmcp-registrations.mjs -->`;
+}
+
+// ── Per-tool manifest-property → element-id map (WEBMCP-GEN-IDMAP-1) ──────────
+/**
+ * Authored per-entry by WEBMCP-GEN-IDMAP-1 under Tim's 2026-09-04 ruling.
+ * ⛔ NOT a snake↔camel heuristic — a transform can silently bind a wrong
+ * control. Every entry below was authored against the page's real control by
+ * reading the page's own param-assembly code; the comment cites that read path
+ * (file:line) as the justification. Consulted ONLY when the literal id guard
+ * (G2, `id="<prop>"`) fails; unmapped properties still require the literal id.
+ * `via` is how the emitted execute() writes the value:
+ *   'string'     .value = String(params.p)          (default for string/number/unknown)
+ *   'json'       .value = JSON.stringify(params.p)  (JSON-text textarea/select controls)
+ *   'checked'    .checked = params.p === true       (real checkbox)
+ *   'boolstring' .value = String(params.p === true) (select whose values are "true"/"false")
+ * A property with no faithful control on its page gets NO entry and the tool
+ * stays excluded — honest exclusion, never a guess.
+ */
+export const propertyIdMap = {
+  // art-12 runCheck reads exactly these two controls:
+  //   chaingraph/art-12-acp-checkout-conformance-validator.html:645-646
+  'art-12-acp-checkout-conformance-validator': {
+    payload: { element_id: 'payloadInput', via: 'json' },
+    message_type_override: { element_id: 'msgType', via: 'string' },
+  },
+  // art-32 validateChain reads cardInput/chainInput/spendInput textareas:
+  //   chaingraph/art-32-a2a-agent-card-trust-chain-validator.html:644,651,663
+  'art-32-a2a-agent-card-trust-chain-validator': {
+    agent_card: { element_id: 'cardInput', via: 'json' },
+    delegation_chain: { element_id: 'chainInput', via: 'json' },
+    spend_policy: { element_id: 'spendInput', via: 'json' },
+  },
+  // art-133 pp assembly reads dir/sig_ok as 'true'/'false' selects:
+  //   chaingraph/art-133-agent-payment-rail-trust-crosswalk.html:309
+  'art-133-agent-payment-rail-trust-crosswalk': {
+    directory_published: { element_id: 'dir', via: 'boolstring' },
+    signature_verified: { element_id: 'sig_ok', via: 'boolstring' },
+  },
+  // art-134 reads all five via b(id)=…value==='true' (loadPreset names the ids):
+  //   chaingraph/art-134-agent-directory-publish-readiness.html:298,331
+  'art-134-agent-directory-publish-readiness': {
+    well_known_path_ok: { element_id: 'wkpath', via: 'boolstring' },
+    jwks_reachable: { element_id: 'reachable', via: 'boolstring' },
+    card_complete: { element_id: 'card', via: 'boolstring' },
+    rotation_posture_ok: { element_id: 'rotation', via: 'boolstring' },
+    alg_ed25519: { element_id: 'alg_ed', via: 'boolstring' },
+  },
+  // art-560 pp assembly: pair/subs/thr/stale/prev (mode and epoch match literally):
+  //   chaingraph/art-560-oracle-price-aggregation.html:622-632
+  'art-560-oracle-price-aggregation': {
+    currency_pair: { element_id: 'pair', via: 'string' },
+    submissions: { element_id: 'subs', via: 'json' },
+    outlier_threshold_pct: { element_id: 'thr', via: 'string' },
+    stale_after_seconds: { element_id: 'stale', via: 'string' },
+    prev_print_hash: { element_id: 'prev', via: 'string' },
+  },
+  // art-590 pp assembly reads every EIP-712 domain/auth field:
+  //   chaingraph/art-590-x402-eip712-digest-recomputer.html:1497-1506
+  'art-590-x402-eip712-digest-recomputer': {
+    name: { element_id: 'domName', via: 'string' },
+    version: { element_id: 'domVersion', via: 'string' },
+    chainId: { element_id: 'domChainId', via: 'string' },
+    verifyingContract: { element_id: 'domVerifyingContract', via: 'string' },
+    from: { element_id: 'authFrom', via: 'string' },
+    to: { element_id: 'authTo', via: 'string' },
+    value: { element_id: 'authValue', via: 'string' },
+    validAfter: { element_id: 'authValidAfter', via: 'string' },
+    validBefore: { element_id: 'authValidBefore', via: 'string' },
+    nonce: { element_id: 'authNonce', via: 'string' },
+  },
+  // art-591 pp assembly (recovery inputs):
+  //   chaingraph/art-591-x402-signer-recovery-verifier.html:5901-5908
+  'art-591-x402-signer-recovery-verifier': {
+    digest: { element_id: 'inDigest', via: 'string' },
+    signature: { element_id: 'inSignature', via: 'string' },
+    r: { element_id: 'inR', via: 'string' },
+    s: { element_id: 'inS', via: 'string' },
+    v: { element_id: 'inV', via: 'string' },
+    yParity: { element_id: 'inYParity', via: 'string' },
+    chainId: { element_id: 'inChainId', via: 'string' },
+    claimedFrom: { element_id: 'inClaimedFrom', via: 'string' },
+  },
+  // art-592 pp assembly; nonce_already_used is a ''/'true'/'false' select read
+  // as usedSel==='true': chaingraph/art-592-x402-domain-nonce-window-checker.html:453-462
+  'art-592-x402-domain-nonce-window-checker': {
+    expected_chain_id: { element_id: 'expChainId', via: 'string' },
+    expected_verifying_contract: { element_id: 'expVerifyingContract', via: 'string' },
+    chainId: { element_id: 'sigChainId', via: 'string' },
+    verifyingContract: { element_id: 'sigVerifyingContract', via: 'string' },
+    now_unix: { element_id: 'nowUnix', via: 'string' },
+    nonce_already_used: { element_id: 'nonceAlreadyUsed', via: 'boolstring' },
+  },
+  // art-595 pp assembly (cart hash-chain inputs):
+  //   chaingraph/art-595-ap2-cartmandate-hashchain-builder.html:756-767
+  'art-595-ap2-cartmandate-hashchain-builder': {
+    agent_id: { element_id: 'agentId', via: 'string' },
+    cart_items: { element_id: 'cartItems', via: 'json' },
+    claimed_links: { element_id: 'claimedLinks', via: 'json' },
+  },
+  // art-596 pp assembly (cartRoot/cartItems/x402Evidence; merchant matches literally):
+  //   chaingraph/art-596-ap2-x402-cart-correlation.html:814-819
+  'art-596-ap2-x402-cart-correlation': {
+    cart_root: { element_id: 'cartRoot', via: 'string' },
+    cart_items: { element_id: 'cartItems', via: 'json' },
+    x402_spend_evidence: { element_id: 'x402Evidence', via: 'json' },
+  },
+  // art-605 pp assembly (encoding select, pair_sort checkbox, claimed path JSON):
+  //   chaingraph/art-605-merkle-airdrop-proof-verifier.html:864-876
+  'art-605-merkle-airdrop-proof-verifier': {
+    encoding_variant: { element_id: 'encodingVariant', via: 'string' },
+    pair_sort: { element_id: 'pairSort', via: 'checked' },
+    claimed_root: { element_id: 'claimedRoot', via: 'string' },
+    claimed_path: { element_id: 'claimedPath', via: 'json' },
+  },
+  // art-610 pp assembly (vault-share math inputs, incl. snapshot_b JSON):
+  //   chaingraph/art-610-erc4626-vault-share-math.html:680-699
+  'art-610-erc4626-vault-share-math': {
+    total_assets: { element_id: 'totalAssets', via: 'string' },
+    total_supply: { element_id: 'totalSupply', via: 'string' },
+    virtual_amounts: { element_id: 'virtualAmounts', via: 'checked' },
+    decimals_offset: { element_id: 'decimalsOffset', via: 'string' },
+    round_trip_assets: { element_id: 'roundTripAssets', via: 'string' },
+    snapshot_b: { element_id: 'snapshotB', via: 'json' },
+    fee_bps: { element_id: 'feeBps', via: 'string' },
+    fee_basis: { element_id: 'feeBasis', via: 'string' },
+    chain_id: { element_id: 'chainId', via: 'string' },
+    network_label: { element_id: 'networkLabel', via: 'string' },
+  },
+  // art-613 pp assembly (_val/_optVal name every control explicitly):
+  //   chaingraph/art-613-erc4337-userop-math.html:1753-1771
+  'art-613-erc4337-userop-math': {
+    entryPointVersion: { element_id: 'epVersion', via: 'string' },
+    entryPoint: { element_id: 'epAddress', via: 'string' },
+    chainId: { element_id: 'opChainId', via: 'string' },
+    sender: { element_id: 'opSender', via: 'string' },
+    nonce: { element_id: 'opNonce', via: 'string' },
+    initCode: { element_id: 'opInitCode', via: 'string' },
+    callData: { element_id: 'opCallData', via: 'string' },
+    paymasterAndData: { element_id: 'opPaymasterAndData', via: 'string' },
+    callGasLimit: { element_id: 'opCallGasLimit', via: 'string' },
+    verificationGasLimit: { element_id: 'opVerificationGasLimit', via: 'string' },
+    preVerificationGas: { element_id: 'opPreVerificationGas', via: 'string' },
+    maxFeePerGas: { element_id: 'opMaxFeePerGas', via: 'string' },
+    maxPriorityFeePerGas: { element_id: 'opMaxPriorityFeePerGas', via: 'string' },
+    declaredBaseFeePerGas: { element_id: 'opDeclaredBaseFee', via: 'string' },
+    declaredActualGasUsed: { element_id: 'recGasUsed', via: 'string' },
+    declaredActualGasCostWei: { element_id: 'recGasCost', via: 'string' },
+    declaredL1DataFeeWei: { element_id: 'recL1Fee', via: 'string' },
+    reconciliationToleranceWei: { element_id: 'recTolerance', via: 'string' },
+  },
+  // art-614 pp assembly (authorization tuple inputs):
+  //   chaingraph/art-614-eip7702-authorization-tuple-decoder.html:5942-5949
+  'art-614-eip7702-authorization-tuple-decoder': {
+    chainId: { element_id: 'inChainId', via: 'string' },
+    address: { element_id: 'inAddress', via: 'string' },
+    nonce: { element_id: 'inNonce', via: 'string' },
+    signature: { element_id: 'inSignature', via: 'string' },
+    r: { element_id: 'inR', via: 'string' },
+    s: { element_id: 'inS', via: 'string' },
+    v: { element_id: 'inV', via: 'string' },
+    yParity: { element_id: 'inYParity', via: 'string' },
+  },
+  // art-615 pp assembly (charge type select + two checkboxes):
+  //   chaingraph/art-615-mla-charge-inclusion-classifier.html:304-306
+  'art-615-mla-charge-inclusion-classifier': {
+    charge_type: { element_id: 'chargeType', via: 'string' },
+    is_credit_card_account: { element_id: 'isCreditCard', via: 'checked' },
+    short_term_exception_claimed: { element_id: 'shortTerm', via: 'checked' },
+  },
+  // art-634 pp assembly (four checkboxes + spec item select/input):
+  //   chaingraph/art-634-codm-expense-significance-classifier.html:248-252
+  'art-634-codm-expense-significance-classifier': {
+    included_in_segment_profit_measure: { element_id: 'included', via: 'checked' },
+    regularly_provided_to_codm: { element_id: 'regularly', via: 'checked' },
+    easily_computable_from_codm_information: { element_id: 'easily', via: 'checked' },
+    assessed_significant: { element_id: 'significant', via: 'checked' },
+    specified_item_50_22: { element_id: 'specItem', via: 'string' },
+  },
+  // art-635 pp assembly (two selects, two numbers, one checkbox):
+  //   chaingraph/art-635-rate-rec-5pct-threshold-classifier.html:266-270
+  'art-635-rate-rec-5pct-threshold-classifier': {
+    reconciling_item_category: { element_id: 'category', via: 'string' },
+    reconciling_item_amount: { element_id: 'amount', via: 'string' },
+    pretax_income: { element_id: 'pretax', via: 'string' },
+    statutory_rate_pct: { element_id: 'rate', via: 'string' },
+    entity_is_public_business_entity: { element_id: 'isPbe', via: 'checked' },
+  },
+
+  // ── WEBMCP-IDMAP-BATCH-1 (first 25 RENAME-ONLY pages from
+  // research/WEBMCP-TRIAGE-2026-09.json, PR #1729). Every control below was
+  // re-verified against the page at base e83a3992: the id exists and the
+  // page's own compute reads it (cited file:line). art-173 was DROPPED from
+  // this batch: its only inputSchema property `system` is a composite spread
+  // across six checkboxes (getParams, art-173:561-568) with no single
+  // faithful control — honest exclusion, not a guess.
+
+  // getParams reads geo_type select:
+  //   chaingraph/art-166-eudr-geolocation-plot-validator.html:390
+  'art-166-eudr-geolocation-plot-validator': {
+    geo: { element_id: 'geo_type', via: 'string' },
+  },
+  // getParams reads entity_type select:
+  //   chaingraph/art-167-eudr-commodity-scope-classifier.html:395
+  'art-167-eudr-commodity-scope-classifier': {
+    entity: { element_id: 'entity_type', via: 'string' },
+  },
+  // getParams reads is_gpai_provider checkbox (the schema's provider flag):
+  //   chaingraph/art-175-gpai-code-of-practice-conformance.html:489
+  'art-175-gpai-code-of-practice-conformance': {
+    provider: { element_id: 'is_gpai_provider', via: 'checked' },
+  },
+  // loadParams assigns content/creator/title inputs verbatim:
+  //   chaingraph/art-201-iscc-content-code-generator.html:571-579
+  'art-201-iscc-content-code-generator': {
+    content: { element_id: 'contentIn', via: 'string' },
+    creator: { element_id: 'creatorIn', via: 'string' },
+    title: { element_id: 'titleIn', via: 'string' },
+  },
+  // pp assembly names every camelCase control explicitly:
+  //   chaingraph/art-221-llpa-stack.html:447-455
+  'art-221-llpa-stack': {
+    ami_pct: { element_id: 'amiPct', via: 'string' },
+    fico_score: { element_id: 'ficoScore', via: 'string' },
+    first_time_buyer: { element_id: 'firstTimeBuyer', via: 'checked' },
+    loan_purpose: { element_id: 'loanPurpose', via: 'string' },
+    ltv_pct: { element_id: 'ltvPct', via: 'string' },
+    occupancy_type: { element_id: 'occupancyType', via: 'string' },
+    property_type: { element_id: 'propertyType', via: 'string' },
+    subordinate_financing: { element_id: 'subordinateFinancing', via: 'checked' },
+  },
+  // pp assembly names every camelCase control explicitly:
+  //   chaingraph/art-225-va-funding-fee-residual.html:524-533
+  'art-225-va-funding-fee-residual': {
+    base_loan_amount: { element_id: 'baseLoanAmount', via: 'string' },
+    down_payment_pct: { element_id: 'downPaymentPct', via: 'string' },
+    dti_pct: { element_id: 'dtiPct', via: 'string' },
+    family_size: { element_id: 'familySize', via: 'string' },
+    funding_fee_exempt: { element_id: 'fundingFeeExempt', via: 'checked' },
+    gross_monthly_income: { element_id: 'grossMonthlyIncome', via: 'string' },
+    loan_purpose: { element_id: 'loanPurpose', via: 'string' },
+    monthly_shelter_expenses: { element_id: 'monthlyShelterExpenses', via: 'string' },
+    state: { element_id: 'stateCode', via: 'string' },
+    va_use_type: { element_id: 'vaUseType', via: 'string' },
+  },
+  // raw = loanDataJson.value parsed as JSON text:
+  //   chaingraph/art-226-mismo-uldd-ulad.html:542
+  'art-226-mismo-uldd-ulad': {
+    loan_data: { element_id: 'loanDataJson', via: 'json' },
+  },
+  // pp assembly names every group_* control explicitly:
+  //   chaingraph/art-229-compute-disparity-metrics.html:420-425
+  'art-229-compute-disparity-metrics': {
+    group_a_approvals: { element_id: 'groupAApprovals', via: 'string' },
+    group_a_label: { element_id: 'groupALabel', via: 'string' },
+    group_a_total: { element_id: 'groupATotal', via: 'string' },
+    group_b_approvals: { element_id: 'groupBApprovals', via: 'string' },
+    group_b_label: { element_id: 'groupBLabel', via: 'string' },
+    group_b_total: { element_id: 'groupBTotal', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-230-compute-hmda-rate-spread.html:389-393
+  'art-230-compute-hmda-rate-spread': {
+    apor_pct: { element_id: 'aporPct', via: 'string' },
+    apr_pct: { element_id: 'aprPct', via: 'string' },
+    lien_type: { element_id: 'lienType', via: 'string' },
+    lock_date: { element_id: 'lockDate', via: 'string' },
+    product_type: { element_id: 'productType', via: 'string' },
+  },
+  // pp assembly; two booleans are "true"/"false" selects:
+  //   chaingraph/art-232-compute-scra-rate-cap.html:387-391
+  'art-232-compute-scra-rate-cap': {
+    covered_months: { element_id: 'coveredMonths', via: 'string' },
+    is_pre_service_obligation: { element_id: 'isPreServiceObligation', via: 'boolstring' },
+    loan_balance: { element_id: 'loanBalance', via: 'string' },
+    original_rate_pct: { element_id: 'originalRatePct', via: 'string' },
+    servicemember_notified: { element_id: 'servicememberNotified', via: 'boolstring' },
+  },
+  // pp assembly names every party control explicitly:
+  //   chaingraph/art-242-pacs008-party-completeness-validator.html:349-365
+  'art-242-pacs008-party-completeness-validator': {
+    creditor_agent_bic: { element_id: 'creditorAgentBic', via: 'string' },
+    creditor_lei: { element_id: 'creditorLei', via: 'string' },
+    creditor_name: { element_id: 'creditorName', via: 'string' },
+    debtor_agent_bic: { element_id: 'debtorAgentBic', via: 'string' },
+    debtor_lei: { element_id: 'debtorLei', via: 'string' },
+    debtor_name: { element_id: 'debtorName', via: 'string' },
+    purpose_code: { element_id: 'purposeCode', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-244-gpi-tracker-lifecycle-simulator.html:363-372
+  'art-244-gpi-tracker-lifecycle-simulator': {
+    amount_usd: { element_id: 'amountUsd', via: 'string' },
+    current_status: { element_id: 'currentStatus', via: 'string' },
+    hours_elapsed: { element_id: 'hoursElapsed', via: 'string' },
+    next_status: { element_id: 'nextStatus', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-249-compare-corridor-cost.html:371-377
+  'art-249-compare-corridor-cost': {
+    from_country: { element_id: 'fromCountry', via: 'string' },
+    fx_rate_mid: { element_id: 'fxRateMid', via: 'string' },
+    fx_rate_used: { element_id: 'fxRateUsed', via: 'string' },
+    provider_fee: { element_id: 'providerFee', via: 'string' },
+    send_amount: { element_id: 'sendAmount', via: 'string' },
+    service_name: { element_id: 'serviceName', via: 'string' },
+    to_country: { element_id: 'toCountry', via: 'string' },
+  },
+  // record = JSON.parse(recordJson.value):
+  //   chaingraph/art-256-validate-openids-homeowners-record.html:381
+  'art-256-validate-openids-homeowners-record': {
+    record: { element_id: 'recordJson', via: 'json' },
+  },
+  // one line reads openingBalance/dayCountConvention/closingBalance:
+  //   chaingraph/art-258-parse-camt053-reconciliation.html:356
+  'art-258-parse-camt053-reconciliation': {
+    closing_balance: { element_id: 'closingBalance', via: 'string' },
+    day_count_convention: { element_id: 'dayCountConvention', via: 'string' },
+    opening_balance: { element_id: 'openingBalance', via: 'string' },
+  },
+  // pp assembly reads the three controls directly:
+  //   chaingraph/art-267-check-producer-license-reciprocity.html:327-329
+  'art-267-check-producer-license-reciprocity': {
+    loa_codes: { element_id: 'loaCodes', via: 'string' },
+    resident_state: { element_id: 'residentState', via: 'string' },
+    target_states: { element_id: 'targetStates', via: 'string' },
+  },
+  // JSON.parse on both JSON textareas + entity id:
+  //   chaingraph/art-268-compute-cdd-ownership-25pct.html:363-365
+  'art-268-compute-cdd-ownership-25pct': {
+    natural_persons: { element_id: 'naturalPersons', via: 'json' },
+    ownership_tiers: { element_id: 'ownershipTiers', via: 'json' },
+    target_entity_id: { element_id: 'targetEntityId', via: 'string' },
+  },
+  // mandateHash read into pp.mandate_hash:
+  //   chaingraph/art-274-compile-work-mandate.html:341
+  'art-274-compile-work-mandate': {
+    mandate: { element_id: 'mandateHash', via: 'string' },
+  },
+  // f_* controls read verbatim in the composer payload:
+  //   chaingraph/art-276-mutual-nda-composer.html:388-403
+  'art-276-mutual-nda-composer': {
+    confidentiality_term_mode: { element_id: 'f_confidentiality_term_mode', via: 'string' },
+    confidentiality_term_years: { element_id: 'f_confidentiality_term_years', via: 'string' },
+    effective_date: { element_id: 'f_effective_date', via: 'string' },
+    governing_law: { element_id: 'f_governing_law', via: 'string' },
+    jurisdiction: { element_id: 'f_jurisdiction', via: 'string' },
+    mnda_term_mode: { element_id: 'f_mnda_term_mode', via: 'string' },
+    mnda_term_years: { element_id: 'f_mnda_term_years', via: 'string' },
+    modifications: { element_id: 'f_modifications', via: 'string' },
+    purpose: { element_id: 'f_purpose', via: 'string' },
+  },
+  // f_* controls read verbatim in the binder payload:
+  //   chaingraph/art-277-agreement-acceptance-binder.html:341-346
+  'art-277-agreement-acceptance-binder': {
+    acceptance_statement: { element_id: 'f_acceptance_statement', via: 'string' },
+    accepting_party_role: { element_id: 'f_accepting_party_role', via: 'string' },
+    body_sha256: { element_id: 'f_body_sha256', via: 'string' },
+    previous_proof_hash: { element_id: 'f_previous_proof_hash', via: 'string' },
+    referenced_execution_hash: { element_id: 'f_referenced_execution_hash', via: 'string' },
+    template_id: { element_id: 'f_template_id', via: 'string' },
+  },
+  // pp assembly names every control explicitly:
+  //   chaingraph/art-318-rhc-regime-mapper.html:384-389
+  'art-318-rhc-regime-mapper': {
+    holder_of_record: { element_id: 'holderOfRecord', via: 'string' },
+    instrument_type: { element_id: 'instrumentType', via: 'string' },
+    issuer_entity: { element_id: 'issuerEntity', via: 'string' },
+    target_jurisdictions: { element_id: 'targetJurisdictions', via: 'string' },
+    voting_rights: { element_id: 'votingRights', via: 'checked' },
+  },
+  // solveFor select + ratePct:
+  //   chaingraph/art-327-tvm-annuity.html:341,392
+  'art-327-tvm-annuity': {
+    rate_pct: { element_id: 'ratePct', via: 'string' },
+    solve_for: { element_id: 'solveFor', via: 'string' },
+  },
+  // pp assembly names every TVM control explicitly:
+  //   chaingraph/art-330-tvm-dv01.html:329-331,396-401
+  'art-330-tvm-dv01': {
+    basis_points: { element_id: 'basisPoints', via: 'string' },
+    coupon_rate_pct: { element_id: 'couponRatePct', via: 'string' },
+    face_value: { element_id: 'faceValue', via: 'string' },
+    periods_per_year: { element_id: 'periodsPerYear', via: 'string' },
+    years_to_maturity: { element_id: 'yearsToMaturity', via: 'string' },
+    ytm_pct: { element_id: 'ytmPct', via: 'string' },
+  },
+  // pp assembly names every TVM control explicitly:
+  //   chaingraph/art-331-tvm-convexity.html:329-331,396-400
+  'art-331-tvm-convexity': {
+    coupon_rate_pct: { element_id: 'couponRatePct', via: 'string' },
+    face_value: { element_id: 'faceValue', via: 'string' },
+    periods_per_year: { element_id: 'periodsPerYear', via: 'string' },
+    years_to_maturity: { element_id: 'yearsToMaturity', via: 'string' },
+    yield_shock_bp: { element_id: 'yieldShockBp', via: 'string' },
+    ytm_pct: { element_id: 'ytmPct', via: 'string' },
+  },
+
+  // ── WEBMCP-IDMAP-BATCH-2 (the remaining 15 RENAME-ONLY pages from
+  // research/WEBMCP-TRIAGE-2026-09.json after BATCH-1's 25; PR #1729). Every
+  // control below was re-verified against the page at base 1eec8891: the id
+  // exists and the page's own compute reads it (cited file:line).
+  // DROPPED (honest exclusion, no faithful single control):
+  //   art-375-compute-fund-expense-ratios + art-515-build-allocation-decision-
+  //   receipt — `rounding` is a composite object assembled from two controls
+  //   (decimal_places + rounding_mode; art-375:515, art-515:695-696).
+  //   art-404-check-retail-installment-disclosures — `inputs` is a composite
+  //   object spread across ten controls (getParams, art-404:327-339).
+  //   rca-03-iso20022-address-migration-verifier — partial mapping below; the
+  //   required `records` prop has no faithful control (CSV-imported in-memory
+  //   `_records` state rendered as dynamic per-field inputs; importCsv,
+  //   rca-03:637-652), so the page stays excluded.
+
+  // getParams reads the merchant/duration/rail/cadence controls:
+  //   chaingraph/art-36-tempo-mpp-agent-mandate.html:513-518
+  'art-36-tempo-mpp-agent-mandate': {
+    merchant: { element_id: 'merchantEndpoint', via: 'string' },
+    duration: { element_id: 'sessionDuration', via: 'string' },
+    rail: { element_id: 'paymentRail', via: 'string' },
+    cadence: { element_id: 'voucherCadence', via: 'string' },
+  },
+  // getParams reads every camelCase control explicitly:
+  //   chaingraph/art-367-compute-cross-border-fees.html:307-314
+  'art-367-compute-cross-border-fees': {
+    invoice_amount: { element_id: 'invoiceAmount', via: 'string' },
+    origin_country: { element_id: 'originCountry', via: 'string' },
+    dest_country: { element_id: 'destCountry', via: 'string' },
+    fx_spread_bps: { element_id: 'fxSpreadBps', via: 'string' },
+    method_fee: { element_id: 'methodFee', via: 'string' },
+    vat_rate: { element_id: 'vatRate', via: 'string' },
+    doc_cost: { element_id: 'docCost', via: 'string' },
+    recon_cost: { element_id: 'reconCost', via: 'string' },
+  },
+  // assembler payload reads f_* selects verbatim; two booleans are
+  // "true"/"false" selects (bool(): art-411:416):
+  //   chaingraph/art-411-ai-addendum-assembler.html:418-427
+  'art-411-ai-addendum-assembler': {
+    train_on_customer_data: { element_id: 'f_train_on_customer_data', via: 'boolstring' },
+    model_improvement: { element_id: 'f_model_improvement', via: 'boolstring' },
+    training_data: { element_id: 'f_training_data', via: 'string' },
+    training_purposes: { element_id: 'f_training_purposes', via: 'string' },
+    training_restrictions: { element_id: 'f_training_restrictions', via: 'string' },
+    improvement_restrictions: { element_id: 'f_improvement_restrictions', via: 'string' },
+    retention_window: { element_id: 'f_retention_window', via: 'string' },
+    output_ownership: { element_id: 'f_output_ownership', via: 'string' },
+    subprocessor_ai: { element_id: 'f_subprocessor_ai', via: 'string' },
+    effective_date: { element_id: 'f_effective_date', via: 'string' },
+  },
+  // mapper payload reads the two f_* controls verbatim:
+  //   chaingraph/art-412-ai-act-procurement-clause-mapper.html:337-338
+  'art-412-ai-act-procurement-clause-mapper': {
+    risk_tier: { element_id: 'f_risk_tier', via: 'string' },
+    deployment_context: { element_id: 'f_deployment_context', via: 'string' },
+  },
+  // getParams reads listVersion select:
+  //   chaingraph/art-413-screen-sanctions-private.html:338
+  'art-413-screen-sanctions-private': {
+    list_version: { element_id: 'listVersion', via: 'string' },
+  },
+  // getParams reads every camelCase control explicitly; two are checkboxes:
+  //   chaingraph/art-450-model-inventory-entry.html:362-372
+  'art-450-model-inventory-entry': {
+    model_name: { element_id: 'modelName', via: 'string' },
+    model_owner: { element_id: 'modelOwner', via: 'string' },
+    business_purpose: { element_id: 'businessPurpose', via: 'string' },
+    development_date: { element_id: 'developmentDate', via: 'string' },
+    deployment_date: { element_id: 'deploymentDate', via: 'string' },
+    last_validation_date: { element_id: 'lastValidationDate', via: 'string' },
+    materiality_score: { element_id: 'materialityScore', via: 'string' },
+    complexity_score: { element_id: 'complexityScore', via: 'string' },
+    usage_scope: { element_id: 'usageScope', via: 'string' },
+    third_party_vendor: { element_id: 'thirdPartyVendor', via: 'checked' },
+    ai_ml_model: { element_id: 'aiMlModel', via: 'checked' },
+  },
+  // getParams reads every camelCase control explicitly:
+  //   chaingraph/art-458-attribute-sampling-plan.html:331-335
+  'art-458-attribute-sampling-plan': {
+    confidence_level: { element_id: 'confidenceLevel', via: 'string' },
+    population_size: { element_id: 'populationSize', via: 'string' },
+    tolerable_deviation_rate: { element_id: 'tolerableDeviationRate', via: 'string' },
+    expected_deviation_rate: { element_id: 'expectedDeviationRate', via: 'string' },
+    population_hash: { element_id: 'populationHash', via: 'string' },
+  },
+  // getParams reads every camelCase control explicitly:
+  //   chaingraph/art-460-ipe-integrity-verifier.html:331-336
+  'art-460-ipe-integrity-verifier': {
+    source_extract_hash: { element_id: 'sourceExtractHash', via: 'string' },
+    report_hash: { element_id: 'reportHash', via: 'string' },
+    source_row_count: { element_id: 'sourceRowCount', via: 'string' },
+    report_row_count: { element_id: 'reportRowCount', via: 'string' },
+    source_control_total: { element_id: 'sourceControlTotal', via: 'string' },
+    report_control_total: { element_id: 'reportControlTotal', via: 'string' },
+  },
+  // pp assembly JSON.parses the three textarea controls:
+  //   chaingraph/art-482-emir-recon-adjudicator.html:450-452
+  'art-482-emir-recon-adjudicator': {
+    tr_response: { element_id: 'trResponse', via: 'json' },
+    firm_state: { element_id: 'firmState', via: 'json' },
+    policy: { element_id: 'policyInput', via: 'json' },
+  },
+  // buildPolicyParameters reads every control explicitly; five booleans are
+  // fieldBool "true"/"false" selects (art-492:561):
+  //   chaingraph/art-492-classify-settlement-finality.html:564-587
+  'art-492-classify-settlement-finality': {
+    settlement_model: { element_id: 'settlementModel', via: 'string' },
+    as_of_ts: { element_id: 'asOfTs', via: 'string' },
+    required_tier: { element_id: 'requiredTier', via: 'string' },
+    claimed_tier: { element_id: 'claimedTier', via: 'string' },
+    chain_label: { element_id: 'chainLabel', via: 'string' },
+    assertion_created_at: { element_id: 'assertionCreatedAt', via: 'string' },
+    challenge_window_seconds: { element_id: 'challengeWindowSeconds', via: 'string' },
+    batch_posted: { element_id: 'batchPosted', via: 'boolstring' },
+    batch_committed_at: { element_id: 'batchCommittedAt', via: 'string' },
+    proof_submitted_at: { element_id: 'proofSubmittedAt', via: 'string' },
+    proof_accepted: { element_id: 'proofAccepted', via: 'boolstring' },
+    l1_finalized: { element_id: 'l1Finalized', via: 'boolstring' },
+    l1_finality_seconds: { element_id: 'l1FinalitySeconds', via: 'string' },
+    expected_proof_cadence_seconds: { element_id: 'expectedProofCadenceSeconds', via: 'string' },
+    included_in_block: { element_id: 'includedInBlock', via: 'boolstring' },
+    quorum_committed: { element_id: 'quorumCommitted', via: 'boolstring' },
+    quorum_pct_of_stake: { element_id: 'quorumPctOfStake', via: 'string' },
+  },
+  // run() JSON.parses the payloadJson textarea:
+  //   chaingraph/art-564-ucp-checkout-payload-lint.html:462
+  'art-564-ucp-checkout-payload-lint': {
+    payload: { element_id: 'payloadJson', via: 'json' },
+  },
+  // PARTIAL: `records` dropped (no faithful control — see batch header note).
+  // runFinality reads the two remaining controls directly:
+  //   chaingraph/rca-03-iso20022-address-migration-verifier.html:774-775
+  'rca-03-iso20022-address-migration-verifier': {
+    strictness: { element_id: 'strictnessSelect', via: 'string' },
+    trunc_threshold: { element_id: 'truncThreshold', via: 'string' },
+  },
+};
+
+// ── Guard helpers ─────────────────────────────────────────────────────────────
+
+function fail(msg) {
+  console.error('GEN-ERROR: ' + msg);
+  process.exit(1);
+}
+
+function loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot) {
+  const root = repoRoot || REPO;
+  const rec = manifestIndex.byTool.get(toolId)
+    || (mcpNameByTool.get(toolId) ? manifestIndex.byMcp.get(mcpNameByTool.get(toolId)) : null)
+    || null;
+  if (!rec) return { error: `no manifests/*.manifest.json record pairs with tool_id '${toolId}' (generator emits only from manifest records)` };
+  let m;
+  try { m = JSON.parse(readFileSync(resolve(root, rec.file), 'utf8')); } catch (e) {
+    return { error: `manifest ${rec.file} is not valid JSON: ${e.message}` };
+  }
+  return { file: rec.file, m };
+}
+
+// Root indirection so the selftest can run the same code against a fixture tree.
+function readRepoFile(rel, repoRoot) {
+  return readFileSync(resolve(repoRoot || REPO, rel), 'utf8');
+}
+
+/** G1: manifest shape. Returns an error string or null. */
+export function checkManifestShape(m) {
+  const def = m?.mcp_tool_definition;
+  if (!def || typeof def.name !== 'string') return 'missing mcp_tool_definition.name';
+  if (!/^[a-z][a-z0-9_]*$/.test(def.name)) return `mcp_tool_definition.name '${def.name}' is not snake_case`;
+  const words = (def.description || '').trim().split(/\s+/).filter(Boolean).length;
+  if (words < 8) return `mcp_tool_definition.description has ${words} words, need >= 8`;
+  const props = def.inputSchema && def.inputSchema.properties ? def.inputSchema.properties : null;
+  if (!props || typeof props !== 'object') return 'mcp_tool_definition.inputSchema.properties missing';
+  for (const [k, v] of Object.entries(props)) {
+    if (!v || typeof v.type !== 'string') return `inputSchema property '${k}' has no type`;
+  }
+  if (!m.execution || typeof m.execution.function_name !== 'string' || !m.execution.function_name) {
+    return 'missing execution.function_name';
+  }
+  return null;
+}
+
+/** G1b: the manifest's two schema writers must agree — the sweep clears
+ *  `input_schema`, emission uses `mcp_tool_definition.inputSchema`; emitting a
+ *  schema the sweep did not clear is forbidden. Returns error string or null. */
+export function checkManifestSchemaParity(m) {
+  const a = m?.input_schema?.properties;
+  const b = m?.mcp_tool_definition?.inputSchema?.properties;
+  if (!a || !b) return 'manifest lacks input_schema or mcp_tool_definition.inputSchema — the sweep clears the former, emission needs the latter';
+  const keysA = Object.keys(a).sort();
+  const keysB = Object.keys(b).sort();
+  if (keysA.join(',') !== keysB.join(',')) {
+    return `schema writers disagree on property sets: input_schema=[${keysA.join(',')}] vs mcp_tool_definition.inputSchema=[${keysB.join(',')}] — align them before emission`;
+  }
+  const reqA = (m.input_schema.required || []).slice().sort().join(',');
+  const reqB = (m.mcp_tool_definition.inputSchema.required || []).slice().sort().join(',');
+  if (reqA !== reqB) return `schema writers disagree on required: [${reqA}] vs [${reqB}]`;
+  for (const k of keysA) {
+    if (a[k].type !== b[k].type) return `schema writers disagree on type of '${k}': ${a[k].type} vs ${b[k].type}`;
+  }
+  return null;
+}
+
+/**
+ * G3b (WEBMCP-GEN-RUNWRAPPER-1): resolve the page's own no-arg wrapper for the
+ * manifest-declared execution fn — the callable that assembles the params
+ * object from the form and invokes `fn(pp)`. The name is READ from the page,
+ * never invented: fn itself when fn is declared zero-arg; otherwise the unique
+ * zero-arg function declaration whose body calls `fn(`. Returns null when no
+ * unique wrapper exists (the generator then refuses — it never guesses).
+ */
+export function findWrapperName(pageSrc, fn) {
+  if (new RegExp(`(?:async\\s+)?function\\s+${fn}\\s*\\(\\s*\\)\\s*\\{`).test(pageSrc)) return fn;
+  const callRe = new RegExp(`(?:^|[^\\w$.])${fn}\\s*\\(`);
+  const declRe = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
+  const names = new Set();
+  let m;
+  while ((m = declRe.exec(pageSrc)) !== null) {
+    let depth = 1;
+    let j = m.index + m[0].length; // m[0] ends with the opening '{'
+    while (j < pageSrc.length && depth > 0) {
+      const c = pageSrc[j];
+      if (c === '{') depth++; else if (c === '}') depth--;
+      j++;
+    }
+    if (depth !== 0) continue;
+    if (callRe.test(pageSrc.slice(m.index, j))) names.add(m[1]);
+  }
+  return names.size === 1 ? [...names][0] : null;
+}
+
+/** G2/G3/G3b/G4: element-id mapping, compute function, wrapper, result global, ownership.
+ *  `idMap` (optional) is the tool's propertyIdMap entry: mapped properties are
+ *  checked against their authored element_id (the mapping cannot go stale
+ *  silently — a mapped id absent from the page is a hard refusal). */
+export function verifyPageMapping(manifest, pageSrc, pageLabel, idMap) {
+  const def = manifest.mcp_tool_definition;
+  const props = Object.keys(def.inputSchema.properties);
+  const map = idMap || {};
+  const missing = props.filter((p) => {
+    const target = map[p] ? map[p].element_id : p;
+    return !new RegExp(`id=["']${target}["']`).test(pageSrc);
+  });
+  if (missing.length > 0) {
+    return { error: `${pageLabel}: form-element mapping incomplete, inputSchema properties with no matching element id: ${missing.map((p) => (map[p] ? `${p} -> #${map[p].element_id} (mapped)` : p)).join(', ')}` };
+  }
+  const fn = manifest.execution.function_name;
+  if (!new RegExp(`function\\s+${fn}\\s*\\(`).test(pageSrc)) {
+    return { error: `${pageLabel}: no 'function ${fn}(' found — execution.function_name does not exist on the page` };
+  }
+  // G3b: the emitted call must target the page's own form-assembling wrapper.
+  // A bare argumentless call to a `fn(pp)` compute is the measured compute_failed
+  // defect (halt-3, art-635) — a page with no detectable wrapper is refused.
+  const wrapper = findWrapperName(pageSrc, fn);
+  if (!wrapper) {
+    return { error: `${pageLabel}: no zero-arg wrapper invoking ${fn} found — the emitted call must target the page's own form-assembling wrapper, and none is detectable` };
+  }
+  // G4: registerTool outside this generator's own marked region is another row's.
+  const withoutOwn = stripMarkedRegions(pageSrc);
+  if (/\.registerTool\s*\(/.test(withoutOwn)) {
+    return { error: `${pageLabel}: already contains a registerTool call outside this generator's markers — owned by another row, never rewritten` };
+  }
+  if (/_lastResult\s*=/.test(pageSrc)) return { resGlobal: '_lastResult', wrapper };
+  if (/_lastArtifact\s*=/.test(pageSrc)) return { resGlobal: '_lastArtifact', wrapper };
+  return { error: `${pageLabel}: page sets no _lastResult/_lastArtifact global — the delegate return cannot be verified` };
+}
+
+function stripMarkedRegions(src) {
+  let out = src;
+  let b;
+  while ((b = out.indexOf(BEGIN)) !== -1) {
+    const e = out.indexOf(END, b);
+    if (e === -1) break;
+    out = out.slice(0, b) + out.slice(e + END.length);
+  }
+  return out;
+}
+
+// ── Emission ──────────────────────────────────────────────────────────────────
+
+function jsStr(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function validationLine(prop, type) {
+  const r = `JSON.stringify(params.${prop})`;
+  switch (type) {
+    case 'number': return `if (typeof params.${prop} !== 'number' || !Number.isFinite(params.${prop})) throw new Error('${jsStr(prop)} must be a finite number; received ' + ${r} + '.');`;
+    case 'boolean': return `if (typeof params.${prop} !== 'boolean') throw new Error('${jsStr(prop)} must be a boolean; received ' + ${r} + '.');`;
+    case 'string': return `if (typeof params.${prop} !== 'string') throw new Error('${jsStr(prop)} must be a string; received ' + ${r} + '.');`;
+    case 'array': return `if (!Array.isArray(params.${prop})) throw new Error('${jsStr(prop)} must be an array; received ' + ${r} + '.');`;
+    default: return `if (params.${prop} === null || typeof params.${prop} !== 'object' || Array.isArray(params.${prop})) throw new Error('${jsStr(prop)} must be a JSON object; received ' + ${r} + '.');`;
+  }
+}
+
+function mappingLine(prop, type, optional, entry) {
+  const via = entry ? entry.via : null;
+  const id = entry ? entry.element_id : prop;
+  let expr;
+  if (via === 'checked' || (!via && type === 'boolean')) expr = `document.getElementById('${jsStr(id)}').checked = params.${prop} === true;`;
+  else if (via === 'boolstring') expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop} === true);`;
+  else if (via === 'json' || type === 'array' || type === 'object') expr = `document.getElementById('${jsStr(id)}').value = JSON.stringify(params.${prop});`;
+  else expr = `document.getElementById('${jsStr(id)}').value = String(params.${prop});`;
+  return optional ? `if (params.${prop} !== undefined) ${expr}` : expr;
+}
+
+/**
+ * TOOLPAGE-DEEPLINK-1: the page's deep-link prefill table, derived from the SAME
+ * mapping decisions as mappingLine (authored propertyIdMap entry first, literal-id
+ * + type-shape default second) — never a re-derivation. Emitted as a JSON literal
+ * inside the page's deep-link reader (buildDeeplinkScript).
+ */
+function deeplinkPrefillTable(manifest, idMap) {
+  const props = Object.entries(manifest.mcp_tool_definition.inputSchema.properties);
+  const map = idMap || {};
+  const table = {};
+  for (const [name, spec] of props) {
+    const entry = map[name];
+    let via;
+    if (entry) via = entry.via;
+    else if (spec.type === 'boolean') via = 'checked';
+    else if (spec.type === 'array' || spec.type === 'object') via = 'json';
+    else via = 'string';
+    table[name] = [entry ? entry.element_id : name, via];
+  }
+  return JSON.stringify(table);
+}
+
+/**
+ * Builds the marker-delimited block for one tool page. Pure: same inputs, same
+ * bytes (RESULT_GLOBAL is substituted by buildBlockForPage).
+ */
+export function buildBlock(manifest, manifestPath, idMap, wrapper) {
+  const def = manifest.mcp_tool_definition;
+  const props = Object.entries(def.inputSchema.properties);
+  const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
+  const target = wrapper || manifest.execution.function_name;
+  const map = idMap || {};
+  const lines = [];
+  lines.push(beginLine(manifestPath));
+  lines.push('<script>');
+  lines.push('// WebMCP registration generated by scripts/gen-webmcp-registrations.mjs from');
+  lines.push(`// ${manifestPath} (mcp_tool_definition reused verbatim; the generator computes`);
+  lines.push('// nothing and restates no computed value). Feature-detected: absent API');
+  lines.push('// registers nothing, so this page is byte-identical without the API.');
+  lines.push("// Answer-class delegate to this page's existing compute; zero network I/O.");
+  lines.push('// Trust annotations, truthful-hint posture: deterministic local compute, no');
+  lines.push('// untrusted content, so untrustedContentHint is not applicable per tool (n/a);');
+  lines.push('// exposedTo intentionally omitted: no cross-origin exposure. A browser agent');
+  lines.push('// is untrusted input like any form submission; the never-trust-client rule is');
+  lines.push('// honored by construction because the tool is zero-server and only returns');
+  lines.push('// computed JSON derived from declared inputs.');
+  lines.push('// Browser support (dated observation): WebMCP origin trial from Chrome 149');
+  lines.push('// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).');
+  lines.push("const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);");
+  lines.push('if (mc) {');
+  lines.push('  mc.registerTool({');
+  lines.push(`    name: '${jsStr(def.name)}',`);
+  lines.push(`    description: '${jsStr(def.description)}',`);
+  lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
+  lines.push('    annotations: { readOnlyHint: true },');
+  lines.push('    execute: async function(params) {');
+  lines.push('      try {');
+  for (const [name, spec] of props) {
+    if (required.includes(name)) lines.push(`      ${validationLine(name, spec.type)}`);
+  }
+  for (const [name, spec] of props) {
+    lines.push(`      ${mappingLine(name, spec.type, !required.includes(name), map[name])}`);
+  }
+  lines.push(`      await ${target}();`);
+  lines.push('      return RESULT_GLOBAL;');
+  lines.push('      } catch (err) {');
+  lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
+  lines.push('      }');
+  lines.push('    }');
+  lines.push('  });');
+  lines.push('}');
+  lines.push('</script>');
+  // TOOLPAGE-DEEPLINK-1: the fragment-only prefill-and-run deep-link reader rides
+  // in the SAME marked region (one region per page keeps regionOf/insertIntoPage/
+  // runCheck byte-exact machinery unchanged). Source of truth: buildDeeplinkScript
+  // in chaingraph/_page-chrome.mjs; prefill table = this file's mapping decisions.
+  lines.push('');
+  lines.push('<script>');
+  lines.push(buildDeeplinkScript(deeplinkPrefillTable(manifest, map), target));
+  lines.push('</script>');
+  // TOOLPAGE-FILE-IMPORT-1: the zero-upload file-import reader (drop zone +
+  // picker) rides in the SAME marked region, sharing the prefill table and the
+  // verified run target. Source of truth: buildFileImportScript in _page-chrome.mjs.
+  lines.push('');
+  lines.push('<script>');
+  lines.push(buildFileImportScript(deeplinkPrefillTable(manifest, map), target));
+  lines.push('</script>');
+  lines.push(END);
+  return lines.join('\n');
+}
+
+/** buildBlock with the page's verified result global substituted in. `wrapper`
+ *  is the page-verified no-arg wrapper (G3b) the emitted call must target. */
+export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap, wrapper) {
+  return buildBlock(manifest, manifestPath, idMap, wrapper).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
+}
+
+function regionOf(pageSrc) {
+  const b = pageSrc.indexOf(BEGIN);
+  if (b === -1) return null;
+  const e = pageSrc.indexOf(END, b);
+  if (e === -1) return null;
+  return { start: b, end: e + END.length };
+}
+
+/** Idempotent write: replace the marked region, or insert before the final </body>. */
+export function insertIntoPage(pageSrc, block) {
+  const region = regionOf(pageSrc);
+  if (region) {
+    return pageSrc.slice(0, region.start) + block + pageSrc.slice(region.end);
+  }
+  if (!pageSrc.includes('</body>')) throw new Error('page has no </body> to insert before');
+  return pageSrc.replace('</body>', block + '\n\n</body>');
+}
+
+// ── Candidate derivation (sweep gate live) ────────────────────────────────────
+
+function listKernels(root) {
+  const out = execFileSync('git', ['ls-files', 'chaingraph/kernels/*.kernel.mjs'], { cwd: root, env: gitEnv(), encoding: 'utf8' });
+  return out.split('\n').map((s) => s.trim()).filter(Boolean);
+}
+
+function listPages(root) {
+  const out = execFileSync('git', ['ls-files', '*.html'], { cwd: root, env: gitEnv(), encoding: 'utf8' });
+  return out.split('\n').map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Full per-tool decision: why a tool is or is not emittable TODAY.
+ * Returns { toolId, ok, reason, detail }.
+ */
+export function adjudicateTool(toolId, repoRoot, manifestIndex, mcpNameByTool) {
+  const pageRel = `chaingraph/${toolId}.html`;
+  const pageAbs = resolve(repoRoot, pageRel);
+  if (!existsSync(pageAbs)) return { toolId, ok: false, reason: `${pageRel} absent — kernel-only tool, no page to carry an inline registration` };
+
+  // G6 — sweep gate, live: only CLEARED schemas generate.
+  const kernelFile = `chaingraph/kernels/${toolId}.kernel.mjs`;
+  const rec = sweepKernel(repoRoot, kernelFile, manifestIndex, mcpNameByTool);
+  if (rec.verdict !== 'CLEARED') {
+    const t = rec.triage?.class ? ` [${rec.triage.class}]` : '';
+    return { toolId, ok: false, reason: `schema-read sweep verdict ${rec.verdict}${t} — registration may not emit from an uncleared schema` };
+  }
+
+  const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot);
+  if (loaded.error) return { toolId, ok: false, reason: loaded.error };
+  const shapeErr = checkManifestShape(loaded.m);
+  if (shapeErr) return { toolId, ok: false, reason: `manifest ${loaded.file}: ${shapeErr}` };
+  const parityErr = checkManifestSchemaParity(loaded.m);
+  if (parityErr) return { toolId, ok: false, reason: `manifest ${loaded.file}: ${parityErr}` };
+
+  // G5 — the manifest's declared entry must be this page.
+  const entry = loaded.m.execution?.entry || '';
+  if (entry && basename(entry) !== `${toolId}.html`) {
+    return { toolId, ok: false, reason: `manifest ${loaded.file} execution.entry (${entry}) is not this page` };
+  }
+
+  const pageSrc = readFileSync(pageAbs, 'utf8');
+  const mapped = verifyPageMapping(loaded.m, pageSrc, pageRel, propertyIdMap[toolId]);
+  if (mapped.error) return { toolId, ok: false, reason: mapped.error };
+
+  return {
+    toolId, ok: true,
+    detail: { manifest: loaded.file, page: pageRel, resGlobal: mapped.resGlobal, name: loaded.m.mcp_tool_definition.name },
+  };
+}
+
+/** Live sweep over every kernel; returns the CLEARED tool ids plus the indexes. */
+export function deriveTargets(repoRoot) {
+  const manifestIndex = loadManifestIndex(repoRoot);
+  const mcpNameByTool = loadMcpNameIndex(repoRoot);
+  const cleared = [];
+  for (const kernelFile of listKernels(repoRoot)) {
+    const rec = sweepKernel(repoRoot, kernelFile, manifestIndex, mcpNameByTool);
+    if (rec.verdict === 'CLEARED') cleared.push(rec.tool_id);
+  }
+  cleared.sort();
+  return { cleared, manifestIndex, mcpNameByTool };
+}
+
+// ── Triage (WEBMCP-EXCLUSION-TRIAGE-1 — report only, never a binding) ────────
+
+/** Lowercase, strip `_`/`-`, strip a leading `in`/`inp` prefix. */
+export function normaliseName(s) {
+  let n = String(s).toLowerCase().replace(/[_-]/g, '');
+  if (n.startsWith('inp')) n = n.slice(3);
+  else if (n.startsWith('in')) n = n.slice(2);
+  return n;
+}
+
+/** Schema kind for a property spec: enum | array | object | scalar. */
+export function schemaKind(spec) {
+  if (Array.isArray(spec?.enum)) return 'enum';
+  if (spec?.type === 'array') return 'array';
+  if (spec?.type === 'object') return 'object';
+  return 'scalar';
+}
+
+function elementIdsOnPage(pageSrc) {
+  const ids = [];
+  const re = /\bid=["']([^"']+)["']/g;
+  let m;
+  while ((m = re.exec(pageSrc)) !== null) ids.push(m[1]);
+  return ids;
+}
+
+/**
+ * One triage record for one "form-element mapping incomplete" page.
+ * HEURISTIC REPORTING ONLY: `candidates` are name-similarity hints for the
+ * human authoring a propertyIdMap; nothing here is ever bound automatically.
+ */
+export function triagePage(manifest, pageSrc) {
+  const def = manifest.mcp_tool_definition;
+  const ids = elementIdsOnPage(pageSrc);
+  const props = Object.entries(def.inputSchema.properties);
+  const present = new Set(props.filter(([p]) => ids.includes(p)).map(([p]) => p));
+  const missingProps = props.filter(([p]) => !present.has(p)).map(([prop, spec]) => {
+    const kind = schemaKind(spec);
+    const norm = normaliseName(prop);
+    const candidates = kind === 'array' || kind === 'object' ? [] : ids.filter((id) => {
+      const ni = normaliseName(id);
+      return ni === norm || ni.includes(norm);
+    });
+    return { prop, kind, candidates };
+  });
+  const hasJsonTextarea = /<textarea\b[^>]*\b(id|name)=["'][^"']*json[^"']*["']/i.test(pageSrc);
+  const fn = manifest.execution?.function_name || '';
+  const fnMatch = new RegExp(`function\\s+${fn}\\s*\\(([^)]*)\\)`).exec(pageSrc);
+  const fnIsParametered = !!(fnMatch && fnMatch[1].trim().length > 0);
+  const anyAggregate = missingProps.some((p) => p.kind === 'array' || p.kind === 'object');
+  const anyZero = missingProps.some((p) => (p.kind === 'scalar' || p.kind === 'enum') && p.candidates.length === 0);
+  const allSingle = missingProps.every((p) => p.candidates.length === 1);
+  const bucket = anyAggregate ? 'AGGREGATE' : anyZero ? 'VOCAB-DIVERGENT' : allSingle ? 'RENAME-ONLY' : 'MIXED';
+  return { missing_props: missingProps, has_json_textarea: hasJsonTextarea, fn_is_parametered: fnIsParametered, bucket };
+}
+
+function runTriage(outFile) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  const lines = [];
+  for (const id of cleared) {
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (d.ok || !d.reason.includes('form-element mapping incomplete')) continue;
+    const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, REPO);
+    if (loaded.error) { console.error(`TRIAGE-SKIP ${id}: ${loaded.error}`); continue; }
+    const pageSrc = readFileSync(resolve(REPO, `chaingraph/${id}.html`), 'utf8');
+    const rec = { tool_id: id, ...triagePage(loaded.m, pageSrc) };
+    lines.push(JSON.stringify(rec));
+  }
+  const counts = {};
+  for (const l of lines) { const b = JSON.parse(l).bucket; counts[b] = (counts[b] || 0) + 1; }
+  const summary = `triage: ${lines.length} mapping-incomplete page(s) — ` +
+    Object.entries(counts).sort().map(([k, v]) => `${k}=${v}`).join(' ');
+  console.log(summary);
+  if (outFile) {
+    writeFileSync(resolve(outFile), lines.join('\n') + '\n', 'utf8');
+    console.log(`wrote ${lines.length} JSON line(s) to ${outFile}`);
+  } else {
+    lines.forEach((l) => console.log(l));
+  }
+}
+
+
+
+// ── Chain composer mode (COMPOSER-PLAN-AND-ROOT-WEBMCP-1) ────────────────────
+// Three honest WebMCP tools on EVERY chain composer page (chaingraph/chains/*.html):
+//   plan_chain               — returns the page's existing §4 chain-definition PLAN
+//                              artifact (buildArtifact output); never a run.
+//   assemble_session_receipt — SHA-256 Merkle root over an ordered hash list; the
+//                              page-side port of the worker's build_session_receipt
+//                              (worker.mjs buildSessionReceiptCore, ~line 2996).
+//   apply_delegation_bundle  — validates the worker run_chain compute:"browser"
+//                              bundle (worker.mjs, the compute:"browser" emitter,
+//                              ~line 2233) and returns the ordered deep links,
+//                              plus the chain's runner page when one exists.
+// Tool names are FINAL (C9): plan_chain, assemble_session_receipt,
+// apply_delegation_bundle. RUNNER-WORKER-FOLD-1 adds run_chain__<chain> beside
+// them and never renames these.
+//
+// SINGLE ROUTINE LAW: ainSessionRoot below is THE session-root routine. The same
+// bytes ship in scripts/ain-bridge-v1.snippet.html (v1.2, window.AINBridge.sessionRoot)
+// for tool pages; chain pages get the identical bytes through this generated block.
+// Never re-derive the Merkle rule anywhere else.
+
+/** The session-root routine, verbatim as emitted (site + bridge SSOT). Port of
+ *  worker.mjs buildSessionReceiptCore's Merkle fold: normalize (strip 'sha256:',
+ *  lowercase), leaves 'sha256:'+hex, pair = SHA-256(hex(left)+hex(right)),
+ *  duplicate last leaf when odd, root = 'sha256:'+hex. Async (WebCrypto). */
+export const SESSION_ROOT_SOURCE = [
+  "async function ainSessionRoot(executionHashes) {",
+  "  if (!Array.isArray(executionHashes) || executionHashes.length === 0) throw new Error('execution_hashes must be a non-empty array.');",
+  "  var normalize = function (h) { return String(h).replace(/^sha256:/, '').toLowerCase(); };",
+  "  var level = executionHashes.map(normalize).map(function (h) { return 'sha256:' + h; });",
+  "  var hashPair = async function (a, b) {",
+  "    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalize(a) + normalize(b)));",
+  "    return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');",
+  "  };",
+  "  while (level.length > 1) {",
+  "    var next = [];",
+  "    for (var i = 0; i < level.length; i += 2) {",
+  "      var right = level[i + 1] !== undefined ? level[i + 1] : level[i]; // duplicate last leaf when odd",
+  "      next.push(await hashPair(level[i], right));",
+  "    }",
+  "    level = next;",
+  "  }",
+  "  return level[0];",
+  "}",
+].join('\n');
+
+/** Build the marker-delimited chain block for one composer page. Pure. */
+export function buildChainBlock(chainName, hasRunner) {
+  const runnerUrl = '../runners/' + chainName + '.html';
+  const cfg = JSON.stringify({ chain_id: chainName, runner_url: hasRunner ? runnerUrl : null }, null, 2).replace(/\n/g, '\n    ');
+  const lines = [];
+  lines.push(`<!-- WEBMCP:GEN-BEGIN manifest=chain:${chainName} generator=scripts/gen-webmcp-registrations.mjs mode=chains -->`);
+  lines.push('<script>');
+  lines.push('// WebMCP registrations generated by scripts/gen-webmcp-registrations.mjs (chain mode,');
+  lines.push(`// COMPOSER-PLAN-AND-ROOT-WEBMCP-1) for composer page chain:${chainName}. Feature-detected:`);
+  lines.push('// absent API registers nothing, so the page stays byte-identical without the API.');
+  lines.push('// All three tools are zero-server, zero-network, and read only page state or their');
+  lines.push('// declared arguments. Trust annotations, truthful-hint posture: deterministic local');
+  lines.push('// compute over page state or caller-supplied hashes, no untrusted content is fetched,');
+  lines.push('// so untrustedContentHint is not applicable per tool (n/a); exposedTo intentionally');
+  lines.push('// omitted: no cross-origin exposure. Tool names are FINAL (plan_chain,');
+  lines.push('// assemble_session_receipt, apply_delegation_bundle).');
+  lines.push('// Browser support (dated observation): WebMCP origin trial from Chrome 149');
+  lines.push('// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).');
+  lines.push("const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);");
+  lines.push('if (mc) {');
+  // The SSOT session-root routine (same bytes as the bridge snippet v1.2).
+  lines.push(SESSION_ROOT_SOURCE);
+  lines.push("  if (window.AINBridge) window.AINBridge.sessionRoot = ainSessionRoot;");
+  lines.push('  mc.registerTool({');
+  lines.push("    name: 'plan_chain',");
+  lines.push(`    description: '${jsStr("Return this chain's OpenChainGraph section 4 chain definition plan artifact: the page's own deterministic SHA-256 hash over the canonical plan (chain id, ordered step tool ids and handoffs) exactly as the page computes and displays it, with the plan preimage attached. This is the plan, not a run: no step executes and no output payload is computed. The worker emits the same chain definition as chain_plan via build_chaingraph, and the fleet SSOT plan hash set is pinned in data/chain-plan-hashes.json.")}',`);
+  lines.push('    inputSchema: { type: \'object\', required: [], properties: {} },');
+  lines.push('    annotations: { readOnlyHint: true },');
+  lines.push('    execute: async function(params) {');
+  lines.push('      try {');
+  lines.push('        // The page\'s own §4 plan artifact, no new computation. Template pages expose');
+  lines.push('        // CHAIN_HASH + buildArtifact; legacy pages expose _artifact / _chainHash.');
+  lines.push('        if (typeof CHAIN_HASH === \'string\' && CHAIN_HASH.length > 0 && typeof buildArtifact === \'function\') return buildArtifact(CHAIN_HASH);');
+  lines.push("        if (typeof _artifact === 'object' && _artifact !== null && _artifact.execution_hash) return _artifact;");
+  lines.push('        if (typeof _chainHash === \'string\' && _chainHash.length > 0 && typeof CHAIN_MANIFEST === \'object\' && CHAIN_MANIFEST) return {');
+  lines.push("          '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',");
+  lines.push("          'chaingraph_version': '0.4.0',");
+  lines.push("          'compute_mode': 'browser',");
+  lines.push("          'tool_id': 'chain:' + CHAIN_MANIFEST.chain_id,");
+  lines.push("          'execution_hash': _chainHash,");
+  lines.push("          'chain': { 'parent_hashes': [], 'parent_tool_ids': [], 'chain_depth': 0 },");
+  lines.push("          'policy_parameters': { 'chain_id': CHAIN_MANIFEST.chain_id, 'version': CHAIN_MANIFEST.version, 'steps': CHAIN_MANIFEST.steps },");
+  lines.push("          'output_payload': { 'chain_depth': CHAIN_MANIFEST.chain_depth, 'step_count': CHAIN_MANIFEST.steps.length, 'tool_ids': CHAIN_MANIFEST.steps.map(function (s) { return s.tool_id; }) },");
+  lines.push("          'compliance_flags': ['CHAIN_DEFINITION_ANCHORED']");
+  lines.push('        };');
+  lines.push('        throw new Error(\'This composer page exposes no plan hash surface (CHAIN_HASH/buildArtifact or _chainHash/_artifact); page template and generated block have drifted.\');');
+  lines.push('      } catch (err) {');
+  lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
+  lines.push('      }');
+  lines.push('    }');
+  lines.push('  });');
+  lines.push('  mc.registerTool({');
+  lines.push("    name: 'assemble_session_receipt',");
+  lines.push(`    description: '${jsStr("Assemble a session receipt: one deterministic SHA-256 Merkle root over an ordered list of execution_hash values, byte-identical to the worker build_session_receipt tool (same normalize, pair, and odd-leaf rules). Collect hashes from any ChainGraph tools run in this session, in call order, and this returns the tamper-evident root that aggregates them.")}',`);
+  lines.push('    inputSchema: { type: \'object\', required: [\'execution_hashes\'], properties: { execution_hashes: { type: \'array\', description: \'Ordered execution_hash values (lowercase 64-hex, optional sha256: prefix) from ChainGraph tool calls in this session, in call order. Minimum 1.\' } } },');
+  lines.push('    annotations: { readOnlyHint: true },');
+  lines.push('    execute: async function(params) {');
+  lines.push('      try {');
+  lines.push("        if (!Array.isArray(params.execution_hashes)) throw new Error('execution_hashes must be an array; received ' + JSON.stringify(params.execution_hashes) + '.');");
+  lines.push('        var session_receipt_root = await ainSessionRoot(params.execution_hashes);');
+  lines.push('        return {');
+  lines.push("          receipt_type: 'session_receipt',");
+  lines.push('          session_receipt_root: session_receipt_root,');
+  lines.push('          hash_count: params.execution_hashes.length,');
+  lines.push('          execution_hashes: params.execution_hashes,');
+  lines.push("          merkle_algorithm: 'SHA-256 binary tree, duplicate-last-leaf padding',");
+  lines.push("          spec: 'ChainGraph Standard v0.4 section C',");
+  lines.push("          note: 'Root computed client-side; identical to the worker build_session_receipt root over the same ordered hashes.'");
+  lines.push('        };');
+  lines.push('      } catch (err) {');
+  lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
+  lines.push('      }');
+  lines.push('    }');
+  lines.push('  });');
+  lines.push('  mc.registerTool({');
+  lines.push("    name: 'apply_delegation_bundle',");
+  lines.push(`    description: '${jsStr("Apply a zero-egress browser delegation bundle returned by the worker run_chain tool with compute browser: validate the bundle schema and return the ordered step deep links for in-browser execution. No step is executed here; run the links in order and thread each execution_hash forward, or open this chain's live runner page when one is offered.")}',`);
+  lines.push('    inputSchema: { type: \'object\', required: [\'bundle\'], properties: { bundle: { type: \'object\', description: \'The run_chain compute browser delegation bundle (mode browser_delegation, chain, steps with order/tool_id/browser_url).\' } } },');
+  lines.push('    annotations: { readOnlyHint: true },');
+  lines.push('    execute: async function(params) {');
+  lines.push('      try {');
+  lines.push("        var b = params.bundle;");
+  lines.push("        if (b === null || typeof b !== 'object' || Array.isArray(b)) throw new Error('bundle must be a JSON object; received ' + JSON.stringify(b) + '.');");
+  lines.push("        if (b.mode !== 'browser_delegation') throw new Error('bundle.mode must be browser_delegation; received ' + JSON.stringify(b.mode) + '.');");
+  lines.push("        if (!Array.isArray(b.steps) || b.steps.length === 0) throw new Error('bundle.steps must be a non-empty array; received ' + JSON.stringify(b.steps) + '.');");
+  lines.push('        var links = b.steps.map(function (s, i) {');
+  lines.push("          if (s === null || typeof s !== 'object') throw new Error('bundle.steps[' + i + '] must be an object.');");
+  lines.push("          if (typeof s.tool_id !== 'string' || s.tool_id.length === 0) throw new Error('bundle.steps[' + i + '].tool_id must be a non-empty string.');");
+  lines.push("          if (typeof s.browser_url !== 'string' || s.browser_url.length === 0) throw new Error('bundle.steps[' + i + '].browser_url must be a non-empty string.');");
+  lines.push("          return { order: typeof s.order === 'number' ? s.order : i + 1, tool_id: s.tool_id, browser_url: s.browser_url };");
+  lines.push('        });');
+  lines.push('        var runner = ' + JSON.stringify(hasRunner ? runnerUrl : null) + ';');
+  lines.push('        return {');
+  lines.push('          ok: true,');
+  lines.push("          compute_mode: 'browser',");
+  lines.push('          chain: b.chain !== undefined ? b.chain : ' + JSON.stringify(chainName) + ',');
+  lines.push('          composer_url: typeof b.composer_url === \'string\' ? b.composer_url : null,');
+  lines.push('          step_count: links.length,');
+  lines.push('          links: links,');
+  lines.push('          runner_url: runner,');
+  lines.push('          note: runner');
+  lines.push("            ? 'Steps validated. Run the ordered links in the browser, or open the live runner page for this chain: ' + runner + '. No step is executed by this tool.'");
+  lines.push("            : 'Steps validated. Run the ordered links in the browser in order and thread each execution_hash forward. No step is executed by this tool.'");
+  lines.push('        };');
+  lines.push('      } catch (err) {');
+  lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
+  lines.push('      }');
+  lines.push('    }');
+  lines.push('  });');
+  lines.push('}');
+  lines.push('</script>');
+  lines.push(END);
+  return lines.join('\n');
+}
+
+/** Chain-mode writer/check over every chain in chaingraph.json that has a
+ *  composer page on disk. Returns the per-page verdict list. */
+export function expectedChainBlocks(repoRoot) {
+  const cg = JSON.parse(readFileSync(resolve(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  const out = [];
+  for (const chain of (cg.chains ?? [])) {
+    if (!chain.name) continue;
+    const pageRel = `chaingraph/chains/${chain.name}.html`;
+    const pageAbs = resolve(repoRoot, pageRel);
+    if (!existsSync(pageAbs)) continue;
+    const hasRunner = existsSync(resolve(repoRoot, 'chaingraph', 'runners', `${chain.name}.html`));
+    out.push({ chain: chain.name, page: pageRel, hasRunner, block: buildChainBlock(chain.name, hasRunner) });
+  }
+  return out;
+}
+
+function runChainMode(write) {
+  const entries = expectedChainBlocks(REPO);
+  let written = 0, drifted = 0;
+  for (const e of entries) {
+    const pageAbs = resolve(REPO, e.page);
+    const src = readFileSync(pageAbs, 'utf8');
+    const updated = insertIntoPage(src, e.block);
+    if (updated !== src) {
+      if (!write) { drifted++; console.error(`DRIFT ${e.page}: chain registration region missing or stale (run with --write)`); continue; }
+      writeFileSync(pageAbs, updated);
+      written++;
+      console.log(`wrote ${e.page} (chain registrations: plan_chain, assemble_session_receipt, apply_delegation_bundle${e.hasRunner ? '; runner link in cfg' : ''})`);
+    }
+  }
+  if (!write) {
+    if (drifted > 0) {
+      console.error(`\nchain-mode check FAILED: ${drifted} of ${entries.length} composer page(s) drifted.`);
+      process.exit(1);
+    }
+    console.log(`✓ chain-mode check clean: ${entries.length} composer page(s) carry byte-exact chain registration regions.`);
+  } else {
+    console.log(`\nchain-mode write: ${written} page(s) updated, ${entries.length - written} already byte-exact.`);
+  }
+}
+
+function expectedBlock(toolId, manifestIndex, mcpNameByTool, repoRoot) {
+  const loaded = loadManifestFor(toolId, manifestIndex, mcpNameByTool, repoRoot);
+  if (loaded.error) throw new Error(loaded.error);
+  const pageSrc = readRepoFile(`chaingraph/${toolId}.html`, repoRoot);
+  const mapped = verifyPageMapping(loaded.m, pageSrc, toolId, propertyIdMap[toolId]);
+  if (mapped.error) throw new Error(mapped.error);
+  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId], mapped.wrapper);
+}
+
+function runCheck() {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  const emittable = [];
+  const excluded = [];
+  for (const id of cleared) {
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (d.ok) emittable.push({ ...d.detail, toolId: id }); else excluded.push({ id, reason: d.reason });
+  }
+
+  const problems = [];
+  // 1. Every emittable page carries a byte-exact generated region.
+  for (const d of emittable) {
+    const pageSrc = readRepoFile(d.page, REPO);
+    const region = regionOf(pageSrc);
+    if (!region) {
+      problems.push(`${d.page}: no generated WebMCP registration region (coverage regression — expected for tool '${d.name}')`);
+      continue;
+    }
+    let expected;
+    try { expected = expectedBlock(d.toolId, manifestIndex, mcpNameByTool, REPO); } catch (e) {
+      problems.push(`${d.page}: expected block could not be rebuilt: ${e.message}`);
+      continue;
+    }
+    const actual = pageSrc.slice(region.start, region.end);
+    if (actual !== expected) {
+      problems.push(`${d.page}: generated region drifted from ${d.manifest} — hand-edits to generated blocks are red; run node scripts/gen-webmcp-registrations.mjs --all --write`);
+      continue;
+    }
+    // Byte-exact implies parseable today; keep a parse proof so a future emitter
+    // bug (or an exact-match escape) is a distinct, diagnosable red. The region
+    // carries TWO scripts since TOOLPAGE-DEEPLINK-1 (registration + deep-link
+    // reader) — parse each separately.
+    const scriptBodies = [...actual.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    for (const scriptBody of scriptBodies) {
+      try { new Function(scriptBody); } catch (e) {
+        problems.push(`${d.page}: generated region does not parse as JavaScript: ${e.message}`);
+      }
+    }
+  }
+  // 2. Every generated region on disk still corresponds to an emittable tool.
+  // Chain composer pages (chaingraph/chains/*) carry chain-mode regions instead of
+  // manifest-driven node blocks; they are verified byte-exact in section 3 below.
+  const emittablePages = new Set(emittable.map((d) => d.page));
+  for (const p of listPages(REPO)) {
+    let pageSrc;
+    try { pageSrc = readRepoFile(p, REPO); } catch { continue; }
+    if (!pageSrc.includes(BEGIN)) continue;
+    if (p.startsWith('chaingraph/chains/')) continue;
+    if (!emittablePages.has(p)) {
+      problems.push(`${p}: carries a generated WebMCP region but is not in today's emittable set (schema or mapping changed) — regenerate or remove the region`);
+    }
+  }
+  // 3. Chain composer pages (COMPOSER-PLAN-AND-ROOT-WEBMCP-1): byte-exact
+  // chain-mode regions (plan_chain, assemble_session_receipt, apply_delegation_bundle).
+  for (const e of expectedChainBlocks(REPO)) {
+    let pageSrc;
+    try { pageSrc = readRepoFile(e.page, REPO); } catch { continue; }
+    const region = regionOf(pageSrc);
+    if (!region) {
+      problems.push(`${e.page}: no generated chain registration region (expected for chain '${e.chain}')`);
+      continue;
+    }
+    const actual = pageSrc.slice(region.start, region.end);
+    if (actual !== e.block) {
+      problems.push(`${e.page}: chain registration region drifted — hand-edits are red; run node scripts/gen-webmcp-registrations.mjs --chains --write`);
+      continue;
+    }
+    const chainScripts = [...actual.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    for (const scriptBody of chainScripts) {
+      try { new Function(scriptBody); } catch (err) {
+        problems.push(`${e.page}: chain registration region does not parse as JavaScript: ${err.message}`);
+      }
+    }
+  }
+
+  if (problems.length) {
+    console.error(`✗ webmcp-registration freshness FAILED (${problems.length}):`);
+    problems.forEach((p) => console.error('    ' + p));
+    process.exit(1);
+  }
+  const chainCount = expectedChainBlocks(REPO).length;
+  console.log(`✓ webmcp-registration freshness clean — ${emittable.length} generated registration(s) byte-exact vs their manifests, ${chainCount} chain composer page(s) byte-exact in chain mode; ${excluded.length} sweep-cleared tool(s) excluded with reasons (shrinks as fix rows land).`);
+  excluded.forEach((e) => console.log(`  EXCLUDED ${e.id}: ${e.reason}`));
+}
+
+function runReportOrWrite(write, onlyTool) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(REPO);
+  let emitted = 0;
+  let exact = 0;
+  const exclusions = [];
+  const targets = onlyTool && !cleared.includes(onlyTool)
+    ? [onlyTool] // --tool probes ANY tool id, even one the sweep did not clear — the refusal reason is the answer
+    : cleared;
+  for (const id of targets) {
+    if (onlyTool && id !== onlyTool) continue;
+    const d = adjudicateTool(id, REPO, manifestIndex, mcpNameByTool);
+    if (!d.ok) { exclusions.push({ id, reason: d.reason }); continue; }
+    const block = expectedBlock(id, manifestIndex, mcpNameByTool, REPO);
+    const pageAbs = resolve(REPO, d.detail.page);
+    if (write) {
+      const pageSrc = readFileSync(pageAbs, 'utf8');
+      const next = insertIntoPage(pageSrc, block);
+      if (next !== pageSrc) { writeFileSync(pageAbs, next, 'utf8'); emitted++; console.log(`✓ emitted WebMCP registration into ${d.detail.page} (name: ${d.detail.name})`); }
+      else { exact++; }
+    } else {
+      emitted++;
+      console.log(`WOULD EMIT ${d.detail.page} (name: ${d.detail.name}, manifest: ${d.detail.manifest}, result: ${d.detail.resGlobal})`);
+    }
+  }
+  if (write) console.log(`\n${emitted} page(s) written, ${exact} already byte-exact; ${exclusions.length} excluded with per-tool reasons:`);
+  else console.log(`\n${emitted} emittable page(s); ${exclusions.length} excluded with per-tool reasons:`);
+  exclusions.forEach((e) => console.log(`  EXCLUDED ${e.id}: ${e.reason}`));
+}
+
+// ── Directory manifest emitter (WEBMCP-MANIFEST-1) ───────────────────────────
+/**
+ * `--manifest`: emits `/.well-known/webmcp.json` FROM the live registration set
+ * (the same adjudication the page emitter uses), so the directory listing can
+ * never claim a tool the pages do not register. Shape is deliberately minimal —
+ * no cross-directory standard exists yet (WEBMCP-AGENT-SHOWCASE-PROMPTS
+ * 2026-09-05 §9 #15): one entry per registered page (page URL, tool name,
+ * description, sha256 of the inputSchema JSON, annotations) plus a top-level
+ * `origin_trial` field read from the OT gate (chaingraph/webmcp-ot-token.txt,
+ * landed by WEBMCP-OT-META-1 #1726), so the manifest states the token status
+ * truthfully rather than promising trial coverage.
+ *
+ * Modes:
+ *   node scripts/gen-webmcp-registrations.mjs --manifest            (print)
+ *   node scripts/gen-webmcp-registrations.mjs --manifest --write    (regen)
+ *   node scripts/gen-webmcp-registrations.mjs --manifest --check    (freshness;
+ *       drift vs the live registration set is RED — wired into preflight and
+ *       registered in derived-artifacts.mjs COVERED id 'webmcp-manifest')
+ *
+ * Deterministic by construction: no timestamps, no wall clock — two passes over
+ * the same tree are byte-identical (the idempotency property the COVERED
+ * registration requires). ⛔ The generated file itself is NOT committed by a
+ * PR: `.well-known/webmcp.json` is a SO #35 single-writer artifact written by
+ * derived-artifacts-regen.yml on main.
+ */
+export const MANIFEST_REL = '.well-known/webmcp.json';
+export const SITE_ORIGIN = 'https://ainumbers.co';
+export const OT_TOKEN_REL = 'chaingraph/webmcp-ot-token.txt';
+
+/** Truthful OT-token status: 'first-party token present' | 'absent'. */
+export function otTokenStatus(repoRoot) {
+  return existsSync(resolve(repoRoot || REPO, OT_TOKEN_REL))
+    ? 'first-party token present'
+    : 'absent';
+}
+
+/** sha256 over the compact JSON encoding of the manifest's inputSchema. */
+export function inputSchemaSha256(inputSchema) {
+  return createHash('sha256').update(JSON.stringify(inputSchema), 'utf8').digest('hex');
+}
+
+/** One directory entry per emittable (registered) page. */
+export function buildDirectoryEntries(repoRoot) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(repoRoot || REPO);
+  const entries = [];
+  for (const id of cleared) {
+    const d = adjudicateTool(id, repoRoot || REPO, manifestIndex, mcpNameByTool);
+    if (!d.ok) continue; // excluded tools are not registered anywhere, so they are not listed
+    const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, repoRoot || REPO);
+    if (loaded.error) throw new Error(loaded.error);
+    const def = loaded.m.mcp_tool_definition;
+    entries.push({
+      url: `${SITE_ORIGIN}/chaingraph/${id}.html`,
+      name: def.name,
+      description: def.description,
+      input_schema_sha256: inputSchemaSha256(def.inputSchema),
+      annotations: { readOnlyHint: true },
+    });
+  }
+  return entries;
+}
+
+/** Full file bytes: stable key order, 2-space indent, trailing newline.
+ *  `directoryJsonFromEntries` is the pure half (selftest-friendly, no live-set
+ *  sweep); `buildDirectoryJson` derives the entries from the live set itself. */
+export function directoryJsonFromEntries(entries, repoRoot) {
+  const doc = {
+    origin_trial: otTokenStatus(repoRoot),
+    tools: entries,
+  };
+  return JSON.stringify(doc, null, 2) + '\n';
+}
+
+export function buildDirectoryJson(repoRoot) {
+  return directoryJsonFromEntries(buildDirectoryEntries(repoRoot), repoRoot);
+}
+
+function runManifest(write, check) {
+  const expected = buildDirectoryJson(REPO);
+  const abs = resolve(REPO, MANIFEST_REL);
+  if (check) {
+    if (!existsSync(abs)) {
+      console.error(`✗ webmcp.json freshness FAILED: ${MANIFEST_REL} absent — run node scripts/gen-webmcp-registrations.mjs --manifest --write`);
+      process.exit(1);
+    }
+    const actual = readFileSync(abs, 'utf8');
+    if (actual !== expected) {
+      const a = JSON.parse(actual);
+      const e = JSON.parse(expected);
+      console.error(`✗ webmcp.json freshness FAILED: ${MANIFEST_REL} drifted from the live registration set ` +
+        `(on disk: ${a.tools.length} tool(s), origin_trial ${JSON.stringify(a.origin_trial)}; live set: ${e.tools.length} tool(s), origin_trial ${JSON.stringify(e.origin_trial)}) — run node scripts/gen-webmcp-registrations.mjs --manifest --write`);
+      process.exit(1);
+    }
+    console.log(`✓ webmcp.json freshness clean — ${JSON.parse(actual).tools.length} entr(ies) byte-exact vs the live registration set; origin_trial ${JSON.stringify(JSON.parse(actual).origin_trial)}.`);
+    return;
+  }
+  if (write) {
+    const existing = existsSync(abs) ? readFileSync(abs, 'utf8') : null;
+    if (existing === expected) {
+      console.log(`${MANIFEST_REL} already byte-exact (${JSON.parse(expected).tools.length} entr(ies)) — no write (idempotent).`);
+      return;
+    }
+    writeFileSync(abs, expected, 'utf8');
+    console.log(`✓ wrote ${MANIFEST_REL} (${JSON.parse(expected).tools.length} entr(ies), origin_trial ${JSON.stringify(JSON.parse(expected).origin_trial)})`);
+    return;
+  }
+  process.stdout.write(expected);
+}
+
+// ── Selftest (synthetic fixture repo; the real tree is never written) ─────────
+
+function selftest() {
+  let failures = 0;
+  const check = (label, ok) => {
+    console.log((ok ? '  ✓ ' : '  ✗ ') + label);
+    if (!ok) failures++;
+  };
+  const tmp = mkdtempSync(join(tmpdir(), 'gwmr-'));
+  try {
+    const manifestsDir = join(tmp, 'manifests');
+    const kernelsDir = join(tmp, 'chaingraph', 'kernels');
+    mkdirSync(manifestsDir, { recursive: true });
+    mkdirSync(kernelsDir, { recursive: true });
+
+    const schema = {
+      type: 'object',
+      required: ['principal', 'label'],
+      properties: {
+        principal: { type: 'number', description: 'Principal amount' },
+        label: { type: 'string', description: 'Display label' },
+        flag: { type: 'boolean', description: 'Optional toggle' },
+        rows: { type: 'array', description: 'Optional rows' }
+      }
+    };
+    const manifest = {
+      tool_id: 'fx-100-selftest',
+      input_schema: { properties: schema.properties, required: schema.required },
+      mcp_tool_definition: {
+        name: 'run_fx_100_selftest',
+        description: 'Selftest fixture tool that exercises the registration generator end to end.',
+        inputSchema: schema
+      },
+      execution: { type: 'browser-javascript', entry: 'chaingraph/fx-100-selftest.html', function_name: 'run', timeout_ms: 3000 }
+    };
+    writeFileSync(join(manifestsDir, '950-fx-100-selftest.manifest.json'), JSON.stringify(manifest, null, 2));
+    // CLEARED kernel: compute reads exactly the declared fields.
+    writeFileSync(join(kernelsDir, 'fx-100-selftest.kernel.mjs'), [
+      "export const meta = { mcp_name: 'run_fx_100_selftest' };",
+      'export function compute(pp) {',
+      '  const principal = pp.principal; const label = pp.label;',
+      '  const flag = pp.flag; const rows = pp.rows;',
+      '  return { output_payload: { principal, label, flag, count: (rows || []).length }, compliance_flags: {} };',
+      '}'
+    ].join('\n'));
+    const pageBody = [
+      '<html><body>',
+      '<input id="principal"><input id="label"><input id="flag"><input id="rows">',
+      '<script>',
+      'var _lastArtifact = null;',
+      'async function run(){ _lastArtifact = { ok: true }; }',
+      '</script>',
+      '</body></html>'
+    ].join('\n');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-100-selftest.html'), pageBody);
+
+    const manifestIndex = loadManifestIndex(tmp);
+    const mcpNameByTool = loadMcpNameIndex(tmp);
+
+    // 1. Sweep gate: the fixture kernel re-verifies CLEARED live.
+    const rec = sweepKernel(tmp, 'chaingraph/kernels/fx-100-selftest.kernel.mjs', manifestIndex, mcpNameByTool);
+    check('sweep gate: fixture kernel is CLEARED live', rec.verdict === 'CLEARED');
+
+    // 2. Full adjudication passes and reports the emit inputs.
+    const d = adjudicateTool('fx-100-selftest', tmp, manifestIndex, mcpNameByTool);
+    check('adjudication emits the fixture tool', d.ok === true);
+    check('adjudication picks _lastArtifact as the result global', d.ok && d.detail.resGlobal === '_lastArtifact');
+
+    // 3. Emitted block: verbatim name/schema, async delegate, truthful annotations.
+    const wrap1 = findWrapperName(pageBody, 'run');
+    check('G3b: zero-arg fn is its own wrapper (run)', wrap1 === 'run');
+    const block = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1);
+    check('name emitted verbatim from mcp_tool_definition', block.includes("name: 'run_fx_100_selftest'"));
+    check('inputSchema emitted verbatim', block.includes(JSON.stringify(schema, null, 2).replace(/\n/g, '\n    ')));
+    check('execute is async and awaits the manifest function', block.includes('execute: async function(params)') && block.includes('await run();'));
+    check('returns the page result global', block.includes('return _lastArtifact;'));
+    check('annotations carry only readOnlyHint:true', block.includes('annotations: { readOnlyHint: true },') && !block.includes('untrustedContentHint:'));
+    check('untrustedContentHint stated n/a in the comment', block.includes('untrustedContentHint is not applicable'));
+    check('exposedTo omitted entirely', !block.includes('exposedTo:'));
+    check('required-input validation emitted (principal)', block.includes("if (typeof params.principal !== 'number'"));
+    check('optional mapping guarded, required unguarded', block.includes("if (params.flag !== undefined) document.getElementById('flag').checked") && block.includes("document.getElementById('principal').value = String(params.principal);"));
+    check('feature-detect gates the registration', block.indexOf('document.modelContext') !== -1 && block.indexOf('registerTool') > block.indexOf('modelContext'));
+    check('markers delimit the block', block.startsWith(beginLine('manifests/950-fx-100-selftest.manifest.json')) && block.endsWith(END));
+
+    // 3b. TOOLPAGE-DEEPLINK-1: the same region carries the chrome-sourced deep-link reader.
+    check('deep-link reader present, sourced from _page-chrome.mjs', block.includes(DEEPLINK_MARKER) && block.includes('#p=v1.'));
+    check('deep-link prefill table mirrors the mapping decisions', block.includes('"principal":["principal","string"]') && block.includes('"flag":["flag","checked"]') && block.includes('"rows":["rows","json"]'));
+    check('deep-link reader targets the page-verified wrapper', block.includes('var RUN_TARGET = "run"'));
+    check('deep-link budget constant carried from the ledger cap', block.includes('var BUDGET = 30000'));
+    // 3c. TOOLPAGE-FILE-IMPORT-1: the same region carries the chrome-sourced
+    // zero-upload file-import reader (drop zone + picker), sharing the prefill
+    // table and the verified run target with the deep-link reader.
+    check('file-import reader present, sourced from _page-chrome.mjs', block.includes(FILE_IMPORT_MARKER) && block.includes('__ocgFileImport'));
+    check('file-import reader shares the deep-link run target', block.includes('var RUN_TARGET = "run"'));
+    check('file-import reader declares json/csv acceptance and no-upload posture', block.includes(".csv") && block.includes(".json") && block.includes("no storage, no network"));
+
+    // 4. Insert is idempotent.
+    const once = insertIntoPage(pageBody, block);
+    const twice = insertIntoPage(once, block);
+    check('insert is idempotent (second write replaces, not appends)', once !== pageBody && once === twice);
+
+    // 5. Mutation control: a hand-edit to the emitted block is detectable.
+    const mutated = once.replace("name: 'run_fx_100_selftest'", "name: 'hand_renamed_tool'");
+    check('hand-edit mutation changes the region (detectable)', mutated !== once);
+    check('stripMarkedRegions removes the whole region for G4', !/\.registerTool\s*\(/.test(stripMarkedRegions(once)));
+
+    // 6. G2 refusal: a page missing one element id is refused, with the id named.
+    const badPage = pageBody.replace('<input id="rows">', '');
+    const refused = verifyPageMapping(manifest, badPage, 'fixture page');
+    check('G2 refusal names the missing id (rows)', !!(refused.error && refused.error.includes('rows')));
+
+    // 6b. propertyIdMap staleness guard (WEBMCP-GEN-IDMAP-1): a mapping whose
+    // target element_id does NOT exist on the page FAILS — the table cannot go
+    // stale silently. (Red-before-green proof for the mapped-id guard.)
+    const staleMap = { principal: { element_id: 'no_such_control', via: 'string' } };
+    const refusedStale = verifyPageMapping(manifest, pageBody, 'fixture page', staleMap);
+    check('mapped id absent from page FAILS (staleness guard)',
+      !!(refusedStale.error && refusedStale.error.includes('no_such_control') && refusedStale.error.includes('(mapped)')));
+
+    // 6c. A valid mapping binds emission to the authored element_id.
+    const mappedPage = pageBody.replace('<input id="principal">', '<input id="amtInput">');
+    const okMapped = verifyPageMapping(manifest, mappedPage, 'fixture page', { principal: { element_id: 'amtInput', via: 'string' } });
+    check('valid mapping passes G2 against the authored element_id', !okMapped.error);
+    const mappedBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { principal: { element_id: 'amtInput', via: 'string' } }, 'run');
+    check('emission writes the mapped element_id, not the property name', mappedBlock.includes("document.getElementById('amtInput').value = String(params.principal);") && !mappedBlock.includes("getElementById('principal')"));
+    // Unmapped properties keep the literal guard even when a map is present.
+    const partialMap = { principal: { element_id: 'amtInput', via: 'string' } };
+    const refusedPartial = verifyPageMapping(manifest, pageBody, 'fixture page', partialMap);
+    check('unmapped property still requires its literal id under a mapping', !!(refusedPartial && refusedPartial.error && refusedPartial.error.includes('principal') && !refusedPartial.error.includes('label')));
+    // boolstring via emits a 'true'/'false' select write, not .checked.
+    const boolBlock = buildBlockForPage(manifest, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', { flag: { element_id: 'flag', via: 'boolstring' } }, 'run');
+    check("boolstring via emits .value = String(params.x === true)", boolBlock.includes("document.getElementById('flag').value = String(params.flag === true);") && !boolBlock.includes("getElementById('flag').checked"));
+
+    // 7. G3 refusal: no result global -> refused.
+    const noRes = pageBody
+      .replace('var _lastArtifact = null;', 'var _other = null;')
+      .replace('_lastArtifact = { ok: true };', '_other = { ok: true };');
+    const refusedRes = verifyPageMapping(manifest, noRes, 'fixture page');
+    check('G3 refusal: missing result global refused', !!(refusedRes && refusedRes.error));
+
+    // 8. G4 refusal: a page already carrying an unmarked registerTool is never touched.
+    const owned = pageBody.replace('</body>', '<script>mc.registerTool({ name: "x" });</script></body>');
+    const refusedOwned = verifyPageMapping(manifest, owned, 'fixture page');
+    check('G4 refusal: existing unmarked registration refused', !!(refusedOwned && refusedOwned.error && refusedOwned.error.includes('owned by another row')));
+
+    // 9. G1 refusal: manifest description too short.
+    const thin = JSON.parse(JSON.stringify(manifest));
+    thin.mcp_tool_definition.description = 'too short';
+    const thinErr = checkManifestShape(thin);
+    check('G1 refusal: short description refused', thinErr !== null);
+
+    // 9b. G1b refusal: the two schema writers disagree -> not emittable.
+    const drifted = JSON.parse(JSON.stringify(manifest));
+    drifted.input_schema.properties.extra_field = { type: 'string' };
+    const parityErr = checkManifestSchemaParity(drifted);
+    check('G1b refusal: input_schema vs mcp_tool_definition drift refused', parityErr !== null && parityErr.includes('property sets'));
+
+    // 10. Sweep gate refusal: a kernel reading an undeclared field is not emittable.
+    writeFileSync(join(kernelsDir, 'fx-101-drifted.kernel.mjs'), [
+      'export function compute(pp) {',
+      '  return { output_payload: { surprise: pp.undeclared_field }, compliance_flags: {} };',
+      '}'
+    ].join('\n'));
+    const rec2 = sweepKernel(tmp, 'chaingraph/kernels/fx-101-drifted.kernel.mjs', manifestIndex, mcpNameByTool);
+    check('sweep gate: drifted kernel is NOT CLEARED (never emitted)', rec2.verdict !== 'CLEARED');
+
+    // 11. Entry guard: manifest entry pointing elsewhere is refused (G5).
+    const d5 = (() => {
+      const alt = JSON.parse(JSON.stringify(manifest));
+      alt.execution.entry = 'chaingraph/kernels/fx-102-entry.kernel.mjs';
+      writeFileSync(join(manifestsDir, '951-fx-102-entry.manifest.json'), JSON.stringify({ ...alt, tool_id: 'fx-102-entry' }, null, 2));
+      // Same cleared read shape as fx-100 so the flow reaches G5, not G6.
+      writeFileSync(join(kernelsDir, 'fx-102-entry.kernel.mjs'), readFileSync(join(kernelsDir, 'fx-100-selftest.kernel.mjs')));
+      writeFileSync(join(tmp, 'chaingraph', 'fx-102-entry.html'), pageBody.replace(/fx-100-selftest/g, 'fx-102-entry'));
+      // The manifest index was loaded before this fixture file existed — reload.
+      const idx2 = loadManifestIndex(tmp);
+      return adjudicateTool('fx-102-entry', tmp, idx2, mcpNameByTool);
+    })();
+    check('G5 refusal: execution.entry not this page', !d5.ok && d5.reason.includes('execution.entry'));
+
+    // 12. G3b red-before-green (WEBMCP-GEN-RUNWRAPPER-1): a fn(pp)-shaped page.
+    // The pre-fix emitter produced `await compute();` against exactly this page
+    // shape — the halt-3 art-635 compute_failed defect. The guard below is RED
+    // on that emission shape and GREEN only when the region calls the wrapper.
+    const ppPage = [
+      '<html><body>',
+      '<input id="principal"><input id="label"><input id="flag"><input id="rows">',
+      '<script>',
+      'var _lastArtifact = null;',
+      'function compute(pp){ _lastArtifact = { pp: pp }; }',
+      'async function run(){ compute({ principal: Number(document.getElementById(\'principal\').value) }); }',
+      '</script>',
+      '</body></html>'
+    ].join('\n');
+    const ppMan = JSON.parse(JSON.stringify(manifest));
+    ppMan.execution = { ...ppMan.execution, function_name: 'compute' };
+    check('G3b detection: zero-arg invoker of compute(pp) is run', findWrapperName(ppPage, 'compute') === 'run');
+    const ppMapped = verifyPageMapping(ppMan, ppPage, 'pp fixture page');
+    check('G3b: parametered page maps with wrapper run', !ppMapped.error && ppMapped.wrapper === 'run');
+    const ppBlock = buildBlockForPage(ppMan, 'manifests/950-fx-100-selftest.manifest.json', '_lastArtifact', undefined, ppMapped.wrapper);
+    // The RED control: the pre-fix emission shape fails this assertion.
+    check('red-before-green: pre-fix shape (await compute();) FAILS the wrapper guard', !ppBlock.includes('await compute();'));
+    check('emitted call targets the page wrapper run()', ppBlock.includes('await run();'));
+    // No wrapper on the page -> refused, never guessed.
+    const noWrapPage = ppPage.replace('async function run(){ compute({ principal: Number(document.getElementById(\'principal\').value) }); }', '');
+    check('findWrapperName: absent wrapper -> null', findWrapperName(noWrapPage, 'compute') === null);
+    const refusedWrap = verifyPageMapping(ppMan, noWrapPage, 'pp fixture page');
+    check('G3b refusal: parametered fn with no detectable wrapper refused', !!(refusedWrap.error && refusedWrap.error.includes('wrapper')));
+
+    // 13. Triage buckets (WEBMCP-EXCLUSION-TRIAGE-1): one fixture page per
+    // bucket asserts the verdict; RED-then-GREEN by flipping a fixture id.
+    const tManifest = {
+      tool_id: 'fx-100-selftest',
+      input_schema: {},
+      mcp_tool_definition: {
+        name: 'run_fx_100_selftest',
+        description: 'Selftest fixture tool that exercises the registration generator end to end.',
+        inputSchema: { type: 'object', required: [], properties: {
+          spot: { type: 'number' },
+          vol: { type: 'number' },
+          trades: { type: 'array' },
+          cn_code: { type: 'string' },
+          mode: { type: 'string' }
+        } }
+      },
+      execution: { entry: 'chaingraph/fx-100-selftest.html', function_name: 'run' }
+    };
+    const tPage = (ids, fnDecl) => [
+      '<html><body>',
+      ids.map((i) => `<input id="${i}">`).join(''),
+      '<textarea id="json_blob"></textarea>',
+      '<script>var _lastResult=null;' + (fnDecl || 'function run(){_lastResult=null;}') + '</script>',
+      '</body></html>'
+    ].join('\n');
+    const without = (mf, ...props) => {
+      const c = JSON.parse(JSON.stringify(mf));
+      for (const p of props) delete c.mcp_tool_definition.inputSchema.properties[p];
+      return c;
+    };
+    // RENAME-ONLY fixture: every missing scalar has exactly one renamed candidate.
+    const full = without(tManifest, 'trades'); // trades already bound? no — remove array prop to isolate rename class
+    const recRename = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode']));
+    check('triage RENAME-ONLY fixture: spot/vol each match exactly one renamed control', recRename.bucket === 'RENAME-ONLY');
+    check('triage RENAME-ONLY fixture: candidate ids are the renamed controls', JSON.stringify(recRename.missing_props.find((p) => p.prop === 'spot').candidates) === '["inSpot"]');
+    // RED-then-GREEN: flip the inSpot fixture id.
+    const recRed = triagePage(full, tPage(['unrelated', 'inVol', 'cn_code', 'mode']));
+    check('triage RED: flipping inSpot to an unrelated id leaves spot zero candidates -> VOCAB-DIVERGENT', recRed.bucket === 'VOCAB-DIVERGENT');
+    const recGreen = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode']));
+    check('triage GREEN: restored inSpot returns the bucket to RENAME-ONLY', recGreen.bucket === 'RENAME-ONLY');
+    // AGGREGATE fixture: any array/object prop present.
+    const recAgg = triagePage(tManifest, tPage(['inSpot', 'inVol', 'cn_code', 'mode']));
+    check('triage AGGREGATE fixture: array prop (trades) present -> AGGREGATE', recAgg.bucket === 'AGGREGATE');
+    check('triage AGGREGATE fixture: array prop carries no candidates (never heuristically bound)', recAgg.missing_props.find((p) => p.prop === 'trades').candidates.length === 0);
+    // VOCAB-DIVERGENT fixture: a scalar prop with zero candidates.
+    const vocab = without(tManifest, 'trades', 'spot', 'vol', 'mode');
+    const recVocab = triagePage(vocab, tPage(['good_category', 'country_of_origin']));
+    check('triage VOCAB-DIVERGENT fixture: cn_code has zero candidates', recVocab.bucket === 'VOCAB-DIVERGENT');
+    // MIXED fixture: one scalar prop with two candidates.
+    const recMixed = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode_a', 'mode_b']));
+    check('triage MIXED fixture: mode has two candidates -> MIXED', recMixed.bucket === 'MIXED');
+    // Flags.
+    check('triage: fn_is_parametered false for the argumentless run()', recGreen.fn_is_parametered === false);
+    const recParam = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode'], 'function run(pp){_lastResult=pp;}'));
+    check('triage: fn_is_parametered true when the declared function has a parameter', recParam.fn_is_parametered === true);
+    check('triage: has_json_textarea true for id containing json', recGreen.has_json_textarea === true);
+    const recNoTa = triagePage(full, tPage(['inSpot', 'inVol', 'cn_code', 'mode']).replace('<textarea id="json_blob"></textarea>', ''));
+    check('triage: has_json_textarea false without one', recNoTa.has_json_textarea === false);
+    check('triage: report-only — plain data out, nothing bound', Array.isArray(recGreen.missing_props) && recGreen.bucket === 'RENAME-ONLY');
+
+    // 14. Directory manifest emitter (WEBMCP-MANIFEST-1): pure halves against the
+    // fixture — entry shape, sha256 correctness, truthful OT status, drift RED.
+    const fxEntry = {
+      url: `${SITE_ORIGIN}/chaingraph/fx-100-selftest.html`,
+      name: manifest.mcp_tool_definition.name,
+      description: manifest.mcp_tool_definition.description,
+      input_schema_sha256: inputSchemaSha256(manifest.mcp_tool_definition.inputSchema),
+      annotations: { readOnlyHint: true },
+    };
+    const fxJson = directoryJsonFromEntries([fxEntry], tmp);
+    check('manifest emitter: fixture has NO OT token -> origin_trial "absent"', JSON.parse(fxJson).origin_trial === 'absent');
+    writeFileSync(join(tmp, 'chaingraph', 'webmcp-ot-token.txt'), 'dummy-token\n');
+    const fxJsonTok = directoryJsonFromEntries([fxEntry], tmp);
+    check('manifest emitter: token file present -> origin_trial "first-party token present"', JSON.parse(fxJsonTok).origin_trial === 'first-party token present');
+    check('manifest emitter: input_schema_sha256 equals sha256 of compact inputSchema JSON',
+      fxEntry.input_schema_sha256 === createHash('sha256').update(JSON.stringify(schema), 'utf8').digest('hex'));
+    check('manifest emitter: entry carries url/name/description/annotations',
+      fxEntry.url.endsWith('/fx-100-selftest.html') && fxEntry.annotations.readOnlyHint === true && fxEntry.name === 'run_fx_100_selftest');
+    // RED-then-GREEN by mutation: a drifted file (extra tool) fails byte equality.
+    const driftedManifest = JSON.parse(fxJson); driftedManifest.tools.push({ ...fxEntry, name: 'extra_tool' });
+    check('manifest emitter: drift (extra entry) is detectable by byte compare', driftedManifest.tools.length !== JSON.parse(fxJson).tools.length);
+    // Idempotency: two builds over the same fixture bytes are identical.
+    check('manifest emitter: deterministic (two builds byte-identical)', directoryJsonFromEntries([fxEntry], tmp) === fxJsonTok);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+
+  console.log(failures === 0 ? 'GEN-WEBMCP-REGISTRATIONS SELFTEST: PASS' : 'GEN-WEBMCP-REGISTRATIONS SELFTEST: FAIL');
+  process.exit(failures === 0 ? 0 : 1);
+}
+
+// ── CLI ───────────────────────────────────────────────────────────────────────
+// Main-guard: importing this module (e.g. session-root-parity.test.mjs importing
+// SESSION_ROOT_SOURCE) must not run the CLI.
+const invokedAsMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const args = process.argv.slice(2);
+if (!invokedAsMain) {
+  // imported for its pure exports; no CLI side effects
+} else if (args.includes('--self-test')) {
+  selftest();
+} else if (args.includes('--triage')) {
+  const oIdx = args.indexOf('--out');
+  runTriage(oIdx !== -1 ? args[oIdx + 1] : null);
+} else if (args.includes('--manifest')) {
+  runManifest(args.includes('--write'), args.includes('--check'));
+} else if (args.includes('--chains')) {
+  // Chain composer mode (COMPOSER-PLAN-AND-ROOT-WEBMCP-1): --chains --write inserts;
+  // --chains --check (or plain --chains) verifies byte-exact regions.
+  runChainMode(args.includes('--write'));
+} else if (args.includes('--check')) {
+  runCheck();
+} else {
+  const write = args.includes('--write');
+  const all = args.includes('--all');
+  const tIdx = args.indexOf('--tool');
+  const onlyTool = tIdx !== -1 ? args[tIdx + 1] : null;
+  runReportOrWrite(write, onlyTool);
+}

@@ -589,6 +589,7 @@ status: stable
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md) — `compute_derivatives_margin_workbench`
 - [Forecast Accuracy Scorer](./art-657-forecast-accuracy-scorer.md) — `compute_forecast_accuracy_score`
 - [Publish Index Head](./art-658-publish-index-head.md) — `publish_index_head`
+- [Publish Fund NAV Head](./art-659-publish-fund-nav-head.md) — `publish_fund_nav_head`
 - [FRIA & Post-Market Monitoring Plan Builder](./art-66-fria-postmarket-monitoring-builder.md) — `build_fria_monitoring_plan`
 - [Compile NAV-Error Evidence Pack](./art-660-compile-nav-error-evidence-pack.md) — `compile_nav_error_evidence_pack`
 - [Interest Accrual Recompute](./art-661-interest-accrual-recompute.md) — `compute_interest_accrual_recompute`
@@ -596,8 +597,28 @@ status: stable
 - [APY-Earned Recompute](./art-663-apy-earned-recompute.md) — `compute_apy_earned_recompute`
 - [Loan Servicing Waterfall Recompute](./art-664-loan-servicing-waterfall-recompute.md) — `compute_loan_servicing_waterfall_recompute`
 - [GL Tie-Out Recompute](./art-665-gl-tieout-recompute.md) — `compute_gl_tieout_recompute`
+- [Algo Execution Schedule Simulator](./art-669-algo-execution-schedule-simulator.md) — `compute_algo_execution_schedule_simulator`
 - [Agentic AI Risk & GPAI Governance Classifier](./art-67-agentic-ai-risk-classifier.md) — `classify_agentic_ai_risk`
+- [Short-Sale Locate and SSR Checker](./art-671-short-sale-locate-ssr-checker.md) — `compute_short_sale_locate_ssr_checker`
+- [FX Funding Sequencer](./art-672-fx-funding-sequencer.md) — `compute_fx_funding_sequencer`
+- [Lending Recall Prioritizer](./art-673-lending-recall-prioritizer.md) — `compute_lending_recall_prioritizer`
+- [EBA IM-Model Validation Tracker](./art-674-eba-im-model-validation-tracker.md) — `compute_eba_im_model_validation_tracker`
+- [Recordkeeping Completeness Mapper](./art-675-recordkeeping-completeness-mapper.md) — `compute_recordkeeping_completeness_mapper`
+- [Proxy Voting Record](./art-676-proxy-voting-record.md) — `compute_proxy_voting_record`
+- [Whistleblowing Channel Clock Checker](./art-677-whistleblowing-channel-clock.md) — `compute_whistleblowing_channel_clock`
+- [Consultation Response Tracker](./art-678-consultation-response-tracker.md) — `compute_consultation_response_tracker`
+- [ORSA Readiness Pack](./art-679-orsa-readiness-pack.md) — `compute_orsa_readiness_pack`
 - [Carbon & Climate Compliance Fit Diagnostic](./art-68-carbon-compliance-fit-diagnostic.md) — `run_carbon_compliance_fit`
+- [Control Attestation Campaign Roll Up](./art-680-control-attestation-campaign-roll-up.md) — `compute_control_attestation_campaign_roll_up`
+- [Best-Execution Evidence Pack](./art-681-best-execution-evidence-pack.md) — `compute_best_execution_evidence_pack`
+- [Rule 605 Publication Composer](./art-682-rule-605-publication-composer.md) — `compute_rule_605_publication_composer`
+- [Consolidation with CTA and Minority Interest](./art-683-consolidation-cta-minority-interest.md) — `compute_consolidation_cta`
+- [Intercompany Elimination and Netting Workflow](./art-684-intercompany-elimination-netting.md) — `compute_intercompany_elimination_netting`
+- [Direct Indexing Fit Screen](./art-685-direct-indexing-fit-screen.md) — `compute_direct_indexing_fit_screen`
+- [LTC Funding Comparator](./art-686-ltc-funding-comparator.md) — `compute_ltc_funding_comparator`
+- [Wash-Sale Window Guard](./art-687-wash-sale-window-guard.md) — `compute_wash_sale_window_guard`
+- [Education Funding Gap Calculator](./art-688-education-funding-gap-calculator.md) — `compute_education_funding_gap_calculator`
+- [Pack Dependency Map](./art-689-pack-dependency-map.md) — `compute_pack_dependency_map`
 - [CBAM Embedded-Emissions Calculator](./art-69-cbam-embedded-emissions-calculator.md) — `calculate_cbam_embedded_emissions`
 - [CBAM Default-Value Resolver](./art-70-cbam-default-value-resolver.md) — `resolve_cbam_default_value`
 - [CBAM Certificate Cost & Free-Allocation Engine](./art-71-cbam-certificate-cost-engine.md) — `model_cbam_certificate_cost`

@@ -1,5 +1,5 @@
 // pnr-01-dora-ict-cascade-simulator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:d4edfa0ba9cd195aecdc9a77ffd6e108ca1c8d56ad899e79cfe848617854b65c
+// kernel_digest_at_authoring: sha256:748f40841c60b16c54741966869e7515cc7259dc78c0efc7c68f6de6068071df
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -25,7 +25,7 @@ function runFixtureOracle() {
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
-    const output_payload = compute(vec.policy_parameters);
+    const { output_payload } = compute(vec.policy_parameters);
     const a = JSON.stringify(output_payload);
     const b = JSON.stringify(vec.output_payload);
     if (a !== b) failures.push({ name: vec.name, expected: vec.output_payload, got: output_payload });
@@ -64,7 +64,7 @@ function checkP1_termination_npaths_clamp() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const output_payload = compute(pp);
+    const { output_payload } = compute(pp);
     checked++;
     if (output_payload.n_paths < 50 || output_payload.n_paths > 2000) violations++;
   }
@@ -76,7 +76,7 @@ function checkP2_boundedness_probabilities() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
-    const output_payload = compute(pp);
+    const { output_payload } = compute(pp);
     checked++;
     if (output_payload.dora_reporting_probability < 0 || output_payload.dora_reporting_probability > 1) violations++;
     for (const v of Object.values(output_payload.node_cascade_probabilities)) {
@@ -105,7 +105,7 @@ function checkP4_ulp_forcing() {
   const eps = Number.EPSILON;
   const cascadeForced = [0, -0, eps, 1 - eps, 1, Number.MIN_VALUE, 0.5 - eps, 0.5 + eps];
   for (const ct of cascadeForced) {
-    const output_payload = compute({ topology: 'bank_core', n_paths: 100, cascade_threshold: ct, seed: 7 });
+    const { output_payload } = compute({ topology: 'bank_core', n_paths: 100, cascade_threshold: ct, seed: 7 });
     checked++;
     if (!Number.isFinite(output_payload.dora_reporting_probability)) violations++;
     if (output_payload.n_paths !== 100) violations++;

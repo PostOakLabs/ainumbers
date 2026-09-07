@@ -17,10 +17,16 @@
  *   4. description is >= 8 words (a real capability statement, not a stub).
  *   5. NO network call inside execute() — no fetch/XHR/WebSocket/
  *      EventSource/sendBeacon/dynamic import.
- *   6. exactly one registerTool call per page.
+ *   6. at least one registerTool call; EVERY call is checked individually
+ *      (LEDGER-WEBMCP-1: a hand-authored page may register several tools in
+ *      one block — the ledger page registers three — so rule 6 was widened
+ *      from "exactly 1" to "1..n, each fully linted"; rule 6 never allowed
+ *      zero calls and still does not).
  *   7. schema-minimality (W3C §6.3.3 anti-profiling control) — every
  *      inputSchema property must be read inside execute().
- *   8. annotations carry readOnlyHint:true AND untrustedContentHint:true.
+ *   8. annotations carry readOnlyHint:true, and untrustedContentHint is either
+ *      true (UGC answer class) or omitted WITH an n/a rationale comment
+ *      (truthful-hint posture, WEBMCP-AUDIT-DRYRUN-1 #1616).
  *
  * Usage:
  *   node scripts/check-webmcp-snippet.mjs <file.html> [<file.html> ...]
@@ -59,7 +65,7 @@ function extractStringField(body, field) {
 }
 
 function extractExecuteBody(body) {
-  const m = body.match(/execute\s*:\s*function\s*\([^)]*\)\s*\{/);
+  const m = body.match(/execute\s*:\s*(async\s+)?function\s*\([^)]*\)\s*\{/);
   if (!m) return null;
   const openBrace = body.indexOf('{', m.index + m[0].length - 1);
   const closeBrace = findMatchingBrace(body, openBrace);
@@ -99,56 +105,62 @@ function checkSnippet(src, label) {
     issues.push('no registerTool call found');
     return issues;
   }
-  if (calls.length > 1) {
-    issues.push(`${calls.length} registerTool calls found, expected exactly 1`);
-  }
 
-  const call = calls[0];
+  for (let ci = 0; ci < calls.length; ci++) {
+    const call = calls[ci];
+    const label = calls.length > 1 ? `registerTool #${ci + 1}: ` : '';
 
-  // Rule 2: not event-gated — no addEventListener between the feature-detect
-  // guard and the registerTool call.
-  const preamble = src.slice(0, call.start);
-  const guardIdx = Math.max(preamble.lastIndexOf('if (mc)'), preamble.lastIndexOf('if(mc)'));
-  const scanFrom = guardIdx >= 0 ? guardIdx : Math.max(0, call.start - 400);
-  const between = src.slice(scanFrom, call.start);
-  if (/addEventListener\s*\(/.test(between)) {
-    issues.push('registerTool appears gated behind addEventListener, not called at top level on page load');
-  }
+    // Rule 2: not event-gated — no addEventListener between the feature-detect
+    // guard and the registerTool call.
+    const preamble = src.slice(0, call.start);
+    const guardIdx = Math.max(preamble.lastIndexOf('if (mc)'), preamble.lastIndexOf('if(mc)'));
+    const scanFrom = guardIdx >= 0 ? guardIdx : Math.max(0, call.start - 400);
+    const between = src.slice(scanFrom, call.start);
+    if (/addEventListener\s*\(/.test(between)) {
+      issues.push(label + 'registerTool appears gated behind addEventListener, not called at top level on page load');
+    }
 
-  const name = extractStringField(call.body, 'name');
-  if (!name || !/^[a-z][a-z0-9_]*$/.test(name)) {
-    issues.push(`tool name '${name}' is not snake_case`);
-  }
+    const name = extractStringField(call.body, 'name');
+    if (!name || !/^[a-z][a-z0-9_]*$/.test(name)) {
+      issues.push(label + `tool name '${name}' is not snake_case`);
+    }
 
-  const description = extractStringField(call.body, 'description');
-  const wordCount = description ? description.trim().split(/\s+/).filter(Boolean).length : 0;
-  if (wordCount < 8) {
-    issues.push(`description has ${wordCount} words, need >= 8`);
-  }
+    const description = extractStringField(call.body, 'description');
+    const wordCount = description ? description.trim().split(/\s+/).filter(Boolean).length : 0;
+    if (wordCount < 8) {
+      issues.push(label + `description has ${wordCount} words, need >= 8`);
+    }
 
-  const execBody = extractExecuteBody(call.body);
-  if (!execBody) {
-    issues.push('no execute() function found');
-  } else {
-    for (const pattern of NETWORK_PATTERNS) {
-      if (pattern.test(execBody)) {
-        issues.push(`execute() contains a network call matching ${pattern}`);
+    const execBody = extractExecuteBody(call.body);
+    if (!execBody) {
+      issues.push(label + 'no execute() function found');
+    } else {
+      for (const pattern of NETWORK_PATTERNS) {
+        if (pattern.test(execBody)) {
+          issues.push(label + `execute() contains a network call matching ${pattern}`);
+        }
       }
     }
-  }
 
-  const schemaProps = extractSchemaProperties(call.body);
-  if (execBody) {
-    for (const prop of schemaProps) {
-      const usedRe = new RegExp(`params(?:\\s*\\.\\s*${prop}\\b|\\s*\\[\\s*['"]${prop}['"]\\s*\\])`);
-      if (!usedRe.test(execBody)) {
-        issues.push(`inputSchema property '${prop}' is never read inside execute() (schema-minimality, W3C §6.3.3)`);
+    const schemaProps = extractSchemaProperties(call.body);
+    if (execBody) {
+      for (const prop of schemaProps) {
+        const usedRe = new RegExp(`params(?:\\s*\\.\\s*${prop}\\b|\\s*\\[\\s*['"]${prop}['"]\\s*\\])`);
+        if (!usedRe.test(execBody)) {
+          issues.push(label + `inputSchema property '${prop}' is never read inside execute() (schema-minimality, W3C §6.3.3)`);
+        }
       }
     }
-  }
 
-  if (!/readOnlyHint\s*:\s*true/.test(call.body)) issues.push('annotations missing readOnlyHint:true');
-  if (!/untrustedContentHint\s*:\s*true/.test(call.body)) issues.push('annotations missing untrustedContentHint:true');
+    if (!/readOnlyHint\s*:\s*true/.test(call.body)) issues.push(label + 'annotations missing readOnlyHint:true');
+  }
+  // Truthful-hint posture (WEBMCP-AUDIT-DRYRUN-1 #1616): a zero-UGC deterministic
+  // local tool must NOT claim untrustedContentHint:true. Either it carries the
+  // field truthfully for its answer class, or it omits the field AND states the
+  // n/a rationale in the block comment. Silent absence of both is red.
+  if (!/untrustedContentHint\s*:\s*true/.test(src) && !/untrustedContentHint\s+is\s+not\s+applicable/.test(src)) {
+    issues.push('untrustedContentHint: neither a true field nor an n/a rationale comment (truthful-hint posture)');
+  }
 
   return issues;
 }
@@ -196,7 +208,100 @@ function selfTest() {
   greenIssues.forEach((i) => console.log('  ✗ ' + i));
   console.log(greenIssues.length === 0 ? 'GREEN: PASS (as expected)' : 'GREEN: FAIL (UNEXPECTED — lint is rejecting known-good input)');
 
-  const ok = redIssues.length > 0 && greenIssues.length === 0;
+  // Generated-shape GREEN (WEBMCP-GEN-FROM-MANIFEST-1): async execute, readOnlyHint
+  // only, untrustedContentHint n/a stated in the comment.
+  const genGreen = checkSnippet(`
+<script>
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'validate_generated_fixture',
+    description: 'Generated fixture whose annotations carry readOnlyHint only with an n/a rationale comment.',
+    // untrustedContentHint is not applicable: deterministic local compute, no untrusted content.
+    inputSchema: { type: 'object', properties: {} },
+    annotations: { readOnlyHint: true },
+    execute: async function(params) {
+      return { ok: true };
+    }
+  });
+}
+</script>
+`, 'generated-shape fixture');
+  console.log('--- Generated-shape fixture (expected: PASS) ---');
+  genGreen.forEach((i) => console.log('  ✗ ' + i));
+  console.log(genGreen.length === 0 ? 'GENERATED-SHAPE: PASS (as expected)' : 'GENERATED-SHAPE: FAIL (UNEXPECTED)');
+
+  // RED: readOnlyHint only, no n/a rationale — the truthful-hint posture gap.
+  const hintRed = checkSnippet(`
+<script>
+mc.registerTool({
+  name: 'silent_hint_fixture',
+  description: 'Fixture that omits the hint and never states why, which is exactly the gap.',
+  inputSchema: { type: 'object', properties: {} },
+  annotations: { readOnlyHint: true },
+  execute: function(params) { return { ok: true }; }
+});
+</script>
+`, 'hint-red fixture');
+  console.log('--- Hint-gap fixture (expected: FAIL) ---');
+  hintRed.forEach((i) => console.log('  ✗ ' + i));
+  console.log(hintRed.length > 0 ? 'HINT-GAP: FAIL (as expected)' : 'HINT-GAP: PASS (UNEXPECTED — lint is not catching the truthful-hint gap)');
+
+  // Multi-tool page GREEN (LEDGER-WEBMCP-1): several registerTool calls in one
+  // block, every call fully linted.
+  const multiGreen = checkSnippet(`
+<script>
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'first_tool',
+    description: 'First tool of a multi-tool page with a real capability statement.',
+    inputSchema: { type: 'object', required: ['doc'], properties: { doc: { type: 'object' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.doc; }
+  });
+  mc.registerTool({
+    name: 'second_tool',
+    description: 'Second tool of a multi-tool page with a real capability statement.',
+    inputSchema: { type: 'object', required: ['frag'], properties: { frag: { type: 'string' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.frag; }
+  });
+}
+</script>
+`, 'multi-tool fixture');
+  console.log('--- Multi-tool fixture (expected: PASS) ---');
+  multiGreen.forEach((i) => console.log('  ✗ ' + i));
+  console.log(multiGreen.length === 0 ? 'MULTI-TOOL: PASS (as expected)' : 'MULTI-TOOL: FAIL (UNEXPECTED)');
+
+  // RED: on a multi-tool page only ONE call is bad — the verdict must still move.
+  const multiRed = checkSnippet(`
+<script>
+const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+if (mc) {
+  mc.registerTool({
+    name: 'good_tool_one',
+    description: 'Good tool of a multi-tool page with a real capability statement.',
+    inputSchema: { type: 'object', required: ['doc'], properties: { doc: { type: 'object' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.doc; }
+  });
+  mc.registerTool({
+    name: 'Bad Tool Name',
+    description: 'Bad tool whose name is not snake_case, failing the lint.',
+    inputSchema: { type: 'object', required: ['frag'], properties: { frag: { type: 'string' } } },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: async function(params) { return params.frag; }
+  });
+}
+</script>
+`, 'multi-tool-red fixture');
+  console.log('--- Multi-tool RED fixture (expected: FAIL) ---');
+  multiRed.forEach((i) => console.log('  ✗ ' + i));
+  console.log(multiRed.some((i) => i.startsWith('registerTool #2:')) ? 'MULTI-TOOL-RED: FAIL (as expected)' : 'MULTI-TOOL-RED: PASS (UNEXPECTED — lint missed the bad second call)');
+
+  const ok = redIssues.length > 0 && greenIssues.length === 0 && genGreen.length === 0 && hintRed.length > 0
+    && multiGreen.length === 0 && multiRed.some((i) => i.startsWith('registerTool #2:'));
   process.exit(ok ? 0 : 1);
 }
 
