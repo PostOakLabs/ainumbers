@@ -2504,6 +2504,37 @@ gateStart(CONSUMES_EDGE_LABEL);
   }
 }
 
+// ── Advisory (non-blocking): cross-kernel consistency surprises ─────────────
+// CCPP-GATE-WIRE-1 (7F gate-lift ruling 2026-09-07T11:17Z). The cross-kernel
+// consistency property harness (chaingraph/kernels/__consistency__/, pilot
+// PR #1649) wired in per the pilot report §8.2: the runner's exit code already
+// implements the declared-expectation invariant (exit 1 on any observed-vs-
+// declared mismatch, either direction — NEVER a property-count or must-be-green
+// gate), and "the wiring is a preflight entry and nothing else". Deliberately
+// ADVISORY here, same shape as CONSUMES-EDGE-CHECK-1 above: three properties
+// declare VIOLATION today (open findings whose fix rows CCPP-FIX-ART06-1 /
+// ART234-1 / ART236-1 are serialized on this row), so a blocking gate would
+// red main on the very defects those rows exist to fix. A surprise prints a
+// loud SURPRISES block and never fails preflight; the blocking flip is
+// CCPP-GATE-BLOCK-1 (the wrapper scripts/run-consistency.mjs already carries
+// the --enforce disposition for it). Wall-seconds are printed on every run.
+const CCPP_CONSISTENCY_LABEL = 'cross-kernel consistency surprises (advisory report, CCPP-GATE-WIRE-1)';
+gateStart(CCPP_CONSISTENCY_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/run-consistency.mjs');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(CCPP_CONSISTENCY_LABEL, r.reason, r.out);
+  } else {
+    const line = (r.out || '').trim().split('\n').filter(Boolean).find((l) => l.startsWith('run-consistency:'))
+      || 'no summary line printed — see node scripts/run-consistency.mjs';
+    gatePass(line);
+    if (r.state === 'WARNED') {
+      gateFail('   ⚠ SURPRISES — an observed-vs-declared mismatch fired in the consistency harness (ADVISORY: printed, NOT blocking; blocking flip is CCPP-GATE-BLOCK-1)');
+      console.log('\n' + r.out.trim() + '\n');
+    }
+  }
+}
+
 // ── Advisory (non-blocking): Lighthouse llms.txt audit (LLMS-TXT-AGENTIC-1) ──
 // Runs Chrome Lighthouse's llms.txt audit (agentic-browsing) against the local
 // llms.txt IF a lighthouse binary is already on PATH; otherwise prints SKIP.
