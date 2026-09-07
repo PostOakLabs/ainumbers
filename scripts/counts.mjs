@@ -68,6 +68,19 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 export const repoRoot = resolve(__dirname, '..')
 
+// MERGEGROUP-HARD-GATES-1: overlay-read for the DERIVED inputs of these counts
+// (tools.html, chaingraph.json, mcp.html, data/mcp-counts.json). On merge_group
+// DERIVED_ROOT points at the ephemeral assembled tree — read the scratch copy
+// when the assembly produced one, the checkout otherwise. Authored inputs
+// (tools/, manifests/, guides/ directory scans) stay repo-rooted: they are not
+// derived, so the checkout is already authoritative for them.
+const DERIVED_ROOT = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim()
+  ? resolve(repoRoot, process.env.DERIVED_ROOT.trim()) : null
+function readDerived(...parts) {
+  const scratch = DERIVED_ROOT ? resolve(DERIVED_ROOT, ...parts) : null
+  return readFileSync(scratch && existsSync(scratch) ? scratch : resolve(repoRoot, ...parts), 'utf8')
+}
+
 // countHubTools — number of distinct browser tools (../tools/*.html) a guides/*-hub.html page
 // links to via <a class="tool-card-link" href="../tools/...">. Attribute order varies across hub
 // pages (href-then-class vs class-then-href), so this scans whole <a ...> tags rather than
@@ -102,7 +115,7 @@ export async function deriveCounts() {
     .filter(f => f.endsWith('-hub.html')).length
 
   // categories — class="cat-heading" spans in tools.html
-  const toolsHtml = readFileSync(resolve(repoRoot, 'tools.html'), 'utf8')
+  const toolsHtml = readDerived('tools.html')
   const categories = (toolsHtml.match(/class="cat-heading"/g) || []).length
 
   // cat.* — per-category .tool-card counts in tools.html (TOOLSHTML-CATCOUNT-GATE-1).
@@ -120,20 +133,18 @@ export async function deriveCounts() {
   }
 
   // chains
-  const chaingraph = JSON.parse(readFileSync(resolve(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'))
+  const chaingraph = JSON.parse(readDerived('chaingraph', 'chaingraph.json'))
   const chains = (chaingraph.chains ?? []).length
 
   // workflows.recipes — data rows in the workflows table in mcp.html
-  const mcpHtml = readFileSync(resolve(repoRoot, 'mcp.html'), 'utf8')
+  const mcpHtml = readDerived('mcp.html')
   const wfStart = mcpHtml.indexOf('id="workflows"')
   const wfEnd   = mcpHtml.indexOf('</table>', wfStart)
   const wfSection = (wfStart !== -1 && wfEnd !== -1) ? mcpHtml.slice(wfStart, wfEnd) : ''
   const workflowsRecipes = (wfSection.match(/<tr><td>/g) || []).length
 
   // mcp.live — chaingraph live nodes + pilot widgets + utility tools
-  const mcpCountsData = JSON.parse(
-    readFileSync(resolve(repoRoot, 'data', 'mcp-counts.json'), 'utf8')
-  )
+  const mcpCountsData = JSON.parse(readDerived('data', 'mcp-counts.json'))
   const liveNodes = (chaingraph.nodes ?? []).filter(n => n.status === 'live').length
   const mcpLive = liveNodes + mcpCountsData.pilot_widgets + mcpCountsData.utility_tools
 

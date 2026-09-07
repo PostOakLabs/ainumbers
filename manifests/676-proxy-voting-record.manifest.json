@@ -1,0 +1,76 @@
+{
+  "tool_id": "676-proxy-voting-record",
+  "version": "1.0.0",
+  "title": "Proxy Voting Record",
+  "description": "Deterministic proxy-voting record arithmetic over caller-declared synthetic inputs. From a declared meeting record date and vote deadline, declared record-date positions, and a declared voting instruction, computes entitled_shares as the sum of record-date position shares, days_before_deadline as whole UTC calendar days from the declared received date to the declared deadline, instruction_within_deadline, and an overall verdict of VOTE_RECORDED or INSTRUCTION_LATE with the late instruction still reported. No registrar, no share register, no SSR tape, no borrow list, no cutoff feed, no network, no clock.",
+  "category": "capital-markets",
+  "tags": ["proxy voting", "record date", "vote deadline", "entitlement", "shareholder meeting", "SRD II", "zero network", "zero-PII"],
+  "audience": ["issuers", "transfer agents", "governance teams", "compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "meeting": {
+        "type": "object",
+        "properties": {
+          "record_date": { "type": "string", "description": "Meeting record date, YYYY-MM-DD." },
+          "vote_deadline": { "type": "string", "description": "Voting instruction deadline, YYYY-MM-DD." }
+        },
+        "required": ["record_date", "vote_deadline"]
+      },
+      "positions": {
+        "type": "array",
+        "description": "Declared record-date positions; entitlement is the sum of their shares.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "account": { "type": "string", "description": "Non-empty account identifier." },
+            "shares": { "type": "number", "description": "Positive whole number of shares." }
+          },
+          "required": ["account", "shares"]
+        }
+      },
+      "instruction": {
+        "type": "object",
+        "properties": {
+          "received": { "type": "string", "description": "Date the voting instruction was received, YYYY-MM-DD." },
+          "direction": { "type": "string", "enum": ["for", "against", "abstain", "withhold"], "description": "Declared voting direction." }
+        },
+        "required": ["received", "direction"]
+      }
+    },
+    "required": ["meeting", "positions", "instruction"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "entitled_shares": { "type": ["number", "null"], "description": "Sum of record-date position shares; null on the fail-closed path." },
+      "instruction_within_deadline": { "type": ["boolean", "null"], "description": "True when the instruction received date is not after the vote deadline." },
+      "days_before_deadline": { "type": ["number", "null"], "description": "Whole UTC calendar days from received to the deadline; negative when late." },
+      "trace": { "type": "string", "description": "Full arithmetic trace, or the fail-closed reasons naming each rejected input." },
+      "overall": { "type": ["string", "null"], "enum": ["VOTE_RECORDED", "INSTRUCTION_LATE", null], "description": "Execution-confirm verdict." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_proxy_voting_record",
+    "description": "Computes a proxy voting record from declared meeting dates, record-date positions, and a voting instruction: entitled shares as the position sum, whole days before the declared vote deadline, deadline status, and an overall VOTE_RECORDED or INSTRUCTION_LATE verdict. Record arithmetic over caller-declared synthetic inputs only: no registrar check, no share register, no voting advice, and no instruction is transmitted anywhere.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "meeting": { "type": "object", "description": "record_date and vote_deadline, YYYY-MM-DD" },
+        "positions": { "type": "array", "description": "record-date positions, each {account, shares}" },
+        "instruction": { "type": "object", "description": "received (YYYY-MM-DD) and direction (for, against, abstain, withhold)" }
+      },
+      "required": ["meeting", "positions", "instruction"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/676-proxy-voting-record.html",
+    "function_name": "runProxyVoteRecord",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by PROXY-VOTING-BUILD-1 per PROXY-VOTING-BUILD-SPEC.md. Scope positioning: a record-keeping calculator over caller-declared synthetic inputs, not voting advice, not a solicitation, and not a submission channel; absent or invalid inputs are refused fail-closed and named, never silently repaired."
+}
