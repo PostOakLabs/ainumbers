@@ -75,7 +75,10 @@ const FAMILY = (process.env.OCG_FAMILY_PAGES ||
   // ../about.html added CLAIMS-SENTINEL-TIER1-1 (Q6): the footer "Spec vX.Y.Z" link there drifted
   // to 0.8.8 against the 0.8.13 record with nothing watching it — this pass is the general-purpose
   // "Spec vX →/< label" scanner, so an unwatched root page just needed adding to the family list.
-  'openchain-graph-spec.html,chaingraph-hub.html,why-openchain-graph.html,ocg-industries.html,openchain-graph-explainer.html,../mcp.html,../about.html'
+  // ../llms.txt added COPYROT-SWEEP-1 (ROOT-1): the agent-facing llms.txt pinned the spec at
+  // "v0.5.0" for months against the 0.8.13 record; its label is reworded to the
+  // "OpenChainGraph Spec vX.Y.Z" form so this scanner can watch it.
+  'openchain-graph-spec.html,chaingraph-hub.html,why-openchain-graph.html,ocg-industries.html,openchain-graph-explainer.html,../mcp.html,../about.html,../llms.txt'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 // Each pattern denotes a CURRENT OCG standard/spec version label; the version is captured in group 1.
 const LABEL_RES = [

@@ -3,9 +3,10 @@
 # (green here == green in CI). Enabled per-clone via `core.hooksPath = .githooks`; run
 # `node scripts/setup-hooks.mjs` once after cloning (worktrees inherit it automatically).
 #
-# Emergency bypass (use sparingly, e.g. pushing a WIP branch you know is red): git push --no-verify
+# Emergency bypass: none documented — PREFLIGHT-QUICK-1 made the cheap path cheap
+# enough that skipping it is never the right move. Fix the red gate and re-push.
 #
-# CI remains the real backstop — this hook only enforces locally and can be bypassed.
+# CI remains the real backstop — this hook only enforces locally.
 
 # Re-entry guard: the attestation step below pushes refs/notes/preflight-attestation,
 # which re-invokes this same hook. That inner push is already covered by the outer
@@ -162,9 +163,41 @@ if [ -n "$AINUM_EXPECT_RED" ]; then
   echo "════════════════════════════════════════════════════════════════"
 fi
 
-echo "pre-push: running scripts/preflight.mjs --changed origin/main (bypass with 'git push --no-verify') ..."
-node scripts/preflight.mjs --changed origin/main "$@"
+# PREFLIGHT-QUICK-1: run the ≤90 s --quick subset FIRST, on EVERY push. The full
+# suite measures ≈660 s — past the 600 s tool-call cap — which is why sessions
+# reached for bypasses. The quick subset catches the cheapest, most-frequently-
+# skipped reds (baseline bump, tool-number uniqueness, copy hallmarks) in under
+# 90 s. The FULL suite still runs — but only when it can be owed: PREFLIGHT_FULL=1,
+# or when this diff touches the gated machinery itself (scripts/, .github/, or a
+# kernel _*.mjs). ⛔ The sanctioned answer to a red gate is FIX THE GATE, never a
+# bypass flag. (CI remains the real backstop.)
+echo "pre-push: running scripts/preflight.mjs --quick (PREFLIGHT-QUICK-1; full suite only when PREFLIGHT_FULL=1 or the diff touches scripts/, .github/, chaingraph/kernels/_*.mjs) ..."
+node scripts/preflight.mjs --quick "$@"
 status=$?
+[ "$status" -ne 0 ] && echo "pre-push: QUICK preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+
+# Full suite only when it can be owed (PREFLIGHT-QUICK-1) — and only after a
+# GREEN quick run: a red quick already fails the push, so the full leg has
+# nothing to add on top of it.
+if [ "$status" -eq 0 ]; then
+  need_full=0
+  if [ "$PREFLIGHT_FULL" = "1" ]; then
+    need_full=1
+    full_reason="PREFLIGHT_FULL=1"
+  else
+    merge_base_quick=$(git merge-base origin/main HEAD 2>/dev/null) || merge_base_quick=""
+    if [ -n "$merge_base_quick" ] && [ -n "$(git diff --name-only "$merge_base_quick" HEAD -- scripts/ .github/ 'chaingraph/kernels/_*.mjs')" ]; then
+      need_full=1
+      full_reason="diff touches scripts/ or .github/ or chaingraph/kernels/_*.mjs"
+    fi
+  fi
+  if [ "$need_full" -eq 1 ]; then
+    echo "pre-push: running the FULL preflight suite ($full_reason) ..."
+    node scripts/preflight.mjs --changed origin/main "$@"
+    status=$?
+    [ "$status" -ne 0 ] && echo "pre-push: FULL preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+  fi
+fi
 
 # Disclosure — DISCLOSURE, not permission: runs regardless of outcome, so a
 # declaration that failed to clear the push (RED control) is logged exactly
@@ -196,8 +229,12 @@ if [ -n "$AINUM_EXPECT_RED" ]; then
   fi
 fi
 
+# PREFLIGHT-QUICK-1: the two blocks above already exited 1 on a red quick/full
+# run, so a red can never reach here — this legacy guard is kept only so a
+# future edit that forgets one of them still blocks. It no longer advertises a
+# bypass (PREFLIGHT-QUICK-1: never --no-verify in guidance again).
 if [ "$status" -ne 0 ]; then
-  echo "pre-push: preflight FAILED — push blocked. Fix the gate above, or 'git push --no-verify' to override." 1>&2
+  echo "pre-push: preflight FAILED — push blocked. Fix the gate above and re-push." 1>&2
   exit 1
 fi
 

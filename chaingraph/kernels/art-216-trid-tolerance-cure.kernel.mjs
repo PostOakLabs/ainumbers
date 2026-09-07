@@ -12,7 +12,8 @@ export const meta = {
 // TRID fee tolerance buckets per Reg Z §1026.19(e)(3).
 // Buckets:
 //   ZERO_TOLERANCE      — 0% tolerance; any increase is a violation
-//   TEN_PCT_CUMULATIVE  — 10% cumulative bucket; sum of increases <= 10% of sum of LE amounts
+//   TEN_PCT_CUMULATIVE  — 10% cumulative bucket; the aggregate charged minus the aggregate
+//                         estimated must not exceed 10% of the aggregate estimated
 //   NO_TOLERANCE_LIMIT  — no tolerance limit (can increase without cure)
 //
 // Changed-circumstance flag exempts a fee from its baseline comparison:
@@ -88,9 +89,15 @@ export function compute(pp) {
     }
   }
 
-  // Evaluate 10% cumulative bucket
+  // Evaluate 10% cumulative bucket. The test is aggregate-to-aggregate: the total actually
+  // charged minus the total estimated, compared against 10 percent of the total estimated.
+  // Summing only the POSITIVE per-fee increases is not the same quantity — it discards every
+  // decrease in the bucket, so it over-reports a violation whenever one fee falls and another
+  // rises, even when the consumer paid less in aggregate than was estimated. The per-fee
+  // positive-increase total is retained below for reporting only; it does not decide.
+  const ten_pct_aggregate_change = r2(ten_pct_cd_sum - ten_pct_le_sum);
   const ten_pct_threshold = r2(ten_pct_le_sum * 0.10);
-  const ten_pct_excess = r2(Math.max(0, ten_pct_increase - ten_pct_threshold));
+  const ten_pct_excess = r2(Math.max(0, ten_pct_aggregate_change - ten_pct_threshold));
   const ten_pct_violation = ten_pct_excess > 0.005;
 
   if (ten_pct_violation) {
@@ -98,6 +105,7 @@ export function compute(pp) {
       bucket: BUCKET.TEN,
       le_sum: r2(ten_pct_le_sum),
       cd_sum: r2(ten_pct_cd_sum),
+      aggregate_change: ten_pct_aggregate_change,
       total_increase: r2(ten_pct_increase),
       threshold_10pct: ten_pct_threshold,
       excess: ten_pct_excess,

@@ -232,6 +232,11 @@ def main():
                           f"Suite-Wide Tool Manifest Registry · {n} tools")
     thtml = _re.sub(r'<span class="filter-count" id="fc-all">\d+</span>',
                     f'<span class="filter-count" id="fc-all">{n_tools}</span>', thtml)
+    # COPYROT-SWEEP-1 (ROOT-9): the search box's static placeholder carried a fossil
+    # "Search 440+ tools…" that only runtime JS corrected; crawlers/no-JS saw the stale
+    # value. Derive it from the count at generation like every other tools.html count.
+    thtml = _re.sub(r'placeholder="Search \d+\+ tools',
+                    f'placeholder="Search {n_tools}+ tools', thtml)
     write_stable('tools.html', thtml)
 
     # ── index.html (hub spoke — preserve sentinel format in "Browse all N tools" CTA) ──
