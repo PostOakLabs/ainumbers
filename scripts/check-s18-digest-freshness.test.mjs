@@ -591,8 +591,16 @@ await test('reproduces the confirmed 133/508 stale count against the real commit
    // Measured both sides, not assumed: 504/622 fresh + 118 stale on origin/main 9fba6c6d (scratch
    // worktree, fixture asserts green), 505/623 fresh + 118 stale on this branch; the failing assert
    // printed got 623 before this edit.
-   assert(total === 623, `expected 623 in-scope gpu:false proven nodes, got ${total}`);
-   assert(fresh.length === 505, `expected 505 fresh (calibration set), got ${fresh.length}`);
+   // 623 -> 624 post-DEFERRED-FAST-PROVE-BATCH-1 (2026-09-07, art-636 first §18 GPU prove):
+   // art-636-globe-transition-deferred-tax-tracker flips compute_proof_ready deferred -> ready
+   // with a fresh groth16 receipt binding current kernel bytes (journal.kernel_digest
+   // sha256:e169d6aa... verified equal to this branch's kernel bytes; runq-gpu
+   // prove-succinct-resume + groth16 wrap, VERIFY_PASS in 241s, imageId universal risc0 guest).
+   // Denominator +1, fresh +1 (newly proven => fresh), stale UNCHANGED (118 <= baseline 133).
+   // Measured both sides, not assumed: 505/623 fresh + 118 stale on origin/main 0ed51f90,
+   // 506/624 fresh + 118 stale on this branch; the failing assert printed got 624 before this edit.
+   assert(total === 624, `expected 624 in-scope gpu:false proven nodes, got ${total}`);
+   assert(fresh.length === 506, `expected 506 fresh (calibration set), got ${fresh.length}`);
    assert(stale.length === 118, `expected 118 stale (see 2026-09-01 note above), got ${stale.length}`);
  });
 
