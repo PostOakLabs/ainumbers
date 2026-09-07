@@ -170,7 +170,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 
 <div class="tool-body"><div class="container">
 
-  <div class="pii-notice scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Embedded rates, thresholds, and regulatory citations are static reference values that may age &mdash; verify against current primary sources and your own data before relying on any output for commercial, legal, or compliance decisions. Deterministic logic · no inference · zero PII · runs offline · CC BY 4.0.</div>
+  <div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Embedded rates, thresholds, and regulatory citations are static reference values that may age &mdash; verify against current primary sources and your own data before relying on any output for commercial, legal, or compliance decisions. Deterministic logic · no inference · zero PII · runs offline · CC BY 4.0.</div>
 
 
   <!-- WEIGHTS -->
@@ -370,6 +370,9 @@ Adjust dimension weights to reflect your programme priorities before finalising.
     </div>
   `;
   window._memo = memo;
+  /* Structured capture (FLAG-CONSUMER-TIERB-1 leg c): the mandate's data rides beside the
+     text excerpt, uncapped — a raised text cap would be the same defect with more headroom. */
+  window._lastMatrix = { weights: weights, ranking: scored.map(p => ({ name: p.name, score: Math.round(p.score * 10000) / 10000, scores: p.scores })) };
 }
 
 function copyM(){if(window._memo){navigator.clipboard.writeText(window._memo).then(()=>{const b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',2000)}})}}
@@ -427,6 +430,7 @@ window._captureAP2=function(){
         if(f.id&&f.value)inputs[f.id]=f.value;
       });
       window._ap2Result={output:el.textContent.trim().slice(0,3000),inputs:inputs};
+      if(window._lastMatrix)window._ap2Result.matrix=window._lastMatrix;
       return;
     }
   }
@@ -437,7 +441,8 @@ window.exportAP2=function(){
   var ts=new Date().toISOString();
   var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'152-baas-provider-comparator';
   var mandate={
-    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    /* mandate_id must be UUIDv4 (§3.1); the previous tid+timestamp spelling failed AP2Schema.validate and aborted every export */
+    mandate_id:crypto.randomUUID(),
     issued_at:ts,issued_by:'ainumbers.co',
     tool_id:tid,
     tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
