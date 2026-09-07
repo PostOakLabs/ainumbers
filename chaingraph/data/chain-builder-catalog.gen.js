@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (661 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (662 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7097,6 +7097,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/684-intercompany-elimination-netting.html",
     "description": "Deterministic intercompany elimination and netting arithmetic over caller-declared synthetic entity pairs. For each declared pair the kernel",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-685-direct-indexing-fit-screen",
+    "display_name": "Direct Indexing Fit Screen",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-685-direct-indexing-fit-screen.html",
+    "description": "Computes a direct-indexing fit screen from caller-declared synthetic inputs: the net benefit in basis points is the declared expected tax al",
     "consumes": [],
     "feeds": [],
     "status": "live"

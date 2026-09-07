@@ -614,6 +614,7 @@ status: stable
 - [Rule 605 Publication Composer](./art-682-rule-605-publication-composer.md) — `compute_rule_605_publication_composer`
 - [Consolidation with CTA and Minority Interest](./art-683-consolidation-cta-minority-interest.md) — `compute_consolidation_cta`
 - [Intercompany Elimination and Netting Workflow](./art-684-intercompany-elimination-netting.md) — `compute_intercompany_elimination_netting`
+- [Direct Indexing Fit Screen](./art-685-direct-indexing-fit-screen.md) — `compute_direct_indexing_fit_screen`
 - [LTC Funding Comparator](./art-686-ltc-funding-comparator.md) — `compute_ltc_funding_comparator`
 - [Wash-Sale Window Guard](./art-687-wash-sale-window-guard.md) — `compute_wash_sale_window_guard`
 - [Education Funding Gap Calculator](./art-688-education-funding-gap-calculator.md) — `compute_education_funding_gap_calculator`
