@@ -108,6 +108,20 @@ def main():
             name = derive_name(man.get('tool_id', slug))
             derived.append(slug)
 
+        # Page surface per manifest class (FLAG-CONSUMER-TIERB-1 leg d): node manifests live
+        # at /chaingraph/<slug>.html — the previous unconditional /tools/ prefix produced urls
+        # that resolve nowhere. The manifest's own execution.entry is authoritative when it
+        # names an HTML page; node identity comes from the node shard existing (the SSOT for
+        # "is this a ChainGraph node"), NOT from the category field (early node manifests
+        # omitted it).
+        entry = (man.get('execution') or {}).get('entry') or ''
+        if entry.endswith('.html'):
+            page_path = entry
+        elif os.path.exists(os.path.join('chaingraph', 'graph', 'nodes', slug + '.json')):
+            page_path = f"chaingraph/{slug}.html"
+        else:
+            page_path = f"tools/{slug}.html"
+
         # guarantee global uniqueness of the catalog `name`
         if name in seen_names:
             base = name; i = 2
@@ -119,7 +133,7 @@ def main():
         description = mtd.get('description') or man.get('description', '')
         input_schema = mtd.get('inputSchema') or man.get('input_schema') or {"type": "object"}
 
-        if not os.path.exists(os.path.join('tools', slug + '.html')):
+        if not os.path.exists(page_path):
             missing_html.append(slug)
 
         entries.append({
@@ -130,7 +144,7 @@ def main():
                 "tool_id": man.get('tool_id', slug),
                 "category": man.get('category', ''),
                 "tags": man.get('tags', []),
-                "url": f"{BASE_URL}/tools/{slug}.html",
+                "url": f"{BASE_URL}/{page_path}",
                 "ap2_export": bool(man.get('ap2_export', False)),
                 "execution_type": "browser-reference",
                 "version": man.get('version', '1.0.0'),
