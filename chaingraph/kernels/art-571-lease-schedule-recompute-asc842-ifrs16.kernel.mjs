@@ -1,7 +1,9 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-571-lease-schedule-recompute-asc842-ifrs16';
-const TOOL_VERSION = '1.0.0';
+// 1.1.0: + declared payment timing (arrears | advance -- annuity due), both regimes, and the
+// evidence_handover stage in output_payload. Additive only.
+const TOOL_VERSION = '1.1.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -86,8 +88,10 @@ function emptyResult(reason, rejected_inputs) {
     output_payload: {
       decision: { gate_policy: 'review_required', execution_state: 'did_not_run', reason },
       verdict: 'INDETERMINATE',
+      timing: null,
       asc842: null,
       ifrs16: null,
+      evidence_handover: null,
       elections: [],
       diff: null,
       findings: [],
@@ -180,6 +184,16 @@ export function compute(pp) {
   const termValid = !!(commencement_date && end_date && commencement_date < end_date);
   const term_days = termValid ? dayDiff(commencement_date, end_date) : null;
 
+  // -- Payment timing: declared, never defaulted. 'arrears' = payments at period end
+  // (ordinary annuity); 'advance' = payments at period start (annuity due). The declared
+  // convention gates which payment dates are admissible; the present value itself always
+  // follows the declared dates (a payment dated at commencement discounts to face amount).
+  const timingIn = pp.timing;
+  const timing = timingIn === 'arrears' || timingIn === 'advance' ? timingIn : null;
+  if (timing === null) {
+    rejected_inputs.push({ where: 'timing', reason: 'must be "arrears" (payments at period end) or "advance" (payments at period start) -- declared, never defaulted', supplied: timingIn === undefined || timingIn === null ? null : s(timingIn) });
+  }
+
   // -- Payment schedule.
   const paymentsIn = Array.isArray(pp.payment_schedule) ? pp.payment_schedule.slice(0, MAX_PAYMENTS) : [];
   const payments = [];
@@ -191,8 +205,16 @@ export function compute(pp) {
       rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'date must be YYYY-MM-DD and amount_minor a positive integer number of minor units', supplied: row.date === undefined ? null : s(row.date) });
       continue;
     }
-    if (commencement_date && date <= commencement_date) {
-      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'payment date must be after lease_term.commencement_date', supplied: date });
+    if (commencement_date && date < commencement_date) {
+      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'payment date must not be before lease_term.commencement_date', supplied: date });
+      continue;
+    }
+    if (timing === 'arrears' && commencement_date && date <= commencement_date) {
+      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'arrears payment date must be after lease_term.commencement_date (payments occur at period end)', supplied: date });
+      continue;
+    }
+    if (timing === 'advance' && end_date && date >= end_date) {
+      rejected_inputs.push({ where: 'payment_schedule[' + i + ']', reason: 'advance payment date must be before lease_term.end_date (payments occur at period start)', supplied: date });
       continue;
     }
     payments.push({ date, amount_minor });
@@ -265,7 +287,7 @@ export function compute(pp) {
   }
 
   const requiredMissing = discount_rate_annual === null || !Number.isFinite(discount_rate_annual) || discount_rate_annual < 0
-    || !termValid || payments.length === 0
+    || !termValid || timing === null || payments.length === 0
     || initial_direct_costs_minor === null || lease_incentives_minor === null
     || ownership_transfers === null || purchase_option_reasonably_certain === null || specialized_asset === null
     || majorPartElected === null || major_part_met === null
@@ -312,6 +334,41 @@ export function compute(pp) {
   if (majorPartElected === true) elections.push('major_part_75pct_bright_line');
   if (substAllElected === true) elections.push('substantially_all_90pct_bright_line');
 
+  // -- Evidence-handover stage: the deterministic figures + pointer a downstream offline
+  // handover bundle packages. Computed here so the receipt travels with the schedule that
+  // produced it; the bundle itself is assembled by the caller's own tooling, never here.
+  function regimeFigures(schedule) {
+    let total_interest = 0, total_payments = 0;
+    for (const r of schedule) { total_interest += r.interest_minor; total_payments += r.payment_minor; }
+    return {
+      initial_lease_liability_minor: initial_liability_minor,
+      initial_rou_asset_minor: initial_rou_minor,
+      total_payments_minor: total_payments,
+      total_interest_minor: total_interest,
+      final_closing_liability_minor: schedule.length ? schedule[schedule.length - 1].closing_liability_minor : null,
+    };
+  }
+  const evidence_handover = {
+    stage: 'evidence_handover',
+    handover_tool: {
+      tool_id: 'evidence-handover-bundle',
+      interface: 'browser-javascript',
+      entry: 'tools/576-evidence-handover-bundle.html',
+      binder_format: 'ainumbers-casefile-binder-v1',
+    },
+    disclosure_figures: {
+      timing,
+      discount_rate_annual,
+      commencement_date,
+      end_date,
+      asc842: { classification, ...regimeFigures(asc842Schedule) },
+      ifrs16: regimeFigures(ifrs16Schedule),
+    },
+    offline_verify: true,
+    network_access: 'none',
+    verification_caveat: 'A receipt verified over this artifact establishes that these outputs existed at a point in time and recompute deterministically from the declared inputs; it is not an opinion that the lease classification or measurement is correct.',
+  };
+
   const findings = [];
   if (asc842Schedule.length && Math.abs(asc842Schedule[asc842Schedule.length - 1].closing_liability_minor) > payments.length) {
     findings.push({ code: 'ASC842_LIABILITY_RESIDUAL_LARGE', severity: 'warning', message: 'ASC 842 liability does not fully amortize to zero within a residual proportional to the number of payments -- check the payment schedule against the discount rate.' });
@@ -339,7 +396,12 @@ export function compute(pp) {
     if (verdict === 'INDETERMINATE' && diffRequested) findings.push({ code: 'PREPARER_SCHEDULE_DATES_UNMATCHED', severity: 'warning', message: unmatched + ' preparer date(s) do not appear in the computed payment schedule.' });
   }
 
+  // LEASE_EVIDENCE_HANDOVER_STAGED deliberately NOT emitted here: a flag that fires on every
+  // ran path attests work nothing conditioned (FLAGS-COMPUTED-LINT-1). The stage itself is
+  // carried unconditionally in output_payload.evidence_handover, which is the data a chain
+  // gate can route on.
   const compliance_flags = ['LEASE_SCHEDULE_RECOMPUTED', 'LEASE_CLASSIFICATION_' + classification];
+  if (timing === 'advance') compliance_flags.push('LEASE_TIMING_ADVANCE');
   if (elections.length) compliance_flags.push('LEASE_BRIGHT_LINE_ELECTED');
   if (diffRequested) compliance_flags.push('LEASE_PREPARER_DIFF_' + verdict);
   if (rejected_inputs.length > 0) compliance_flags.push('LEASE_INPUTS_REJECTED');
@@ -348,6 +410,7 @@ export function compute(pp) {
     output_payload: {
       decision: { gate_policy: verdict === 'DIVERGES' ? 'review_required' : 'auto_pass', execution_state: 'ran', reason: null },
       verdict,
+      timing,
       asc842: {
         pv_of_payments_minor,
         initial_lease_liability_minor: initial_liability_minor,
@@ -363,6 +426,7 @@ export function compute(pp) {
         ifrs16_note: 'IFRS 16 applies a single on-balance-sheet lessee model; no operating/finance classification is made.',
         schedule: ifrs16Schedule,
       },
+      evidence_handover,
       elections,
       diff,
       findings,
