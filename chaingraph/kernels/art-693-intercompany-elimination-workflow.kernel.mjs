@@ -22,7 +22,7 @@ import { executionHash } from './_hash.mjs';
 // places, half-up (declared in-kernel). When any declared amount is not an
 // integer number of cents the trace says so explicitly ("amounts rounded 2dp
 // half-up"); integer-cent inputs (including the canonical preimage) get the
-// plain trace, so the canonical bytes are unchanged.
+// plain trace, so the canonical bytes stay byte-identical.
 //
 // DETERMINISM: compute() is a PURE function of pp — no Date.now()/Math.random(),
 // no network, no filesystem. It runs unmodified inside the QuickJS-ng zkVM guest,

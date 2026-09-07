@@ -1,5 +1,5 @@
 // art-693-intercompany-elimination-workflow — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:fddbc87ce7d0c598bd8da52286c1bbb5253b79e226f3eb54fb3fc5d8b31def2e
+// kernel_digest_at_authoring: sha256:b08f8f53693d6690e4439d5af297c6cf2e1518ce0d71c3612977337e1d47309c
 // spec: INTERCOMPANY-ELIM-BUILD-SPEC.md (workspace root)
 // human_sign_off: PENDING
 //
