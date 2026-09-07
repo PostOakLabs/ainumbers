@@ -1,6 +1,6 @@
 name: Unwired Gates
 
-# Wire 16 standalone gate scripts (all green on main, ~21s total, node stdlib
+# Wire 18 standalone gate scripts (all green on main, ~21s total, node stdlib
 # only — zero npm deps) as one parallel CI job, so a PR that breaks or weakens
 # any of them is caught before merge instead of never.
 #
@@ -35,7 +35,7 @@ permissions:
 
 jobs:
   gates:
-    name: 16 measured-green gates + surface-parity report
+    name: 18 measured-green gates + surface-parity report
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -64,8 +64,10 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); console.log('goldens fixture: valid JSON')" \
             "$GITHUB_WORKSPACE/../mcp-apps-poc/test/linear-hash-freeze.goldens.json"
 
-      # The 16 green gates, sequentially; any red fails the job.
-      - name: Run the 16 measured-green gates
+      # The 18 green gates, sequentially; any red fails the job. Entries are
+      # argv strings (a gate may carry flags, e.g. the absence-tree check
+      # gate's --check), split unquoted — no path contains whitespace.
+      - name: Run the 18 measured-green gates
         run: |
           set -e
           gates=(
@@ -85,10 +87,12 @@ jobs:
             "chaingraph/kernels/clause-binding.test.mjs"
             "chaingraph/standard/ancestry-digest.test.mjs"
             "chaingraph/standard/retention-profile.test.mjs"
+            "scripts/gen-registry-absence-tree.mjs --check"
+            "scripts/gen-registry-absence-tree.test.mjs"
           )
           for g in "${gates[@]}"; do
             echo "::group::node $g"
-            node "$g"
+            node $g
             echo "::endgroup::"
           done
 
