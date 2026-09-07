@@ -15,9 +15,13 @@
  * Run: node scripts/gen-rule-registry.test.mjs
  */
 import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   validateEntryFile, collectSourceClaims, verifySourceClaims, assembleTable,
-  checkSliceConstructibility, canon, sha256HexOf, MAX_SLICE_ENTRIES, SCHEMA_VERSION,
+  checkSliceConstructibility, canon, sha256HexOf, findSnapshotRoot, makeReadSnapshot,
+  MAX_SLICE_ENTRIES, SCHEMA_VERSION,
 } from './gen-rule-registry.mjs';
 
 let pass = 0, fail = 0;
@@ -216,6 +220,54 @@ t('T11 a standard expanding past max_slice_entries is REJECTED', () => {
   for (let i = 0; i < MAX_SLICE_ENTRIES + 1; i++) entries.push({ standard_id: 'TEST-BIG', applies_to_filer_statuses: ['private'] });
   const errs = checkSliceConstructibility({ entries });
   assert(errs.length === 1 && /max_slice_entries/.test(errs[0]), 'expected the slice-bound rejection');
+});
+
+// ── T12: ENV-INDEPENDENCE (RULE-REGISTRY-ENV-INDEPENDENCE-1) ────────────────────────────────────
+// The snapshot lookup is anchored to the repo root with NO walk-up. A fake PARENT-workspace
+// research/clause-snapshots/ directory — the exact Omen layout that made main's bot flip all four
+// entries in 7460ee63 — must have ZERO effect on the generator's output.
+t('T12 a fake parent-workspace snapshots directory does NOT change the output (env-independence)', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'grr-env-'));
+  const fakeRepo = join(tmp, 'repo');
+  const fakeParentSnaps = join(tmp, 'research', 'clause-snapshots');
+  mkdirSync(fakeRepo, { recursive: true });
+  mkdirSync(fakeParentSnaps, { recursive: true });
+  // The fake parent workspace carries the EXACT file the entry cites, at the exact relative path.
+  writeFileSync(join(fakeParentSnaps, 'SYNTHETIC-TEST.excerpt.txt'), SNAP_BYTES);
+
+  const doc = makeDoc();
+  const claims = collectSourceClaims(doc);
+
+  const root = findSnapshotRoot(fakeRepo);
+  assert(root === null, 'the lookup must NOT walk above the repo root, but it found ' + root);
+
+  const { verifications } = verifySourceClaims(claims, { readSnapshot: makeReadSnapshot(root), registryDigests });
+  assert(
+    verifications.every((v) => v.mode === 'SNAPSHOT-UNREACHABLE' && v.excerpt_bytes === null),
+    'output must be unchanged (SNAPSHOT-UNREACHABLE) even with the fake parent snapshots present'
+  );
+
+  // And the CI-shaped root (absent directory) produces byte-identical verifications.
+  const ci = verifySourceClaims(claims, { readSnapshot: makeReadSnapshot(null), registryDigests });
+  assert(JSON.stringify(ci.verifications) === JSON.stringify(verifications), 'no parent directory and a fake one must agree byte-for-byte');
+});
+
+// ── T13: the feature still works when the input is REAL and IN-REPO ─────────────────────────────
+t('T13 a snapshot file INSIDE the repo at the recorded location flips the mode to RECOMPUTED-FROM-BYTES', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'grr-real-'));
+  const fakeRepo = join(tmp, 'repo');
+  const inRepoSnaps = join(fakeRepo, 'research', 'clause-snapshots');
+  mkdirSync(inRepoSnaps, { recursive: true });
+  writeFileSync(join(inRepoSnaps, 'SYNTHETIC-TEST.excerpt.txt'), SNAP_BYTES);
+
+  const root = findSnapshotRoot(fakeRepo);
+  assert(root === inRepoSnaps, 'an in-repo research/clause-snapshots/ must be found, got ' + root);
+
+  const { errors, verifications } = verifySourceClaims(collectSourceClaims(makeDoc()), { readSnapshot: makeReadSnapshot(root), registryDigests });
+  assert(errors.length === 0, 'real in-repo bytes that match the digest must not error: ' + errors.join(' | '));
+  assert(verifications.length === 1, 'expected one verification');
+  assert(verifications[0].mode === 'RECOMPUTED-FROM-BYTES', 'expected the mode to flip when the bytes are genuinely reachable');
+  assert(verifications[0].excerpt_bytes === SNAP_BYTES.length, 'excerpt_bytes must be the real byte length');
 });
 
 console.log('gen-rule-registry.test.mjs — generator + MUTATION CONTROL (STANDING-ORDERS.md #34)');
