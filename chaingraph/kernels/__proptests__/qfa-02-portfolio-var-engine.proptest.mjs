@@ -1,6 +1,10 @@
 // qfa-02-portfolio-var-engine.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C15-1).
-// kernel_digest_at_authoring: sha256:9051ffa2fd22d389890aa26c21be6f7d3f32a0da1de5ba47890946271487ebe3
+// kernel_digest_at_authoring: sha256:67c5c2976b7975d288b117c00cca935f88d372df75fd8bfb91665ace700deed9
 // human_sign_off: PENDING
+// Floor re-authored under QFA02-VAR-SILENT-LOWRISK-1 (2026-08-30): P4 now asserts the
+// hard-error contract (out-of-domain conf_level / correlation THROWS) that the same row
+// added to the kernel — the pre-fix floor recorded NaN-at-rho=1 as an informational note;
+// silent LOW_RISK on broken input is the S1 that row closes.
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
 // float_sensitive: YES (Cholesky-correlated Monte Carlo VaR/ES over an LCG PRNG, conf_level/
@@ -118,25 +122,42 @@ function checkP3_seed_determinism() {
 function checkP4_ulp_forcing() {
   let violations = 0, checked = 0;
   const eps = Number.EPSILON;
-  const confForced = [0.99 - eps, 0.99 + eps, 0, -0, eps, 1 - eps, 1, Number.MIN_VALUE];
-  for (const cl of confForced) {
+  // conf_level inside (0,1) computes finitely; outside (0,1) is a HARD ERROR
+  // (QFA02-VAR-SILENT-LOWRISK-1: an out-of-domain conf_level used to fall through
+  // silently, and a NaN risk number mapped to LOW_RISK — that verdict is impossible
+  // by construction now).
+  const confInDomain = [0.99 - eps, 0.99 + eps, eps, 1 - eps, Number.MIN_VALUE];
+  for (const cl of confInDomain) {
     const output_payload = compute({ n_assets: 5, n_paths: 500, conf_level: cl, seed: 7 });
     checked++;
     if (!Number.isFinite(output_payload.mc_var_pct)) violations++;
     if (output_payload.n_paths !== 500) violations++;
   }
-  // NOTE (direct-read finding, informational — NOT fixed here, out of this row's fence): correlation
-  // exactly 1, or negative correlation with n_assets>2, drives buildCholesky's L[j][j]=sqrt(1-sumSq)
-  // or the parametric leg to a NaN — confirmed by direct probe (correlation=1 -> mc_var_pct NaN;
-  // correlation=-1+eps -> both mc_var_pct and param_var_pct NaN). This floor only forces the
-  // documented equal-pairwise-correlation domain (0 up to just under 1); it does not assert finiteness
-  // at exactly 1 or at negative correlation, which is a genuine kernel edge case outside this row's
-  // no-kernel-edit fence.
-  const corrForced = [0, -0, eps, 1 - eps, Number.MIN_VALUE];
-  for (const c of corrForced) {
+  const confOutOfDomain = [0, -0, 1, 1 + eps, -0.5, 1.5, NaN, Infinity, -Infinity];
+  for (const cl of confOutOfDomain) {
+    checked++;
+    let threw = false;
+    try { compute({ n_assets: 5, n_paths: 500, conf_level: cl, seed: 7 }); } catch { threw = true; }
+    if (!threw) violations++;
+  }
+  // correlation inside the equal-correlation PSD range [-1/(n-1), 1] (n_assets=5 ->
+  // [-0.25, 1]) computes finitely — including negative correlation, the canonical
+  // diversification stress; rho=1 and anything below the PSD floor HARD-ERRORS.
+  // (Supersedes the pre-fix note that recorded correlation=1 -> mc_var_pct NaN with
+  // verdict LOW_RISK as an out-of-fence observation: that silent LOW_RISK was the row's
+  // S1 and is now a hard error — asserted here so it cannot regress.)
+  const corrInDomain = [0, -0, eps, 0.25, -0.25, 1 - eps, Number.MIN_VALUE];
+  for (const c of corrInDomain) {
     const output_payload = compute({ n_assets: 5, n_paths: 500, correlation: c, seed: 7 });
     checked++;
     if (!Number.isFinite(output_payload.mc_var_pct)) violations++;
+  }
+  const corrOutOfDomain = [1, 1 + eps, -0.250000001, -0.5, -1, NaN, Infinity, -Infinity];
+  for (const c of corrOutOfDomain) {
+    checked++;
+    let threw = false;
+    try { compute({ n_assets: 5, n_paths: 500, correlation: c, seed: 7 }); } catch { threw = true; }
+    if (!threw) violations++;
   }
   return { name: 'P4_ulp_boundary_forcing_conf_level_and_correlation', trials: checked, violations };
 }

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>FX Funding Sequencer · ART-672 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="FX Funding Sequencer for T+1: orders declared currency legs by FX cutoff and computes margin-to-cutoff minutes from the declared confirm time. Deterministic, zero-egress arithmetic over declared UTC times.">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-672-fx-funding-sequencer.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:700px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.info-box{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);line-height:1.7}
+.info-box .ib-title{color:var(--teal);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.02em}
+.field textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--text);border-radius:4px;padding:.4rem .5rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;min-height:260px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.55rem 1.1rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.btn-2{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.results-panel{display:none}
+.results-panel.show{display:block}
+.hero-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;min-width:140px;flex:1}
+.hero-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--bright)}
+.hero-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+.verdict{border-radius:var(--radius);padding:10px 14px;margin:6px 0;font-size:.82rem}
+.verdict.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.verdict.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--warn)}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:420px}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);word-break:break-all;margin:6px 0}
+.muted-txt{color:var(--muted);font-size:.72rem}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}
+/* OCG-CHROME-CSS:v1 */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block}
+@media(max-width:768px){.nav-pill{display:none}}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem}
+.footer-col a:hover{color:var(--teal)}
+</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-672-fx-funding-sequencer.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<!--KERNEL-DIGEST-->sha256:7a8bdff517f46e0feecd70c62f7074135cbea33f386252dd61b94007206771ca<!--/KERNEL-DIGEST-->
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a><span>›</span>
+      <span style="color:var(--gold)">ART-672 · FX Funding Sequencer</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite · ART-672</div>
+  <h1>FX Funding Sequencer</h1>
+  <p class="sub">Orders a trade's declared currency legs by FX cutoff and computes margin-to-cutoff minutes from the declared confirm time, for one declared T+1 settle date: sequence (tightest margin first, ties in declared order), margins in whole minutes, an all-cutoffs-met verdict, and a trace line. Times are declared UTC HH:MM strings and the math is pure comparison on the one declared settle date; no timezone, calendar, or holiday adjustment. Any absent or malformed declared input, or a duplicate declared currency leg, fails closed to INDETERMINATE with each offending input named; never a partial sequence. HARD FENCE: this tool computes arithmetic of declared inputs under named rules; it does not check live SSR tapes, borrow lists, cutoff feeds, or registers, and the PvP check is out of scope; the PvP validator surface is pointed at as a link (see art-58-cross-network-settlement-validator), never a duplicated verdict.</p>
+  <div style="margin-bottom:6px"><span class="flag">compliance_control</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>See the manifest below for citations and scope. No formal correctness proof exists for this node yet (compute_proof_ready: deferred); see the proof-status note below the results.</div>
+  <div class="card">
+    <div class="section-head">Policy Parameters (JSON)</div>
+    <div class="field"><label>policy_parameters (passed verbatim to compute())</label><textarea id="ppInput" spellcheck="false"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="run()">Run</button>
+      <button class="btn-2" onclick="loadSample()">Load Sample</button>
+    </div>
+  </div>
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div class="section-head">Result</div>
+      <div class="hero-row" id="heroRow"></div>
+      <div id="verdictDiv"></div>
+      <pre id="outputPre"></pre>
+      <div class="info-box" style="margin-top:12px"><div class="ib-title">Proof status</div>This node ships <code>compute_proof_ready: deferred</code>. No formal correctness proof has been produced for this kernel; the result above is a deterministic recompute, verified by a property-test floor, not a proven one.</div>
+    </div>
+    <div class="card">
+      <div class="section-head">Execution Hash &amp; §4 Artifact</div>
+      <div style="margin-bottom:4px"><span class="muted-txt">SHA-256 execution hash (JCS canonical, RFC 8785):</span></div>
+      <div class="hash" id="execHash"></div>
+      <pre id="artifactPre"></pre>
+      <div class="results-export-row">
+        <button id="ap2ExportBtn" onclick="exportAP2()" disabled>Export Policy Mandate JSON</button>
+        <button class="btn-2" onclick="exportArtifact()">Export §4 Artifact</button>
+      </div>
+    </div>
+  </div>
+  <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
+  <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col"><div class="footer-col-label">Platform</div><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="openchain-graph-spec.html">Spec v0.8.13</a><a href="openchain-graph-explainer.html">OCG Explainer</a><a href="ocg-sandbox.html">Sandbox</a></div>
+      <div class="footer-col"><div class="footer-col-label">Guides</div><a href="../guides/nav-verification-pack.html">NAV Verification Pack</a><a href="guide-otel.html">OpenTelemetry</a></div>
+      <div class="footer-col"><div class="footer-col-label">Data &amp; Artifacts</div><a href="chaingraph.json" target="_blank">chaingraph.json</a><a href="../openapi.json" target="_blank">openapi.json</a><a href="../sitemap.html">Sitemap</a></div>
+      <div class="footer-col"><div class="footer-col-label">Network</div><a href="../tools.html">All Tools</a><a href="../mcp.html">MCP Docs</a><a href="../about.html">About</a><a href="../contact.html">Contact</a></div>
+    </div>
+  </div>
+</footer>
+<script>
+const MANIFEST={tool_id:"art-672-fx-funding-sequencer",version:"1.0.0",title:"FX Funding Sequencer",mcp_tool_definition:{name:"compute_fx_funding_sequencer",description:"Orders declared currency legs by FX cutoff and computes margin-to-cutoff minutes from the declared confirm time for one declared T+1 settle date; all-cutoffs-met verdict, fail-closed on malformed or duplicate declared inputs"},ap2_export:false,chaingraph:true};
+
+
+// art-672-fx-funding-sequencer: FX Funding Sequencer for T+1 (FX-SEQUENCER-BUILD-SPEC.md).
+//
+// WHAT IT DOES (spec "Functions / stages"): orders a trade's declared currency legs by FX
+// cutoff, computes margin-to-cutoff minutes from the declared confirm time, returns an
+// all-cutoffs-met verdict, and points at the PvP validator surface. Times are declared UTC
+// "HH:MM" strings; the arithmetic is pure comparison math (cutoff minutes minus confirm
+// minutes on the stated settle date). No calendar, timezone, or holiday logic is applied --
+// every leg is assumed to settle on the one declared settle_date, as declared.
+//
+// PARITY TARGET: the canonical preimage embedded in FX-SEQUENCER-BUILD-SPEC.md. For the
+// canonical policy_parameters, compute() must return an output_payload EXACTLY equal to the
+// spec's output_payload; sequence, margins_minutes, all_cutoffs_met, trace, overall: those
+// five keys, those values, NO extra keys; and executionHash(pp, output_payload) must equal
+// the spec's staged execution_hash 1d4984b1e1c6efca36095590507adb92102ce7e1570d0ecc37517893737204fb.
+// The trace string format is therefore load-bearing:
+//   "<ccy> <cutoff> - <confirm> = <m> min; ...; order by tightest first"
+// with legs listed tightest-margin-first, joined by "; ".
+// Because the happy-path output_payload is parity-frozen at exactly five keys, the
+// rationale / not_proven / fence / notice riders travel at the ARTIFACT level
+// (buildArtifact), not inside output_payload.
+//
+// POSITIONING (spec Constraints): this tool computes arithmetic of DECLARED inputs under
+// named rules. It does NOT check live SSR tapes, borrow lists, cutoff feeds, or registers,
+// and never determines whether a declared cutoff is correct. The PvP check is OUT OF SCOPE:
+// copy points at the PvP validator surface (the chaingraph settlement/PvP validator nodes,
+// e.g. art-58-cross-network-settlement-validator) as a LINK, never a duplicated verdict --
+// linked tools are pointers, never patch targets (row fence).
+//
+// NEVER GUESS, NEVER DEFAULT: an absent or malformed settle_date, confirm time, or leg
+// (bad currency code, bad cutoff time, empty/absent legs) resolves to overall INDETERMINATE
+// with each offending input named in rejected_inputs; never guessed toward a sequence.
+//
+// FINITE GATE: malformed input never throws; compute() always returns a defined
+// output_payload. Zero network, zero storage, zero wall-clock reads inside compute().
+//
+// Run: node scripts/kernel-preflight.mjs art-672-fx-funding-sequencer
+
+
+// art-672-fx-funding-sequencer: FX Funding Sequencer for T+1 (FX-SEQUENCER-BUILD-SPEC.md).
+//
+// WHAT IT DOES (spec "Functions / stages"): orders a trade's declared currency legs by FX
+// cutoff, computes margin-to-cutoff minutes from the declared confirm time, returns an
+// all-cutoffs-met verdict, and points at the PvP validator surface. Times are declared UTC
+// "HH:MM" strings; the arithmetic is pure comparison math (cutoff minutes minus confirm
+// minutes on the stated settle date). No calendar, timezone, or holiday logic is applied --
+// every leg is assumed to settle on the one declared settle_date, as declared.
+//
+// PARITY TARGET: the canonical preimage embedded in FX-SEQUENCER-BUILD-SPEC.md. For the
+// canonical policy_parameters, compute() must return an output_payload EXACTLY equal to the
+// spec's output_payload; sequence, margins_minutes, all_cutoffs_met, trace, overall: those
+// five keys, those values, NO extra keys; and executionHash(pp, output_payload) must equal
+// the spec's staged execution_hash 1d4984b1e1c6efca36095590507adb92102ce7e1570d0ecc37517893737204fb.
+// The trace string format is therefore load-bearing:
+//   "<ccy> <cutoff> - <confirm> = <m> min; ...; order by tightest first"
+// with legs listed tightest-margin-first, joined by "; ".
+// Because the happy-path output_payload is parity-frozen at exactly five keys, the
+// rationale / not_proven / fence / notice riders travel at the ARTIFACT level
+// (buildArtifact), not inside output_payload.
+//
+// POSITIONING (spec Constraints): this tool computes arithmetic of DECLARED inputs under
+// named rules. It does NOT check live SSR tapes, borrow lists, cutoff feeds, or registers,
+// and never determines whether a declared cutoff is correct. The PvP check is OUT OF SCOPE:
+// copy points at the PvP validator surface (the chaingraph settlement/PvP validator nodes,
+// e.g. art-58-cross-network-settlement-validator) as a LINK, never a duplicated verdict --
+// linked tools are pointers, never patch targets (row fence).
+//
+// NEVER GUESS, NEVER DEFAULT: an absent or malformed settle_date, confirm time, or leg
+// (bad currency code, bad cutoff time, empty/absent legs) resolves to overall INDETERMINATE
+// with each offending input named in rejected_inputs; never guessed toward a sequence.
+//
+// FINITE GATE: malformed input never throws; compute() always returns a defined
+// output_payload. Zero network, zero storage, zero wall-clock reads inside compute().
+//
+// Run: node scripts/kernel-preflight.mjs art-672-fx-funding-sequencer
+
+const TOOL_ID = 'art-672-fx-funding-sequencer';
+const TOOL_VERSION = '1.0.0';
+
+const meta = {
+  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+  mcp_name: 'compute_fx_funding_sequencer',
+  mandate_type: 'compliance_control', gpu: false,
+};
+
+const NOT_PROVEN = [
+  { item: 'Not a live cutoff feed', detail: 'Cutoff times are caller-declared UTC strings. This kernel does not read any FX cutoff feed, SSR tape, borrow list, register, or venue calendar, and makes no claim that a declared cutoff matches any live market cutoff.' },
+  { item: 'Not a PvP determination', detail: 'Payment-versus-payment outcome is out of scope. The output points at the PvP validator surface as a link; this kernel never renders a PvP verdict and never settles, nets, or moves anything.' },
+  { item: 'Declared inputs only', detail: 'The settle date, confirm time, and currency legs are caller-declared and synthetic by contract. No correctness check on the declared values against any external source is performed.' },
+  { item: 'Single-settle-date comparison math', detail: 'Margins are computed as cutoff-minus-confirm minutes on the one declared settle date. No timezone conversion, date rollover, holiday calendar, or daylight-saving adjustment is applied; a cutoff declared past midnight relative to the confirm time would be a negative margin, reported as declared.' },
+];
+
+const FENCE = 'This is arithmetic over caller-declared inputs under named rules. It is no check of any live cutoff feed, SSR tape, borrow list, or register, and it makes no PvP determination and performs no settlement action. A declared negative margin is an arithmetic finding about the declared times, never a determination that a cutoff was missed in fact or that any party is at fault.';
+
+const NOTE = 'Deterministic FX funding sequencing for one declared T+1 settle date: orders declared currency legs by cutoff, computes margin-to-cutoff minutes from the declared confirm time, and returns an all-cutoffs-met verdict. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing.';
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const CCY_RE = /^[A-Z]{3}$/;
+
+function timeToMinutes(t) {
+  return Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+}
+function isPlainObject(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+/** Validates one declared leg; returns {ccy, cutoff_utc, margin_minutes} or pushes a rejection and returns null. */
+function normalizeLeg(raw, i, confirmMin, rejected) {
+  const where = `legs[${i}]`;
+  if (!isPlainObject(raw)) {
+    rejected.push({ where, reason: 'not an object; expected { ccy, cutoff_utc }', supplied: raw === undefined ? null : String(raw) });
+    return null;
+  }
+  const ccySupplied = typeof raw.ccy === 'string';
+  const ccy = ccySupplied ? raw.ccy.trim() : null;
+  if (!ccySupplied || !CCY_RE.test(ccy)) {
+    rejected.push({ where: `${where}.ccy`, reason: 'absent or not a 3-letter uppercase currency code', supplied: ccySupplied ? raw.ccy : null });
+  }
+  const cutoffSupplied = typeof raw.cutoff_utc === 'string';
+  const cutoff = cutoffSupplied ? raw.cutoff_utc.trim() : null;
+  if (!cutoffSupplied || !TIME_RE.test(cutoff)) {
+    rejected.push({ where: `${where}.cutoff_utc`, reason: 'absent or not a declared UTC HH:MM time', supplied: cutoffSupplied ? raw.cutoff_utc : null });
+  }
+  if (!ccy || !cutoff || !CCY_RE.test(ccy) || !TIME_RE.test(cutoff)) return null;
+  return { ccy, cutoff_utc: cutoff, margin_minutes: timeToMinutes(cutoff) - confirmMin };
+}
+
+function compute(pp) {
+  pp = pp || {};
+  const rejected_inputs = [];
+
+  //; policy parameters -----------------------------------------------------
+  const settleSupplied = typeof pp.settle_date === 'string';
+  const settle_date = settleSupplied ? pp.settle_date.trim() : null;
+  if (!settleSupplied || !/^\d{4}-\d{2}-\d{2}$/.test(settle_date)) {
+    rejected_inputs.push({ where: 'settle_date', reason: 'absent or not a declared YYYY-MM-DD settle date', supplied: settleSupplied ? pp.settle_date : null });
+  }
+
+  const confirmSupplied = typeof pp.trade_confirm_utc === 'string';
+  const trade_confirm_utc = confirmSupplied ? pp.trade_confirm_utc.trim() : null;
+  let confirmMin = null;
+  if (!confirmSupplied || !TIME_RE.test(trade_confirm_utc)) {
+    rejected_inputs.push({ where: 'trade_confirm_utc', reason: 'absent or not a declared UTC HH:MM confirm time', supplied: confirmSupplied ? pp.trade_confirm_utc : null });
+  } else {
+    confirmMin = timeToMinutes(trade_confirm_utc);
+  }
+
+  const legsPresent = Array.isArray(pp.legs) && pp.legs.length > 0;
+  if (!legsPresent) {
+    rejected_inputs.push({ where: 'legs', reason: 'absent, malformed, or empty; at least one declared currency leg is required', supplied: null });
+  }
+  // Legs are normalized (and each malformed leg NAMED) even when the confirm time is
+  // itself unusable, so every rejected input is reported, never just the first one.
+  const legs = legsPresent
+    ? pp.legs.map((raw, i) => normalizeLeg(raw, i, confirmMin, rejected_inputs)).filter(Boolean)
+    : null;
+
+  //; fail-closed payload ---------------------------------------------------
+  const indeterminatePayload = () => {
+    const rationale = [
+      'Verdict is INDETERMINATE: one or more required declared inputs (settle_date, trade_confirm_utc, legs) were absent, malformed, or ambiguous, so no funding sequence could be computed.',
+    ];
+    if (rejected_inputs.length > 0) rationale.push(`${rejected_inputs.length} supplied value${rejected_inputs.length === 1 ? ' was' : 's were'} not usable. Each one is named in rejected_inputs rather than silently dropped or guessed toward a sequence.`);
+    rationale.push('This tool computes arithmetic of declared inputs under named rules. It does not check live SSR tapes, borrow lists, cutoff feeds, or registers, and the PvP check is out of scope; the output points at the PvP validator surface as a link, never a duplicated verdict.');
+    return {
+      meta_riders: { rationale, not_proven: NOT_PROVEN, fence: FENCE, note: NOTE },
+      output_payload: {
+        sequence: null,
+        margins_minutes: null,
+        all_cutoffs_met: null,
+        trace: null,
+        overall: 'INDETERMINATE',
+        indeterminate_reason: 'settle_date, trade_confirm_utc, or legs were absent or malformed; no funding sequence could be computed from declared inputs alone.',
+        settle_date: settle_date || null,
+        trade_confirm_utc: trade_confirm_utc || null,
+        rejected_inputs,
+        citations: {},
+        rationale,
+        not_proven: NOT_PROVEN,
+        fence: FENCE,
+        note: NOTE,
+      },
+      compliance_flags: [],
+    };
+  };
+  // Fail closed: if ANY declared leg was unusable, there is no sequence at all; a partial
+  // sequence over the surviving legs would silently understate the funding task.
+  if (!legs || legs.length === 0 || legs.length !== pp.legs.length || confirmMin === null) return indeterminatePayload();
+
+  //; fail closed on duplicate currency legs: margins_minutes is keyed by currency, so a
+  // duplicated declared leg is ambiguous and is named, never silently collapsed.
+  const seen = new Set();
+  for (const leg of legs) {
+    if (seen.has(leg.ccy)) {
+      rejected_inputs.push({ where: `legs[${legs.indexOf(leg)}].ccy`, reason: `duplicate declared currency leg "${leg.ccy}"; a currency may appear at most once`, supplied: leg.ccy });
+      continue;
+    }
+    seen.add(leg.ccy);
+  }
+  if (seen.size !== legs.length) return indeterminatePayload();
+
+  //; sequencing: tightest margin first; ties keep declared order (stable) ---
+  const ordered = legs
+    .map((leg, idx) => ({ ...leg, idx }))
+    .sort((a, b) => (a.margin_minutes - b.margin_minutes) || (a.idx - b.idx));
+
+  const sequence = ordered.map((l) => l.ccy);
+  const margins_minutes = {};
+  for (const l of ordered) margins_minutes[l.ccy] = l.margin_minutes;
+  const all_cutoffs_met = ordered.every((l) => l.margin_minutes >= 0);
+  const trace = ordered.map((l) => `${l.ccy} ${l.cutoff_utc} - ${trade_confirm_utc} = ${l.margin_minutes} min`).join('; ') + '; order by tightest first';
+  const overall = all_cutoffs_met ? 'FUNDING_SEQUENCED' : 'CUTOFF_MISSED';
+
+  // PARITY: the happy-path output_payload is frozen at EXACTLY the five canonical keys.
+  const output_payload = {
+    sequence,
+    margins_minutes,
+    all_cutoffs_met,
+    trace,
+    overall,
+  };
+
+  const tightest = ordered[0].margin_minutes;
+  const rationale = [
+    `FX funding sequence computed for settle date ${settle_date} against declared confirm time ${trade_confirm_utc} UTC.`,
+    `${ordered.length} declared currency leg${ordered.length === 1 ? '' : 's'} ordered tightest margin first: ${sequence.join(', ')}.`,
+    all_cutoffs_met
+      ? `Every declared leg clears its declared cutoff by ${tightest} minute${tightest === 1 ? '' : 's'} or more; all-cutoffs-met verdict is true.`
+      : `${ordered.filter((l) => l.margin_minutes < 0).map((l) => l.ccy).join(', ')} is declared at or past its declared cutoff (negative margin); all-cutoffs-met verdict is false.`,
+    'Margins are cutoff-minus-confirm minutes over declared UTC HH:MM strings; pure comparison math on the one declared settle date, with no timezone, calendar, or holiday adjustment.',
+    'This tool computes arithmetic of declared inputs under named rules. It does not check live SSR tapes, borrow lists, cutoff feeds, or registers; the PvP check is out of scope and the PvP validator surface is pointed at and never re-run.',
+  ];
+
+  // PARITY-FROZEN payload + FLAG-MIRROR doctrine: the output_payload is byte-frozen at the
+  // spec's five canonical keys, so no mirrorable member (warnings/issues/errors) can be
+  // added for conditional flags; the compliant shape is therefore a constant, empty flag set
+  // (the verdict itself carries the signal via overall + all_cutoffs_met).
+  const compliance_flags = [];
+
+  return {
+    meta_riders: { rationale, not_proven: NOT_PROVEN, fence: FENCE, note: NOTE },
+    output_payload,
+    compliance_flags,
+  };
+}
+
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+async function sha256Hex(bytes){const dig=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);return sha256Hex(buf);}
+function loadSample(){document.getElementById('ppInput').value='{\n  "settle_date": "2026-10-13",\n  "trade_confirm_utc": "14:20",\n  "legs": [\n    { "ccy": "EUR", "cutoff_utc": "15:00" },\n    { "ccy": "USD", "cutoff_utc": "21:00" }\n  ]\n}';}
+loadSample();
+let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
+async function run(){
+  let pp;
+  try{pp=JSON.parse(document.getElementById('ppInput').value);}catch(e){alert('policy_parameters must be valid JSON: '+e.message);return;}
+  const{output_payload,compliance_flags}=compute(pp);
+  const rawHash=await executionHashLocal(pp,output_payload);
+  const execHash='sha256:'+rawHash;
+  const generatedAt=new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',chaingraph_version:'0.4.0',spec_version:'0.5.0',compute_mode:'browser',mandate_type:meta.mandate_type,tool_id:MANIFEST.tool_id,tool_version:MANIFEST.version,generated_at:generatedAt,execution_hash:execHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload,compliance_flags,audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  _lastArtifact=artifact;_lastPP=pp;_lastOP=output_payload;_lastHash=execHash;_lastFlags=compliance_flags;
+  renderResults(output_payload,compliance_flags,execHash);
+  document.getElementById('ap2ExportBtn').disabled=false;
+}
+function renderResults(op,flags,execHash){
+  const numericKeys=Object.keys(op).filter(k=>typeof op[k]==='number');
+  const arrayKeys=Object.keys(op).filter(k=>Array.isArray(op[k]));
+  let hero='';
+  for(const k of numericKeys.slice(0,4)) hero+='<div class="hero-stat"><div class="hero-val">'+op[k]+'</div><div class="hero-lbl">'+k+'</div></div>';
+  for(const k of arrayKeys.slice(0,4-numericKeys.length)) if(numericKeys.indexOf(k)===-1) hero+='<div class="hero-stat"><div class="hero-val">'+op[k].length+'</div><div class="hero-lbl">'+k+'</div></div>';
+  document.getElementById('heroRow').innerHTML=hero;
+  const hasError=flags.some(f=>/ERROR|MISMATCH|VIOLAT|INCOMPLETE/i.test(f));
+  document.getElementById('verdictDiv').innerHTML='<div class="verdict '+(hasError?'warn':'pass')+'">'+flags.map(f=>'<span class="badge '+(/ERROR|MISMATCH|VIOLAT|INCOMPLETE/i.test(f)?'warn':'ok')+'">'+f+'</span>').join(' ')+'</div>';
+  document.getElementById('outputPre').textContent=JSON.stringify(op,null,2);
+  document.getElementById('execHash').textContent=execHash;
+  document.getElementById('artifactPre').textContent=JSON.stringify(_lastArtifact,null,2);
+  document.getElementById('resultsPanel').classList.add('show');
+}
+function exportAP2(){if(!_lastArtifact)return;const ap2={schema:'ainumbers-policy-mandate-v1.0',tool_id:MANIFEST.tool_id,version:MANIFEST.version,mandate_type:meta.mandate_type,generated_at:_lastArtifact.generated_at,execution_hash:_lastHash,policy_parameters:_lastPP,output_payload:_lastOP,compliance_flags:_lastFlags};dl(JSON.stringify(ap2,null,2),'art-672-fx-funding-sequencer-policy-mandate.json','application/json');}
+function exportArtifact(){if(!_lastArtifact)return;dl(JSON.stringify(_lastArtifact,null,2),'art-672-fx-funding-sequencer-artifact.json','application/json');}
+function dl(c,f,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:m}));a.download=f;a.click();}
+function toggleMfst(){const b=document.getElementById('mfstBody'),c=document.getElementById('mfstCode');if(b.style.display==='none'||!b.style.display){if(!c.textContent)c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}else b.style.display='none';}
+</script>
+</body>
+</html>

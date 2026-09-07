@@ -22,12 +22,30 @@ on:
   pull_request:
     # DRAFTCI pattern (see cross-engine-parity.yml): expected-red shard/kernel PRs open
     # as drafts; skip them below, ready_for_review + push-to-main remain the backstops.
-    types: [opened, synchronize, reopened, ready_for_review]
+    #
+    # converted_to_draft added (2026-08-30): a PR opened
+    # non-draft that goes RED by design, then converted to draft AFTER the
+    # run already failed, kept the stale red forever — nothing re-dispatched
+    # this workflow on that transition. Measured on PR #1584 (land-verify.yml
+    # class): opened 13:44:08Z, run failed by 13:44:33Z, converted_to_draft
+    # 13:54:49Z, red check untouched afterward. This re-fires the workflow on
+    # that exact transition so the draft==false skip below supersedes the
+    # stale red.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
       - 'chaingraph/kernels/art-598-input-attestation-verifier.kernel.mjs'
       - 'scripts/c2patool-oracle-compare.mjs'
       - 'scripts/c2patool-oracle-allowlist.json'
       - '.github/workflows/c2patool-oracle.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push/synchronize on the same PR ref supersedes its prior
+  # in-progress run (2026-08-30) — letting the stale one
+  # finish is redundant CI time, not lost coverage. NEVER cancel the
+  # push:main run (this workflow's backstop coverage on main);
+  # cancel-in-progress fires only for the pull_request event.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

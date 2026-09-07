@@ -413,7 +413,8 @@ return log;
 const log2 = (function () {
 // NOTE: rtoy's log2.js assigns p_h/p_l/z_h/z_l as implicit globals (valid in its
 // non-strict <script> origin). ESM is always strict, so declare them here. Pure
-// scoping fix; the numeric algorithm is unchanged.
+// scoping fix; the numeric algorithm is unchanged as of 2026-08-30 (block re-checked
+// against the rtoy/log2.js port lineage; no numeric edits since the d3785170 inline).
 var p_h, p_l, z_h, z_l;
 //
 // ====================================================
@@ -1581,12 +1582,12 @@ function makeLCG(seed) {
 
 function sigmoid(x) { return 1 / (1 + det.exp(-x)); }
 
-// ── Normal inverse (rational Horner, from source) ────────────────────────────
+// ── Normal inverse (rational Horner, from source; form is x = t - ratio) ─────
 function normInv(p) {
   const a = [2.515517, 0.802853, 0.010328];
   const b = [1.432788, 0.189269, 0.001308];
   const t = Math.sqrt(-2 * det.log(p < 0.5 ? p : 1 - p));
-  const x = (a[0] + t * (a[1] + t * a[2])) / (1 + t * (b[0] + t * (b[1] + t * b[2]))) - t;
+  const x = t - (a[0] + t * (a[1] + t * a[2])) / (1 + t * (b[0] + t * (b[1] + t * b[2])));
   return p < 0.5 ? -x : x;
 }
 
@@ -1697,7 +1698,7 @@ export function compute(pp) {
 
   if (nDefault === 0) {
     return {
-      verdict: 'INSUFFICIENT_DEFAULTS',
+      output_payload: { verdict: 'INSUFFICIENT_DEFAULTS' },
       compliance_flags: ['INSUFFICIENT_DEFAULTS_FOR_MODEL_VALIDATION'],
     };
   }
@@ -1725,6 +1726,10 @@ export function compute(pp) {
 
   const highPdLoans = loans.filter(l => l.pd >= pdThreshold).length;
 
+  // Flag-mirror doctrine: the conditional model-performance flag mirrors into the
+  // payload so gates can route on it without reading compliance_flags.
+  const warnings = auc < 0.7 ? ['MODEL_PERFORMANCE_BELOW_0_70_AUC'] : [];
+
   const compliance_flags = [
     'CREDIT_SCORING_COMPLETED',
     'BASEL3_IRB_CAPITAL_COMPUTED',
@@ -1734,8 +1739,9 @@ export function compute(pp) {
     'BCBS_D424_IRB_FORMULA_APPLIED',
   ];
 
-  return {
+  const output_payload = {
     verdict,
+    warnings,
     auc_roc:          +auc.toFixed(6),
     ks_statistic:     +maxKS.toFixed(6),
     gini_coefficient: +gini.toFixed(6),
@@ -1752,12 +1758,13 @@ export function compute(pp) {
     high_pd_loans:    highPdLoans,
     compliance_flags,
   };
+
+  return { output_payload, compliance_flags };
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const result = compute(pp);
-  const { compliance_flags = {} } = result;
-  const output_payload = result;
+  const { compliance_flags = {}, output_payload } = result;
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

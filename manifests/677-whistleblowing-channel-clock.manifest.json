@@ -1,0 +1,51 @@
+{
+  "tool_id": "677-whistleblowing-channel-clock",
+  "version": "1.0.0",
+  "title": "Whistleblowing Channel Clock Checker",
+  "description": "Pure calendar-clock arithmetic for a whistleblowing channel over caller-declared synthetic inputs. Checks the declared acknowledgement date against the 7-calendar-day acknowledgement deadline of Directive (EU) 2019/1937 Art 9(1)(b), and computes the follow-up due date as receipt plus a caller-declared whole-day basis (the spec pins the declared basis at 90 days, the Directive's Art 9(1)(f) three-month ceiling as declared days). Pure integer civil-day arithmetic -- no Date object, no runtime clock. No report register, no case feed, no network.",
+  "category": "compliance-consent",
+  "tags": ["whistleblowing", "eu 2019/1937", "acknowledgement deadline", "follow-up due date", "compliance", "date arithmetic", "ai act art 87", "zero network", "zero-PII"],
+  "audience": ["compliance", "internal audit", "legal", "whistleblowing channel operators"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "report_received": { "type": "string", "description": "Declared report receipt date, YYYY-MM-DD; both clocks run from this date, never from the clock." },
+      "ack_sent": { "type": "string", "description": "Declared acknowledgement date, YYYY-MM-DD; checked against the 7-day window and must not precede report_received." },
+      "followup_basis_days": { "type": "number", "description": "Declared follow-up basis in whole civil days (spec pins 90, the Art 9(1)(f) three-month ceiling as declared days); fractional bases are refused, never rounded." }
+    },
+    "required": ["report_received", "ack_sent", "followup_basis_days"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "ack_days": { "type": ["integer", "null"], "description": "Civil days from report receipt to acknowledgement; null on the fail-closed path." },
+      "ack_within_7": { "type": ["boolean", "null"], "description": "True when ack_days <= 7 (Dir 2019/1937 Art 9(1)(b)); null on the fail-closed path." },
+      "followup_due": { "type": ["string", "null"], "description": "Follow-up due date, receipt + basis civil days, YYYY-MM-DD; null on the fail-closed path." },
+      "trace": { "type": "string", "description": "The two clock clauses, or the fail-closed reasons naming each rejected input." },
+      "overall": { "type": "string", "description": "CLOCKS_COMPLIANT, ACK_WINDOW_BREACHED, or INPUT_REFUSED on the fail-closed path." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_whistleblowing_channel_clock",
+    "description": "Checks a declared whistleblowing-channel acknowledgement against the 7-calendar-day deadline of Directive (EU) 2019/1937 Art 9(1)(b) and computes the follow-up due date as declared receipt plus a caller-declared whole-day basis (Art 9(1)(f) ceiling as declared days). Clock checker over caller-declared synthetic dates only: no report register, no case feed, no investigation state, not legal advice. Absent or invalid inputs are refused fail-closed and named, never silently repaired.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "report_received": { "type": "string", "description": "declared report receipt date, YYYY-MM-DD" },
+        "ack_sent": { "type": "string", "description": "declared acknowledgement date, YYYY-MM-DD" },
+        "followup_basis_days": { "type": "number", "description": "declared follow-up basis in whole civil days" }
+      },
+      "required": ["report_received", "ack_sent", "followup_basis_days"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/677-whistleblowing-channel-clock.html",
+    "function_name": "runSimulation",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "source": "authored by WHISTLEBLOW-CLOCK-BUILD-1 per WHISTLEBLOW-CLOCK-BUILD-SPEC.md. Scope positioning: a clock checker of declared inputs under named rules (Dir (EU) 2019/1937 Art 9(1)(b)/(f); AI Act extension Reg (EU) 2024/1689 Art 87 as a dated informational note), not a case manager, not an assessment of any report, not legal advice; absent or invalid inputs are refused fail-closed and named, never silently repaired."
+}

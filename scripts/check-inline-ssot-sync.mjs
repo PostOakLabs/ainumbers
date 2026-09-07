@@ -22,7 +22,13 @@
  *   - "wholeFileBlock": the SSOT unit is the ENTIRE kernel file, verbatim
  *     (kernels/_signverdict.inline.js's own header comment says as much) —
  *     a consuming page must contain the SSOT file's full trimmed text as a
- *     byte-identical substring.
+ *     byte-identical substring. An optional `ssotUntilMarker` on the pair
+ *     carves the SSOT unit at a unique literal boundary first (fail-closed:
+ *     an absent or ambiguous marker is an ERROR, never a guess) — the detmath
+ *     pair (ACCTINFRA-BUNDLE-DRIFT-GATE-1) uses it to exclude the GENERATED
+ *     bundle's ES `export` tail, which the composition contract
+ *     (ACCT-INFRA-KERNELS-BUILD-SPEC.md §4.1) itself replaces with a local
+ *     destructure when inlining, so the tail is linkage, not payload.
  *   - "codeOnly": the SSOT unit is the ENTIRE kernel MODULE, ported inline into
  *     ONE named tool page — but a tool page cannot `import`, so the port
  *     necessarily strips `export` keywords and (in practice) omits the module's
@@ -32,6 +38,16 @@
  * A file can carry more than one occurrence of a "line" pair (e.g. a tool
  * page embedding a second widget with its own copy) — every occurrence is
  * checked independently, not just the first.
+ *
+ * CONSUMER SCAN SET: a `line`/`wholeFileBlock` pair scans every file under
+ * REPO ending in the pair's `scanExt` (default `.html`, the original
+ * estate-of-pages shape). ACCTINFRA-BUNDLE-DRIFT-GATE-1 added `.kernel.mjs`
+ * for the detmath pair, whose consumers are RISC0-guest kernels, not HTML
+ * pages: five kernels paste `_detmath.bundle.mjs` in whole (the RISC0 guest
+ * provides only `_hash`; a bundle import is unavailable in-guest, per
+ * ACCT-INFRA-KERNELS-BUILD-SPEC.md §4.1 rule 1) and nothing checked those
+ * copies against drift before that pair existed (§4.2 — the
+ * PROOFSYNC-SECURED-1 class, generalized from HTML page to guest kernel).
  *
  * -- "codeOnly" NORMALIZER CONTRACT (INLINE-SSOT-PORTS-GATE-1) --------------
  * The normalizer removes ONLY what is provably incidental to a module-to-inline
@@ -123,17 +139,29 @@ const AD_HOC_FILE = AD_HOC ? process.argv[fileArgIdx + 1] : null;
 // every count).
 const SKIP_DIRS = new Set(['.git', '.claude', '.wt', '.wrangler', 'node_modules', '.github', '.githooks']);
 
-function htmlFiles(dir, out = []) {
+function collectFiles(dir, ext, out = []) {
   let entries;
   try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return out; }
   for (const e of entries) {
     if (e.isDirectory()) {
-      if (!SKIP_DIRS.has(e.name)) htmlFiles(join(dir, e.name), out);
-    } else if (e.name.endsWith('.html')) {
+      if (!SKIP_DIRS.has(e.name)) collectFiles(join(dir, e.name), ext, out);
+    } else if (e.name.endsWith(ext)) {
       out.push(join(dir, e.name));
     }
   }
   return out;
+}
+
+// Per-extension file lists, cached: every pair with the same `scanExt` walks
+// the tree once. Defaults to `.html`, so every pair registered before
+// ACCTINFRA-BUNDLE-DRIFT-GATE-1 scans exactly the set it always scanned.
+const fileListCache = new Map();
+function filesForPair(pair) {
+  const ext = pair.scanExt ?? '.html';
+  if (!fileListCache.has(ext)) {
+    fileListCache.set(ext, collectFiles(REPO, ext).map((f) => relative(REPO, f).replace(/\\/g, '/')));
+  }
+  return fileListCache.get(ext);
 }
 
 /**
@@ -457,6 +485,21 @@ function locateOnce(haystack, marker, label, where) {
   return first;
 }
 
+/**
+ * wholeFileBlock's optional `ssotUntilMarker`: carve the SSOT unit at a unique
+ * literal boundary, keeping everything BEFORE it (ACCTINFRA-BUNDLE-DRIFT-GATE-1).
+ * Same fail-closed doctrine as locateOnce: a marker that is missing (the
+ * generated SSOT's shape moved) or ambiguous (an ambiguous boundary is not a
+ * boundary) is an ERROR that fails the pair, never a guessed unit. Exported
+ * for --self-test negative controls.
+ */
+export function carveUntilMarker(text, marker, where) {
+  const first = text.indexOf(marker);
+  if (first === -1) throw new Error(`${where}: ssotUntilMarker not found — the SSOT file's shape moved. Fix scripts/inline-ssot-sync-manifest.json rather than gating a guessed unit.`);
+  if (text.indexOf(marker, first + 1) !== -1) throw new Error(`${where}: ssotUntilMarker appears more than once — an ambiguous boundary is not a boundary. Pick a unique marker in scripts/inline-ssot-sync-manifest.json.`);
+  return text.slice(0, first);
+}
+
 export function extractRegion(src, consumer, where) {
   const s = locateOnce(src, consumer.startMarker, 'startMarker', where);
   const from = s + consumer.startMarker.length;
@@ -501,7 +544,12 @@ function loadCanonical(pair) {
     }
     return snippets[0];
   }
-  if (pair.mode === 'wholeFileBlock') return ssotText.trim();
+  if (pair.mode === 'wholeFileBlock') {
+    const unit = pair.ssotUntilMarker
+      ? carveUntilMarker(ssotText, pair.ssotUntilMarker, `[${pair.id}] SSOT ${pair.ssotFile}`)
+      : ssotText;
+    return unit.trim();
+  }
   throw new Error(`[${pair.id}] unknown mode "${pair.mode}" in scripts/inline-ssot-sync-manifest.json`);
 }
 
@@ -579,7 +627,32 @@ if (SELF_TEST) {
     process.exit(1);
   }
   const negatives = CASES.filter((c) => c.expect === 'drift').length;
-  console.log(`check-inline-ssot-sync --self-test: OK — ${pass}/${CASES.length} normalizer fixtures pass (incl. ${negatives} negative controls that MUST be detected as drift).`);
+
+  // -- phase 2: ssotUntilMarker carve (ACCTINFRA-BUNDLE-DRIFT-GATE-1) --------
+  // Negative controls on the new boundary, same doctrine as the fixtures
+  // above: a boundary verified by reading it would be the
+  // self-consistent-checker shape (STANDING-ORDERS #34) one level up.
+  const carveCases = [
+    { name: 'carve keeps only the text before a unique marker', text: 'AB\nCD\nMARKER\nEF', marker: '\nMARKER', want: 'AB\nCD' },
+    { name: 'marker absent fails closed (throws)', text: 'AB\nCD\nEF', marker: '\nMARKER', throws: true },
+    { name: 'ambiguous marker fails closed (throws)', text: 'A\nMARKER\nB\nMARKER\nC', marker: '\nMARKER', throws: true },
+  ];
+  let carvePass = 0;
+  const carveBad = [];
+  for (const c of carveCases) {
+    let got;
+    try { got = JSON.stringify(carveUntilMarker(c.text, c.marker, 'fixture')); }
+    catch (e) { got = `throws: ${e.message.split('\n')[0]}`; }
+    const ok = c.throws ? got.startsWith('throws') : got === JSON.stringify(c.want);
+    if (ok) carvePass++;
+    else carveBad.push(`  x ${c.name}\n      want: ${c.throws ? 'throws' : JSON.stringify(c.want)}\n      got:  ${got}`);
+  }
+  if (carveBad.length) {
+    console.error(`check-inline-ssot-sync --self-test: ${carveBad.length} of ${carveCases.length} ssotUntilMarker carve case(s) FAILED:\n${carveBad.join('\n')}`);
+    process.exit(1);
+  }
+
+  console.log(`check-inline-ssot-sync --self-test: OK — ${pass}/${CASES.length} normalizer fixture(s) pass (incl. ${negatives} negative controls that MUST be detected as drift) and ${carvePass}/${carveCases.length} ssotUntilMarker carve case(s) pass (incl. absent/ambiguous-marker fail-closed controls).`);
   process.exit(0);
 }
 
@@ -632,7 +705,6 @@ if (AD_HOC) {
 }
 
 // -- Full estate scan ------------------------------------------------------
-const allFiles = htmlFiles(REPO).map((f) => relative(REPO, f).replace(/\\/g, '/'));
 const failures = [];
 const summaries = [];
 let totalOccurrences = 0;
@@ -659,7 +731,7 @@ for (const pair of manifest.pairs) {
   let drifted = 0;
   const pairFailures = [];
 
-  for (const rel of allFiles) {
+  for (const rel of filesForPair(pair)) {
     if (rel === pair.ssotFile) continue; // never compare the SSOT to itself
     const src = readFileSync(resolve(REPO, rel), 'utf8');
     if (pair.mode === 'line') {
@@ -675,7 +747,7 @@ for (const pair of manifest.pairs) {
   }
 
   totalOccurrences += occurrences;
-  summaries.push(`  [${pair.id}] ${occurrences} occurrence(s) across consuming pages, ${occurrences - drifted} in sync${drifted ? `, ${drifted} DRIFTED` : ''} (SSOT: ${pair.ssotFile})`);
+  summaries.push(`  [${pair.id}] ${occurrences} occurrence(s) across consuming files (scanExt: ${pair.scanExt ?? '.html'}), ${occurrences - drifted} in sync${drifted ? `, ${drifted} DRIFTED` : ''} (SSOT: ${pair.ssotFile})`);
   failures.push(...pairFailures);
 }
 

@@ -76,8 +76,14 @@ for (const f of floorFiles) {
   if (v.outcome) outcomeFiles++;
 }
 const legacy = ratchetVerdict(liveCounts, baseline);
-check("all enumerated legacy floors pass shielded (live == baseline, zero failures)",
-  legacy.failures.length === 0 && legacy.total === baseline.total, "live=" + legacy.total + " baseline=" + baseline.total);
+// FLOOR-LABEL-STRENGTH-RECONCILE-1: legacy.total === baseline.total was dropped here.
+// A rebased-but-unmerged PR that fixes one of its own baseline-pinned floors (routine --
+// the same shape ART223-FAILCLOSED-1 hit before it merged) makes live < baseline, which
+// ratchetVerdict itself already classifies as an IMPROVEMENT, never a failure. Demanding
+// exact equality reproduced on #1502 and #1532 independently: neither PR is broken, both
+// just improve a floor ahead of the shared baseline's next re-pin.
+check("all enumerated legacy floors pass shielded (zero failures; live may improve on baseline, never exceed it)",
+  legacy.failures.length === 0, "live=" + legacy.total + " baseline=" + baseline.total);
 const withNew = JSON.parse(JSON.stringify(liveCounts));
 withNew["chaingraph/kernels/__proptests__/art-NEW-fake.proptest.mjs"] = ["flagged"];
 const newFail = ratchetVerdict(withNew, baseline);
@@ -88,8 +94,8 @@ check("counts only go down: a fully fixed estate is improvements, never failures
 
 console.log("CONTROL 5 UNCHANGED -- floors with no outcome language are untouched:");
 check("floors carrying no outcome language are never flagged",
-  legacy.total === baseline.total && outcomeFiles > legacy.total,
-  "638 floors scanned; " + outcomeFiles + " carry outcome language; " + legacy.total + " flagged (no pin); " + (floorFiles.length - outcomeFiles) + " untouched by this lint");
+  outcomeFiles > legacy.total,
+  floorFiles.length + " floors scanned; " + outcomeFiles + " carry outcome language; " + legacy.total + " flagged (no pin); " + (floorFiles.length - outcomeFiles) + " untouched by this lint");
 
 console.log("");
 if (failures.length) {
